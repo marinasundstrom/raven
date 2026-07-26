@@ -644,7 +644,13 @@ public partial class Compilation
 
     public Compilation AddReferences(params MetadataReference[] references)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, references, _macroReferences, Options, _generatorDiagnostics);
+        return new Compilation(
+            AssemblyName,
+            _syntaxTrees,
+            _references.Concat(references).ToArray(),
+            _macroReferences,
+            Options,
+            _generatorDiagnostics);
     }
 
     public Compilation AddMacroReferences(params MacroReference[] macroReferences)

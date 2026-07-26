@@ -21,11 +21,15 @@ func Main() -> unit {
         where value > 2
         select value * 10
     }
+    val quoted = #quote {
+        answer + 1
+    }
 
     WriteLine(answer)
     WriteLine(shouldRetry)
     WriteLine(verdict)
     WriteLine(queryResult.Sum())
+    WriteLine(quoted.ToString())
 }
 ```
 
@@ -56,6 +60,11 @@ Current status:
 - The query MVP generates no hidden temporary names and retains no custom DSL
   tree. Additional generators, repeated clauses, ordering, joins, and editor
   services remain future work.
+- `#quote` is the compiler-owned expression-only quote MVP. It needs no plugin
+  registration, preserves the quoted expression's tokens and trivia, and
+  expands to ordinary fully qualified `SyntaxFactory` calls. The app project
+  explicitly references `Raven.CodeAnalysis` because the result is a runtime
+  syntax object.
 
 Files:
 
@@ -87,4 +96,5 @@ Expected output:
 False
 correct
 70
+answer + 1
 ```

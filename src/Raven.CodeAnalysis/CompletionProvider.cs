@@ -2995,6 +2995,12 @@ public static class CompletionProvider
 
     private static IEnumerable<IMacroDefinition> EnumerateMacros(Compilation compilation, MacroKind kind)
     {
+        foreach (var macro in IntrinsicMacroPlugin.Instance.GetMacros())
+        {
+            if (macro.Kind == kind)
+                yield return macro;
+        }
+
         foreach (var macroReference in compilation.MacroReferences)
         {
             IEnumerable<IRavenMacroPlugin> plugins;

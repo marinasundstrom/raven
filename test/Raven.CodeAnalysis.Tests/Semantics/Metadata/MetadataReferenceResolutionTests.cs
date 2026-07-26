@@ -16,6 +16,21 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MetadataReferenceResolutionTests
 {
     [Fact]
+    public void AddReferences_AppendsToExistingReferences()
+    {
+        var ravenCodeAnalysisPath = typeof(Compilation).Assembly.Location;
+        var compilation = Compilation.Create(
+                "consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(MetadataReference.CreateFromFile(ravenCodeAnalysisPath));
+
+        Assert.NotNull(compilation.GetTypeByMetadataName("System.String"));
+        Assert.NotNull(compilation.GetTypeByMetadataName(
+            "Raven.CodeAnalysis.Syntax.SyntaxFactory"));
+    }
+
+    [Fact]
     public void GetTypeByMetadataName_LoadsReferences_WhenNoSyntaxTrees()
     {
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);

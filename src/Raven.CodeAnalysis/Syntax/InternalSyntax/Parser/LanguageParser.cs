@@ -42,7 +42,8 @@ internal class LanguageParser
     public ParseResult? ParseSyntaxWithDiagnostics(
         Type requestedSyntaxType,
         SourceText sourceText,
-        int position)
+        int position,
+        bool consumeFullText = false)
     {
         using var textReader = sourceText.GetTextReader(position);
 
@@ -52,6 +53,17 @@ internal class LanguageParser
         try
         {
             var root = ParseRequestedType(parseContext, requestedSyntaxType);
+            if (root is not null &&
+                consumeFullText &&
+                parseContext.PeekToken().Kind != SyntaxKind.EndOfFileToken)
+            {
+                var trailingToken = parseContext.ReadToken();
+                parseContext.AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidExpressionTerm,
+                    parseContext.GetSpanOfLastToken(),
+                    trailingToken.Text));
+            }
+
             return root is null
                 ? null
                 : new ParseResult(root, parseContext.Diagnostics);

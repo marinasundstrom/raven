@@ -30,6 +30,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   macros. `ParseExpressionResult` returns recovered syntax plus immutable
   native parser diagnostics mapped to the authored invocation, while the
   existing `ParseExpression` convenience API remains available.
+- Added the compiler-owned expression-only `#quote { ... }` intrinsic. It
+  preserves tokens and trivia, rejects malformed or trailing input at authored
+  locations, expands to fully qualified `SyntaxFactory` construction, and
+  participates in macro-name completion without a plugin reference.
+- Changed `Compilation.AddReferences` to append metadata references, matching
+  its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

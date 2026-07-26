@@ -88,6 +88,20 @@ Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
 token-tree-only macro must be invoked with braces; an argument-based macro must
 be invoked with parentheses.
 
+### Expression quotes
+
+`#quote { expression }` is a compiler-owned token-tree macro. It captures one
+complete Raven expression as syntax data and expands to ordinary, fully
+qualified `SyntaxFactory` construction code. Tokens and trivia are preserved.
+Parser diagnostics, trailing input, and incomplete recovery are rejected at
+locations within the authored body.
+
+The result is a runtime `ExpressionSyntax` value from
+`Raven.CodeAnalysis`. The consuming project must currently carry a compatible
+runtime reference to that assembly; the intrinsic itself does not require a
+macro plugin reference. Statement, member, declaration, unquote, and splice
+forms are not part of the current language.
+
 The raw body is the source of truth. Any standard Raven token stream,
 macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
 tree is derived from that body and remains scoped to the macro invocation.

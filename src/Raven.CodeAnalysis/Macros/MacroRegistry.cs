@@ -47,63 +47,14 @@ internal sealed class MacroRegistry
         var attachedMacros = ImmutableDictionary.CreateBuilder<string, LoadedAttachedMacro>(StringComparer.Ordinal);
         var freestandingMacros = ImmutableDictionary.CreateBuilder<string, LoadedFreestandingMacro>(StringComparer.Ordinal);
 
+        RegisterPlugin(IntrinsicMacroPlugin.Instance);
+
         foreach (var reference in references)
         {
             try
             {
                 foreach (var plugin in reference.GetPlugins())
-                {
-                    foreach (var macro in plugin.GetMacros())
-                    {
-                        switch (macro)
-                        {
-                            case IAttachedDeclarationMacro attached:
-                                if (attachedMacros.TryGetValue(attached.Name, out var existingAttached))
-                                {
-                                    diagnostics.Add(Diagnostic.Create(
-                                        s_duplicateMacroName,
-                                        Location.None,
-                                        attached.Name,
-                                        existingAttached.Plugin.Name,
-                                        plugin.Name));
-                                    continue;
-                                }
-
-                                attachedMacros.Add(attached.Name, new LoadedAttachedMacro(plugin, attached));
-                                break;
-
-                            case IFreestandingExpressionMacro freestanding:
-                                if (freestandingMacros.TryGetValue(freestanding.Name, out var existingFreestanding))
-                                {
-                                    diagnostics.Add(Diagnostic.Create(
-                                        s_duplicateMacroName,
-                                        Location.None,
-                                        freestanding.Name,
-                                        existingFreestanding.Plugin.Name,
-                                        plugin.Name));
-                                    continue;
-                                }
-
-                                freestandingMacros.Add(freestanding.Name, new LoadedFreestandingMacro(plugin, freestanding));
-                                break;
-
-                            case ITokenTreeExpressionMacro tokenTree:
-                                if (freestandingMacros.TryGetValue(tokenTree.Name, out var existingTokenTree))
-                                {
-                                    diagnostics.Add(Diagnostic.Create(
-                                        s_duplicateMacroName,
-                                        Location.None,
-                                        tokenTree.Name,
-                                        existingTokenTree.Plugin.Name,
-                                        plugin.Name));
-                                    continue;
-                                }
-
-                                freestandingMacros.Add(tokenTree.Name, new LoadedFreestandingMacro(plugin, tokenTree));
-                                break;
-                        }
-                    }
-                }
+                    RegisterPlugin(plugin);
             }
             catch (Exception ex)
             {
@@ -112,6 +63,60 @@ internal sealed class MacroRegistry
         }
 
         return new MacroRegistry(attachedMacros.ToImmutable(), freestandingMacros.ToImmutable(), diagnostics.ToImmutable());
+
+        void RegisterPlugin(IRavenMacroPlugin plugin)
+        {
+            foreach (var macro in plugin.GetMacros())
+            {
+                switch (macro)
+                {
+                    case IAttachedDeclarationMacro attached:
+                        if (attachedMacros.TryGetValue(attached.Name, out var existingAttached))
+                        {
+                            diagnostics.Add(Diagnostic.Create(
+                                s_duplicateMacroName,
+                                Location.None,
+                                attached.Name,
+                                existingAttached.Plugin.Name,
+                                plugin.Name));
+                            continue;
+                        }
+
+                        attachedMacros.Add(attached.Name, new LoadedAttachedMacro(plugin, attached));
+                        break;
+
+                    case IFreestandingExpressionMacro freestanding:
+                        if (freestandingMacros.TryGetValue(freestanding.Name, out var existingFreestanding))
+                        {
+                            diagnostics.Add(Diagnostic.Create(
+                                s_duplicateMacroName,
+                                Location.None,
+                                freestanding.Name,
+                                existingFreestanding.Plugin.Name,
+                                plugin.Name));
+                            continue;
+                        }
+
+                        freestandingMacros.Add(freestanding.Name, new LoadedFreestandingMacro(plugin, freestanding));
+                        break;
+
+                    case ITokenTreeExpressionMacro tokenTree:
+                        if (freestandingMacros.TryGetValue(tokenTree.Name, out var existingTokenTree))
+                        {
+                            diagnostics.Add(Diagnostic.Create(
+                                s_duplicateMacroName,
+                                Location.None,
+                                tokenTree.Name,
+                                existingTokenTree.Plugin.Name,
+                                plugin.Name));
+                            continue;
+                        }
+
+                        freestandingMacros.Add(tokenTree.Name, new LoadedFreestandingMacro(plugin, tokenTree));
+                        break;
+                }
+            }
+        }
     }
 
     public bool TryResolveAttachedMacro(string macroName, out LoadedAttachedMacro macro)

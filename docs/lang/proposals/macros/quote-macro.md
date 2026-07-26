@@ -1,10 +1,9 @@
 # Quote Macro
 
-> 🧩 Proposal. Not implemented.
+> 🧩 In progress. The compiler-owned expression-only MVP is implemented.
 >
-> This feature depends on token-tree macro input and on macro expansions being
-> integrated into normal binding and code generation. It should not be
-> implemented as a special case before that infrastructure exists.
+> Statement, member, declaration, compilation-unit, contextual-category, and
+> unquote/splice support remain proposed.
 
 ## Summary
 
@@ -29,6 +28,34 @@ quoted syntax.
 This proposal is related to, but distinct from, `RavenQuoter`. `RavenQuoter` is
 a runtime/tooling API that accepts source text or an existing syntax node and
 prints factory-construction source. `#quote` is compile-time syntax capture.
+
+## Implemented expression MVP
+
+The first implementation accepts exactly one Raven expression:
+
+```raven
+let syntax = #quote {
+    left + right
+}
+```
+
+The intrinsic is registered by the compiler and needs no macro plugin
+reference. It parses the complete body through `ParseExpressionResult`,
+rejects native parser diagnostics, trailing tokens, and missing recovery
+tokens, and maps user diagnostics to the authored quote body. It then expands
+to fully qualified ordinary `SyntaxFactory` construction syntax and preserves
+tokens and trivia.
+
+Because the resulting value is a real Raven syntax object, the consuming
+project must reference the compiler-matched `Raven.CodeAnalysis` assembly.
+Missing that runtime reference produces `QUOTE003`. This requirement is
+currently explicit; an SDK-provided macro-project prelude/reference remains
+future work.
+
+The MVP does not yet select categories from contextual types, quote statements
+or declarations, or perform a separate bind-and-equivalence verification pass
+before substitution. The generated factory expression is parsed by the
+intrinsic and then goes through ordinary caller binding and emit.
 
 ## Goals
 
@@ -270,7 +297,7 @@ and source mapping. Those concerns are intentionally deferred.
 
 ## Open questions
 
-* Should the first implementation support only expression quotes?
+* The first implementation supports only expression quotes.
 * Is contextual typing sufficient, or is an explicit category syntax required?
 * Should trivia be preserved by default, or should quotes offer a normalized
   mode?

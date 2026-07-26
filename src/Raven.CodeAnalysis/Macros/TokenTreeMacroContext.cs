@@ -123,7 +123,8 @@ public sealed class TokenTreeMacroContext
         var parseResult = parser.ParseSyntaxWithDiagnostics(
             typeof(ExpressionSyntax),
             sourceText,
-            absoluteStart);
+            absoluteStart,
+            consumeFullText: true);
         var expression = parseResult?.Root.CreateRed() as ExpressionSyntax
             ?? new ExpressionSyntax.Missing();
         var diagnostics = parseResult?.Diagnostics

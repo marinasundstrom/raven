@@ -11,6 +11,34 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public sealed class CompletionServiceMacroTests
 {
     [Fact]
+    public void GetCompletions_InFreestandingMacroName_ReturnsIntrinsicQuote()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val syntax = #quo()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        var position = code.IndexOf('(', code.IndexOf("#quo", StringComparison.Ordinal));
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        var quote = Assert.Single(items.Where(static item => item.DisplayText == "quote"));
+        Assert.Equal("quote { }", quote.InsertionText);
+        Assert.Equal(quote.InsertionText.Length - 1, quote.CursorOffset);
+        Assert.Contains("token-tree body", quote.Description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void GetCompletions_InMacroAttributeName_ReturnsAttachedMacros()
     {
         const string code = """

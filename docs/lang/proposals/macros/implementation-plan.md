@@ -404,6 +404,21 @@ are stable.
 
 ### Compiler-owned `#quote`
 
-Implement `#quote` as a client of the token-tree and Raven-fragment parsing
-infrastructure after expression token-tree expansion and source mapping are
-stable.
+Status: **expression MVP implemented**
+
+`#quote` is now a compiler-registered token-tree macro and needs no plugin
+reference. The first slice:
+
+* [x] parses exactly one complete Raven expression
+* [x] preserves tokens and trivia
+* [x] forwards native parser diagnostics at authored body locations
+* [x] rejects trailing input and missing-token recovery
+* [x] emits fully qualified ordinary `SyntaxFactory` construction syntax
+* [x] parses the generated factory expression before substitution
+* [x] binds and emits the resulting syntax object through the ordinary pipeline
+* [x] reports the explicit `Raven.CodeAnalysis` runtime-reference requirement
+* [x] participates in macro-name completion without a plugin reference
+
+Later slices add contextual category selection, statement/member/declaration
+fragment parsers, compiler-owned bind/equivalence verification, SDK reference
+convenience, and unquote/splice.

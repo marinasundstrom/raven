@@ -15,9 +15,13 @@ func Main() -> unit {
         where value > 2
         select value * 10
     }
+    let quoted = #quote {
+        answer + 1
+    }
 
     WriteLine(answer)
     WriteLine(shouldRetry)
     WriteLine(verdict)
     WriteLine(queryResult.Sum())
+    WriteLine(quoted.ToString())
 }
