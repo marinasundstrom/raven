@@ -40,7 +40,6 @@ public sealed class FreestandingMacroCodeGenTests
 
         Assert.Equal(42, method!.Invoke(null, null));
     }
-
     [Fact]
     public void TokenTreeMacro_ParsedRavenExpression_IsEmitted()
     {
@@ -100,6 +99,61 @@ public sealed class FreestandingMacroCodeGenTests
 
         Assert.Equal(false, method!.Invoke(null, [1]));
         Assert.Equal(true, method.Invoke(null, [0]));
+    }
+
+    [Fact]
+    public void TokenTreeMacro_MultipleKeywordClausesAndRavenExpressions_AreEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            class Harness {
+                public static func Run(value: int) -> string {
+                    return #choose {
+                        test value > 0
+                        then "positive"
+                        otherwise "not positive"
+                    }
+                }
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(ChooseMacroPlugin)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal("positive", method!.Invoke(null, [1]));
+        Assert.Equal("not positive", method.Invoke(null, [0]));
+    }
+
+    [Fact]
+    public void TokenTreeMacro_MissingClause_ReportsBodyDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            func Main() -> string => #choose {
+                test true
+                then "yes"
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(ChooseMacroPlugin)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
+
+        Assert.Contains("CHOOSE001: Expected an 'otherwise' clause.", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal("then", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
     }
 
     public sealed class AddMacroPlugin : IRavenMacroPlugin
@@ -204,6 +258,95 @@ public sealed class FreestandingMacroCodeGenTests
                 MacroDiagnostics =
                 [
                     context.CreateBodyDiagnostic(span, message, code: "GUARD001")
+                ]
+            };
+    }
+
+    public sealed class ChooseMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(ChooseMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ChooseMacro()];
+    }
+
+    public sealed class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    {
+        private const int TestKeywordRawKind = 80_002;
+        private const int ThenKeywordRawKind = 80_003;
+        private const int OtherwiseKeywordRawKind = 80_004;
+
+        public string Name => "choose";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public ImmutableArray<MacroKeyword> Keywords =>
+        [
+            new("test", TestKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            new("then", ThenKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            new("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
+        ];
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var stream = context.CreateTokenStream();
+            if (stream.IsEndOfFile)
+                return Error(context, new TextSpan(0, 0), "Expected a 'test' clause.");
+
+            var testKeyword = stream.ReadToken();
+            if (testKeyword.RawKind != TestKeywordRawKind)
+                return Error(context, testKeyword.Span, "Expected the 'test' keyword.");
+
+            if (!TryReadUntil(stream, ThenKeywordRawKind, out var thenKeyword))
+                return Error(context, testKeyword.Span, "Expected a 'then' clause.");
+
+            if (!TryReadUntil(stream, OtherwiseKeywordRawKind, out var otherwiseKeyword))
+                return Error(context, thenKeyword.Span, "Expected an 'otherwise' clause.");
+
+            var condition = context.ParseExpression(
+                TextSpan.FromBounds(testKeyword.Span.End, thenKeyword.SpanStart));
+            var whenTrue = context.ParseExpression(
+                TextSpan.FromBounds(thenKeyword.Span.End, otherwiseKeyword.SpanStart));
+            var whenFalse = context.ParseExpression(
+                TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length));
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = SyntaxFactory.IfExpression(
+                    SyntaxFactory.IfKeyword,
+                    condition,
+                    whenTrue,
+                    SyntaxFactory.ElseExpressionClause(SyntaxFactory.ElseKeyword, whenFalse))
+            };
+        }
+
+        private static bool TryReadUntil(
+            IMacroTokenStream stream,
+            int rawKind,
+            out SyntaxToken result)
+        {
+            while (!stream.IsEndOfFile)
+            {
+                var token = stream.ReadToken();
+                if (token.RawKind == rawKind)
+                {
+                    result = token;
+                    return true;
+                }
+            }
+
+            result = default;
+            return false;
+        }
+
+        private static FreestandingMacroExpansionResult Error(
+            TokenTreeMacroContext context,
+            TextSpan span,
+            string message)
+            => new()
+            {
+                MacroDiagnostics =
+                [
+                    context.CreateBodyDiagnostic(span, message, code: "CHOOSE001")
                 ]
             };
     }

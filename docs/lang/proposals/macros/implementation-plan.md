@@ -139,6 +139,43 @@ fragment boundaries to this path. The expression-only `#quote` implementation
 can reuse the same raw-body and Raven-fragment infrastructure while returning
 syntax as data rather than binding it as the replacement expression.
 
+## Active slice: multi-clause direct-lowering MVP
+
+Status: **implemented and validated**
+
+The second executable token-tree macro extends the direct path to several
+clauses and embedded Raven fragments:
+
+```raven
+let verdict = #choose {
+    test answer == 42
+    then "correct"
+    otherwise "wrong"
+}
+```
+
+* [x] recognize ordered `test`, `then`, and `otherwise` macro-local keywords
+* [x] treat the clause words as reserved inside the DSL body
+* [x] derive three body-relative Raven expression spans from stream tokens
+* [x] parse the condition, result, and fallback independently
+* [x] lower directly to an ordinary Raven `if` expression
+* [x] bind the condition in the invocation's caller scope
+* [x] report a body-mapped macro diagnostic for a missing clause
+* [x] validate both runtime branches
+* [x] run the Raven-authored sample end to end
+* [x] pass the complete fast macro feature suite
+
+Validation record for this slice:
+
+* Raven-authored macro project build: passed
+* sample application runtime output: `42`, `False`, `correct`
+* focused `FreestandingMacroCodeGenTests`: 5 passed
+* `scripts/test-feature-suite.sh macros`: 41 passed
+
+This remains intentionally structure-free. It establishes the clause and
+fragment mechanics needed before attempting a LINQ-like sequence of
+`from`/`where`/`select` clauses.
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:

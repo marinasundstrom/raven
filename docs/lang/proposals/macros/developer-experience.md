@@ -134,6 +134,21 @@ stream, delegates `answer == 42` back to Raven's expression parser, and returns
 an ordinary logical-negation expression. This validates the common path before
 introducing retained DSL structure.
 
+The next direct-lowering step uses multiple clause boundaries:
+
+```raven
+let verdict = #choose {
+    test answer == 42
+    then "correct"
+    otherwise "wrong"
+}
+```
+
+Here the clause words are reserved only inside this macro body. Their token
+positions define three Raven fragment spans, which are parsed independently
+and lowered to one ordinary `if` expression. A LINQ-like DSL follows the same
+basic approach with more clause kinds and repeated clauses.
+
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
 

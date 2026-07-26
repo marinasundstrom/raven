@@ -18,6 +18,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added a Raven-authored `#guard { unless <expression> }` sample as the
   token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
   expression parsing, direct lowering, and end-to-end execution.
+- Extended the token-tree macro sample with
+  `#choose { test ... then ... otherwise ... }`, demonstrating multiple
+  macro-local clauses, independently parsed Raven fragments, body-mapped
+  missing-clause diagnostics, and direct lowering to an `if` expression.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

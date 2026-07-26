@@ -8,7 +8,7 @@ class FreestandingMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Freestanding"
 
     func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [AddMacro(), GuardMacro()]
+        => [AddMacro(), GuardMacro(), ChooseMacro()]
 }
 
 class AddMacro : IFreestandingExpressionMacro {
@@ -80,6 +80,89 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
         FreestandingMacroExpansionResult {
             MacroDiagnostics = [
                 context.CreateBodyDiagnostic(span, message, code: "GUARD001")
+            ]
+        }
+    }
+}
+
+class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
+    static val TestKeywordRawKind: int => 80002
+    static val ThenKeywordRawKind: int => 80003
+    static val OtherwiseKeywordRawKind: int => 80004
+
+    val Name: string => "choose"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
+    val Targets: MacroTarget => MacroTarget.None
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [
+            MacroKeyword("test", TestKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("then", ThenKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
+        ]
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+
+        if stream.IsEndOfFile {
+            return Error(context, TextSpan(0, 0), "Expected a 'test' clause.")
+        }
+
+        let testKeyword = stream.ReadToken()
+        if testKeyword.RawKind != TestKeywordRawKind {
+            return Error(context, testKeyword.Span, "Expected the 'test' keyword.")
+        }
+
+        var thenKeyword = testKeyword
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+            if token.RawKind == ThenKeywordRawKind {
+                thenKeyword = token
+                break
+            }
+        }
+
+        if thenKeyword.RawKind != ThenKeywordRawKind {
+            return Error(context, testKeyword.Span, "Expected a 'then' clause.")
+        }
+
+        var otherwiseKeyword = thenKeyword
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+            if token.RawKind == OtherwiseKeywordRawKind {
+                otherwiseKeyword = token
+                break
+            }
+        }
+
+        if otherwiseKeyword.RawKind != OtherwiseKeywordRawKind {
+            return Error(context, thenKeyword.Span, "Expected an 'otherwise' clause.")
+        }
+
+        let condition = context.ParseExpression(
+            TextSpan.FromBounds(testKeyword.Span.End, thenKeyword.SpanStart))
+        let whenTrue = context.ParseExpression(
+            TextSpan.FromBounds(thenKeyword.Span.End, otherwiseKeyword.SpanStart))
+        let whenFalse = context.ParseExpression(
+            TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length))
+
+        FreestandingMacroExpansionResult {
+            Expression = IfExpression(
+                IfKeyword,
+                condition,
+                whenTrue,
+                ElseExpressionClause(ElseKeyword, whenFalse))
+        }
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
+            MacroDiagnostics = [
+                context.CreateBodyDiagnostic(span, message, code: "CHOOSE001")
             ]
         }
     }

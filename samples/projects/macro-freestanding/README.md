@@ -11,9 +11,15 @@ func Main() -> unit {
     val shouldRetry = #guard {
         unless answer == 42
     }
+    val verdict = #choose {
+        test answer == 42
+        then "correct"
+        otherwise "wrong"
+    }
 
     WriteLine(answer)
     WriteLine(shouldRetry)
+    WriteLine(verdict)
 }
 ```
 
@@ -30,6 +36,10 @@ Current status:
   ordinary Raven expression `!(...)`.
 - The MVP deliberately lowers directly from the token stream. It does not build
   a custom DSL syntax tree.
+- `#choose` extends that approach to three clauses. It uses `test`, `then`, and
+  `otherwise` as macro-local reserved words, parses the text between them as
+  three independent Raven expressions, and lowers directly to an ordinary
+  Raven `if` expression.
 
 Files:
 
@@ -59,4 +69,5 @@ Expected output:
 ```text
 42
 False
+correct
 ```

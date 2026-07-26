@@ -122,6 +122,12 @@ This pattern is the starting point for DSLs with multiple clauses and embedded
 Raven fragments. Retained DSL structure is optional and can be added later when
 editor tooling or more involved lowering requires it.
 
+A macro may identify several fragment spans from the same stream. For example,
+the sample `#choose` macro treats `test`, `then`, and `otherwise` as
+macro-reserved clause words, parses the text between them as three Raven
+expressions, and lowers them directly to an ordinary `if` expression. Clause
+words are not added to Raven's global keyword set.
+
 ## Placement rules
 
 Macro attributes follow the same placement rules as declaration attributes:

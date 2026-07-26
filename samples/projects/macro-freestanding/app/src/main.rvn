@@ -5,7 +5,13 @@ func Main() -> unit {
     let shouldRetry = #guard {
         unless answer == 42
     }
+    let verdict = #choose {
+        test answer == 42
+        then "correct"
+        otherwise "wrong"
+    }
 
     WriteLine(answer)
     WriteLine(shouldRetry)
+    WriteLine(verdict)
 }
