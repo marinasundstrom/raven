@@ -1266,6 +1266,7 @@ if (!emitDocs &&
         automaticDocumentationOutputs.Add((DocumentationFormat.Markdown, ResolveDocumentationOutputPath(
             outputDirectory!,
             outputFilePath,
+            projectFileInput,
             projectDocumentationOptions.MarkdownDocumentationOutputPath,
             DocumentationFormat.Markdown)));
     }
@@ -1275,6 +1276,7 @@ if (!emitDocs &&
         automaticDocumentationOutputs.Add((DocumentationFormat.Xml, ResolveDocumentationOutputPath(
             outputDirectory!,
             outputFilePath,
+            projectFileInput,
             projectDocumentationOptions.XmlDocumentationFile,
             DocumentationFormat.Xml)));
     }
@@ -2847,15 +2849,27 @@ static bool TryParseReturnedValueHandlingDiagnostic(
 static string ResolveDocumentationOutputPath(
     string outputDirectory,
     string outputFilePath,
+    string? projectFilePath,
     string? configuredPath,
     DocumentationFormat format)
 {
     if (!string.IsNullOrWhiteSpace(configuredPath))
     {
-        var path = configuredPath!;
-        return Path.IsPathRooted(path)
-            ? path
-            : Path.GetFullPath(Path.Combine(outputDirectory, path));
+        var path = configuredPath!
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+        if (Path.IsPathRooted(path))
+            return path;
+
+        if (!string.IsNullOrWhiteSpace(projectFilePath) &&
+            path.StartsWith("obj" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath));
+            if (!string.IsNullOrWhiteSpace(projectDirectory))
+                return Path.GetFullPath(Path.Combine(projectDirectory, path));
+        }
+
+        return Path.GetFullPath(Path.Combine(outputDirectory, path));
     }
 
     return format == DocumentationFormat.Markdown

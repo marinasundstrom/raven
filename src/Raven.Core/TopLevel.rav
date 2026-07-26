@@ -7,12 +7,16 @@ import System.*
 class TopLevelAttribute : Attribute {
 }
 
-/// Marks a Raven.Core method as an implementation adapter for a compiler-owned
-/// framework API projection. The projection catalog remains authoritative.
+/// Marks a `Raven.Core` method as the implementation adapter for a compiler-owned framework API projection.
+///
+/// The projection catalog determines which framework method is replaced and remains authoritative.
 [AttributeUsage(AttributeTargets.Method)]
 class FrameworkProjectionAttribute : Attribute {
     private val _id: string
 
+    /// Creates a marker for the projection with the specified catalog identifier.
+    ///
+    /// @param id The stable identifier of the compiler-owned projection.
     init(id: string) {
         _id = id
     }

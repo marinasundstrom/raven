@@ -15,8 +15,12 @@ The `src/Raven.Core` project builds directly from the Raven sources in
 - Invokes `Raven.Compiler` with `--emit-core-types-only` to compile the Raven
   sources into a class library for the current target framework.
 - Emits the assembly to `src/Raven.Core/bin/<Configuration>/<TargetFramework>/Raven.Core.dll`.
+- Emits `Raven.Core.xml` beside the assembly. The compiler loads this sidecar
+  for metadata symbols, including projection adapters, so hover and other
+  editor surfaces can display the Raven-facing API documentation.
 - Exposes the DLL via the standard `BuiltProjectOutputGroup` so it is copied
-  alongside the CLI and into compilation outputs.
+  alongside the CLI and into compilation outputs together with its XML
+  documentation.
 
 Because this target runs before the rest of the build, `dotnet build Raven.sln`
 produces `Raven.Core.dll` automatically and keeps it in sync with the compiler.

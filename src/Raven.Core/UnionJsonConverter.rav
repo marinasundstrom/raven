@@ -6,37 +6,46 @@ import System.Reflection.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
+/// Configures JSON serialization for a tagged Raven union.
 class RavenTaggedUnionJsonConverterAttribute : JsonConverterAttribute {
 
     private val _caseDiscriminatorPropertyName: string
 
+    /// Creates the attribute with the default `$case` discriminator property.
     init() {
         _caseDiscriminatorPropertyName = RavenTaggedUnionJsonConverterFactory.DefaultCaseDiscriminatorPropertyName
     }
 
+    /// Creates the attribute with a custom case discriminator property.
     init(caseDiscriminatorPropertyName: string) {
         _caseDiscriminatorPropertyName = RavenTaggedUnionJsonConverterFactory.NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
     }
 
+    /// Creates a tagged-union converter for the specified union type.
     override func CreateConverter(typeToConvert: Type) -> JsonConverter {
         return RavenTaggedUnionJsonConverterFactory.CreateUnionConverter(typeToConvert, _caseDiscriminatorPropertyName)
     }
 }
 
+/// Creates JSON converters for tagged Raven unions.
 class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
 
+    /// Gets the default JSON property used to identify a union case.
     static val DefaultCaseDiscriminatorPropertyName: string => "\$case"
 
     private val _caseDiscriminatorPropertyName: string
 
+    /// Creates a factory that uses the default case discriminator property.
     init() {
         _caseDiscriminatorPropertyName = DefaultCaseDiscriminatorPropertyName
     }
 
+    /// Creates a factory that uses a custom case discriminator property.
     init(caseDiscriminatorPropertyName: string) {
         _caseDiscriminatorPropertyName = NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
     }
 
+    /// Determines whether a type has the runtime shape of a Raven tagged union.
     override func CanConvert(typeToConvert: Type) -> bool {
         if typeToConvert.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance) == null {
             return false
@@ -55,6 +64,7 @@ class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
         return false
     }
 
+    /// Creates a tagged-union converter for the specified type.
     override func CreateConverter(
         typeToConvert: Type,
         options: JsonSerializerOptions
@@ -62,6 +72,7 @@ class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
         return CreateUnionConverter(typeToConvert, _caseDiscriminatorPropertyName)
     }
 
+    /// Creates a tagged-union converter using the specified discriminator property.
     static func CreateUnionConverter(typeToConvert: Type, caseDiscriminatorPropertyName: string) -> JsonConverter {
         val converterType =
             typeof(RavenTaggedUnionJsonConverter<>).MakeGenericType([typeToConvert])!
@@ -72,6 +83,7 @@ class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
         )
     }
 
+    /// Validates and normalizes a discriminator property name.
     static func NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName: string) -> string {
         if String.IsNullOrWhiteSpace(caseDiscriminatorPropertyName) {
             throw ArgumentException("Case discriminator property name cannot be empty.", nameof(caseDiscriminatorPropertyName))
@@ -81,6 +93,7 @@ class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
     }
 }
 
+/// Converts a tagged Raven union to and from a discriminator-based JSON object.
 class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _unionType: Type = typeof(TUnion)
@@ -97,6 +110,7 @@ class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _caseTypes: Dictionary<string, Type>
 
+    /// Creates a converter using the specified discriminator property.
     init(caseDiscriminatorPropertyName: string) {
         _caseDiscriminatorPropertyName = RavenTaggedUnionJsonConverterFactory.NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
         _caseTypes = Dictionary<string, Type>()
@@ -111,6 +125,7 @@ class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         }
     }
 
+    /// Reads a tagged Raven union from JSON.
     override func Read(
         reader: &Utf8JsonReader,
         typeToConvert: Type,
@@ -163,6 +178,7 @@ class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         return CreateUnion(caseValue)
     }
 
+    /// Writes a tagged Raven union as JSON.
     override func Write(
         writer: Utf8JsonWriter,
         value: TUnion,
@@ -208,6 +224,7 @@ class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         writer.WriteEndObject()
     }
 
+    /// Wraps a deserialized case value in the target union type.
     func CreateUnion(caseValue: object) -> TUnion {
         val constructor = GetUnionConstructor(caseValue.GetType())
         val args = List<object>()
@@ -296,10 +313,13 @@ class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     }
 }
 
+/// Creates JSON converters for parenthesized type unions.
 class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
 
+    /// Gets the JSON property used to preserve an ambiguous runtime type.
     static val TypeDiscriminatorPropertyName: string => "\$type"
 
+    /// Determines whether a type has the runtime shape of a parenthesized union.
     override func CanConvert(typeToConvert: Type) -> bool {
         if typeToConvert.GetField("<Tag>", BindingFlags.NonPublic | BindingFlags.Instance) == null {
             return false
@@ -318,6 +338,7 @@ class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
         return false
     }
 
+    /// Creates a parenthesized-union converter for the specified type.
     override func CreateConverter(
         typeToConvert: Type,
         options: JsonSerializerOptions
@@ -332,6 +353,7 @@ class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
     }
 }
 
+/// Converts a parenthesized type union to and from JSON.
 class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _unionType: Type = typeof(TUnion)
@@ -348,6 +370,7 @@ class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
             BindingFlags.Public | BindingFlags.Instance
         ) ?? throw InvalidOperationException("Union type must expose a HasValue property.")
 
+    /// Reads a parenthesized union from JSON.
     override func Read(
         reader: &Utf8JsonReader,
         typeToConvert: Type,
@@ -372,6 +395,7 @@ class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         return CreateUnion(memberType, memberValue)
     }
 
+    /// Writes a parenthesized union to JSON.
     override func Write(
         writer: Utf8JsonWriter,
         value: TUnion,

@@ -9,6 +9,8 @@ import System.Text.Json.Serialization.*
 
 /// Represents some value, or no value.
 ///
+/// @typeparam T The type of the optional value.
+///
 /// ## Usage
 /// Use `Option` like so:
 ///
@@ -43,16 +45,16 @@ import System.Text.Json.Serialization.*
 /// ```
 [JsonConverter(typeof(OptionJsonConverterFactory))]
 union Option<T> {
-    /// Represents some value
+    /// Represents an available value.
     case Some(value: T)
 
-    /// Represents the absence of a value
+    /// Represents the absence of a value.
     case None
 
-    /// Gets a value indicating whether the Option has Some
+    /// Gets a value indicating whether this option is `Some`.
     val HasSome: bool => self is Some(val v)
 
-    /// Gets a value indicating whether the Option has None
+    /// Gets a value indicating whether this option is `None`.
     val HasNone: bool => self is None
 
     /// Projects the value inside `Some` using `mapper`. `None` stays `None`.
@@ -139,6 +141,7 @@ union Option<T> {
         list
     }
 
+    /// Returns an enumerator over the zero-or-one contained values.
     func GetEnumerator() -> IEnumerator<T> {
         self.ToEnumerable().GetEnumerator()
     }
@@ -160,7 +163,7 @@ union Option<T> {
         }
     }
 
-    // Converts Option into a Result
+    /// Converts this option into a result, using `error` when it is `None`.
     func IsOkOr<E>(error: E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
@@ -168,7 +171,7 @@ union Option<T> {
         Error(error)    
     }
 
-    // Converts Option into a Result
+    /// Converts this option into a result, evaluating `errorFactory` when it is `None`.
     func IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
@@ -176,7 +179,7 @@ union Option<T> {
         Error(errorFactory())    
     }
 
-    /// Unwrap the value if Some, otherwise return the default value
+    /// Returns the contained value, or the default value when this option is `None`.
     func UnwrapOrDefault() -> T {
         if self is Some(val value) {
             return value
@@ -184,7 +187,7 @@ union Option<T> {
         return default(T)
     }
 
-    /// Unwrap the value if Some, otherwise throw an exception
+    /// Returns the contained value, or throws when this option is `None`.
     func UnwrapOrThrow() -> T {
         if self is Some(val value) {
             return value
@@ -192,7 +195,7 @@ union Option<T> {
         throw InvalidOperationException("Option is None")
     }
 
-    /// Unwrap the value if Some, otherwise return the specified value
+    /// Returns the contained value, or `defaultValue` when this option is `None`.
     func UnwrapOr(defaultValue: T) -> T {
         if self is Some(val value) {
             return value
@@ -202,7 +205,9 @@ union Option<T> {
 
 }
 
+/// Defines nullable-reference conversions for `Option`.
 extension OptionExtensions1<T : class> for Option<T> {
+    /// Converts an option to its nullable reference representation.
     static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
             return value
@@ -210,6 +215,7 @@ extension OptionExtensions1<T : class> for Option<T> {
         return null
     }
 
+    /// Converts a nullable reference to `Some`, or to `None` when it is `null`.
     static func implicit(value: T?) -> Option<T> {
         if value is not null {
             return Some(value)
@@ -218,7 +224,9 @@ extension OptionExtensions1<T : class> for Option<T> {
     }
 }
 
+/// Defines nullable-value conversions for `Option`.
 extension OptionExtensions2<T : struct> for Option<T> {
+    /// Converts an option to its nullable value representation.
     static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
             return value
@@ -226,6 +234,7 @@ extension OptionExtensions2<T : struct> for Option<T> {
         return null
     }
 
+    /// Converts a nullable value to `Some`, or to `None` when it is `null`.
     static func implicit(value: T?) -> Option<T> {
         if value is not null {
             return Some(value)
@@ -234,10 +243,13 @@ extension OptionExtensions2<T : struct> for Option<T> {
     }
 }
 
+/// Converts `Option` values to and from their natural JSON value representation.
 class OptionJsonConverter<T> : JsonConverter<Option<T>> {
 
+    /// Gets whether the converter handles JSON `null` directly.
     override val HandleNull: bool { get; } = true
 
+    /// Reads `null` as `None` and any other JSON value as `Some`.
     override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
@@ -252,6 +264,7 @@ class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         some
     }
 
+    /// Writes `Some` as its contained value and `None` as JSON `null`.
     override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
         if value is Some(val someValue) {
             JsonSerializer.Serialize(writer, someValue, options)
@@ -261,13 +274,16 @@ class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     }
 }
 
+/// Creates JSON converters for constructed `Option` types.
 class OptionJsonConverterFactory : JsonConverterFactory {
 
+    /// Determines whether the specified type is an `Option` type.
     override func CanConvert(typeToConvert: Type) -> bool {
         return typeToConvert.IsGenericType
             && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
     }
 
+    /// Creates a converter for the specified constructed `Option` type.
     override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
         val tArg = typeToConvert.GetGenericArguments()[0]
         val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
@@ -277,6 +293,7 @@ class OptionJsonConverterFactory : JsonConverterFactory {
     }
 }
 
+/// Provides operations for nested options.
 extension OptionExtensionsNested<T> for Option<Option<T>> {
 
     /// Flattens `Option<Option<T>>` into `Option<T>`.

@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- `Raven.Core` now emits and ships `Raven.Core.xml`, with documentation for its
+  public types, carrier members, LINQ helpers, JSON converters, and framework
+  projection adapters. Projected framework methods forward their adapter
+  documentation so hover can present the Raven-facing `Option`/`Result`
+  behavior.
+- XML documentation emission now handles source-field metadata names safely,
+  and MSBuild-relative default documentation paths resolve without duplicating
+  the intermediate output directory.
+
 - Updated the ASP.NET Core samples for .NET 11 Preview 6 union request,
   response, streaming, JSON persistence, and OpenAPI `anyOf` support.
 

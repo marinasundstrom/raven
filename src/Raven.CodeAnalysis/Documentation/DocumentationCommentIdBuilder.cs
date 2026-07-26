@@ -53,12 +53,15 @@ internal static class DocumentationCommentIdBuilder
         var declaringType = property.ContainingType;
         if (declaringType is null)
             return string.Empty;
+        var metadataName = GetMetadataName(property);
+        if (metadataName.Length == 0)
+            return string.Empty;
 
         var builder = new StringBuilder();
         builder.Append("P:");
         builder.Append(GetTypeName(declaringType));
         builder.Append('.');
-        builder.Append(property.MetadataName.Replace('.', '#'));
+        builder.Append(metadataName.Replace('.', '#'));
         AppendParameterList(builder, property.Parameters);
         return builder.ToString();
     }
@@ -68,8 +71,11 @@ internal static class DocumentationCommentIdBuilder
         var declaringType = field.ContainingType;
         if (declaringType is null)
             return string.Empty;
+        var metadataName = GetMetadataName(field);
+        if (metadataName.Length == 0)
+            return string.Empty;
 
-        return $"F:{GetTypeName(declaringType)}.{field.MetadataName.Replace('.', '#')}";
+        return $"F:{GetTypeName(declaringType)}.{metadataName.Replace('.', '#')}";
     }
 
     public static string GetEventMemberId(IEventSymbol @event)
@@ -77,8 +83,11 @@ internal static class DocumentationCommentIdBuilder
         var declaringType = @event.ContainingType;
         if (declaringType is null)
             return string.Empty;
+        var metadataName = GetMetadataName(@event);
+        if (metadataName.Length == 0)
+            return string.Empty;
 
-        return $"E:{GetTypeName(declaringType)}.{@event.MetadataName.Replace('.', '#')}";
+        return $"E:{GetTypeName(declaringType)}.{metadataName.Replace('.', '#')}";
     }
 
     public static string GetTypeMemberId(Type type)
@@ -142,12 +151,15 @@ internal static class DocumentationCommentIdBuilder
     internal static string GetMarkdownPathHash(string memberId)
         => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(memberId[2..]))).ToLowerInvariant();
 
+    private static string GetMetadataName(ISymbol symbol)
+        => symbol.MetadataName ?? symbol.Name ?? string.Empty;
+
     private static string GetMethodName(IMethodSymbol method)
     {
         if (method.IsConstructor)
             return method.IsStatic ? "#cctor" : "#ctor";
 
-        return method.MetadataName.Replace('.', '#');
+        return GetMetadataName(method).Replace('.', '#');
     }
 
     private static string GetMethodName(MethodBase method)
@@ -221,6 +233,9 @@ internal static class DocumentationCommentIdBuilder
 
     private static string GetParameterTypeName(ITypeSymbol type)
     {
+        if (type is NullableTypeSymbol nullableType)
+            return GetParameterTypeName(nullableType.UnderlyingType);
+
         if (type is IArrayTypeSymbol arrayType)
         {
             var elementType = GetParameterTypeName(arrayType.ElementType);

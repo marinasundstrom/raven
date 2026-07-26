@@ -105,4 +105,17 @@
       <FileWrites Include="$(IntermediateOutputPath)$(TargetName)$(ExeExtension)" Condition="'$(OutputType)' != 'Library'" />
     </ItemGroup>
   </Target>
+
+  <Target
+    Name="_CopyRavenDocumentationFileToOutputDirectory"
+    AfterTargets="CopyFilesToOutputDirectory"
+    Condition="'$(GenerateDocumentationFile)' == 'true' and Exists('$(DocumentationFile)')">
+    <Copy
+      SourceFiles="$(DocumentationFile)"
+      DestinationFiles="$(OutDir)$(TargetName).xml"
+      SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <FileWrites Include="$(OutDir)$(TargetName).xml" />
+    </ItemGroup>
+  </Target>
 </Project>

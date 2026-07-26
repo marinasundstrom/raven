@@ -5,8 +5,16 @@ import System.Collections.Generic.*
 import System.Option.*
 import System.Runtime.CompilerServices.*
 
+/// Provides option-returning dictionary lookup.
+///
+/// @typeparam TKey The dictionary key type.
+/// @typeparam TValue The dictionary value type.
 extension DictionaryExtensions<TKey, TValue> for Dictionary<TKey, TValue> {
 
+    /// Looks up a key without exposing an `out` parameter.
+    ///
+    /// @param key The key to locate.
+    /// @returns `Some` containing the value when found; otherwise `None`.
     [FrameworkProjection("system.collections.generic.dictionary.trygetvalue.option.v1")]
     func TryGetValue(key: TKey) -> Option<TValue> {
         if self.TryGetValue(key, out var value) {

@@ -6,6 +6,8 @@
     <ImplicitUsings>false</ImplicitUsings>
     <Nullable>disable</Nullable>
     <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
   </PropertyGroup>
 
   <ItemGroup>

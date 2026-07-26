@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Documentation;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
@@ -27,6 +29,7 @@ internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
     public override bool IsImplicitlyDeclared => true;
     public override bool IsStatic => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Static;
     public override ISymbol UnderlyingSymbol => AdapterMethod;
+    public override DocumentationComment? GetDocumentationComment() => AdapterMethod.GetDocumentationComment();
     public MethodKind MethodKind => AdapterMethod.MethodKind;
     public ITypeSymbol ReturnType => AdapterMethod.ReturnType;
     public ImmutableArray<IParameterSymbol> Parameters => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Instance

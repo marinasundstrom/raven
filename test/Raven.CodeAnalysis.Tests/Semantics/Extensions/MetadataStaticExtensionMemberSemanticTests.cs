@@ -51,6 +51,7 @@ val parsed = {{typeName}}.TryParse("42")
         var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
         Assert.EndsWith("Extensions", projected.AdapterMethod.ContainingType?.Name, StringComparison.Ordinal);
         Assert.Equal(expectedProjectionId, GetFrameworkProjectionId(projected.AdapterMethod));
+        Assert.Contains("Parses", projected.GetDocumentationComment()?.Content, StringComparison.Ordinal);
     }
 
     [Fact]

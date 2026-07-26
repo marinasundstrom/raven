@@ -2,26 +2,49 @@ namespace System
 
 import System.*
 
+/// Describes an error with a human-readable message and an optional underlying cause.
 interface IError {
+    /// Gets the human-readable error message.
     val Message: string
+
+    /// Gets the error that caused this error, or `null` when no cause is available.
     val Cause: IError? => null
 }
 
+/// Adds contextual information to an existing error.
+///
+/// @typeparam TError The type of the underlying error.
 record ContextError<TError: IError>(
+    /// Gets the contextual error message.
     val Message: string,
+    /// Gets the underlying error.
     val Cause: TError
 ) : IError {
+    /// Gets the underlying error through the non-generic error interface.
     val IError.Cause: IError? => Cause
 
+    /// Returns the contextual error message.
     override func ToString() -> string => Message
 }
 
+/// Provides context-building operations for strongly typed errors.
+///
+/// @typeparam TError The error type being extended.
 extension ErrorExtensions<TError: IError> for TError {
+    /// Wraps this error with an additional contextual message.
+    ///
+    /// @param message The contextual message.
+    /// @returns A contextual error whose cause is this error.
     func WithContext(message: string) -> ContextError<TError>
         => ContextError<TError>(message, self)
 }
 
+/// Provides context-building operations for errors used through `IError`.
 extension ErrorObjectExtensions for IError {
+    /// Boxes this error in a contextual error with the specified message.
+    ///
+    /// @param message The contextual message.
+    /// @returns A contextual error whose cause is this error.
     func Box(message: string) -> ContextError<IError>
         => ContextError<IError>(message, self)
 }

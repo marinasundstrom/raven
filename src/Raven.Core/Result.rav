@@ -9,6 +9,9 @@ import System.Text.Json.Serialization.*
 
 /// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
 ///
+/// @typeparam T The successful value type.
+/// @typeparam E The error value type.
+///
 /// ## Usage
 /// Use `Result` like so:
 ///
@@ -43,19 +46,19 @@ import System.Text.Json.Serialization.*
 /// ```
 [JsonConverter(typeof(ResultJsonConverterFactory))]
 union Result<T, E> {
-    /// Represents a result value
+    /// Represents a successful result value.
     case Ok(value: T)
 
-    /// Represents an error
+    /// Represents an error result.
     case Error(data: E)
 
-    /// Gets a value indicating whether the Result was Ok
+    /// Gets a value indicating whether this result is `Ok`.
     val HasOk: bool => self is Ok(val message)
 
-    /// Gets a value indicating whether the Result was Error
+    /// Gets a value indicating whether this result is `Error`.
     val HasError: bool => self is Error(val message)
 
-    /// Converts the Result to an Option
+    /// Gets the successful value as an option.
     val IsOk: Option<T> {
         get {
             self match {
@@ -65,7 +68,7 @@ union Result<T, E> {
         }
     }
 
-    /// Converts the Result error channel to an Option
+    /// Gets the error value as an option.
     val IsError: Option<E> {
         get {
             self match {
@@ -154,11 +157,12 @@ union Result<T, E> {
         list
     }
 
+    /// Returns an enumerator over the zero-or-one successful values.
     func GetEnumerator() -> IEnumerator<T> {
         self.ToEnumerable().GetEnumerator()
     }
     
-    /// Unwrap the value if Ok, otherwise return the default value
+    /// Returns the successful value, or the default value for an error.
     func UnwrapOrDefault() -> T {
         if self is Ok(val value) {
             return value
@@ -166,7 +170,7 @@ union Result<T, E> {
         default
     }
 
-    /// Unwrap the value if Ok, otherwise throw an exception
+    /// Returns the successful value, or throws for an error.
     func UnwrapOrThrow() -> T {
         var error: E = default
         if self is Ok(val value) {
@@ -177,7 +181,7 @@ union Result<T, E> {
         throw InvalidOperationException(error.ToString())
     }
 
-    /// Unwrap the value if Ok, otherwise return the specified value
+    /// Returns the successful value, or `defaultValue` for an error.
     func UnwrapOr(defaultValue: T) -> T {
         if self is Ok(val value) {
             return value
@@ -185,7 +189,7 @@ union Result<T, E> {
         defaultValue
     }
 
-    /// Unwrap the Error, or throw an exception
+    /// Returns the error value, or throws when this result is `Ok`.
     func UnwrapError() -> E {
         if self is Error(val message) {
             return message
@@ -194,8 +198,10 @@ union Result<T, E> {
     }
 }
 
+/// Converts `Result` values to and from tagged JSON objects.
 class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
+    /// Reads a tagged JSON object as an `Ok` or `Error` result.
     override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
@@ -220,6 +226,7 @@ class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
         }
     }
 
+    /// Writes a result as a tagged JSON object.
     override func Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
         if value is Ok(val okValue) {
             writer.WriteStartObject()
@@ -239,13 +246,16 @@ class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
     }
 }
 
+/// Creates JSON converters for constructed `Result` types.
 class ResultJsonConverterFactory : JsonConverterFactory {
 
+    /// Determines whether the specified type is a `Result` type.
     override func CanConvert(typeToConvert: Type) -> bool {
         return typeToConvert.IsGenericType
             && typeToConvert.GetGenericTypeDefinition() == typeof(Result<,>)
     }
 
+    /// Creates a converter for the specified constructed `Result` type.
     override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
         val tArgs = typeToConvert.GetGenericArguments()
         val converterType = typeof(ResultJsonConverter<,>).MakeGenericType([tArgs[0], tArgs[1]])
@@ -255,6 +265,7 @@ class ResultJsonConverterFactory : JsonConverterFactory {
     }
 }
 
+/// Provides contextual error operations for results whose error implements `IError`.
 extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
     /// Wraps the error channel with additional context while preserving the original error type.
     func WithContext(message: string) -> Result<T, ContextError<E>> {
