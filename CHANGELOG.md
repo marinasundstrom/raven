@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a Raven-themed DocFX site with a dedicated sample-led home page, compact
+  documentation navigation, Raven syntax highlighting, and shared light/dark
+  design tokens used by RavenDoc and the Playground.
 - Added compiler-owned Markdown classification for Raven documentation
   comments and dedicated language-server semantic tokens for tags, headings,
   links, inline code, and fenced code. Tag-like text in code remains literal.

@@ -20,6 +20,19 @@ scripts/build-docs.sh --serve
 
 Then open <http://localhost:8080>.
 
+## Raven theme
+
+The custom DocFX template lives in `docs/template/`. Its `public/main.css` and
+`public/main.js` adapt the modern DocFX template to Raven, including Raven code
+highlighting and automatic light/dark theme support. The canonical shared color,
+typography, and surface tokens live in
+`docs/template/public/raven-theme.css`; RavenDoc and the Playground consume that
+same file so the three surfaces remain visually connected.
+
+Keep the global header deliberately compact. Detailed documentation hierarchy
+belongs in the Docs menu and section sidebars, while the root page serves as a
+dedicated introduction to Raven.
+
 ## Publication boundary
 
 `docs/docfx.json` explicitly lists public learning material, language reference,

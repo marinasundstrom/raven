@@ -21,7 +21,8 @@
     --raven-font-mono: "SFMono-Regular", "Cascadia Code", Consolas, monospace;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+:root[data-bs-theme="dark"] {
     --raven-bg: #100e15;
     --raven-surface: #19161f;
     --raven-surface-raised: #221e2a;
@@ -40,7 +41,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
+    :root:not([data-theme="light"]):not([data-bs-theme="light"]) {
         --raven-bg: #100e15;
         --raven-surface: #19161f;
         --raven-surface-raised: #221e2a;

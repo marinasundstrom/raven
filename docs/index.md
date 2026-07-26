@@ -2,50 +2,62 @@
 _layout: landing
 ---
 
-# Raven programming language
+<section class="raven-hero">
+  <div class="raven-hero-copy">
+    <p class="raven-eyebrow">A modern language for .NET</p>
+    <h1>Write expressive programs.<br><span>Keep the whole platform.</span></h1>
+    <p class="raven-hero-lead">Raven brings typed, expression-oriented programming,
+    algebraic modeling, and familiar object-oriented design to the .NET ecosystem.</p>
+    <div class="raven-hero-actions">
+      <a class="raven-button raven-button-primary" href="getting-started.md">Get started <span aria-hidden="true">→</span></a>
+      <a class="raven-button" href="https://marinasundstrom.github.io/raven/playground/">Try the Playground</a>
+    </div>
+    <p class="raven-preview-note">Raven is experimental and under active development.</p>
+  </div>
+  <div class="raven-hero-code" aria-label="Raven code example">
+    <div class="raven-code-titlebar">
+      <span>quote.rvn</span>
+      <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
+    </div>
+    <pre><code class="lang-raven">record Shipment(Id: int, Weight: decimal)
 
-Raven is a pragmatic, typed application language for .NET that makes functional
-composition, algebraic modeling, and object-oriented design complementary parts
-of one toolset, with direct access to the .NET runtime and ecosystem.
+union QuoteResult {
+    case Quoted(amount: decimal)
+    case Rejected(reason: string)
+}
 
-This is the official Raven language website. Start with a short language tour,
-follow a guide suited to your experience, or use the reference for precise
-syntax and semantics.
+func Quote(shipment: Shipment) → QuoteResult {
+    if shipment.Weight &lt;= 0 {
+        return .Rejected("Weight must be positive")
+    }
 
-> [!IMPORTANT]
-> Raven is under active development. The documentation describes the current
-> compiler, but language and tooling details can change before a stable release.
+    return .Quoted(12.50m + shipment.Weight * 1.75m)
+}</code></pre>
+  </div>
+</section>
 
-## Learn Raven
+<section class="raven-home-intro">
+  <p class="raven-eyebrow">One language, complementary tools</p>
+  <h2>Use the right shape for the problem.</h2>
+  <p>Build value-oriented models with records and unions, compose behavior with
+  functions and expressions, and reach for classes when identity or open
+  polymorphism matters—all with direct access to .NET libraries.</p>
+</section>
 
-- [Try Raven in your browser](https://marinasundstrom.github.io/raven/playground/)
-  without installing a compiler.
-- Explore the [sample projects on GitHub](https://github.com/marinasundstrom/raven/tree/main/samples/projects)
-  for complete, runnable applications and compiler extensions.
-- [Choose a learning path](learn.md) based on your programming experience.
-- See [Raven in 60 seconds](raven-in-60-seconds.md) for the language's core
-  ideas in one small program.
-- [Install and run Raven](getting-started.md) from a source checkout.
-- Follow the [language introduction](introduction.md) for a guided tour.
-- Use [Raven for C# developers](raven-for-csharp-developers.md) to translate
-  familiar .NET concepts into Raven.
-- Read [Raven for absolute beginners](raven-for-absolute-beginners.md) for a
-  slower introduction to programming and the language.
-
-## Language and tooling
-
-- The [language documentation](lang/README.md) organizes syntax, features, and
-  common language rules by topic.
-- The [non-normative EBNF grammar](lang/spec/grammar.ebnf) summarizes Raven's
-  structural syntax.
-- The [tooling documentation](compiler/index.md) covers command-line tools,
-  projects, diagnostics, and editor support.
-- The [compiler API documentation](compiler/api/README.md) covers the
-  `Raven.CodeAnalysis` programming model separately from language features.
-
-## Documentation status
-
-Tutorials and reference pages describe implemented behavior unless they
-explicitly say otherwise. Compiler implementation notes, investigations, and
-language proposals remain in the source repository, but are intentionally not
-part of this user documentation.
+<div class="raven-feature-grid">
+  <a class="raven-feature-card" href="raven-in-60-seconds.md">
+    <span class="raven-card-kicker">Tour</span>
+    <strong>Raven in 60 seconds</strong>
+    <span>See the language's core ideas in one small program.</span>
+  </a>
+  <a class="raven-feature-card" href="learn.md">
+    <span class="raven-card-kicker">Learn</span>
+    <strong>Choose your path</strong>
+    <span>Start from .NET experience or from programming fundamentals.</span>
+  </a>
+  <a class="raven-feature-card" href="lang/README.md">
+    <span class="raven-card-kicker">Reference</span>
+    <strong>Explore the language</strong>
+    <span>Find precise syntax, semantics, and language guidance.</span>
+  </a>
+</div>

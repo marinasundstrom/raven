@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Raven</title>
+  <defs>
+    <linearGradient id="raven-gradient" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7447d8"/>
+      <stop offset="1" stop-color="#188d98"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#raven-gradient)"/>
+  <path fill="#fff" d="M20 16h14.5c8.7 0 14 4.5 14 12 0 5.2-2.7 9-7.4 10.8L49 48H38.4l-6.8-8.2H29V48h-9V16Zm9 8v8h5.1c2.9 0 4.5-1.4 4.5-4s-1.6-4-4.5-4H29Z"/>
+</svg>

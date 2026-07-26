@@ -77,6 +77,7 @@ const raven = (hljs) => ({
 })
 
 export default {
+  defaultTheme: 'auto',
   configureHljs(hljs) {
     hljs.registerLanguage('raven', raven)
   }

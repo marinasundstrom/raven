@@ -1,49 +1,55 @@
-- name: Home
-  href: index.md
-- name: Playground
-  href: https://marinasundstrom.github.io/raven/playground/
-- name: Sample projects
-  href: https://github.com/marinasundstrom/raven/tree/main/samples/projects
-- name: Get started
-  href: getting-started.md
-- name: Learn Raven
-  href: learn.md
-  items:
-    - name: Choose your path
-      href: learn.md
-    - name: Raven in 60 seconds
-      href: raven-in-60-seconds.md
-    - name: Install and run Raven
-      href: getting-started.md
-    - name: Language introduction
-      href: introduction.md
-    - name: Raven for absolute beginners
-      href: raven-for-absolute-beginners.md
-    - name: Raven for C# developers
-      href: raven-for-csharp-developers.md
-    - name: Domain modeling
-      href: lang/domain-modeling.md
-    - name: Style guide
-      href: lang/style-guide.md
-    - name: Language philosophy
-      href: lang/philosophy.md
-- name: Language
-  href: lang/
-- name: Tools
-  href: compiler/
-- name: Compiler API
+- name: Docs
+  href: overview.md
   items:
     - name: Overview
+      href: overview.md
+    - name: Get started
+      href: getting-started.md
+    - name: Learn Raven
+      href: learn.md
+      items:
+        - name: Choose your path
+          href: learn.md
+        - name: Raven in 60 seconds
+          href: raven-in-60-seconds.md
+        - name: Install and run Raven
+          href: getting-started.md
+        - name: Language introduction
+          href: introduction.md
+        - name: Raven for absolute beginners
+          href: raven-for-absolute-beginners.md
+        - name: Raven for C# developers
+          href: raven-for-csharp-developers.md
+        - name: Domain modeling
+          href: lang/domain-modeling.md
+        - name: Style guide
+          href: lang/style-guide.md
+        - name: Language philosophy
+          href: lang/philosophy.md
+    - name: Language
+      href: lang/
+    - name: Tools
+      href: compiler/
+    - name: Compiler API
       href: compiler/api/README.md
-    - name: Syntax trees
-      href: compiler/api/syntax-tree.md
-    - name: Semantic analysis
-      href: compiler/api/semantic-analysis.md
-    - name: Operations
-      href: compiler/api/operations.md
-    - name: Symbol resolution
-      href: compiler/api/symbol-resolution.md
-    - name: Performance guidance
-      href: compiler/api/performance.md
-    - name: .NET API reference
-      href: api/
+      items:
+        - name: Overview
+          href: compiler/api/README.md
+        - name: Syntax trees
+          href: compiler/api/syntax-tree.md
+        - name: Semantic analysis
+          href: compiler/api/semantic-analysis.md
+        - name: Operations
+          href: compiler/api/operations.md
+        - name: Symbol resolution
+          href: compiler/api/symbol-resolution.md
+        - name: Performance guidance
+          href: compiler/api/performance.md
+        - name: .NET API reference
+          href: api/
+    - name: Sample projects
+      href: https://github.com/marinasundstrom/raven/tree/main/samples/projects
+- name: Playground
+  href: https://marinasundstrom.github.io/raven/playground/
+- name: GitHub
+  href: https://github.com/marinasundstrom/raven

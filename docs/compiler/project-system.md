@@ -39,8 +39,11 @@ disable the default bundle, or override the individual properties to select one
 projection. When consuming metadata, Raven prefers the Markdown sidecar and
 falls back to adjacent XML documentation.
 
-See [Raven Documentation Model](design/raven-documentation-model.md) and
-[External Documentation Sidecars](design/external-documentation-sidecars.md).
+Implementation details are available in the repository's
+[Raven Documentation Model](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/design/raven-documentation-model.md)
+and
+[External Documentation Sidecars](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/design/external-documentation-sidecars.md)
+design notes.
 
 Primary MSBuild items Raven currently consumes:
 
