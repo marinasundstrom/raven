@@ -43,24 +43,39 @@ public static class RavenQuoter
 
         if (options.GenerateUsingDirectives)
         {
-            w.WriteLine("using Raven.CodeAnalysis.Syntax;");
-            if (options.UseStaticSyntaxFactoryImport)
-                w.WriteLine("using static Raven.CodeAnalysis.Syntax.SyntaxFactory;");
+            if (options.OutputLanguage == RavenQuoterOutputLanguage.Raven)
+            {
+                w.WriteLine("import Raven.CodeAnalysis.Syntax.*");
+                if (options.UseStaticSyntaxFactoryImport)
+                    w.WriteLine("import Raven.CodeAnalysis.Syntax.SyntaxFactory.*");
+            }
+            else
+            {
+                w.WriteLine("using Raven.CodeAnalysis.Syntax;");
+                if (options.UseStaticSyntaxFactoryImport)
+                    w.WriteLine("using static Raven.CodeAnalysis.Syntax.SyntaxFactory;");
+            }
             w.WriteLine();
         }
 
         if (options.WrapInClass)
         {
-            w.WriteLine($"public static class {options.GeneratedClassName}");
+            w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                ? $"static class {options.GeneratedClassName}"
+                : $"public static class {options.GeneratedClassName}");
             w.WriteLine("{");
             w.Indent();
-            w.WriteLine($"public static CompilationUnitSyntax {options.GeneratedMethodName}()");
+            w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                ? $"static func {options.GeneratedMethodName}() -> CompilationUnitSyntax"
+                : $"public static CompilationUnitSyntax {options.GeneratedMethodName}()");
             w.WriteLine("{");
             w.Indent();
 
             w.Write("return ");
             writer.WriteNode(root);
-            w.WriteLine(".NormalizeWhitespace();");
+            w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                ? ".NormalizeWhitespace()"
+                : ".NormalizeWhitespace();");
 
             w.Unindent();
             w.WriteLine("}");
@@ -70,7 +85,9 @@ public static class RavenQuoter
         else
         {
             writer.WriteNode(root);
-            w.WriteLine(".NormalizeWhitespace();");
+            w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                ? ".NormalizeWhitespace()"
+                : ".NormalizeWhitespace();");
         }
 
         return w.ToString();
@@ -548,7 +565,7 @@ public static class RavenQuoter
             {
                 _w.WriteLine();
                 _w.Indent();
-                _w.Write("new[] {");
+                _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "[" : "new[] {");
                 _w.WriteLine();
                 _w.Indent();
                 for (int i = 0; i < list.Count; i++)
@@ -560,7 +577,7 @@ public static class RavenQuoter
                         _w.WriteLine();
                 }
                 _w.Unindent();
-                _w.Write("}");
+                _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "]" : "}");
                 _w.WriteLine();
                 _w.Unindent();
             }
@@ -590,7 +607,7 @@ public static class RavenQuoter
             _w.Write("(");
             _w.WriteLine();
             _w.Indent();
-            _w.Write("new[] {");
+            _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "[" : "new[] {");
             _w.WriteLine();
             _w.Indent();
             for (int i = 0; i < list.Count; i++)
@@ -602,7 +619,7 @@ public static class RavenQuoter
                     _w.WriteLine();
             }
             _w.Unindent();
-            _w.Write("}");
+            _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "]" : "}");
             _w.WriteLine();
             _w.Unindent();
             _w.Write(")");
@@ -658,9 +675,11 @@ public static class RavenQuoter
             }
 
             WriteFactoryMethodName("List");
-            _w.Write($"<{typeName}>(new {typeName}[]");
+            _w.Write($"<{typeName}>(");
+            if (_options.OutputLanguage == RavenQuoterOutputLanguage.CSharp)
+                _w.Write($"new {typeName}[]");
             _w.WriteLine();
-            _w.WriteLine("{");
+            _w.WriteLine(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "[" : "{");
             _w.Indent();
 
             for (int i = 0; i < items.Count; i++)
@@ -673,7 +692,7 @@ public static class RavenQuoter
             }
 
             _w.Unindent();
-            _w.Write("})");
+            _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "])" : "})");
         }
 
         private void WriteSeparatedSyntaxList(Type elemType, IEnumerable listEnumerable)
@@ -716,9 +735,11 @@ public static class RavenQuoter
             }
 
             WriteFactoryMethodName("SeparatedList");
-            _w.Write($"<{typeName}>(new {typeName}[]");
+            _w.Write($"<{typeName}>(");
+            if (_options.OutputLanguage == RavenQuoterOutputLanguage.CSharp)
+                _w.Write($"new {typeName}[]");
             _w.WriteLine();
-            _w.WriteLine("{");
+            _w.WriteLine(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "[" : "{");
             _w.Indent();
 
             for (int i = 0; i < items.Count; i++)
@@ -731,7 +752,7 @@ public static class RavenQuoter
             }
 
             _w.Unindent();
-            _w.Write("})");
+            _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "])" : "})");
         }
 
         private static bool IsDefaultValue(Type type, object? value)
@@ -769,7 +790,7 @@ public static class RavenQuoter
         private static string EscapeStr(string text)
         {
             // Escape backslashes, quotes, and control characters so the
-            // generated C# is always valid.
+            // generated source is always valid.
             return text
                 .Replace("\\", "\\\\")
                 .Replace("\"", "\\\"")

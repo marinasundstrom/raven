@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Changed `RavenQuoter` to emit Raven `SyntaxFactory` construction code by
+  default, with explicit C# output available through `RavenQuoterOptions`.
 - Added a Raven-themed DocFX site with a dedicated carousel of language samples,
   compact documentation navigation, VS Code-style Raven syntax highlighting,
   and shared light/dark design tokens used by RavenDoc and the Playground.

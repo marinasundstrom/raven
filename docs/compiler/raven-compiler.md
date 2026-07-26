@@ -122,7 +122,10 @@ editors can discover the same SDK root.
 - `rvn dev binders <input>` &ndash; print binder tree
 - `rvn dev bound-tree [original|lowered|both] <input>` &ndash; print binder and bound tree
 - `rvn dev symbols [list|hierarchy] <input>` &ndash; inspect symbols
-- `rvn dev quote <input>` &ndash; print SyntaxFactory-style tree construction code
+- `rvn dev quote <input>` &ndash; print Raven SyntaxFactory-style tree construction code
+
+`RavenQuoter` emits Raven source by default. API callers can select the legacy
+C# rendering with `RavenQuoterOptions.OutputLanguage`.
 
 ## `rvn build`, `rvn run`, and `rvn clean`
 

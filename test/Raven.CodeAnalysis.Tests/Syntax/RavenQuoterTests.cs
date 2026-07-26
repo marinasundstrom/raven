@@ -9,6 +9,57 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class RavenQuoterTests
 {
     [Fact]
+    public void Quote_DefaultsToRavenOutput()
+    {
+        var quoted = RavenQuoter.QuoteText("let answer = 42");
+
+        Assert.StartsWith("import Raven.CodeAnalysis.Syntax.*", quoted);
+        Assert.Contains("import Raven.CodeAnalysis.Syntax.SyntaxFactory.*", quoted);
+        Assert.DoesNotContain("using ", quoted);
+        Assert.EndsWith(".NormalizeWhitespace()\n", quoted);
+        Assert.Empty(SyntaxTree.ParseText(quoted).GetDiagnostics());
+    }
+
+    [Fact]
+    public void Quote_CanGenerateCSharpOutput()
+    {
+        var quoted = RavenQuoter.QuoteText("let answer = 42", new RavenQuoterOptions
+        {
+            OutputLanguage = RavenQuoterOutputLanguage.CSharp
+        });
+
+        Assert.StartsWith("using Raven.CodeAnalysis.Syntax;", quoted);
+        Assert.Contains("using static Raven.CodeAnalysis.Syntax.SyntaxFactory;", quoted);
+        Assert.EndsWith(".NormalizeWhitespace();\n", quoted);
+    }
+
+    [Fact]
+    public void Quote_RavenOutputUsesCollectionExpressions()
+    {
+        var quoted = RavenQuoter.QuoteText("""
+            import System.*
+            import System.Console.*
+            """);
+
+        Assert.Contains("[", quoted);
+        Assert.Contains("]", quoted);
+        Assert.DoesNotContain("new[]", quoted);
+    }
+
+    [Fact]
+    public void Quote_RavenWrappedOutputParses()
+    {
+        var quoted = RavenQuoter.QuoteText("let answer = 42", new RavenQuoterOptions
+        {
+            WrapInClass = true
+        });
+
+        Assert.Contains("static class QuotedSyntax", quoted);
+        Assert.Contains("static func Create() -> CompilationUnitSyntax", quoted);
+        Assert.Empty(SyntaxTree.ParseText(quoted).GetDiagnostics());
+    }
+
+    [Fact]
     public void Quote_UsesSmallestMatchingFactoryOverload()
     {
         var node = ParenthesizedExpression(IdentifierName("value"));

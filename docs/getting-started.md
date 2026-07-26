@@ -321,7 +321,7 @@ Other useful views include:
 
 - `rvn dev dump` - pretty syntax dump.
 - `rvn dev symbols` - symbol information for a file or project.
-- `rvn dev quote` - syntax factory quote output.
+- `rvn dev quote` - Raven syntax factory quote output.
 
 Creating a `.debug/` directory in the current or a parent folder also causes
 `rvnc` to write debug dumps while compiling.

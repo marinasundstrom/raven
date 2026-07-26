@@ -1,0 +1,15 @@
+import System.*
+import Raven.CodeAnalysis.Syntax.*
+
+let source = """
+record Greeting(Message: string)
+
+let greeting = Greeting("Hello from Raven")
+Console.WriteLine(greeting.Message)
+"""
+
+let quoted = RavenQuoter.QuoteText(source)
+
+Console.WriteLine("Raven SyntaxFactory code:")
+Console.WriteLine()
+Console.WriteLine(quoted)

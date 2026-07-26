@@ -1,36 +1,46 @@
 namespace Raven.CodeAnalysis.Syntax;
 
 /// <summary>
+/// The source language used to render syntax factory construction code.
+/// </summary>
+public enum RavenQuoterOutputLanguage
+{
+    Raven,
+    CSharp
+}
+
+/// <summary>
 /// Options for RavenQuoter.
 /// </summary>
 public sealed class RavenQuoterOptions
 {
     /// <summary>
-    /// Include leading/trailing trivia in the quoted C#.
+    /// The source language used for imports, declarations, and collections.
+    /// </summary>
+    public RavenQuoterOutputLanguage OutputLanguage { get; init; } = RavenQuoterOutputLanguage.Raven;
+
+    /// <summary>
+    /// Include leading/trailing trivia in the quoted code.
     /// If false, trivia is ignored.
     /// </summary>
     public bool IncludeTrivia { get; init; } = true;
 
     /// <summary>
-    /// If true, wraps the expression in a full C# class with a Create() method.
+    /// If true, wraps the expression in a class with a Create() method.
     /// If false, only the factory expression followed by .NormalizeWhitespace() is emitted.
     /// </summary>
     public bool WrapInClass { get; init; } = false;
 
     /// <summary>
-    /// If true, the generated code uses:
-    ///   using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
-    ///   CompilationUnit()
-    /// If false, the generated code uses:
-    ///   using Raven.CodeAnalysis.Syntax;
-    ///   SyntaxFactory.CompilationUnit()
+    /// If true, imports <c>SyntaxFactory</c> members and emits
+    /// <c>CompilationUnit()</c>. If false, emits
+    /// <c>SyntaxFactory.CompilationUnit()</c>.
     /// </summary>
     public bool UseStaticSyntaxFactoryImport { get; init; } = true;
 
     /// <summary>
-    /// If true, using directives are generated:
-    ///   using Raven.CodeAnalysis.Syntax;
-    /// If false, no using directives are generated.
+    /// If true, imports appropriate for <see cref="OutputLanguage"/> are generated.
+    /// If false, no imports are generated.
     /// </summary>
     /// <remarks>This also affects the UseStaticSyntaxFactoryImport option</remarks>
     public bool GenerateUsingDirectives { get; init; } = true;
