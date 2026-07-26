@@ -96,11 +96,18 @@ qualified `SyntaxFactory` construction code. Tokens and trivia are preserved.
 Parser diagnostics, trailing input, and incomplete recovery are rejected at
 locations within the authored body.
 
+Within an expression quote, `#(expression)` inserts the resulting
+`ExpressionSyntax` into the quoted structure. The `#` and `(` are adjacent,
+the hole contains exactly one complete ordinary Raven expression, and multiple
+holes are permitted. Hole expressions are validated by Raven's parser at their
+authored locations and type-checked through the ordinary generated expansion.
+No splice-specific token kind is introduced.
+
 The result is a runtime `ExpressionSyntax` value from
 `Raven.CodeAnalysis`. The consuming project must currently carry a compatible
 runtime reference to that assembly; the intrinsic itself does not require a
-macro plugin reference. Statement, member, declaration, unquote, and splice
-forms are not part of the current language.
+macro plugin reference. Statement, member, declaration, token, identifier,
+list, and repetition quote/splice forms are not part of the current language.
 
 The raw body is the source of truth. Any standard Raven token stream,
 macro-local keyword overlay, custom lexer token stream, or custom DSL syntax

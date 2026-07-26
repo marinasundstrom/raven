@@ -16,7 +16,7 @@ func Main() -> unit {
         select value * 10
     }
     let quoted = #quote {
-        answer + 1
+        #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("answer")) + 1
     }
 
     WriteLine(answer)

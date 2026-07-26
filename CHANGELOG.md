@@ -34,6 +34,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   preserves tokens and trivia, rejects malformed or trailing input at authored
   locations, expands to fully qualified `SyntaxFactory` construction, and
   participates in macro-name completion without a plugin reference.
+- Added `#(expression)` holes inside expression quotes. Holes are discovered
+  through the macro token stream without changing Raven lexing, accept ordinary
+  Raven expressions that bind as `ExpressionSyntax`, preserve surrounding
+  quote trivia, and retain native diagnostics at authored locations.
 - Changed `Compilation.AddReferences` to append metadata references, matching
   its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member

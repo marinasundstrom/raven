@@ -203,6 +203,13 @@ public static class RavenQuoter
 
         private void WriteNodeInternal(SyntaxNode node)
         {
+            var sourceOverride = _options.NodeSourceOverride?.Invoke(node);
+            if (sourceOverride is not null)
+            {
+                WriteSourceOverride(node, sourceOverride);
+                return;
+            }
+
             var type = node.GetType();
             var typeName = type.Name;
             if (typeName.EndsWith("Syntax", StringComparison.Ordinal))
@@ -365,6 +372,13 @@ public static class RavenQuoter
                 _w.Write(")");
                 _w.Unindent();
             }
+        }
+
+        private void WriteSourceOverride(SyntaxNode node, string source)
+        {
+            _w.Write("(");
+            _w.Write(source);
+            _w.Write(")");
         }
 
         private bool NodesMatchForSelection(SyntaxNode original, SyntaxNode recreated)

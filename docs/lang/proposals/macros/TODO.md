@@ -15,9 +15,14 @@ In a macro you can put any content and parse it however you want.
 * Semantic pass for additional
 * Contextual re-mapping of token kinds
 * Syntax-level macros - Processes syntaxes
-* [x] Compiler-owned expression-only `#quote` intrinsic; contextual statement,
-  member, and declaration categories plus unquote/splice remain. See
+* [x] Compiler-owned expression-only `#quote` intrinsic.
+* [x] `#(expression)` quote holes lowering directly to caller-bound
+  `ExpressionSyntax`.
+* Contextual statement, member, and declaration categories plus
+  token/identifier/list/repetition splices remain. See
   [quote-macro.md](quote-macro.md).
+* Make compiler analyzers expansion-aware so references used only by macro
+  expansions participate in unused-value and related analysis.
 
 ## Sandbox
 

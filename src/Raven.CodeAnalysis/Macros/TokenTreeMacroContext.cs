@@ -109,11 +109,24 @@ public sealed class TokenTreeMacroContext
         => ParseExpressionResult(new TextSpan(0, BodySpan.Length));
 
     public MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(TextSpan bodyRelativeSpan)
+        => ParseExpressionResult(GetBodyText(), bodyRelativeSpan);
+
+    internal MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(string bodyText)
+    {
+        ArgumentNullException.ThrowIfNull(bodyText);
+        if (bodyText.Length != BodySpan.Length)
+            throw new ArgumentException("Replacement body text must preserve the original body length.", nameof(bodyText));
+
+        return ParseExpressionResult(bodyText, new TextSpan(0, bodyText.Length));
+    }
+
+    private MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(
+        string bodyText,
+        TextSpan bodyRelativeSpan)
     {
         if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
 
-        var bodyText = GetBodyText();
         var fragmentText = bodyText.Substring(bodyRelativeSpan.Start, bodyRelativeSpan.Length);
         var absoluteStart = BodySpan.Start + bodyRelativeSpan.Start;
         var sourceText = SourceText.From(new string(' ', absoluteStart) + fragmentText);

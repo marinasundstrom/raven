@@ -14,6 +14,8 @@ public enum RavenQuoterOutputLanguage
 /// </summary>
 public sealed class RavenQuoterOptions
 {
+    internal Func<SyntaxNode, string?>? NodeSourceOverride { get; init; }
+
     /// <summary>
     /// The source language used for imports, declarations, and collections.
     /// </summary>

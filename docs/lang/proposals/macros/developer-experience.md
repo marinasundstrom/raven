@@ -237,6 +237,42 @@ The exact scope-bridge API remains future work. It must preserve caller scope,
 macro hygiene, and compiler-owned semantic caching rather than requiring the
 language server to reconstruct an expansion or call the plugin directly.
 
+## Documenting macros
+
+Built-in and plugin macros should use the same task-oriented documentation
+shape. Invocation should feel uniform; origin and installation are important
+availability facts, not the opening definition of the feature.
+
+A macro reference page should cover, in this order:
+
+1. **Purpose:** the problem it solves and when to choose it.
+2. **Quick example:** the smallest realistic invocation and observable result.
+3. **Availability:** compiler built-in, SDK/package plugin, or project-local
+   plugin; required project references and trust/execution implications.
+4. **Input contract:** delimiters, DSL grammar, embedded Raven fragment slots,
+   introduced names, and recovery behavior.
+5. **Output contract:** expression, statement, declaration, member, or other
+   expansion category and any runtime syntax value type.
+6. **Composition rules:** scope, hygiene, trivia, splices, repetition, and
+   evaluation behavior.
+7. **Tooling:** diagnostics, highlighting, completion, hover, navigation, and
+   expansion preview currently supported.
+8. **Limitations:** unsupported categories, performance constraints, and
+   version/runtime dependencies.
+9. **Expansion model:** a secondary explanation for debugging and advanced
+   users, not the primary statement of purpose.
+
+Documentation for a DSL macro should explicitly mark which regions use custom
+grammar and which delegate to ordinary Raven. The same boundary description
+should drive highlighting and completion expectations, so the manual does not
+promise editor behavior the macro has not registered.
+
+For example, `#quote` should be introduced as a syntax literal: write Raven
+code in its readable form and receive the corresponding syntax tree. Its
+motivating cases are macro templates, generators, refactorings, and
+syntax-oriented tests. The `SyntaxFactory` expansion is useful supporting
+detail, but it is not the user-facing purpose.
+
 ## Diagnostics
 
 Macro diagnostics should:
@@ -285,6 +321,11 @@ Developers should be able to:
 Generated syntax should carry source mappings back to body spans or the
 invocation. Navigation and diagnostics must not require consumers to understand
 macro caches or generated-tree identities.
+
+Compiler analyzers must eventually account for references introduced through
+expanded syntax. Until that integration exists, a value referenced only inside
+a raw macro body can still receive an unused-value diagnostic even though the
+expansion binds and executes it.
 
 ## Responsiveness and isolation
 

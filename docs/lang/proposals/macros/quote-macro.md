@@ -1,9 +1,10 @@
 # Quote Macro
 
-> 🧩 In progress. The compiler-owned expression-only MVP is implemented.
+> 🧩 In progress. The compiler-owned expression quote and expression-hole MVPs
+> are implemented.
 >
 > Statement, member, declaration, compilation-unit, contextual-category, and
-> unquote/splice support remain proposed.
+> token/identifier/repetition splice support remain proposed.
 
 ## Summary
 
@@ -28,6 +29,27 @@ quoted syntax.
 This proposal is related to, but distinct from, `RavenQuoter`. `RavenQuoter` is
 a runtime/tooling API that accepts source text or an existing syntax node and
 prints factory-construction source. `#quote` is compile-time syntax capture.
+
+## Purpose and use cases
+
+`#quote` is Raven's syntax-literal facility: authors write a Raven fragment in
+its natural form and receive the syntax object representing that fragment.
+This is clearer and less error-prone than manually assembling a large
+`SyntaxFactory` graph, while preserving more structure than treating code as
+an opaque string.
+
+The primary users are:
+
+* procedural macros constructing an expansion from a mostly fixed Raven
+  template with a few dynamic syntax holes;
+* generators and source-transformation tools producing Raven syntax;
+* analyzers, refactorings, and code fixes that need replacement syntax; and
+* syntax-oriented tests that need a readable expected tree.
+
+`#quote` does not execute the quoted expression, capture its runtime values, or
+produce a semantically bound representation. It captures syntax. Name
+resolution and type checking occur only when the resulting syntax is inserted
+into a compilation and bound in that context.
 
 ## Implemented expression MVP
 
@@ -57,6 +79,35 @@ or declarations, or perform a separate bind-and-equivalence verification pass
 before substitution. The generated factory expression is parsed by the
 intrinsic and then goes through ordinary caller binding and emit.
 
+### Expression holes
+
+An expression quote can insert an existing `ExpressionSyntax` value with
+`#(expression)`:
+
+```raven
+let right = SyntaxFactory.IdentifierName("right")
+let syntax = #quote {
+    left + #(right)
+}
+```
+
+The `#` and `(` must be adjacent. The contents are one complete ordinary Raven
+expression, so a hole can contain a local reference, member access, invocation,
+or other expression. Multiple holes are allowed. The generated expansion uses
+the hole expression directly where an `ExpressionSyntax` is required, leaving
+ordinary binding to enforce the type contract.
+
+The intrinsic recognizes holes through its standard Raven token stream,
+balances nested parentheses, and replaces each hole with an equal-width
+parser-only placeholder. This keeps authored parser diagnostics correctly
+positioned without adding lexer tokens or changing ordinary Raven parsing.
+Malformed hole expressions forward native Raven diagnostics; an empty hole
+reports `QUOTE005`.
+
+Inserted syntax keeps its own tokens and trivia. Trivia between an internal
+hole and neighboring quoted tokens is retained on those quoted neighbors.
+Holes do not yet support token, identifier, list, or repeated insertion.
+
 ## Goals
 
 * Capture Raven syntax without first encoding it as a string.
@@ -66,7 +117,7 @@ intrinsic and then goes through ordinary caller binding and emit.
 * Verify the generated expansion before normal binding continues.
 * Infer or validate whether the fragment is an expression, statement,
   declaration, member, or compilation unit.
-* Provide a foundation for future unquote/splice support.
+* Support typed insertion without making splice markers ordinary Raven syntax.
 * Avoid requiring a separately distributed quote-macro plugin.
 
 ## Non-goals
@@ -76,8 +127,8 @@ intrinsic and then goes through ordinary caller binding and emit.
   parser API concern.
 * This proposal does not make `Raven.CodeAnalysis.Syntax` independently
   version-stable from the compiler.
-* Initial implementation does not include interpolation, unquoting, or
-  repetition.
+* Initial splicing does not include token, identifier, list, or repetition
+  categories.
 * The quote macro does not perform semantic validation of the quoted program.
   It validates syntax and the generated expansion.
 
@@ -267,21 +318,22 @@ Longer term, the shared implementation may be separated into:
 * Raven/C# source rendering for tooling; and
 * compiler expansion verification.
 
-## Future unquote and splice
+## Expression splice and future categories
 
-Once quoting is stable, Raven may add explicit insertion of values into quoted
-syntax:
+Expression quotes support explicit insertion of expression syntax:
 
 ```raven
-let name = SyntaxFactory.Identifier("Answer")
+let operand = SyntaxFactory.IdentifierName("answer")
 
-let member = #quote {
-    func #($name)() -> int => 42
+let expression = #quote {
+    #(operand) + 1
 }
 ```
 
-This requires typed splice categories, hygiene rules, repetition behavior,
-and source mapping. Those concerns are intentionally deferred.
+This first form accepts an ordinary Raven expression whose result must be
+convertible to `ExpressionSyntax`. Token, identifier, statement, member, list,
+and repetition splices still require explicit categories, hygiene rules, and
+source-mapping policy. Those concerns remain deferred.
 
 ## Implementation sequence
 
@@ -293,7 +345,8 @@ and source mapping. Those concerns are intentionally deferred.
 6. Add contextual category selection for statements and declarations.
 7. Add generated-expansion parsing, binding, and equivalence verification.
 8. Expose expansion through developer tooling and language-service features.
-9. Consider unquote/splice in a separate proposal.
+9. Add expression holes; consider the remaining typed splice categories in a
+   separate proposal.
 
 ## Open questions
 

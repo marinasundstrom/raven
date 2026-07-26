@@ -52,6 +52,134 @@ public sealed class QuoteMacroCodeGenTests
     }
 
     [Fact]
+    public void QuoteMacro_ExpressionSplice_InsertsSyntaxAtRuntime()
+    {
+        var result = InvokeRun("""
+            import System.*
+
+            class Harness {
+                public static func Run() -> string {
+                    let right = Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("right")
+                    let syntax = #quote {
+                        left + #(right)
+                    }
+
+                    return syntax.ToString()
+                }
+            }
+            """);
+
+        Assert.Equal("left + right", result);
+    }
+
+    [Fact]
+    public void QuoteMacro_ExpressionSplice_AcceptsAnOrdinaryRavenExpression()
+    {
+        var result = InvokeRun("""
+            import System.*
+
+            class Harness {
+                public static func Run() -> string {
+                    let syntax = #quote {
+                        left + #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("right"))
+                    }
+
+                    return syntax.ToString()
+                }
+            }
+            """);
+
+        Assert.Equal("left + right", result);
+    }
+
+    [Fact]
+    public void QuoteMacro_MultipleExpressionSplices_RemainDistinct()
+    {
+        var result = InvokeRun("""
+            import System.*
+
+            class Harness {
+                public static func Run() -> string {
+                    let middle = Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("middle")
+                    let right = Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("right")
+                    let syntax = #quote {
+                        left + #(middle) + #(right)
+                    }
+
+                    return syntax.ToString()
+                }
+            }
+            """);
+
+        Assert.Equal("left + middle + right", result);
+    }
+
+    [Fact]
+    public void QuoteMacro_MalformedExpressionSplice_ReportsNativeParserDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            func Main() -> unit {
+                let syntax = #quote {
+                    left + #(value.Equals(1, ))
+                }
+            }
+            """);
+
+        var compilation = CreateCompilation(syntaxTree, includeCodeAnalysisReference: true);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAV1525"));
+
+        Assert.Same(syntaxTree, diagnostic.Location.SourceTree);
+        Assert.Equal(")", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
+    }
+
+    [Fact]
+    public void QuoteMacro_NonSyntaxExpressionSplice_IsRejectedByOrdinaryBinding()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            func Main() -> unit {
+                let value = 42
+                let syntax = #quote {
+                    left + #(value)
+                }
+            }
+            """);
+
+        var compilation = CreateCompilation(syntaxTree, includeCodeAnalysisReference: true);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            static diagnostic =>
+                diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.GetMessage().Contains("ExpressionSyntax", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void QuoteMacro_EmptyExpressionSplice_ReportsQuoteDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            func Main() -> unit {
+                let syntax = #quote {
+                    left + #()
+                }
+            }
+            """);
+
+        var compilation = CreateCompilation(syntaxTree, includeCodeAnalysisReference: true);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
+
+        Assert.Contains(
+            "QUOTE005: Expression splice is incomplete.",
+            diagnostic.GetMessage(),
+            StringComparison.Ordinal);
+        Assert.Equal(
+            string.Empty,
+            syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
+    }
+
+    [Fact]
     public void QuoteMacro_MalformedExpression_ReportsNativeParserDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""

@@ -22,7 +22,7 @@ func Main() -> unit {
         select value * 10
     }
     val quoted = #quote {
-        answer + 1
+        #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("answer")) + 1
     }
 
     WriteLine(answer)
@@ -64,7 +64,8 @@ Current status:
   registration, preserves the quoted expression's tokens and trivia, and
   expands to ordinary fully qualified `SyntaxFactory` calls. The app project
   explicitly references `Raven.CodeAnalysis` because the result is a runtime
-  syntax object.
+  syntax object. Its hole inserts an `ExpressionSyntax` constructed by an
+  ordinary caller-bound Raven expression.
 
 Files:
 

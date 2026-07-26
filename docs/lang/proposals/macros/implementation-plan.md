@@ -404,7 +404,7 @@ are stable.
 
 ### Compiler-owned `#quote`
 
-Status: **expression MVP implemented**
+Status: **expression quote and expression-hole MVPs implemented**
 
 `#quote` is now a compiler-registered token-tree macro and needs no plugin
 reference. The first slice:
@@ -418,7 +418,13 @@ reference. The first slice:
 * [x] binds and emits the resulting syntax object through the ordinary pipeline
 * [x] reports the explicit `Raven.CodeAnalysis` runtime-reference requirement
 * [x] participates in macro-name completion without a plugin reference
+* [x] accepts one or more `#(expression)` holes whose values bind as
+  `ExpressionSyntax`
+* [x] preserves authored diagnostic positions with equal-width parser
+  placeholders instead of new lexer kinds
+* [x] forwards native parser diagnostics from malformed hole expressions and
+  reports empty holes explicitly
 
 Later slices add contextual category selection, statement/member/declaration
 fragment parsers, compiler-owned bind/equivalence verification, SDK reference
-convenience, and unquote/splice.
+convenience, and token/identifier/list/repetition splice categories.
