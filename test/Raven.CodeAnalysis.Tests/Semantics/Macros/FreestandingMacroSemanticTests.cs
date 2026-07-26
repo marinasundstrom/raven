@@ -228,6 +228,44 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Contains("requires a token-tree body", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TokenTreeMacro_DefaultStreamAppliesMacroLocalKeywordOverlay()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #keywordStream {
+                select value
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenStreamMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void TokenTreeMacro_CanReplaceDefaultStreamWithCustomProvider()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #customStream {
+                ⟨custom-value⟩
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenStreamMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
     public sealed class TokenTreeMacroPlugin : IRavenMacroPlugin
     {
         public string Name => nameof(TokenTreeMacroPlugin);
@@ -287,6 +325,107 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                         "invalid DSL token")
                 ]
             };
+        }
+    }
+
+    public sealed class TokenStreamMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(TokenStreamMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new KeywordStreamMacro(), new CustomStreamMacro()];
+    }
+
+    public sealed class KeywordStreamMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    {
+        private const int SelectKeywordRawKind = 80_001;
+
+        public string Name => "keywordStream";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public ImmutableArray<MacroKeyword> Keywords =>
+        [
+            new("select", SelectKeywordRawKind)
+        ];
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var stream = context.CreateTokenStream();
+            var select = stream.ReadToken();
+            var value = stream.ReadToken();
+
+            var isValid =
+                select.Kind == SyntaxKind.IdentifierToken &&
+                select.RawKind == SelectKeywordRawKind &&
+                select.SpanStart == context.GetBodyText().IndexOf("select", StringComparison.Ordinal) &&
+                value.Kind == SyntaxKind.IdentifierToken &&
+                value.RawKind == (int)SyntaxKind.IdentifierToken &&
+                stream.IsEndOfFile;
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = ParseExpression(isValid ? "42" : "0")
+            };
+        }
+    }
+
+    public sealed class CustomStreamMacro : ITokenTreeExpressionMacro, IMacroTokenStreamProvider
+    {
+        private const int CustomValueRawKind = 80_002;
+
+        public string Name => "customStream";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public IMacroTokenStream CreateTokenStream(MacroTokenStreamContext context)
+            => new SingleCustomTokenStream(context, CustomValueRawKind);
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var stream = context.CreateTokenStream();
+            var token = stream.ReadToken();
+            var isValid =
+                token.Kind == SyntaxKind.None &&
+                token.RawKind == CustomValueRawKind &&
+                token.Text == "⟨custom-value⟩" &&
+                token.SpanStart == context.GetBodyText().IndexOf("⟨custom-value⟩", StringComparison.Ordinal) &&
+                stream.IsEndOfFile;
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = ParseExpression(isValid ? "42" : "0")
+            };
+        }
+    }
+
+    private sealed class SingleCustomTokenStream : IMacroTokenStream
+    {
+        private readonly SyntaxToken _token;
+        private bool _hasRead;
+
+        public SingleCustomTokenStream(MacroTokenStreamContext context, int rawKind)
+        {
+            var text = context.BodyText.Trim();
+            var position = context.BodyText.IndexOf(text, StringComparison.Ordinal);
+            _token = SyntaxFactory.Token(rawKind, text, position);
+        }
+
+        public bool IsEndOfFile => _hasRead;
+
+        public SyntaxToken PeekToken(int offset = 0)
+        {
+            if (offset != 0 || _hasRead)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+
+            return _token;
+        }
+
+        public SyntaxToken ReadToken()
+        {
+            if (_hasRead)
+                throw new InvalidOperationException("The custom token stream has been consumed.");
+
+            _hasRead = true;
+            return _token;
         }
     }
 

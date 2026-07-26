@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Threading;
 
 using Raven.CodeAnalysis.Syntax;
@@ -8,11 +9,50 @@ namespace Raven.CodeAnalysis.Macros;
 
 public sealed class TokenTreeMacroContext
 {
+    private readonly IMacroTokenStreamProvider? _tokenStreamProvider;
+    private readonly ImmutableArray<MacroKeyword> _keywords;
+
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         FreestandingMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
+        : this(
+            compilation,
+            semanticModel,
+            syntax,
+            tokenStreamProvider: null,
+            keywords: ImmutableArray<MacroKeyword>.Empty,
+            cancellationToken)
+    {
+    }
+
+    internal TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax syntax,
+        ITokenTreeExpressionMacro macro,
+        CancellationToken cancellationToken = default)
+        : this(
+            compilation,
+            semanticModel,
+            syntax,
+            macro as IMacroTokenStreamProvider,
+            macro is IMacroKeywordProvider keywordProvider
+                ? keywordProvider.Keywords
+                : ImmutableArray<MacroKeyword>.Empty,
+            cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+    }
+
+    private TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax syntax,
+        IMacroTokenStreamProvider? tokenStreamProvider,
+        ImmutableArray<MacroKeyword> keywords,
+        CancellationToken cancellationToken)
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
@@ -20,6 +60,8 @@ public sealed class TokenTreeMacroContext
         TokenTree = syntax.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(syntax));
+        _tokenStreamProvider = tokenStreamProvider;
+        _keywords = keywords.IsDefault ? ImmutableArray<MacroKeyword>.Empty : keywords;
         CancellationToken = cancellationToken;
     }
 
@@ -41,6 +83,21 @@ public sealed class TokenTreeMacroContext
 
     public string GetBodyText()
         => TokenTree.OpenBraceToken.TrailingTrivia + TokenTree.BodyToken.Text;
+
+    public IMacroTokenStream CreateTokenStream()
+    {
+        var context = new MacroTokenStreamContext(
+            GetBodyText(),
+            BodySpan,
+            Syntax.SyntaxTree?.Options ?? new ParseOptions(),
+            CancellationToken);
+
+        if (_tokenStreamProvider is null)
+            return new RavenMacroTokenStream(context, _keywords);
+
+        return _tokenStreamProvider.CreateTokenStream(context)
+            ?? throw new InvalidOperationException("The macro token-stream provider returned null.");
+    }
 
     public ExpressionSyntax ParseExpression()
         => ParseExpression(new TextSpan(0, BodySpan.Length));

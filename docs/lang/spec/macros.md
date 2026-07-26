@@ -86,6 +86,27 @@ macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
 tree is derived from that body and remains scoped to the macro invocation.
 Macro-local token kinds do not alter ordinary Raven lexing or `SyntaxKind`.
 
+### Token streams
+
+`TokenTreeMacroContext.CreateTokenStream()` returns the stream selected for the
+resolved macro. Streams implement `IMacroTokenStream` and emit `SyntaxToken`
+values with body-relative positions.
+
+By default, Raven uses its normal lexer over the macro body. A macro can
+implement `IMacroKeywordProvider` to reclassify selected identifier text with a
+provider-owned `RawKind` and keyword or reserved-word metadata. The token keeps
+its ordinary Raven `IdentifierToken` kind, so the overlay does not change
+normal Raven grammar or lexing.
+
+A macro with a genuinely different lexical grammar can implement
+`IMacroTokenStreamProvider`. The compiler discovers that capability with the
+macro definition and uses the returned custom stream instead of the default
+Raven-backed stream. Fully custom tokens may use `SyntaxKind.None` plus their
+provider-owned raw kind.
+
+Equal raw-kind integers from different macro providers do not imply equal token
+kinds. The provider owns their meaning.
+
 ## Placement rules
 
 Macro attributes follow the same placement rules as declaration attributes:

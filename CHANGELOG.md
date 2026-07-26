@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added `SyntaxToken.RawKind`, macro-local token reclassification through
   `WithRawKind`, and detached custom-token construction without changing
   ordinary Raven `SyntaxKind` classification or lexing.
+- Added replaceable macro token streams that emit `SyntaxToken`, including a
+  default Raven-lexer-backed stream, macro-local keyword/reserved-word overlays,
+  and compiler-discovered custom stream providers for DSL-specific lexers.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

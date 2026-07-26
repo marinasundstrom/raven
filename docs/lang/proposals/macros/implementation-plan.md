@@ -70,6 +70,33 @@ Validation record for this slice:
 * `Raven.LanguageServer` project build: passed
 * focused macro expansion language-server tests: 10 passed
 
+## Active slice: replaceable macro token streams
+
+Status: **implemented and validated**
+
+This slice turns the token-stream developer-experience design into public
+compiler contracts:
+
+* [x] add a common `IMacroTokenStream` whose output primitive is `SyntaxToken`
+* [x] add compiler-discovered `IMacroTokenStreamProvider` capability hooks
+* [x] add a default stream backed by Raven's normal lexer
+* [x] add macro-local keyword and reserved-word overlays through
+  `IMacroKeywordProvider`
+* [x] preserve ordinary Raven `SyntaxKind` while exposing provider-owned
+  `RawKind`
+* [x] allow a macro to replace the default stream with a custom lexer-backed
+  implementation
+* [x] keep token positions body-relative while retaining the authored
+  `BodySpan` for document mapping
+* [x] add focused default-overlay and custom-provider tests
+* [x] update the language specification and changelog
+* [x] pass the complete macro feature suite
+
+Validation record for this slice:
+
+* `scripts/test-feature-suite.sh macros`: 41 passed
+* focused default-overlay and custom-provider tests: 2 passed
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:
@@ -94,10 +121,10 @@ Keep these true as new DSL cases are added:
 
 ### Custom DSL tokenization
 
-Define a replaceable token-stream contract. Raven supplies the default stream
-using its normal lexer over the authored macro body; a macro may provide a
-custom stream implementation backed by its own lexer. Parsers consume the same
-stream interface in either case.
+The initial replaceable token-stream contract is implemented. Raven supplies
+the default stream using its normal lexer over the authored macro body; a macro
+may provide a custom stream implementation backed by its own lexer. Parsers
+consume the same stream interface in either case.
 
 The ordinary extension case is a macro-local keyword overlay, not a new Raven
 token kind. The standard stream first applies Raven lexing, then reclassifies
@@ -107,21 +134,18 @@ must not change `SyntaxKind`, `SyntaxFacts`, or lexing in ordinary Raven source.
 A fully custom lexer is reserved for DSLs with a genuinely different lexical
 grammar.
 
-Each stream token contains:
+Each stream token carries:
 
 * a provider-owned integer `RawKind`
 * body-relative span
 * raw text and optional decoded value
-* classification such as keyword, reserved word, identifier, literal,
-  operator, punctuation, or comment
 
-The stream owns the mapping from `RawKind` to kind names and editor
-classifications, avoiding semantic collisions between independent DSLs that use
-the same integer. `SyntaxToken.RawKind` provides the equivalent projection for
-ordinary Raven tokens. Before allowing custom tokens to instantiate
-`SyntaxToken`, audit green-tree, formatter, visitor, and serialization paths
-that currently assume every token kind is a valid `SyntaxKind`; a separate
-compatible macro-token value is preferable if those invariants should remain.
+The provider owns the mapping from `RawKind` to kind names and future editor
+classifications such as keyword, reserved word, identifier, literal, operator,
+punctuation, or comment. This avoids semantic collisions between independent
+DSLs that use the same integer. `SyntaxToken.RawKind` provides the equivalent
+projection for ordinary Raven tokens. Custom tokens remain a stream-level
+primitive and are not inserted into ordinary Raven green trees.
 
 The compiler should cache default or custom lexer results per macro body,
 stream provider, and plugin identity. The initial token-tree expansion contract

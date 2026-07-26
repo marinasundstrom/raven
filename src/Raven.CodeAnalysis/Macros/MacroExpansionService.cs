@@ -114,6 +114,7 @@ internal static class MacroExpansionService
                     compilation,
                     semanticModel,
                     expression,
+                    tokenTreeMacro,
                     cancellationToken);
                 result = tokenTreeMacro.Expand(context) ?? FreestandingMacroExpansionResult.Empty;
             }
