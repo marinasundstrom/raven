@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Documented the typestate pattern with phantom marker types, a state-erased
+  base class, and state-specific extensions, and added a runnable Playground
+  connection-lifecycle example.
 - Changed `RavenQuoter` to emit Raven `SyntaxFactory` construction code by
   default, with explicit C# output available through `RavenQuoterOptions`.
 - Added a Raven-themed DocFX site with a dedicated carousel of language samples,

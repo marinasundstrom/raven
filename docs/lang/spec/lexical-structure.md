@@ -22,6 +22,11 @@ characters may also include decimal digits, connector punctuation (such as
 support so Raven source can interoperate with existing APIs. Reserved keywords
 cannot be used as identifiers.
 
+Identifiers are case-sensitive. `connection`, `Connection`, and `CONNECTION`
+name three different symbols. Keyword recognition is likewise based on the
+keyword's exact spelling, so the type name `Open` is distinct from the lowercase
+contextual keyword `open`.
+
 ### Keyword summary
 
 The lexer defines the complete keyword set in

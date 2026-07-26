@@ -25,6 +25,11 @@
     "file": "greenhouse-monitoring.rvn"
   },
   {
+    "id": "connection-typestate",
+    "title": "State-safe connections with typestate",
+    "file": "connection-typestate.rvn"
+  },
+  {
     "id": "shipment-lookup",
     "title": "Shipment migration with type unions",
     "file": "shipment-lookup.rvn"

@@ -1,0 +1,48 @@
+import System.Console.*
+import ClosedConnection.*
+import OpenConnection.*
+
+class Closed
+class Open
+
+open class Connection(private val address: string) {
+    internal val Address: string => address
+}
+
+class Connection<State> : Connection {
+    internal init(address: string) : base(address) {}
+}
+
+func Connect(address: string) -> Connection<Closed> {
+    return Connection<Closed>(address)
+}
+
+func Describe(connection: Connection) -> string {
+    return "Connection to ${connection.Address}"
+}
+
+extension ClosedConnection for Connection<Closed> {
+    func Open() -> Connection<Open> {
+        WriteLine("Opening ${self.Address}")
+        return Connection<Open>(self.Address)
+    }
+}
+
+extension OpenConnection for Connection<Open> {
+    func Send(message: string) {
+        WriteLine("Sending '$message' to ${self.Address}")
+    }
+
+    func Close() -> Connection<Closed> {
+        WriteLine("Closing ${self.Address}")
+        return Connection<Closed>(self.Address)
+    }
+}
+
+let closed = Connect("example.test:443")
+WriteLine(Describe(closed))
+
+let opened: Connection<Open> = closed.Open()
+opened.Send("hello")
+let closedAgain: Connection<Closed> = opened.Close()
+WriteLine(Describe(closedAgain))

@@ -18,6 +18,13 @@ The usual starting point is:
 These are guidelines rather than architectural restrictions. A Raven application
 can use all of them and still have a coherent model.
 
+This guide deliberately uses established domain-modeling and design-pattern
+names. Raven should help developers recognize a recurring problem, learn the
+name used to discuss it, see the Raven shape, and run a corresponding sample.
+Patterns are vocabulary and starting points rather than mandatory architecture.
+Substantial additions to this guide should normally include a focused Playground
+example that demonstrates the pattern in working code.
+
 Plain functions can be declared directly; they do not require a static utility
 class. Likewise, an application can use top-level statements or a plain `Main`
 function without introducing a `Program` class.
@@ -138,7 +145,9 @@ Use a record when structural value equality is part of the concept.
 ## Make valid states explicit
 
 Use a union when the domain has a closed set of meaningful alternatives,
-especially when different alternatives carry different data.
+especially when different alternatives carry different data. This is Raven's
+direct form of an **algebraic data type (ADT)**: the union is a sum of its cases,
+and each case payload is a product of its fields.
 
 ```raven
 union GreenhouseStatus {
@@ -166,6 +175,117 @@ Use an enum when cases are simple named constants without case-specific data.
 Use an open class or interface hierarchy when third parties must add new cases.
 This approach is also described as **making illegal states unrepresentable**:
 the model has no case for combinations the domain does not permit.
+
+When the alternatives need their own implementations, inheritance, or
+interface contracts, use a sealed class or interface hierarchy. Raven refers to
+that object-oriented closed-family form as a **generalized data type (GDT)**.
+Like a union ADT, a GDT has a compiler-known set of direct alternatives and can
+be matched exhaustively; unlike a union, its alternatives are ordinary named
+.NET types with hierarchy semantics.
+
+```raven
+sealed interface DeliveryMethod
+
+record class Pickup(Store: string) : DeliveryMethod
+record class Courier(Driver: string, Window: string) : DeliveryMethod
+
+func Describe(method: DeliveryMethod) -> string {
+    return method match {
+        Pickup(let store) => "Collect at $store"
+        Courier(let driver, let window) => "$driver arrives $window"
+    }
+}
+```
+
+Choose an ADT union when explicit cases and payload-oriented matching are the
+center of the model. Choose a GDT sealed hierarchy when each alternative
+benefits from its own type identity, implementation, or inherited contract.
+
+### Expose operations only in valid states
+
+When an object's valid operations depend on its lifecycle, the **typestate
+pattern** can encode that state in its type. Empty state types such as `Closed`
+and `Open` are commonly called **marker types**. The state parameter is a
+**phantom type parameter** when it contributes to the connection's type but is
+not stored as instance data.
+
+A non-generic base provides a state-erased view for operations that work with
+every connection. Generic derived connections retain the state where it
+matters:
+
+```raven
+import ClosedConnection.*
+import OpenConnection.*
+
+class Closed
+class Open
+
+open class Connection(private val address: string) {
+    internal val Address: string => address
+}
+
+class Connection<State> : Connection {
+    internal init(address: string) : base(address) {}
+}
+
+func Connect(address: string) -> Connection<Closed> {
+    return Connection<Closed>(address)
+}
+
+func Describe(connection: Connection) -> string {
+    return "Connection to ${connection.Address}"
+}
+
+extension ClosedConnection for Connection<Closed> {
+    func Open() -> Connection<Open> {
+        Console.WriteLine("Opening ${self.Address}")
+        return Connection<Open>(self.Address)
+    }
+}
+
+extension OpenConnection for Connection<Open> {
+    func Send(message: string) {
+        Console.WriteLine("Sending '$message' to ${self.Address}")
+    }
+
+    func Close() -> Connection<Closed> {
+        Console.WriteLine("Closing ${self.Address}")
+        return Connection<Closed>(self.Address)
+    }
+}
+
+let closed = Connect("example.test:443")
+Console.WriteLine(Describe(closed))
+
+let opened: Connection<Open> = closed.Open()
+opened.Send("hello")
+let closedAgain: Connection<Closed> = opened.Close()
+Console.WriteLine(Describe(closedAgain))
+```
+
+`Describe` accepts the non-generic `Connection` because it does not depend on
+the state. `Send` is available on `Connection<Open>` but not on
+`Connection<Closed>`, while only a closed connection offers `Open`. The
+extensions provide state-specific public vocabulary, and the class hierarchy
+exposes only the narrow internal constructor and address surface needed to
+perform transitions.
+
+This pattern is useful in Raven: it improves API discovery, prevents many
+invalid calls, and separates state-independent from state-dependent operations.
+It resembles the pattern used with Rust marker types and specialized `impl`
+blocks, but the two versions do not have identical power. Raven extensions are
+not privileged partial definitions; they do not reopen a class or gain access
+to its private representation. Members needed by an extension must therefore
+be exposed at least within the assembly, as in this example. A future
+trait-oriented design may offer a more direct way to associate capabilities
+with a type and state.
+
+The .NET object model also does not give a transition Rust-style move semantics.
+Calling `Open` returns a new typed handle but does not make every alias of the
+old `Connection<Closed>` value unusable. Typestate still provides meaningful
+compile-time guidance and sequencing, but a real socket or other stateful
+resource must enforce its lifecycle at runtime when aliases or concurrent
+access are possible.
 
 ## Keep rules as functions
 
@@ -312,6 +432,7 @@ allowed mutation.
 | Validated primitive with its own identity | Record with a restricted constructor and factory function |
 | Closed set of states with case-specific data | `union` |
 | Simple closed set of named constants | `enum` |
+| Closed object-oriented family with distinct implementations | Sealed class or interface hierarchy |
 | Stateless rule or transformation | Plain function |
 | One-operation dependency | Function parameter |
 | Entity with stable identity | `class` or `record class` |

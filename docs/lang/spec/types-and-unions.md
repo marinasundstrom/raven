@@ -419,18 +419,19 @@ makes exhaustive matching possible.
 
 Raven has three primary ways to model a finite, closed set of alternatives:
 
-1. **Unions** (`union`)
+1. **Algebraic data types (ADTs)** expressed as unions (`union`)
 2. **Enums** (`enum`)
-3. **Sealed hierarchies** (`sealed class` / `sealed record class`)
+3. **Generalized data types (GDTs)** expressed as sealed class or interface
+   hierarchies
 
 Each can participate in exhaustiveness analysis for `match`, and each represents
 a known closed shape at compile time. The key difference is modeling style:
 
 | Use this | When you need |
 | --- | --- |
-| `union` | Algebraic data modeling with explicit case payloads, carrier-based construction/extraction (`Ok(...)`, `.Ok(...)`, `TryGetValue`), and closed alternatives. |
+| `union` ADT | Algebraic data modeling with explicit case payloads, carrier-based construction/extraction (`Ok(...)`, `.Ok(...)`, `TryGetValue`), and closed alternatives. |
 | `enum` | Named constants over a single integral value domain, numeric interop, flags-style values, or compact status codes with no case payloads. |
-| `sealed` hierarchy | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, and class hierarchy semantics. |
+| sealed-hierarchy GDT | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, ordinary named case types, and class or interface hierarchy semantics. |
 
 #### Choosing between them
 
