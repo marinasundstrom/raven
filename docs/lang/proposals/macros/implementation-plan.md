@@ -176,6 +176,47 @@ This remains intentionally structure-free. It establishes the clause and
 fragment mechanics needed before attempting a LINQ-like sequence of
 `from`/`where`/`select` clauses.
 
+## Active slice: LINQ-like query MVP
+
+Status: **implemented and validated**
+
+The first query-shaped macro supports one range variable, an optional filter,
+and one projection:
+
+```raven
+let result = #query {
+    from value in values
+    where value > 2
+    select value * 10
+}
+```
+
+* [x] recognize macro-local `from` and `select` reserved words
+* [x] reuse Raven's existing `in` and `where` tokens
+* [x] parse the source, optional predicate, and projection as Raven fragments
+* [x] create `Where` and `Select` lambdas using the authored range variable
+* [x] lower directly to ordinary invocation syntax
+* [x] support the query form without `where`
+* [x] verify the range variable shadows an outer name only inside generated
+  lambdas
+* [x] report a body-mapped diagnostic when `select` is missing
+* [x] run the Raven-authored sample through emit and execution
+* [x] add focused runtime and diagnostic coverage
+* [x] pass the complete fast macro feature suite
+
+Validation record for this slice:
+
+* Raven-authored macro project build: passed
+* sample application runtime output: `42`, `False`, `correct`, `70`
+* focused `QueryMacroCodeGenTests`: 3 passed
+* `scripts/test-feature-suite.sh macros`: 41 passed
+
+The MVP generates no hidden temporary identifiers: the only introduced binding
+is the explicitly authored range variable used as each lambda parameter. This
+keeps the initial hygiene story observable and deterministic. Repeated
+generators, joins, ordering, continuation clauses, and retained query structure
+remain later slices.
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:

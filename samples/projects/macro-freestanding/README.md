@@ -16,10 +16,16 @@ func Main() -> unit {
         then "correct"
         otherwise "wrong"
     }
+    val queryResult = #query {
+        from value in [1, 2, 3, 4]
+        where value > 2
+        select value * 10
+    }
 
     WriteLine(answer)
     WriteLine(shouldRetry)
     WriteLine(verdict)
+    WriteLine(queryResult.Sum())
 }
 ```
 
@@ -40,6 +46,13 @@ Current status:
   `otherwise` as macro-local reserved words, parses the text between them as
   three independent Raven expressions, and lowers directly to an ordinary
   Raven `if` expression.
+- `#query` is the first LINQ-like MVP. It supports one `from` clause, an
+  optional `where`, and one `select`. The authored range variable becomes the
+  parameter of generated `Where` and `Select` lambdas, while the source,
+  predicate, and projection remain independently parsed Raven expressions.
+- The query MVP generates no hidden temporary names and retains no custom DSL
+  tree. Additional generators, repeated clauses, ordering, joins, and editor
+  services remain future work.
 
 Files:
 
@@ -70,4 +83,5 @@ Expected output:
 42
 False
 correct
+70
 ```

@@ -10,8 +10,14 @@ func Main() -> unit {
         then "correct"
         otherwise "wrong"
     }
+    let queryResult = #query {
+        from value in [1, 2, 3, 4]
+        where value > 2
+        select value * 10
+    }
 
     WriteLine(answer)
     WriteLine(shouldRetry)
     WriteLine(verdict)
+    WriteLine(queryResult.Sum())
 }

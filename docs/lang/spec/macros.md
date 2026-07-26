@@ -128,6 +128,22 @@ macro-reserved clause words, parses the text between them as three Raven
 expressions, and lowers them directly to an ordinary `if` expression. Clause
 words are not added to Raven's global keyword set.
 
+The initial LINQ-like sample supports:
+
+```raven
+let result = #query {
+    from item in source
+    where item.IsActive
+    select item.Name
+}
+```
+
+It lowers directly to `source.Where(item => item.IsActive).Select(item =>
+item.Name)`. The `where` clause is optional. The authored range variable is
+used as the generated lambda parameter; the macro does not introduce hidden
+temporary names. This sample shape is not part of Raven's ordinary grammar and
+does not add `from` or `select` to the global keyword set.
+
 ## Placement rules
 
 Macro attributes follow the same placement rules as declaration attributes:

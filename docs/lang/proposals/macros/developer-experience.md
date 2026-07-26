@@ -149,6 +149,21 @@ positions define three Raven fragment spans, which are parsed independently
 and lowered to one ordinary `if` expression. A LINQ-like DSL follows the same
 basic approach with more clause kinds and repeated clauses.
 
+The first LINQ-like MVP applies that model directly:
+
+```raven
+let result = #query {
+    from item in source
+    where item.IsActive
+    select item.Name
+}
+```
+
+The source, predicate, and projection are Raven fragments. The authored `item`
+name becomes the parameter of ordinary generated `Where` and `Select` lambdas,
+so it scopes over the predicate and projection without leaking outside the
+expansion. No hidden macro-generated name is needed in this subset.
+
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
 

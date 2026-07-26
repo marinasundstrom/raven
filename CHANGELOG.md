@@ -22,6 +22,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `#choose { test ... then ... otherwise ... }`, demonstrating multiple
   macro-local clauses, independently parsed Raven fragments, body-mapped
   missing-clause diagnostics, and direct lowering to an `if` expression.
+- Added a minimal LINQ-like `#query` macro sample with one `from`, optional
+  `where`, and one `select` clause, directly lowering caller-scoped Raven
+  fragments to ordinary `Where`/`Select` calls and authored range-variable
+  lambdas.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

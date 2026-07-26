@@ -8,7 +8,7 @@ class FreestandingMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Freestanding"
 
     func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [AddMacro(), GuardMacro(), ChooseMacro()]
+        => [AddMacro(), GuardMacro(), ChooseMacro(), QueryMacro()]
 }
 
 class AddMacro : IFreestandingExpressionMacro {
@@ -163,6 +163,149 @@ class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
         FreestandingMacroExpansionResult {
             MacroDiagnostics = [
                 context.CreateBodyDiagnostic(span, message, code: "CHOOSE001")
+            ]
+        }
+    }
+}
+
+class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
+    static val FromKeywordRawKind: int => 80005
+    static val SelectKeywordRawKind: int => 80006
+
+    val Name: string => "query"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
+    val Targets: MacroTarget => MacroTarget.None
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [
+            MacroKeyword("from", FromKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("select", SelectKeywordRawKind, MacroKeywordClassification.ReservedWord)
+        ]
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+
+        if stream.IsEndOfFile {
+            return Error(context, TextSpan(0, 0), "Expected a 'from' clause.")
+        }
+
+        let fromKeyword = stream.ReadToken()
+        if fromKeyword.RawKind != FromKeywordRawKind {
+            return Error(context, fromKeyword.Span, "Expected the 'from' keyword.")
+        }
+
+        if stream.IsEndOfFile {
+            return Error(context, fromKeyword.Span, "Expected a range variable after 'from'.")
+        }
+
+        let rangeVariable = stream.ReadToken()
+        if rangeVariable.Kind != SyntaxKind.IdentifierToken {
+            return Error(context, rangeVariable.Span, "Expected a range-variable identifier.")
+        }
+
+        if stream.IsEndOfFile {
+            return Error(context, rangeVariable.Span, "Expected 'in' after the range variable.")
+        }
+
+        let inKeyword = stream.ReadToken()
+        if inKeyword.Kind != SyntaxKind.InKeyword {
+            return Error(context, inKeyword.Span, "Expected the 'in' keyword.")
+        }
+
+        var whereKeyword = inKeyword
+        var selectKeyword = inKeyword
+
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+
+            if token.RawKind == SelectKeywordRawKind {
+                selectKeyword = token
+                break
+            }
+
+            if token.Kind == SyntaxKind.WhereKeyword && whereKeyword.Kind != SyntaxKind.WhereKeyword {
+                whereKeyword = token
+            }
+        }
+
+        if selectKeyword.RawKind != SelectKeywordRawKind {
+            let diagnosticToken = if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+                whereKeyword
+            } else {
+                inKeyword
+            }
+            return Error(context, diagnosticToken.Span, "Expected a 'select' clause.")
+        }
+
+        let sourceEnd = if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+            whereKeyword.SpanStart
+        } else {
+            selectKeyword.SpanStart
+        }
+
+        let source = context.ParseExpression(
+            TextSpan.FromBounds(inKeyword.Span.End, sourceEnd))
+        var query: ExpressionSyntax = source
+
+        if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+            let predicate = context.ParseExpression(
+                TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart))
+            query = InvokeQueryOperator(
+                query,
+                "Where",
+                CreateLambda(rangeVariable.ValueText, predicate))
+        }
+
+        let selector = context.ParseExpression(
+            TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length))
+        query = InvokeQueryOperator(
+            query,
+            "Select",
+            CreateLambda(rangeVariable.ValueText, selector))
+
+        FreestandingMacroExpansionResult {
+            Expression = query
+        }
+    }
+
+    static func CreateLambda(parameterName: string, expression: ExpressionSyntax) -> ExpressionSyntax {
+        SimpleFunctionExpression(
+            Token(SyntaxKind.None),
+            Token(SyntaxKind.None),
+            Token(SyntaxKind.None),
+            Parameter(
+                List<AttributeListSyntax>(),
+                Identifier(parameterName)),
+            null,
+            null,
+            ArrowExpressionClause(expression))
+    }
+
+    static func InvokeQueryOperator(
+        source: ExpressionSyntax,
+        methodName: string,
+        argument: ExpressionSyntax
+    ) -> ExpressionSyntax {
+        InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                source,
+                DotToken,
+                IdentifierName(methodName)),
+            ArgumentList(
+                SeparatedList<ArgumentSyntax>([
+                    SyntaxNodeOrToken(Argument(argument))
+                ])))
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
+            MacroDiagnostics = [
+                context.CreateBodyDiagnostic(span, message, code: "QUERY001")
             ]
         }
     }
