@@ -119,6 +119,17 @@ export function clearSharedSource() {
   window.history.replaceState(null, "", url);
 }
 
+export function getThemeMode() {
+  return localStorage.getItem("raven-theme") ?? "system";
+}
+
+export function setThemeMode(mode) {
+  const normalized = ["system", "light", "dark"].includes(mode) ? mode : "system";
+  localStorage.setItem("raven-theme", normalized);
+  document.documentElement.dataset.theme = normalized;
+  window.dispatchEvent(new CustomEvent("raven-theme-change", { detail: normalized }));
+}
+
 const completionKinds = {
   class: monaco.languages.CompletionItemKind.Class,
   constructor: monaco.languages.CompletionItemKind.Constructor,
@@ -145,9 +156,70 @@ function toSnippetText(insertText, cursorOffset) {
   return `${escapeSnippet(insertText.slice(0, cursorOffset))}$0${escapeSnippet(insertText.slice(cursorOffset))}`;
 }
 
+function registerRavenThemes() {
+  const tokenRules = isDark => [
+    { token: "comment", foreground: isDark ? "9590A3" : "6E6878", fontStyle: "italic" },
+    { token: "string", foreground: isDark ? "76D6DF" : "0A7B83" },
+    { token: "number", foreground: isDark ? "FFAD79" : "B34B14" },
+    { token: "constant", foreground: isDark ? "FFAD79" : "B34B14" },
+    { token: "keyword", foreground: isDark ? "C7A7FF" : "7447D8", fontStyle: "bold" },
+    { token: "type", foreground: isDark ? "76D6DF" : "188D98" },
+    { token: "function", foreground: isDark ? "D9C8FF" : "5D32BD" },
+    { token: "parameter", foreground: isDark ? "F2EDF7" : "292334" },
+    { token: "operator", foreground: isDark ? "AAA1B5" : "756D80" },
+    { token: "invalid", foreground: isDark ? "FF8992" : "BF4B56" },
+  ];
+
+  monaco.editor.defineTheme("raven-light", {
+    base: "vs",
+    inherit: true,
+    rules: tokenRules(false),
+    colors: {
+      "editor.background": "#FFFFFF",
+      "editor.foreground": "#292334",
+      "editor.lineHighlightBackground": "#F2EFF7",
+      "editorLineNumber.foreground": "#9B93A5",
+      "editorLineNumber.activeForeground": "#7447D8",
+      "editor.selectionBackground": "#DCCFFD",
+      "editorCursor.foreground": "#7447D8",
+      "editorSuggestWidget.background": "#FFFFFF",
+      "editorSuggestWidget.border": "#E4DEEB",
+      "editorSuggestWidget.selectedBackground": "#EEE8FB",
+    },
+  });
+  monaco.editor.defineTheme("raven-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: tokenRules(true),
+    colors: {
+      "editor.background": "#19161F",
+      "editor.foreground": "#F2EDF7",
+      "editor.lineHighlightBackground": "#221E2A",
+      "editorLineNumber.foreground": "#777080",
+      "editorLineNumber.activeForeground": "#AF91FF",
+      "editor.selectionBackground": "#493A69",
+      "editorCursor.foreground": "#AF91FF",
+      "editorSuggestWidget.background": "#221E2A",
+      "editorSuggestWidget.border": "#37303F",
+      "editorSuggestWidget.selectedBackground": "#2B2340",
+    },
+  });
+}
+
 export async function createEditor(element, value, commandTarget) {
   registrationPromise ??= registerRavenLanguage();
   await registrationPromise;
+  registerRavenThemes();
+  const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+  const isDarkTheme = () => {
+    const mode = document.documentElement.dataset.theme ?? "system";
+    return mode === "dark" || (mode === "system" && colorScheme.matches);
+  };
+  const applyTheme = () =>
+    monaco.editor.setTheme(isDarkTheme() ? "raven-dark" : "raven-light");
+  applyTheme();
+  colorScheme.addEventListener("change", applyTheme);
+  window.addEventListener("raven-theme-change", applyTheme);
 
   const model = monaco.editor.createModel(
     value,
@@ -167,7 +239,7 @@ export async function createEditor(element, value, commandTarget) {
     scrollBeyondLastLine: false,
     suggestOnTriggerCharacters: false,
     tabSize: 4,
-    theme: "vs-dark",
+    theme: isDarkTheme() ? "raven-dark" : "raven-light",
   });
   const completionProvider = monaco.languages.registerCompletionItemProvider("raven", {
     provideCompletionItems: async (completionModel, position, _context, cancellationToken) => {
@@ -241,6 +313,8 @@ export async function createEditor(element, value, commandTarget) {
       clearTimeout(completionTimer);
       completionTrigger.dispose();
       completionProvider.dispose();
+      colorScheme.removeEventListener("change", applyTheme);
+      window.removeEventListener("raven-theme-change", applyTheme);
       editor.dispose();
       model.dispose();
     },

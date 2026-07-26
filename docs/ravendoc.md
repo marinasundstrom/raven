@@ -165,6 +165,14 @@ presentation with light and dark color schemes. Fenced `raven`, `rvn`, and
 asset, so published sites do not require a CDN. Extraction, symbol routing,
 Markdown rendering, and page chrome should remain separate concerns.
 
+RavenDoc and the browser Playground consume the same foundational Raven theme:
+color tokens, typography, surfaces, borders, radii, shadows, and the Raven
+brand mark. Each tool composes those primitives for its own purpose rather than
+sharing one rigid page layout. This keeps reference reading and interactive
+coding distinct while making movement between them feel continuous. RavenDoc
+follows the system color scheme; the Playground additionally offers a
+persistent System, Light, or Dark selector that also controls its editor.
+
 A future rendering layer should introduce templates and theme customization at
 the page-chrome boundary. Templates should receive the Raven documentation
 model and resolved symbol navigation; they should not need to parse source,

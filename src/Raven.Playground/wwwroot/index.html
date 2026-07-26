@@ -4,11 +4,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#11130f" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f6fa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#100e15" />
     <meta name="description" content="Compile and run Raven programs entirely in your browser with WebAssembly." />
     <title>Raven Playground</title>
     <base href="./" />
-    <link rel="preload" id="webassembly" />
+    <script>
+        document.documentElement.dataset.theme =
+            localStorage.getItem("raven-theme") ?? "system";
+    </script>
+    <link rel="stylesheet" href="css/raven-theme.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="js/editor.css" />
     <link href="Raven.Playground.styles.css" rel="stylesheet" />

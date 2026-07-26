@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 
 using Markdig;
@@ -110,6 +111,7 @@ public static class DocumentationGenerator
         XrefToTargetPath.Clear();
         ReportedBrokenXrefs.Clear();
 
+        WriteSharedTheme();
         WriteStyleSheet();
         WriteSyntaxHighlighter();
 
@@ -160,50 +162,41 @@ public static class DocumentationGenerator
     // Layout + styling
     // ----------------------------
 
+    private static void WriteSharedTheme()
+    {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("Raven.Theme.css")
+            ?? throw new InvalidOperationException("The shared Raven theme is missing.");
+        using var reader = new StreamReader(stream);
+        File.WriteAllText(Path.Combine(outputDir, "raven-theme.css"), reader.ReadToEnd());
+    }
+
     private static void WriteStyleSheet()
     {
         var css = """
 :root {
-    color-scheme: light dark;
-
-    --bg: #f7f7fb;
-    --surface: #ffffff;
-    --fg: #252238;
-    --muted: #716c83;
-    --border: #e5e1ee;
-    --code-bg: #f1eff7;
-    --link: #6d3fd1;
-    --accent: #7c4dff;
-    --accent-soft: #eee8ff;
-    --header-bg: rgba(255, 255, 255, 0.92);
-    --th-bg: #f5f2fb;
-    --shadow: 0 18px 48px rgba(46, 35, 75, 0.08);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #111019;
-        --surface: #191722;
-        --fg: #f0edf7;
-        --muted: #aaa3ba;
-        --border: #312d3d;
-        --code-bg: #211e2d;
-        --link: #b69cff;
-        --accent: #a783ff;
-        --accent-soft: #2b2341;
-        --header-bg: rgba(25, 23, 34, 0.92);
-        --th-bg: #24202f;
-        --shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
-    }
+    --bg: var(--raven-bg);
+    --surface: var(--raven-surface);
+    --fg: var(--raven-ink);
+    --muted: var(--raven-muted);
+    --border: var(--raven-line);
+    --code-bg: var(--raven-code-bg);
+    --link: var(--raven-accent);
+    --accent: var(--raven-accent);
+    --accent-soft: var(--raven-accent-soft);
+    --header-bg: var(--raven-header-bg);
+    --th-bg: var(--raven-surface-raised);
+    --shadow: var(--raven-shadow);
 }
 
 * { box-sizing: border-box; }
 
 body {
     margin: 0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont,
-                 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
+    font-family: var(--raven-font-sans);
+    background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--raven-accent) 8%, transparent), transparent 32rem),
+        var(--bg);
     color: var(--fg);
     line-height: 1.6;
 }
@@ -223,28 +216,6 @@ body {
     backdrop-filter: blur(14px);
 }
 
-.brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.8rem;
-    color: var(--fg);
-}
-
-.brand:hover { text-decoration: none; }
-
-.brand-mark {
-    display: grid;
-    width: 2.35rem;
-    height: 2.35rem;
-    place-items: center;
-    border-radius: 0.75rem;
-    color: #fff;
-    background: linear-gradient(145deg, var(--accent), #36a6b2);
-    font-weight: 800;
-}
-
-.brand strong, .brand small { display: block; }
-.brand small { color: var(--muted); font-size: 0.72rem; }
 .page-context { color: var(--muted); font-size: 0.9rem; }
 
 .content-shell {
@@ -256,7 +227,7 @@ body {
 .api-content {
     padding: clamp(1.5rem, 4vw, 3.5rem);
     border: 1px solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: var(--raven-radius);
     background: var(--surface);
     box-shadow: var(--shadow);
 }
@@ -278,7 +249,7 @@ a {
 a:hover { text-decoration: underline; }
 
 pre, code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--raven-font-mono);
     background: var(--code-bg);
 }
 
@@ -403,6 +374,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     private static string WrapHtml(string currentDir, string pageLabelOrTitle, string assemblyName, string bodyHtml)
     {
         var title = $"{pageLabelOrTitle} · {assemblyName}";
+        var themeHref = RelLink(currentDir, Path.Combine(outputDir, "raven-theme.css"));
         var styleHref = RelLink(currentDir, Path.Combine(outputDir, "style.css"));
         var highlightScriptHref = RelLink(currentDir, Path.Combine(outputDir, "highlight.js"));
         var homeHref = RelLink(currentDir, Path.Combine(outputDir, "index.html"));
@@ -414,14 +386,15 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>{HtmlEscape(title)}</title>
+          <link rel="stylesheet" href="{themeHref}" />
           <link rel="stylesheet" href="{styleHref}" />
           <script defer src="{highlightScriptHref}"></script>
         </head>
         <body>
           <header class="site-header">
-            <a class="brand" href="{homeHref}">
-              <span class="brand-mark">R</span>
-              <span>
+            <a class="raven-brand" href="{homeHref}">
+              <span class="raven-brand-mark">R</span>
+              <span class="raven-brand-copy">
                 <strong>{HtmlEscape(assemblyName)}</strong>
                 <small>Raven API reference</small>
               </span>

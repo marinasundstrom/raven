@@ -10,12 +10,29 @@
 
 <section class="playground-shell">
     <header class="hero">
-        <div>
-            <p class="eyebrow">Raven · browser WebAssembly</p>
+        <div class="hero-copy">
+            <a class="raven-brand" href="." aria-label="Raven Playground home">
+                <span class="raven-brand-mark">R</span>
+                <span class="raven-brand-copy">
+                    <strong>Raven</strong>
+                    <small>Language tools</small>
+                </span>
+            </a>
+            <p class="eyebrow">Browser playground · WebAssembly</p>
             <h1>Write Raven. Run it here.</h1>
             <p class="lede">The compiler and program execute locally. Your source stays in this browser.</p>
         </div>
-        <div class="runtime-badge"><span class="status-dot"></span>.NET WebAssembly</div>
+        <div class="hero-tools">
+            <label class="theme-picker">
+                <span>Theme</span>
+                <select value="@_themeMode" @onchange="ChangeThemeAsync">
+                    <option value="system">System</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </label>
+            <div class="runtime-badge"><span class="status-dot"></span>.NET WebAssembly</div>
+        </div>
     </header>
 
     <div class="workspace">
@@ -106,6 +123,7 @@
     private string _shareStatus = string.Empty;
     private bool _initialSourceLoaded;
     private bool _isBusy;
+    private string _themeMode = "system";
     private IReadOnlyList<string> _diagnostics = [];
     private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
 
@@ -129,6 +147,7 @@
 
         await LoadInitialSourceAsync();
         _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/editor.js");
+        _themeMode = await _module.InvokeAsync<string>("getThemeMode");
         _commandTarget = DotNetObjectReference.Create(this);
         _editor = await _module.InvokeAsync<IJSObjectReference>(
             "createEditor",
@@ -154,6 +173,15 @@
     private Task CompileAsync() => CompileCoreAsync(run: false);
 
     private Task CompileAndRunAsync() => CompileCoreAsync(run: true);
+
+    private async Task ChangeThemeAsync(ChangeEventArgs args)
+    {
+        if (_module is null)
+            return;
+
+        _themeMode = args.Value?.ToString() ?? "system";
+        await _module.InvokeVoidAsync("setThemeMode", _themeMode);
+    }
 
     private async Task SelectExampleAsync(ChangeEventArgs args)
     {

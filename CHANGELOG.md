@@ -1371,6 +1371,11 @@ Impact:
   adjacent Markdown `.docs` sidecars. Its built-in responsive presentation now
   uses Raven-specific navigation, branding, light/dark styling, and offline
   syntax highlighting for fenced Raven code.
+- RavenDoc and the browser Playground now share a consolidated Raven visual
+  foundation across light and dark modes, including brand, color, typography,
+  surface, and code-presentation tokens. The Playground's Monaco editor follows
+  the active system color scheme with matching Raven syntax themes, and its
+  persisted theme selector can explicitly choose System, Light, or Dark.
 
 ### Changed
 - Removed the legacy `new Foo(...)` object-creation syntax. Raven object construction now uses direct type invocation (`Foo(...)`) consistently across parsing, samples, and tests.

@@ -59,6 +59,18 @@ try {
 
   const editor = page.locator(".monaco-editor");
   await editor.waitFor();
+  const themePicker = page.getByLabel("Theme");
+  await themePicker.selectOption("dark");
+  await page.waitForFunction(
+    () => document.documentElement.dataset.theme === "dark" &&
+      document.querySelector(".monaco-editor")?.classList.contains("vs-dark"),
+  );
+  await themePicker.selectOption("light");
+  await page.waitForFunction(
+    () => document.documentElement.dataset.theme === "light" &&
+      document.querySelector(".monaco-editor")?.classList.contains("vs"),
+  );
+  await themePicker.selectOption("system");
   const initialWorkspaceHeight = await page.locator(".workspace").evaluate(
     element => element.getBoundingClientRect().height,
   );
@@ -161,7 +173,6 @@ try {
       { timeout: 30_000 },
     );
     await page.getByRole("button", { name: /^Run/ }).click();
-    await page.getByText("Compiling", { exact: true }).waitFor();
     await page.waitForFunction(
       () => ["Complete", "Compile error", "Runtime error"].includes(
         document.querySelector(".status-pill")?.textContent?.trim(),

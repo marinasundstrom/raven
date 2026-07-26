@@ -17,4 +17,9 @@
     <ProjectReference Include="../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../Raven.Playground/wwwroot/css/raven-theme.css"
+                      LogicalName="Raven.Theme.css" />
+  </ItemGroup>
+
 </Project>
