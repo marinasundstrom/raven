@@ -15,6 +15,8 @@ In a macro you can put any content and parse it however you want.
 * Semantic pass for additional
 * Contextual re-mapping of token kinds
 * Syntax-level macros - Processes syntaxes
+* Compiler-owned `#quote` intrinsic after token-tree capture and expansion
+  substitution; see [quote-macro.md](quote-macro.md)
 
 ## Sandbox
 

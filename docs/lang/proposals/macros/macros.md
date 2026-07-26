@@ -15,6 +15,11 @@ Current implementation status:
 * `MacroExpansionResult` now models both additive members and optional declaration replacement.
 * Generated-member and replacement integration into normal binding/codegen is not implemented yet.
 
+Related deferred proposals:
+
+* [`#quote` compiler intrinsic](quote-macro.md) for verified source-to-syntax
+  capture after token-tree input and expansion substitution are available.
+
 ## 1. Goals
 
 Raven macros provide:
