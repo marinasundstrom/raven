@@ -376,6 +376,8 @@ Status: **same-project and incremental-cache MVP implemented and validated**
   projection through `Compilation.GetSemanticModel(tree, position)` and
   `Document.GetSemanticModelAsync(position)`
 * [x] use position-aware projections for macro-author hover and completion
+* [x] use position-aware projections for macro-author definition, references,
+  and rename
 
 The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
 attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
@@ -437,11 +439,15 @@ and also works for documents without file paths. Existing positionless calls
 retain their consumer-oriented behavior.
 
 The language server now asks `DocumentStore` for an analysis context at the
-request position before it runs hover or completion. The context retains the
-authored offsets while selecting the compiler-owned macro projection inside
-`[LocalMacro]` declarations. Hover can therefore resolve local macro symbols,
-and ordinary Raven completion inside macro implementation bodies sees the
-macro class, compiler contracts, and referenced compile-time APIs.
+request position before it runs hover, completion, definition, references, or
+rename. The context retains the authored offsets while selecting the
+compiler-owned macro projection inside `[LocalMacro]` declarations. Hover can
+therefore resolve local macro symbols, and ordinary Raven completion inside
+macro implementation bodies sees the macro class, compiler contracts, and
+referenced compile-time APIs. Definition resolves those symbols to their
+authored declaration. Reference search scans both compiler-owned projections
+of each mixed document, but symbol identity selects only the matching semantic
+universe; returned locations and rename edits use the original document text.
 
 Layered project-local macro bootstrapping, where one local macro generates
 another macro implementation, remains out of scope until the phase model is
@@ -459,10 +465,13 @@ Validation record for this slice:
 * focused mixed-file and dedicated-file dependency-cycle tests: passed
 * focused position-aware semantic routing and incremental-edit tests: passed
 * focused macro-author hover and completion integration tests: passed
+* focused macro-author definition, references, and rename integration tests:
+  passed
 * browser Playground smoke test, including every example: passed
 
-Next planned slice: extend position-aware semantic routing to navigation and
-analyzer participation.
+Next planned slice: expose compiler-owned structured macro regions to analyzer
+hosts so embedded Raven expressions can participate in ordinary analysis
+without making analyzers a compiler requirement.
 
 ## Architectural invariants
 

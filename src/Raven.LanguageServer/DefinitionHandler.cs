@@ -50,7 +50,10 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         try
         {
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(
+                request.TextDocument.Uri,
+                request.Position,
+                cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return new LocationOrLocationLinks();

@@ -41,7 +41,10 @@ internal sealed class ReferencesHandler : IReferencesHandler
     {
         try
         {
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(
+                request.TextDocument.Uri,
+                request.Position,
+                cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new LocationContainer();
 
@@ -140,39 +143,58 @@ internal static class ReferenceSearchService
             foreach (var document in project.Documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken);
-                if (syntaxTree is null)
+                var authoredTree = await document.GetSyntaxTreeAsync(cancellationToken);
+                if (authoredTree is null)
                     continue;
 
-                var path = syntaxTree.FilePath;
+                var path = document.FilePath ?? authoredTree.FilePath;
                 if (string.IsNullOrWhiteSpace(path) || path == "file")
                     continue;
 
-                var sourceText = syntaxTree.GetText();
-                if (sourceText is null)
-                    continue;
-
-                var semanticModel = compilation.GetSemanticModel(syntaxTree);
-                var root = syntaxTree.GetRoot(cancellationToken);
-
-                foreach (var node in root.DescendantNodes().Where(IsReferenceCandidate))
+                var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+                foreach (var syntaxTree in GetCompilationSyntaxTrees(compilation, authoredTree, path))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, node, out var symbolInfo))
-                        continue;
-                    if (!TryMatchesSymbol(symbolInfo, targetSymbol, node, out var referenceSpan))
-                        continue;
+                    var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                    var root = syntaxTree.GetRoot(cancellationToken);
 
-                    var key = BuildKey(path, referenceSpan);
-                    if (!seen.Add(key))
-                        continue;
+                    foreach (var node in root.DescendantNodes().Where(IsReferenceCandidate))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (!SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, node, out var symbolInfo))
+                            continue;
+                        if (!TryMatchesSymbol(symbolInfo, targetSymbol, node, out var referenceSpan))
+                            continue;
 
-                    results.Add(new ReferenceResult(path, sourceText, referenceSpan));
+                        var key = BuildKey(path, referenceSpan);
+                        if (!seen.Add(key))
+                            continue;
+
+                        results.Add(new ReferenceResult(path, sourceText, referenceSpan));
+                    }
                 }
             }
         }
 
         return results;
+    }
+
+    private static IEnumerable<SyntaxTree> GetCompilationSyntaxTrees(
+        Compilation compilation,
+        SyntaxTree authoredTree,
+        string path)
+    {
+        if (compilation.SyntaxTrees.Contains(authoredTree) ||
+            compilation.MacroSyntaxTrees.Contains(authoredTree))
+        {
+            yield return authoredTree;
+            yield break;
+        }
+
+        foreach (var syntaxTree in compilation.SyntaxTrees.Concat(compilation.MacroSyntaxTrees))
+        {
+            if (string.Equals(syntaxTree.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                yield return syntaxTree;
+        }
     }
 
     public static ISymbol NormalizeSymbol(ISymbol symbol)

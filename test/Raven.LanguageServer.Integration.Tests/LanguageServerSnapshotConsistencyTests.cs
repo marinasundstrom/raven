@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
 namespace Raven.LanguageServer.Integration.Tests;
@@ -63,6 +64,126 @@ func Main() -> int => 0
         hover!.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("val Value: int");
         hover.Range.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task DefinitionHandler_LocalMacroDeclaration_UsesMacroSemanticProjectionAsync()
+    {
+        const string text = """
+[LocalMacro]
+class MacroSupport {
+    val Value: int => 42
+
+    func Read() -> int => Value
+}
+
+func Main() -> int => 0
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var position = GetPosition(context.Value.SourceText, text.LastIndexOf("Value", StringComparison.Ordinal));
+
+        var handler = new DefinitionHandler(store, NullLogger<DefinitionHandler>.Instance);
+        var result = await handler.Handle(new DefinitionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        var link = result!.Single().LocationLink;
+        link.ShouldNotBeNull();
+        link!.TargetUri.ShouldBe(uri);
+        link.TargetSelectionRange.Start.Line.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task ReferencesHandler_LocalMacroDeclaration_FindsDeclarationAndReferenceAsync()
+    {
+        const string text = """
+[LocalMacro]
+class MacroSupport {
+    val Value: int => 42
+
+    func Read() -> int => Value
+}
+
+func Main() -> int => 0
+""";
+        var (store, manager, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var position = GetPosition(context.Value.SourceText, text.LastIndexOf("Value", StringComparison.Ordinal));
+
+        var handler = new ReferencesHandler(
+            store,
+            manager,
+            NullLogger<ReferencesHandler>.Instance);
+        var result = await handler.Handle(new ReferenceParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position,
+            Context = new ReferenceContext
+            {
+                IncludeDeclaration = true
+            }
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        var locations = result!.ToArray();
+        locations.Length.ShouldBe(2);
+        locations.ShouldAllBe(location => location.Uri == uri);
+        locations.Select(static location => location.Range.Start.Line)
+            .OrderBy(static line => line)
+            .ShouldBe([2, 4]);
+    }
+
+    [Fact]
+    public async Task RenameHandler_LocalMacroDeclaration_RenamesDeclarationAndReferenceAsync()
+    {
+        const string text = """
+[LocalMacro]
+class MacroSupport {
+    val Value: int => 42
+
+    func Read() -> int => Value
+}
+
+func Main() -> int => 0
+""";
+        var (store, manager, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var position = GetPosition(context.Value.SourceText, text.LastIndexOf("Value", StringComparison.Ordinal));
+
+        var handler = new RenameHandler(
+            store,
+            manager,
+            NullLogger<RenameHandler>.Instance);
+        var prepared = await handler.Handle(new PrepareRenameParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position
+        }, CancellationToken.None);
+        prepared.ShouldNotBeNull();
+
+        var result = await handler.Handle(new RenameParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position,
+            NewName = "ExpandedValue"
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result!.Changes.ShouldNotBeNull();
+        result.Changes!.ContainsKey(uri).ShouldBeTrue();
+        var edits = result.Changes[uri].ToArray();
+        edits.Length.ShouldBe(2);
+        edits.ShouldAllBe(static edit => edit.NewText == "ExpandedValue");
+        edits.Select(static edit => edit.Range.Start.Line)
+            .OrderBy(static line => line)
+            .ShouldBe([2, 4]);
     }
 
     [Fact]
@@ -2955,6 +3076,9 @@ class C {
         await store.UpsertDocumentAsync(uri, text);
         return (store, manager, uri);
     }
+
+    private static Position GetPosition(SourceText sourceText, int offset)
+        => PositionHelper.ToRange(sourceText, new TextSpan(offset, 0)).Start;
 
     private static string FindRepositoryRoot()
     {

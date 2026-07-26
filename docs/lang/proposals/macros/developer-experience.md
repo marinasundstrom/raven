@@ -506,10 +506,12 @@ consumer projection from an authored position. This works with or without a
 Workspace. Macro authors and tooling can query nodes from the returned model's
 position-preserving `SyntaxTree` through the ordinary semantic APIs.
 Positionless calls continue to select the consumer view for compatibility.
-The language server now uses the position-aware view for hover and completion,
-so macro implementation declarations receive ordinary Raven symbol hovers and
-completion from their compile-time scope. Navigation and analyzer hosts still
-need to adopt the same API. Remaining compiler work includes richer dependency
+The language server now uses the position-aware view for hover, completion,
+definition, references, and rename, so macro implementation declarations
+receive ordinary Raven tooling from their compile-time scope. References and
+rename scan the compiler-owned macro and consumer projections while reporting
+ranges against the authored source. Analyzer hosts still need to adopt the same
+semantic boundary. Remaining compiler work includes richer dependency
 resolution for the in-memory image.
 
 ## Expansion result construction

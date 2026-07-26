@@ -424,14 +424,16 @@ declaration marked `[LocalMacro]` returns the macro-partition semantic model;
 other positions return the consumer model. Nodes for semantic queries must come
 from the returned model's `SyntaxTree`. The projections preserve authored
 positions, so the same position can be used to find the corresponding node.
-Language-server hover and completion use this position-aware view inside local
-macro declarations. Their semantic answers come from the macro partition rather
-than the masked consumer projection.
+Language-server hover, completion, definition, references, and rename use this
+position-aware view inside local macro declarations. Their semantic answers
+come from the macro partition rather than the masked consumer projection.
+Reference locations and rename edits remain expressed against the authored
+document because both projections preserve its positions.
 
-The browser Playground supports this form in its single user buffer. Semantic
-editor services inside the projected macro declarations are not yet complete;
-the current implementation prioritizes compilation, expansion, diagnostics,
-emit, and execution.
+The browser Playground supports this form in its single user buffer. Analyzer
+participation inside projected or retained structured macro regions is not yet
+complete; the current implementation keeps analyzers optional and prioritizes
+compilation, expansion, diagnostics, emit, execution, and core navigation.
 
 Across incremental compilations, an unchanged local macro partition may reuse
 its emitted in-memory plugin artifact. Changes limited to consumer source do not

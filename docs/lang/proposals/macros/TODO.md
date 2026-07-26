@@ -54,8 +54,9 @@ In a macro you can put any content and parse it however you want.
   * [x] Route authored positions to the current macro or consumer semantic
     projection.
   * [x] Adopt position-aware semantic routing in hover and completion.
-  * [ ] Adopt position-aware semantic routing in navigation and analyzer
-    execution.
+  * [x] Adopt position-aware semantic routing in definition, references, and
+    rename.
+  * [ ] Adopt position-aware semantic routing in analyzer execution.
 * Grow the automatically registered default macro environment beyond `#quote`.
   A future `#embedFile` must use compiler-owned resource resolution and
   dependency tracking rather than unrestricted direct file I/O.

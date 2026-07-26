@@ -77,6 +77,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Routed language-server hover and completion through the position-aware
   semantic projection, enabling ordinary Raven symbol information and member
   completion inside same-buffer local macro implementations.
+- Routed language-server definition, references, and rename through the
+  position-aware semantic projection. Reference search now scans both
+  compiler-owned projections of a mixed document while returning edits and
+  locations against the original authored source.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.
