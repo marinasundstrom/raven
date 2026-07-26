@@ -15,6 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added replaceable macro token streams that emit `SyntaxToken`, including a
   default Raven-lexer-backed stream, macro-local keyword/reserved-word overlays,
   and compiler-discovered custom stream providers for DSL-specific lexers.
+- Added a Raven-authored `#guard { unless <expression> }` sample as the
+  token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
+  expression parsing, direct lowering, and end-to-end execution.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

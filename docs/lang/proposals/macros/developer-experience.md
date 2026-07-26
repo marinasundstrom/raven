@@ -121,6 +121,19 @@ independently for every editor request. Both paths share the authored raw body,
 body-relative spans, token conventions, diagnostics, caching boundary, and
 typed Raven output contract.
 
+The first executable MVP deliberately uses direct lowering:
+
+```raven
+let shouldRetry = #guard {
+    unless answer == 42
+}
+```
+
+The macro reads the body-scoped `unless` keyword from Raven's standard token
+stream, delegates `answer == 42` back to Raven's expression parser, and returns
+an ordinary logical-negation expression. This validates the common path before
+introducing retained DSL structure.
+
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
 

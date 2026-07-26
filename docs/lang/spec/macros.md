@@ -107,6 +107,21 @@ provider-owned raw kind.
 Equal raw-kind integers from different macro providers do not imply equal token
 kinds. The provider owns their meaning.
 
+The minimal direct-lowering pattern does not require a custom syntax tree. For
+example, a macro can mark `unless` as a body-scoped keyword, consume it from the
+standard stream, parse the remaining body-relative span as a Raven expression,
+and return an ordinary logical-negation expression:
+
+```raven
+let shouldRetry = #guard {
+    unless retryCount < 3
+}
+```
+
+This pattern is the starting point for DSLs with multiple clauses and embedded
+Raven fragments. Retained DSL structure is optional and can be added later when
+editor tooling or more involved lowering requires it.
+
 ## Placement rules
 
 Macro attributes follow the same placement rules as declaration attributes:

@@ -97,6 +97,48 @@ Validation record for this slice:
 * `scripts/test-feature-suite.sh macros`: 41 passed
 * focused default-overlay and custom-provider tests: 2 passed
 
+## Active slice: direct-lowering macro MVP
+
+Status: **implemented and validated**
+
+The first developer-facing token-tree macro is intentionally small:
+
+```raven
+let shouldRetry = #guard {
+    unless answer == 42
+}
+```
+
+It proves the shortest useful path without introducing a secondary DSL syntax
+tree:
+
+* [x] implement the macro in Raven rather than only as an in-process test type
+* [x] consume the standard Raven-backed token stream
+* [x] recognize a body-scoped `unless` keyword through `RawKind`
+* [x] delegate the remaining body-relative span to Raven's expression parser
+* [x] lower directly to an ordinary logical-negation expression
+* [x] bind an embedded Raven expression in the invocation's caller scope
+* [x] run the sample through expansion, emit, and execution
+* [x] add focused compiler runtime coverage
+* [x] pass the complete fast macro feature suite
+
+Validation record for this slice:
+
+* Raven-authored macro project build: passed
+* sample application runtime output: `42`, `False`
+* focused `FreestandingMacroCodeGenTests`: 3 passed
+* `scripts/test-feature-suite.sh macros`: 41 passed
+* `scripts/test-feature-suite.sh macros --runtime`: 8 passed, with 2
+  attached-property accessor identity failures in `MacroCodeGenTests` outside
+  this direct-lowering sample slice
+
+This is the MVP pattern to extend before adding retained custom structure:
+tokenize, recognize a small DSL envelope, parse selected Raven fragments, and
+lower to ordinary Raven syntax. A LINQ-like macro can add more clauses and
+fragment boundaries to this path. The expression-only `#quote` implementation
+can reuse the same raw-body and Raven-fragment infrastructure while returning
+syntax as data rather than binding it as the replacement expression.
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:

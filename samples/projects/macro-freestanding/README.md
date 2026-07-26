@@ -1,13 +1,19 @@
 # Macro Freestanding (`.rvnproj`)
 
-This sample shows a Raven-authored freestanding expression macro plugin.
+This sample shows Raven-authored freestanding expression macros, including a
+minimal token-tree DSL macro.
 
 The sample shape is:
 
 ```raven
 func Main() -> unit {
     val answer = #add(20, Right: 22)
+    val shouldRetry = #guard {
+        unless answer == 42
+    }
+
     WriteLine(answer)
+    WriteLine(shouldRetry)
 }
 ```
 
@@ -18,6 +24,12 @@ Current status:
 - The plugin expands structurally with the syntax API instead of parsing a generated expression string.
 - The expansion reuses the original argument expression syntax when it builds the final `left + right` expression.
 - The sample uses a named argument to show the current freestanding macro argument shape.
+- `#guard { unless ... }` is the token-tree MVP: Raven's standard macro token
+  stream recognizes `unless` as a body-scoped macro keyword, the macro delegates
+  the remaining span to Raven's expression parser, and expansion produces the
+  ordinary Raven expression `!(...)`.
+- The MVP deliberately lowers directly from the token stream. It does not build
+  a custom DSL syntax tree.
 
 Files:
 
@@ -46,4 +58,5 @@ Expected output:
 
 ```text
 42
+False
 ```
