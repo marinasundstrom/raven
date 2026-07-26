@@ -850,6 +850,8 @@ public sealed class MacroInstrumentation
     private long _shadowOutputCacheMisses;
     private long _consumerRefreshRuns;
     private long _consumerRefreshProjectUpdates;
+    private long _localPartitionCompilations;
+    private long _localPartitionReuses;
 
     internal MacroInstrumentation(bool isEnabled)
     {
@@ -868,6 +870,10 @@ public sealed class MacroInstrumentation
 
     public long ConsumerRefreshProjectUpdates => Volatile.Read(ref _consumerRefreshProjectUpdates);
 
+    public long LocalPartitionCompilations => Volatile.Read(ref _localPartitionCompilations);
+
+    public long LocalPartitionReuses => Volatile.Read(ref _localPartitionReuses);
+
     [Conditional("RAVEN_INSTRUMENTATION")]
     public void Reset()
     {
@@ -880,6 +886,8 @@ public sealed class MacroInstrumentation
         Interlocked.Exchange(ref _shadowOutputCacheMisses, 0);
         Interlocked.Exchange(ref _consumerRefreshRuns, 0);
         Interlocked.Exchange(ref _consumerRefreshProjectUpdates, 0);
+        Interlocked.Exchange(ref _localPartitionCompilations, 0);
+        Interlocked.Exchange(ref _localPartitionReuses, 0);
     }
 
     [Conditional("RAVEN_INSTRUMENTATION")]
@@ -929,6 +937,24 @@ public sealed class MacroInstrumentation
             Interlocked.Add(ref _consumerRefreshProjectUpdates, updatedProjects);
     }
 
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordLocalPartitionCompilation()
+    {
+        if (!_isEnabled)
+            return;
+
+        Interlocked.Increment(ref _localPartitionCompilations);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordLocalPartitionReuse()
+    {
+        if (!_isEnabled)
+            return;
+
+        Interlocked.Increment(ref _localPartitionReuses);
+    }
+
     public string GetSummary()
     {
         var builder = new StringBuilder();
@@ -939,6 +965,8 @@ public sealed class MacroInstrumentation
         builder.AppendLine($"Shadow output cache misses: {ShadowOutputCacheMisses}");
         builder.AppendLine($"Consumer refresh runs: {ConsumerRefreshRuns}");
         builder.AppendLine($"Consumer refresh project updates: {ConsumerRefreshProjectUpdates}");
+        builder.AppendLine($"Local partition compilations: {LocalPartitionCompilations}");
+        builder.AppendLine($"Local partition reuses: {LocalPartitionReuses}");
         return builder.ToString();
     }
 }

@@ -348,7 +348,7 @@ Validation record for this slice:
 
 ## Active slice: same-project macro source partition
 
-Status: **dedicated-file MVP implemented and validated**
+Status: **same-project and incremental-cache MVP implemented and validated**
 
 * [x] accept explicitly classified macro implementation syntax trees through
   `Compilation.AddMacroSyntaxTrees`
@@ -369,8 +369,8 @@ Status: **dedicated-file MVP implemented and validated**
   declarations in the same source file
 * [x] run same-buffer local macros in the browser Playground
 * [x] add runnable Playground examples for `#quote` and project-local macros
-* [ ] cache the activated partition independently from consumer-only edits
-* [ ] invalidate dependent expansions when the partition changes
+* [x] cache the activated partition independently from consumer-only edits
+* [x] invalidate dependent expansions when the partition changes
 * [ ] add declaration-granular dependency-cycle diagnostics
 
 The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
@@ -403,6 +403,16 @@ an expression quote and a same-buffer plugin that defines an attached
 declaration macro, an argument-style expression macro, and a raw token-tree
 expression macro.
 
+Incremental compilations reuse the emitted and activated local-plugin artifact
+when the macro projection, compilation and parse options, metadata references,
+macro references, and assembly identity remain equivalent. The macro
+compilation itself is recreated for every snapshot so semantic models remain
+owned by the current projected trees. Cached success and failure diagnostics
+are remapped to those current trees before they are reported. A macro-source or
+reference change invalidates the artifact; ordinary consumer-only edits do not.
+Dependent expansions are consequently rebuilt from the current macro registry
+when the artifact changes.
+
 Macro-author semantic features over the projected declarations remain a later
 developer-experience slice. This MVP prioritizes correct compilation,
 diagnostics, expansion, emit, and execution; the ordinary consumer projection
@@ -417,6 +427,8 @@ Validation record for this slice:
 * `scripts/test-feature-suite.sh macros`: 49 passed
 * focused compiler automatic-partition test: passed
 * focused Workspace automatic-partition and semantic-model test: passed
+* focused Workspace partition reuse, invalidation, and diagnostic-remapping
+  tests: passed
 * focused SDK same-project build without `RavenMacro`: passed
 * focused mixed-declaration compiler test: passed
 * browser Playground smoke test, including every example: passed

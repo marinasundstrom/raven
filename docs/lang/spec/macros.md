@@ -419,6 +419,14 @@ editor services inside the projected macro declarations are not yet complete;
 the current implementation prioritizes compilation, expansion, diagnostics,
 emit, and execution.
 
+Across incremental compilations, an unchanged local macro partition may reuse
+its emitted in-memory plugin artifact. Changes limited to consumer source do not
+recompile that artifact. Changes to macro source, compilation or parse options,
+metadata references, macro references, or assembly identity invalidate it and
+therefore invalidate expansions that depend on the local registry. Every
+snapshot still owns a fresh macro semantic compilation, and reused partition
+diagnostics are associated with the current projected syntax trees.
+
 Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 
 ## Example

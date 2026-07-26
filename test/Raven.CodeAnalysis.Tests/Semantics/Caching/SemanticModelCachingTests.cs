@@ -2159,6 +2159,8 @@ class Box<T> {
         typeof(MacroInstrumentation).GetMethod("RecordShadowOutputCacheHit", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
         typeof(MacroInstrumentation).GetMethod("RecordShadowOutputCacheMiss", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
         typeof(MacroInstrumentation).GetMethod("RecordConsumerRefreshRun", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, [2]);
+        typeof(MacroInstrumentation).GetMethod("RecordLocalPartitionCompilation", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
+        typeof(MacroInstrumentation).GetMethod("RecordLocalPartitionReuse", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
 
         instrumentation.Macros.Reset();
 
@@ -2168,6 +2170,8 @@ class Box<T> {
         Assert.Equal(0, instrumentation.Macros.ShadowOutputCacheMisses);
         Assert.Equal(0, instrumentation.Macros.ConsumerRefreshRuns);
         Assert.Equal(0, instrumentation.Macros.ConsumerRefreshProjectUpdates);
+        Assert.Equal(0, instrumentation.Macros.LocalPartitionCompilations);
+        Assert.Equal(0, instrumentation.Macros.LocalPartitionReuses);
     }
 
     [Fact]

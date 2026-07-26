@@ -1,14 +1,18 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
     private Compilation? _macroPartitionCompilation;
+    private LocalMacroPartitionArtifact? _localMacroPartitionArtifact;
+    private bool _hasReusedLocalMacroPartitionArtifact;
 
     private MacroReference? CompileLocalMacroPartition()
     {
@@ -16,24 +20,136 @@ public partial class Compilation
             return null;
 
         var references = EnsureMacroContractsReference(_references);
-        var macroCompilation = new Compilation(
+        _macroPartitionCompilation = new Compilation(
             $"{AssemblyName}.Macros",
             _macroSyntaxTrees,
             [],
             references,
             _macroReferences,
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
-        _macroPartitionCompilation = macroCompilation;
+
+        if (_localMacroPartitionArtifact is { } reusedArtifact)
+        {
+            _macroPartitionDiagnostics = RemapLocalMacroDiagnostics(reusedArtifact);
+            if (_hasReusedLocalMacroPartitionArtifact)
+                PerformanceInstrumentation.Macros.RecordLocalPartitionReuse();
+            return reusedArtifact.Reference;
+        }
 
         using var image = new MemoryStream();
-        var emitResult = macroCompilation.Emit(image);
+        var emitResult = _macroPartitionCompilation.Emit(image);
         _macroPartitionDiagnostics = emitResult.Diagnostics;
-        if (!emitResult.Success)
-            return null;
+        PerformanceInstrumentation.Macros.RecordLocalPartitionCompilation();
 
-        return MacroReference.CreateFromImage(
-            image.ToArray(),
-            display: $"{AssemblyName} (local macro partition)");
+        var reference = emitResult.Success
+            ? MacroReference.CreateFromImage(
+                image.ToArray(),
+                display: $"{AssemblyName} (local macro partition)")
+            : null;
+        _localMacroPartitionArtifact = new LocalMacroPartitionArtifact(
+            reference,
+            _macroPartitionDiagnostics,
+            _macroSyntaxTrees);
+        return reference;
+    }
+
+    internal void TryReuseLocalMacroPartitionFrom(Compilation previousCompilation)
+    {
+        if (previousCompilation._localMacroPartitionArtifact is not { } artifact ||
+            !HasEquivalentLocalMacroPartition(previousCompilation))
+        {
+            return;
+        }
+
+        _localMacroPartitionArtifact = artifact;
+        _hasReusedLocalMacroPartitionArtifact = true;
+    }
+
+    private bool HasEquivalentLocalMacroPartition(Compilation previousCompilation)
+    {
+        if (_macroSyntaxTrees.Length == 0 ||
+            _macroSyntaxTrees.Length != previousCompilation._macroSyntaxTrees.Length ||
+            !string.Equals(AssemblyName, previousCompilation.AssemblyName, StringComparison.Ordinal) ||
+            !ReferenceEquals(Options, previousCompilation.Options) ||
+            !_references.SequenceEqual(previousCompilation._references) ||
+            !_macroReferences.SequenceEqual(previousCompilation._macroReferences))
+        {
+            return false;
+        }
+
+        for (var index = 0; index < _macroSyntaxTrees.Length; index++)
+        {
+            if (!HasEquivalentMacroTree(
+                    _macroSyntaxTrees[index],
+                    previousCompilation._macroSyntaxTrees[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool HasEquivalentMacroTree(SyntaxTree current, SyntaxTree previous)
+    {
+        if (ReferenceEquals(current, previous))
+            return true;
+
+        if (!string.Equals(current.FilePath, previous.FilePath, StringComparison.OrdinalIgnoreCase) ||
+            !ReferenceEquals(current.Options, previous.Options))
+        {
+            return false;
+        }
+
+        return GetMacroTreeSegments(current).SequenceEqual(GetMacroTreeSegments(previous));
+    }
+
+    private static ImmutableArray<LocalMacroTreeSegment> GetMacroTreeSegments(SyntaxTree syntaxTree)
+    {
+        var root = syntaxTree.GetRoot();
+        var builder = ImmutableArray.CreateBuilder<LocalMacroTreeSegment>();
+
+        AddSegments(root.Imports);
+        AddSegments(root.Aliases);
+        AddSegments(root.AttributeLists);
+        AddSegments(root.Members);
+        return builder.ToImmutable();
+
+        void AddSegments<TNode>(SyntaxList<TNode> nodes)
+            where TNode : SyntaxNode
+        {
+            foreach (var node in nodes)
+                builder.Add(new LocalMacroTreeSegment(node.FullSpan.Start, node.ToFullString()));
+        }
+    }
+
+    private ImmutableArray<Diagnostic> RemapLocalMacroDiagnostics(
+        LocalMacroPartitionArtifact artifact)
+    {
+        if (artifact.Diagnostics.IsDefaultOrEmpty)
+            return artifact.Diagnostics;
+
+        var builder = ImmutableArray.CreateBuilder<Diagnostic>(artifact.Diagnostics.Length);
+        foreach (var diagnostic in artifact.Diagnostics)
+        {
+            var location = diagnostic.Location;
+            if (location.SourceTree is { } sourceTree)
+            {
+                var treeIndex = Array.IndexOf(artifact.SyntaxTrees, sourceTree);
+                if (treeIndex >= 0 && treeIndex < _macroSyntaxTrees.Length)
+                    location = _macroSyntaxTrees[treeIndex].GetLocation(location.SourceSpan);
+            }
+
+            builder.Add(new Diagnostic(
+                diagnostic.Descriptor,
+                location,
+                diagnostic.GetMessageArgs(),
+                diagnostic.Severity,
+                diagnostic.IsSuppressed,
+                diagnostic.Properties));
+        }
+
+        return builder.ToImmutable();
     }
 
     private static MetadataReference[] EnsureMacroContractsReference(
@@ -57,4 +173,11 @@ public partial class Compilation
 
         return references;
     }
+
+    private sealed record LocalMacroPartitionArtifact(
+        MacroReference? Reference,
+        ImmutableArray<Diagnostic> Diagnostics,
+        SyntaxTree[] SyntaxTrees);
+
+    private readonly record struct LocalMacroTreeSegment(int Start, string Text);
 }

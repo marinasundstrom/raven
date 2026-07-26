@@ -395,6 +395,14 @@ source partition, references, parse options, and compiler version. Editing only
 consumer code can reuse it. Editing a macro declaration invalidates that
 artifact and all dependent expansions.
 
+The incremental-cache MVP implements that boundary inside `Compilation`.
+Equivalent macro projections reuse the emitted in-memory plugin artifact across
+consumer edits, while each snapshot receives a fresh macro semantic
+compilation. Macro-source, option, metadata-reference, or macro-reference
+changes invalidate the artifact. Cached partition diagnostics are remapped onto
+the current projected syntax trees, including when a failed macro partition is
+reused.
+
 This path is also required for the Playground. It must operate from an in-memory
 project snapshot and must not depend on MSBuild, a separate project, or a plugin
 assembly written to disk. The execution-host abstraction must support the
@@ -488,9 +496,8 @@ example demonstrates `#quote` directly.
 
 Macro-author hover, completion, navigation, and semantic queries across the two
 derived projections remain future developer-experience work. Remaining
-compiler work also includes independent partition caching and invalidation,
-richer dependency resolution for the in-memory image, and dedicated cycle
-diagnostics.
+compiler work includes richer dependency resolution for the in-memory image
+and dedicated cycle diagnostics.
 
 ## Expansion result construction
 

@@ -22,6 +22,7 @@ public partial class Compilation
             plan.MatchedSyntaxTrees,
             blockReusedDeclarationSensitiveState));
         AdoptIncrementalReuseFrom(previousCompilation);
+        TryReuseLocalMacroPartitionFrom(previousCompilation);
 
         foreach (var changedTree in plan.ChangedSyntaxTrees)
         {

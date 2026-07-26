@@ -63,6 +63,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Marked top-level declarations are compiled and activated separately while
   ordinary declarations in the same source remain runtime code, enabling macros
   to be declared and consumed in one Playground buffer.
+- Reused emitted same-project macro partition artifacts across consumer-only
+  incremental edits, while invalidating them for macro or reference changes and
+  remapping cached partition diagnostics to the current syntax-tree projection.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.
