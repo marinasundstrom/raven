@@ -245,6 +245,41 @@ shared boundary for delegating selected spans back to Raven. A macro remains
 free to retain separate DSL structure before translating it to ordinary Raven
 syntax.
 
+## Active slice: Raven statement fragments
+
+Status: **implemented**
+
+Token-tree macros can delegate either the complete body or a selected
+body-relative span to Raven's statement parser:
+
+```raven
+let statement = context.ParseStatementResult(statementSpan)
+```
+
+* [x] preserve concise `ParseStatement` syntax-only overloads
+* [x] provide diagnostic-bearing `ParseStatementResult` overloads
+* [x] accept the complete body or one selected body-relative span
+* [x] reject trailing statement input
+* [x] map native parser diagnostics to the authored invocation tree
+* [x] share the generic fragment-parsing implementation with expressions
+
+This adds an embedded-fragment category for DSL authors; it does not yet add a
+statement-position macro carrier or a public statement-quote spelling.
+
+## Validation case: compile-time file embedding
+
+Status: **test macro implemented; tracked resource API deferred**
+
+A test-only `#embedText(path)` procedural macro reads a file during expansion,
+returns its contents as an ordinary string literal, and maps read failures to
+the authored path argument. This demonstrates both compile-time execution and
+early diagnostics.
+
+Production file-reading macros still need compiler-owned path resolution,
+dependency recording, incremental invalidation, determinism, cancellation, and
+file-access policy. Direct file I/O is not promoted as the public resource
+contract.
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:
@@ -382,10 +417,10 @@ The intended flow is:
 
 ### Raven fragment parsing
 
-Extend the initial expression helper with diagnostic-bearing parse results and
-category-specific helpers for statements, members, declarations, types, and
-patterns. Preserve authored locations for parser diagnostics and expansion
-source maps.
+Expression and statement helpers now provide diagnostic-bearing parse results.
+Extend the same pattern to members, declarations, types, and patterns while
+preserving authored locations for parser diagnostics and expansion source
+maps.
 
 ### Additional expansion positions
 
@@ -426,5 +461,6 @@ reference. The first slice:
   reports empty holes explicitly
 
 Later slices add contextual category selection, statement/member/declaration
-fragment parsers, compiler-owned bind/equivalence verification, SDK reference
-convenience, and token/identifier/list/repetition splice categories.
+quote categories, member/declaration fragment parsers, compiler-owned
+bind/equivalence verification, SDK reference convenience, and
+token/identifier/list/repetition splice categories.

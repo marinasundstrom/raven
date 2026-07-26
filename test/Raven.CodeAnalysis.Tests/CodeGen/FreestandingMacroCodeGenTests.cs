@@ -40,6 +40,67 @@ public sealed class FreestandingMacroCodeGenTests
 
         Assert.Equal(42, method!.Invoke(null, null));
     }
+
+    [Fact]
+    public void FreestandingMacro_LoadsFileContentDuringExpansion()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            const string expected = "embedded at compile time\nwith a second line";
+            File.WriteAllText(path, expected);
+            var syntaxTree = SyntaxTree.ParseText($$"""
+                class Harness {
+                    public static func Run() -> string {
+                        return #embedText("{{EscapeRavenString(path)}}")
+                    }
+                }
+                """);
+
+            var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(syntaxTree)
+                .AddReferences(TestMetadataReferences.Default)
+                .AddMacroReferences(new MacroReference(typeof(EmbedTextMacroPlugin)));
+
+            using var peStream = new MemoryStream();
+            var result = compilation.Emit(peStream);
+            Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+            using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+            var method = loaded.Assembly
+                .GetType("Harness", true)!
+                .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+            Assert.Equal(expected, method!.Invoke(null, null));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void FreestandingMacro_MissingFileReportsArgumentDiagnostic()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
+        var syntaxTree = SyntaxTree.ParseText($$"""
+            func Main() -> string => #embedText("{{EscapeRavenString(path)}}")
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(EmbedTextMacroPlugin)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
+
+        Assert.Contains("EMBED001: Could not read", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal(
+            $"\"{EscapeRavenString(path)}\"",
+            syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
+    }
+
     [Fact]
     public void TokenTreeMacro_ParsedRavenExpression_IsEmitted()
     {
@@ -182,6 +243,59 @@ public sealed class FreestandingMacroCodeGenTests
         public int Left { get; } = left;
 
         public int Right { get; set; }
+    }
+
+    public sealed class EmbedTextMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(EmbedTextMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new EmbedTextMacro()];
+    }
+
+    public sealed class EmbedTextMacro : IFreestandingExpressionMacro<EmbedTextMacroParameters>
+    {
+        public string Name => "embedText";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<EmbedTextMacroParameters> context)
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var content = File.ReadAllText(context.Parameters.Path);
+                return new FreestandingMacroExpansionResult
+                {
+                    Expression = SyntaxFactory.LiteralExpression(
+                        SyntaxKind.StringLiteralExpression,
+                        SyntaxFactory.Literal(
+                            $"\"{EscapeRavenString(content)}\"",
+                            content))
+                };
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException)
+            {
+                return new FreestandingMacroExpansionResult
+                {
+                    MacroDiagnostics =
+                    [
+                        context.CreateArgumentDiagnostic(
+                            context.Arguments[0],
+                            $"Could not read '{context.Parameters.Path}': {exception.Message}",
+                            code: "EMBED001")
+                    ]
+                };
+            }
+        }
+    }
+
+    public sealed class EmbedTextMacroParameters(string path)
+    {
+        public string Path { get; } = path;
     }
 
     public sealed class TokenTreeMacroPlugin : IRavenMacroPlugin
@@ -363,4 +477,12 @@ public sealed class FreestandingMacroCodeGenTests
             .Single()
             .Expression;
     }
+
+    private static string EscapeRavenString(string text)
+        => text
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal)
+            .Replace("\r", "\\r", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal)
+            .Replace("\t", "\\t", StringComparison.Ordinal);
 }

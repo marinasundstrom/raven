@@ -9,7 +9,7 @@ In a macro you can put any content and parse it however you want.
 * Syntax-producing macros - from Token Stream
 * Expand and substitute
 * Read and Peek
-* Ability to use Ravens expression and statement parsers
+* [x] Ability to use Raven expression and statement fragment parsers
 * Report diagnostics
 * Mapping of location in macro onto expanded source to keep source location during binding
 * Semantic pass for additional
@@ -23,6 +23,10 @@ In a macro you can put any content and parse it however you want.
   [quote-macro.md](quote-macro.md).
 * Make compiler analyzers expansion-aware so references used only by macro
   expansions participate in unused-value and related analysis.
+* Add a compiler-owned compile-time resource API for project-relative path
+  resolution, dependency tracking, incremental invalidation, diagnostics, and
+  file-access policy. The test-only `#embedText` macro currently proves direct
+  expansion-time loading only.
 
 ## Sandbox
 

@@ -195,6 +195,86 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void TokenTreeMacro_CanParseEntireBodyAsRavenStatement()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #statement {
+                return 42
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void TokenTreeMacro_CanDelegateSelectedDslSpanToRavenStatementParser()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #statementSelect {
+                action ::= {{ return 42 }}
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void TokenTreeMacro_StatementParseResultForwardsNativeDiagnostic()
+    {
+        const string source = """
+            func Main() -> int => #statementResult {
+                return value.Equals(1, )
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAV1525"));
+
+        Assert.Same(tree, diagnostic.Location.SourceTree);
+        Assert.Equal(")", tree.GetText().ToString(diagnostic.Location.SourceSpan));
+    }
+
+    [Fact]
+    public void TokenTreeMacro_StatementParseResultRejectsTrailingInput()
+    {
+        const string source = """
+            func Main() -> int => #statementResult {
+                return 1 return 2
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAV1525"));
+
+        Assert.Same(tree, diagnostic.Location.SourceTree);
+        Assert.Equal("return", tree.GetText().ToString(diagnostic.Location.SourceSpan));
+    }
+
+    [Fact]
     public void TokenTreeMacro_BodyDiagnosticUsesAuthoredBodySpan()
     {
         const string source = """
@@ -271,7 +351,15 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public string Name => nameof(TokenTreeMacroPlugin);
 
         public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new RavenBodyMacro(), new SelectBodyMacro(), new RejectBodyMacro()];
+            =>
+            [
+                new RavenBodyMacro(),
+                new SelectBodyMacro(),
+                new StatementBodyMacro(),
+                new StatementSelectBodyMacro(),
+                new StatementResultBodyMacro(),
+                new RejectBodyMacro()
+            ];
     }
 
     public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
@@ -301,6 +389,57 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             {
                 Expression = context.ParseExpression(
                     TextSpan.FromBounds(expressionStart, expressionEnd))
+            };
+        }
+    }
+
+    public sealed class StatementBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "statement";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var statement = context.ParseStatement();
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = Assert.IsType<ReturnStatementSyntax>(statement).Expression
+            };
+        }
+    }
+
+    public sealed class StatementSelectBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "statementSelect";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var body = context.GetBodyText();
+            var statementStart = body.IndexOf("{{", StringComparison.Ordinal) + 2;
+            var statementEnd = body.IndexOf("}}", statementStart, StringComparison.Ordinal);
+            var statement = context.ParseStatement(
+                TextSpan.FromBounds(statementStart, statementEnd));
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = Assert.IsType<ReturnStatementSyntax>(statement).Expression
+            };
+        }
+    }
+
+    public sealed class StatementResultBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "statementResult";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var result = context.ParseStatementResult();
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = (result.Syntax as ReturnStatementSyntax)?.Expression,
+                Diagnostics = result.Diagnostics
             };
         }
     }

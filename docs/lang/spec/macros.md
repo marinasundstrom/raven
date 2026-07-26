@@ -73,9 +73,9 @@ so a macro can implement a custom DSL lexer/parser without producing unrelated
 Raven lexer diagnostics.
 
 `TokenTreeMacroContext` exposes the raw body text, its authored
-`BodySpan`, body-relative diagnostic helpers, and Raven expression parsing for
-the complete body or a selected body-relative span. This supports both complete
-custom parsing and hybrid DSLs with embedded Raven expressions.
+`BodySpan`, body-relative diagnostic helpers, and Raven expression or statement
+parsing for the complete body or a selected body-relative span. This supports
+both complete custom parsing and hybrid DSLs with embedded Raven fragments.
 
 `ParseExpression()` and `ParseExpression(span)` return recovered Raven syntax
 directly. The corresponding `ParseExpressionResult` overloads return a
@@ -83,6 +83,12 @@ directly. The corresponding `ParseExpressionResult` overloads return a
 native parser diagnostics, and `HasErrors`. These diagnostics retain locations
 in the authored invocation tree and may be forwarded through
 `FreestandingMacroExpansionResult.Diagnostics`.
+
+`ParseStatement()` and `ParseStatement(span)` provide the equivalent
+syntax-only API for one complete Raven statement. Their
+`ParseStatementResult` counterparts return
+`MacroSyntaxParseResult<StatementSyntax>` with native diagnostics mapped to the
+authored body. Both expression and statement helpers reject trailing input.
 
 Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
 token-tree-only macro must be invoked with braces; an argument-based macro must

@@ -30,6 +30,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   macros. `ParseExpressionResult` returns recovered syntax plus immutable
   native parser diagnostics mapped to the authored invocation, while the
   existing `ParseExpression` convenience API remains available.
+- Added complete-body and selected-span Raven statement parsing for token-tree
+  macros. `ParseStatement` returns recovered `StatementSyntax`, while
+  `ParseStatementResult` also retains native authored-source diagnostics and
+  rejects trailing input.
 - Added the compiler-owned expression-only `#quote { ... }` intrinsic. It
   preserves tokens and trivia, rejects malformed or trailing input at authored
   locations, expands to fully qualified `SyntaxFactory` construction, and

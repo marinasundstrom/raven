@@ -22,6 +22,18 @@ The compiler owns macro semantic truth. The language server schedules requests
 and presents compiler results; it does not load or invoke macro plugins
 directly.
 
+In user-facing terms, freestanding procedural macros use function-like or
+delimited invocations, while attached macros use attributes. During binding,
+the compiler resolves the macro implementation and expands the invocation or
+attribute into typed ordinary Raven syntax. It is not unconstrained textual
+substitution.
+
+Macros also move validation into compilation. A DSL parser, embedded Raven
+fragment parser, or macro semantic check runs as part of binding and can report
+a diagnostic against the authored invocation. Documentation should contrast
+this with runtime string parsing or deferred generation when early,
+source-accurate failure is a material reason to choose the macro.
+
 ## Two kinds of syntax structure
 
 ### Raven invocation carriers
@@ -173,10 +185,12 @@ mapped to the invocation's original syntax tree, so a macro can forward them
 through `FreestandingMacroExpansionResult.Diagnostics` without translating
 generated-tree positions or wrapping them as macro failures.
 
-The parse-result type is generic so later statement, type, pattern, member, and
-quote fragment entry points can share the same developer experience. Adding
-those category-specific parsers remains incremental work; the generic result
-does not make Raven's ordinary syntax hierarchy extensible.
+`ParseStatement(span)` and `ParseStatementResult(span)` provide the same two
+shapes for a complete Raven statement. The parse-result type remains generic so
+later type, pattern, member, and quote fragment entry points can share the same
+developer experience. Adding those remaining category-specific parsers is
+incremental work; the generic result does not make Raven's ordinary syntax
+hierarchy extensible.
 
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
@@ -326,6 +340,34 @@ Compiler analyzers must eventually account for references introduced through
 expanded syntax. Until that integration exists, a value referenced only inside
 a raw macro body can still receive an unused-value diagnostic even though the
 expansion binds and executes it.
+
+## Compile-time resources
+
+Resource-producing macros are a useful procedural-macro case. For example:
+
+```raven
+let template = #embedText("templates/welcome.txt")
+```
+
+Such a macro reads the file during expansion and returns an ordinary Raven
+string literal, so a missing or unreadable file can be reported as a
+compile-time diagnostic on the path argument rather than failing at runtime.
+A test-only macro validates that basic execution and diagnostic path.
+
+Direct `File.ReadAllText` is not yet the intended production contract. A
+compiler-owned resource API should:
+
+* resolve relative paths from an explicit project or source-file base;
+* record the normalized path and content identity as expansion dependencies;
+* invalidate cached expansion and diagnostics when the resource changes;
+* participate in cancellation and deterministic build inputs;
+* report missing, inaccessible, or disallowed resources at the authored
+  argument; and
+* enforce the configured macro file-access policy.
+
+Until those inputs are tracked, file-reading macros remain trusted build
+extensions whose external dependencies are invisible to incremental
+compilation.
 
 ## Responsiveness and isolation
 

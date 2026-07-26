@@ -109,7 +109,10 @@ public sealed class TokenTreeMacroContext
         => ParseExpressionResult(new TextSpan(0, BodySpan.Length));
 
     public MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(TextSpan bodyRelativeSpan)
-        => ParseExpressionResult(GetBodyText(), bodyRelativeSpan);
+        => ParseSyntaxResult<ExpressionSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            static () => new ExpressionSyntax.Missing());
 
     internal MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(string bodyText)
     {
@@ -117,12 +120,32 @@ public sealed class TokenTreeMacroContext
         if (bodyText.Length != BodySpan.Length)
             throw new ArgumentException("Replacement body text must preserve the original body length.", nameof(bodyText));
 
-        return ParseExpressionResult(bodyText, new TextSpan(0, bodyText.Length));
+        return ParseSyntaxResult<ExpressionSyntax>(
+            bodyText,
+            new TextSpan(0, bodyText.Length),
+            static () => new ExpressionSyntax.Missing());
     }
 
-    private MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(
+    public StatementSyntax ParseStatement()
+        => ParseStatementResult().Syntax;
+
+    public StatementSyntax ParseStatement(TextSpan bodyRelativeSpan)
+        => ParseStatementResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<StatementSyntax> ParseStatementResult()
+        => ParseStatementResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<StatementSyntax> ParseStatementResult(TextSpan bodyRelativeSpan)
+        => ParseSyntaxResult<StatementSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            static () => SyntaxFactory.ExpressionStatement(new ExpressionSyntax.Missing()));
+
+    private MacroSyntaxParseResult<TSyntax> ParseSyntaxResult<TSyntax>(
         string bodyText,
-        TextSpan bodyRelativeSpan)
+        TextSpan bodyRelativeSpan,
+        Func<TSyntax> createMissingSyntax)
+        where TSyntax : SyntaxNode
     {
         if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
@@ -134,12 +157,12 @@ public sealed class TokenTreeMacroContext
             Syntax.SyntaxTree?.FilePath,
             Syntax.SyntaxTree?.Options ?? new ParseOptions());
         var parseResult = parser.ParseSyntaxWithDiagnostics(
-            typeof(ExpressionSyntax),
+            typeof(TSyntax),
             sourceText,
             absoluteStart,
             consumeFullText: true);
-        var expression = parseResult?.Root.CreateRed() as ExpressionSyntax
-            ?? new ExpressionSyntax.Missing();
+        var syntax = parseResult?.Root.CreateRed() as TSyntax
+            ?? createMissingSyntax();
         var diagnostics = parseResult?.Diagnostics
             .Select(diagnostic => Diagnostic.Create(
                 diagnostic.Descriptor,
@@ -148,7 +171,7 @@ public sealed class TokenTreeMacroContext
             .ToImmutableArray()
             ?? ImmutableArray<Diagnostic>.Empty;
 
-        return new MacroSyntaxParseResult<ExpressionSyntax>(expression, diagnostics);
+        return new MacroSyntaxParseResult<TSyntax>(syntax, diagnostics);
     }
 
     public MacroExpansionDiagnostic CreateDiagnostic(

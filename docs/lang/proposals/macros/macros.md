@@ -42,6 +42,11 @@ Raven macros provide:
 * Full tooling compatibility
 
 Macros are **compiler-integrated syntax transformers**, not textual preprocessors.
+Freestanding procedural macros are invoked with function-like or delimited
+syntax, while attached macros are applied as attributes. During binding, the
+compiler resolves the macro implementation and expands the invocation or
+attribute into typed ordinary Raven syntax. Binding then continues over that
+expansion before normal code generation.
 
 ---
 

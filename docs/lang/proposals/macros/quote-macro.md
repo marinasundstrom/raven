@@ -46,6 +46,42 @@ The primary users are:
 * analyzers, refactorings, and code fixes that need replacement syntax; and
 * syntax-oriented tests that need a readable expected tree.
 
+For macro authors, this turns manual syntax construction:
+
+```raven
+return SyntaxFactory.InfixOperatorExpression(
+    SyntaxKind.AddExpression,
+    left,
+    SyntaxFactory.PlusToken,
+    right
+)
+```
+
+into a direct description of the expansion:
+
+```raven
+return #quote {
+    #(left) + #(right)
+}
+```
+
+The quoted Raven supplies the fixed expansion structure, while holes supply
+the syntax computed by the enclosing macro. The result remains an ordinary
+syntax tree and continues through Raven's normal binding, diagnostics,
+tooling, and code-generation pipeline.
+
+This also provides an incremental migration path for the macro library.
+Existing macros can continue returning trees assembled with `SyntaxFactory`;
+once quote is supported in macro-authored projects, suitable implementations
+can move to `#quote` without changing their public invocation syntax or typed
+expansion contract.
+
+Because quote expansion runs during binding, invalid quoted Raven is diagnosed
+at compile time inside the authored quote. Macro-specific validation can use
+the same diagnostic path. This moves errors that string-based generation or
+runtime parsing would discover only during execution into the normal build and
+editor feedback cycle.
+
 `#quote` does not execute the quoted expression, capture its runtime values, or
 produce a semantically bound representation. It captures syntax. Name
 resolution and type checking occur only when the resulting syntax is inserted
