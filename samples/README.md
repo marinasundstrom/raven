@@ -68,6 +68,7 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
 - `samples/projects/custom-analyzer/README.md` (custom diagnostics loaded through an `<Analyzer>` project item)
 - `samples/projects/source-generator/README.md` (generated Raven source loaded through a `<SourceGenerator>` project item)
+- `samples/projects/markdown-docs/README.md` (Markdown-first comments, editor highlighting, and default Markdown/XML projections)
 - `samples/projects/syntax-tree-api/README.md` (parse and inspect Raven syntax trees from Raven code)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 

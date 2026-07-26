@@ -152,6 +152,11 @@ practical. Consumers query Raven APIs rather than an XML-shaped object model.
 Markdown, XML, HTML, or future formats can therefore be added as adapters
 without redesigning the core model around any one target.
 
+RavenDoc is the HTML projector and page-assembly layer. It can populate the
+model from documentation attached to Raven source symbols or from PE symbols
+whose libraries ship adjacent Markdown sidecars. Those inputs converge before
+navigation, related content, and HTML pages are assembled.
+
 Libraries build both projections by default. This provides the preferred Raven
 experience and conventional XML documentation for existing .NET editors and
 tools. Projects can disable the bundle or either projection.

@@ -7,7 +7,12 @@ namespace Samples.Docs
 /// ### Usage
 ///
 /// Use [WidgetFactory](xref:T:Samples.Docs.WidgetFactory) to create sample
-/// widgets for tests and examples.
+/// widgets for tests and examples:
+///
+/// ```raven
+/// let widget = WidgetFactory.CreateDefault()
+/// let title = widget.GetTitle()
+/// ```
 ///
 /// ### Related
 ///
@@ -16,7 +21,9 @@ namespace Samples.Docs
 class Widget(val Title: string) {
     /// Returns the current title.
     ///
-    /// @returns The title that was supplied when the widget was created.
+    /// `Title` is returned unchanged.
+    ///
+    /// @result The title that was supplied when the widget was created.
     /// @see xref:T:Samples.Docs.Consumer.WidgetPrinter
     func GetTitle() -> string => Title
 }
@@ -24,6 +31,8 @@ class Widget(val Title: string) {
 /// Creates ready-made [Widget](xref:T:Samples.Docs.Widget) instances.
 class WidgetFactory {
     /// Creates a default widget for samples.
+    ///
+    /// The returned value has the title **Hello from docs**.
     ///
     /// @returns A [Widget](xref:T:Samples.Docs.Widget) instance with a sample title.
     static func CreateDefault() -> Widget {

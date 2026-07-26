@@ -114,24 +114,28 @@
   <Target
     Name="_CopyRavenDocumentationFileToOutputDirectory"
     AfterTargets="CopyFilesToOutputDirectory"
-    Condition="'$(GenerateDocumentationFile)' == 'true' or '$(GenerateMarkdownDocumentationFile)' == 'true'">
+    Condition="'$(RavenGenerateDocumentation)' == 'true' or '$(GenerateDocumentationFile)' == 'true' or '$(GenerateMarkdownDocumentationFile)' == 'true'">
+    <PropertyGroup>
+      <_RavenXmlDocumentationFile Condition="'$(DocumentationFile)' != ''">$(DocumentationFile)</_RavenXmlDocumentationFile>
+      <_RavenXmlDocumentationFile Condition="'$(_RavenXmlDocumentationFile)' == ''">$(IntermediateOutputPath)$(TargetName).xml</_RavenXmlDocumentationFile>
+    </PropertyGroup>
     <ItemGroup>
       <_RavenMarkdownDocumentationFiles
         Include="$(IntermediateOutputPath)$(TargetName).docs/**/*"
         Condition="'$(GenerateMarkdownDocumentationFile)' == 'true'" />
     </ItemGroup>
     <Copy
-      SourceFiles="$(DocumentationFile)"
+      SourceFiles="$(_RavenXmlDocumentationFile)"
       DestinationFiles="$(OutDir)$(TargetName).xml"
       SkipUnchangedFiles="true"
-      Condition="'$(GenerateDocumentationFile)' == 'true' and Exists('$(DocumentationFile)')" />
+      Condition="('$(RavenGenerateDocumentation)' == 'true' or '$(GenerateDocumentationFile)' == 'true') and Exists('$(_RavenXmlDocumentationFile)')" />
     <Copy
       SourceFiles="@(_RavenMarkdownDocumentationFiles)"
       DestinationFiles="@(_RavenMarkdownDocumentationFiles->'$(OutDir)$(TargetName).docs/%(RecursiveDir)%(Filename)%(Extension)')"
       SkipUnchangedFiles="true"
       Condition="'@(_RavenMarkdownDocumentationFiles)' != ''" />
     <ItemGroup>
-      <FileWrites Include="$(OutDir)$(TargetName).xml" Condition="'$(GenerateDocumentationFile)' == 'true' and Exists('$(DocumentationFile)')" />
+      <FileWrites Include="$(OutDir)$(TargetName).xml" Condition="('$(RavenGenerateDocumentation)' == 'true' or '$(GenerateDocumentationFile)' == 'true') and Exists('$(_RavenXmlDocumentationFile)')" />
       <FileWrites Include="@(_RavenMarkdownDocumentationFiles->'$(OutDir)$(TargetName).docs/%(RecursiveDir)%(Filename)%(Extension)')" />
     </ItemGroup>
   </Target>

@@ -81,7 +81,11 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 """);
 
             File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                /// Greets a caller.
                 class Greeter {
+                    /// Gets the greeting.
+                    ///
+                    /// @result A greeting from the SDK build.
                     static func Message() -> string {
                         "Hello from dotnet build"
                     }
@@ -96,6 +100,17 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.dll")),
                 "Expected Raven project build output in the SDK target directory.");
+            var xmlDocumentationPath = Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.xml");
+            Assert.True(
+                File.Exists(xmlDocumentationPath),
+                "Expected default XML documentation beside the Raven library.");
+            Assert.True(
+                File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.docs", "manifest.json")),
+                "Expected default Markdown documentation beside the Raven library.");
+            Assert.Contains(
+                "<returns>A greeting from the SDK build.</returns>",
+                File.ReadAllText(xmlDocumentationPath),
+                StringComparison.Ordinal);
         }
         finally
         {

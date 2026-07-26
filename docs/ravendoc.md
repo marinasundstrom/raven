@@ -1,6 +1,8 @@
 # **RavenDoc** — Documentation Generator
 
-RavenDoc is Raven’s built-in documentation generator. It extracts documentation written directly in source code and produces a static HTML documentation site.
+RavenDoc is Raven’s built-in documentation generator. It produces a static
+HTML documentation site from Markdown attached to source symbols or loaded
+from a compiled library's adjacent `.docs` sidecar.
 
 The core idea is simple:
 **documentation lives with the code, in Markdown, and is rendered as-is**.
@@ -109,11 +111,11 @@ RavenDoc uses the processed Markdown content (`Content`) for rendering.
 
 ## Relationship to metadata sidecars
 
-Raven’s compiler and IDE can also load Markdown documentation for metadata
-references from assembly-adjacent `.docs/` sidecars. The built-in compiler
-comment emitter now produces that structure for Markdown output, and RavenDoc is
-the intended future integration point for exporting richer Raven-authored
-documentation into the same metadata-friendly layout.
+Raven’s compiler and IDE load Markdown documentation for metadata references
+from assembly-adjacent `.docs/` sidecars. The built-in compiler comment emitter
+produces that structure for Markdown output. RavenDoc consumes the same content
+either directly from Raven source symbols or indirectly from a compiled
+library and its Markdown sidecar.
 
 Important separation:
 
@@ -122,11 +124,15 @@ Important separation:
 * RavenDoc consumes Markdown plus symbol data; it does not redefine the storage
   format for either Markdown or XML documentation.
 
-RavenDoc should be able to operate over:
+RavenDoc's two primary input paths are:
 
 * source symbols with attached Markdown comments
 * PE symbols with Markdown sidecars
-* PE symbols with XML sidecars, while still querying symbol metadata normally
+
+Both paths normalize through the Raven documentation model before RavenDoc
+assembles symbol pages and projects them to HTML. XML remains a compatibility
+input for libraries that do not provide Raven Markdown, rather than the model
+that shapes RavenDoc's APIs.
 
 For the editor-facing documentation view that should share the same underlying
 model without depending on published HTML, see
