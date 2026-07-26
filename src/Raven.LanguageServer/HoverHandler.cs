@@ -80,7 +80,10 @@ internal sealed class HoverHandler : IHoverHandler
         {
             currentStage = "analysisContext";
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(
+                request.TextDocument.Uri,
+                request.Position,
+                effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return null;

@@ -32,6 +32,40 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
     }
 
     [Fact]
+    public async Task HoverHandler_LocalMacroDeclaration_UsesMacroSemanticProjectionAsync()
+    {
+        const string text = """
+[LocalMacro]
+class MacroSupport {
+    val Value: int => 42
+
+    func Read() -> int => Value
+}
+
+func Main() -> int => 0
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var referenceOffset = text.LastIndexOf("Value", StringComparison.Ordinal) + 1;
+        var position = PositionHelper.ToRange(
+            context.Value.SourceText,
+            new TextSpan(referenceOffset, 0)).Start;
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("val Value: int");
+        hover.Range.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task HoverHandler_UpdatedDocument_DoesNotReuseCachedHoverFromPreviousVersionAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
@@ -770,6 +804,46 @@ class Runner {
 
         completions.ShouldNotBeNull();
         completions.Items.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task CompletionHandler_LocalMacroDeclaration_UsesMacroSemanticProjectionAsync()
+    {
+        const string text = """
+[LocalMacro]
+class MacroSupport {
+    val Value: int => 42
+
+    func Read() -> int {
+        return self.
+    }
+}
+
+func Main() -> int => 0
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var completionOffset = text.IndexOf("self.", StringComparison.Ordinal) + "self.".Length;
+        var position = PositionHelper.ToRange(
+            context.Value.SourceText,
+            new TextSpan(completionOffset, 0)).Start;
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position,
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("Value");
+        completions.Items.Select(static item => item.Label).ShouldContain("Read");
     }
 
     [Fact]

@@ -300,7 +300,10 @@ internal sealed class DocumentStore
             cancellationToken.ThrowIfCancellationRequested();
 
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            var context = await CreateDocumentAnalysisContextAsync(
+                uri,
+                position: null,
+                cancellationToken).ConfigureAwait(false);
             contextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return;
@@ -357,7 +360,21 @@ internal sealed class DocumentStore
 
     public async Task<DocumentAnalysisContext?> GetAnalysisContextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
-        return await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+        return await CreateDocumentAnalysisContextAsync(
+            uri,
+            position: null,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<DocumentAnalysisContext?> GetAnalysisContextAsync(
+        DocumentUri uri,
+        Position position,
+        CancellationToken cancellationToken)
+    {
+        return await CreateDocumentAnalysisContextAsync(
+            uri,
+            position,
+            cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task<DocumentSyntaxContext?> GetDocumentSyntaxContextAsync(DocumentUri uri, CancellationToken cancellationToken)
@@ -377,7 +394,10 @@ internal sealed class DocumentStore
 
     internal async Task<SemanticModel?> GetSemanticModelAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
-        var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+        var context = await CreateDocumentAnalysisContextAsync(
+            uri,
+            position: null,
+            cancellationToken).ConfigureAwait(false);
         if (context is null)
             return null;
 
@@ -400,7 +420,10 @@ internal sealed class DocumentStore
         return semanticModel;
     }
 
-    private async Task<DocumentAnalysisContext?> CreateDocumentAnalysisContextAsync(DocumentUri uri, CancellationToken cancellationToken)
+    private async Task<DocumentAnalysisContext?> CreateDocumentAnalysisContextAsync(
+        DocumentUri uri,
+        Position? position,
+        CancellationToken cancellationToken)
     {
         await FlushPendingDocumentChangeAsync(uri, cancellationToken).ConfigureAwait(false);
 
@@ -424,9 +447,18 @@ internal sealed class DocumentStore
 
         var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         sourceTextMs = stopwatch.Elapsed.TotalMilliseconds - compilationLookupMs - syntaxTreeMs;
-        if (!compilation.SyntaxTrees.Contains(syntaxTree))
+        if (!compilation.SyntaxTrees.Contains(syntaxTree) &&
+            !compilation.MacroSyntaxTrees.Contains(syntaxTree))
         {
-            syntaxTree = FindMatchingCompilationSyntaxTree(compilation, syntaxTree, document.FilePath);
+            syntaxTree = position is { } authoredPosition
+                ? compilation.GetSemanticModel(
+                    syntaxTree,
+                    Math.Clamp(
+                        PositionHelper.ToOffset(sourceText, authoredPosition),
+                        0,
+                        syntaxTree.Length))
+                    .SyntaxTree
+                : FindMatchingCompilationSyntaxTree(compilation, syntaxTree, document.FilePath);
             if (syntaxTree is null)
                 return null;
 
@@ -664,7 +696,10 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken,
         string? purpose = null)
     {
-        var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+        var context = await CreateDocumentAnalysisContextAsync(
+            uri,
+            position: null,
+            cancellationToken).ConfigureAwait(false);
         if (context is null)
             return null;
 
@@ -826,7 +861,10 @@ internal sealed class DocumentStore
                     if (shouldSkipWork?.Invoke() == true)
                         return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
-                    context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
+                    context = await CreateDocumentAnalysisContextAsync(
+                        uri,
+                        position: null,
+                        effectiveCancellationToken).ConfigureAwait(false);
                 }
             }
             else
@@ -837,7 +875,10 @@ internal sealed class DocumentStore
                     if (shouldSkipWork?.Invoke() == true)
                         return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
-                    context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
+                    context = await CreateDocumentAnalysisContextAsync(
+                        uri,
+                        position: null,
+                        effectiveCancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -1273,7 +1314,10 @@ internal sealed class DocumentStore
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
 
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            var context = await CreateDocumentAnalysisContextAsync(
+                uri,
+                position: null,
+                cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return;

@@ -424,6 +424,9 @@ declaration marked `[LocalMacro]` returns the macro-partition semantic model;
 other positions return the consumer model. Nodes for semantic queries must come
 from the returned model's `SyntaxTree`. The projections preserve authored
 positions, so the same position can be used to find the corresponding node.
+Language-server hover and completion use this position-aware view inside local
+macro declarations. Their semantic answers come from the macro partition rather
+than the masked consumer projection.
 
 The browser Playground supports this form in its single user buffer. Semantic
 editor services inside the projected macro declarations are not yet complete;

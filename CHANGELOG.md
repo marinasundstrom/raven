@@ -74,6 +74,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `Document.GetSemanticModelAsync(position)` now route macro declaration
   positions to the current macro projection while preserving the consumer model
   for ordinary source positions and existing positionless calls.
+- Routed language-server hover and completion through the position-aware
+  semantic projection, enabling ordinary Raven symbol information and member
+  completion inside same-buffer local macro implementations.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.
