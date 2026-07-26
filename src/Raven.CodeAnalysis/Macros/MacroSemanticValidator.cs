@@ -36,6 +36,16 @@ internal static class MacroSemanticValidator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor s_macroInvocationFormNotSupported = DiagnosticDescriptor.Create(
+        "RAVM013",
+        "Macro invocation form not supported",
+        "",
+        "",
+        "Macro '{0}' {1}.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     public static void ValidateAttribute(
         Compilation compilation,
         AttributeSyntax attribute,
@@ -112,6 +122,29 @@ internal static class MacroSemanticValidator
         if (!registry.TryResolveFreestandingMacro(macroName, out loaded))
         {
             diagnostics?.Report(Diagnostic.Create(s_unknownMacro, expression.Name.GetLocation(), macroName));
+            return false;
+        }
+
+        if (expression.TokenTree is not null)
+        {
+            if (loaded.Macro is ITokenTreeExpressionMacro)
+                return true;
+
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroInvocationFormNotSupported,
+                expression.TokenTree.GetLocation(),
+                macroName,
+                "does not accept a token-tree body"));
+            return false;
+        }
+
+        if (loaded.Macro is not IFreestandingExpressionMacro)
+        {
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroInvocationFormNotSupported,
+                expression.Name.GetLocation(),
+                macroName,
+                "requires a token-tree body"));
             return false;
         }
 

@@ -172,6 +172,27 @@ internal partial class BaseParseContext : ParseContext
         return _lastToken;
     }
 
+    public override SyntaxToken ReadMacroBodyToken(out bool isTerminated)
+    {
+        _lookaheadTokens.Clear();
+        _lexer.ResetToPosition(_position);
+
+        if (_lexer is not IMacroBodyScanner macroBodyScanner)
+            throw new InvalidOperationException("The active lexer does not support macro body capture.");
+
+        var token = macroBodyScanner.ReadMacroBody(out isTerminated);
+        _lastToken = new SyntaxToken(
+            token.Kind,
+            token.Text,
+            token.Value,
+            token.Length,
+            SyntaxTriviaList.Empty,
+            SyntaxTriviaList.Empty);
+        _position += _lastToken.FullWidth;
+
+        return _lastToken;
+    }
+
     private static void DebugPrintToken(string action, SyntaxToken token, int position)
     {
         var text = token.Text;

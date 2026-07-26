@@ -191,6 +191,40 @@ class Harness {
     }
 
     [Fact]
+    public void MacroExpansionDisplayService_BuildsPreviewForTokenTreeMacroExpression()
+    {
+        const string code = """
+class Harness {
+    func Run() -> int => #raven {
+        40 + 2
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(FreestandingMacroPlugin)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var sourceText = SourceText.From(code);
+        var root = syntaxTree.GetRoot();
+        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+
+        var success = MacroExpansionDisplayService.TryCreateForOffset(
+            sourceText,
+            semanticModel,
+            root,
+            expression.Name.Span.Start,
+            out var display);
+
+        success.ShouldBeTrue();
+        display.MacroName.ShouldBe("raven");
+        display.InvocationDisplay.ShouldBe("#raven { ... }");
+        display.FullText.ShouldBe("40 + 2");
+    }
+
+    [Fact]
     public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideFreestandingMacroArguments()
     {
         const string code = """
@@ -478,7 +512,7 @@ class Program {
         public string Name => "FreestandingMacroPlugin";
 
         public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new AnswerMacro()];
+            => [new AnswerMacro(), new RavenBodyMacro()];
     }
 
     public sealed class AnswerMacro : IFreestandingExpressionMacro
@@ -491,6 +525,18 @@ class Program {
             => new()
             {
                 Expression = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(42))
+            };
+    }
+
+    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "raven";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => new()
+            {
+                Expression = context.ParseExpression()
             };
     }
 

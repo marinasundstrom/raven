@@ -106,10 +106,30 @@ internal static class MacroExpansionService
 
         try
         {
-            var context = new FreestandingMacroContext(compilation, semanticModel, expression, cancellationToken);
-            var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
-                ?? loaded.Macro.Expand(context)
-                ?? FreestandingMacroExpansionResult.Empty;
+            FreestandingMacroExpansionResult result;
+            if (expression.TokenTree is not null)
+            {
+                var tokenTreeMacro = (ITokenTreeExpressionMacro)loaded.Macro;
+                var context = new TokenTreeMacroContext(
+                    compilation,
+                    semanticModel,
+                    expression,
+                    cancellationToken);
+                result = tokenTreeMacro.Expand(context) ?? FreestandingMacroExpansionResult.Empty;
+            }
+            else
+            {
+                var freestandingMacro = (IFreestandingExpressionMacro)loaded.Macro;
+                var context = new FreestandingMacroContext(
+                    compilation,
+                    semanticModel,
+                    expression,
+                    cancellationToken);
+                result = ExpandWithTypedParametersIfAvailable(freestandingMacro, context, diagnostics)
+                    ?? freestandingMacro.Expand(context)
+                    ?? FreestandingMacroExpansionResult.Empty;
+            }
+
             result = ContextualizeExpansionResult(expression, result);
             RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Expression);
 

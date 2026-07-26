@@ -19,6 +19,7 @@ Macros are resolved from referenced `RavenMacro` assemblies. Their meaning is de
 
 * `IAttachedDeclarationMacro` implies `AttachedDeclaration`
 * `IFreestandingExpressionMacro` implies `FreestandingExpression`
+* `ITokenTreeExpressionMacro` implies `FreestandingExpression`
 
 ## Attached macro syntax
 
@@ -55,6 +56,35 @@ func Main() -> int => #answer()
 ```
 
 The expression expands to an ordinary Raven expression before normal expression binding continues.
+
+A token-tree expression macro uses a raw brace-delimited body:
+
+```raven
+func Main() -> string => #query {
+    from user in users
+    where user.IsActive
+    select user.Name
+}
+```
+
+The compiler recognizes and balances the invocation envelope, but does not run
+the body through ordinary Raven tokenization. The body is preserved as authored
+so a macro can implement a custom DSL lexer/parser without producing unrelated
+Raven lexer diagnostics.
+
+`TokenTreeMacroContext` exposes the raw body text, its authored
+`BodySpan`, body-relative diagnostic helpers, and Raven expression parsing for
+the complete body or a selected body-relative span. This supports both complete
+custom parsing and hybrid DSLs with embedded Raven expressions.
+
+Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
+token-tree-only macro must be invoked with braces; an argument-based macro must
+be invoked with parentheses.
+
+The raw body is the source of truth. Any standard Raven token stream,
+macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
+tree is derived from that body and remains scoped to the macro invocation.
+Macro-local token kinds do not alter ordinary Raven lexing or `SyntaxKind`.
 
 ## Placement rules
 

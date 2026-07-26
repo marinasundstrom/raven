@@ -34,6 +34,11 @@ internal interface ILexer
     void ClearCheckpoint();
 }
 
+internal interface IMacroBodyScanner
+{
+    Token ReadMacroBody(out bool isTerminated);
+}
+
 internal struct Token
 {
     public Token(SyntaxKind kind, string text)

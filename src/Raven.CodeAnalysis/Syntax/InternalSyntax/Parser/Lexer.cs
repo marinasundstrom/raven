@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-internal class Lexer : ILexer
+internal class Lexer : ILexer, IMacroBodyScanner
 {
     private readonly SeekableTextSource _textSource;
     private readonly StringBuilder _stringBuilder = new StringBuilder();
@@ -126,6 +126,157 @@ internal class Lexer : ILexer
             _lookaheadTokens.Add(token);
         }
         return _lookaheadTokens[_lookaheadStart + index];
+    }
+
+    public Token ReadMacroBody(out bool isTerminated)
+    {
+        ClearLookahead();
+        _tokenStartPosition = _currentPosition;
+
+        var builder = new StringBuilder();
+        var braceDepth = 0;
+
+        while (PeekChar(out var current))
+        {
+            if (current == '}' && braceDepth == 0)
+            {
+                isTerminated = true;
+                return new Token(SyntaxKind.MacroBodyToken, builder.ToString());
+            }
+
+            if (current == '{')
+            {
+                ReadChar();
+                builder.Append(current);
+                braceDepth++;
+                continue;
+            }
+
+            if (current == '}')
+            {
+                ReadChar();
+                builder.Append(current);
+                braceDepth--;
+                continue;
+            }
+
+            if (current is '"' or '\'' or '`')
+            {
+                ScanQuotedText(builder, current);
+                continue;
+            }
+
+            if (current == '/' &&
+                _textSource.PeekChar(1, out var commentMarker))
+            {
+                if (commentMarker == '/')
+                {
+                    ScanLineComment(builder);
+                    continue;
+                }
+
+                if (commentMarker == '*')
+                {
+                    ScanBlockComment(builder);
+                    continue;
+                }
+            }
+
+            ReadChar();
+            builder.Append(current);
+
+            if (current == '\\' && PeekChar(out var escaped))
+            {
+                ReadChar();
+                builder.Append(escaped);
+            }
+        }
+
+        isTerminated = false;
+        return new Token(SyntaxKind.MacroBodyToken, builder.ToString());
+    }
+
+    private void ScanQuotedText(StringBuilder builder, char quote)
+    {
+        var isTripleQuoted = quote == '"' &&
+            _textSource.PeekChar(1, out var secondQuote) &&
+            secondQuote == '"' &&
+            _textSource.PeekChar(2, out var thirdQuote) &&
+            thirdQuote == '"';
+        var delimiterLength = isTripleQuoted ? 3 : 1;
+
+        for (var i = 0; i < delimiterLength; i++)
+        {
+            ReadChar();
+            builder.Append(quote);
+        }
+
+        while (PeekChar(out var current))
+        {
+            if (isTripleQuoted &&
+                current == quote &&
+                _textSource.PeekChar(1, out secondQuote) &&
+                secondQuote == quote &&
+                _textSource.PeekChar(2, out thirdQuote) &&
+                thirdQuote == quote)
+            {
+                for (var i = 0; i < delimiterLength; i++)
+                {
+                    ReadChar();
+                    builder.Append(quote);
+                }
+
+                return;
+            }
+
+            ReadChar();
+            builder.Append(current);
+
+            if (!isTripleQuoted && current == '\\' && PeekChar(out var escaped))
+            {
+                ReadChar();
+                builder.Append(escaped);
+                continue;
+            }
+
+            if (!isTripleQuoted && current == quote)
+                return;
+        }
+    }
+
+    private void ScanLineComment(StringBuilder builder)
+    {
+        ReadChar();
+        builder.Append('/');
+        ReadChar();
+        builder.Append('/');
+
+        while (PeekChar(out var current) && !IsEndOfLine(current))
+        {
+            ReadChar();
+            builder.Append(current);
+        }
+    }
+
+    private void ScanBlockComment(StringBuilder builder)
+    {
+        ReadChar();
+        builder.Append('/');
+        ReadChar();
+        builder.Append('*');
+
+        while (PeekChar(out var current))
+        {
+            ReadChar();
+            builder.Append(current);
+
+            if (current == '*' && PeekChar(out var next) && next == '/')
+            {
+                ReadChar();
+                builder.Append('/');
+                return;
+            }
+        }
     }
 
     private bool TryConsumeLookaheadToken(out Token token)

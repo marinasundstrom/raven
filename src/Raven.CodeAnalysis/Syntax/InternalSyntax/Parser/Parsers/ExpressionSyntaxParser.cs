@@ -2634,11 +2634,39 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         var hashToken = ReadToken();
         var name = new NameSyntaxParser(this).ParseSimpleName();
-        var argumentList = PeekToken().IsKind(SyntaxKind.OpenParenToken)
-            ? ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false)
-            : CreateMissingArgumentList();
+        var argumentList = CreateMissingArgumentList();
+        MacroTokenTreeSyntax? tokenTree = null;
 
-        return FreestandingMacroExpression(hashToken, name, argumentList);
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            argumentList = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
+        }
+        else if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        {
+            tokenTree = ParseMacroTokenTree();
+        }
+
+        return FreestandingMacroExpression(hashToken, name, argumentList, tokenTree);
+    }
+
+    private MacroTokenTreeSyntax ParseMacroTokenTree()
+    {
+        var openBraceToken = ReadToken();
+        var bodyToken = ReadMacroBodyToken(out var isTerminated);
+        var closeBraceToken = isTerminated
+            ? ReadToken()
+            : MissingToken(SyntaxKind.CloseBraceToken);
+
+        if (!isTerminated)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    SyntaxFacts.GetSyntaxTokenText(SyntaxKind.CloseBraceToken) ?? "}"));
+        }
+
+        return MacroTokenTree(openBraceToken, bodyToken, closeBraceToken);
     }
 
     private bool TryReadEncodedStringSuffix(

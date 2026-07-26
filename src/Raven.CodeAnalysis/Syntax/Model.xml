@@ -182,6 +182,12 @@
     <Slot Name="HashToken" Type="Token" DefaultToken="HashToken" />
     <Slot Name="Name" Type="SimpleName" />
     <Slot Name="ArgumentList" Type="ArgumentList" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+  </Node>
+  <Node Name="MacroTokenTree" Inherits="Node">
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="BodyToken" Type="Token" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
   <Node Name="ExtensionDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />

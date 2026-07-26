@@ -86,6 +86,21 @@ internal sealed class MacroRegistry
 
                                 freestandingMacros.Add(freestanding.Name, new LoadedFreestandingMacro(plugin, freestanding));
                                 break;
+
+                            case ITokenTreeExpressionMacro tokenTree:
+                                if (freestandingMacros.TryGetValue(tokenTree.Name, out var existingTokenTree))
+                                {
+                                    diagnostics.Add(Diagnostic.Create(
+                                        s_duplicateMacroName,
+                                        Location.None,
+                                        tokenTree.Name,
+                                        existingTokenTree.Plugin.Name,
+                                        plugin.Name));
+                                    continue;
+                                }
+
+                                freestandingMacros.Add(tokenTree.Name, new LoadedFreestandingMacro(plugin, tokenTree));
+                                break;
                         }
                     }
                 }
@@ -107,4 +122,4 @@ internal sealed class MacroRegistry
 }
 
 internal readonly record struct LoadedAttachedMacro(IRavenMacroPlugin Plugin, IAttachedDeclarationMacro Macro);
-internal readonly record struct LoadedFreestandingMacro(IRavenMacroPlugin Plugin, IFreestandingExpressionMacro Macro);
+internal readonly record struct LoadedFreestandingMacro(IRavenMacroPlugin Plugin, IMacroDefinition Macro);

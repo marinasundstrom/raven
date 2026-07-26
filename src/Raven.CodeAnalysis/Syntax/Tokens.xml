@@ -167,6 +167,7 @@
   <TokenKind Name="OpenBracketToken" Text="[" />
   <TokenKind Name="CloseBracketToken" Text="]" />
   <TokenKind Name="HashToken" Text="#" />
+  <TokenKind Name="MacroBodyToken" />
   <TokenKind Name="DollarToken" Text="$" />
   <TokenKind Name="StringStartToken" Text="&quot;" />
   <TokenKind Name="StringEndToken" Text="&quot;" />

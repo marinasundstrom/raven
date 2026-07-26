@@ -40,6 +40,36 @@ public sealed class FreestandingMacroCodeGenTests
         Assert.Equal(42, method!.Invoke(null, null));
     }
 
+    [Fact]
+    public void TokenTreeMacro_ParsedRavenExpression_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            class Harness {
+                public static func Run() -> int {
+                    return #raven {
+                        20 + 22
+                    }
+                }
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
     public sealed class AddMacroPlugin : IRavenMacroPlugin
     {
         public string Name => nameof(AddMacroPlugin);
@@ -66,6 +96,26 @@ public sealed class FreestandingMacroCodeGenTests
         public int Left { get; } = left;
 
         public int Right { get; set; }
+    }
+
+    public sealed class TokenTreeMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(TokenTreeMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new RavenBodyMacro()];
+    }
+
+    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "raven";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => new()
+            {
+                Expression = context.ParseExpression()
+            };
     }
 
     private static ExpressionSyntax ParseExpression(string expressionText)

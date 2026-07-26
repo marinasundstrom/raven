@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
+
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -8,6 +9,20 @@ public static partial class SyntaxFactory
     public static SyntaxToken MissingToken(SyntaxKind kind) => (SyntaxToken)InternalSyntax.SyntaxFactory.MissingToken(kind);
 
     public static SyntaxToken Token(SyntaxKind kind) => (SyntaxToken)InternalSyntax.SyntaxFactory.Token(kind);
+
+    public static SyntaxToken Token(int rawKind, string text, int position = 0, object? value = null)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+
+        var green = new InternalSyntax.SyntaxToken(
+            rawKind,
+            SyntaxKind.None,
+            text,
+            value,
+            text.Length);
+        return new SyntaxToken(green, parent: null, position);
+    }
 
     public static SyntaxToken Identifier(string text) => (SyntaxToken)InternalSyntax.SyntaxFactory.IdentifierToken(text);
 

@@ -65,12 +65,37 @@ class MacroHost {
         Assert.Contains("accepts arguments", subscribe.Description, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void GetCompletions_InFreestandingMacroName_UsesTokenTreeInsertion()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val query = #que()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(ReactiveMacroPlugin)));
+
+        var position = code.IndexOf('(', code.IndexOf("#que", StringComparison.Ordinal));
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var query = Assert.Single(items.Where(static item => item.DisplayText == "query"));
+        Assert.Equal("query { }", query.InsertionText);
+        Assert.Equal(query.InsertionText.Length - 1, query.CursorOffset);
+        Assert.Contains("token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
+    }
+
     public sealed class ReactiveMacroPlugin : IRavenMacroPlugin
     {
         public string Name => nameof(ReactiveMacroPlugin);
 
         public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ObservableMacro(), new SubscribeMacro()];
+            => [new ObservableMacro(), new SubscribeMacro(), new QueryMacro()];
     }
 
     private sealed class ObservableMacro : IAttachedDeclarationMacro
@@ -92,6 +117,16 @@ class MacroHost {
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    private sealed class QueryMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "query";
+
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
     }
 }

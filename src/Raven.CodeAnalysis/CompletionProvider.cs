@@ -2929,9 +2929,11 @@ public static class CompletionProvider
         }
 
         var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+        var freestandingInvocationStart = freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart
+            ?? freestandingMacro?.ArgumentList.OpenParenToken.SpanStart;
         if (freestandingMacro is not null &&
             position >= freestandingMacro.HashToken.Span.End &&
-            position <= freestandingMacro.ArgumentList.OpenParenToken.SpanStart)
+            position <= freestandingInvocationStart)
         {
             CreateMacroCompletionContext(freestandingMacro.Name, MacroKind.FreestandingExpression, sourceText, position, out context);
             return true;
@@ -2969,12 +2971,18 @@ public static class CompletionProvider
             if (!seen.Add(macro.Name) || !MacroNameMatchesPrefix(macro.Name, context.Prefix))
                 continue;
 
-            var insertionText = context.Kind == MacroKind.FreestandingExpression
-                ? macro.Name + "()"
-                : macro.Name;
-            var cursorOffset = context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments
-                ? insertionText.Length - 1
-                : (int?)null;
+            var insertionText = macro switch
+            {
+                ITokenTreeExpressionMacro => macro.Name + " { }",
+                _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
+                _ => macro.Name
+            };
+            var cursorOffset = macro switch
+            {
+                ITokenTreeExpressionMacro => insertionText.Length - 1,
+                _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
+                _ => (int?)null
+            };
 
             yield return new CompletionItem(
                 DisplayText: macro.Name,
@@ -3031,9 +3039,12 @@ public static class CompletionProvider
         var targetsDisplay = macro.Targets == MacroTarget.None
             ? null
             : $"targets: {FormatMacroTargets(macro.Targets)}";
-        var argumentsDisplay = macro.AcceptsArguments
-            ? "accepts arguments"
-            : "no arguments";
+        var argumentsDisplay = macro switch
+        {
+            ITokenTreeExpressionMacro => "accepts a token-tree body",
+            _ when macro.AcceptsArguments => "accepts arguments",
+            _ => "no arguments"
+        };
 
         return string.Join(
             " • ",

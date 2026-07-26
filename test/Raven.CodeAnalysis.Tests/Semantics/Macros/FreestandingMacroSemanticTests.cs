@@ -4,6 +4,7 @@ using System.Linq;
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -147,6 +148,146 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         var referencedParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(valueReference).Symbol);
         Assert.Equal(SpecialType.System_Int32, referencedParameter.Type.SpecialType);
+    }
+
+    [Fact]
+    public void TokenTreeMacro_CanParseEntireBodyAsRavenExpression()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #raven {
+                40 + 2
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("40 + 2", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void TokenTreeMacro_CanDelegateSelectedDslSpanToRavenParser()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #select {
+                query-field ::= {{ 20 + 22 }}
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("20 + 22", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void TokenTreeMacro_BodyDiagnosticUsesAuthoredBodySpan()
+    {
+        const string source = """
+            func Main() -> int => #reject {
+                invalid-dsl-token
+            }
+            """;
+        var (compilation, _) = CreateCompilation(source);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
+
+        Assert.Equal(
+            source.IndexOf("invalid-dsl-token", StringComparison.Ordinal),
+            diagnostic.Location.SourceSpan.Start);
+        Assert.Equal("invalid-dsl-token".Length, diagnostic.Location.SourceSpan.Length);
+    }
+
+    [Fact]
+    public void TokenTreeMacro_RequiresTokenTreeInvocationForm()
+    {
+        var (compilation, _) = CreateCompilation("""
+            func Main() -> int => #raven()
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM013"));
+
+        Assert.Contains("requires a token-tree body", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    public sealed class TokenTreeMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(TokenTreeMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new RavenBodyMacro(), new SelectBodyMacro(), new RejectBodyMacro()];
+    }
+
+    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "raven";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => new()
+            {
+                Expression = context.ParseExpression()
+            };
+    }
+
+    public sealed class SelectBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "select";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var body = context.GetBodyText();
+            var expressionStart = body.IndexOf("{{", StringComparison.Ordinal) + 2;
+            var expressionEnd = body.IndexOf("}}", expressionStart, StringComparison.Ordinal);
+
+            return new FreestandingMacroExpansionResult
+            {
+                Expression = context.ParseExpression(
+                    TextSpan.FromBounds(expressionStart, expressionEnd))
+            };
+        }
+    }
+
+    public sealed class RejectBodyMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "reject";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var body = context.GetBodyText();
+            const string invalidToken = "invalid-dsl-token";
+            var start = body.IndexOf(invalidToken, StringComparison.Ordinal);
+
+            return new FreestandingMacroExpansionResult
+            {
+                MacroDiagnostics =
+                [
+                    context.CreateBodyDiagnostic(
+                        new TextSpan(start, invalidToken.Length),
+                        "invalid DSL token")
+                ]
+            };
+        }
     }
 
     public sealed class AnswerMacroPlugin : IRavenMacroPlugin

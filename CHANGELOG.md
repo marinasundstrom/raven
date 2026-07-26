@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added raw-body token-tree expression macros with `#name { ... }` syntax,
+  lossless DSL body capture, body-relative diagnostics, and helpers for parsing
+  the complete body or selected embedded spans as Raven expressions. Macro
+  bodies bypass ordinary Raven tokenization, while expansion continues through
+  normal semantic binding and emit.
+- Added `SyntaxToken.RawKind`, macro-local token reclassification through
+  `WithRawKind`, and detached custom-token construction without changing
+  ordinary Raven `SyntaxKind` classification or lexing.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

@@ -1,6 +1,11 @@
 # Raven Macro System
 
 > ⚠️ 🧩 This proposal has been partly implemented
+>
+> See the [living implementation plan](implementation-plan.md) for the active
+> slice, invariants, and follow-up work. See
+> [Macro and DSL developer experience](developer-experience.md) for the
+> intended authoring and editor model.
 
 Current implementation status:
 
@@ -13,7 +18,11 @@ Current implementation status:
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
 * `MacroExpansionResult` now models both additive members and optional declaration replacement.
-* Generated-member and replacement integration into normal binding/codegen is not implemented yet.
+* Generated members, replacement declarations, and freestanding expression
+  results participate in normal binding and code generation.
+* Raw-body freestanding expression macros use `#name { ... }`, preserve DSL
+  source without ordinary Raven tokenization, and can delegate selected spans
+  back to Raven expression parsing.
 
 Related deferred proposals:
 
@@ -134,10 +143,10 @@ This is intended to let the compiler eventually bind macro arguments the same wa
 
 Current validation diagnostics reported by the macro itself are surfaced through a shared compiler-owned diagnostic ID, with the specific macro name and message carried in the formatted text rather than through plugin-defined descriptor IDs.
 
-## Invocation Macros (future / Rust-style)
+## Token-tree expression macros
 
 ```raven
-linq! {
+#linq {
     from user in db.Users
     where user.IsActive && user.Age >= 21
     select user.Name
@@ -146,11 +155,14 @@ linq! {
 
 Characteristics:
 
-* Explicit `!` invocation marker
-* Body captured as `TokenTree`
-* Must appear in a valid syntactic slot
-* Deferred until after attached macros are stable
-* Not part of the current implementation slice
+* Uses the same `#name` family as argument-based freestanding macros.
+* The compiler captures the body as lossless raw source inside a balanced brace
+  envelope.
+* The macro may parse the body completely itself or delegate selected
+  body-relative spans to Raven fragment parsers.
+* The initial result category is an expression.
+* Replaceable standard/custom token streams and additional result categories
+  are tracked in the living implementation plan.
 
 ---
 
