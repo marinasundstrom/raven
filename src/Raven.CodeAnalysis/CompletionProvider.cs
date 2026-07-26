@@ -2995,10 +2995,13 @@ public static class CompletionProvider
 
     private static IEnumerable<IMacroDefinition> EnumerateMacros(Compilation compilation, MacroKind kind)
     {
-        foreach (var macro in IntrinsicMacroPlugin.Instance.GetMacros())
+        foreach (var plugin in DefaultMacroEnvironment.Plugins)
         {
-            if (macro.Kind == kind)
-                yield return macro;
+            foreach (var macro in plugin.GetMacros())
+            {
+                if (macro.Kind == kind)
+                    yield return macro;
+            }
         }
 
         foreach (var macroReference in compilation.MacroReferences)

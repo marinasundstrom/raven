@@ -13,6 +13,21 @@ Macros are distinct from .NET attributes:
 * `[Serializable]` is an attribute.
 * `#[Observable]` is a macro.
 
+Macros are compiler plugins. Macro resolution and expansion are owned by
+`Compilation` and occur during binding; creating a `Workspace` is not required.
+Analyzers and generators are instead workspace plugins whose discovery and
+orchestration belong to a workspace or build host. A project system may resolve
+a macro asset, but it passes that asset to the compiler and does not own the
+macro's semantic execution.
+
+An analyzer may optionally query compiler-provided retained structure for a
+macro that explicitly supplies it. An `ExpressionSyntax` embedded in that
+structure can trigger ordinary Raven expression analysis when an analyzer host
+is present. If a macro does not retain structure, the query returns no
+structure and analyzers must not infer one from raw tokens or expansion output.
+Compiling and expanding a macro must not require a workspace or any analyzer to
+be loaded.
+
 Macros are resolved from compiler-plugin assemblies. Their meaning is defined
 by the referenced macro implementation, not by the parser. The current SDK
 uses an explicit `RavenMacro` project item as transitional plumbing; the
@@ -340,6 +355,22 @@ reference, and source files should not need macro import directives. A future
 assembly-level compiler-plugin marker may explicitly identify plugin types or
 authorize discovery of `IRavenMacroPlugin` implementations within that marked
 assembly.
+
+The selected Raven compiler and SDK may also register a version-matched default
+macro set automatically. Default macros require no source import or explicit
+dependency and must be available in the Playground. `#quote` is the first such
+macro; future defaults such as `#embedFile` may be compiler intrinsics or
+SDK-bundled plugins without exposing that distinction at the invocation site.
+
+Same-project macro declarations are part of the intended language model but are
+not implemented by the current SDK. They require the compiler to stage an
+acyclic compile-time macro partition before binding dependent invocations. The
+design must work from an in-memory project snapshot so the Playground does not
+depend on a separate macro project or an on-disk plugin assembly.
+
+The compiler API can activate an already-emitted macro assembly from an
+in-memory image. Automatic source partitioning and compilation of same-project
+macro declarations are not yet implemented.
 
 Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 

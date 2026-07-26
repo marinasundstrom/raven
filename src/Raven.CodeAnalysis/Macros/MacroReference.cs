@@ -56,14 +56,31 @@ public sealed class MacroReference
             sourceProjectFilePath);
     }
 
+    /// <summary>
+    /// Creates a macro reference from an emitted managed assembly image.
+    /// </summary>
+    /// <param name="assemblyImage">The complete portable executable image.</param>
+    /// <param name="display">An optional display name used in diagnostics.</param>
+    /// <returns>A lazily loaded macro reference.</returns>
+    public static MacroReference CreateFromImage(byte[] assemblyImage, string? display = null)
+    {
+        ArgumentNullException.ThrowIfNull(assemblyImage);
+        if (assemblyImage.Length == 0)
+            throw new ArgumentException("Assembly image must not be empty.", nameof(assemblyImage));
+
+        var image = (byte[])assemblyImage.Clone();
+        return new MacroReference(
+            CreateImagePluginFactory(image),
+            string.IsNullOrWhiteSpace(display) ? "<in-memory macro assembly>" : display,
+            sourceProjectFilePath: null);
+    }
+
     public IEnumerable<IRavenMacroPlugin> GetPlugins() => _pluginFactory();
 
     private static Func<IEnumerable<IRavenMacroPlugin>> CreateAssemblyPluginFactory(Assembly assembly)
     {
         var pluginTypes = new Lazy<Type[]>(
-            () => assembly.GetTypes()
-                .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
-                .ToArray(),
+            () => GetPluginTypes(assembly),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
         return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
@@ -85,10 +102,35 @@ public sealed class MacroReference
         return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
     }
 
+    private static Func<IEnumerable<IRavenMacroPlugin>> CreateImagePluginFactory(byte[] assemblyImage)
+    {
+        var pluginTypes = new Lazy<Type[]>(
+            () =>
+            {
+                var loadContext = new MacroAssemblyLoadContext();
+                using var stream = new MemoryStream(assemblyImage, writable: false);
+                var assembly = loadContext.LoadFromStream(stream);
+                return GetPluginTypes(assembly);
+            },
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
+        return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
+    }
+
+    private static Type[] GetPluginTypes(Assembly assembly)
+        => assembly.GetTypes()
+            .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
+            .ToArray();
+
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {
         private static readonly Assembly s_macroContractsAssembly = typeof(IRavenMacroPlugin).Assembly;
-        private readonly AssemblyDependencyResolver _resolver;
+        private readonly AssemblyDependencyResolver? _resolver;
+
+        public MacroAssemblyLoadContext()
+            : base($"RavenMacro:InMemory:{Guid.NewGuid():N}", isCollectible: true)
+        {
+        }
 
         public MacroAssemblyLoadContext(string mainAssemblyPath)
             : base($"RavenMacro:{Path.GetFileNameWithoutExtension(mainAssemblyPath)}:{Guid.NewGuid():N}", isCollectible: true)
@@ -102,7 +144,7 @@ public sealed class MacroReference
             if (sharedAssembly is not null)
                 return sharedAssembly;
 
-            var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
+            var assemblyPath = _resolver?.ResolveAssemblyToPath(assemblyName);
             if (!string.IsNullOrWhiteSpace(assemblyPath))
                 return LoadFromAssemblyPath(assemblyPath);
 

@@ -45,6 +45,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Migrated the Raven-authored sample `#add` procedural macro to construct its
   expansion with `#quote` and argument-expression holes, validating quote while
   compiling a macro plugin and loading that plugin in a consuming project.
+- Centralized automatically available macros in the compiler's default macro
+  environment and added `MacroReference.CreateFromImage`, allowing emitted
+  Raven macro plugins to be activated directly from memory as a foundation for
+  same-project macros and the Playground.
 - Changed `Compilation.AddReferences` to append metadata references, matching
   its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member

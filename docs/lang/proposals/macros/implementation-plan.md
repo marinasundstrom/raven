@@ -7,6 +7,21 @@ redesigned.
 The durable product and tooling model is documented in
 [Macro and DSL developer experience](developer-experience.md).
 
+## Plugin boundary
+
+Macros are compiler plugins and must work through `Compilation` without a
+`Workspace`. Analyzers and generators are workspace plugins: their discovery
+and scheduling belong to workspace/build-host functionality. Project systems
+may resolve macro assets, but must hand them to the compiler rather than owning
+macro expansion.
+
+Workspace analyzers may optionally query compiler-owned retained structure for
+macros that explicitly provide it. An `ExpressionSyntax` embedded in that
+structure should automatically enter ordinary Raven expression analysis when
+an analyzer host is present. Unstructured macros return no structure;
+analyzers must not infer one from tokens or expansion output. Macro correctness
+and execution must never depend on an analyzer being loaded.
+
 ## Current foundation
 
 Implemented before the token-tree work:
@@ -310,6 +325,53 @@ are unnecessary because macro names are registered with the compilation.
 Prefer explicit plugin types in the manifest and restrict reflection discovery
 to assemblies carrying the compiler-plugin marker.
 
+## Active slice: default environment and in-memory activation
+
+Status: **implemented and validated**
+
+* [x] centralize compiler-provided macro registration in a default environment
+* [x] use the same default environment for binding and completion
+* [x] keep `#quote` automatically available without imports or project items
+* [x] allow a macro assembly image to be activated without writing it to disk
+* [x] prove the image path with a Raven-authored macro that uses `#quote`
+
+The default environment is the common registration point for future
+compiler-intrinsic and SDK-bundled macros such as `#embedFile`. In-memory image
+activation is the execution boundary needed by the Playground and the future
+same-project compile-time partition; it does not yet identify or compile that
+partition.
+
+Validation record for this slice:
+
+* focused `MacroReferenceTests`: 5 passed
+* `scripts/test-feature-suite.sh macros`: 45 passed
+
+## Future compiler integration: same-project macros
+
+Make project-local macro declaration and consumption a first-class compiler
+path:
+
+* partition one parsed project snapshot into compile-time macro implementation
+  code and ordinary consumer code;
+* compile and activate the macro partition before binding dependent
+  invocations;
+* diagnose compile-time/runtime dependency cycles without using textual order;
+* exclude compile-time-only implementation details from runtime emit by
+  default;
+* cache the activated macro partition independently from consumer-only edits;
+* invalidate all dependent expansions when that partition changes; and
+* expose an in-memory execution-host path suitable for the Playground, without
+  MSBuild or on-disk plugin artifacts.
+
+The final activation bullet now has a compiler API foundation:
+`MacroReference.CreateFromImage` loads an emitted macro assembly from memory.
+The remaining work begins at source partitioning and phase orchestration.
+
+The first implementation should support one acyclic local macro partition.
+Layered project-local macro bootstrapping, where one local macro generates
+another macro implementation, remains out of scope until the phase model is
+proven.
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:
@@ -329,6 +391,12 @@ Keep these true as new DSL cases are added:
    and presents macro-provided editor results.
 7. Macro plugins are trusted build extensions in the initial in-process model.
    `AssemblyLoadContext` is dependency isolation, not a security sandbox.
+8. Macro execution must remain available from the compiler-only `Compilation`
+   API. It must not acquire a dependency on `Workspace`, MSBuild, or analyzer
+   and generator orchestration.
+9. Workspace analyzers may query compiler-owned retained macro structure.
+   Typed Raven fragments inside that structure can trigger their corresponding
+   analysis pipeline; unstructured macro regions remain opaque.
 
 ## Planned follow-up slices
 

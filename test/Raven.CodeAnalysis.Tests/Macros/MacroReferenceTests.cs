@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
 
@@ -28,6 +30,65 @@ public sealed class MacroReferenceTests
     {
         var ex = Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(MacroReferenceTests)));
         Assert.Contains("IRavenMacroPlugin", ex.Message);
+    }
+
+    [Fact]
+    public void MacroReference_FromInMemoryRavenAssembly_ExpandsMacro()
+    {
+        var macroTree = SyntaxTree.ParseText("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            class InMemoryMacroPlugin : IRavenMacroPlugin {
+                val Name: string => "InMemory"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [AnswerMacro()]
+            }
+
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+            """);
+        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IRavenMacroPlugin).Assembly.Location);
+        var macroCompilation = Compilation.Create(
+                "InMemoryMacros",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(macroTree)
+            .AddReferences([.. TestMetadataReferences.Default, codeAnalysisReference]);
+
+        using var macroImage = new MemoryStream();
+        var macroEmit = macroCompilation.Emit(macroImage);
+        Assert.True(macroEmit.Success, string.Join(System.Environment.NewLine, macroEmit.Diagnostics));
+
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
+        var consumerCompilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(consumerTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(MacroReference.CreateFromImage(
+                macroImage.ToArray(),
+                display: "same-project macro partition"));
+
+        Assert.DoesNotContain(
+            consumerCompilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void MacroReference_FromImage_RejectsEmptyAssembly()
+    {
+        var ex = Assert.Throws<System.ArgumentException>(() => MacroReference.CreateFromImage([]));
+        Assert.Contains("must not be empty", ex.Message);
     }
 
     [Fact]

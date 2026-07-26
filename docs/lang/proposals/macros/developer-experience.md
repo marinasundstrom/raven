@@ -251,11 +251,66 @@ The exact scope-bridge API remains future work. It must preserve caller scope,
 macro hygiene, and compiler-owned semantic caching rather than requiring the
 language server to reconstruct an expansion or call the plugin directly.
 
+The same snapshot is the analyzer boundary. A future semantic API should
+conceptually support:
+
+```text
+GetMacroStructure(invocation) -> MacroStructureSnapshot?
+```
+
+The snapshot exposes provider-defined structured nodes and compiler-recognized
+embedded Raven fragments. A null result means the macro did not opt into
+retained structure; it does not mean an analyzer should attempt its own parse.
+
 ## Compiler-plugin dependencies
 
-Macros are part of compilation and binding, unlike analyzers and generators
-that participate as workspace/build services around the compilation. Their
-dependency experience should reflect that distinction.
+### Compiler plugins, not workspace plugins
+
+Procedural macros are compiler plugins. The compiler resolves and executes them
+during binding because their expansions become the Raven program that is
+subsequently analyzed and emitted. A caller can therefore construct a
+`Compilation` directly and run macros without creating a `Workspace`, loading a
+project, or invoking MSBuild.
+
+Analyzers and generators are workspace plugins in Raven's architecture. A
+workspace or build host discovers and schedules them around a compilation.
+Their orchestration belongs to workspace/project-system functionality even
+when their diagnostics or generated sources are eventually supplied to a
+compilation.
+
+| Concern | Procedural macros | Analyzers and generators |
+|---|---|---|
+| Plugin boundary | Compiler | Workspace/build host |
+| Semantic phase | Expansion during binding | Scheduled around compilation |
+| Needed for direct `Compilation` use | Yes, through defaults or `MacroReference` | No |
+| Defines the bound program | Yes | No; may inspect it or provide host-generated inputs |
+| Requires a `Workspace` | No | Yes, for plugin discovery and orchestration |
+
+This boundary does not mean the compiler must discover arbitrary assemblies.
+The SDK may resolve provider-declared assets for a project, but it passes macro
+references into the compiler. From that point onward, macro registration,
+expansion, diagnostics, and semantic behavior are compiler-owned.
+
+Workspace analyzers may still act on macro-authored code. The compiler should
+expose invocation syntax and expansion mappings through stable compiler APIs.
+For a macro that explicitly retains structured DSL syntax, the semantic model
+should additionally expose that immutable structure snapshot.
+
+An `ExpressionSyntax` embedded in that macro structure can automatically
+trigger the ordinary Raven expression-analysis pipeline when a workspace
+analyzer host is present. The same rule can later apply to structured
+statements, types, patterns, and members. The macro author marks the typed
+fragment once; the macro does not manually invoke individual analyzers.
+
+This is opt-in structure, not inference. If a macro lowers directly or performs
+completely opaque custom parsing without returning structure, the structured
+macro query returns no result. Analyzers must not reconstruct a supposed DSL
+tree from raw tokens or reverse-engineer one from the expansion.
+
+That interoperability is optional. Macro parsing, expansion, binding, and core
+diagnostics must not require an analyzer or a workspace. An analyzer consumes
+compiler-owned macro information when it is available; it does not create that
+information or participate in the macro's execution contract.
 
 A macro project or package should declare that its output is a Raven compiler
 plugin. A consuming project should then use an ordinary project or package
@@ -287,6 +342,69 @@ this provider-declared asset model. Macro-name conflicts and load failures
 remain compilation diagnostics regardless of how the plugin asset was
 resolved. The final assembly attribute names and whether the explicit manifest
 stores plugin types directly or through generated metadata remain open.
+
+## Default macro environment
+
+The selected Raven compiler and SDK may provide a version-matched default macro
+set. Default macros are registered automatically in normal compilations and in
+the Playground, without a source import, package dependency, or project item.
+
+`#quote` is the first default macro and is currently implemented as a compiler
+intrinsic. A future tracked-resource macro such as `#embedFile` may instead be
+implemented as an SDK-bundled compiler plugin. That implementation distinction
+must not change invocation syntax, completion, diagnostics, or documentation.
+
+Third-party macros still arrive through provider-marked project or package
+dependencies. Same-project macros arrive through the local compile-time
+partition. Default registration must be deterministic for the selected Raven
+toolchain version, and conflicts with dependency-provided macros must produce
+clear compiler diagnostics.
+
+## Same-project macros
+
+Raven should allow a project to declare and consume procedural macros in the
+same source project. A separate macro project remains useful for reuse and
+packaging, but it must not be required for local development or experimentation.
+
+Same-project support requires a staged compilation rather than loading the
+project's final runtime assembly:
+
+1. parse the complete project snapshot;
+2. identify project-local compiler-plugin and macro declarations;
+3. bind and compile the compile-time partition against its allowed references
+   and compiler contracts;
+4. load or otherwise activate that partition through the macro execution host;
+5. register its macros with the project compilation;
+6. expand invocations in the remaining source; and
+7. continue ordinary binding and emit over the expanded program.
+
+The initial dependency rule should be deliberately acyclic. Project-local macro
+implementations may depend on compiler contracts, referenced libraries, and
+other declarations explicitly admitted to the compile-time partition. They
+must not depend on runtime declarations whose own binding requires those macro
+expansions. Raven should diagnose that cycle rather than relying on source-file
+or declaration order.
+
+Macro declarations are compile-time implementation code. Whether they are also
+emitted into the final runtime assembly should be explicit; the default should
+not accidentally ship compiler-plugin implementation details as application
+runtime API.
+
+Incremental compilation should cache the activated local plugin by the macro
+source partition, references, parse options, and compiler version. Editing only
+consumer code can reuse it. Editing a macro declaration invalidates that
+artifact and all dependent expansions.
+
+This path is also required for the Playground. It must operate from an in-memory
+project snapshot and must not depend on MSBuild, a separate project, or a plugin
+assembly written to disk. The execution-host abstraction must support the
+Playground environment with cancellation, resource limits, deterministic
+diagnostics, and isolation appropriate to untrusted interactive code.
+
+The compiler now accepts an emitted macro assembly image directly as a
+`MacroReference`. This proves the disk-free activation boundary needed by the
+Playground and future same-project staging. Source partitioning, compilation
+phase orchestration, caching, and cycle diagnostics remain to be implemented.
 
 ## Expansion result construction
 

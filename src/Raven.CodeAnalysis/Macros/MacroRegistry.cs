@@ -47,7 +47,8 @@ internal sealed class MacroRegistry
         var attachedMacros = ImmutableDictionary.CreateBuilder<string, LoadedAttachedMacro>(StringComparer.Ordinal);
         var freestandingMacros = ImmutableDictionary.CreateBuilder<string, LoadedFreestandingMacro>(StringComparer.Ordinal);
 
-        RegisterPlugin(IntrinsicMacroPlugin.Instance);
+        foreach (var plugin in DefaultMacroEnvironment.Plugins)
+            RegisterPlugin(plugin);
 
         foreach (var reference in references)
         {

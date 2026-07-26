@@ -189,6 +189,24 @@ The parser enforces placement correctness.
 
 # 5. Macro Implementations
 
+## 5.0 Compiler plugin boundary
+
+Macros are compiler plugins. They are resolved and expanded during binding, and
+their output defines the ordinary Raven syntax that binding and emit continue
+over. They can run from the compiler-only `Compilation` API; a `Workspace`,
+project system, or MSBuild host is not required.
+
+Analyzers and generators are workspace plugins in Raven's architecture. Their
+discovery and scheduling occur around compilation and must not become the
+activation model for macros.
+
+Analyzers may optionally query retained structure for a macro that explicitly
+provides it. An `ExpressionSyntax` embedded in that structure can automatically
+trigger ordinary Raven expression analysis when an analyzer host is present. A
+direct-lowering or opaque macro has no structured analyzer view; analyzers must
+not infer one from raw tokens or expansion output. Macro expansion and
+diagnostics behave the same when no analyzer or workspace is present.
+
 ## 5.1 Compiled Macro Assemblies
 
 Macros are implemented as compiled code:
@@ -198,13 +216,28 @@ Macros are implemented as compiled code:
 
 They may reside in:
 
+* The compiler/SDK's automatically registered default macro environment
 * A referenced macro assembly
-* The same project (subject to compilation model)
+* The same project through a staged compile-time partition
+
+Default macros such as `#quote`, and a future tracked-resource `#embedFile`,
+require no source import or explicit dependency. Whether a default is a compiler
+intrinsic or an SDK-bundled plugin is an implementation detail.
+
+Same-project declarations are a core development experience, not an optional
+packaging optimization. The compiler must compile and activate the local macro
+partition before binding dependent invocations, diagnose dependency cycles,
+and avoid requiring a separate project or an assembly written to disk. This
+in-memory path is required by the Playground.
 
 Macros are discovered through compiler-plugin metadata plus well-known macro
 contracts. The provider project/package should declare its compiler-plugin
 output once; consumers should receive that asset through an ordinary dependency
 rather than separately importing macro assemblies.
+
+The compiler can activate an emitted macro assembly directly from memory. This
+is the activation boundary for the future same-project and Playground paths;
+automatic partitioning of a mixed source project remains future work.
 
 ---
 

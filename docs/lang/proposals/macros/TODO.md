@@ -6,6 +6,9 @@ Compiler-plugin. Macro. Integration points.
 
 In a macro you can put any content and parse it however you want.
 
+* Keep macro discovery, expansion, and diagnostics usable through
+  `Compilation` without `Workspace`. Analyzers and generators remain workspace
+  plugins; do not route macro execution through their host pipeline.
 * Syntax-producing macros - from Token Stream
 * Expand and substitute
 * Read and Peek
@@ -21,7 +24,11 @@ In a macro you can put any content and parse it however you want.
 * Contextual statement, member, and declaration categories plus
   token/identifier/list/repetition splices remain. See
   [quote-macro.md](quote-macro.md).
-* Make compiler analyzers expansion-aware so references used only by macro
+* Add a semantic-model query for macro-provided retained structure. An embedded
+  `ExpressionSyntax` should automatically enter ordinary Raven expression
+  analysis when an analyzer host is present. Unstructured macros return no
+  structure, and macro execution must not require analyzers.
+* Make workspace analyzers expansion-aware so references used only by
   expansions participate in unused-value and related analysis.
 * Add a compiler-owned compile-time resource API for project-relative path
   resolution, dependency tracking, incremental invalidation, diagnostics, and
@@ -33,6 +40,16 @@ In a macro you can put any content and parse it however you want.
 * Replace the consumer-authored `RavenMacro` item with provider-declared
   compiler-plugin metadata carried through normal project/package references.
   Do not scan and execute arbitrary runtime references.
+* Support macros declared and consumed in the same project through an acyclic
+  compile-time source partition. The activation path must work in memory for
+  the Playground, exclude compile-time-only implementation details from normal
+  emit, cache independently from consumer edits, and diagnose dependency
+  cycles.
+  * [x] Activate an already-emitted macro assembly from an in-memory image.
+  * [ ] Identify, compile, cache, and invalidate the local source partition.
+* Grow the automatically registered default macro environment beyond `#quote`.
+  A future `#embedFile` must use compiler-owned resource resolution and
+  dependency tracking rather than unrestricted direct file I/O.
 
 ## Sandbox
 
