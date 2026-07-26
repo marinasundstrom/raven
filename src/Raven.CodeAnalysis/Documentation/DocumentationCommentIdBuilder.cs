@@ -10,15 +10,24 @@ internal static class DocumentationCommentIdBuilder
 {
     public static bool TryGetMemberId(ISymbol symbol, out string memberId)
     {
-        memberId = symbol switch
+        try
         {
-            INamedTypeSymbol type => GetTypeMemberId(type),
-            IMethodSymbol method => GetMethodMemberId(method),
-            IPropertySymbol property => GetPropertyMemberId(property),
-            IFieldSymbol field => GetFieldMemberId(field),
-            IEventSymbol @event => GetEventMemberId(@event),
-            _ => string.Empty
-        };
+            memberId = symbol switch
+            {
+                INamedTypeSymbol type => GetTypeMemberId(type),
+                IMethodSymbol method => GetMethodMemberId(method),
+                IPropertySymbol property => GetPropertyMemberId(property),
+                IFieldSymbol field => GetFieldMemberId(field),
+                IEventSymbol @event => GetEventMemberId(@event),
+                _ => string.Empty
+            };
+        }
+        catch (NullReferenceException)
+        {
+            // A partially recovered source symbol must not abort documentation
+            // emission for the complete compilation.
+            memberId = string.Empty;
+        }
 
         return memberId.Length > 0;
     }

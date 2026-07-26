@@ -365,8 +365,10 @@ Status: **dedicated-file MVP implemented and validated**
 * [x] preserve semantic-model access to the compile-time-only file
 * [x] build an SDK project that declares and consumes a macro without a
   `RavenMacro` item or explicit compiler-contract reference
-* [ ] classify macro declarations independently from consumer declarations in
-  the same source file
+* [x] classify `[LocalMacro]` declarations independently from consumer
+  declarations in the same source file
+* [x] run same-buffer local macros in the browser Playground
+* [x] add runnable Playground examples for `#quote` and project-local macros
 * [ ] cache the activated partition independently from consumer-only edits
 * [ ] invalidate dependent expansions when the partition changes
 * [ ] add declaration-granular dependency-cycle diagnostics
@@ -389,11 +391,22 @@ without requiring a `Workspace`. Workspace and SDK compilation construction use
 that API automatically. `AddMacroSyntaxTrees` remains available when a host
 already has an explicit partition.
 
-The current Playground uses a single user document, so a macro declaration and
-its consumer cannot yet share that editor buffer: the whole file would become
-compile-time-only. The in-memory Workspace path is now present, but the
-Playground experience requires declaration-granular partitioning before that
-mixed-file scenario is enabled.
+For a mixed source file, `[LocalMacro]` marks one top-level type declaration and
+all declarations nested within it as compile-time-only. Every top-level support
+type required by the plugin must also carry `[LocalMacro]`. The classifier
+creates position-preserving macro and consumer projections by replacing the
+other partition with whitespace, so diagnostics retain authored offsets. The
+consumer partition receives the compatible compiler contracts automatically.
+
+The Playground now uses this declaration-granular path. Its examples include
+an expression quote and a same-buffer plugin that defines an attached
+declaration macro, an argument-style expression macro, and a raw token-tree
+expression macro.
+
+Macro-author semantic features over the projected declarations remain a later
+developer-experience slice. This MVP prioritizes correct compilation,
+diagnostics, expansion, emit, and execution; the ordinary consumer projection
+continues to drive existing editor services.
 
 Layered project-local macro bootstrapping, where one local macro generates
 another macro implementation, remains out of scope until the phase model is
@@ -401,10 +414,12 @@ proven.
 
 Validation record for this slice:
 
-* `scripts/test-feature-suite.sh macros`: 48 passed
+* `scripts/test-feature-suite.sh macros`: 49 passed
 * focused compiler automatic-partition test: passed
 * focused Workspace automatic-partition and semantic-model test: passed
 * focused SDK same-project build without `RavenMacro`: passed
+* focused mixed-declaration compiler test: passed
+* browser Playground smoke test, including every example: passed
 
 ## Architectural invariants
 

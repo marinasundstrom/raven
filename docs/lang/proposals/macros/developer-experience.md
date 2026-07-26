@@ -446,18 +446,51 @@ ordinary consumer declarations in that file would also be compile-time-only.
 invocation and not the future assembly-level marker that opts reusable
 dependency outputs into compiler-plugin discovery.
 
-The partition enforces the initial acyclic rule by construction: local macro
-code cannot bind against consumer declarations. Workspace documents retain
-semantic-model access to a marked macro tree even though it is excluded from
-the runtime source assembly.
+Interactive and mixed-file code can instead mark individual top-level
+compile-time declarations:
 
-The current Playground presents one user source buffer. Its in-memory Workspace
-now has the necessary automatic file classification, but declaring and
-consuming a macro in that same buffer requires declaration-granular
-partitioning; otherwise the complete buffer would be classified as
-compile-time-only. Remaining work also includes independent partition caching
-and invalidation, richer dependency resolution for the in-memory image, and
-dedicated cycle diagnostics.
+```raven
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+
+[LocalMacro]
+class ProjectMacros: IRavenMacroPlugin {
+    val Name: string => "Project macros"
+
+    func GetMacros() -> ImmutableArray<IMacroDefinition>
+        => [AnswerMacro()]
+}
+
+[LocalMacro]
+class AnswerMacro: ITokenTreeExpressionMacro {
+    // ...
+}
+
+let answer = #answer { }
+```
+
+`[LocalMacro]` moves only the marked top-level declaration and its nested
+declarations into the compile-time partition. Each separate top-level plugin or
+support type must be marked. The compiler derives macro and consumer syntax
+trees with the same length and line layout as the authored document, replacing
+the opposite partition with whitespace so expansion diagnostics map to the
+original offsets.
+
+The partition enforces the initial acyclic rule by construction: local macro
+code cannot bind against consumer declarations. Dedicated-file Workspace
+documents retain semantic-model access to a marked macro tree even though it is
+excluded from the runtime source assembly.
+
+The Playground uses the declaration marker to declare and consume macros in one
+user source buffer. The included local-macro example covers attached,
+argument-style expression, and raw token-tree expression macros; a second
+example demonstrates `#quote` directly.
+
+Macro-author hover, completion, navigation, and semantic queries across the two
+derived projections remain future developer-experience work. Remaining
+compiler work also includes independent partition caching and invalidation,
+richer dependency resolution for the in-memory image, and dedicated cycle
+diagnostics.
 
 ## Expansion result construction
 

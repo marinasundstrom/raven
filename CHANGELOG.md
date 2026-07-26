@@ -59,6 +59,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   partition through compiler, Workspace, and SDK compilation paths, while
   retaining semantic-model access and requiring neither a `RavenMacro` item nor
   an explicit compiler-contract project reference.
+- Added declaration-granular same-project macros through `[LocalMacro]`.
+  Marked top-level declarations are compiled and activated separately while
+  ordinary declarations in the same source remain runtime code, enabling macros
+  to be declared and consumed in one Playground buffer.
+- Added runnable Playground examples for constructing syntax with `#quote` and
+  for defining local attached, argument-style expression, and token-tree
+  expression macros.
+- Prevented incomplete recovered source symbols from aborting external
+  documentation emission when no stable documentation member ID can be built.
 - Changed `Compilation.AddReferences` to append metadata references, matching
   its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member

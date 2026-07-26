@@ -5,6 +5,16 @@
     "file": "hello.rvn"
   },
   {
+    "id": "quote-macro",
+    "title": "Build syntax with the quote macro",
+    "file": "quote-macro.rvn"
+  },
+  {
+    "id": "local-macros",
+    "title": "Define and use procedural macros",
+    "file": "local-macros.rvn"
+  },
+  {
     "id": "delivery-status",
     "title": "Delivery pricing with domain types",
     "file": "delivery-status.rvn"

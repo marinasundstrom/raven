@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
@@ -16,23 +15,7 @@ public partial class Compilation
         if (_macroSyntaxTrees.Length == 0)
             return null;
 
-        var references = _references;
-        var contractsAssemblyPath = typeof(IRavenMacroPlugin).Assembly.Location;
-        if (!string.IsNullOrWhiteSpace(contractsAssemblyPath) &&
-            !references
-                .OfType<PortableExecutableReference>()
-                .Any(reference => string.Equals(
-                    reference.FilePath,
-                    contractsAssemblyPath,
-                    StringComparison.OrdinalIgnoreCase)))
-        {
-            references =
-            [
-                .. references,
-                MetadataReference.CreateFromFile(contractsAssemblyPath)
-            ];
-        }
-
+        var references = EnsureMacroContractsReference(_references);
         var macroCompilation = new Compilation(
             $"{AssemblyName}.Macros",
             _macroSyntaxTrees,
@@ -51,5 +34,27 @@ public partial class Compilation
         return MacroReference.CreateFromImage(
             image.ToArray(),
             display: $"{AssemblyName} (local macro partition)");
+    }
+
+    private static MetadataReference[] EnsureMacroContractsReference(
+        MetadataReference[] references)
+    {
+        var contractsAssemblyPath = typeof(IRavenMacroPlugin).Assembly.Location;
+        if (!string.IsNullOrWhiteSpace(contractsAssemblyPath) &&
+            !references
+                .OfType<PortableExecutableReference>()
+                .Any(reference => string.Equals(
+                    reference.FilePath,
+                    contractsAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            references =
+            [
+                .. references,
+                MetadataReference.CreateFromFile(contractsAssemblyPath)
+            ];
+        }
+
+        return references;
     }
 }

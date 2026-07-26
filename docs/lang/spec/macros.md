@@ -393,9 +393,31 @@ consumer declarations in a marked file are not emitted into the runtime
 assembly. The partition remains acyclic: macro source can reference metadata
 and other macro plugins but cannot bind against consumer source declarations.
 
-The current single-buffer Playground cannot yet declare and consume a macro in
-one file. Its in-memory Workspace supports the file-classification foundation,
-but that mixed-file experience requires declaration-granular partitioning.
+A mixed source file uses `[LocalMacro]` instead:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+
+[LocalMacro]
+class AnswerMacro: ITokenTreeExpressionMacro {
+    // ...
+}
+
+let answer = #answer { }
+```
+
+`[LocalMacro]` classifies only the marked top-level type and everything nested
+within it as compile-time-only. Every separate top-level plugin entry point,
+macro definition, or support type needed by the local plugin must be marked.
+The compiler creates same-length macro and consumer projections, retaining line
+breaks and replacing declarations from the opposite partition with whitespace.
+This preserves authored offsets for diagnostics while keeping macro
+implementation types out of runtime emit.
+
+The browser Playground supports this form in its single user buffer. Semantic
+editor services inside the projected macro declarations are not yet complete;
+the current implementation prioritizes compilation, expansion, diagnostics,
+emit, and execution.
 
 Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 

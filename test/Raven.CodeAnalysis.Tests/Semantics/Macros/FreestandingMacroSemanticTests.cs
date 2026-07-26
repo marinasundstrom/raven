@@ -13,6 +13,62 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void MarkedLocalMacroDeclaration_CanShareTreeWithConsumer()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            [LocalMacro]
+            class ProjectMacros : IRavenMacroPlugin {
+                val Name: string => "Local"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [AnswerMacro()]
+            }
+
+            [LocalMacro]
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+
+            func Main() -> int => #answer { }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var macroTree = Assert.Single(compilation.MacroSyntaxTrees);
+        Assert.Equal(sourceTree.Length, consumerTree.Length);
+        Assert.Equal(sourceTree.Length, macroTree.Length);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
     public void MarkedLocalMacroPluginTree_IsAutomaticallyPartitioned()
     {
         var macroTree = CreateLocalAnswerMacroTree();

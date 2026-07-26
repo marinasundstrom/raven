@@ -662,19 +662,23 @@ public partial class Compilation
     {
         var localMacroTrees = new List<SyntaxTree>();
         var consumerTrees = new List<SyntaxTree>();
+        var hasDeclarationPartition = false;
         foreach (var syntaxTree in syntaxTrees)
         {
-            if (LocalMacroSyntaxClassifier.IsLocalMacroTree(syntaxTree))
-                localMacroTrees.Add(syntaxTree);
-            else
-                consumerTrees.Add(syntaxTree);
+            var partition = LocalMacroSyntaxClassifier.Partition(syntaxTree);
+            if (partition.ConsumerTree is not null)
+                consumerTrees.Add(partition.ConsumerTree);
+            if (partition.MacroTree is not null)
+                localMacroTrees.Add(partition.MacroTree);
+            if (partition.ConsumerTree is not null && partition.MacroTree is not null)
+                hasDeclarationPartition = true;
         }
 
         return new Compilation(
             AssemblyName,
             _syntaxTrees.Concat(consumerTrees).ToArray(),
             _macroSyntaxTrees.Concat(localMacroTrees).ToArray(),
-            _references,
+            hasDeclarationPartition ? EnsureMacroContractsReference(_references) : _references,
             _macroReferences,
             Options,
             _generatorDiagnostics);
