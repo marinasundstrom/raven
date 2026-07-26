@@ -42,6 +42,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   through the macro token stream without changing Raven lexing, accept ordinary
   Raven expressions that bind as `ExpressionSyntax`, preserve surrounding
   quote trivia, and retain native diagnostics at authored locations.
+- Migrated the Raven-authored sample `#add` procedural macro to construct its
+  expansion with `#quote` and argument-expression holes, validating quote while
+  compiling a macro plugin and loading that plugin in a consuming project.
 - Changed `Compilation.AddReferences` to append metadata references, matching
   its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member

@@ -27,6 +27,12 @@ In a macro you can put any content and parse it however you want.
   resolution, dependency tracking, incremental invalidation, diagnostics, and
   file-access policy. The test-only `#embedText` macro currently proves direct
   expansion-time loading only.
+* Add category-aware factory methods for macro expansion results so authors can
+  create success, success-with-diagnostics, diagnostic-only, replacement, and
+  no-change combinations without manually assigning result properties.
+* Replace the consumer-authored `RavenMacro` item with provider-declared
+  compiler-plugin metadata carried through normal project/package references.
+  Do not scan and execute arbitrary runtime references.
 
 ## Sandbox
 

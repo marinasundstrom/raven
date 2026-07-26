@@ -13,7 +13,11 @@ Macros are distinct from .NET attributes:
 * `[Serializable]` is an attribute.
 * `#[Observable]` is a macro.
 
-Macros are resolved from referenced `RavenMacro` assemblies. Their meaning is defined by the referenced macro implementation, not by the parser.
+Macros are resolved from compiler-plugin assemblies. Their meaning is defined
+by the referenced macro implementation, not by the parser. The current SDK
+uses an explicit `RavenMacro` project item as transitional plumbing; the
+intended dependency model is provider-declared compiler-plugin metadata carried
+through a normal project or package dependency.
 
 `MacroKind` remains part of the common `IMacroDefinition` surface, but it is implied by the specialized macro interface:
 
@@ -314,7 +318,8 @@ When designing attached macros:
 
 ## Project references
 
-Projects reference macro implementations with `RavenMacro` items in the project file.
+The current SDK references macro implementations with `RavenMacro` items in the
+project file.
 
 Example:
 
@@ -325,6 +330,16 @@ Example:
 ```
 
 The compiler loads the referenced macro assembly, resolves exported macros by name, validates target compatibility, and reports failures as ordinary diagnostics.
+
+`RavenMacro` is not the intended final consumer experience. A macro
+project/package should declare that its output is a Raven compiler plugin. A
+consumer then takes a normal project or package dependency, and the SDK
+classifies and passes the compiler-plugin asset to the compilation
+automatically. Raven should not scan and execute every ordinary runtime
+reference, and source files should not need macro import directives. A future
+assembly-level compiler-plugin marker may explicitly identify plugin types or
+authorize discovery of `IRavenMacroPlugin` implementations within that marked
+assembly.
 
 Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 

@@ -37,8 +37,12 @@ Current status:
 
 - The macro plugin is written in Raven, not C#.
 - `#add(...)` is resolved from a `RavenMacro` project reference.
-- The plugin expands structurally with the syntax API instead of parsing a generated expression string.
-- The expansion reuses the original argument expression syntax when it builds the final `left + right` expression.
+- `#add` uses the compiler-owned `#quote` intrinsic inside the Raven-authored
+  macro implementation. Its two argument expressions are inserted with
+  `#(...)` holes, producing `left + right` without manually assembling the
+  infix syntax tree.
+- The expansion reuses the original argument expression syntax and still
+  returns an ordinary `ExpressionSyntax`.
 - The sample uses a named argument to show the current freestanding macro argument shape.
 - `#guard { unless ... }` is the token-tree MVP: Raven's standard macro token
   stream recognizes `unless` as a body-scoped macro keyword, the macro delegates

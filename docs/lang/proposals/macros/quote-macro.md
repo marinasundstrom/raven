@@ -71,10 +71,12 @@ syntax tree and continues through Raven's normal binding, diagnostics,
 tooling, and code-generation pipeline.
 
 This also provides an incremental migration path for the macro library.
-Existing macros can continue returning trees assembled with `SyntaxFactory`;
-once quote is supported in macro-authored projects, suitable implementations
-can move to `#quote` without changing their public invocation syntax or typed
-expansion contract.
+Existing macros can continue returning trees assembled with `SyntaxFactory`,
+while suitable implementations move to `#quote` without changing their public
+invocation syntax or typed expansion contract. The Raven-authored sample
+`#add` macro now uses the quoted form above, proving that the intrinsic works
+while compiling a macro plugin and that the resulting plugin expands normally
+in its consuming application.
 
 Because quote expansion runs during binding, invalid quoted Raven is diagnosed
 at compile time inside the authored quote. Macro-specific validation can use

@@ -13,7 +13,8 @@ Implemented before the token-tree work:
 
 * attached declaration macros using `#[Name]`
 * argument-based freestanding expression macros using `#name(...)`
-* .NET and Raven-authored macro plugins referenced through `RavenMacro`
+* .NET and Raven-authored macro plugins referenced through the transitional
+  `RavenMacro` project item
 * typed parameter objects for argument-based macros
 * expansion diagnostics, semantic binding, emit, expanded-document views,
   completion, hover, and definition support
@@ -280,6 +281,35 @@ dependency recording, incremental invalidation, determinism, cancellation, and
 file-access policy. Direct file I/O is not promoted as the public resource
 contract.
 
+## Future API ergonomics: expansion-result factories
+
+Add category-aware factory methods to macro expansion result types after the
+supported result combinations stabilize. These should make success,
+success-with-forwarded-diagnostics, diagnostic-only failure, attached
+replacement-plus-introduced-members, and no-change results explicit without
+requiring authors to assign mutable properties in the correct combination.
+
+## Future SDK integration: provider-declared compiler plugins
+
+Replace consumer-authored `RavenMacro` items with provider-declared
+compiler-plugin assets:
+
+1. a Raven macro project or package marks its output as a compiler plugin;
+2. consumers use a normal project or package dependency;
+3. the SDK resolves the marked asset and passes it to the compilation;
+4. the compiler loads its manifest and exported macro contracts; an
+   assembly-level marker may explicitly list plugin types or authorize fallback
+   discovery of `IRavenMacroPlugin` implementations within that marked
+   assembly; and
+5. normal duplicate-name, compatibility, and load diagnostics continue to
+   apply.
+
+Do not scan every ordinary runtime reference for macro implementations.
+Provider metadata is the explicit execution boundary; consumer source imports
+are unnecessary because macro names are registered with the compilation.
+Prefer explicit plugin types in the manifest and restrict reflection discovery
+to assemblies carrying the compiler-plugin marker.
+
 ## Architectural invariants
 
 Keep these true as new DSL cases are added:
@@ -459,6 +489,8 @@ reference. The first slice:
   placeholders instead of new lexer kinds
 * [x] forwards native parser diagnostics from malformed hole expressions and
   reports empty holes explicitly
+* [x] compiles inside a Raven-authored macro project and constructs the sample
+  `#add` expansion from quoted syntax plus argument holes
 
 Later slices add contextual category selection, statement/member/declaration
 quote categories, member/declaration fragment parsers, compiler-owned

@@ -22,15 +22,10 @@ class AddMacro : IFreestandingExpressionMacro {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        let left = context.Arguments[0].Expression
-        let right = context.Arguments[1].Expression
-
         FreestandingMacroExpansionResult {
-            Expression = InfixOperatorExpression(
-                SyntaxKind.AddExpression,
-                left,
-                PlusToken,
-                right)
+            Expression = #quote {
+                #(context.Arguments[0].Expression) + #(context.Arguments[1].Expression)
+            }
         }
     }
 }

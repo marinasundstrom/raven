@@ -251,6 +251,60 @@ The exact scope-bridge API remains future work. It must preserve caller scope,
 macro hygiene, and compiler-owned semantic caching rather than requiring the
 language server to reconstruct an expansion or call the plugin directly.
 
+## Compiler-plugin dependencies
+
+Macros are part of compilation and binding, unlike analyzers and generators
+that participate as workspace/build services around the compilation. Their
+dependency experience should reflect that distinction.
+
+A macro project or package should declare that its output is a Raven compiler
+plugin. A consuming project should then use an ordinary project or package
+dependency. The SDK reads the provider metadata, classifies the compiler-plugin
+asset, and passes it to `Compilation`; the compiler loads its manifest and
+registers the exported macros.
+
+Provider identity may be represented by an assembly-level marker emitted by
+the macro project, conceptually:
+
+```raven
+[assembly: RavenCompilerPlugin]
+```
+
+The marker may explicitly list one or more plugin types when they are known.
+That is the preferred deterministic manifest. A bare marker can authorize
+fallback discovery of `IRavenMacroPlugin` implementations inside that marked
+assembly when plugin types were not declared individually. Raven must never
+perform that type scan for an unmarked runtime reference.
+
+Consumers should not need a separate source import or an analyzer-like
+"import macros from this assembly" item. Conversely, Raven must not discover
+plugins by scanning and executing every ordinary runtime reference. Provider
+metadata supplies explicit plugin identity and execution intent while keeping
+the consumer dependency model conventional.
+
+The current `<RavenMacro Include="...">` item is MVP plumbing to replace with
+this provider-declared asset model. Macro-name conflicts and load failures
+remain compilation diagnostics regardless of how the plugin asset was
+resolved. The final assembly attribute names and whether the explicit manifest
+stores plugin types directly or through generated metadata remain open.
+
+## Expansion result construction
+
+Macro result types should eventually provide category-aware factory methods so
+authors do not have to discover valid property combinations through object
+initializers. The factories should cover at least:
+
+* a successful expression, statement, member, or declaration expansion;
+* successful syntax plus forwarded Raven parser diagnostics;
+* one or more macro-authored diagnostics with no expansion;
+* replacement plus introduced members for attached macros; and
+* an explicitly empty/no-change result.
+
+The final names remain open, but the factories should normalize default
+immutable arrays, reject contradictory combinations, and preserve the typed
+output contract. Property initialization can remain as a low-level or
+compatibility path rather than being the primary authoring experience.
+
 ## Documenting macros
 
 Built-in and plugin macros should use the same task-oriented documentation

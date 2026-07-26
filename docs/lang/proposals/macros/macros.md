@@ -13,7 +13,9 @@ Current implementation status:
 * `#` only starts a macro attribute when it is immediately followed by `[`. Other `#...` forms continue to lex as directives such as `#pragma`.
 * Macro-style attributes are kept out of the normal CLR attribute binding/emission pipeline.
 * Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
-* Project files can reference macro assemblies with `RavenMacro` items and the compiler now resolves attached macros against those plugin assemblies.
+* Project files can currently reference macro assemblies with transitional
+  `RavenMacro` items, and the compiler resolves macros against those plugin
+  assemblies.
 * Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
@@ -199,7 +201,10 @@ They may reside in:
 * A referenced macro assembly
 * The same project (subject to compilation model)
 
-Macros are discovered via a well-known contract (e.g. `IMacro` and/or `[RavenMacro]`).
+Macros are discovered through compiler-plugin metadata plus well-known macro
+contracts. The provider project/package should declare its compiler-plugin
+output once; consumers should receive that asset through an ordinary dependency
+rather than separately importing macro assemblies.
 
 ---
 
@@ -352,7 +357,8 @@ The current implementation keeps macro execution adjacent to semantic analysis, 
 Today the flow is:
 
 1. Parse source
-2. Resolve attached macro attributes against loaded `RavenMacro` assemblies
+2. Resolve attached macro attributes against compiler-plugin assemblies
+   currently supplied through `RavenMacro` items
 3. Validate macro target compatibility
 4. Invoke the plugin with structured Raven syntax
 5. Cache the resulting `MacroExpansionResult` on the semantic model
