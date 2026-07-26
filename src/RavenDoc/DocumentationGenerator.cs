@@ -11,6 +11,8 @@ using Raven.CodeAnalysis;
 public static class DocumentationGenerator
 {
     private static string outputDir = "_docs";
+    private static string documentedAssemblyName = "Raven";
+    private static IAssemblySymbol? documentedAssembly;
 
     private static readonly Func<ISymbol, bool> GetMembersFilterPredicate =
         x => x is INamespaceSymbol || x.DeclaredAccessibility == Accessibility.Public;
@@ -43,6 +45,9 @@ public static class DocumentationGenerator
     // ----------------------------
 
     private static readonly Dictionary<string, string> XrefToTargetPath
+        = new(StringComparer.Ordinal);
+
+    private static readonly HashSet<string> ReportedBrokenXrefs
         = new(StringComparer.Ordinal);
 
     static DocumentationGenerator()
@@ -82,14 +87,31 @@ public static class DocumentationGenerator
 
     public static void ProcessCompilation(Compilation compilation, string outputDir)
     {
+        _ = compilation.GetDiagnostics();
+        Process(compilation, compilation.Assembly, compilation.GetSourceGlobalNamespace(), outputDir);
+    }
+
+    public static void ProcessAssembly(Compilation compilation, IAssemblySymbol assembly, string outputDir)
+        => Process(compilation, assembly, assembly.GlobalNamespace, outputDir);
+
+    private static void Process(
+        Compilation compilation,
+        IAssemblySymbol assembly,
+        INamespaceSymbol globalNamespace,
+        string outputDir)
+    {
         try { Directory.Delete(outputDir, recursive: true); } catch { }
         try { Directory.CreateDirectory(outputDir); } catch { }
 
         DocumentationGenerator.outputDir = outputDir;
+        documentedAssembly = assembly;
+        documentedAssemblyName = assembly.Name;
+        DocInfoCache.Clear();
+        XrefToTargetPath.Clear();
+        ReportedBrokenXrefs.Clear();
 
         WriteStyleSheet();
-
-        var globalNamespace = compilation.GetSourceGlobalNamespace();
+        WriteSyntaxHighlighter();
 
         // PASS 1: Build xref index (so forward references resolve)
         BuildXrefIndex(globalNamespace);
@@ -144,28 +166,34 @@ public static class DocumentationGenerator
 :root {
     color-scheme: light dark;
 
-    --bg: #ffffff;
-    --fg: #1f2937;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --code-bg: #f9fafb;
-    --link: #2563eb;
-
-    --header-bg: #fafafa;
-    --th-bg: #f3f4f6;
+    --bg: #f7f7fb;
+    --surface: #ffffff;
+    --fg: #252238;
+    --muted: #716c83;
+    --border: #e5e1ee;
+    --code-bg: #f1eff7;
+    --link: #6d3fd1;
+    --accent: #7c4dff;
+    --accent-soft: #eee8ff;
+    --header-bg: rgba(255, 255, 255, 0.92);
+    --th-bg: #f5f2fb;
+    --shadow: 0 18px 48px rgba(46, 35, 75, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg: #0b1220;
-        --fg: #e5e7eb;
-        --muted: #9ca3af;
-        --border: #243041;
-        --code-bg: #0f172a;
-        --link: #60a5fa;
-
-        --header-bg: #0c1424;
-        --th-bg: #0f1b2e;
+        --bg: #111019;
+        --surface: #191722;
+        --fg: #f0edf7;
+        --muted: #aaa3ba;
+        --border: #312d3d;
+        --code-bg: #211e2d;
+        --link: #b69cff;
+        --accent: #a783ff;
+        --accent-soft: #2b2341;
+        --header-bg: rgba(25, 23, 34, 0.92);
+        --th-bg: #24202f;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
     }
 }
 
@@ -180,25 +208,67 @@ body {
     line-height: 1.6;
 }
 
-header {
-    padding: 1rem 2rem;
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    min-height: 4.5rem;
+    padding: 0.75rem clamp(1rem, 4vw, 3rem);
     border-bottom: 1px solid var(--border);
     background: var(--header-bg);
-    font-weight: 600;
+    backdrop-filter: blur(14px);
 }
 
-main {
-    max-width: 980px;
-    padding: 2rem;
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--fg);
+}
+
+.brand:hover { text-decoration: none; }
+
+.brand-mark {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    place-items: center;
+    border-radius: 0.75rem;
+    color: #fff;
+    background: linear-gradient(145deg, var(--accent), #36a6b2);
+    font-weight: 800;
+}
+
+.brand strong, .brand small { display: block; }
+.brand small { color: var(--muted); font-size: 0.72rem; }
+.page-context { color: var(--muted); font-size: 0.9rem; }
+
+.content-shell {
+    max-width: 1100px;
+    padding: clamp(1.25rem, 4vw, 3rem);
     margin: 0 auto;
+}
+
+.api-content {
+    padding: clamp(1.5rem, 4vw, 3.5rem);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
 }
 
 h1, h2, h3, h4 {
     line-height: 1.25;
     margin-top: 2rem;
+    letter-spacing: -0.02em;
 }
 
-h1 { margin-top: 0; font-size: 2rem; }
+h1 { margin-top: 0; font-size: clamp(2rem, 5vw, 3.2rem); }
+h2 { padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
 
 a {
     color: var(--link);
@@ -216,11 +286,26 @@ pre {
     padding: 1rem;
     overflow-x: auto;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 0.8rem;
 }
 
 code {
-    border-radius: 4px;
+    padding: 0.12rem 0.32rem;
+    border-radius: 0.35rem;
+}
+
+pre code { padding: 0; }
+
+.syntax-keyword { color: #8250df; font-weight: 600; }
+.syntax-string { color: #0a7b83; }
+.syntax-number { color: #b34b14; }
+.syntax-comment { color: #6e7781; font-style: italic; }
+
+@media (prefers-color-scheme: dark) {
+    .syntax-keyword { color: #c7a7ff; }
+    .syntax-string { color: #76d6df; }
+    .syntax-number { color: #ffad79; }
+    .syntax-comment { color: #9590a3; }
 }
 
 table {
@@ -240,6 +325,18 @@ th { background: var(--th-bg); }
 
 .muted { color: var(--muted); }
 
+footer {
+    padding: 0 1rem 2rem;
+    color: var(--muted);
+    text-align: center;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+    .page-context { display: none; }
+    .api-content { border-radius: 0.85rem; }
+}
+
 /* broken xrefs show as plain text-ish */
 a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none; }
 """;
@@ -247,10 +344,68 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         File.WriteAllText(Path.Combine(outputDir, "style.css"), css);
     }
 
+    private static void WriteSyntaxHighlighter()
+    {
+        var script = """
+(() => {
+    const ravenKeywords = new Set([
+        "abstract", "as", "async", "await", "base", "break", "case", "catch",
+        "class", "const", "continue", "default", "delegate", "do", "else",
+        "enum", "extension", "false", "field", "finally", "for", "foreach",
+        "from", "func", "get", "if", "implements", "import", "in", "init",
+        "interface", "internal", "is", "let", "match", "namespace", "new",
+        "null", "out", "override", "private", "protected", "public", "record",
+        "ref", "return", "sealed", "set", "static", "struct", "this", "throw",
+        "trait", "true", "try", "union", "val", "var", "virtual", "when",
+        "where", "while", "with", "yield"
+    ]);
+    const tokenPattern = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:0x[\da-fA-F]+|\d+(?:\.\d+)?)\b|\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+    const escapeHtml = value => value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+    for (const code of document.querySelectorAll(
+        "pre code.language-raven, pre code.language-rvn, pre code.language-rav")) {
+        const source = code.textContent;
+        let cursor = 0;
+        let highlighted = "";
+
+        for (const match of source.matchAll(tokenPattern)) {
+            highlighted += escapeHtml(source.slice(cursor, match.index));
+            const token = match[0];
+            let kind = "";
+
+            if (token.startsWith("//") || token.startsWith("/*"))
+                kind = "comment";
+            else if (token.startsWith("\"") || token.startsWith("'"))
+                kind = "string";
+            else if (/^(?:0x[\da-fA-F]+|\d)/.test(token))
+                kind = "number";
+            else if (ravenKeywords.has(token))
+                kind = "keyword";
+
+            highlighted += kind
+                ? `<span class="syntax-${kind}">${escapeHtml(token)}</span>`
+                : escapeHtml(token);
+            cursor = match.index + token.length;
+        }
+
+        code.innerHTML = highlighted + escapeHtml(source.slice(cursor));
+        code.dataset.highlighted = "raven";
+    }
+})();
+""";
+
+        File.WriteAllText(Path.Combine(outputDir, "highlight.js"), script);
+    }
+
     private static string WrapHtml(string currentDir, string pageLabelOrTitle, string assemblyName, string bodyHtml)
     {
-        var title = $"{pageLabelOrTitle} - {assemblyName}";
+        var title = $"{pageLabelOrTitle} · {assemblyName}";
         var styleHref = RelLink(currentDir, Path.Combine(outputDir, "style.css"));
+        var highlightScriptHref = RelLink(currentDir, Path.Combine(outputDir, "highlight.js"));
+        var homeHref = RelLink(currentDir, Path.Combine(outputDir, "index.html"));
 
         return $"""
         <!doctype html>
@@ -260,12 +415,25 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>{HtmlEscape(title)}</title>
           <link rel="stylesheet" href="{styleHref}" />
+          <script defer src="{highlightScriptHref}"></script>
         </head>
         <body>
-          <header>{HtmlEscape(title)}</header>
-          <main>
-            {bodyHtml}
+          <header class="site-header">
+            <a class="brand" href="{homeHref}">
+              <span class="brand-mark">R</span>
+              <span>
+                <strong>{HtmlEscape(assemblyName)}</strong>
+                <small>Raven API reference</small>
+              </span>
+            </a>
+            <span class="page-context">{HtmlEscape(pageLabelOrTitle)}</span>
+          </header>
+          <main class="content-shell">
+            <article class="api-content">
+              {bodyHtml}
+            </article>
           </main>
+          <footer>Generated by RavenDoc</footer>
         </body>
         </html>
         """;
@@ -799,7 +967,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             var doc = GetOrCreateDocInfo(m);
             var summary = doc.Summary;
 
-            var sigText = m.ToDisplayString(MemberDisplayFormat);
+            var sigText = FormatSignature(m.ToDisplayString(MemberDisplayFormat));
             var signature = $"[{sigText}]({href})";
 
             rows.Add(new MemberRow
@@ -887,7 +1055,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
     private static string GetOutputAssemblyFileName(Compilation compilation)
     {
-        var name = compilation.AssemblyName;
+        var name = documentedAssemblyName;
         if (string.IsNullOrWhiteSpace(name))
             name = "UnknownAssembly";
 
@@ -1000,7 +1168,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
                 link.Url = string.Empty;
                 link.Title = $"Unresolved xref: {rawId}";
 
-                // DEBUG: show a few suggestions (same suffix)
+                if (!ReportedBrokenXrefs.Add(rawId))
+                    continue;
+
                 var suggestions = XrefToTargetPath.Keys
                     .Where(k => k.EndsWith(normalized.Substring(normalized.IndexOf(':') + 1), StringComparison.Ordinal))
                     .Take(8)
@@ -1202,8 +1372,11 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
     private static string FormatTypeLink(string currentDir, ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        var target = GetTypeIndexPath(typeSymbol);
         var memberName = EscapeName(typeSymbol.ToDisplayString(format));
+        if (!IsFromDocumentedAssembly(typeSymbol))
+            return memberName;
+
+        var target = GetTypeIndexPath(typeSymbol);
         return $"[{memberName}]({RelLink(currentDir, target)})";
     }
 
@@ -1287,7 +1460,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         }
 
         var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
-        var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
+        var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
 
@@ -1308,7 +1481,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         var sb = new StringBuilder();
 
         string name = members.Count == 1
-            ? members[0].ToDisplayString(MemberDisplayFormat)
+            ? FormatSignature(members[0].ToDisplayString(MemberDisplayFormat))
             : groupName;
 
         sb.AppendLine($"# {EscapeName(name)}");
@@ -1338,7 +1511,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
                 sb.AppendLine("_No documentation available._");
 
             var htmlSingle = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
-            var pageSingle = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", htmlSingle);
+            var pageSingle = WrapHtml(currentDir, name, documentedAssemblyName, htmlSingle);
             File.WriteAllText(filePath, pageSingle);
             return;
         }
@@ -1350,7 +1523,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat)))
         {
-            var memberName = EscapeName(member.ToDisplayString(MemberDisplayFormat));
+            var memberName = EscapeName(FormatSignature(member.ToDisplayString(MemberDisplayFormat)));
 
             sb.AppendLine($"### {memberName}");
             sb.AppendLine();
@@ -1368,7 +1541,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         }
 
         var overloadsHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
-        var pageHtml2 = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", overloadsHtml);
+        var pageHtml2 = WrapHtml(currentDir, name, documentedAssemblyName, overloadsHtml);
         File.WriteAllText(filePath, pageHtml2);
     }
 
@@ -1400,7 +1573,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             .Where(GetMembersFilterPredicate)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
-            .Where(x => x.Locations.Any(x => x.IsInSource) || x is INamespaceSymbol)
+            .Where(IsFromDocumentedAssembly)
             .ToArray();
 
         AppendGroupedMemberTables(sb, currentDir, members, isNamespacePage: true);
@@ -1425,13 +1598,27 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         }
 
         var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
-        var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
+        var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
 
     private static string EscapeName(string s)
     {
         return s.Replace("<", "&lt;").Replace(">", "&gt;");
+    }
+
+    private static string FormatSignature(string signature)
+        => signature.Replace("->", "→", StringComparison.Ordinal);
+
+    private static bool IsFromDocumentedAssembly(ISymbol symbol)
+    {
+        if (documentedAssembly is null)
+            return true;
+
+        if (symbol is INamespaceSymbol namespaceSymbol)
+            return namespaceSymbol.GetMembers().Any(IsFromDocumentedAssembly);
+
+        return SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, documentedAssembly);
     }
 
     // ----------------------------

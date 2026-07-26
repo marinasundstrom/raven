@@ -87,3 +87,19 @@ site. It can obtain Markdown in either of two ways:
 Those paths converge on the Raven documentation model before RavenDoc assembles
 symbol pages and renders HTML. The XML sidecar exists for .NET compatibility;
 it is not the preferred RavenDoc publishing input.
+
+Generate the site directly from the source project:
+
+```bash
+dotnet run --project ../../../src/RavenDoc -- \
+  library/MarkdownDocs.Library.rvnproj \
+  --output bin/site-from-source
+```
+
+Or generate the same API site from the built library and adjacent sidecar:
+
+```bash
+dotnet run --project ../../../src/RavenDoc -- \
+  bin/library/MarkdownDocs.Library.dll \
+  --output bin/site-from-library
+```

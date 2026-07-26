@@ -1366,6 +1366,11 @@ Impact:
 
 ### Added
 - Added a separate context-driven code refactoring provider pipeline so editor suggestions can appear without requiring a backing diagnostic. The workspace and language server now surface diagnostic-backed quick fixes and diagnostic-free refactorings as distinct code action sources.
+- RavenDoc now publishes Raven API-reference sites from `.rvnproj` projects,
+  individual source files, source directories, or compiled libraries with
+  adjacent Markdown `.docs` sidecars. Its built-in responsive presentation now
+  uses Raven-specific navigation, branding, light/dark styling, and offline
+  syntax highlighting for fenced Raven code.
 
 ### Changed
 - Removed the legacy `new Foo(...)` object-creation syntax. Raven object construction now uses direct type invocation (`Foo(...)`) consistently across parsing, samples, and tests.

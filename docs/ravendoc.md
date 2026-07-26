@@ -38,7 +38,8 @@ Raven supports two kinds of documentation content:
 * What you write is what gets rendered
 * Supports headings, tables, lists, code blocks, etc.
 
-**RavenDoc focuses exclusively on Markdown documentation.**
+**RavenDoc prefers Markdown documentation.** XML documentation remains a
+compatibility input for .NET libraries that do not publish Raven Markdown.
 
 ---
 
@@ -103,11 +104,33 @@ Documentation comments can be retrieved from symbols, both for:
 ```csharp
 var comment = symbol.GetDocumentationComment();
 
-var content = comment?.Content;     // Markdown, without "///"
-var rawContent = comment?.RawContent; // Original text, with "///"
+var content = comment?.Content;  // Markdown, without "///"
+var rawText = comment?.RawText;  // Original text, with "///"
 ```
 
 RavenDoc uses the processed Markdown content (`Content`) for rendering.
+
+## Generating a site
+
+RavenDoc accepts a Raven project, one Raven source file, a directory containing
+Raven source files, or a compiled library:
+
+```bash
+dotnet run --project src/RavenDoc -- \
+  samples/projects/markdown-docs/library/MarkdownDocs.Library.rvnproj \
+  --output artifacts/markdown-docs-site
+```
+
+To publish from a library, keep its `.docs` sidecar adjacent to the assembly:
+
+```bash
+dotnet run --project src/RavenDoc -- \
+  artifacts/library/MarkdownDocs.Library.dll \
+  --output artifacts/markdown-docs-library-site
+```
+
+Use `--framework <tfm>` when the input targets something other than `net10.0`.
+When `--output` is omitted, RavenDoc writes `_site` next to the input.
 
 ## Relationship to metadata sidecars
 
@@ -133,6 +156,25 @@ Both paths normalize through the Raven documentation model before RavenDoc
 assembles symbol pages and projects them to HTML. XML remains a compatibility
 input for libraries that do not provide Raven Markdown, rather than the model
 that shapes RavenDoc's APIs.
+
+## Rendering direction
+
+The current HTML renderer provides a Raven-specific, responsive API-reference
+presentation with light and dark color schemes. Fenced `raven`, `rvn`, and
+`rav` code blocks receive Raven syntax highlighting from a generated local
+asset, so published sites do not require a CDN. Extraction, symbol routing,
+Markdown rendering, and page chrome should remain separate concerns.
+
+A future rendering layer should introduce templates and theme customization at
+the page-chrome boundary. Templates should receive the Raven documentation
+model and resolved symbol navigation; they should not need to parse source,
+sidecars, XML documentation, or compiler symbols themselves.
+
+Interactive, executable examples belong to the future documentation-site
+layer. That site can progressively enhance explicitly opted-in examples using
+the same compiler-in-the-browser mechanism as the Raven playground. RavenDoc's
+static output and ordinary fenced examples must continue to work without that
+runtime or a network connection.
 
 For the editor-facing documentation view that should share the same underlying
 model without depending on published HTML, see
