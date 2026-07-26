@@ -660,6 +660,38 @@ val result = match value {
     }
 
     [Fact]
+    public void MatchExpression_WithAllSourceEnumMembers_IsExhaustive()
+    {
+        const string code = """
+enum Color {
+    Red
+    Green
+    Blue
+}
+
+func Describe(color: Color) -> string {
+    return match color {
+        .Red => "red"
+        .Green => "green"
+        .Blue => "blue"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_closed_source_enum",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor.Id == "RAV2100");
+    }
+
+    [Fact]
     public void MatchExpression_WithEnumArms_MissingCase_ReportsDiagnostic()
     {
         const string code = """

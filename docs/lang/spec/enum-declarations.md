@@ -13,8 +13,37 @@ enum Color {
 ```
 
 Enums represent named constants only. They do not support associated payloads
-or per-member structure. `match` expressions over enums are not required to be
-exhaustive, and the compiler does not enforce completeness.
+or per-member structure.
+
+Raven enums are **closed by default**: the declaration's named members are the
+complete source-level value set for exhaustiveness analysis. There is no
+`closed` modifier. A `match` over an enum must cover every declared member or
+include a catch-all arm.
+
+```raven
+func Describe(color: Color) -> string {
+    return color match {
+        .Red => "red"
+        .Green => "green"
+        .Blue => "blue"
+    }
+}
+```
+
+Adding a member to a published enum is therefore a source-breaking change for
+consumers that exhaustively match it. This is intentional: Raven favors making
+new domain alternatives visible at their decision points.
+
+The CLR representation can still contain an unnamed underlying integer value,
+particularly when it crosses an interop, serialization, or unsafe boundary.
+Raven-generated matching code retains a runtime failure path for such invalid
+values even when every declared member is covered. A catch-all arm may be used
+when an application wants to recover explicitly at that boundary.
+
+Raven does not currently provide an `open enum` declaration. Imported enum
+metadata is matched against its declared members under the same rule. A future
+.NET closed-enum metadata contract may let Raven distinguish closed and open
+foreign enums without changing Raven-authored syntax.
 
 ### Underlying type
 
@@ -118,7 +147,6 @@ Use an enum when the value is fundamentally a named numeric value:
 
 Use a discriminated union when modeling a *closed* set of alternatives where:
 
-* every case must be handled exhaustively;
 * individual cases need to carry associated data; or
 * adding a new alternative should be visible through match exhaustiveness
   diagnostics.
@@ -151,10 +179,11 @@ payload fields. Braced case fields without defaults are required during case
 construction; fields with defaults are optional. The field block declares the
 case payload shape and does not introduce mutable object-initializer semantics.
 
-`Direction.North` is a named CLR enum value. `Command.Start` is a union case
+`Direction.North` is a named closed CLR enum value. `Command.Start` is a union case
 value that can be converted to the `Command` carrier and matched as one of the
-declared cases. Both declarations have two named alternatives, but only the
-union expresses a closed tagged domain for exhaustiveness over semantic cases.
+declared cases. Both declarations have closed alternatives and participate in
+exhaustiveness; only the union expresses a tagged domain with distinct semantic
+cases and optional payloads.
 
 ### Runtime representation
 

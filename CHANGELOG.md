@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Clarified that Raven-authored enums are closed by default for declared-member
+  match exhaustiveness, with no source modifier, and locked complete enum
+  matches with focused semantic coverage.
 - Documented the typestate pattern with phantom marker types, a state-erased
   base class, and state-specific extensions, and added a runnable Playground
   connection-lifecycle example.
