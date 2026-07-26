@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -22,6 +23,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 {
     private const int MaxCachedSemanticTokenEntries = 256;
     private const double SemanticTokensLogThresholdMs = 150;
+    internal static readonly SemanticTokenType DocumentationTagTokenType = new("ravenDocumentationTag");
+    internal static readonly SemanticTokenType DocumentationHeadingTokenType = new("ravenDocumentationHeading");
+    internal static readonly SemanticTokenType DocumentationCodeTokenType = new("ravenDocumentationCode");
+    internal static readonly SemanticTokenType DocumentationLinkTokenType = new("ravenDocumentationLink");
     internal static readonly SemanticTokensLegend Legend = new()
     {
         TokenTypes = new Container<SemanticTokenType>(
@@ -42,7 +47,11 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticTokenType.Variable,
             SemanticTokenType.Parameter,
             SemanticTokenType.Label,
-            SemanticTokenType.Event),
+            SemanticTokenType.Event,
+            DocumentationTagTokenType,
+            DocumentationHeadingTokenType,
+            DocumentationCodeTokenType,
+            DocumentationLinkTokenType),
         TokenModifiers = new Container<SemanticTokenModifier>(
             SemanticTokenModifier.Declaration,
             SemanticTokenModifier.Static,
@@ -178,7 +187,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                     .ToArray();
 
                 var triviaEntries = classification.Trivia
-                    .Select(pair => CreateEntry(pair.Key.Span, pair.Value))
+                    .SelectMany(CreateTriviaEntries)
                     .Where(static entry => entry is not null)
                     .Cast<SemanticTokenEntry>()
                     .ToArray();
@@ -368,6 +377,31 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return tokenType is null
             ? null
             : new SemanticTokenEntry(span, tokenType, ImmutableArray<SemanticTokenModifier>.Empty);
+    }
+
+    private static IEnumerable<SemanticTokenEntry?> CreateTriviaEntries(
+        KeyValuePair<SyntaxTrivia, SemanticClassification> classification)
+    {
+        if (classification.Key.Kind != SyntaxKind.DocumentationCommentTrivia)
+        {
+            yield return CreateEntry(classification.Key.Span, classification.Value);
+            yield break;
+        }
+
+        foreach (var markdown in DocumentationMarkdownClassifier.Classify(classification.Key))
+        {
+            var tokenType = markdown.Kind switch
+            {
+                DocumentationMarkdownKind.Tag => DocumentationTagTokenType,
+                DocumentationMarkdownKind.Heading => DocumentationHeadingTokenType,
+                DocumentationMarkdownKind.Code => DocumentationCodeTokenType,
+                DocumentationMarkdownKind.Link => DocumentationLinkTokenType,
+                _ => (SemanticTokenType?)null
+            };
+
+            if (tokenType is { } value)
+                yield return new SemanticTokenEntry(markdown.Span, value, ImmutableArray<SemanticTokenModifier>.Empty);
+        }
     }
 
     private static SemanticTokenType? MapTokenType(SemanticClassification classification)

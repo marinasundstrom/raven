@@ -182,6 +182,10 @@ The language server should understand documentation before rendering it:
 Inline editor rendering is a presentation of the semantic model, not a
 compiler-generated HTML page.
 
+The first classifier covers tags, headings, links, inline code, and fenced code.
+It lives in `Raven.CodeAnalysis` so editor clients share Raven's interpretation
+instead of reimplementing Markdown recognition.
+
 ## Evolution
 
 The current structured tags are an initial bridge. Raven should not add more

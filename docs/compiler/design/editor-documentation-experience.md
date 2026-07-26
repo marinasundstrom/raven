@@ -165,6 +165,19 @@ completion, links, and diagnostics directly inside documentation comments.
 Literal code spans and fenced code blocks must remain code, not documentation
 syntax.
 
+Initial semantic highlighting is compiler-owned and recognizes:
+
+- Raven documentation tags at the start of Markdown comment content
+- Markdown heading markers
+- inline code spans and fenced code blocks
+- inline Markdown links
+
+The compiler returns absolute, non-overlapping classified spans. The language
+server maps those spans to dedicated semantic token types, while the TextMate
+grammar continues to provide the base documentation-comment scope. Tag-like
+text inside inline or fenced code is classified as code and never as a
+documentation tag.
+
 ## Future assembly model
 
 The documentation page for a symbol should eventually be assembled from several

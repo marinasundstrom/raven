@@ -146,6 +146,28 @@
         "path": "./syntaxes/raven.tmLanguage.json"
       }
     ],
+    "semanticTokenTypes": [
+      {
+        "id": "ravenDocumentationTag",
+        "superType": "keyword",
+        "description": "A structured tag in Raven Markdown documentation."
+      },
+      {
+        "id": "ravenDocumentationHeading",
+        "superType": "comment",
+        "description": "A heading marker in Raven Markdown documentation."
+      },
+      {
+        "id": "ravenDocumentationCode",
+        "superType": "string",
+        "description": "Inline or fenced code in Raven Markdown documentation."
+      },
+      {
+        "id": "ravenDocumentationLink",
+        "superType": "string",
+        "description": "A link in Raven Markdown documentation."
+      }
+    ],
     "semanticTokenScopes": [
       {
         "language": "raven",
@@ -228,6 +250,18 @@
             "entity.name.event.raven",
             "entity.name.event",
             "variable.other.property"
+          ],
+          "ravenDocumentationTag": [
+            "storage.type.annotation.documentation.raven"
+          ],
+          "ravenDocumentationHeading": [
+            "markup.heading.markdown"
+          ],
+          "ravenDocumentationCode": [
+            "markup.inline.raw.string.markdown"
+          ],
+          "ravenDocumentationLink": [
+            "markup.underline.link.markdown"
           ],
           "type.defaultLibrary": [
             "support.type.builtin.raven",

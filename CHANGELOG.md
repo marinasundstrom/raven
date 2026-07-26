@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added compiler-owned Markdown classification for Raven documentation
+  comments and dedicated language-server semantic tokens for tags, headings,
+  links, inline code, and fenced code. Tag-like text in code remains literal.
 - Added the format-neutral `RavenDocumentation` compiler API. Markdown and XML
   inputs now normalize into Raven-owned section and association roles before
   XML projection, with a small compatibility alias set including `@parameter`,
