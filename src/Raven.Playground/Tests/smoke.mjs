@@ -152,6 +152,8 @@ try {
 
   const examplePicker = page.getByLabel("Example");
   const examples = await (await fetch(`${url}examples/index.json`)).json();
+  await page.getByRole("link", { name: "Documentation" }).waitFor();
+  await page.getByRole("link", { name: "GitHub" }).waitFor();
   for (const example of examples) {
     await examplePicker.selectOption(example.id);
     await page.waitForFunction(

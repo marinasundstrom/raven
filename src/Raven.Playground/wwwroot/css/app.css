@@ -230,10 +230,26 @@ kbd {
 
 .playground-footer {
     display: flex;
+    justify-content: space-between;
     gap: 10px;
     padding-top: 16px;
     color: #777b72;
     font-size: 12px;
+}
+
+.playground-links, .playground-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.playground-links a {
+    color: var(--muted);
+    text-underline-offset: 3px;
+}
+
+.playground-links a:hover, .playground-links a:focus-visible {
+    color: var(--accent);
 }
 
 .loading-shell {
@@ -282,6 +298,7 @@ kbd {
         min-height: 520px;
     }
     .output-panel { min-height: 360px; }
+    .playground-footer { flex-direction: column; }
 }
 
 @media (max-width: 560px) {
