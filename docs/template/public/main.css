@@ -139,29 +139,49 @@ article pre > code,
 article pre > code.hljs {
     overflow-x: auto;
     background: transparent;
+    color: var(--raven-code-fg);
     font-family: var(--raven-font-mono);
 }
 
+/* VS Code Light+ syntax colors. Raven's brand accent stays outside code. */
 .hljs-keyword,
 .hljs-literal,
-.hljs-symbol,
-.hljs-name {
-    color: var(--raven-accent) !important;
+.hljs-symbol {
+    color: var(--raven-syntax-keyword) !important;
 }
 
 .hljs-built_in,
 .hljs-type {
-    color: var(--raven-secondary) !important;
+    color: var(--raven-syntax-type) !important;
+}
+
+.hljs-title.function,
+.hljs-title.function.invoke {
+    color: var(--raven-syntax-function) !important;
 }
 
 .hljs-string,
 .hljs-meta .hljs-string {
-    color: var(--raven-secondary) !important;
+    color: var(--raven-syntax-string) !important;
+}
+
+.hljs-number {
+    color: var(--raven-syntax-number) !important;
 }
 
 .hljs-comment,
 .hljs-quote {
-    color: var(--raven-muted) !important;
+    color: var(--raven-syntax-comment) !important;
+}
+
+.hljs-meta,
+.hljs-doctag {
+    color: var(--raven-syntax-meta) !important;
+}
+
+.hljs-error,
+.hljs-invalid {
+    color: var(--raven-syntax-invalid) !important;
 }
 
 .toc,
@@ -376,6 +396,43 @@ body:has(.raven-hero) article {
     padding: clamp(1.2rem, 3vw, 2rem);
     font-size: clamp(0.78rem, 1.1vw, 0.98rem);
     line-height: 1.75;
+}
+
+.raven-code-slide[hidden] {
+    display: none;
+}
+
+.raven-carousel-controls {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.7rem;
+    border-top: 1px solid var(--raven-line);
+    background: color-mix(in srgb, var(--raven-surface-raised) 72%, var(--raven-code-bg));
+}
+
+.raven-carousel-controls button {
+    padding: 0.36rem 0.68rem;
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--raven-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.raven-carousel-controls button:hover {
+    color: var(--raven-ink);
+}
+
+.raven-carousel-controls button[aria-selected="true"] {
+    border-color: color-mix(in srgb, var(--raven-accent) 35%, var(--raven-line));
+    background: var(--raven-accent-soft);
+    color: var(--raven-accent);
+}
+
+.raven-carousel-controls button:focus-visible {
+    outline: 2px solid var(--raven-accent);
+    outline-offset: 2px;
 }
 
 .raven-home-intro {

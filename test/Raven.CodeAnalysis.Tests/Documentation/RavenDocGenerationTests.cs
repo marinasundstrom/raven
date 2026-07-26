@@ -54,8 +54,12 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             memberPage.ShouldContain("Returns the current title.");
             File.ReadAllText(Path.Combine(outputPath, "highlight.js"))
                 .ShouldContain("ravenKeywords");
-            File.ReadAllText(Path.Combine(outputPath, "raven-theme.css"))
-                .ShouldContain("--raven-accent");
+            var sharedTheme = File.ReadAllText(Path.Combine(outputPath, "raven-theme.css"));
+            sharedTheme.ShouldContain("--raven-accent");
+            sharedTheme.ShouldContain("--raven-syntax-keyword: #569cd6");
+            sharedTheme.ShouldContain("--raven-code-bg: #1e1e1e");
+            File.ReadAllText(Path.Combine(outputPath, "style.css"))
+                .ShouldContain("color: var(--raven-syntax-keyword)");
         }
         finally
         {

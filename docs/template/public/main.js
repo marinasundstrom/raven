@@ -76,6 +76,65 @@ const raven = (hljs) => ({
   ]
 })
 
+const initializeCarousels = () => {
+  document.querySelectorAll('[data-raven-carousel]').forEach((carousel) => {
+    const tabs = [...carousel.querySelectorAll('[role="tab"]')]
+    const slides = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls')))
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let activeIndex = 0
+    let interval
+
+    const select = (index, moveFocus = false) => {
+      activeIndex = (index + tabs.length) % tabs.length
+      tabs.forEach((tab, tabIndex) => {
+        const isActive = tabIndex === activeIndex
+        tab.setAttribute('aria-selected', String(isActive))
+        tab.tabIndex = isActive ? 0 : -1
+        slides[tabIndex].hidden = !isActive
+      })
+
+      if (moveFocus) tabs[activeIndex].focus()
+    }
+
+    const stop = () => window.clearInterval(interval)
+    const start = () => {
+      stop()
+      if (!reduceMotion.matches) {
+        interval = window.setInterval(() => select(activeIndex + 1), 6000)
+      }
+    }
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        select(index)
+        start()
+      })
+      tab.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault()
+          select(activeIndex + (event.key === 'ArrowRight' ? 1 : -1), true)
+          start()
+        }
+      })
+    })
+
+    carousel.addEventListener('mouseenter', stop)
+    carousel.addEventListener('mouseleave', start)
+    carousel.addEventListener('focusin', stop)
+    carousel.addEventListener('focusout', (event) => {
+      if (!carousel.contains(event.relatedTarget)) start()
+    })
+    reduceMotion.addEventListener('change', start)
+    start()
+  })
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeCarousels)
+} else {
+  initializeCarousels()
+}
+
 export default {
   defaultTheme: 'auto',
   configureHljs(hljs) {

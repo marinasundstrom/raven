@@ -29,6 +29,22 @@ typography, and surface tokens live in
 `docs/template/public/raven-theme.css`; RavenDoc and the Playground consume that
 same file so the three surfaces remain visually connected.
 
+Raven's purple accent, typography, cards, borders, and page surfaces define the
+site shell. Code is a distinct shared layer modeled on Visual Studio Code's
+Light+ and Dark+ editor themes. The shared theme defines the code background,
+foreground, and syntax-token colors; the DocFX highlighter and RavenDoc consume
+those variables, while the Playground's Monaco themes use the corresponding
+editor and token palette. Changes to code colors should be applied consistently
+to all three surfaces.
+
+The home page presents three representative Raven examples in a carousel. It
+advances every six seconds, pauses while the user hovers or interacts with it,
+supports arrow-key tab navigation, and does not auto-advance when the user
+prefers reduced motion. Samples should remain short enough to avoid changing the
+hero's overall height as the carousel advances. Preserve normal source
+formatting in every sample: indentation communicates nesting, and blank lines
+should separate distinct declarations, constructs, and top-level operations.
+
 Keep the global header deliberately compact. Detailed documentation hierarchy
 belongs in the Docs menu and section sidebars, while the root page serves as a
 dedicated introduction to Raven.

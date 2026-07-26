@@ -267,17 +267,10 @@ code {
 
 pre code { padding: 0; }
 
-.syntax-keyword { color: #8250df; font-weight: 600; }
-.syntax-string { color: #0a7b83; }
-.syntax-number { color: #b34b14; }
-.syntax-comment { color: #6e7781; font-style: italic; }
-
-@media (prefers-color-scheme: dark) {
-    .syntax-keyword { color: #c7a7ff; }
-    .syntax-string { color: #76d6df; }
-    .syntax-number { color: #ffad79; }
-    .syntax-comment { color: #9590a3; }
-}
+.syntax-keyword { color: var(--raven-syntax-keyword); }
+.syntax-string { color: var(--raven-syntax-string); }
+.syntax-number { color: var(--raven-syntax-number); }
+.syntax-comment { color: var(--raven-syntax-comment); font-style: italic; }
 
 table {
     border-collapse: collapse;

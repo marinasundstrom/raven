@@ -158,16 +158,16 @@ function toSnippetText(insertText, cursorOffset) {
 
 function registerRavenThemes() {
   const tokenRules = isDark => [
-    { token: "comment", foreground: isDark ? "9590A3" : "6E6878", fontStyle: "italic" },
-    { token: "string", foreground: isDark ? "76D6DF" : "0A7B83" },
-    { token: "number", foreground: isDark ? "FFAD79" : "B34B14" },
-    { token: "constant", foreground: isDark ? "FFAD79" : "B34B14" },
-    { token: "keyword", foreground: isDark ? "C7A7FF" : "7447D8", fontStyle: "bold" },
-    { token: "type", foreground: isDark ? "76D6DF" : "188D98" },
-    { token: "function", foreground: isDark ? "D9C8FF" : "5D32BD" },
-    { token: "parameter", foreground: isDark ? "F2EDF7" : "292334" },
-    { token: "operator", foreground: isDark ? "AAA1B5" : "756D80" },
-    { token: "invalid", foreground: isDark ? "FF8992" : "BF4B56" },
+    { token: "comment", foreground: isDark ? "6A9955" : "008000", fontStyle: "italic" },
+    { token: "string", foreground: isDark ? "CE9178" : "A31515" },
+    { token: "number", foreground: isDark ? "B5CEA8" : "098658" },
+    { token: "constant", foreground: isDark ? "569CD6" : "0000FF" },
+    { token: "keyword", foreground: isDark ? "569CD6" : "0000FF" },
+    { token: "type", foreground: isDark ? "4EC9B0" : "267F99" },
+    { token: "function", foreground: isDark ? "DCDCAA" : "795E26" },
+    { token: "parameter", foreground: isDark ? "9CDCFE" : "001080" },
+    { token: "operator", foreground: isDark ? "D4D4D4" : "000000" },
+    { token: "invalid", foreground: isDark ? "F44747" : "CD3131" },
   ];
 
   monaco.editor.defineTheme("raven-light", {
@@ -176,15 +176,15 @@ function registerRavenThemes() {
     rules: tokenRules(false),
     colors: {
       "editor.background": "#FFFFFF",
-      "editor.foreground": "#292334",
-      "editor.lineHighlightBackground": "#F2EFF7",
-      "editorLineNumber.foreground": "#9B93A5",
-      "editorLineNumber.activeForeground": "#7447D8",
-      "editor.selectionBackground": "#DCCFFD",
-      "editorCursor.foreground": "#7447D8",
-      "editorSuggestWidget.background": "#FFFFFF",
-      "editorSuggestWidget.border": "#E4DEEB",
-      "editorSuggestWidget.selectedBackground": "#EEE8FB",
+      "editor.foreground": "#000000",
+      "editor.lineHighlightBackground": "#F7F7F7",
+      "editorLineNumber.foreground": "#858585",
+      "editorLineNumber.activeForeground": "#0B216F",
+      "editor.selectionBackground": "#ADD6FF",
+      "editorCursor.foreground": "#000000",
+      "editorSuggestWidget.background": "#F3F3F3",
+      "editorSuggestWidget.border": "#C8C8C8",
+      "editorSuggestWidget.selectedBackground": "#D6EBFF",
     },
   });
   monaco.editor.defineTheme("raven-dark", {
@@ -192,16 +192,16 @@ function registerRavenThemes() {
     inherit: true,
     rules: tokenRules(true),
     colors: {
-      "editor.background": "#19161F",
-      "editor.foreground": "#F2EDF7",
-      "editor.lineHighlightBackground": "#221E2A",
-      "editorLineNumber.foreground": "#777080",
-      "editorLineNumber.activeForeground": "#AF91FF",
-      "editor.selectionBackground": "#493A69",
-      "editorCursor.foreground": "#AF91FF",
-      "editorSuggestWidget.background": "#221E2A",
-      "editorSuggestWidget.border": "#37303F",
-      "editorSuggestWidget.selectedBackground": "#2B2340",
+      "editor.background": "#1E1E1E",
+      "editor.foreground": "#D4D4D4",
+      "editor.lineHighlightBackground": "#2A2D2E",
+      "editorLineNumber.foreground": "#858585",
+      "editorLineNumber.activeForeground": "#C6C6C6",
+      "editor.selectionBackground": "#264F78",
+      "editorCursor.foreground": "#AEAFAD",
+      "editorSuggestWidget.background": "#252526",
+      "editorSuggestWidget.border": "#454545",
+      "editorSuggestWidget.selectedBackground": "#04395E",
     },
   });
 }
