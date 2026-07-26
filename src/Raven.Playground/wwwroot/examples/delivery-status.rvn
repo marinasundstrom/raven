@@ -1,16 +1,77 @@
-union DeliveryStatus {
-    case Pending
-    case Delivered(afterDays: int)
-    case Failed(errorCode: int)
+record DeliveryOrder(Id: string, Destination: string, ParcelWeight: Weight, Service: DeliveryService)
+record ShipmentQuote(OrderId: string, ChargeableWeight: Weight, Price: Money)
+record Money(Amount: decimal, Currency: Currency)
+record Weight(Amount: decimal, Unit: WeightUnit)
+
+enum Currency { Eur, Usd }
+enum WeightUnit { Kilograms, Pounds }
+enum DeliveryService { Standard, Express }
+
+union class DeliveryStatus {
+    case AwaitingQuote(order: DeliveryOrder)
+    case Quoted(quote: ShipmentQuote)
+    case Rejected(order: DeliveryOrder, reason: string)
+}
+
+func InKilograms(weight: Weight) -> decimal {
+    return weight.Unit match {
+        .Kilograms => weight.Amount
+        .Pounds => decimal.Round(weight.Amount * 0.453592m, 2)
+    }
+}
+
+func Quote(status: DeliveryStatus) -> DeliveryStatus {
+    let order = status match {
+        .AwaitingQuote(let order) => order
+        .Quoted(_) | .Rejected(_, _) => return status
+    }
+
+    let kilograms = InKilograms(order.ParcelWeight)
+    if kilograms <= 0 {
+        return .Rejected(order, "Parcel weight must be positive")
+    }
+
+    if kilograms > 30 {
+        return .Rejected(order, "Parcels over 30 kg require freight service")
+    }
+
+    let basePrice = order.Service match {
+        .Standard => 6.50m
+        .Express => 11.00m
+    }
+    let perKilogram = order.Service match {
+        .Standard => 1.20m
+        .Express => 1.85m
+    }
+    let price = Money(decimal.Round(basePrice + kilograms * perKilogram, 2), .Eur)
+
+    return .Quoted(ShipmentQuote(
+        order.Id,
+        Weight(kilograms, .Kilograms),
+        price))
 }
 
 func Describe(status: DeliveryStatus) -> string {
     return status match {
-        .Pending => "Waiting to ship"
-        .Delivered(let afterDays) => "Delivered after $afterDays days"
-        .Failed(let errorCode) => "Delivery failed with code $errorCode"
+        .AwaitingQuote(let order) => "${order.Id} is waiting for a quote"
+        .Quoted(let quote) => {
+            let kilograms = InKilograms(quote.ChargeableWeight)
+            let price = quote.Price.Currency match {
+                .Eur => "€${quote.Price.Amount}"
+                .Usd => "\$${quote.Price.Amount}"
+            }
+            "${quote.OrderId}: $price for $kilograms kg"
+        }
+        .Rejected(let order, let reason) => "${order.Id} was rejected: $reason"
     }
 }
 
-let status: DeliveryStatus = .Delivered(3)
+let order = DeliveryOrder(
+    "DEL-2048",
+    "Jerusalem",
+    Weight(18m, .Pounds),
+    .Express)
+
+let status: DeliveryStatus = .AwaitingQuote(order)
 Console.WriteLine(Describe(status))
+Console.WriteLine(Describe(Quote(status)))

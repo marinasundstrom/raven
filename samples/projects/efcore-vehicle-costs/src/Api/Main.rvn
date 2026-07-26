@@ -76,6 +76,7 @@ async func Main(args: string[]) -> Task {
         vehicle.Model = request.Model.Trim()
         vehicle.FuelType = request.FuelType
         vehicle.TypicalMonthlyDistanceKm = request.TypicalMonthlyDistanceKm
+        vehicle.MaxPayloadKg = ToKilograms(request.PayloadCapacity)
         vehicle.SetStatus(.Operational("Unassigned", DateTimeOffset.UtcNow, 0))
 
         context.Vehicles.Add(vehicle)

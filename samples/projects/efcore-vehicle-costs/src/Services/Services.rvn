@@ -42,7 +42,13 @@ func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
         .ToArray()
 
     if samples.Length == 0 {
-        return VehicleCostPredictionResponse(vehicle.Id, 0, 0, 0, vehicle.TypicalMonthlyDistanceKm, 0)
+        return VehicleCostPredictionResponse(
+            vehicle.Id,
+            0,
+            Money(0, .Eur),
+            Money(0, .Eur),
+            vehicle.TypicalMonthlyDistanceKm,
+            0)
     }
 
     let totalDistance = samples.Sum(entry => entry.DistanceDrivenKm)
@@ -70,10 +76,17 @@ func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
     return VehicleCostPredictionResponse(
         vehicle.Id,
         averageLitersPer100Km,
-        averageCostPerLiter,
-        predictedMonthlyFuelCost,
+        Money(averageCostPerLiter, .Eur),
+        Money(predictedMonthlyFuelCost, .Eur),
         vehicle.TypicalMonthlyDistanceKm,
         samples.Length)
+}
+
+func ToKilograms(weight: Weight) -> decimal {
+    return weight.Unit match {
+        .Kilograms => weight.Amount
+        .Pounds => decimal.Round(weight.Amount * 0.453592m, 2)
+    }
 }
 
 func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
@@ -84,7 +97,7 @@ func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
             entry.RecordedAtUtc,
             entry.DistanceDrivenKm,
             entry.LitersFilled,
-            entry.TotalCost))
+            Money(entry.TotalCost, .Eur)))
         .ToArray()
 
     return VehicleResponse(
@@ -93,6 +106,7 @@ func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
         vehicle.Model,
         vehicle.FuelType,
         vehicle.TypicalMonthlyDistanceKm,
+        Weight(vehicle.MaxPayloadKg, .Kilograms),
         vehicle.GetStatus(),
         entries)
 }

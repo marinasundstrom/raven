@@ -12,6 +12,8 @@ class VehicleDbContext : DbContext {
     var FuelConsumptions: DbSet<FuelConsumptionRecord>
 
     protected override func OnModelCreating(modelBuilder: ModelBuilder) {
+        // Keep VehicleStatus as a Raven/.NET union in the domain model. PostgreSQL
+        // receives tagged JSON through an explicit EF model/provider conversion.
         modelBuilder.Entity<VehicleEntity>()
             .Property(vehicle => vehicle.Status)
             .HasColumnName("Status")

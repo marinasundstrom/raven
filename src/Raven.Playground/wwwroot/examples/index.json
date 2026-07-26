@@ -6,7 +6,7 @@
   },
   {
     "id": "delivery-status",
-    "title": "Domain modeling with unions",
+    "title": "Delivery pricing with domain types",
     "file": "delivery-status.rvn"
   },
   {

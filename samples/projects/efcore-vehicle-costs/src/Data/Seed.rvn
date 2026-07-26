@@ -19,6 +19,7 @@ static class VehicleSeedData {
             van.Model = "Ford Transit"
             van.FuelType = "Diesel"
             van.TypicalMonthlyDistanceKm = 2400
+            van.MaxPayloadKg = 1250
             van.SetStatus(.Operational("Alex", DateTimeOffset.UtcNow.AddDays(-45), 125430))
 
             AddFuel(van, DateTimeOffset.UtcNow.AddDays(-30), 612.5m, 49.1m, 89.44m)
@@ -30,6 +31,7 @@ static class VehicleSeedData {
             hatchback.Model = "Toyota Yaris Hybrid"
             hatchback.FuelType = "Hybrid"
             hatchback.TypicalMonthlyDistanceKm = 1100
+            hatchback.MaxPayloadKg = 320
             hatchback.SetStatus(.Maintenance(
                 "North Garage",
                 DateTimeOffset.UtcNow.AddDays(-2),

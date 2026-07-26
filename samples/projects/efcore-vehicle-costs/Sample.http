@@ -17,5 +17,9 @@ Content-Type: application/json
   "registrationNumber": "RAV-303",
   "model": "Skoda Octavia",
   "fuelType": "Diesel",
-  "typicalMonthlyDistanceKm": 1800
+  "typicalMonthlyDistanceKm": 1800,
+  "payloadCapacity": {
+    "amount": 750,
+    "unit": 0
+  }
 }

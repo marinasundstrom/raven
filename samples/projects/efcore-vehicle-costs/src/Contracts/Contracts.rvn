@@ -8,6 +8,7 @@ record class VehicleResponse(
     val Model: string,
     val FuelType: string,
     val TypicalMonthlyDistanceKm: decimal,
+    val PayloadCapacity: Weight,
     val Status: VehicleStatus,
     val FuelConsumptions: FuelConsumptionResponse[]
 )
@@ -17,14 +18,14 @@ record class FuelConsumptionResponse(
     val RecordedAtUtc: DateTimeOffset,
     val DistanceDrivenKm: decimal,
     val LitersFilled: decimal,
-    val TotalCost: decimal
+    val TotalCost: Money
 )
 
 record class VehicleCostPredictionResponse(
     val VehicleId: Guid,
     val AverageLitersPer100Km: decimal,
-    val AverageCostPerLiter: decimal,
-    val PredictedMonthlyFuelCost: decimal,
+    val AverageCostPerLiter: Money,
+    val PredictedMonthlyFuelCost: Money,
     val BasedOnDistanceKm: decimal,
     val SamplesUsed: int
 )
@@ -34,6 +35,7 @@ class CreateVehicleRequest {
     var Model: string = ""
     var FuelType: string = ""
     var TypicalMonthlyDistanceKm: decimal = 0
+    var PayloadCapacity: Weight = Weight(0, .Kilograms)
 }
 
 class AddFuelConsumptionRequest {

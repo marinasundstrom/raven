@@ -5,6 +5,14 @@ import System.Text.Json.*
 import System.Text.Json.Serialization.*
 import System.Collections.Generic.*
 
+record Money(Amount: decimal, Currency: Currency)
+
+record Weight(Amount: decimal, Unit: WeightUnit)
+
+enum Currency { Eur, Usd }
+
+enum WeightUnit { Kilograms, Pounds }
+
 union VehicleStatus {
     case Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
     case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
@@ -17,6 +25,7 @@ class VehicleEntity {
     var Model: string = ""
     var FuelType: string = ""
     var TypicalMonthlyDistanceKm: decimal = 0
+    var MaxPayloadKg: decimal = 0
     var Status: VehicleStatus = .Operational("", DateTimeOffset.UtcNow, 0)
     var FuelConsumptions: List<FuelConsumptionRecord> = []
 
@@ -50,6 +59,8 @@ static class VehicleStatusJson {
             WriteIndented = true,
             PropertyNamingPolicy = .CamelCase
         }
+        // Persistence needs a stable discriminator so every case can be restored.
+        // This is intentionally separate from the API's native union JSON shape.
         options.Converters.Add(RavenTaggedUnionJsonConverterFactory("\$case"))
         return options
     }
