@@ -296,6 +296,13 @@ expose invocation syntax and expansion mappings through stable compiler APIs.
 For a macro that explicitly retains structured DSL syntax, the semantic model
 should additionally expose that immutable structure snapshot.
 
+The current Workspace analyzer driver already treats a mixed `[LocalMacro]`
+document as two compiler-owned semantic projections. Ordinary Raven analyzer
+actions run over both the consumer source and the macro implementation source,
+using the semantic model that owns each projection while retaining authored
+diagnostic positions. This is macro-source analysis, not retained DSL analysis:
+the driver does not infer fragments from a token-tree body or expansion.
+
 An `ExpressionSyntax` embedded in that macro structure can automatically
 trigger the ordinary Raven expression-analysis pipeline when a workspace
 analyzer host is present. The same rule can later apply to structured

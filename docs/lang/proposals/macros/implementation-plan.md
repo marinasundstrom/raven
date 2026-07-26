@@ -378,6 +378,8 @@ Status: **same-project and incremental-cache MVP implemented and validated**
 * [x] use position-aware projections for macro-author hover and completion
 * [x] use position-aware projections for macro-author definition, references,
   and rename
+* [x] run workspace analyzers over macro and consumer projections with their
+  owning semantic models
 
 The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
 attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
@@ -449,6 +451,16 @@ authored declaration. Reference search scans both compiler-owned projections
 of each mixed document, but symbol identity selects only the matching semantic
 universe; returned locations and rename edits use the original document text.
 
+The Workspace analyzer driver likewise resolves every compiler-owned projection
+for an authored document. A mixed `[LocalMacro]` document is traversed once in
+the consumer semantic model and once in the macro semantic model. Registered
+syntax-tree, syntax-node, symbol, and operation actions therefore see ordinary
+Raven macro implementation code without analyzers becoming part of macro
+activation or direct `Compilation` use. The document remains one analyzer cache
+unit, and diagnostics retain authored positions because both projections are
+position-preserving. This does not yet expose Raven fragments parsed inside a
+DSL body; that remains gated on an explicit retained-structure contract.
+
 Layered project-local macro bootstrapping, where one local macro generates
 another macro implementation, remains out of scope until the phase model is
 proven.
@@ -467,11 +479,13 @@ Validation record for this slice:
 * focused macro-author hover and completion integration tests: passed
 * focused macro-author definition, references, and rename integration tests:
   passed
+* focused mixed-document analyzer projection and semantic-model test: passed
 * browser Playground smoke test, including every example: passed
 
-Next planned slice: expose compiler-owned structured macro regions to analyzer
-hosts so embedded Raven expressions can participate in ordinary analysis
-without making analyzers a compiler requirement.
+Next planned slice: continue hardening the minimum direct-expansion macro
+experience. Retained DSL structure and embedded-fragment analyzer routing stay
+documented as future work until the basic authoring, expansion, diagnostics,
+and Playground workflows are stable.
 
 ## Architectural invariants
 

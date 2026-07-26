@@ -81,6 +81,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   position-aware semantic projection. Reference search now scans both
   compiler-owned projections of a mixed document while returning edits and
   locations against the original authored source.
+- Made workspace analyzer execution projection-aware for mixed local-macro
+  documents. Syntax-node, symbol, operation, and syntax-tree actions now see
+  both ordinary consumer code and Raven macro implementation code with the
+  semantic model that owns each projection.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

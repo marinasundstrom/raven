@@ -430,10 +430,17 @@ come from the macro partition rather than the masked consumer projection.
 Reference locations and rename edits remain expressed against the authored
 document because both projections preserve its positions.
 
+When a Workspace analyzer host is present, document analysis traverses both
+compiler-owned projections of a mixed local-macro document. Analyzer callbacks
+receive the semantic model for the projection being traversed, so ordinary
+Raven code in `[LocalMacro]` declarations participates in syntax, symbol, and
+operation analysis alongside consumer code. This does not make analyzers part
+of macro compilation or activation.
+
 The browser Playground supports this form in its single user buffer. Analyzer
-participation inside projected or retained structured macro regions is not yet
-complete; the current implementation keeps analyzers optional and prioritizes
-compilation, expansion, diagnostics, emit, execution, and core navigation.
+participation inside retained structured DSL regions is not yet complete; the
+current implementation does not infer Raven fragments from raw macro tokens or
+expansion output.
 
 Across incremental compilations, an unchanged local macro partition may reuse
 its emitted in-memory plugin artifact. Changes limited to consumer source do not
