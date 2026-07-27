@@ -91,6 +91,72 @@ execution surface. A shorthand must lower to or interoperate with those
 contracts so Raven-authored shorthand and ordinary .NET implementations remain
 one macro ecosystem.
 
+### Candidate macro declaration syntax
+
+A compact declaration can encode the invocation input and expansion category
+in a function-like signature:
+
+```raven
+macro Foo(argument: Expression) -> Expression {
+    // ...
+}
+
+macro Query(body: TokenStream) -> Expression {
+    // ...
+}
+
+macro AddEquatable() on Type -> Members {
+    // ...
+}
+```
+
+The signature categories are compile-time syntax roles, not runtime Raven
+value types:
+
+* `Expression` parameters capture parsed Raven expression syntax;
+* `TokenStream` captures the lossless invocation body through
+  `IMacroTokenStream`;
+* the result category selects the carrier and required expansion shape; and
+* an optional `on` clause selects an attached macro and constrains its target.
+
+Thus `Foo` is an argument-style freestanding expression macro, `Query` is a
+raw token-stream expression macro, and `AddEquatable` is an attached type macro
+that introduces members. Future input and result categories can cover
+statements, declarations, types, patterns, and retained DSL structure without
+changing the basic declaration shape.
+
+This syntax must lower to the object-oriented MVP API. Conceptually, the
+compiler synthesizes a class implementing the inferred category-specific macro
+interface and an `Expand` method whose body comes from the declaration body.
+It projects named inputs from the appropriate expansion context and wraps
+successful syntax returns with the matching expansion-result factory. Source
+locations, diagnostics, cancellation, and generated-member navigation must map
+back to the authored macro declaration rather than exposing the synthesized
+class.
+
+A local macro declaration is placed in the same compile-time partition as
+today's `[LocalMacro]` declaration and is discovered there without an assembly
+attribute. A separately built provider must still explicitly export macros.
+The eventual spelling for that boundary—such as an access modifier or an
+`export` modifier—should synthesize the same
+`RavenCompilerPlugin(typeof(...))` manifest metadata used by the MVP. Merely
+declaring a macro must not make it executable from arbitrary referencing
+assemblies.
+
+Several details should remain open until the existing cases have established
+their requirements:
+
+* whether syntax roles use compact contextual names such as `Expression` or a
+  more explicit spelling such as `syntax Expression`;
+* how a macro that needs to return diagnostics alongside syntax spells its
+  advanced result type;
+* whether delimiter choice is inferred from input roles or declared
+  explicitly; and
+* how overloads and generic macro declarations participate in lookup.
+
+These are surface-language decisions. They must not change the generated
+interface, context, token-stream, diagnostic, and expansion-result contracts.
+
 ## Two kinds of syntax structure
 
 ### Raven invocation carriers

@@ -498,6 +498,30 @@ boilerplate only by lowering to or interoperating with these same contracts.
 It may also synthesize the assembly export registration currently expressed
 through `RavenCompilerPlugin`.
 
+The current candidate is a function-like declaration whose parameter roles,
+result role, and optional target clause describe the macro category:
+
+```raven
+macro Foo(argument: Expression) -> Expression {
+    // ...
+}
+
+macro Query(body: TokenStream) -> Expression {
+    // ...
+}
+
+macro AddEquatable() on Type -> Members {
+    // ...
+}
+```
+
+This is defined as lowering sugar. The compiler synthesizes the corresponding
+macro class, category-specific interface implementation, and `Expand` method;
+projects using the object-oriented API directly remain equivalent. Local
+declarations enter the compile-time partition without assembly export metadata.
+Only an explicitly exported declaration in a provider assembly synthesizes a
+`RavenCompilerPlugin(typeof(...))` manifest entry.
+
 Validation record for this slice:
 
 * focused manifest, referenced-assembly, package, and unmarked local macro
