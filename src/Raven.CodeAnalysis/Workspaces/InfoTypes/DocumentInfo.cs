@@ -45,6 +45,9 @@ public sealed class DocumentInfo
 
     public DocumentInfo WithFilePath(string? newPath) => new(Attributes.WithFilePath(newPath));
 
+    internal DocumentInfo WithParseOptionsChanged()
+        => new(Attributes with { Version = Attributes.Version.GetNewerVersion() });
+
     internal SyntaxTree? GetOrCreateSyntaxTree(Func<SyntaxTree?> factory)
     {
         _syntaxTree ??= factory();

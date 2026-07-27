@@ -1,0 +1,25 @@
+import System.Console.*
+
+#if DEBUG and DESKTOP
+const BuildMode: string = "desktop debug"
+#elif TRACE
+const BuildMode: string = "trace"
+#else
+const BuildMode: string = "release"
+#endif
+
+func Main() {
+    WriteLine("Build mode: $BuildMode")
+
+    #if DEBUG
+    WriteLine("Debug diagnostics are enabled.")
+
+        #if DESKTOP
+        WriteLine("Desktop integrations are enabled.")
+        #else
+        WriteLine("Running without desktop integrations.")
+        #endif
+    #else
+    WriteLine("Debug diagnostics are disabled.")
+    #endif
+}

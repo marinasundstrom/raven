@@ -78,7 +78,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             evaluation.AssemblyName,
             evaluation.CompilationOptions,
             evaluation.TargetFramework,
-            evaluation.DocumentationOptions);
+            evaluation.DocumentationOptions,
+            evaluation.ParseOptions);
 
         var solution = workspace.CurrentSolution;
         foreach (var document in evaluation.Documents)

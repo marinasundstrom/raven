@@ -221,6 +221,11 @@
         "id": "ravenDocumentationLink",
         "superType": "string",
         "description": "A link in Raven Markdown documentation."
+      },
+      {
+        "id": "ravenInactiveCode",
+        "superType": "comment",
+        "description": "Source excluded by Raven conditional compilation."
       }
     ],
     "semanticTokenScopes": [
@@ -251,6 +256,9 @@
           ],
           "comment": [
             "comment.raven"
+          ],
+          "ravenInactiveCode": [
+            "comment.block.preprocessor.inactive.raven"
           ],
           "operator": [
             "keyword.operator.word.raven",

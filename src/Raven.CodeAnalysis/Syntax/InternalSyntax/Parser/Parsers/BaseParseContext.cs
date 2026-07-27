@@ -332,7 +332,31 @@ internal partial class BaseParseContext : ParseContext
             else if (token.Kind == SyntaxKind.DirectiveTrivia)
             {
                 _lexer.ReadToken();
-                var directiveTrivia = new SyntaxTrivia(SyntaxKind.DirectiveTrivia, token.Text);
+                SyntaxTrivia directiveTrivia;
+                if (token.Value is ConditionalDirectiveInfo conditional)
+                {
+                    var directiveToken = new SyntaxToken(
+                        SyntaxKind.DirectiveTextToken,
+                        token.Text,
+                        token.Value,
+                        token.Length);
+                    var directive = new ConditionalDirectiveTriviaSyntax(
+                        conditional.SyntaxKind,
+                        directiveToken,
+                        conditional.Kind,
+                        conditional.ConditionText,
+                        conditional.IsBranchActive,
+                        conditional.BranchTaken,
+                        conditional.KeywordOffset,
+                        conditional.KeywordLength,
+                        conditional.ConditionOffset,
+                        conditional.ConditionLength);
+                    directiveTrivia = new SyntaxTrivia(directive);
+                }
+                else
+                {
+                    directiveTrivia = new SyntaxTrivia(SyntaxKind.DirectiveTrivia, token.Text);
+                }
 
                 if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                 {
@@ -341,6 +365,20 @@ internal partial class BaseParseContext : ParseContext
                 }
 
                 trivia.Add(directiveTrivia);
+                continue;
+            }
+            else if (token.Kind == SyntaxKind.DisabledTextTrivia)
+            {
+                _lexer.ReadToken();
+                var disabledTextTrivia = new SyntaxTrivia(SyntaxKind.DisabledTextTrivia, token.Text);
+
+                if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
+                {
+                    _pendingTrivia.Add(disabledTextTrivia);
+                    break;
+                }
+
+                trivia.Add(disabledTextTrivia);
                 continue;
             }
 

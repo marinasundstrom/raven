@@ -20,6 +20,8 @@ Primary MSBuild properties Raven currently consumes:
 - `OutputType` (`Exe` or `Library`)
 - `AllowUnsafeBlocks` or `AllowUnsafe`
 - `AllowGlobalStatements` or `RavenAllowGlobalStatements`
+- `DefineConstants` (conditional-compilation symbols separated by semicolons,
+  commas, or whitespace)
 - `FrameworkProjections` or `RavenFrameworkProjections` (`Standard` by default,
   or `None` for the ordinary .NET API surface)
 - `IntermediateOutputPath`
@@ -100,6 +102,19 @@ Minimal example:
   </ItemGroup>
 </Project>
 ```
+
+Conditional-compilation symbols use the standard MSBuild property:
+
+```xml
+<PropertyGroup>
+  <DefineConstants>DEBUG;TRACE</DefineConstants>
+</PropertyGroup>
+```
+
+The evaluated value is passed into every syntax tree in the project, including
+trees used by the language server. Changing the value causes affected documents
+to be reparsed so editor diagnostics and inactive-code highlighting remain
+consistent with builds.
 
 Legacy `.ravenproj` files and legacy Raven-specific XML are deprecated. They remain loadable for compatibility, but new projects should use `.rvnproj` and the MSBuild-backed project shape.
 

@@ -37,6 +37,7 @@ var isCompilerDriverInvocation = string.Equals(invocationName, "rvnc", StringCom
 // Options:
 // --framework <tfm> - target framework
 // --refs <path>     - additional metadata reference (repeatable)
+// --define <symbols> - conditional compilation symbols (comma/semicolon separated)
 // --raven-core <path> - path to a prebuilt Raven.Core.dll (skips embedded core types)
 // --emit-core-types-only - embed the Raven.Core shims instead of referencing Raven.Core.dll
 // --output-type <console|classlib> - output kind
@@ -76,6 +77,7 @@ if (args.Length > 0 && string.Equals(args[0], "init", StringComparison.OrdinalIg
 
 var sourceFiles = new List<string>();
 var additionalRefs = new List<string>();
+var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
 string? outputPath = null;
 var outputKind = OutputKind.ConsoleApplication;
@@ -329,6 +331,22 @@ for (int i = 0; i < args.Length; i++)
         case "--refs":
             if (i + 1 < args.Length)
                 additionalRefs.Add(args[++i]);
+            break;
+        case "--define":
+        case "-define":
+            if (i + 1 < args.Length)
+            {
+                foreach (var symbol in args[++i].Split(
+                             [';', ','],
+                             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    conditionalSymbols.Add(symbol);
+                }
+            }
+            else
+            {
+                hasInvalidOption = true;
+            }
             break;
         case "--raven-core":
             if (i + 1 < args.Length)
@@ -943,7 +961,8 @@ var workspace = RavenWorkspace.Create(
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,
-    DocumentationFormat = documentationFormat
+    DocumentationFormat = documentationFormat,
+    PreprocessorSymbolNames = conditionalSymbols
 };
 ProjectId projectId;
 Project project;
@@ -952,6 +971,11 @@ if (projectFileInput is not null)
 {
     projectId = workspace.OpenProject(projectFileInput);
     project = workspace.CurrentSolution.GetProject(projectId)!;
+    project = project.WithParseOptions(
+        (project.ParseOptions ?? workspace.Services.SyntaxTreeProvider.ParseOptions)
+        .WithPreprocessorSymbols(
+            (project.ParseOptions?.PreprocessorSymbolNames ?? [])
+            .Concat(conditionalSymbols)));
 
     if (targetFrameworkTfm is not null)
     {
@@ -964,7 +988,10 @@ if (projectFileInput is not null)
 }
 else
 {
-    projectId = workspace.AddProject(assemblyName, compilationOptions: options);
+    projectId = workspace.AddProject(
+        assemblyName,
+        compilationOptions: options,
+        parseOptions: workspace.Services.SyntaxTreeProvider.ParseOptions);
     project = workspace.CurrentSolution.GetProject(projectId)!;
 
     foreach (var filePath in sourceFiles)
@@ -2224,6 +2251,7 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("  --version          Print the Raven version");
         Console.WriteLine("  --framework <tfm>  Target framework (e.g. net10.0)");
         Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
+        Console.WriteLine("  --define <symbols> Conditional compilation symbols separated by ',' or ';'");
         Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
         Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
         Console.WriteLine("  --output-type <console|classlib>");
@@ -2260,6 +2288,7 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("  --version          Print the Raven version");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
+    Console.WriteLine("  --define <symbols> Conditional compilation symbols separated by ',' or ';'");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
     Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
     Console.WriteLine("  --emit-docs       Emit documentation from comments");

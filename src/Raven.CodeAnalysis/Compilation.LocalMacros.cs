@@ -155,7 +155,7 @@ public partial class Compilation
             return true;
 
         if (!string.Equals(current.FilePath, previous.FilePath, StringComparison.OrdinalIgnoreCase) ||
-            !ReferenceEquals(current.Options, previous.Options))
+            !current.Options.IsEquivalentTo(previous.Options))
         {
             return false;
         }

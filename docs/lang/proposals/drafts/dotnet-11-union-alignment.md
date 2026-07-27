@@ -147,11 +147,10 @@ the latest installed .NET 11 preview surface and does not need compatibility
 branches for older previews.
 
 On .NET 10 and earlier, Raven must provide the compatibility surface itself.
-Because Raven currently targets .NET 10 for backwards compatibility and does
-not yet have conditional compilation support for source shims, the compiler
-should continue generating the required shim metadata during emit. Once Raven
-can conditionally compile target-specific support code, prefer source-defined
-shims over dynamic emit-time definitions.
+Raven now supports compiler-integrated conditional compilation, so
+target-specific support code can use source-defined shims when the build
+supplies appropriate target symbols. Until that migration is made, the
+compiler should continue generating the required shim metadata during emit.
 
 Raven-specific metadata can remain for compiler details that C# does not model,
 but it should not be required for basic interop on .NET 11 and later.

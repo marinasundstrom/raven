@@ -151,6 +151,8 @@ internal static class MsBuildProjectEvaluator
         var frameworkProjectionMode = ParseFrameworkProjectionMode(
             GetOptionalProperty(project, "FrameworkProjections") ??
             GetOptionalProperty(project, "RavenFrameworkProjections"));
+        var parseOptions = new ParseOptions().WithPreprocessorSymbols(
+            ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
             .WithAllowUnsafe(allowUnsafe)
@@ -202,7 +204,8 @@ internal static class MsBuildProjectEvaluator
             new ProjectPreludeOptions(generatePreludeImports, preludeImports),
             generatedSourceDirectory,
             documentationOptions,
-            isCompilerPlugin);
+            isCompilerPlugin,
+            parseOptions);
     }
 
     private static bool IsCSharpCompilerPluginSource(string sourcePath)
@@ -421,6 +424,13 @@ internal static class MsBuildProjectEvaluator
             _ => FrameworkProjectionMode.Standard,
         };
 
+    private static IEnumerable<string> ParsePreprocessorSymbols(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(
+                [';', ',', ' ', '\t', '\r', '\n'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     private static OutputKind ParseOutputKind(string outputType)
     {
         if (string.Equals(outputType, "Library", StringComparison.OrdinalIgnoreCase))
@@ -462,4 +472,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ProjectPreludeOptions PreludeOptions,
     string GeneratedSourceDirectory,
     ProjectDocumentationOptions DocumentationOptions,
-    bool IsCompilerPlugin);
+    bool IsCompilerPlugin,
+    ParseOptions ParseOptions);

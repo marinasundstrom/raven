@@ -182,6 +182,7 @@
   <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
   <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
   <TokenKind Name="DirectiveTrivia" Text="#" IsTrivia="true" />
+  <TokenKind Name="DisabledTextTrivia" IsTrivia="true" />
   <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
   <TokenKind Name="DocumentationCommentTrivia" Text="///" IsTrivia="true" />
 
@@ -194,6 +195,7 @@
 
   <!-- Tokens without fixed text -->
   <TokenKind Name="IdentifierToken" />
+  <TokenKind Name="DirectiveTextToken" />
   <TokenKind Name="NumericLiteralToken" />
   <TokenKind Name="CharacterLiteralToken" />
   <TokenKind Name="StringLiteralToken" />

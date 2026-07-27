@@ -83,6 +83,10 @@ public static class SemanticClassifier
                 {
                     triviaMap[trivia] = SemanticClassification.Comment;
                 }
+                else if (trivia.Kind == SyntaxKind.DisabledTextTrivia)
+                {
+                    triviaMap[trivia] = SemanticClassification.InactiveCode;
+                }
             }
         }
 
@@ -470,5 +474,6 @@ public enum SemanticClassification
     Property,
     Field,
     Event,
-    NullableAnnotation
+    NullableAnnotation,
+    InactiveCode
 }

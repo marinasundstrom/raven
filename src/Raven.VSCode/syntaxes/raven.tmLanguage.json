@@ -162,6 +162,33 @@
         "comments": {
             "patterns": [
                 {
+                    "name": "meta.preprocessor.conditional.raven",
+                    "begin": "^(\\s*)(#)(\\s*)(if|elif|else|endif)\\b",
+                    "beginCaptures": {
+                        "2": {
+                            "name": "punctuation.definition.preprocessor.raven"
+                        },
+                        "4": {
+                            "name": "keyword.control.preprocessor.raven"
+                        }
+                    },
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "name": "keyword.operator.logical.raven",
+                            "match": "\\b(?:not|and|or)\\b|!|&&|\\|\\|"
+                        },
+                        {
+                            "name": "constant.language.boolean.raven",
+                            "match": "\\b(?:true|false)\\b"
+                        },
+                        {
+                            "name": "variable.other.preprocessor.raven",
+                            "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                        }
+                    ]
+                },
+                {
                     "name": "meta.preprocessor.raven",
                     "begin": "^(\\s*)(#)(\\s*pragma\\b)(\\s+warning\\b)?(\\s+(?:disable-next-line|disable|restore)\\b)?",
                     "beginCaptures": {

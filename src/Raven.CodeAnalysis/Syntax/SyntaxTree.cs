@@ -18,7 +18,7 @@ public class SyntaxTree
     {
         _sourceText = sourceText;
         FilePath = filePath ?? "file";
-        _options = options ?? new ParseOptions();
+        _options = (options ?? new ParseOptions()).Snapshot();
     }
 
     public Encoding Encoding => _sourceText.Encoding;
@@ -221,6 +221,9 @@ public class SyntaxTree
         if (changeRanges.Count == 0)
             return this;
 
+        if (ContainsConditionalDirectives(oldText) || ContainsConditionalDirectives(newText))
+            return ParseText(newText, _options, FilePath);
+
         if (ShouldFullyReparseChangedText(oldText, newText, changeRanges))
             return ParseText(newText, _options, FilePath);
 
@@ -265,6 +268,25 @@ public class SyntaxTree
         }
 
         return updatedTree;
+    }
+
+    private static bool ContainsConditionalDirectives(SourceText text)
+    {
+        using var reader = text.GetTextReader();
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var trimmed = line.AsSpan().TrimStart();
+            if (trimmed.StartsWith("#if", StringComparison.Ordinal) ||
+                trimmed.StartsWith("#elif", StringComparison.Ordinal) ||
+                trimmed.StartsWith("#else", StringComparison.Ordinal) ||
+                trimmed.StartsWith("#endif", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static bool ShouldFullyReparseChangedText(

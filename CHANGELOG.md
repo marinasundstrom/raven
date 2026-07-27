@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added compiler-integrated conditional compilation with `#if`, `#elif`,
+  `#else`, and `#endif`. Conditions support defined symbols, `true`/`false`,
+  parentheses, and Raven `not`/`and`/`or` operators (with
+  `!`/`&&`/`||` aliases). Symbols flow from MSBuild `DefineConstants` or the
+  `rvnc --define` option, inactive source remains lossless disabled trivia, and
+  the VS Code extension highlights directives and dims inactive code.
 - Added a Roslyn-inspired syntax tree visualizer to the VS Code extension. The
   Explorer view presents compiler-produced nodes, tokens, trivia, property
   roles, spans, raw kinds, missing elements, and diagnostics; supports authored

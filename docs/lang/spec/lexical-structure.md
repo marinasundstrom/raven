@@ -133,6 +133,44 @@ Rules:
 * `disable-next-line` suppresses the specified diagnostic IDs (or all IDs) for only the following source line.
 * These directives are trivia-only; they do not introduce syntax tokens.
 
+#### Conditional compilation directives
+
+Raven supports compiler-integrated conditional compilation:
+
+```raven
+#if DEBUG and not PORTABLE
+func mode() -> string => "debug"
+#elif TRACE
+func mode() -> string => "trace"
+#else
+func mode() -> string => "release"
+#endif
+```
+
+The supported directives are `#if`, `#elif`, `#else`, and `#endif`. A directive
+must be the first non-whitespace text on its physical source line. Conditional
+groups may be nested. Each group selects at most one branch: the first `#if` or
+`#elif` whose condition is true, or `#else` when no earlier branch was selected.
+
+Conditions contain symbol names, the literals `true` and `false`, parentheses,
+and the Raven logical operators `not`, `and`, and `or`. The aliases `!`, `&&`,
+and `||` are also accepted. In precedence order, `not` binds most tightly,
+followed by `and`, then `or`. A symbol evaluates to true when it is present in
+the syntax tree's preprocessor symbol set; an undefined symbol evaluates to
+false.
+
+Project builds populate that set from the evaluated MSBuild
+`DefineConstants` property. Direct `rvnc` compilation can add symbols with
+`--define` or `-define`; values may be repeated or separated with commas or
+semicolons.
+
+Conditional directives are structured syntax trivia rather than a separate
+text-rewriting pass. Source in an inactive branch is preserved exactly as
+disabled-text trivia and is not parsed or bound. Consequently, inactive source
+may contain otherwise invalid Raven syntax without producing ordinary parser or
+semantic diagnostics. The compiler still diagnoses malformed conditions,
+misordered directives, and unterminated conditional groups.
+
 ### Documentation comments
 
 Documentation comments describe publicly consumable APIs and attach to the

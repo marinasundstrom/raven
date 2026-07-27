@@ -61,7 +61,11 @@ public sealed class Document
         get
         {
             _syntaxTree ??= _info.GetOrCreateSyntaxTree(() =>
-                Solution.Services.SyntaxTreeProvider.TryParse(Name, Text, FilePath));
+                Solution.Services.SyntaxTreeProvider.TryParse(
+                    Name,
+                    Text,
+                    FilePath,
+                    Project.ParseOptions));
             return _syntaxTree;
         }
     }

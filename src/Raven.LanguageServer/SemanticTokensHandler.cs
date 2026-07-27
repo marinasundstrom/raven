@@ -27,6 +27,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     internal static readonly SemanticTokenType DocumentationHeadingTokenType = new("ravenDocumentationHeading");
     internal static readonly SemanticTokenType DocumentationCodeTokenType = new("ravenDocumentationCode");
     internal static readonly SemanticTokenType DocumentationLinkTokenType = new("ravenDocumentationLink");
+    internal static readonly SemanticTokenType InactiveCodeTokenType = new("ravenInactiveCode");
     internal static readonly SemanticTokensLegend Legend = new()
     {
         TokenTypes = new Container<SemanticTokenType>(
@@ -51,7 +52,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             DocumentationTagTokenType,
             DocumentationHeadingTokenType,
             DocumentationCodeTokenType,
-            DocumentationLinkTokenType),
+            DocumentationLinkTokenType,
+            InactiveCodeTokenType),
         TokenModifiers = new Container<SemanticTokenModifier>(
             SemanticTokenModifier.Declaration,
             SemanticTokenModifier.Static,
@@ -416,6 +418,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticClassification.Property => SemanticTokenType.Property,
             SemanticClassification.Field => SemanticTokenType.Variable,
             SemanticClassification.Event => SemanticTokenType.Event,
+            SemanticClassification.InactiveCode => InactiveCodeTokenType,
             _ => (SemanticTokenType?)null
         };
 

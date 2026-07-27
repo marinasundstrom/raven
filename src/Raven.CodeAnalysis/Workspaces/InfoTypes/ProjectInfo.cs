@@ -19,7 +19,8 @@ public sealed class ProjectInfo
         CompilationOptions? compilationOptions = null,
         string? assemblyName = null,
         ProjectDocumentationOptions? documentationOptions = null,
-        IEnumerable<GeneratorReference>? generatorReferences = null)
+        IEnumerable<GeneratorReference>? generatorReferences = null,
+        ParseOptions? parseOptions = null)
     {
         Attributes = attributes;
         Documents = documents.ToImmutableArray();
@@ -33,6 +34,7 @@ public sealed class ProjectInfo
         CompilationOptions = compilationOptions;
         AssemblyName = assemblyName;
         DocumentationOptions = documentationOptions;
+        ParseOptions = parseOptions?.Snapshot();
     }
 
     public ProjectAttributes Attributes { get; }
@@ -50,13 +52,13 @@ public sealed class ProjectInfo
     public CompilationOptions? CompilationOptions { get; }
     public string? AssemblyName { get; }
     public ProjectDocumentationOptions? DocumentationOptions { get; }
-    public ParseOptions? ParseOptions { get; internal set; }
+    public ParseOptions? ParseOptions { get; }
     public string? DefaultNamespace { get; internal set; }
     public string? FilePath { get; }
     public string? TargetFramework { get; }
 
     public ProjectInfo WithDocuments(IEnumerable<DocumentInfo> docs) =>
-        new(Attributes, docs, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, docs, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithVersion(VersionStamp version)
     {
@@ -64,32 +66,48 @@ public sealed class ProjectInfo
         {
             Version = version
         };
-        return new ProjectInfo(newAttributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        return new ProjectInfo(newAttributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
     }
 
     public ProjectInfo WithProjectReferences(IEnumerable<ProjectReference> projectReferences) =>
-        new(Attributes, Documents, projectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, Documents, projectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithMetadataReferences(IEnumerable<MetadataReference> metadataReferences) =>
-        new(Attributes, Documents, ProjectReferences, metadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, Documents, ProjectReferences, metadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithMacroReferences(IEnumerable<MacroReference> macroReferences) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, macroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, macroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithCompilationOptions(CompilationOptions? compilationOptions) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, compilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, compilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithAnalyzerReferences(IEnumerable<AnalyzerReference> analyzerReferences) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, analyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, analyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithGeneratorReferences(IEnumerable<GeneratorReference> generatorReferences) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, generatorReferences);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, DocumentationOptions, generatorReferences, ParseOptions);
 
     public ProjectInfo WithTargetFramework(string? targetFramework) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, targetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, targetFramework, CompilationOptions, AssemblyName, DocumentationOptions, GeneratorReferences, ParseOptions);
 
     public ProjectInfo WithDocumentationOptions(ProjectDocumentationOptions? documentationOptions) =>
-        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, documentationOptions, GeneratorReferences);
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, MacroReferences, AnalyzerReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName, documentationOptions, GeneratorReferences, ParseOptions);
+
+    public ProjectInfo WithParseOptions(ParseOptions? parseOptions) =>
+        new(
+            Attributes,
+            Documents.Select(static document => document.WithParseOptionsChanged()),
+            ProjectReferences,
+            MetadataReferences,
+            MacroReferences,
+            AnalyzerReferences,
+            FilePath,
+            TargetFramework,
+            CompilationOptions,
+            AssemblyName,
+            DocumentationOptions,
+            GeneratorReferences,
+            parseOptions);
 
     public sealed record ProjectAttributes(ProjectId Id, string Name, VersionStamp Version);
 }

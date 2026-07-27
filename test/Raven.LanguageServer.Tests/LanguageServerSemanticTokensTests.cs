@@ -844,6 +844,72 @@ func Main() -> string {
         }
     }
 
+    [Fact]
+    public async Task SemanticTokens_ClassifyConditionallyDisabledSourceAsInactiveAsync()
+    {
+        const string code = """
+#if DEBUG
+func DebugOnly() {}
+#else
+func ReleaseOnly() {}
+#endif
+""";
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <DefineConstants>DEBUG</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            await store.UpsertDocumentAsync(uri, code);
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var result = await handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+
+            result.ShouldNotBeNull();
+            var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
+
+            Find(decoded, 1, "DebugOnly").Type.ShouldBe(SemanticTokenType.Method);
+            Find(decoded, 3, "func ReleaseOnly() {}").Type.ShouldBe(SemanticTokensHandler.InactiveCodeTokenType);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     private static DecodedToken Find(ImmutableArray<DecodedToken> tokens, int line, string text)
     {
         var token = tokens.FirstOrDefault(token => token.Line == line && token.Text == text);

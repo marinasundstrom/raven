@@ -68,6 +68,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
                                             <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
                                             <RavenFrameworkProjections>None</RavenFrameworkProjections>
+                                            <DefineConstants>DEBUG;WINDOWS</DefineConstants>
                                             <GenerateDocumentationFile>true</GenerateDocumentationFile>
                                             <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
                                             <DocumentationFile>artifacts/App.xml</DocumentationFile>
@@ -95,6 +96,10 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.True(project.CompilationOptions.ReturnedValueHandlingModeConfigured);
             Assert.Equal(ReturnedValueHandlingMode.Full, project.CompilationOptions.ReturnedValueHandlingMode);
             Assert.Equal(FrameworkProjectionMode.None, project.CompilationOptions.FrameworkProjectionMode);
+            Assert.NotNull(project.ParseOptions);
+            Assert.Equal(
+                ["DEBUG", "WINDOWS"],
+                project.ParseOptions!.PreprocessorSymbolNames.OrderBy(static symbol => symbol, StringComparer.Ordinal));
             Assert.NotNull(project.DocumentationOptions);
             Assert.True(project.DocumentationOptions!.GenerateXmlDocumentation);
             Assert.True(project.DocumentationOptions.GenerateMarkdownDocumentation);

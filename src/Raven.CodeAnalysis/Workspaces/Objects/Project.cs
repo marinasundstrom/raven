@@ -47,6 +47,9 @@ public sealed class Project
     /// <summary>The compilation options for this project.</summary>
     public CompilationOptions? CompilationOptions => _info.CompilationOptions;
 
+    /// <summary>The parse options applied to source documents in this project.</summary>
+    public ParseOptions? ParseOptions => _info.ParseOptions;
+
     /// <summary>The explicit assembly name for this project, if any.</summary>
     public string? AssemblyName => _info.AssemblyName;
 
@@ -147,6 +150,12 @@ public sealed class Project
     public Project WithDocumentationOptions(ProjectDocumentationOptions? options)
     {
         var newSolution = Solution.WithDocumentationOptions(Id, options);
+        return newSolution.GetProject(Id)!;
+    }
+
+    public Project WithParseOptions(ParseOptions? options)
+    {
+        var newSolution = Solution.WithParseOptions(Id, options);
         return newSolution.GetProject(Id)!;
     }
 

@@ -16,13 +16,21 @@ internal class Lexer : ILexer, IMacroBodyScanner
     private int _lookaheadStart;
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
+    private readonly HashSet<string> _definedSymbols;
+    private readonly List<ConditionalFrame> _conditionalStack = [];
+    private readonly Dictionary<int, ConditionalStateSnapshot> _conditionalStateSnapshots = [];
+    private bool _reportedMissingEndIf;
     public Action<DiagnosticInfo>? DiagnosticSink { get; set; }
 
-    public Lexer(TextReader textReader, int startPosition = 0)
+    public Lexer(TextReader textReader, int startPosition = 0, ParseOptions? options = null)
     {
         _textSource = new SeekableTextSource(textReader, startPosition);
         _currentPosition = startPosition;
         _tokenStartPosition = startPosition;
+        _definedSymbols = new HashSet<string>(
+            options?.PreprocessorSymbolNames ?? [],
+            StringComparer.Ordinal);
+        RememberConditionalState(startPosition);
     }
 
     public void ResetToPosition(int position)
@@ -31,6 +39,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
         _currentPosition = position;
         _tokenStartPosition = position;
         _textSource.ResetPosition(position);
+        RestoreConditionalState(position);
 
         PrintDebug($"Lexer reset ot position {position}");
     }
@@ -319,6 +328,14 @@ internal class Lexer : ILexer, IMacroBodyScanner
     private Token ReadTokenCore()
     {
         _tokenStartPosition = _currentPosition;
+        RememberConditionalState(_currentPosition);
+
+        if (!IsCurrentBranchActive && !IsConditionalDirectiveAheadAtLineStart())
+        {
+            var disabledText = ReadDisabledText();
+            if (disabledText.Length > 0)
+                return new Token(SyntaxKind.DisabledTextTrivia, disabledText);
+        }
 
         char ch = '\0', ch2 = '\0';
 
@@ -499,7 +516,8 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         if (PeekChar(out ch2) && ch2 == '[')
                             return new Token(SyntaxKind.HashToken, chStr);
 
-                        if (!LooksLikeDirective())
+                        if (!IsDirectiveStart(_currentPosition - 1) ||
+                            !TryReadDirectiveKeyword(out var directiveKeyword))
                             return new Token(SyntaxKind.HashToken, chStr);
 
                         _stringBuilder.Append('#');
@@ -513,7 +531,11 @@ internal class Lexer : ILexer, IMacroBodyScanner
                             _stringBuilder.Append(c);
                         }
 
-                        return new Token(SyntaxKind.DirectiveTrivia, GetStringBuilderValue());
+                        var directiveText = GetStringBuilderValue();
+                        if (string.Equals(directiveKeyword, "pragma", StringComparison.Ordinal))
+                            return new Token(SyntaxKind.DirectiveTrivia, directiveText);
+
+                        return ReadConditionalDirective(directiveText, directiveKeyword);
 
                     case '*':
                         if (PeekChar(out ch2) && ch2 == '=')
@@ -830,6 +852,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         return new Token(SyntaxKind.CarriageReturnToken, string.Intern("\r"));
 
                     case '\0':
+                        ReportMissingEndIfIfNeeded();
                         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
                 }
             }
@@ -843,6 +866,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
             return new Token(SyntaxKind.None, ch.ToString());
         }
 
+        ReportMissingEndIfIfNeeded();
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
     }
 
@@ -1898,19 +1922,314 @@ internal class Lexer : ILexer, IMacroBodyScanner
         return true;
     }
 
-    private bool LooksLikeDirective()
+    private Token ReadConditionalDirective(string directiveText, string keyword)
     {
-        const string pragma = "pragma";
+        var keywordOffset = directiveText.IndexOf(keyword, StringComparison.Ordinal);
+        var conditionStart = keywordOffset + keyword.Length;
+        while (conditionStart < directiveText.Length && char.IsWhiteSpace(directiveText[conditionStart]))
+            conditionStart++;
 
-        for (var i = 0; i < pragma.Length; i++)
+        var conditionEnd = directiveText.IndexOf("//", conditionStart, StringComparison.Ordinal);
+        if (conditionEnd < 0)
+            conditionEnd = directiveText.Length;
+        while (conditionEnd > conditionStart && char.IsWhiteSpace(directiveText[conditionEnd - 1]))
+            conditionEnd--;
+
+        var conditionText = directiveText[conditionStart..conditionEnd];
+        var directiveKind = keyword switch
         {
-            if (!_textSource.PeekChar(i, out var ch) || ch != pragma[i])
-                return false;
+            "if" => ConditionalDirectiveKind.If,
+            "elif" => ConditionalDirectiveKind.Elif,
+            "else" => ConditionalDirectiveKind.Else,
+            "endif" => ConditionalDirectiveKind.EndIf,
+            _ => throw new InvalidOperationException($"Unknown conditional directive '{keyword}'.")
+        };
+
+        var branchTaken = false;
+        var branchActive = IsCurrentBranchActive;
+        var hasCondition = directiveKind is ConditionalDirectiveKind.If or ConditionalDirectiveKind.Elif;
+        var conditionValue = false;
+
+        if (hasCondition)
+        {
+            if (!ConditionalDirectiveParser.TryEvaluate(
+                    conditionText,
+                    _definedSymbols,
+                    out conditionValue,
+                    out var errorOffset,
+                    out var error))
+            {
+                ReportDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidConditionalDirectiveExpression,
+                    new TextSpan(
+                        _tokenStartPosition + conditionStart + Math.Min(errorOffset, conditionText.Length),
+                        Math.Max(1, conditionText.Length - Math.Min(errorOffset, conditionText.Length))),
+                    error ?? "invalid expression"));
+            }
+        }
+        else if (conditionText.Length > 0)
+        {
+            ReportDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.InvalidConditionalDirectiveExpression,
+                new TextSpan(_tokenStartPosition + conditionStart, conditionText.Length),
+                $"unexpected text after '#{keyword}'"));
         }
 
-        return !_textSource.PeekChar(pragma.Length, out var trailing) ||
-               !SyntaxFacts.IsIdentifierPartCharacter(trailing);
+        switch (directiveKind)
+        {
+            case ConditionalDirectiveKind.If:
+                {
+                    var parentActive = IsCurrentBranchActive;
+                    branchTaken = conditionValue;
+                    branchActive = parentActive && conditionValue;
+                    _conditionalStack.Add(new ConditionalFrame(
+                        parentActive,
+                        conditionValue,
+                        branchActive,
+                        ElseSeen: false,
+                        _tokenStartPosition));
+                    break;
+                }
+
+            case ConditionalDirectiveKind.Elif:
+                {
+                    if (_conditionalStack.Count == 0)
+                    {
+                        ReportUnexpectedConditionalDirective(keyword);
+                        break;
+                    }
+
+                    var frame = _conditionalStack[^1];
+                    if (frame.ElseSeen)
+                    {
+                        ReportDirectiveAfterElse(keyword);
+                        frame = frame with { CurrentBranchActive = false };
+                    }
+                    else
+                    {
+                        branchTaken = !frame.AnyBranchTaken && conditionValue;
+                        branchActive = frame.ParentActive && branchTaken;
+                        frame = frame with
+                        {
+                            AnyBranchTaken = frame.AnyBranchTaken || conditionValue,
+                            CurrentBranchActive = branchActive
+                        };
+                    }
+
+                    _conditionalStack[^1] = frame;
+                    break;
+                }
+
+            case ConditionalDirectiveKind.Else:
+                {
+                    if (_conditionalStack.Count == 0)
+                    {
+                        ReportUnexpectedConditionalDirective(keyword);
+                        break;
+                    }
+
+                    var frame = _conditionalStack[^1];
+                    if (frame.ElseSeen)
+                    {
+                        ReportDirectiveAfterElse(keyword);
+                        frame = frame with { CurrentBranchActive = false };
+                    }
+                    else
+                    {
+                        branchTaken = !frame.AnyBranchTaken;
+                        branchActive = frame.ParentActive && branchTaken;
+                        frame = frame with
+                        {
+                            AnyBranchTaken = true,
+                            CurrentBranchActive = branchActive,
+                            ElseSeen = true
+                        };
+                    }
+
+                    _conditionalStack[^1] = frame;
+                    break;
+                }
+
+            case ConditionalDirectiveKind.EndIf:
+                if (_conditionalStack.Count == 0)
+                {
+                    ReportUnexpectedConditionalDirective(keyword);
+                }
+                else
+                {
+                    _conditionalStack.RemoveAt(_conditionalStack.Count - 1);
+                    branchActive = IsCurrentBranchActive;
+                }
+                break;
+        }
+
+        var syntaxKind = directiveKind switch
+        {
+            ConditionalDirectiveKind.If => SyntaxKind.IfDirectiveTrivia,
+            ConditionalDirectiveKind.Elif => SyntaxKind.ElifDirectiveTrivia,
+            ConditionalDirectiveKind.Else => SyntaxKind.ElseDirectiveTrivia,
+            ConditionalDirectiveKind.EndIf => SyntaxKind.EndIfDirectiveTrivia,
+            _ => throw new InvalidOperationException()
+        };
+        var info = new ConditionalDirectiveInfo(
+            directiveKind,
+            syntaxKind,
+            conditionText,
+            branchActive,
+            branchTaken,
+            keywordOffset,
+            keyword.Length,
+            conditionStart,
+            conditionEnd - conditionStart);
+        return new Token(SyntaxKind.DirectiveTrivia, directiveText, info);
     }
+
+    private bool IsCurrentBranchActive
+        => _conditionalStack.Count == 0 || _conditionalStack[^1].CurrentBranchActive;
+
+    private string ReadDisabledText()
+    {
+        _stringBuilder.Clear();
+
+        while (PeekChar(out var current))
+        {
+            if (IsConditionalDirectiveAheadAtLineStart())
+                break;
+
+            ReadChar();
+            _stringBuilder.Append(current);
+        }
+
+        return GetStringBuilderValue();
+    }
+
+    private bool IsConditionalDirectiveAheadAtLineStart()
+    {
+        if (!IsAtStartOfDirectiveLine(_currentPosition))
+            return false;
+
+        var offset = 0;
+        char current;
+        while (_textSource.PeekChar(offset, out current) && current is ' ' or '\t')
+            offset++;
+
+        if (!_textSource.PeekChar(offset, out var hash) || hash != '#')
+            return false;
+
+        offset++;
+        while (_textSource.PeekChar(offset, out current) && current is ' ' or '\t')
+            offset++;
+
+        return TryPeekDirectiveKeyword(offset, out var keyword) &&
+            IsConditionalDirectiveKeyword(keyword);
+    }
+
+    private bool TryReadDirectiveKeyword(out string keyword)
+    {
+        var offset = 0;
+        while (_textSource.PeekChar(offset, out var current) && current is ' ' or '\t')
+            offset++;
+
+        return TryPeekDirectiveKeyword(offset, out keyword) &&
+            (string.Equals(keyword, "pragma", StringComparison.Ordinal) ||
+             IsConditionalDirectiveKeyword(keyword));
+    }
+
+    private bool TryPeekDirectiveKeyword(int offset, out string keyword)
+    {
+        var builder = new StringBuilder();
+        while (_textSource.PeekChar(offset, out var current) &&
+               SyntaxFacts.IsIdentifierPartCharacter(current))
+        {
+            builder.Append(current);
+            offset++;
+        }
+
+        keyword = builder.ToString();
+        return keyword.Length > 0;
+    }
+
+    private static bool IsConditionalDirectiveKeyword(string keyword)
+        => keyword is "if" or "elif" or "else" or "endif";
+
+    private bool IsDirectiveStart(int hashPosition)
+        => IsAtStartOfDirectiveLine(hashPosition);
+
+    private bool IsAtStartOfDirectiveLine(int position)
+    {
+        for (var offset = position - _currentPosition - 1; ; offset--)
+        {
+            if (!_textSource.PeekChar(offset, out var previous))
+                return true;
+
+            if (IsEndOfLine(previous))
+                return true;
+
+            if (previous is not (' ' or '\t'))
+                return false;
+        }
+    }
+
+    private void ReportUnexpectedConditionalDirective(string keyword)
+        => ReportDiagnostic(DiagnosticInfo.Create(
+            CompilerDiagnostics.UnexpectedConditionalDirective,
+            new TextSpan(_tokenStartPosition, Math.Max(1, keyword.Length + 1)),
+            keyword));
+
+    private void ReportDirectiveAfterElse(string keyword)
+        => ReportDiagnostic(DiagnosticInfo.Create(
+            CompilerDiagnostics.ConditionalDirectiveAfterElse,
+            new TextSpan(_tokenStartPosition, Math.Max(1, keyword.Length + 1)),
+            keyword));
+
+    private void ReportMissingEndIfIfNeeded()
+    {
+        if (_reportedMissingEndIf || _conditionalStack.Count == 0)
+            return;
+
+        _reportedMissingEndIf = true;
+        foreach (var frame in _conditionalStack)
+        {
+            ReportDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.MissingEndIfDirective,
+                new TextSpan(frame.IfPosition, 3)));
+        }
+    }
+
+    private void RememberConditionalState(int position)
+    {
+        if (_conditionalStateSnapshots.ContainsKey(position))
+            return;
+
+        _conditionalStateSnapshots[position] = new ConditionalStateSnapshot(
+            [.. _conditionalStack],
+            _reportedMissingEndIf);
+    }
+
+    private void RestoreConditionalState(int position)
+    {
+        _conditionalStack.Clear();
+        if (_conditionalStateSnapshots.TryGetValue(position, out var snapshot))
+        {
+            _conditionalStack.AddRange(snapshot.Frames);
+            _reportedMissingEndIf = snapshot.ReportedMissingEndIf;
+        }
+        else
+        {
+            _reportedMissingEndIf = false;
+        }
+    }
+
+    private readonly record struct ConditionalFrame(
+        bool ParentActive,
+        bool AnyBranchTaken,
+        bool CurrentBranchActive,
+        bool ElseSeen,
+        int IfPosition);
+
+    private sealed record ConditionalStateSnapshot(
+        ConditionalFrame[] Frames,
+        bool ReportedMissingEndIf);
 
 
     private bool ReadWhile(char ch)

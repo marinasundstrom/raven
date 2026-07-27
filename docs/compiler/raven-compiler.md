@@ -93,6 +93,8 @@ editors can discover the same SDK root.
 
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
+- `--define <symbols>`, `-define <symbols>` &ndash; add conditional-compilation
+  symbols; repeat the option or separate symbols with commas or semicolons
 - `-o <path>` &ndash; output path (`.rvn`/legacy `.rav` inputs: assembly file path; `.rvnproj` inputs: output directory path)
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering

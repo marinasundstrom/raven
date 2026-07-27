@@ -1100,6 +1100,22 @@
     Title="Public extension requires an identifier"
     Message="Public extension declarations must have an explicit identifier" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1060" Identifier="InvalidConditionalDirectiveExpression"
+    Title="Invalid conditional compilation expression"
+    Message="Invalid conditional compilation expression: {reason}" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1061" Identifier="UnexpectedConditionalDirective"
+    Title="Unexpected conditional compilation directive"
+    Message="Unexpected '#{directive}' directive" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1062" Identifier="ConditionalDirectiveAfterElse"
+    Title="Conditional compilation directive follows else"
+    Message="'#{directive}' cannot follow '#else' in the same conditional section" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1063" Identifier="MissingEndIfDirective"
+    Title="Missing endif directive"
+    Message="Conditional compilation section is missing a matching '#endif'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0905" Identifier="RequiredMemberMustBeSet" Title="Required member must be set"
     Message="Required member '{memberName}' must be set" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

@@ -94,4 +94,8 @@
   <NodeKind Name="LessThanOrEqualPattern" Type="ComparisonPattern" />
   <NodeKind Name="RangePattern" Type="RangePattern" />
   <NodeKind Name="SkippedTokensTrivia" Type="StructuredTrivia" />
+  <NodeKind Name="IfDirectiveTrivia" Type="StructuredTrivia" />
+  <NodeKind Name="ElifDirectiveTrivia" Type="StructuredTrivia" />
+  <NodeKind Name="ElseDirectiveTrivia" Type="StructuredTrivia" />
+  <NodeKind Name="EndIfDirectiveTrivia" Type="StructuredTrivia" />
 </NodeKinds>
