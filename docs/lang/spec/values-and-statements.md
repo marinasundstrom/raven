@@ -1,7 +1,20 @@
 # Values and statements
 
-Most Raven code produces values, including many control-flow forms. Statements
-are used when code performs an action without needing to keep a result.
+Most Raven code is organized around expressions and the values they produce,
+including many control-flow forms. Raven nevertheless retains a syntactic and
+semantic distinction between expressions and statements.
+
+An expression computes a value and may appear where a value is expected. A
+statement controls execution, introduces a declaration, or evaluates an
+expression without passing its value to a surrounding expression. Some
+constructs, such as `if` and `match`, have both expression and statement syntax
+forms. Their surface spelling may be similar, but the parser represents them as
+different syntax nodes according to their context.
+
+Calling Raven **expression-oriented** means that value-producing composition is
+available in more places than in a conventionally statement-oriented language.
+It does not mean that every construct is an expression or that the syntax tree
+erases the expression/statement boundary.
 
 Raven has no `void` type. The absence of a meaningful value is represented by the
 `unit` type, which has exactly one value written `()`. The type itself may be
@@ -32,7 +45,15 @@ produces an immutable binding whose value is baked in at compile time. A binding
 declare its type explicitly or rely on the compiler to infer it from the initializer
 expression.
 
+A lexical binding is a declaration statement, not an expression. Its
+initializer is an expression whose value is assigned to the newly introduced
+name. For example, in `let x = 2 + a`, `2 + a` is an expression, but the whole
+construct is a statement. Raven has no expression form of that construct that
+introduces `x` into the surrounding lexical scope:
+
 ```raven
+let x = 2 + a
+
 let answer = 42         // inferred int
 
 var name = "Alice"    // inferred string, mutable
@@ -51,8 +72,10 @@ determine the variable's type. Const bindings always require an initializer, eve
 annotated, and the expression must be a .NET compile-time constant (numeric and
 character literals, `true`/`false`, strings, or `null`).
 
-Control-flow constructs such as `if`, `while`, and `for` are expressions whose
-statement forms are described in [Control flow](control-flow.md).
+Value-producing forms such as `if` and `match` can be expressions. They also
+have statement forms when used for control flow without passing a value to a
+surrounding expression. `while`, `for`, and `loop` are statements in the
+current language.
 
 Later declarations in the same scope may **shadow** earlier bindings. Each declaration
 introduces a new symbol; code that follows binds to the most recent declaration.

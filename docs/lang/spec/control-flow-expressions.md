@@ -1,8 +1,16 @@
 # Control-flow expressions and statements
 
-Raven lets control flow such as `if` produce a value. The same familiar forms
+Raven lets control flow such as `if` produce a value. Familiar-looking forms
 can also be used as statements when the code is performing work rather than
 calculating a value.
+
+This is a contextual surface resemblance, not the absence of a syntax
+distinction. Raven's syntax tree still contains separate expression and
+statement nodes. In an expression position, a value-producing form contributes
+a value to its surrounding expression. In a statement position, the
+corresponding statement form controls execution and any expression result is
+discarded. Raven is expression-oriented because it makes value-producing
+composition broadly available, not because every construct is an expression.
 
 A block is an expression; its value is the value of its last expression
 (or `()` if none). Each block introduces a new scope for local declarations.

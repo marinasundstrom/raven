@@ -15,6 +15,33 @@ The central rule is:
 > Model the meaning first. Select the Raven construct that represents that
 > meaning second.
 
+## Expression-oriented does not mean expression-only
+
+Raven makes expressions the usual way to compose computations. Blocks and
+control flow such as `if` and `match` can produce values, so a decision can
+appear directly in an initializer, argument, or return value.
+
+The language still distinguishes expressions from statements in both syntax
+and semantics. Similar-looking `if` or `match` constructs may be parsed as
+different expression and statement nodes depending on their position. Loops
+are statements in the current language. A lexical binding is also necessarily
+a statement:
+
+```raven
+let x = 2 + a
+let description = if count == 0 { "empty" } else { "populated" }
+```
+
+In the first line, `2 + a` is an expression, but `let x = 2 + a` is a
+declaration statement with no equivalent binding-expression form. In the
+second line, the whole line is likewise a lexical-binding statement; its
+initializer is an `if` expression, and each branch produces the value bound to
+`description`.
+
+Expression-oriented programming reduces the need for temporary mutation and
+statement-only control flow; it does not erase declarations, effects, jumps,
+or other inherently statement-shaped operations.
+
 For larger examples and established pattern names, continue with [Domain
 modeling in Raven](domain-modeling.md). The [Raven for C#
 developers](../raven-for-csharp-developers.md) guide compares common starting
