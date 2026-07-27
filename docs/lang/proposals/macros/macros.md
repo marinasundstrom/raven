@@ -17,9 +17,8 @@ Current implementation status:
   `[assembly: RavenCompilerPlugin(typeof(QueryMacro))]` and be consumed
   through ordinary project references. The same provider marker works for C#
   macro projects. Local-partition macros require no assembly export marker.
-  A bare marker retains fallback discovery. Transitional
-  `RavenMacro` items remain supported for existing projects and direct assembly
-  paths.
+  A bare marker retains fallback discovery. The former consumer-authored
+  `RavenMacro` item has been retired in favor of these ordinary references.
 * Marked direct DLL and resolved package references are discovered from
   assembly metadata during compilation setup and enter the same registry as
   local macros.
@@ -411,8 +410,8 @@ Today the flow is:
 
 1. Parse source
 2. Resolve attached macro attributes against compiler-plugin assemblies
-   supplied by marked project references, transitional `RavenMacro` items, or
-   the default macro environment
+   supplied by marked project, assembly, or package references, or the default
+   macro environment
 3. Validate macro target compatibility
 4. Invoke the plugin with structured Raven syntax
 5. Cache the resulting `MacroExpansionResult` on the semantic model

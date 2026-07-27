@@ -18,7 +18,6 @@ internal static class ProjectFile
         ProjectInfo Info,
         ImmutableArray<string> ProjectReferences,
         ImmutableArray<string> MetadataReferences,
-        ImmutableArray<string> MacroReferences,
         ImmutableArray<PackageReferenceInfo> PackageReferences,
         ImmutableArray<FrameworkReferenceInfo> FrameworkReferences,
         ProjectPreludeOptions PreludeOptions,
@@ -78,15 +77,6 @@ internal static class ProjectFile
                 continue;
             var rel = Path.GetRelativePath(dir, refPath);
             projectElement.Add(new XElement("ProjectReference", new XAttribute("Path", rel)));
-        }
-
-        foreach (var macroRef in project.MacroReferences)
-        {
-            if (string.IsNullOrWhiteSpace(macroRef.Display) || !File.Exists(macroRef.Display))
-                continue;
-
-            var rel = Path.GetRelativePath(dir, macroRef.Display);
-            projectElement.Add(new XElement("RavenMacro", new XAttribute("Path", rel)));
         }
 
         var doc = new XDocument(projectElement);
@@ -254,10 +244,13 @@ internal static class ProjectFile
 
         var preludeOptions = new ProjectPreludeOptions(generatePreludeImports, preludeImports);
 
-        var macroRefs = root.Elements("RavenMacro")
-            .Select(e => (string?)e.Attribute("Path") ?? (string?)e.Attribute("Include") ?? throw new InvalidDataException("RavenMacro path missing."))
-            .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
-            .ToImmutableArray();
+        if (root.Elements("RavenMacro").Any())
+        {
+            throw new InvalidDataException(
+                "The RavenMacro project element is no longer supported. " +
+                "Migrate to an SDK-style .rvnproj and reference a project marked " +
+                "with RavenCompilerPlugin using ProjectReference.");
+        }
 
         var documentationOptions = new ProjectDocumentationOptions(
             GenerateXmlDocumentation: generateDocumentationFileAttr is string gdf && bool.TryParse(gdf, out var generateXmlDocs) && generateXmlDocs,
@@ -268,6 +261,6 @@ internal static class ProjectFile
 
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
         var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output, documentationOptions: documentationOptions);
-        return new ProjectFileInfo(info, projectRefs, metadataRefs, macroRefs, packageRefs, frameworkRefs, preludeOptions, configuration);
+        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs, frameworkRefs, preludeOptions, configuration);
     }
 }

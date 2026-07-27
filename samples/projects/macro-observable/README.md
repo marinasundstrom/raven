@@ -24,7 +24,8 @@ class MyViewModel: ObservableBase {
 Current status:
 
 - The macro plugin is written in Raven, not C#.
-- `#[Observable]` is resolved from a `RavenMacro` assembly reference.
+- `#[Observable]` is resolved from an ordinary project reference to an
+  assembly marked with `RavenCompilerPlugin`.
 - The plugin transforms `context.CurrentDeclaration`, while `context.TargetDeclaration` remains available as the original authored syntax.
 - The plugin builds its expansion with the syntax API instead of parsing a generated source string.
 - The plugin returns both an introduced backing field and a replacement property declaration through `MacroExpansionResult`.

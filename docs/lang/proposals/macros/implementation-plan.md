@@ -28,8 +28,8 @@ Implemented before the token-tree work:
 
 * attached declaration macros using `#[Name]`
 * argument-based freestanding expression macros using `#name(...)`
-* .NET and Raven-authored macro plugins referenced through the transitional
-  `RavenMacro` project item
+* .NET and Raven-authored macro plugins activated through compiler-owned
+  `MacroReference` instances
 * typed parameter objects for argument-based macros
 * expansion diagnostics, semantic binding, emit, expanded-document views,
   completion, hover, and definition support
@@ -577,7 +577,7 @@ Validation record for this slice:
 
 ## SDK integration: provider-declared compiler plugins
 
-Status: **Raven project-reference MVP implemented**
+Status: **implemented and compatibility item retired**
 
 Replace consumer-authored `RavenMacro` items with provider-declared
 compiler-plugin assets:
@@ -585,7 +585,7 @@ compiler-plugin assets:
 1. [x] a Raven macro project marks its output with
    `[assembly: RavenCompilerPlugin]`;
 2. [x] consumers use a normal Raven project dependency;
-3. the SDK resolves the marked asset and passes it to the compilation;
+3. [x] the SDK resolves the marked asset and passes it to the compilation;
 4. [x] the compiler loads its manifest and exported macro contracts; a
    repeatable assembly-level marker may explicitly name macro definitions,
    while a bare marker authorizes fallback discovery within that marked
@@ -599,7 +599,7 @@ are unnecessary because macro names are registered with the compilation.
 Prefer explicit macro types in the manifest and restrict reflection discovery
 to assemblies carrying the compiler-plugin marker.
 
-The current MVP recognizes the assembly marker syntactically in evaluated
+The MVP recognizes the assembly marker syntactically in evaluated
 Raven and C# project sources, builds the provider through the appropriate
 language build path, and adds its output as a `MacroReference` rather than a
 runtime `ProjectReference`. Unmarked project references retain their ordinary
@@ -608,10 +608,18 @@ samples cover Raven-authored freestanding and attached providers respectively.
 The compiler continues to support .NET-authored providers through the same
 object-oriented contracts, but runnable language samples use Raven.
 
-Remaining work:
+The transitional consumer-authored `RavenMacro` project item has been retired.
+Project loaders report a migration error directing existing projects to an
+ordinary `ProjectReference` and the provider marker.
 
-* retire `RavenMacro` after the remaining compatibility scenarios have
-  replacements.
+Validation for project-item retirement:
+
+* focused MSBuild and legacy-project migration suite: 16 passed
+* focused language-server macro-definition tests: 2 passed
+* focused project-backed workspace tests: 4 passed
+* complete macro feature suite: 61 passed
+* migrated `macro-observable` runtime output: `Title`, `Hello from Raven`
+* migrated `macro-reactive` runtime output: `1`, `2`
 
 Package resolution now keeps ordinary compile assets and compiler-plugin
 implementations separate. A package may expose `ref/<tfm>/Provider.dll` to

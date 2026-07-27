@@ -97,7 +97,7 @@ public sealed class WorkspaceManagerTests : IDisposable
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -208,7 +208,7 @@ public sealed class WorkspaceManagerTests : IDisposable
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1784,7 +1784,7 @@ func Main() -> unit {
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="../macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);

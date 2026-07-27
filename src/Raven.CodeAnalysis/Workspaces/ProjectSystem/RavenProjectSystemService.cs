@@ -71,17 +71,6 @@ public sealed class RavenProjectSystemService : IProjectSystemService
         foreach (var metadataReferencePath in projInfo.MetadataReferences)
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
 
-        foreach (var macroReferencePath in projInfo.MacroReferences)
-        {
-            var sourceProjectFilePath = string.Equals(Path.GetExtension(macroReferencePath), RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Path.GetExtension(macroReferencePath), ".rvnproj", StringComparison.OrdinalIgnoreCase)
-                ? (Path.IsPathRooted(macroReferencePath)
-                    ? macroReferencePath
-                    : Path.GetFullPath(Path.Combine(projectDirectory, macroReferencePath)))
-                : null;
-            solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(macroReferencePath, sourceProjectFilePath));
-        }
-
         var packageReferences = NuGetPackageResolver.ResolveReferences(
             projectFilePath,
             tfm,

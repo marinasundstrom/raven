@@ -71,6 +71,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   compiler, Workspace, and SDK compilation paths, while retaining
   semantic-model access and requiring neither a `RavenMacro` item nor an
   explicit compiler-contract project reference.
+- Retired the transitional consumer-authored `RavenMacro` project item.
+  Reusable compiler-plugin providers now use ordinary marked project,
+  assembly, or package references; project loaders report migration guidance
+  when the removed item is encountered.
 - Removed the transitional `IRavenMacroPlugin` aggregation contract and
   `[LocalMacroPlugin]` source marker. Macros are now registered directly as
   `IMacroDefinition` implementations.

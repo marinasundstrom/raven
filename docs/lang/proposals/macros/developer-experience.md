@@ -78,8 +78,8 @@ The near-term authoring priorities are:
 * preserve predictable diagnostics and cancellation as expansion capabilities
   grow;
 * keep original/expanded source inspection readily available; and
-* replace consumer-authored `RavenMacro` items with provider-declared
-  compiler-plugin metadata for reusable macros.
+* use provider-declared compiler-plugin metadata through ordinary project,
+  assembly, and package references for reusable macros.
 
 Retained DSL structure, custom completion, and syntax highlighting build on
 this loop later; they are not prerequisites for it.
@@ -533,16 +533,17 @@ system syntax-classifies evaluated Raven or C# source for the assembly-targeted
 marker, builds only marked providers, and does not scan unmarked runtime
 dependencies.
 
-`RavenMacro` remains transitional plumbing for existing projects and direct
-assembly paths. Direct DLL references and package assemblies resolved as
-portable references are inspected for the provider marker during compilation
-setup and join the same active registry. This is a metadata-only inspection;
-unmarked assemblies are not executed or searched for plugin types. For split
-packages, the `ref/<tfm>` asset remains the consumer metadata reference and a
-marked `lib/<tfm>` implementation is activated separately as a macro
-reference. Helper assemblies beside that implementation are resolved by the
-macro load context. Runtime assemblies from separate transitive packages are
-carried from the selected `project.assets.json` target graph as private,
+The former consumer-authored `RavenMacro` project item has been retired.
+Existing projects migrate to an ordinary `ProjectReference` whose provider
+assembly carries `RavenCompilerPlugin`. Direct DLL references and package
+assemblies resolved as portable references are inspected for that marker during
+compilation setup and join the same active registry. This is a metadata-only
+inspection; unmarked assemblies are not executed or searched for plugin types.
+For split packages, the `ref/<tfm>` asset remains the consumer metadata
+reference and a marked `lib/<tfm>` implementation is activated separately as a
+macro reference. Helper assemblies beside that implementation are resolved by
+the macro load context. Runtime assemblies from separate transitive packages
+are carried from the selected `project.assets.json` target graph as private,
 identity-checked dependency probes; they do not enter the consumer metadata
 graph. Macro-name conflicts and load failures remain compilation diagnostics
 regardless of how the plugin asset was resolved.
@@ -658,8 +659,8 @@ When syntax trees are added through
 `Compilation.AddSyntaxTreesWithLocalMacros`, or normal Workspace and SDK
 project construction, recognizes the macro interface in the declaration's base
 list and places that declaration in the local compile-time partition. No
-`RavenMacro` item, separate project, on-disk plugin assembly, or explicit
-project reference to `Raven.CodeAnalysis` is required. The local partition
+consumer-authored macro item, separate project, on-disk plugin assembly, or
+explicit project reference to `Raven.CodeAnalysis` is required. The local partition
 receives the compatible compiler contracts automatically.
 
 This is deliberately a syntax-only rule. A file containing only direct macros

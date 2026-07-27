@@ -140,7 +140,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="../macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -205,7 +205,7 @@ class AnswerMacro : IFreestandingExpressionMacro {
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="../macros/AnswerMacros.rvnproj" />
+    <ProjectReference Include="../macros/AnswerMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);

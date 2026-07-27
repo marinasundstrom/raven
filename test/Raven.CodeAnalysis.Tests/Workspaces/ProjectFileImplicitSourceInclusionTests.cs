@@ -9,6 +9,32 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class ProjectFileImplicitSourceInclusionTests
 {
     [Fact]
+    public void Load_RavenMacroElement_ReportsProjectReferenceMigration()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var projectPath = Path.Combine(root, "App.ravproj");
+            File.WriteAllText(projectPath, """
+                <Project Name="App" TargetFramework="net10.0">
+                  <RavenMacro Path="Macros.rvnproj" />
+                </Project>
+                """);
+
+            var exception = Assert.Throws<InvalidDataException>(() => ProjectFile.Load(projectPath));
+
+            Assert.Contains("no longer supported", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("ProjectReference", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("RavenCompilerPlugin", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void OpenProject_WithoutDocumentElements_ImplicitlyIncludesRavenSources()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

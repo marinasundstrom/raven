@@ -82,10 +82,12 @@ internal static class MsBuildProjectEvaluator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
 
-        var macroReferencePaths = project.GetItems("RavenMacro")
-            .Select(item => GetFullPath(projectDirectory, item))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToImmutableArray();
+        if (project.GetItems("RavenMacro").Count > 0)
+        {
+            throw new InvalidDataException(
+                "The RavenMacro project item is no longer supported. " +
+                "Reference a project marked with RavenCompilerPlugin using ProjectReference.");
+        }
 
         var analyzerReferencePaths = project.GetItems("Analyzer")
             .Select(item => GetFullPath(projectDirectory, item))
@@ -198,7 +200,6 @@ internal static class MsBuildProjectEvaluator
             documents,
             metadataReferencePaths,
             projectReferencePaths,
-            macroReferencePaths,
             analyzerReferencePaths,
             generatorReferencePaths,
             packageReferences,
@@ -459,7 +460,6 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<DocumentInfo> Documents,
     ImmutableArray<string> MetadataReferencePaths,
     ImmutableArray<string> ProjectReferencePaths,
-    ImmutableArray<string> MacroReferencePaths,
     ImmutableArray<string> AnalyzerReferencePaths,
     ImmutableArray<string> GeneratorReferencePaths,
     ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,

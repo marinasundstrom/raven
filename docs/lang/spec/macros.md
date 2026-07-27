@@ -440,13 +440,14 @@ added as a runtime project reference. A bare marker authorizes fallback
 discovery of direct macro definitions.
 
 Raven does not scan unmarked runtime references for plugins, and consumer
-source needs no macro import directive. `RavenMacro` remains supported as
-transitional plumbing for existing projects and direct assembly references.
-During compilation setup, portable references—including direct DLL and
-resolved package references—are inspected for the assembly marker through
-metadata only. Marked references are activated and join the same macro registry
-as explicitly supplied and same-project macros. Unmarked assemblies are not
-loaded for macro execution or searched for implementation types.
+source needs no macro import directive. The former consumer-authored
+`RavenMacro` project item is not supported; reusable providers use ordinary
+marked project, assembly, or package references. During compilation setup,
+portable references—including direct DLL and resolved package references—are
+inspected for the assembly marker through metadata only. Marked references are
+activated and join the same macro registry as explicitly supplied and
+same-project macros. Unmarked assemblies are not loaded for macro execution or
+searched for implementation types.
 
 The active macro set belongs to an immutable compilation snapshot. A new
 snapshot recomputes activation when local macro source or the reference set

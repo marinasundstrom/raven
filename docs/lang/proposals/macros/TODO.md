@@ -38,7 +38,7 @@ In a macro you can put any content and parse it however you want.
   parser diagnostics, and macro-authored diagnostics.
 * [x] Add corresponding factories for attached replacement,
   introduced-member, peer-declaration, and diagnostic-only result shapes.
-* Replace the consumer-authored `RavenMacro` item with provider-declared
+* [x] Replace the consumer-authored `RavenMacro` item with provider-declared
   compiler-plugin metadata carried through normal project/package references.
   Do not scan and execute arbitrary runtime references.
   * [x] Recognize `[assembly: RavenCompilerPlugin]` on referenced Raven
@@ -49,6 +49,7 @@ In a macro you can put any content and parse it however you want.
   * [x] Resolve packages that separate reference and runtime plugin assets.
   * [x] Resolve macro helper assemblies shipped beside a package implementation.
   * [x] Resolve macro dependencies supplied by separate transitive packages.
+  * [x] Retire `RavenMacro` project persistence and report migration guidance.
   * [x] Add an explicit macro-export manifest with compatibility support for
     plugin containers.
 * Support macros declared and consumed in the same project through an acyclic
