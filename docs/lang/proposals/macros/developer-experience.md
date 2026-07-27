@@ -401,6 +401,16 @@ Editor capabilities should share the same cached token and structure snapshot
 as expansion. A completion provider should not silently tokenize or parse the
 body under different rules from the macro expander.
 
+Syntax classification should be modeled for macro inputs generally rather than
+as a string-only feature. `StringSyntaxAttribute` is useful interoperability
+metadata for a typed parameter whose value is actually a string. A token-tree
+body is different: it retains authored tokens and source spans. Its future
+input descriptor should carry a syntax identity that can mean Raven (as for
+`#quote`), a known embedded format such as JSON or regular expressions, or a
+custom syntax supplied by the macro. Tooling may use the identity when it has a
+matching highlighter or completion provider and otherwise preserve the body as
+ordinary macro tokens.
+
 Retained structure is also the routing map for mixed-language editor services.
 A structure snapshot should be able to mark a body-relative region or recovery
 slot as expecting a Raven expression, statement, type, pattern, member, or

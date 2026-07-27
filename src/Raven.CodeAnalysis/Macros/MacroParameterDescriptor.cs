@@ -52,6 +52,11 @@ public sealed class MacroParameterDescriptor
     public Type ParameterType { get; }
 
     /// <summary>
+    /// Gets the Raven-facing display name for <see cref="ParameterType"/>.
+    /// </summary>
+    public string TypeDisplayName => MacroFacts.GetParameterTypeDisplay(ParameterType);
+
+    /// <summary>
     /// Gets whether the parameter is positional or named.
     /// </summary>
     public MacroParameterKind Kind { get; }

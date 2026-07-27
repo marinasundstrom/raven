@@ -14,6 +14,46 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sighelp-{Guid.NewGuid():N}");
 
     [Fact]
+    public async Task SignatureHelpHandler_TokenTreeMacro_ShowsCompilerOwnedSignatureAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "Program.rvn"));
+        const string code = """
+val syntax = #quote() { 42 }
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var sourceText = SourceText.From(code);
+        var offset = code.IndexOf(')', StringComparison.Ordinal);
+        var result = await handler.Handle(new SignatureHelpParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(
+                sourceText,
+                new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.ActiveSignature.ShouldBe(0);
+        result.ActiveParameter.ShouldBe(0);
+        result.Signatures.Single().Label.ShouldBe("#quote() { ... }");
+    }
+
+    [Fact]
     public async Task SignatureHelpHandler_FrameworkProjection_ShowsRavenOverloadsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

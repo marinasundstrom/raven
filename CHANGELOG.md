@@ -42,6 +42,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   macros. `ParseStatement` returns recovered `StatementSyntax`, while
   `ParseStatementResult` also retains native authored-source diagnostics and
   rejects trailing input.
+- Added compiler-owned macro signature help for typed attached, freestanding,
+  and token-tree invocations. The semantic model now exposes normalized macro
+  parameters and the active argument, and the language server presents that
+  result including token-tree body shape.
 - Added the compiler-owned expression-only `#quote { ... }` intrinsic. It
   preserves tokens and trivia, rejects malformed or trailing input at authored
   locations, expands to fully qualified `SyntaxFactory` construction, and

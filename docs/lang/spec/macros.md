@@ -315,13 +315,25 @@ The current typed-parameter binding slice supports:
 the compiler-normalized parameter schema without requiring tooling to inspect
 the macro implementation itself. Each `MacroParameterDescriptor` identifies
 the CLR type, positional or named role, ordinal, required state, and optional
-constructor default.
+constructor default. `SemanticModel.GetMacroSignatureHelp(...)` resolves that
+schema at an attached, argument-style, or token-tree invocation and identifies
+the active parameter for compiler hosts and editor tooling.
 
 Completion uses that schema inside typed attached, argument-style, and
 token-tree macro argument lists. It offers unused writable properties with
 their Raven-facing type and inserts the named-argument form, such as
-`Optimize: `. Constructor parameters remain positional and are represented in
-the schema for future signature help.
+`Optimize: `. Constructor parameters remain positional and participate in the
+same signature help.
+
+String-valued parameters may later preserve
+`System.Diagnostics.CodeAnalysis.StringSyntaxAttribute` as optional tooling
+metadata, matching ordinary Raven parameters. That attribute is not the
+representation for a token-tree body. A body has tokens and authored source
+spans rather than a string value, and future highlighting/completion support
+will use a general compiler-owned syntax-content descriptor. For example,
+`#quote { let x = "test" }` can identify its body as Raven syntax, while a DSL
+macro can identify a standard or custom syntax without changing Raven's normal
+lexer.
 
 The target experience is that macro arguments bind like attribute arguments:
 

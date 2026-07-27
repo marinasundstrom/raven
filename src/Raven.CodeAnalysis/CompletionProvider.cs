@@ -3028,32 +3028,8 @@ public static class CompletionProvider
                 DisplayText: parameter.Name,
                 InsertionText: parameter.Name + ": ",
                 ReplacementSpan: replacementSpan,
-                Description: $"macro argument: {GetMacroParameterTypeDisplay(parameter.ParameterType)}");
+                Description: $"macro argument: {parameter.TypeDisplayName}");
         }
-    }
-
-    private static string GetMacroParameterTypeDisplay(Type type)
-    {
-        var nullableType = Nullable.GetUnderlyingType(type);
-        if (nullableType is not null)
-            return GetMacroParameterTypeDisplay(nullableType) + "?";
-
-        return type == typeof(bool) ? "bool"
-            : type == typeof(byte) ? "byte"
-            : type == typeof(sbyte) ? "sbyte"
-            : type == typeof(short) ? "short"
-            : type == typeof(ushort) ? "ushort"
-            : type == typeof(int) ? "int"
-            : type == typeof(uint) ? "uint"
-            : type == typeof(long) ? "long"
-            : type == typeof(ulong) ? "ulong"
-            : type == typeof(float) ? "float"
-            : type == typeof(double) ? "double"
-            : type == typeof(decimal) ? "decimal"
-            : type == typeof(char) ? "char"
-            : type == typeof(string) ? "string"
-            : type == typeof(object) ? "object"
-            : type.Name;
     }
 
     private static void CreateMacroCompletionContext(

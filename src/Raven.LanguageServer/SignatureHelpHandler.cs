@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
@@ -80,6 +81,21 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             var plainTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
                 .WithKindOptions(SymbolDisplayKindOptions.None);
+
+            var macroSignature = semanticModel.GetMacroSignatureHelp(offset);
+            if (macroSignature is not null)
+            {
+                var signature = CreateMacroSignatureInformation(macroSignature);
+                resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                resultCount = 1;
+
+                return new SignatureHelp
+                {
+                    Signatures = new Container<SignatureInformation>(signature),
+                    ActiveSignature = 0,
+                    ActiveParameter = macroSignature.ActiveParameter
+                };
+            }
 
             if (invocation is not null)
             {
@@ -193,6 +209,59 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 ]);
         }
     }
+
+    internal static SignatureInformation CreateMacroSignatureInformation(MacroSignatureHelp signature)
+    {
+        var parameterLabels = signature.Parameters
+            .Select(FormatMacroParameter)
+            .ToArray();
+        var invocation = signature.Kind == MacroKind.AttachedDeclaration
+            ? $"#[{signature.Name}({string.Join(", ", parameterLabels)})]"
+            : $"#{signature.Name}({string.Join(", ", parameterLabels)})";
+        if (signature.HasTokenTreeBody)
+            invocation += " { ... }";
+
+        return new SignatureInformation
+        {
+            Label = invocation,
+            Parameters = new Container<ParameterInformation>(
+                signature.Parameters.Select(parameter => new ParameterInformation
+                {
+                    Label = FormatMacroParameter(parameter)
+                })),
+            Documentation = new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = signature.HasTokenTreeBody
+                    ? "Token-tree expression macro."
+                    : signature.Kind == MacroKind.AttachedDeclaration
+                        ? "Attached declaration macro."
+                        : "Freestanding expression macro."
+            }
+        };
+    }
+
+    private static string FormatMacroParameter(MacroParameterDescriptor parameter)
+    {
+        var label = $"{parameter.Name}: {parameter.TypeDisplayName}";
+        if (parameter.Kind == MacroParameterKind.Positional &&
+            !parameter.IsRequired)
+        {
+            label += $" = {FormatMacroDefaultValue(parameter.DefaultValue)}";
+        }
+
+        return label;
+    }
+
+    private static string FormatMacroDefaultValue(object? value)
+        => value switch
+        {
+            null => "null",
+            bool boolean => boolean ? "true" : "false",
+            string text => $"\"{text.Replace("\"", "\\\"", StringComparison.Ordinal)}\"",
+            char character => $"'{character}'",
+            _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "null"
+        };
 
     private static SignatureInformation CreateSignatureInformation(
         IMethodSymbol method,

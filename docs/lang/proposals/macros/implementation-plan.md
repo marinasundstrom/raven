@@ -185,15 +185,42 @@ Raven expressions.
 * [x] include Raven-facing parameter types in completion descriptions
 * [x] pass the complete macro feature suite and sample validation
 
-Compiler-owned macro signature help should build on the same descriptors in a
-later tooling slice; it does not require another parameter metadata contract.
-
 Validation record for this slice:
 
 * focused parameter API and macro completion tests: 12 passed
 * complete macro feature suite: 61 passed
 * Raven-authored `macro-token-stream` provider and application build: passed
 * `macro-token-stream` runtime output: `42`
+
+## Active slice: compiler-owned macro signature help
+
+Status: **implemented**
+
+Macro signature help builds on the same typed parameter descriptors as binding
+and completion:
+
+* [x] expose `SemanticModel.GetMacroSignatureHelp(...)` and the corresponding
+  `Compilation` convenience API
+* [x] resolve attached, argument-style, and token-tree macro invocations in the
+  compiler
+* [x] identify the active positional or named parameter
+* [x] expose Raven-facing parameter type names
+* [x] keep protocol formatting in the language server while preventing it from
+  rediscovering macro contracts
+* [x] show the token-tree body shape in editor signature help
+
+Embedded-language classification is a separate input/structure concern.
+`StringSyntaxAttribute` metadata can be imported for actual string-valued macro
+parameters, consistent with ordinary Raven parameters. It must not become the
+token-tree body contract: bodies such as `#quote { ... }` retain tokens and
+source spans and need a general syntax-content descriptor that can identify
+Raven, a standard embedded format, or a custom macro-defined language.
+
+Validation record for this slice:
+
+* focused compiler semantic-model tests: 2 passed
+* complete macro feature suite: 61 passed
+* language-server signature-help tests: 7 passed
 
 ## Active slice: raw token-tree expression macros
 

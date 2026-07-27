@@ -34,6 +34,15 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets macro signature help at a position in a syntax tree within this compilation.
+    /// </summary>
+    public MacroSignatureHelp? GetMacroSignatureHelp(SyntaxTree syntaxTree, int position)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        return GetSemanticModel(syntaxTree).GetMacroSignatureHelp(position);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>
