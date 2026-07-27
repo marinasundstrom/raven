@@ -15,8 +15,8 @@ export interface SyntaxTreeElement {
   category: 'node' | 'token' | 'trivia';
   kind: string;
   rawKind: number;
-  propertyName?: string;
-  text?: string;
+  propertyName: string | null;
+  text: string | null;
   span: SyntaxTreeSpan;
   fullSpan: SyntaxTreeSpan;
   isMissing: boolean;
@@ -266,7 +266,7 @@ export async function revealSyntaxTreeItem(item: SyntaxTreeItem): Promise<void> 
 
 function createLabel(element: SyntaxTreeElement): string {
   const propertyPrefix = element.propertyName ? `${element.propertyName}: ` : '';
-  const textSuffix = element.text === undefined || element.text.length === 0
+  const textSuffix = element.text === null || element.text.length === 0
     ? ''
     : ` ${formatText(element.text)}`;
   const missingSuffix = element.isMissing ? ' (missing)' : '';
@@ -300,7 +300,7 @@ function createTooltip(element: SyntaxTreeElement): vscode.MarkdownString {
     tooltip.appendMarkdown(`  \nProperty: \`${element.propertyName}\``);
   }
 
-  if (element.text !== undefined) {
+  if (element.text !== null) {
     tooltip.appendMarkdown('\n\nText:\n');
     tooltip.appendCodeblock(element.text);
   }

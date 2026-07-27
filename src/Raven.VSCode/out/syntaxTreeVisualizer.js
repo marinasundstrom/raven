@@ -213,7 +213,7 @@ async function revealSyntaxTreeItem(item) {
 }
 function createLabel(element) {
     const propertyPrefix = element.propertyName ? `${element.propertyName}: ` : '';
-    const textSuffix = element.text === undefined || element.text.length === 0
+    const textSuffix = element.text === null || element.text.length === 0
         ? ''
         : ` ${formatText(element.text)}`;
     const missingSuffix = element.isMissing ? ' (missing)' : '';
@@ -242,7 +242,7 @@ function createTooltip(element) {
     if (element.propertyName) {
         tooltip.appendMarkdown(`  \nProperty: \`${element.propertyName}\``);
     }
-    if (element.text !== undefined) {
+    if (element.text !== null) {
         tooltip.appendMarkdown('\n\nText:\n');
         tooltip.appendCodeblock(element.text);
     }
