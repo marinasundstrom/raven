@@ -372,14 +372,6 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             base.VisitLocalDeclarationStatement(node);
         }
 
-        public override void VisitUseDeclarationStatement(UseDeclarationStatementSyntax node)
-        {
-            if (_collectLocals && !IsInNestedOwner)
-                AddLocalDeclarationCandidates(node.Declaration);
-
-            base.VisitUseDeclarationStatement(node);
-        }
-
         public override void VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
         {
             if (_collectLocals &&

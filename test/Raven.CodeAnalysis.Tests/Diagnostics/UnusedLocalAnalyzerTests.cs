@@ -95,10 +95,7 @@ func Test2() -> IDisposable {
 }
 """;
 
-        var diagnostics = Analyze(mainCode, utilitiesCode);
-
-        var diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("Value 'test' is never used.", diagnostic.GetMessage());
+        Assert.Empty(Analyze(mainCode, utilitiesCode));
     }
 
     [Fact]
@@ -160,7 +157,7 @@ class C {
     }
 
     [Fact]
-    public void UnusedUseLocal_ReportsDiagnostic()
+    public void UnreadUseLocal_DoesNotReportDiagnostic()
     {
         const string code = """
 import System.*
@@ -177,10 +174,7 @@ class C {
 }
 """;
 
-        var diagnostic = Assert.Single(Analyze(code));
-
-        Assert.Equal("Value 'resource' is never used.", diagnostic.GetMessage());
-        Assert.Equal("resource", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
+        Assert.Empty(Analyze(code));
     }
 
     [Fact]

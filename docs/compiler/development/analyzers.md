@@ -33,7 +33,8 @@ Raven currently provides analyzers for two different contexts:
   synthesized bridge); in library-style outputs, only non-public methods are considered.
   Methods required by a virtual/override or interface contract are excluded.
 - **UnusedLocalAnalyzer** (Raven, `RAV9027`) – reports unused local variables and local
-  pattern bindings.
+  pattern bindings. `use` bindings are excluded because their disposal lifetime is
+  itself the purpose of the declaration.
 - **UnusedParameterAnalyzer** (Raven, `RAV9030`) – reports unused callable parameters.
   Parameters on override and virtual, override, and interface implementation methods are
   excluded because the contract fixes the signature.

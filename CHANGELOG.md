@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- `use` bindings no longer report `RAV9027` merely because their bound value is
+  not read; establishing the disposal lifetime counts as the declaration's
+  intended use.
 - Added raw-body token-tree expression macros with `#name { ... }` syntax,
   lossless DSL body capture, body-relative diagnostics, and helpers for parsing
   the complete body or selected embedded spans as Raven expressions. Macro
