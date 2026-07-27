@@ -362,6 +362,29 @@ Validation record for this slice:
 * focused attached and freestanding semantic suites: 43 passed
 * `scripts/test-feature-suite.sh macros`: 54 passed
 
+## Authoring hardening: cancellable expansion
+
+Status: **implemented**
+
+Macro contexts already carry a caller-provided cancellation token, but the
+expansion service previously caught `OperationCanceledException` and converted
+it into `RAVM020`. Typed macro cancellation was additionally wrapped in
+`TargetInvocationException`.
+
+The expansion service now:
+
+* checks cancellation before resolving and invoking each macro;
+* unwraps reflection invocation failures before classifying cancellation;
+* propagates direct and reflection-wrapped `OperationCanceledException`;
+* avoids reporting cancellation as an implementation failure; and
+* leaves the expansion cache empty so a later uncanceled request can retry.
+
+Validation record for this slice:
+
+* focused direct and typed attached/freestanding cancellation tests: 4 passed
+* focused attached and freestanding semantic suites: 47 passed
+* `scripts/test-feature-suite.sh macros`: 58 passed
+
 ## Future SDK integration: provider-declared compiler plugins
 
 Replace consumer-authored `RavenMacro` items with provider-declared

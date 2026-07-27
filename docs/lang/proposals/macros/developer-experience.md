@@ -62,13 +62,21 @@ The compiler reports those failures at the authored macro name and, for typed
 macros invoked through reflection, surfaces the underlying exception message
 rather than the reflection wrapper.
 
+Every expansion context carries the compiler caller's `CancellationToken`.
+Macro implementations should pass it to cancellable APIs and check it during
+long parsing, file access, or transformation work. Cancellation propagates
+through both direct and typed reflection-based expansion; it is not converted
+into a macro failure diagnostic. A canceled attempt is not cached, so an editor
+or build request using a fresh token can expand the invocation again.
+
 The near-term authoring priorities are:
 
 * make local and Playground macros the fastest onboarding path;
 * prefer typed parameters and result factories in examples and templates;
 * make `#quote` the normal syntax-construction tool when its current expression
   category is sufficient;
-* provide predictable diagnostics and cancellation for failed expansion;
+* preserve predictable diagnostics and cancellation as expansion capabilities
+  grow;
 * keep original/expanded source inspection readily available; and
 * replace consumer-authored `RavenMacro` items with provider-declared
   compiler-plugin metadata for reusable macros.

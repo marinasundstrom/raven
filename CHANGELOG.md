@@ -100,6 +100,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   failures. Attached and freestanding macro authors now see their underlying
   exception message at the authored macro name instead of a generic reflection
   wrapper message.
+- Made attached and freestanding macro expansion cancellation-aware. Direct
+  and reflection-wrapped cancellation now propagates to the compiler caller,
+  does not produce `RAVM020`, and does not cache a failed expansion, allowing a
+  later uncanceled request to retry normally.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

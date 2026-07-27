@@ -399,6 +399,48 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void FreestandingMacroCancellation_PropagatesAndDoesNotCacheFailure()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #cancelRaw()
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CancellingFreestandingMacroPlugin)));
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        using var cancellationSource = new CancellationTokenSource();
+        CancellingFreestandingMacro.CancellationSource = cancellationSource;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => model.GetMacroExpansion(expression, cancellationSource.Token));
+
+        CancellingFreestandingMacro.CancellationSource = null;
+        Assert.NotNull(model.GetMacroExpansion(expression));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
+    }
+
+    [Fact]
+    public void TypedFreestandingMacroCancellation_PropagatesThroughReflectionAndDoesNotCacheFailure()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #cancelTyped()
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CancellingFreestandingMacroPlugin)));
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        using var cancellationSource = new CancellationTokenSource();
+        CancellingTypedFreestandingMacro.CancellationSource = cancellationSource;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => model.GetMacroExpansion(expression, cancellationSource.Token));
+
+        CancellingTypedFreestandingMacro.CancellationSource = null;
+        Assert.NotNull(model.GetMacroExpansion(expression));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
+    }
+
+    [Fact]
     public void RawFreestandingMacro_ArgumentsRequireExplicitOptIn()
     {
         var (compilation, _) = CreateCompilation("""
@@ -975,6 +1017,47 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public FreestandingMacroExpansionResult Expand(
             FreestandingMacroContext<ThrowingTypedFreestandingMacroParameters> context)
             => throw new InvalidOperationException("typed plugin boom");
+    }
+
+    public sealed class CancellingFreestandingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(CancellingFreestandingMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new CancellingFreestandingMacro(), new CancellingTypedFreestandingMacro()];
+    }
+
+    public sealed class CancellingFreestandingMacro : IFreestandingExpressionMacro
+    {
+        public static CancellationTokenSource? CancellationSource { get; set; }
+
+        public string Name => "cancelRaw";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        {
+            CancellationSource?.Cancel();
+            context.CancellationToken.ThrowIfCancellationRequested();
+            return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+        }
+    }
+
+    public sealed class CancellingTypedFreestandingMacroParameters;
+
+    public sealed class CancellingTypedFreestandingMacro : IFreestandingExpressionMacro<CancellingTypedFreestandingMacroParameters>
+    {
+        public static CancellationTokenSource? CancellationSource { get; set; }
+
+        public string Name => "cancelTyped";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<CancellingTypedFreestandingMacroParameters> context)
+        {
+            CancellationSource?.Cancel();
+            context.CancellationToken.ThrowIfCancellationRequested();
+            return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+        }
     }
 
     public sealed class ValidatingFreestandingMacroPlugin : IRavenMacroPlugin

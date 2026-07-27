@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 using Raven.CodeAnalysis.Syntax;
@@ -45,6 +46,7 @@ internal static class MacroExpansionService
 
         foreach (var attribute in GetAttachedMacroAttributes(targetDeclaration))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             compilation.PerformanceInstrumentation.Macros.RecordAttachedExpansionInvocation();
 
             if (!MacroSemanticValidator.TryResolveAttachedMacro(compilation, attribute, targetDeclaration, diagnostics, out var loaded))
@@ -80,11 +82,13 @@ internal static class MacroExpansionService
             }
             catch (Exception ex)
             {
+                var failure = UnwrapExpansionFailure(ex);
+                RethrowCancellation(failure, cancellationToken);
                 diagnostics.Report(Diagnostic.Create(
                     s_macroExpansionFailed,
                     attribute.Name.GetLocation(),
                     loaded.Macro.Name,
-                    GetExpansionFailureMessage(ex)));
+                    GetExpansionFailureMessage(failure)));
                 builder[attribute] = null;
             }
         }
@@ -99,6 +103,7 @@ internal static class MacroExpansionService
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         compilation.PerformanceInstrumentation.Macros.RecordFreestandingExpansionInvocation();
 
         if (!MacroSemanticValidator.TryResolveFreestandingMacro(compilation, expression, diagnostics, out var loaded))
@@ -143,20 +148,35 @@ internal static class MacroExpansionService
         }
         catch (Exception ex)
         {
+            var failure = UnwrapExpansionFailure(ex);
+            RethrowCancellation(failure, cancellationToken);
             diagnostics.Report(Diagnostic.Create(
                 s_macroExpansionFailed,
                 expression.Name.GetLocation(),
                 loaded.Macro.Name,
-                GetExpansionFailureMessage(ex)));
+                GetExpansionFailureMessage(failure)));
             return null;
         }
     }
 
-    private static string GetExpansionFailureMessage(Exception exception)
+    private static Exception UnwrapExpansionFailure(Exception exception)
     {
         while (exception is TargetInvocationException { InnerException: not null } invocationException)
             exception = invocationException.InnerException;
 
+        return exception;
+    }
+
+    private static void RethrowCancellation(Exception failure, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (failure is OperationCanceledException { CancellationToken.IsCancellationRequested: true })
+            ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    private static string GetExpansionFailureMessage(Exception exception)
+    {
         return string.IsNullOrWhiteSpace(exception.Message)
             ? exception.GetType().Name
             : exception.Message;

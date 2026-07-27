@@ -407,6 +407,50 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         Assert.Equal(attribute.Name.Span, diagnostic.Location.SourceSpan);
     }
 
+    [Fact]
+    public void AttachedMacroCancellation_PropagatesAndDoesNotCacheFailure()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[CancelRaw]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CancellingMacroPlugin)));
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        using var cancellationSource = new CancellationTokenSource();
+        CancellingAttachedMacro.CancellationSource = cancellationSource;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => model.GetMacroExpansion(attribute, cancellationSource.Token));
+
+        CancellingAttachedMacro.CancellationSource = null;
+        Assert.NotNull(model.GetMacroExpansion(attribute));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
+    }
+
+    [Fact]
+    public void TypedAttachedMacroCancellation_PropagatesThroughReflectionAndDoesNotCacheFailure()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[CancelTyped]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CancellingMacroPlugin)));
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        using var cancellationSource = new CancellationTokenSource();
+        CancellingTypedAttachedMacro.CancellationSource = cancellationSource;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => model.GetMacroExpansion(attribute, cancellationSource.Token));
+
+        CancellingTypedAttachedMacro.CancellationSource = null;
+        Assert.NotNull(model.GetMacroExpansion(attribute));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
+    }
+
     public sealed class TestMacroPlugin : IRavenMacroPlugin
     {
         public string Name => "TestMacroPlugin";
@@ -621,6 +665,46 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroExpansionResult Expand(AttachedMacroContext<ThrowingTypedMacroParameters> context)
             => throw new InvalidOperationException("typed plugin boom");
+    }
+
+    public sealed class CancellingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(CancellingMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new CancellingAttachedMacro(), new CancellingTypedAttachedMacro()];
+    }
+
+    public sealed class CancellingAttachedMacro : IAttachedDeclarationMacro
+    {
+        public static CancellationTokenSource? CancellationSource { get; set; }
+
+        public string Name => "CancelRaw";
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            CancellationSource?.Cancel();
+            context.CancellationToken.ThrowIfCancellationRequested();
+            return MacroExpansionResult.Empty;
+        }
+    }
+
+    public sealed class CancellingTypedAttachedMacroParameters;
+
+    public sealed class CancellingTypedAttachedMacro : IAttachedDeclarationMacro<CancellingTypedAttachedMacroParameters>
+    {
+        public static CancellationTokenSource? CancellationSource { get; set; }
+
+        public string Name => "CancelTyped";
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<CancellingTypedAttachedMacroParameters> context)
+        {
+            CancellationSource?.Cancel();
+            context.CancellationToken.ThrowIfCancellationRequested();
+            return MacroExpansionResult.Empty;
+        }
     }
 
     public sealed class ValidationMacroPlugin : IRavenMacroPlugin
