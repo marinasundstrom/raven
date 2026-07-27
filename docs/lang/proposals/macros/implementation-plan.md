@@ -65,6 +65,14 @@ and dedicated macro declaration syntax are post-MVP layers. Dedicated
 declaration syntax must lower to or interoperate with the object-oriented
 contracts rather than replace them.
 
+A compiler-backed compile-and-load macro is also post-MVP work. The compiler
+APIs already let an ordinary host emit an assembly image, load it into the same
+process, and inspect it through reflection. That host-driven workflow is more
+dynamic: the running program decides what to compile, load, and execute.
+Exposing compilation from a macro would instead be a build-time operation and
+requires a compiler-owned nested-compilation, dependency, invalidation,
+diagnostic, load-context, caching, and execution-policy contract.
+
 Macro activation has two origins but one result:
 
 * same-compilation declarations are emitted as an isolated in-memory

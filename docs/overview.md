@@ -17,6 +17,8 @@ of one toolset, with direct access to the .NET runtime and ecosystem.
 - Follow the [language introduction](introduction.md) for a guided tour.
 - Use [Raven for C# developers](raven-for-csharp-developers.md) to translate
   familiar .NET concepts into Raven.
+- Read [Metaprogramming in Raven](metaprogramming.md) to choose between
+  procedural macros, .NET reflection, and the in-process compiler APIs.
 - Read [Raven for absolute beginners](raven-for-absolute-beginners.md) for a
   slower introduction to programming and the language.
 

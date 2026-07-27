@@ -2,6 +2,9 @@
 
 This document defines the intended authoring and tooling experience for Raven
 procedural macros, especially macros that embed domain-specific languages.
+The user-facing [metaprogramming overview](../../../metaprogramming.md)
+distinguishes procedural macros from .NET reflection and direct use of the
+Raven compiler APIs.
 Implementation sequencing is tracked separately in
 [the macro implementation plan](implementation-plan.md).
 

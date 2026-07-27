@@ -13,6 +13,7 @@
           "introduction.md",
           "raven-for-absolute-beginners.md",
           "raven-for-csharp-developers.md",
+          "metaprogramming.md",
           "lang/README.md",
           "lang/toc.yml",
           "lang/philosophy.md",
