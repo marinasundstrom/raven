@@ -92,6 +92,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added matching `MacroExpansionResult` factories for attached declaration
   replacement, introduced members, peer declarations, and diagnostic-only
   results. Mutable result properties remain available for compatibility.
+- Stabilized attached property replacement binding so declaration-pass
+  accessor skeletons are completed once and later binds reuse the registered
+  accessor symbols. Replacement properties now expose the same getter and
+  setter identities through both the property and containing type.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

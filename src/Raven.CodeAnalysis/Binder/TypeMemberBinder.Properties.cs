@@ -642,7 +642,17 @@ internal partial class TypeMemberBinder : Binder
                     _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
                 }
 
-                var methodSymbol = new SourceMethodSymbol(
+                var methodKind = isGet
+                    ? MethodKind.PropertyGet
+                    : (isInit ? MethodKind.InitOnly : MethodKind.PropertySet);
+                var existingAccessor = _containingType.GetMembers(name)
+                    .OfType<SourceMethodSymbol>()
+                    .FirstOrDefault(candidate =>
+                        !candidate.IsSignatureSkeleton &&
+                        candidate.MethodKind == methodKind &&
+                        ReferenceEquals(candidate.ContainingSymbol, propertySymbol) &&
+                        IsSameEffectiveDeclaration(candidate, accessor));
+                var methodSymbol = existingAccessor ?? new SourceMethodSymbol(
                     name,
                     returnType,
                     ImmutableArray<SourceParameterSymbol>.Empty,
@@ -652,13 +662,16 @@ internal partial class TypeMemberBinder : Binder
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
                     isStatic: isStatic || isExtensionContainer,
-                    methodKind: isGet ? MethodKind.PropertyGet : (isInit ? MethodKind.InitOnly : MethodKind.PropertySet),
+                    methodKind: methodKind,
                     isAsync: isAsync,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,
                     isAbstract: isAbstract,
                     declaredAccessibility: accessorAccessibility);
+
+                methodSymbol.SetIsStatic(isStatic || isExtensionContainer);
+                methodSymbol.UpdateModifiers(accessorVirtual, accessorOverride, accessorSealed, isAbstract);
 
                 if (isExtensionMember)
                     methodSymbol.MarkDeclaredInExtension();
@@ -740,6 +753,7 @@ internal partial class TypeMemberBinder : Binder
                         [accessor.GetReference()]));
                 }
                 methodSymbol.SetParameters(parameters);
+                methodSymbol.MarkSignatureBindingComplete();
 
                 if (explicitInterfaceType is not null && explicitInterfaceProperty is not null)
                 {

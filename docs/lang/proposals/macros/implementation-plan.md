@@ -144,9 +144,8 @@ Validation record for this slice:
 * sample application runtime output: `42`, `False`
 * focused `FreestandingMacroCodeGenTests`: 3 passed
 * `scripts/test-feature-suite.sh macros`: 41 passed
-* `scripts/test-feature-suite.sh macros --runtime`: 8 passed, with 2
-  attached-property accessor identity failures in `MacroCodeGenTests` outside
-  this direct-lowering sample slice
+* `scripts/test-feature-suite.sh macros --runtime`: 15 passed after the
+  attached-property accessor identity hardening slice below
 
 This is the MVP pattern to extend before adding retained custom structure:
 tokenize, recognize a small DSL envelope, parse selected Raven fragments, and
@@ -312,6 +311,29 @@ Attached macros now have the matching `MacroExpansionResult.FromReplacement`,
 alone, replacement plus introduced members, and replacement plus introduced
 members and peer declarations. This captures every currently supported
 attached output category without replacing the compatibility property surface.
+
+## MVP hardening: stable replacement-property accessors
+
+Status: **implemented and validated**
+
+Attached property macros reuse the target property's effective symbol. Their
+replacement accessors must have the same stability: the accessor reached
+through `IPropertySymbol.GetMethod` or `SetMethod` must be the exact symbol
+returned from the containing type's member table.
+
+The declaration-signature pass now marks explicit property accessors as
+signature skeletons. The first complete property bind replaces those skeletons
+with fully bound accessors, and later binds reuse the registered completed
+symbols for the same effective declaration. This avoids equivalent-but-distinct
+accessor objects when semantic queries, diagnostics, and emit request the
+replacement property in different orders.
+
+Validation record for this slice:
+
+* focused attached replacement-property emit and identity test: passed
+* focused macro, property-binding, and async-property suites: 99 passed
+* `scripts/test-feature-suite.sh macros`: 52 passed
+* `scripts/test-feature-suite.sh macros --runtime`: 15 passed
 
 ## Future SDK integration: provider-declared compiler plugins
 
