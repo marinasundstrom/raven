@@ -1353,7 +1353,7 @@ dotnet_diagnostic.RAV9029.severity = error
     {
         var repoRoot = GetRepositoryRoot();
         var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "macro-observable");
-        var appPath = Path.Combine(sampleRoot, "app", "src", "main.rvn");
+        var appPath = Path.Combine(sampleRoot, "app", "src", "Program.rvn");
         var appUri = DocumentUri.FromFileSystemPath(appPath);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -1394,7 +1394,7 @@ dotnet_diagnostic.RAV9029.severity = error
     {
         var repoRoot = GetRepositoryRoot();
         var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "macro-reactive");
-        var appPath = Path.Combine(sampleRoot, "app", "src", "main.rvn");
+        var appPath = Path.Combine(sampleRoot, "app", "src", "Program.rvn");
         var appUri = DocumentUri.FromFileSystemPath(appPath);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");

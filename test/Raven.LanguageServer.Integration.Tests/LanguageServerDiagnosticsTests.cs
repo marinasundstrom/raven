@@ -1846,7 +1846,7 @@ union MyResult<T>(List<T> | int)
             "samples",
             "projects",
             "aspnet-minimal-api");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "Program.rvn");
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
         File.Exists(documentPath).ShouldBeTrue();
@@ -2334,7 +2334,7 @@ union JsonValue(string | double | bool | JsonValue[])
             "samples",
             "projects",
             "test-case");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "Program.rvn");
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
         File.Exists(documentPath).ShouldBeTrue();
@@ -2395,7 +2395,7 @@ union JsonValue(string | double | bool | JsonValue[])
             "samples",
             "projects",
             "fulfillment-workflow");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "FulfillmentWorkflow.rvn");
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
         File.Exists(documentPath).ShouldBeTrue();
