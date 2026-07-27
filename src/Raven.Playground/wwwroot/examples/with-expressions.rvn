@@ -1,0 +1,20 @@
+record class Shipment(
+    Id: int,
+    Destination: string,
+    Status: string)
+
+let booked = Shipment(
+    Id: 42,
+    Destination: "Stockholm",
+    Status: "Booked")
+
+let rerouted = booked with {
+    Destination = "Austin"
+}
+
+let delivered = rerouted with {
+    Status = "Delivered"
+}
+
+Console.WriteLine("Original: ${booked.Destination}, ${booked.Status}")
+Console.WriteLine("Updated: ${delivered.Destination}, ${delivered.Status}")

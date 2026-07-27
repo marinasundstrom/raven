@@ -30,6 +30,11 @@
     "file": "records.rvn"
   },
   {
+    "id": "with-expressions",
+    "title": "Immutable updates with with",
+    "file": "with-expressions.rvn"
+  },
+  {
     "id": "greenhouse-monitoring",
     "title": "Domain modeling with a functional core",
     "file": "greenhouse-monitoring.rvn"
