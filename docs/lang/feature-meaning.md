@@ -406,7 +406,7 @@ which representation must be available and when it must be available:
 | Mechanism | Structure it exposes | Typical phase | Choose it when |
 | --- | --- | --- | --- |
 | `Raven.CodeAnalysis` | Raven syntax and compiler semantics | Build time or tooling time | A tool must analyze, diagnose, navigate, or transform Raven code |
-| .NET expression trees | Standardized, typed `System.Linq.Expressions` operations | Runtime API composition | A library must inspect, rewrite, translate, or compile a supplied operation |
+| .NET expression trees | Standardized, typed `System.Linq.Expressions` operations | Language conversion into a runtime API value | A library must inspect, rewrite, translate, or compile a supplied operation |
 | .NET reflection | Emitted types, members, attributes, and metadata | Runtime | Code must discover or invoke compiled program structure |
 | Raven macros | Authored syntax transformed through compiler expansion | Compile time | A reusable language abstraction must generate or reshape the program itself |
 
@@ -414,41 +414,49 @@ Prefer the least powerful representation that directly matches the use case.
 An ordinary generic, function, delegate, interface, or attribute is clearer
 when no code or program structure needs to be inspected or transformed.
 
-### Expression trees represent typed code as data
+### Expression trees represent typed operations as data
 
 An ordinary API call passes values and asks the callee to perform behavior.
 Reflection inspects compiled types, members, and metadata. A .NET expression
-tree occupies a useful middle position: it is an API value that preserves a
-typed representation of an expression so another component can inspect,
-rewrite, translate, or compile it.
+tree occupies a useful middle position: it is an API value containing a typed
+graph of operations that another component can inspect, rewrite, translate, or
+compile.
 
 ```raven
 let onlyActiveAdults: Expression<Func<User, bool>> =
     user => user.IsActive && user.Age >= minimumAge
 ```
 
-The lambda does not merely become opaque executable behavior. Its supported
-operations become an `Expression<Func<User, bool>>` object. An API such as
-`IQueryable` can inspect that structure and translate the predicate into
-another language, such as SQL. This is why an expression-tree parameter means
-something different from a `Func<User, bool>` parameter, even though both
-describe a predicate with the same input and result types.
+The target type asks the Raven compiler to convert the lambda's supported
+operations into an `Expression<Func<User, bool>>` object instead of emitting
+only an opaque delegate. An API such as `IQueryable` can inspect that operation
+graph and translate the predicate into another language, such as SQL. The tree
+can also be compiled into a `Func<User, bool>` delegate and executed by the
+running program. This is why an expression-tree parameter means something
+different from a delegate parameter, even though both describe a predicate
+with the same input and result types.
 
 Expression trees are also distinct from Raven macros. A macro transforms
 authored syntax during compilation and emits ordinary program syntax or bound
-behavior. An expression tree preserves a supported expression as a structured
+behavior. An expression tree converts supported operations into a structured
 runtime value that the receiving API controls. Reflection starts from emitted
-program structure; an expression tree starts from a deliberately captured
-expression.
+program structure; an expression tree starts from an operation deliberately
+converted by the language compiler.
 
-An expression tree is not a general Raven syntax tree. `Raven.CodeAnalysis`
-represents Raven's own authored and semantic structure for compiler tooling:
-syntax nodes, symbols, types, diagnostics, and operations. An expression tree
-instead uses the standardized `System.Linq.Expressions` concepts understood by
-.NET libraries. It retains the supported meaning needed by that abstraction,
-but it need not preserve Raven-specific spelling, trivia, declarations, or
-every source-level distinction. Use the code-analysis APIs to understand Raven
-code; use expression trees to exchange an abstract operation with a .NET API.
+An expression tree is not a Raven syntax tree and does not preserve syntax.
+`Raven.CodeAnalysis` represents Raven's own authored and semantic structure for
+compiler tooling: syntax nodes, symbols, types, diagnostics, and operations. An
+expression tree instead uses the standardized `System.Linq.Expressions`
+concepts understood by .NET libraries. It contains no Raven syntax nodes,
+tokens, trivia, or original source form.
+
+That standardized operation vocabulary is intentionally narrower than Raven's
+language semantics, and narrower than the complete semantics of any other .NET
+language. It captures a shared set of common programming operations together
+with .NET-specific concepts. A compiler can convert only language constructs
+that have a valid representation in that object model. Use the code-analysis
+APIs to understand Raven code; use expression trees to exchange supported
+abstract operations with a .NET API.
 
 Use an ordinary function or delegate when the receiver only needs to execute
 behavior. Use an expression tree when the receiver must understand or
