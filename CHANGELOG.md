@@ -123,6 +123,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Direct DLL and resolved package references now join the same active macro
   registry as explicit and same-project macros after a metadata-only marker
   check; unmarked assemblies are never activated or searched for macro types.
+- Added split NuGet package support for compiler plugins. Consumer binding now
+  retains a package's `ref/<tfm>` assembly while a marked `lib/<tfm>`
+  implementation is activated separately as a macro reference. Macro helper
+  assemblies shipped beside the implementation are resolved without requiring
+  an application `.deps.json`.
 - Deferred assembly custom-attribute emission until source type builders and
   members exist, allowing assembly attributes such as macro manifests to carry
   `typeof` values that refer to types declared in the same Raven assembly.

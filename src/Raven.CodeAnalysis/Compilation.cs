@@ -861,11 +861,8 @@ public partial class Compilation
             if (explicitAssemblyPaths.Contains(assemblyPath) || !File.Exists(assemblyPath))
                 continue;
 
-            if (GetAssemblyOrModuleSymbol(metadataReference) is not PEAssemblySymbol assembly ||
-                !HasCompilerPluginMarker(assembly.GetAssemblyInfo()))
-            {
+            if (!MacroAssemblyMetadata.HasCompilerPluginMarker(assemblyPath))
                 continue;
-            }
 
             references.Add(MacroReference.CreateFromFile(assemblyPath));
             explicitAssemblyPaths.Add(assemblyPath);
@@ -875,29 +872,6 @@ public partial class Compilation
             references.Add(localMacroReference);
 
         return references.ToImmutable();
-    }
-
-    private static bool HasCompilerPluginMarker(Assembly assembly)
-    {
-        const string compilerPluginAttributeMetadataName =
-            "Raven.CodeAnalysis.Macros.RavenCompilerPluginAttribute";
-
-        try
-        {
-            return assembly.GetCustomAttributesData().Any(static attribute =>
-                string.Equals(
-                    attribute.AttributeType.FullName,
-                    compilerPluginAttributeMetadataName,
-                    StringComparison.Ordinal));
-        }
-        catch (Exception exception) when (
-            exception is ArgumentException or
-                BadImageFormatException or
-                FileNotFoundException or
-                TypeLoadException)
-        {
-            return false;
-        }
     }
 
     private bool TryReuseMetadataLoadContext(

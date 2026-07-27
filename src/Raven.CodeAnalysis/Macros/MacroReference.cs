@@ -100,7 +100,7 @@ public sealed class MacroReference
             {
                 var loadContext = new MacroAssemblyLoadContext(fullPath);
                 var assembly = loadContext.LoadFromAssemblyPath(fullPath);
-                return GetExports(assembly);
+                return GetExports(assembly, loadContext);
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -115,7 +115,7 @@ public sealed class MacroReference
                 var loadContext = new MacroAssemblyLoadContext();
                 using var stream = new MemoryStream(assemblyImage, writable: false);
                 var assembly = loadContext.LoadFromStream(stream);
-                return GetExports(assembly);
+                return GetExports(assembly, loadContext);
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -143,7 +143,9 @@ public sealed class MacroReference
         ];
     }
 
-    private static MacroAssemblyExports GetExports(Assembly assembly)
+    private static MacroAssemblyExports GetExports(
+        Assembly assembly,
+        AssemblyLoadContext? loadContext = null)
     {
         var markers = assembly.GetCustomAttributes<RavenCompilerPluginAttribute>().ToArray();
         var declaredTypes = markers
@@ -172,7 +174,8 @@ public sealed class MacroReference
                 declaredTypes
                     .Where(static type => typeof(IMacroDefinition).IsAssignableFrom(type))
                     .Distinct()
-                    .ToArray());
+                    .ToArray(),
+                loadContext);
         }
 
         var exportedTypes = assembly.GetTypes();
@@ -193,7 +196,8 @@ public sealed class MacroReference
                     .Where(static type =>
                         IsConstructibleExportedType(type) &&
                         typeof(IMacroDefinition).IsAssignableFrom(type))
-                    .ToArray());
+                    .ToArray(),
+            loadContext);
     }
 
     private static void ValidateExportedType(Assembly assembly, Type exportedType)
@@ -229,7 +233,8 @@ public sealed class MacroReference
     private sealed record MacroAssemblyExports(
         string? AssemblyName,
         Type[] PluginTypes,
-        Type[] MacroTypes)
+        Type[] MacroTypes,
+        AssemblyLoadContext? LoadContext)
     {
         public IEnumerable<IRavenMacroPlugin> CreatePlugins()
         {
@@ -268,6 +273,7 @@ public sealed class MacroReference
     {
         private static readonly Assembly s_macroContractsAssembly = typeof(IRavenMacroPlugin).Assembly;
         private readonly AssemblyDependencyResolver? _resolver;
+        private readonly string? _mainAssemblyDirectory;
 
         public MacroAssemblyLoadContext()
             : base($"RavenMacro:InMemory:{Guid.NewGuid():N}", isCollectible: true)
@@ -278,6 +284,7 @@ public sealed class MacroReference
             : base($"RavenMacro:{Path.GetFileNameWithoutExtension(mainAssemblyPath)}:{Guid.NewGuid():N}", isCollectible: true)
         {
             _resolver = new AssemblyDependencyResolver(mainAssemblyPath);
+            _mainAssemblyDirectory = Path.GetDirectoryName(mainAssemblyPath);
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -289,6 +296,21 @@ public sealed class MacroReference
             var assemblyPath = _resolver?.ResolveAssemblyToPath(assemblyName);
             if (!string.IsNullOrWhiteSpace(assemblyPath))
                 return LoadFromAssemblyPath(assemblyPath);
+
+            if (!string.IsNullOrWhiteSpace(_mainAssemblyDirectory) &&
+                !string.IsNullOrWhiteSpace(assemblyName.Name))
+            {
+                var adjacentAssemblyPath = Path.Combine(
+                    _mainAssemblyDirectory,
+                    $"{assemblyName.Name}.dll");
+                if (File.Exists(adjacentAssemblyPath) &&
+                    AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        AssemblyName.GetAssemblyName(adjacentAssemblyPath)))
+                {
+                    return LoadFromAssemblyPath(adjacentAssemblyPath);
+                }
+            }
 
             return null;
         }

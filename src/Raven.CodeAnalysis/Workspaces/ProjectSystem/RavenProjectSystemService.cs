@@ -88,8 +88,10 @@ public sealed class RavenProjectSystemService : IProjectSystemService
             projInfo.PackageReferences,
             projInfo.FrameworkReferences);
 
-        foreach (var packageReference in packageReferences)
+        foreach (var packageReference in packageReferences.MetadataReferences)
             solution = solution.AddMetadataReference(projectId, packageReference);
+        foreach (var macroReference in packageReferences.MacroReferences)
+            solution = solution.AddMacroReference(projectId, macroReference);
 
         foreach (var refPath in projInfo.ProjectReferences)
         {

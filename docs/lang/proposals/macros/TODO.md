@@ -46,7 +46,9 @@ In a macro you can put any content and parse it however you want.
   * [x] Classify marked C# provider projects.
   * [x] Discover marked direct DLL and package references through compilation
     metadata.
-  * [ ] Resolve packages that separate reference and runtime plugin assets.
+  * [x] Resolve packages that separate reference and runtime plugin assets.
+  * [x] Resolve macro helper assemblies shipped beside a package implementation.
+  * [ ] Resolve macro dependencies supplied by separate transitive packages.
   * [x] Add an explicit macro-export manifest with compatibility support for
     plugin containers.
 * Support macros declared and consumed in the same project through an acyclic

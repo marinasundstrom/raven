@@ -56,8 +56,10 @@ internal static class SolutionFile
                 tfm,
                 projInfo.PackageReferences,
                 projInfo.FrameworkReferences);
-            foreach (var packageReference in packageReferences)
+            foreach (var packageReference in packageReferences.MetadataReferences)
                 solution = solution.AddMetadataReference(projId, packageReference);
+            foreach (var macroReference in packageReferences.MacroReferences)
+                solution = solution.AddMacroReference(projId, macroReference);
 
             loaded.Add((projId, projInfo, projPath));
         }

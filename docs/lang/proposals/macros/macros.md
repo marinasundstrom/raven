@@ -23,6 +23,10 @@ Current implementation status:
 * Marked direct DLL and resolved package references are discovered from
   assembly metadata during compilation setup and enter the same registry as
   local macros.
+* Split macro packages keep `ref/<tfm>` assemblies in the consumer metadata
+  graph while activating marked `lib/<tfm>` implementations separately.
+  Implementation-adjacent helper assemblies are resolved by the macro load
+  context.
 * Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.

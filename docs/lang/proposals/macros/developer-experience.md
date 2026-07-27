@@ -481,10 +481,13 @@ dependencies.
 assembly paths. Direct DLL references and package assemblies resolved as
 portable references are inspected for the provider marker during compilation
 setup and join the same active registry. This is a metadata-only inspection;
-unmarked assemblies are not executed or searched for plugin types. Package
-layouts with separate reference/runtime assets and package-local plugin
-dependencies need further hardening. Macro-name conflicts and load failures
-remain compilation diagnostics regardless of how the plugin asset was
+unmarked assemblies are not executed or searched for plugin types. For split
+packages, the `ref/<tfm>` asset remains the consumer metadata reference and a
+marked `lib/<tfm>` implementation is activated separately as a macro
+reference. Helper assemblies beside that implementation are resolved by the
+macro load context. Dependencies supplied only by separate transitive package
+directories still need further hardening. Macro-name conflicts and load
+failures remain compilation diagnostics regardless of how the plugin asset was
 resolved.
 
 Local and referenced macros have the same semantic result after activation.

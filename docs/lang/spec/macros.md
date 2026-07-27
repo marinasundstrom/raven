@@ -401,9 +401,10 @@ loaded for macro execution or searched for implementation types.
 The active macro set belongs to an immutable compilation snapshot. A new
 snapshot recomputes activation when local macro source or the reference set
 changes. Existing portable-reference fingerprints prevent a changed assembly
-at the same path from reusing stale metadata state. Package layouts that split
-reference and runtime implementation assets require additional resolution
-support.
+at the same path from reusing stale metadata state. For a package with separate
+assets, the `ref/<tfm>` assembly remains a consumer metadata reference while a
+marked `lib/<tfm>` implementation is activated as a macro reference. The macro
+load context resolves helper assemblies placed beside that implementation.
 
 The selected Raven compiler and SDK may also register a version-matched default
 macro set automatically. Default macros require no source import or explicit
