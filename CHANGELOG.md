@@ -76,6 +76,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Applied nominal-type macro replacements to base/interface binding, allowing
   an attached macro to add a real interface contract alongside generated
   members.
+- Migrated the remaining C# macro sample providers to Raven-authored macro
+  projects.
 - Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
   compiler and tooling queries reuse the same definition instances.
 - Made VS Code language-server builds on extension activation opt-in. The

@@ -511,7 +511,9 @@ Raven and C# project sources, builds the provider through the appropriate
 language build path, and adds its output as a `MacroReference` rather than a
 runtime `ProjectReference`. Unmarked project references retain their ordinary
 behavior. The representative `macro-freestanding` and `macro-add-equatable`
-samples cover Raven and C# providers respectively.
+samples cover Raven-authored freestanding and attached providers respectively.
+The compiler continues to support .NET-authored providers through the same
+object-oriented contracts, but runnable language samples use Raven.
 
 Remaining work:
 
@@ -595,9 +597,9 @@ Validation record for this slice:
   `answer + 1`
 * dedicated `macro-quote` runtime output: `42`
 
-C# compiler-plugin project validation:
+Attached compiler-plugin project validation:
 
-* `macro-add-equatable` C# provider runtime output: `True`, `False`
+* `macro-add-equatable` Raven provider runtime output: `True`, `False`
 * `scripts/test-feature-suite.sh macros`: 58 passed
 * compiler-driver `macro-add-equatable` project validation: passed
 * `macro-add-equatable` runtime output: `True`, `False`

@@ -6,6 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <ProjectReference Include="../macros/TokenStreamMacros.csproj" />
+    <ProjectReference Include="../macros/TokenStreamMacros.rvnproj" />
   </ItemGroup>
 </Project>

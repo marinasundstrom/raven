@@ -11,7 +11,7 @@ let answer = #customToken {
 }
 ```
 
-The C# macro provider implements both `ITokenTreeExpressionMacro` and
+The Raven-authored macro provider implements both `ITokenTreeExpressionMacro` and
 `IMacroTokenStreamProvider`. Its custom stream emits a `SyntaxToken` with an
 application-defined `RawKind`, while `SyntaxKind.None` makes clear that the
 token is not part of Raven's normal lexer. The macro consumes that token and
@@ -24,8 +24,8 @@ Files:
 
 - `app/MacroTokenStream.rvnproj`: Raven application using the macro
 - `app/src/main.rvn`: token-tree invocation
-- `macros/TokenStreamMacros.csproj`: C# compiler-plugin project
-- `macros/CustomTokenMacro.cs`: custom token stream and macro expansion
+- `macros/TokenStreamMacros.rvnproj`: Raven compiler-plugin project
+- `macros/CustomTokenMacro.rvn`: custom token stream and macro expansion
 
 Run the sample:
 

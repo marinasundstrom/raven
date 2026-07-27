@@ -1,0 +1,60 @@
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+[assembly: RavenCompilerPlugin(typeof(AddEquatableMacro))]
+
+class AddEquatableMacro : IAttachedDeclarationMacro {
+    val Name: string => "AddEquatable"
+    val Targets: MacroTarget => MacroTarget.Type
+
+    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+        let current: ClassDeclarationSyntax = context.CurrentDeclaration else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("AddEquatable requires a class declaration."))
+        }
+
+        let typeName = current.Identifier.ValueText
+        let tree = ParseSyntaxTree(
+            "class __GeneratedContainer : System.IEquatable<${typeName}> { " +
+            "func Equals(other: ${typeName}) -> bool { " +
+            "return Name == other.Name && Age == other.Age " +
+            "} }")
+
+        let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("AddEquatable could not construct its expansion container."))
+        }
+        let method: MethodDeclarationSyntax = container.Members[0] else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("AddEquatable could not construct its Equals method."))
+        }
+        let generatedBaseList: BaseListSyntax = container.BaseList else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("AddEquatable could not construct its interface contract."))
+        }
+        let equatableType = generatedBaseList.Types[0]
+        let baseList = AddBaseType(current.BaseList, equatableType)
+
+        MacroExpansionResult {
+            ReplacementDeclaration = current.WithBaseList(baseList)
+            IntroducedMembers = [method]
+        }
+    }
+
+    static func AddBaseType(existing: BaseListSyntax?, baseType: BaseTypeSyntax) -> BaseListSyntax {
+        if existing == null {
+            return BaseList(SingletonSeparatedList<BaseTypeSyntax>(SyntaxNodeOrToken(baseType)))
+        }
+
+        let items = System.Collections.Generic.List<SyntaxNodeOrToken>()
+        for item in existing.Types.GetWithSeparators() {
+            items.Add(item)
+        }
+        items.Add(SyntaxNodeOrToken(CommaToken))
+        items.Add(SyntaxNodeOrToken(baseType))
+
+        existing.WithTypes(SeparatedList<BaseTypeSyntax>(items.ToArray()))
+    }
+}
