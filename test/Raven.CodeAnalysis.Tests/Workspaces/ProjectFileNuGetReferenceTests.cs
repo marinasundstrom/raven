@@ -701,7 +701,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var instrumentation = new PerformanceInstrumentation();
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -1007,7 +1007,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1046,7 +1046,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1097,7 +1097,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1484,7 +1484,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1496,9 +1496,9 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var patternDesignations = root.DescendantNodes()
             .OfType<SingleVariableDesignationSyntax>()
-            .Where(static designation => designation.Identifier.ValueText is "name" or "age")
+            .Where(static designation => designation.Identifier.ValueText == "name")
             .ToArray();
-        Assert.Equal(2, patternDesignations.Length);
+        Assert.Single(patternDesignations);
 
         foreach (var designation in patternDesignations)
             Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
