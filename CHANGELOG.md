@@ -96,6 +96,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   accessor skeletons are completed once and later binds reuse the registered
   accessor symbols. Replacement properties now expose the same getter and
   setter identities through both the property and containing type.
+- Improved typed macro failure diagnostics by unwrapping reflection invocation
+  failures. Attached and freestanding macro authors now see their underlying
+  exception message at the authored macro name instead of a generic reflection
+  wrapper message.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

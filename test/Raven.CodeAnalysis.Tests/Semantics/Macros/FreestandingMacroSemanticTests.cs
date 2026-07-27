@@ -381,6 +381,24 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void TypedFreestandingMacroExpansionFailure_ReportsUnderlyingException()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #typedBoom()
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingTypedFreestandingMacroPlugin)));
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(static d => d.Id == "RAVM020"));
+
+        Assert.Contains("typedBoom", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("typed plugin boom", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("target of an invocation", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        Assert.Equal(expression.Name.Span, diagnostic.Location.SourceSpan);
+    }
+
+    [Fact]
     public void RawFreestandingMacro_ArgumentsRequireExplicitOptIn()
     {
         var (compilation, _) = CreateCompilation("""
@@ -937,6 +955,26 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public int Count { get; } = count;
 
         public string? Label { get; set; }
+    }
+
+    public sealed class ThrowingTypedFreestandingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(ThrowingTypedFreestandingMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ThrowingTypedFreestandingMacro()];
+    }
+
+    public sealed class ThrowingTypedFreestandingMacroParameters;
+
+    public sealed class ThrowingTypedFreestandingMacro : IFreestandingExpressionMacro<ThrowingTypedFreestandingMacroParameters>
+    {
+        public string Name => "typedBoom";
+        public MacroTarget Targets => MacroTarget.None;
+
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<ThrowingTypedFreestandingMacroParameters> context)
+            => throw new InvalidOperationException("typed plugin boom");
     }
 
     public sealed class ValidatingFreestandingMacroPlugin : IRavenMacroPlugin

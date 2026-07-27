@@ -388,6 +388,25 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         Assert.Contains("AddEquatable", diagnostic.GetMessage());
     }
 
+    [Fact]
+    public void TypedMacroExpansionFailure_ReportsUnderlyingException()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[TypedBoom]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingTypedMacroPlugin)));
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(static d => d.Id == "RAVM020"));
+
+        Assert.Contains("TypedBoom", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("typed plugin boom", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("target of an invocation", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        Assert.Equal(attribute.Name.Span, diagnostic.Location.SourceSpan);
+    }
+
     public sealed class TestMacroPlugin : IRavenMacroPlugin
     {
         public string Name => "TestMacroPlugin";
@@ -582,6 +601,26 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => throw new InvalidOperationException("plugin boom");
+    }
+
+    public sealed class ThrowingTypedMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => nameof(ThrowingTypedMacroPlugin);
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new ThrowingTypedAttachedMacro()];
+    }
+
+    public sealed class ThrowingTypedMacroParameters;
+
+    public sealed class ThrowingTypedAttachedMacro : IAttachedDeclarationMacro<ThrowingTypedMacroParameters>
+    {
+        public string Name => "TypedBoom";
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<ThrowingTypedMacroParameters> context)
+            => throw new InvalidOperationException("typed plugin boom");
     }
 
     public sealed class ValidationMacroPlugin : IRavenMacroPlugin

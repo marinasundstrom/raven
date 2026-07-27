@@ -84,7 +84,7 @@ internal static class MacroExpansionService
                     s_macroExpansionFailed,
                     attribute.Name.GetLocation(),
                     loaded.Macro.Name,
-                    ex.Message));
+                    GetExpansionFailureMessage(ex)));
                 builder[attribute] = null;
             }
         }
@@ -147,9 +147,19 @@ internal static class MacroExpansionService
                 s_macroExpansionFailed,
                 expression.Name.GetLocation(),
                 loaded.Macro.Name,
-                ex.Message));
+                GetExpansionFailureMessage(ex)));
             return null;
         }
+    }
+
+    private static string GetExpansionFailureMessage(Exception exception)
+    {
+        while (exception is TargetInvocationException { InnerException: not null } invocationException)
+            exception = invocationException.InnerException;
+
+        return string.IsNullOrWhiteSpace(exception.Message)
+            ? exception.GetType().Name
+            : exception.Message;
     }
 
     private static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(

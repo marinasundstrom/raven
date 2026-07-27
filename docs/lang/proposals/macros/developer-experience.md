@@ -34,6 +34,48 @@ a diagnostic against the authored invocation. Documentation should contrast
 this with runtime string parsing or deferred generation when early,
 source-accurate failure is a material reason to choose the macro.
 
+## Macro authoring loop
+
+The minimum authoring experience should support a short path from an idea to a
+working compile-time transformation:
+
+1. define and consume a local macro in the same project or Playground buffer;
+2. declare typed parameters when the invocation accepts arguments;
+3. construct ordinary Raven syntax with `#quote` and holes where practical,
+   falling back to `SyntaxFactory` for structural cases;
+4. return the intended result through an expansion-result factory;
+5. report expected input failures through source-located macro diagnostics;
+6. inspect the expanded Raven source when binding or emit does not behave as
+   expected; and
+7. move the macro to a reusable compiler-plugin project or package only when it
+   needs to be shared.
+
+This path must remain useful before structured DSL trees and custom editor
+providers exist. A simple macro should need only its macro interface, context,
+and result type. It should not have to implement a lexer, parser, analyzer, or
+workspace plugin.
+
+Expected input errors are part of the macro's public behavior and should use
+`CreateDiagnostic`, `CreateArgumentDiagnostic`, or the token-tree body mapping
+helpers. Unexpected exceptions are treated as macro implementation failures.
+The compiler reports those failures at the authored macro name and, for typed
+macros invoked through reflection, surfaces the underlying exception message
+rather than the reflection wrapper.
+
+The near-term authoring priorities are:
+
+* make local and Playground macros the fastest onboarding path;
+* prefer typed parameters and result factories in examples and templates;
+* make `#quote` the normal syntax-construction tool when its current expression
+  category is sufficient;
+* provide predictable diagnostics and cancellation for failed expansion;
+* keep original/expanded source inspection readily available; and
+* replace consumer-authored `RavenMacro` items with provider-declared
+  compiler-plugin metadata for reusable macros.
+
+Retained DSL structure, custom completion, and syntax highlighting build on
+this loop later; they are not prerequisites for it.
+
 ## Two kinds of syntax structure
 
 ### Raven invocation carriers

@@ -335,6 +335,33 @@ Validation record for this slice:
 * `scripts/test-feature-suite.sh macros`: 52 passed
 * `scripts/test-feature-suite.sh macros --runtime`: 15 passed
 
+## Authoring hardening: actionable expansion failures
+
+Status: **implemented**
+
+Typed macro interfaces currently dispatch through reflection after their
+parameter objects are bound. Expansion exceptions from that path must report
+the macro author's actual failure, not `TargetInvocationException`'s generic
+wrapper message.
+
+The expansion service now unwraps reflection invocation failures for both
+attached and freestanding typed macros and reports the underlying message
+through `RAVM020` at the authored macro name. Expected input validation remains
+on the source-located `MacroExpansionDiagnostic` path; this diagnostic is for
+unexpected macro implementation failures.
+
+This is the first explicitly authoring-oriented hardening slice. The next
+authoring work should follow the minimum loop documented in
+[Macro and DSL developer experience](developer-experience.md): local macros,
+typed parameters, `#quote`, result factories, source-located diagnostics, and
+expanded-source inspection before retained DSL structure.
+
+Validation record for this slice:
+
+* focused typed attached and freestanding failure tests: 2 passed
+* focused attached and freestanding semantic suites: 43 passed
+* `scripts/test-feature-suite.sh macros`: 54 passed
+
 ## Future SDK integration: provider-declared compiler plugins
 
 Replace consumer-authored `RavenMacro` items with provider-declared
