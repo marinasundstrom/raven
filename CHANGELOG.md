@@ -67,6 +67,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `MacroKind` without a macro-overridable discriminator property.
 - Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
   compiler and tooling queries reuse the same definition instances.
+- Made VS Code language-server builds on extension activation opt-in. The
+  extension now starts an existing workspace or packaged server immediately by
+  default instead of blocking activation on a full compiler dependency build.
 - Added declaration-granular same-project macros through `[LocalMacro]`.
   Marked top-level declarations are compiled and activated separately while
   ordinary declarations in the same source remain runtime code, enabling macros
