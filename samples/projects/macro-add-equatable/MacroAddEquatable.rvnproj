@@ -6,6 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="macros/bin/Debug/net10.0/AddEquatableMacros.dll" />
+    <ProjectReference Include="macros/AddEquatableMacros.csproj" />
   </ItemGroup>
 </Project>

@@ -54,7 +54,9 @@ authoring shorthand is designed.
   partition
 * [x] Raven compiler-plugin project references with explicit entry-point
   manifests and bare-marker fallback discovery
-* [ ] provider-marked package assets and C# compiler-plugin project references
+* [x] C# compiler-plugin project references using the same provider marker and
+  manifest
+* [ ] provider-marked package assets
 * [ ] finish the representative authoring and project integration tests needed
   to treat these contracts as stable enough for broader use
 
@@ -438,18 +440,16 @@ are unnecessary because macro names are registered with the compilation.
 Prefer explicit plugin types in the manifest and restrict reflection discovery
 to assemblies carrying the compiler-plugin marker.
 
-The current MVP recognizes the assembly marker syntactically in referenced
-Raven projects, builds the provider through the existing macro-project path,
-and adds its output as a `MacroReference` rather than a runtime
-`ProjectReference`. Unmarked Raven and non-Raven project references retain
-their ordinary behavior. The representative `macro-freestanding` sample uses
-this path.
+The current MVP recognizes the assembly marker syntactically in evaluated
+Raven and C# project sources, builds the provider through the appropriate
+language build path, and adds its output as a `MacroReference` rather than a
+runtime `ProjectReference`. Unmarked project references retain their ordinary
+behavior. The representative `macro-freestanding` and `macro-add-equatable`
+samples cover Raven and C# providers respectively.
 
 Remaining work:
 
 * classify provider-marked package assets;
-* support marked C# compiler-plugin projects without scanning arbitrary
-  runtime assemblies;
 * retire `RavenMacro` only after existing direct-assembly and package scenarios
   have replacements.
 
@@ -474,6 +474,14 @@ Validation record for this slice:
 * compiler-driver `macro-freestanding` project validation: passed
 * `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
   `answer + 1`
+
+C# compiler-plugin project validation:
+
+* focused marked C# project-reference integration test: passed
+* complete MSBuild project-system suite: 14 passed
+* `scripts/test-feature-suite.sh macros`: 58 passed
+* compiler-driver `macro-add-equatable` project validation: passed
+* `macro-add-equatable` runtime output: `Ada`
 
 Explicit entry-point manifest validation:
 

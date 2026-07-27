@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>../../../../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>

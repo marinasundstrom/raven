@@ -592,6 +592,103 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
+    public void OpenProject_MarkedCSharpCompilerPluginProjectReference_BuildsAndLoadsMacroAssembly()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var macrosDirectory = Path.Combine(root, "macros");
+            var appDirectory = Path.Combine(root, "app");
+            Directory.CreateDirectory(macrosDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            var macroSourcePath = Path.Combine(macrosDirectory, "AnswerMacro.cs");
+            File.WriteAllText(macroSourcePath, """
+                using System.Collections.Immutable;
+
+                using Raven.CodeAnalysis.Macros;
+                using Raven.CodeAnalysis.Syntax;
+
+                [assembly: RavenCompilerPlugin(typeof(AnswerMacroPlugin))]
+
+                public sealed class AnswerMacroPlugin : IRavenMacroPlugin
+                {
+                    public string Name => "Tests.CSharpAnswer";
+
+                    public ImmutableArray<IMacroDefinition> GetMacros()
+                        => [new AnswerMacro()];
+                }
+
+                public sealed class AnswerMacro : ITokenTreeExpressionMacro
+                {
+                    public string Name => "answer";
+                    public MacroKind Kind => MacroKind.FreestandingExpression;
+                    public MacroTarget Targets => MacroTarget.None;
+
+                    public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+                        => FreestandingMacroExpansionResult.FromExpression(
+                            SyntaxFactory.ParseExpression("42"));
+                }
+                """);
+
+            var macroProjectPath = Path.Combine(macrosDirectory, "AnswerMacros.csproj");
+            var ravenCodeAnalysisPath = typeof(Compilation).Assembly.Location;
+            File.WriteAllText(macroProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>AnswerMacros</AssemblyName>
+                    <Nullable>enable</Nullable>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Reference Include="Raven.CodeAnalysis">
+                      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var appSourcePath = Path.Combine(appDirectory, "main.rvn");
+            File.WriteAllText(appSourcePath, "func Main() -> int => #answer { }");
+
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+            File.WriteAllText(appProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(appProjectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var compilation = workspace.GetCompilation(projectId);
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.Single(project.MacroReferences);
+            Assert.Empty(project.ProjectReferences);
+            Assert.True(File.Exists(Path.Combine(
+                macrosDirectory,
+                "bin",
+                "Debug",
+                "net10.0",
+                "AnswerMacros.dll")));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter()
     {
         var root = CreateTempDirectory();

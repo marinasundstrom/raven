@@ -113,6 +113,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `[assembly: RavenCompilerPlugin(typeof(PluginType))]` markers. File, assembly,
   and in-memory macro references now select only declared plugin types, retain
   bare-marker fallback discovery, and report invalid manifests as `RAVM001`.
+- Added provider-marked C# compiler-plugin project references. Raven projects
+  can now consume a C# macro provider through an ordinary `ProjectReference`;
+  the project system builds and activates marked providers without adding them
+  to the consumer's runtime reference graph or scanning unmarked dependencies.
 - Deferred assembly custom-attribute emission until source type builders and
   members exist, allowing assembly attributes such as macro manifests to carry
   `typeof` values that refer to types declared in the same Raven assembly.

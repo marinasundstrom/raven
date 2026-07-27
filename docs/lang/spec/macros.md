@@ -37,6 +37,9 @@ each `IRavenMacroPlugin` entry point explicitly:
 [assembly: RavenCompilerPlugin(typeof(ProjectMacros))]
 ```
 
+The same attribute and contracts can be used from a C# compiler-plugin
+project.
+
 Apply the marker once for each exported plugin type. The declared type must be
 a non-abstract class in the marked assembly, implement `IRavenMacroPlugin`, and
 have a public parameterless constructor. A bare
@@ -379,17 +382,16 @@ The consumer uses an ordinary project reference:
 </ItemGroup>
 ```
 
-The workspace recognizes the assembly-targeted marker in referenced Raven
-projects, builds the provider through the compiler-plugin path, and passes the
-resulting macro reference to `Compilation`. The marked provider is not added as
-a runtime project reference. A bare marker currently authorizes discovery of
-its `IRavenMacroPlugin` implementations.
+The workspace recognizes the assembly-targeted marker in referenced Raven and
+C# projects, builds the provider through the compiler-plugin path, and passes
+the resulting macro reference to `Compilation`. The marked provider is not
+added as a runtime project reference. A bare marker authorizes discovery of its
+`IRavenMacroPlugin` implementations.
 
 Raven does not scan unmarked runtime references for plugins, and consumer
 source needs no macro import directive. `RavenMacro` remains supported as
 transitional plumbing for existing projects and direct assembly references.
-Provider-marked package assets and C# provider project classification remain
-future SDK work.
+Provider-marked package asset classification remains future SDK work.
 
 The selected Raven compiler and SDK may also register a version-matched default
 macro set automatically. Default macros require no source import or explicit

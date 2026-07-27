@@ -76,6 +76,12 @@ internal static class MsBuildProjectEvaluator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
 
+        var managedSourcePaths = project.GetItems("Compile")
+            .Select(item => GetFullPath(projectDirectory, item))
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
         var macroReferencePaths = project.GetItems("RavenMacro")
             .Select(item => GetFullPath(projectDirectory, item))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -178,7 +184,8 @@ internal static class MsBuildProjectEvaluator
         var outputPath = GetProjectOutputPath(projectDirectory, project, targetFramework, configuration, assemblyName);
         var isCompilerPlugin = documents.Any(static document =>
             LocalMacroSyntaxClassifier.IsCompilerPluginTree(
-                SyntaxTree.ParseText(document.Text, path: document.FilePath ?? document.Name)));
+                SyntaxTree.ParseText(document.Text, path: document.FilePath ?? document.Name))) ||
+            managedSourcePaths.Any(IsCSharpCompilerPluginSource);
 
         return new MsBuildProjectEvaluationResult(
             name,
@@ -200,6 +207,27 @@ internal static class MsBuildProjectEvaluator
             generatedSourceDirectory,
             documentationOptions,
             isCompilerPlugin);
+    }
+
+    private static bool IsCSharpCompilerPluginSource(string sourcePath)
+    {
+        var syntaxTree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            File.ReadAllText(sourcePath),
+            path: sourcePath);
+        var root = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        return root.AttributeLists
+            .Where(static list => string.Equals(
+                list.Target?.Identifier.ValueText,
+                "assembly",
+                StringComparison.Ordinal))
+            .SelectMany(static list => list.Attributes)
+            .Any(static attribute =>
+            {
+                var name = attribute.Name.GetLastToken().ValueText;
+                return string.Equals(name, nameof(RavenCompilerPluginAttribute), StringComparison.Ordinal) ||
+                    string.Equals(name, "RavenCompilerPlugin", StringComparison.Ordinal);
+            });
     }
 
     public static string? TryResolveReferencedProjectOutputPath(

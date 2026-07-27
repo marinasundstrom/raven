@@ -6,10 +6,14 @@ Current status:
 
 - `#[AddEquatable]` parses as a macro-style attribute.
 - Macro-style attributes are intentionally excluded from normal CLR attribute binding/emission.
-- The .NET plugin contract exists.
-- Raven project files can reference macro assemblies with `RavenMacro`.
+- The macro is implemented in C# through the same object-oriented plugin
+  contracts available to Raven-authored macros.
+- The provider declares
+  `[assembly: RavenCompilerPlugin(typeof(AddEquatableMacroPlugin))]`.
+- The Raven application consumes the provider through an ordinary
+  `ProjectReference`; no consumer-authored `RavenMacro` item is needed.
 - The compiler resolves attached macros and invokes plugin expansion generically.
-- Expansion results are currently available through the semantic model for tooling and inspection; generated members are not yet merged into binding/codegen.
+- Generated members participate in ordinary binding and code generation.
 
 Files:
 
@@ -18,16 +22,15 @@ Files:
 - `macros/AddEquatableMacros.csproj`: example .NET macro plugin project
 - `macros/AddEquatableMacroPlugin.cs`: example plugin implementation that returns a generated member through `MacroExpansionResult`
 
-The project file includes a `RavenMacro` item that points at the built plugin assembly.
-
-Build the Raven source:
+Build and run the Raven application. Its normal project reference builds and
+activates the marked C# provider:
 
 ```bash
-dotnet build MacroAddEquatable.rvnproj --property WarningLevel=0
+dotnet run --project MacroAddEquatable.rvnproj --property WarningLevel=0
 ```
 
-Build the example plugin assembly:
+Expected output:
 
-```bash
-dotnet build macros/AddEquatableMacros.csproj /property:WarningLevel=0
+```text
+Ada
 ```

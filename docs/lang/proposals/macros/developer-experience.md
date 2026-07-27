@@ -405,13 +405,15 @@ Raven macro projects now use
 consumer `ProjectReference`. Explicit manifests select only the declared
 entry-point types; the bare marker remains the fallback-discovery form. The
 marked project is kept out of the consumer's runtime project-reference graph.
-The current source-level classification is limited to Raven project
-references.
+The same marker and manifest work in C# compiler-plugin projects. The project
+system syntax-classifies evaluated Raven or C# source for the assembly-targeted
+marker, builds only marked providers, and does not scan unmarked runtime
+dependencies.
 
 `RavenMacro` remains transitional plumbing for existing projects and direct
-assembly paths. Provider-marked package assets and C# provider projects remain
-follow-up work. Macro-name conflicts and load failures remain compilation
-diagnostics regardless of how the plugin asset was resolved.
+assembly paths. Provider-marked package assets remain follow-up work.
+Macro-name conflicts and load failures remain compilation diagnostics
+regardless of how the plugin asset was resolved.
 
 ## Default macro environment
 

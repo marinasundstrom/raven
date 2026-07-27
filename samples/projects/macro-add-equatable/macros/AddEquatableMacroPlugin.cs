@@ -3,6 +3,8 @@ using System.Collections.Immutable;
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 
+[assembly: RavenCompilerPlugin(typeof(SampleMacros.AddEquatableMacroPlugin))]
+
 namespace SampleMacros;
 
 public sealed class AddEquatableMacroPlugin : IRavenMacroPlugin
@@ -32,9 +34,6 @@ public sealed class AddEquatableMacro : IAttachedDeclarationMacro
         var container = (ClassDeclarationSyntax)tree.GetRoot().Members[0];
         var method = (MethodDeclarationSyntax)container.Members[0];
 
-        return new MacroExpansionResult
-        {
-            IntroducedMembers = [method]
-        };
+        return MacroExpansionResult.FromIntroducedMembers([method]);
     }
 }

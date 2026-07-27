@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -133,16 +134,18 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)
         {
-            if (string.Equals(
-                    Path.GetExtension(referencedProjectPath),
-                    ".rvnproj",
-                    StringComparison.OrdinalIgnoreCase) &&
-                MsBuildProjectEvaluator.Evaluate(
-                    referencedProjectPath,
-                    _conventions,
-                    evaluation.TargetFramework).IsCompilerPlugin)
+            var referencedEvaluation = MsBuildProjectEvaluator.Evaluate(
+                referencedProjectPath,
+                _conventions,
+                evaluation.TargetFramework);
+            if (referencedEvaluation.IsCompilerPlugin)
             {
-                var outputPath = BuildRavenMacroProject(referencedProjectPath, evaluation, raven);
+                var outputPath = string.Equals(
+                        Path.GetExtension(referencedProjectPath),
+                        ".rvnproj",
+                        StringComparison.OrdinalIgnoreCase)
+                    ? BuildRavenMacroProject(referencedProjectPath, evaluation, raven)
+                    : BuildManagedMacroProject(referencedProjectPath, referencedEvaluation);
                 solution = solution.AddMacroReference(
                     projectId,
                     MacroReference.CreateFromFile(outputPath, referencedProjectPath));
@@ -397,6 +400,63 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
             ReplaceFile(tempPePath, outputPath);
             ReplaceFile(tempPdbPath, pdbPath);
+        }
+
+        return outputPath;
+    }
+
+    private static string BuildManagedMacroProject(
+        string projectFilePath,
+        MsBuildProjectEvaluationResult evaluation)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory
+        };
+        startInfo.ArgumentList.Add("build");
+        startInfo.ArgumentList.Add(projectFilePath);
+        startInfo.ArgumentList.Add("--configuration");
+        startInfo.ArgumentList.Add(evaluation.Configuration);
+        if (!string.IsNullOrWhiteSpace(evaluation.TargetFramework))
+        {
+            startInfo.ArgumentList.Add("--framework");
+            startInfo.ArgumentList.Add(evaluation.TargetFramework);
+        }
+        startInfo.ArgumentList.Add("--nologo");
+        startInfo.ArgumentList.Add("--verbosity");
+        startInfo.ArgumentList.Add("quiet");
+        startInfo.ArgumentList.Add("/property:WarningLevel=0");
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Failed to start a build for compiler-plugin project '{projectFilePath}'.");
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardError = process.StandardError.ReadToEndAsync();
+        process.WaitForExit();
+        var output = standardOutput.GetAwaiter().GetResult();
+        var error = standardError.GetAwaiter().GetResult();
+
+        if (process.ExitCode != 0)
+        {
+            var buildOutput = string.Join(
+                Environment.NewLine,
+                new[] { output, error }.Where(static text => !string.IsNullOrWhiteSpace(text)));
+            throw new InvalidOperationException(
+                $"Failed to build compiler-plugin project '{projectFilePath}'.{Environment.NewLine}{buildOutput}");
+        }
+
+        var outputPath = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+            projectFilePath,
+            evaluation.Configuration,
+            evaluation.TargetFramework);
+        if (string.IsNullOrWhiteSpace(outputPath) || !File.Exists(outputPath))
+        {
+            throw new FileNotFoundException(
+                $"Could not resolve compiler-plugin assembly output for project '{projectFilePath}'.",
+                projectFilePath);
         }
 
         return outputPath;
