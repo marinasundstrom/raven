@@ -398,6 +398,69 @@ Likewise, `use` communicates ownership of a disposable lifetime. In an async
 context it prefers asynchronous disposal when available. It means that the
 current scope is responsible for ending the resource's lifetime.
 
+## Choose metaprogramming by the structure you need
+
+Metaprogramming mechanisms are not interchangeable. Choose one by identifying
+which representation must be available and when it must be available:
+
+| Mechanism | Structure it exposes | Typical phase | Choose it when |
+| --- | --- | --- | --- |
+| `Raven.CodeAnalysis` | Raven syntax and compiler semantics | Build time or tooling time | A tool must analyze, diagnose, navigate, or transform Raven code |
+| .NET expression trees | Standardized, typed `System.Linq.Expressions` operations | Runtime API composition | A library must inspect, rewrite, translate, or compile a supplied operation |
+| .NET reflection | Emitted types, members, attributes, and metadata | Runtime | Code must discover or invoke compiled program structure |
+| Raven macros | Authored syntax transformed through compiler expansion | Compile time | A reusable language abstraction must generate or reshape the program itself |
+
+Prefer the least powerful representation that directly matches the use case.
+An ordinary generic, function, delegate, interface, or attribute is clearer
+when no code or program structure needs to be inspected or transformed.
+
+### Expression trees represent typed code as data
+
+An ordinary API call passes values and asks the callee to perform behavior.
+Reflection inspects compiled types, members, and metadata. A .NET expression
+tree occupies a useful middle position: it is an API value that preserves a
+typed representation of an expression so another component can inspect,
+rewrite, translate, or compile it.
+
+```raven
+let onlyActiveAdults: Expression<Func<User, bool>> =
+    user => user.IsActive && user.Age >= minimumAge
+```
+
+The lambda does not merely become opaque executable behavior. Its supported
+operations become an `Expression<Func<User, bool>>` object. An API such as
+`IQueryable` can inspect that structure and translate the predicate into
+another language, such as SQL. This is why an expression-tree parameter means
+something different from a `Func<User, bool>` parameter, even though both
+describe a predicate with the same input and result types.
+
+Expression trees are also distinct from Raven macros. A macro transforms
+authored syntax during compilation and emits ordinary program syntax or bound
+behavior. An expression tree preserves a supported expression as a structured
+runtime value that the receiving API controls. Reflection starts from emitted
+program structure; an expression tree starts from a deliberately captured
+expression.
+
+An expression tree is not a general Raven syntax tree. `Raven.CodeAnalysis`
+represents Raven's own authored and semantic structure for compiler tooling:
+syntax nodes, symbols, types, diagnostics, and operations. An expression tree
+instead uses the standardized `System.Linq.Expressions` concepts understood by
+.NET libraries. It retains the supported meaning needed by that abstraction,
+but it need not preserve Raven-specific spelling, trivia, declarations, or
+every source-level distinction. Use the code-analysis APIs to understand Raven
+code; use expression trees to exchange an abstract operation with a .NET API.
+
+Use an ordinary function or delegate when the receiver only needs to execute
+behavior. Use an expression tree when the receiver must understand or
+translate the behavior. Use reflection when the problem is discovering or
+operating on compiled program structure. Use a macro when the program itself
+must be transformed during compilation.
+
+Raven's expression-tree support is currently incremental rather than complete.
+Consult the repository's [expression-tree support
+status](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/development/expression-trees.md)
+before relying on a particular body shape or operator.
+
 ## Preserve ordinary .NET boundaries
 
 Raven code should remain native to the .NET ecosystem. Do not replace a
@@ -441,9 +504,13 @@ When generating or changing Raven code:
    single capabilities.
 8. Keep framework-facing signatures recognizable to .NET unless a documented
    Raven projection or adapter applies.
-9. Do not infer Raven support from similar C#, F#, Rust, or Swift syntax.
+9. Before choosing metaprogramming, identify the required structure and phase:
+   Raven source and semantics for CodeAnalysis, standardized operations for
+   expression trees, emitted metadata for reflection, or compile-time
+   transformation for macros.
+10. Do not infer Raven support from similar C#, F#, Rust, or Swift syntax.
    Consult the language reference and compile the code.
-10. Treat compiler diagnostics as semantic feedback. Fix the modeled mismatch
+11. Treat compiler diagnostics as semantic feedback. Fix the modeled mismatch
     instead of hiding it with casts, null suppression, or a broad catch-all.
 
 The desired result is not code that uses the largest number of Raven features.
@@ -461,6 +528,10 @@ workloads:
   costs](https://github.com/marinasundstrom/raven/tree/main/samples/projects/efcore-vehicle-costs)
   combines ASP.NET Core, EF Core entities, domain value records, union state,
   pattern declarations, and explicit persistence adapters.
+- [EF Core expression
+  trees](https://github.com/marinasundstrom/raven/tree/main/samples/projects/efcore-expression-trees)
+  demonstrates a typed, inspectable predicate passed through an ordinary
+  `IQueryable` API.
 - [Raven Core](../compiler/raven-core-library.md) documents the precise
   `Option<T>` and `Result<T, E>` contracts and framework API projections.
 - [Language reference](spec/language-specification.md) is authoritative for

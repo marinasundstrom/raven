@@ -2,6 +2,37 @@
 
 This page tracks the current implementation status of Raven's `.NET` expression tree support.
 
+## Meaning
+
+An expression tree is typed code represented as a runtime object. It sits
+between an ordinary behavioral API and reflection:
+
+- A delegate gives an API executable behavior but not a structure it can
+  inspect.
+- An expression tree gives an API a structured expression it can inspect,
+  rewrite, translate, or compile.
+- Reflection discovers already-emitted types, members, and metadata rather than
+  preserving the operation supplied at a particular call site.
+
+Expression trees are also different from macros. Macros transform program
+syntax during compilation; expression trees deliberately carry a supported
+expression into the running program as data. LINQ providers and EF Core use
+this distinction to translate predicates and projections into query languages
+such as SQL.
+
+Expression trees are not Raven syntax trees. `Raven.CodeAnalysis` represents
+the language's authored and semantic structure, including Raven syntax nodes,
+symbols, types, diagnostics, and operations. `System.Linq.Expressions` provides
+a standardized .NET abstraction over particular executable concepts such as
+parameters, constants, member access, calls, operators, and lambdas. Conversion
+to an expression tree therefore preserves the supported abstract operation,
+not Raven-specific source spelling, trivia, declarations, or every compiler
+distinction.
+
+Use `Raven.CodeAnalysis` when a tool needs to understand Raven source or
+compiler semantics. Use an expression tree when a runtime API needs a portable,
+inspectable representation of an operation.
+
 ## Scope
 
 Current support is **stage 1**:
