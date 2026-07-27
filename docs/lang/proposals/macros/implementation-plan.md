@@ -306,8 +306,12 @@ combined native/macro diagnostics while normalizing default immutable arrays.
 The built-in quote implementation and representative query and Playground
 macros use these factories. Mutable properties remain for compatibility.
 
-Attached replacement-plus-introduced-members and peer-declaration factories
-remain deferred until those result combinations stabilize.
+Attached macros now have the matching `MacroExpansionResult.FromReplacement`,
+`FromIntroducedMembers`, `FromPeerDeclarations`, `FromDiagnostic`, and
+`FromDiagnostics` factories. `FromReplacement` overloads cover replacement
+alone, replacement plus introduced members, and replacement plus introduced
+members and peer declarations. This captures every currently supported
+attached output category without replacing the compatibility property surface.
 
 ## Future SDK integration: provider-declared compiler plugins
 

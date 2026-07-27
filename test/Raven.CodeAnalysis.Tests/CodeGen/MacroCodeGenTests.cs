@@ -346,10 +346,7 @@ public sealed class MacroCodeGenTests
             var method = Assert.IsType<MethodDeclarationSyntax>(
                 Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single()).Members.Single());
 
-            return new MacroExpansionResult
-            {
-                IntroducedMembers = [method]
-            };
+            return MacroExpansionResult.FromIntroducedMembers([method]);
         }
     }
 

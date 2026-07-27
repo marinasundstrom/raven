@@ -116,6 +116,13 @@ native-parser, or combined diagnostic results without requiring property
 initializers. `Empty` represents an explicit no-change result. Mutable
 properties remain available for compatibility.
 
+Attached declaration results use the corresponding
+`MacroExpansionResult.FromReplacement(...)`, `FromIntroducedMembers(...)`,
+`FromPeerDeclarations(...)`, `FromDiagnostic(...)`, and
+`FromDiagnostics(...)` factories. Replacement overloads may include introduced
+members and peer declarations. `MacroExpansionResult.Empty` represents no
+declaration change.
+
 Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
 token-tree-only macro must be invoked with braces; an argument-based macro must
 be invoked with parentheses.

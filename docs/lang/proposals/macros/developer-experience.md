@@ -531,10 +531,11 @@ object initializers. The overloads cover expression success, forwarded Raven
 parser diagnostics, macro-authored diagnostics, and combined diagnostic
 results; default immutable arrays are normalized.
 
-The remaining category-aware factories should cover:
-
-* replacement plus introduced members for attached macros; and
-* peer declarations and combined attached-macro results.
+Attached declaration macros have the parallel
+`MacroExpansionResult.FromReplacement`, `FromIntroducedMembers`,
+`FromPeerDeclarations`, `FromDiagnostic`, and `FromDiagnostics` factories.
+Replacement overloads compose introduced members and peer declarations without
+requiring authors to remember which properties form a valid result.
 
 `Empty` remains the explicit no-change result. Property initialization remains
 a low-level compatibility path. Statement, member, and declaration carrier

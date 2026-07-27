@@ -28,9 +28,7 @@ class AddGreetingMacro : IAttachedDeclarationMacro {
             return MacroExpansionResult.Empty
         }
 
-        MacroExpansionResult {
-            IntroducedMembers = [method]
-        }
+        MacroExpansionResult.FromIntroducedMembers([method])
     }
 }
 

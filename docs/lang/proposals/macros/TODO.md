@@ -36,9 +36,8 @@ In a macro you can put any content and parse it however you want.
   expansion-time loading only.
 * [x] Add factory methods for freestanding expression success, forwarded
   parser diagnostics, and macro-authored diagnostics.
-* Add corresponding category-aware factories for attached replacement,
-  introduced-member, peer-declaration, and combined result shapes after those
-  combinations stabilize.
+* [x] Add corresponding factories for attached replacement,
+  introduced-member, peer-declaration, and diagnostic-only result shapes.
 * Replace the consumer-authored `RavenMacro` item with provider-declared
   compiler-plugin metadata carried through normal project/package references.
   Do not scan and execute arbitrary runtime references.
