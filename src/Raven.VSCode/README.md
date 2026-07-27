@@ -21,6 +21,10 @@ updates after edits to the active Raven document.
   beside the authored document. Selecting items in the expanded tree navigates
   within that read-only expanded document.
 
+The view is always available from the Explorer's Views menu. Run
+**Raven: Show Authored Syntax Tree** or **Raven: Show Expanded Syntax Tree**
+from the Command Palette to open Explorer, focus the view, and select its mode.
+
 Project-backed documents are loaded through their `.rvnproj`, so referenced and
 same-project macros participate in expansion. Unsaved editor text is supplied
 to the tool as an in-memory-style source override without modifying the file on

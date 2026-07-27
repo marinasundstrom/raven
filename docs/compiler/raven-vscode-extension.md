@@ -10,6 +10,10 @@ macro-expanded tree, and can open the complete expanded source in a read-only
 virtual Raven document. Tree selections reveal the corresponding authored or
 expanded source range.
 
+The view is always available from the Explorer's Views menu. Run
+**Raven: Show Authored Syntax Tree** or **Raven: Show Expanded Syntax Tree**
+from the Command Palette to open Explorer, focus the view, and select its mode.
+
 ## Prerequisites
 - .NET SDK available on your `PATH` so the client can start the language server.
 - Node.js 18+ for building and running the extension.
