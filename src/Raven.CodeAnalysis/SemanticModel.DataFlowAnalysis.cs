@@ -392,6 +392,24 @@ internal sealed class DataFlowWalker : SyntaxWalker
         _writtenInside.IntersectWith(writtenAfterThen);
     }
 
+    public override void VisitIfPatternExpression(IfPatternExpressionSyntax node)
+    {
+        Visit(node.Value);
+
+        var writtenBefore = _writtenInside.ToHashSet(SymbolEqualityComparer.Default);
+        Visit(node.Expression);
+        var writtenAfterThen = _writtenInside.ToHashSet(SymbolEqualityComparer.Default);
+
+        _writtenInside.Clear();
+        foreach (var sym in writtenBefore)
+            _writtenInside.Add(sym);
+
+        if (node.ElseClause is not null)
+            Visit(node.ElseClause);
+
+        _writtenInside.IntersectWith(writtenAfterThen);
+    }
+
     public override void VisitIfPatternStatement(IfPatternStatementSyntax node)
     {
         Visit(node.Expression);

@@ -17,7 +17,7 @@ These accept Raven’s full pattern vocabulary:
 * `expr is pattern`
 * `match expr { pattern => ... }`
 * `match expr { ... }` statement form
-* `if let pattern = expr`
+* `if let pattern = expr` in statement or expression form
 * `while let pattern = expr`
 * `let pattern = expr else { ... }`
 * `for let pattern in values` and `for pattern in values`
@@ -34,7 +34,7 @@ value pattern against an existing symbol. For example, `person is { Name: name }
 and `person is { Name: == name }` both compare `Name` to the current value of
 `name`, while `person is { Name: let name }` declares a new local.
 
-Dedicated pattern statements such as `if let pattern = expr`,
+Dedicated pattern-binding constructs such as `if let pattern = expr`,
 `while let pattern = expr`, and `let pattern = expr else { ... }` are
 binding-oriented. Their leading binding keyword
 supplies the binding mode for otherwise bare designations inside the pattern and
@@ -74,6 +74,18 @@ if let Person { Name: == name } = person {   // compares with existing `name`
 
 if let Person { Name: == name, Age: age when > 20 } = person {
     WriteLine(age)
+}
+```
+
+When `if let` appears in a value context, its branches form an expression. The
+pattern test and capture rules are unchanged: captures are available only in
+the successful branch. The `else` branch supplies the value for a failed match:
+
+```raven
+let displayName = if let Person { Name: name } = person {
+    name
+} else {
+    "unknown"
 }
 ```
 

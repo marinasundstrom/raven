@@ -728,6 +728,15 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ElseClause" Type="ElseExpressionClause" IsNullable="true" />
   </Node>
+  <Node Name="IfPatternExpression" Inherits="Expression">
+    <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
+    <Slot Name="BindingKeyword" Type="Token" />
+    <Slot Name="Pattern" Type="Pattern" />
+    <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
+    <Slot Name="Value" Type="Expression" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="ElseClause" Type="ElseExpressionClause" IsNullable="true" />
+  </Node>
   <Node Name="MatchExpression" Inherits="Expression">
     <Slot Name="MatchKeyword" Type="Token" DefaultToken="MatchKeyword" />
     <Slot Name="Expression" Type="Expression" />

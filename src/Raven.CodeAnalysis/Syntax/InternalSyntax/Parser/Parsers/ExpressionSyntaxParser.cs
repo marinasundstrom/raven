@@ -3007,9 +3007,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return false;
     }
 
-    private IfExpressionSyntax ParseIfExpressionSyntax()
+    private ExpressionSyntax ParseIfExpressionSyntax()
     {
         var ifKeyword = ReadToken();
+
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            return ParseIfPatternExpressionSyntax(ifKeyword);
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
@@ -3046,6 +3049,41 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return IfExpression(ifKeyword, condition!, expression!, elseClause);
+    }
+
+    private IfPatternExpressionSyntax ParseIfPatternExpressionSyntax(SyntaxToken ifKeyword)
+    {
+        var bindingKeyword = ReadToken();
+        var pattern = new PatternSyntaxParser(
+            this,
+            allowImplicitDeconstructionElementBindings: true,
+            allowWholePatternDesignation: true).ParsePattern();
+        var operatorToken = ExpectToken(SyntaxKind.EqualsToken);
+        var value = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+
+        var afterValue = GetEndOfLastToken();
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        if (expression!.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    afterValue
+                ));
+        }
+
+        ElseExpressionClauseSyntax? elseClause = null;
+        if (PeekToken().IsKind(SyntaxKind.ElseKeyword))
+            elseClause = ParseElseExpressionClauseSyntax();
+
+        return IfPatternExpression(
+            ifKeyword,
+            bindingKeyword,
+            pattern,
+            operatorToken,
+            value!,
+            expression!,
+            elseClause);
     }
 
     private ElseExpressionClauseSyntax ParseElseExpressionClauseSyntax()

@@ -484,6 +484,15 @@ public static class CompletionProvider
                             break;
                         }
 
+                    case IfPatternExpressionSyntax ifPatternExpression
+                        when ifPatternExpression.Expression.Span.Contains(receiverExpression.Span):
+                        {
+                            if (TryResolvePatternDesignationSymbol(ifPatternExpression.Pattern, receiverExpression, name) is { } ifPatternSymbol)
+                                return ifPatternSymbol;
+
+                            break;
+                        }
+
                     case WhilePatternStatementSyntax whilePatternStatement
                         when whilePatternStatement.Statement.Span.Contains(receiverExpression.Span):
                         {
@@ -2038,6 +2047,7 @@ public static class CompletionProvider
         {
             ExpressionSyntax? expression = propertyPattern.GetAncestor<IsPatternExpressionSyntax>()?.Expression
                 ?? propertyPattern.GetAncestor<IfPatternStatementSyntax>()?.Expression
+                ?? propertyPattern.GetAncestor<IfPatternExpressionSyntax>()?.Value
                 ?? propertyPattern.GetAncestor<WhilePatternStatementSyntax>()?.Expression
                 ?? propertyPattern.GetAncestor<MatchExpressionSyntax>()?.Expression
                 ?? propertyPattern.GetAncestor<PostfixMatchExpressionSyntax>()?.Expression

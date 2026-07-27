@@ -204,6 +204,9 @@ partial class BlockBinder
     private BoundExpression BindIfPatternCondition(IfPatternStatementSyntax syntax)
         => BindPatternStatementCondition(syntax.BindingKeyword, syntax.Pattern, syntax.Expression);
 
+    private BoundExpression BindIfPatternCondition(IfPatternExpressionSyntax syntax)
+        => BindPatternStatementCondition(syntax.BindingKeyword, syntax.Pattern, syntax.Value);
+
     private BoundExpression BindWhilePatternCondition(WhilePatternStatementSyntax syntax)
         => BindPatternStatementCondition(syntax.BindingKeyword, syntax.Pattern, syntax.Expression);
 

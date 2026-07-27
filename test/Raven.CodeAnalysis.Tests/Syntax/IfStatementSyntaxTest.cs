@@ -119,6 +119,31 @@ if val (id, name) = person {
     }
 
     [Fact]
+    public void IfPatternExpression_ParsesAsDedicatedNode()
+    {
+        const string testCode = """
+let value = if let Some(x) = option {
+    x
+} else {
+    0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var ifBinding = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IfPatternExpressionSyntax>()
+            .Single();
+
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
+        ifBinding.Pattern.ShouldBeOfType<NominalDeconstructionPatternSyntax>();
+        ifBinding.OperatorToken.Kind.ShouldBe(SyntaxKind.EqualsToken);
+        ifBinding.Value.ShouldBeOfType<IdentifierNameSyntax>();
+        ifBinding.Expression.ShouldBeOfType<BlockSyntax>();
+        ifBinding.ElseClause.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void IfPatternStatement_WithRecursivePattern_ParsesNestedImplicitBindings()
     {
         const string testCode = """

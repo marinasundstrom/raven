@@ -46,7 +46,7 @@ if let Person { Name: "Ada", Age: age } = obj {
 }
 ```
 
-Raven also supports statement-form conditional pattern binding:
+Raven also supports conditional pattern binding:
 
 ```raven
 if let (id, name) = person {
@@ -54,7 +54,7 @@ if let (id, name) = person {
 }
 ```
 
-This form is equivalent to testing the right-hand side with `is` while applying
+Statement form is equivalent to testing the right-hand side with `is` while applying
 the outer binding keyword to implicit captures inside the pattern:
 
 ```raven
@@ -63,8 +63,22 @@ if person is (let id, let name) {
 }
 ```
 
+The same header can produce a value when used as an expression:
+
+```raven
+let name = if let (_, name) = person {
+    name
+} else {
+    "unknown"
+}
+```
+
+The right-hand side is evaluated once. Pattern bindings are available only in
+the successful branch, while the successful and `else` branches determine the
+result value and type just as they do for an ordinary `if` expression.
+
 Typed implicit bindings work the same way, which makes nullable narrowing
-available in statement form:
+available in both forms:
 
 ```raven
 let input: int? = null

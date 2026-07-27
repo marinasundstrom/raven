@@ -1026,6 +1026,8 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
                 IfPatternStatementSyntax ifPatternStatement when _bound is BoundIfStatement boundIf
                     => OperationUtilities.CreateOperationFromBound(SemanticModel, boundIf.Condition, ifPatternStatement.Expression),
                 IfExpressionSyntax ifExpression => SemanticModel.GetOperation(ifExpression.Condition),
+                IfPatternExpressionSyntax ifPatternExpression when _bound is BoundIfExpression boundIf
+                    => OperationUtilities.CreateOperationFromBound(SemanticModel, boundIf.Condition, ifPatternExpression.Value),
                 _ => null
             };
 
@@ -1045,6 +1047,7 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
                 IfStatementSyntax ifStatement => SemanticModel.GetOperation(ifStatement.ThenStatement),
                 IfPatternStatementSyntax ifPatternStatement => SemanticModel.GetOperation(ifPatternStatement.ThenStatement),
                 IfExpressionSyntax ifExpression => SemanticModel.GetOperation(ifExpression.Expression),
+                IfPatternExpressionSyntax ifPatternExpression => SemanticModel.GetOperation(ifPatternExpression.Expression),
                 _ => null
             };
 
@@ -1068,6 +1071,9 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
                     ? SemanticModel.GetOperation(elseClause.Statement)
                     : null,
                 IfExpressionSyntax ifExpression => ifExpression.ElseClause is { } elseClause
+                    ? SemanticModel.GetOperation(elseClause.Expression)
+                    : null,
+                IfPatternExpressionSyntax ifPatternExpression => ifPatternExpression.ElseClause is { } elseClause
                     ? SemanticModel.GetOperation(elseClause.Expression)
                     : null,
                 _ => null
@@ -2232,6 +2238,7 @@ internal sealed class IsPatternOperation : Operation, IIsPatternOperation
         {
             IsPatternExpressionSyntax isPattern => isPattern.Expression,
             IfPatternStatementSyntax ifPattern => ifPattern.Expression,
+            IfPatternExpressionSyntax ifPattern => ifPattern.Value,
             WhilePatternStatementSyntax whilePattern => whilePattern.Expression,
             _ => Syntax
         });
@@ -2243,6 +2250,7 @@ internal sealed class IsPatternOperation : Operation, IIsPatternOperation
         {
             IsPatternExpressionSyntax isPattern => isPattern.Pattern,
             IfPatternStatementSyntax ifPattern => ifPattern.Pattern,
+            IfPatternExpressionSyntax ifPattern => ifPattern.Pattern,
             WhilePatternStatementSyntax whilePattern => whilePattern.Pattern,
             _ => Syntax
         });

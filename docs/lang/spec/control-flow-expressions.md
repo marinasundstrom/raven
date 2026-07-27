@@ -46,6 +46,31 @@ When an `if` expression is used purely for its effects, omitting the `else`
 branch is permitted and the value is ignored. In value contexts, provide an
 `else` branch so that both outcomes yield a value.
 
+### Pattern-binding `if` expression
+
+An `if` expression may use the same pattern-binding header as an `if let`
+statement:
+
+```raven
+let option: Option<int> = Some(42)
+let value = if let Some(x) = option {
+    x
+} else {
+    0
+}
+```
+
+The right-hand expression is evaluated once and matched against the pattern.
+If the match succeeds, the first branch runs with the pattern bindings in
+scope. Otherwise, the `else` branch runs; pattern bindings are not in scope in
+that branch. The value and type of the overall expression are determined from
+the two branches in the same way as an ordinary `if` expression.
+
+The pattern and its leading `let` / `val` / `var` have exactly the same meaning
+as in statement-form `if let`: the leading keyword supplies the binding mode
+for otherwise bare captures and for an optional whole-pattern designation. An
+`else` branch is required when the expression's value is used.
+
 ## `while` statement
 
 `while` repeatedly executes its body while the condition evaluates to `true`.

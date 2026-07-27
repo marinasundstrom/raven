@@ -145,10 +145,22 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
                     current = ifExpression;
                     continue;
 
+                case IfPatternExpressionSyntax ifPatternExpression
+                    when ifPatternExpression.Expression.SyntaxTree == current.SyntaxTree &&
+                         ifPatternExpression.Expression.Span == current.Span:
+                    current = ifPatternExpression;
+                    continue;
+
                 case ElseExpressionClauseSyntax { Parent: IfExpressionSyntax ifExpression } elseClause
                     when elseClause.Expression.SyntaxTree == current.SyntaxTree &&
                          elseClause.Expression.Span == current.Span:
                     current = ifExpression;
+                    continue;
+
+                case ElseExpressionClauseSyntax { Parent: IfPatternExpressionSyntax ifPatternExpression } elseClause
+                    when elseClause.Expression.SyntaxTree == current.SyntaxTree &&
+                         elseClause.Expression.Span == current.Span:
+                    current = ifPatternExpression;
                     continue;
 
                 case MatchArmSyntax { Parent: MatchExpressionSyntax matchExpression } matchArm

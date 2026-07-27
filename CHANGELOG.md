@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added expression-form pattern binding with
+  `if let pattern = value { ... } else { ... }`. It uses the same pattern and
+  capture semantics as the existing statement form, scopes captures to the
+  successful branch, and computes its result from the two branch values.
 - Added compiler-integrated conditional compilation with `#if`, `#elif`,
   `#else`, and `#endif`. Conditions support defined symbols, `true`/`false`,
   parentheses, and Raven `not`/`and`/`or` operators (with

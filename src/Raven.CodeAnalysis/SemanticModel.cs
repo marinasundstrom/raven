@@ -5230,6 +5230,7 @@ public partial class SemanticModel
         var owner = pattern.Ancestors().FirstOrDefault(static ancestor =>
             ancestor is IsPatternExpressionSyntax or
                 IfPatternStatementSyntax or
+                IfPatternExpressionSyntax or
                 WhilePatternStatementSyntax or
                 MatchExpressionSyntax or
                 PostfixMatchExpressionSyntax or
@@ -8006,6 +8007,12 @@ public partial class SemanticModel
             return;
         }
 
+        if (patternNode.GetAncestor<IfPatternExpressionSyntax>() is { } ifPatternExpression)
+        {
+            _ = GetBoundNode(ifPatternExpression);
+            return;
+        }
+
         if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
         {
             _ = GetBoundNode(whilePatternStatement);
@@ -8039,6 +8046,10 @@ public partial class SemanticModel
         else if (patternNode.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
         {
             inputType = GetPatternScrutineeType(ifPatternStatement.Expression);
+        }
+        else if (patternNode.GetAncestor<IfPatternExpressionSyntax>() is { } ifPatternExpression)
+        {
+            inputType = GetPatternScrutineeType(ifPatternExpression.Value);
         }
         else if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
         {
@@ -8121,6 +8132,8 @@ public partial class SemanticModel
             scrutineeType = GetPatternScrutineeType(isPatternExpression.Expression)!;
         else if (patternNode.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
             scrutineeType = GetPatternScrutineeType(ifPatternStatement.Expression)!;
+        else if (patternNode.GetAncestor<IfPatternExpressionSyntax>() is { } ifPatternExpression)
+            scrutineeType = GetPatternScrutineeType(ifPatternExpression.Value)!;
         else if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
             scrutineeType = GetPatternScrutineeType(whilePatternStatement.Expression)!;
 
@@ -11126,6 +11139,15 @@ public partial class SemanticModel
                         break;
                     }
 
+                case IfPatternExpressionSyntax ifPatternExpression
+                    when ifPatternExpression.Expression.Span.Contains(expression.Span):
+                    {
+                        if (TryResolvePatternDesignationSymbol(ifPatternExpression.Pattern, expression, name) is { } patternSymbol)
+                            return patternSymbol;
+
+                        break;
+                    }
+
                 case WhilePatternStatementSyntax whilePatternStatement
                     when whilePatternStatement.Statement.Span.Contains(expression.Span):
                     {
@@ -11323,6 +11345,7 @@ public partial class SemanticModel
             MatchStatementSyntax or
             IsPatternExpressionSyntax or
             IfPatternStatementSyntax or
+            IfPatternExpressionSyntax or
             WhilePatternStatementSyntax or
             ForStatementSyntax or
             PatternDeclarationAssignmentStatementSyntax);
@@ -11570,12 +11593,13 @@ public partial class SemanticModel
             }
         }
 
-        if (scopeNode is BlockStatementSyntax block)
+        if (scopeNode is BlockStatementSyntax or BlockSyntax)
         {
-            SyntaxNode? patternOwner = block.Parent switch
+            SyntaxNode? patternOwner = scopeNode.Parent switch
             {
                 ForStatementSyntax forStatement => forStatement,
                 IfPatternStatementSyntax ifPatternStatement => ifPatternStatement,
+                IfPatternExpressionSyntax ifPatternExpression => ifPatternExpression,
                 WhilePatternStatementSyntax whilePatternStatement => whilePatternStatement,
                 _ => null
             };
@@ -13002,9 +13026,10 @@ public partial class SemanticModel
     private bool TryGetContextualBindingRoot(SyntaxNode node, out SyntaxNode root)
     {
         if (Compilation.TryGetContextualBindingRootDescriptor(node, out var cachedDescriptor) &&
-            TryResolveContextualBindingRootDescriptor(node.SyntaxTree.GetRoot(), cachedDescriptor, out root))
+            TryResolveContextualBindingRootDescriptor(node.SyntaxTree.GetRoot(), cachedDescriptor, out root) &&
+            !ReferenceEquals(root, node))
         {
-            return !ReferenceEquals(root, node);
+            return true;
         }
 
         if (node is CompilationUnitSyntax)
@@ -13024,6 +13049,14 @@ public partial class SemanticModel
         if (enclosingIfPattern is not null)
         {
             root = enclosingIfPattern;
+            return true;
+        }
+
+        var enclosingIfPatternExpression = node.AncestorsAndSelf().OfType<IfPatternExpressionSyntax>().FirstOrDefault();
+        if (enclosingIfPatternExpression is not null &&
+            !ReferenceEquals(enclosingIfPatternExpression, node))
+        {
+            root = enclosingIfPatternExpression;
             return true;
         }
 
@@ -14612,6 +14645,7 @@ public partial class SemanticModel
             BlockStatementSyntax or
             ArrowExpressionClauseSyntax or
             IfExpressionSyntax or
+            IfPatternExpressionSyntax or
             IfStatementSyntax or
             IfPatternStatementSyntax or
             ElseExpressionClauseSyntax or

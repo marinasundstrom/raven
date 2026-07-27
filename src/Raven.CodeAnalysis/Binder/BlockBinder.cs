@@ -232,6 +232,12 @@ partial class BlockBinder : Binder
             return true;
         }
 
+        if (designation.GetAncestor<IfPatternExpressionSyntax>() is { } ifPatternExpression)
+        {
+            owner = ifPatternExpression;
+            return true;
+        }
+
         if (designation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
         {
             owner = whilePatternStatement;
@@ -2190,6 +2196,7 @@ partial class BlockBinder : Binder
             NameOfExpressionSyntax nameOfExpression => BindNameOfExpression(nameOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
+            IfPatternExpressionSyntax ifPatternExpression => BindIfPatternExpression(ifPatternExpression),
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression || _allowReturnsInBlockExpressionsOnly),
             UnsafeExpressionSyntax unsafeExpression => BindUnsafeExpression(unsafeExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
@@ -2238,6 +2245,7 @@ partial class BlockBinder : Binder
             or MatchExpressionSyntax
             or PostfixMatchExpressionSyntax
             or IfExpressionSyntax
+            or IfPatternExpressionSyntax
             || syntax is PostfixOperatorExpressionSyntax { OperatorToken.Kind: SyntaxKind.ExclamationToken };
 
     public override BoundNode GetOrBind(SyntaxNode node)
@@ -6190,6 +6198,13 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)
     {
+        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows = null;
+        if (ifExpression.Condition is IsPatternExpressionSyntax isPatternExpression)
+        {
+            patternLocalShadows = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+            CapturePatternLocalShadows(isPatternExpression.Pattern, patternLocalShadows);
+        }
+
         var condition = BindExpression(ifExpression.Condition);
 
         if (!HasExpressionErrors(condition))
@@ -6202,6 +6217,34 @@ partial class BlockBinder : Binder
             }
         }
 
+        return BindIfExpressionCore(
+            ifExpression,
+            condition,
+            ifExpression.Expression,
+            ifExpression.ElseClause,
+            patternLocalShadows);
+    }
+
+    private BoundExpression BindIfPatternExpression(IfPatternExpressionSyntax ifExpression)
+    {
+        var patternLocalShadows = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+        CapturePatternLocalShadows(ifExpression.Pattern, patternLocalShadows);
+        var condition = BindIfPatternCondition(ifExpression);
+        return BindIfExpressionCore(
+            ifExpression,
+            condition,
+            ifExpression.Expression,
+            ifExpression.ElseClause,
+            patternLocalShadows);
+    }
+
+    private BoundExpression BindIfExpressionCore(
+        ExpressionSyntax ifExpression,
+        BoundExpression condition,
+        ExpressionSyntax thenExpression,
+        ElseExpressionClauseSyntax? elseClause,
+        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows)
+    {
         Binder? thenBinder;
         try
         {
@@ -6218,9 +6261,9 @@ partial class BlockBinder : Binder
         {
             thenExpr = thenBinder switch
             {
-                BlockBinder bb => bb.BindExpression(ifExpression.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
-                { } binder => binder.BindExpression(ifExpression.Expression),
-                _ => BindExpression(ifExpression.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
+                BlockBinder bb => bb.BindExpression(thenExpression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
+                { } binder => binder.BindExpression(thenExpression),
+                _ => BindExpression(thenExpression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
             };
         }
         finally
@@ -6228,7 +6271,18 @@ partial class BlockBinder : Binder
             _allowReturnsInBlockExpressionsOnly = previousAllowReturnsInBlockExpressionsOnly;
         }
 
-        if (ifExpression.ElseClause is null)
+        if (patternLocalShadows is not null)
+        {
+            foreach (var (name, shadowed) in patternLocalShadows)
+            {
+                if (shadowed is null)
+                    _locals.Remove(name);
+                else
+                    _locals[name] = shadowed.Value;
+            }
+        }
+
+        if (elseClause is null)
         {
             _diagnostics.ReportIfExpressionRequiresElse(ifExpression.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OtherError);
@@ -6237,7 +6291,7 @@ partial class BlockBinder : Binder
         Binder? elseBinder;
         try
         {
-            elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
+            elseBinder = SemanticModel.GetBinder(elseClause, this);
         }
         catch (Exception)
         {
@@ -6250,9 +6304,9 @@ partial class BlockBinder : Binder
         {
             elseExpr = elseBinder switch
             {
-                BlockBinder ebb => ebb.BindExpression(ifExpression.ElseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
-                { } binder => binder.BindExpression(ifExpression.ElseClause.Expression),
-                _ => BindExpression(ifExpression.ElseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
+                BlockBinder ebb => ebb.BindExpression(elseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
+                { } binder => binder.BindExpression(elseClause.Expression),
+                _ => BindExpression(elseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
             };
         }
         finally
@@ -6311,8 +6365,8 @@ partial class BlockBinder : Binder
                 resultType = targetType;
         }
 
-        thenExpr = ConvertIfNeeded(resultType, thenExpr, ifExpression.Expression);
-        elseExpr = ConvertIfNeeded(resultType, elseExpr, ifExpression.ElseClause.Expression);
+        thenExpr = ConvertIfNeeded(resultType, thenExpr, thenExpression);
+        elseExpr = ConvertIfNeeded(resultType, elseExpr, elseClause.Expression);
 
         return new BoundIfExpression(condition, thenExpr, elseExpr);
 

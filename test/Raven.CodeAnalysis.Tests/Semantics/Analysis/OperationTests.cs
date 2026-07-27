@@ -180,6 +180,40 @@ var value = if flag 1 else 2
     }
 
     [Fact]
+    public void GetOperation_IfPatternExpression_ReturnsConditionalPatternShape()
+    {
+        const string source = """
+union Maybe {
+    case Some(value: int)
+    case None
+}
+
+let option: Maybe = .Some(42)
+let value = if let .Some(x) = option {
+    x
+} else {
+    0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var ifExpressionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IfPatternExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifExpressionSyntax));
+        var condition = Assert.IsAssignableFrom<IIsPatternOperation>(operation.Condition);
+
+        condition.Value.ShouldNotBeNull();
+        condition.Pattern.ShouldNotBeNull();
+        operation.WhenTrue.ShouldNotBeNull();
+        operation.WhenFalse.ShouldNotBeNull();
+        operation.ChildOperations.Length.ShouldBe(3);
+    }
+
+    [Fact]
     public void GetOperation_IfStatement_ReturnsConditionalBranches()
     {
         const string source = """

@@ -30,6 +30,7 @@ class BinderFactory
             BlockStatementSyntax => CreateBlockBinder(parentBinder),
             ArrowExpressionClauseSyntax => CreateBlockBinder(parentBinder),
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
+            IfPatternExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             IfStatementSyntax stmt => new LocalScopeBinder(parentBinder!),
             IfPatternStatementSyntax stmt => new LocalScopeBinder(parentBinder!),
             ElseExpressionClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),

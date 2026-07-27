@@ -682,6 +682,7 @@ PrimaryExpression        ::= Literal
                            | ThrowExpression
                            | Block
                            | IfExpression
+                           | IfPatternExpression
                            | InterpolatedStringExpression ;
 
 DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
@@ -706,6 +707,7 @@ ThrowExpression          ::= 'throw' Expression ;
 Block                    ::= '{' {Statement} '}' ;
 
 IfExpression             ::= 'if' Expression Expression 'else' Expression ;
+IfPatternExpression      ::= 'if' BindingKeyword Pattern '=' Expression Expression 'else' Expression ;
 
 InterpolatedStringExpression
                          ::= '"' {InterpolatedStringContent} '"' ;

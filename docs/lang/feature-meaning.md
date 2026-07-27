@@ -284,6 +284,22 @@ This means the branches are alternative ways to compute one value. Prefer that
 shape when the branches answer one question. Prefer statement-oriented control
 flow when the branches primarily perform effects or require early exits.
 
+An `if let` expression combines that meaning with a successful pattern:
+
+```raven
+let option: Option<int> = Some(42)
+let value = if let Some(x) = option {
+    x
+} else {
+    0
+}
+```
+
+This says that both outcomes compute the same conceptual value, while `x`
+exists only in the outcome where the pattern proved that the option contains
+one. Use it for a local two-outcome decision. Use `match` when several cases
+each carry distinct meaning or should be checked exhaustively.
+
 ## Functions represent operations without artificial ownership
 
 A plain function says that an operation does not need object identity or owned

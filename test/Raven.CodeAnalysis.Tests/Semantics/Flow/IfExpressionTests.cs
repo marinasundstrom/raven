@@ -71,6 +71,116 @@ val value = if true {
     }
 
     [Fact]
+    public void IfPatternExpression_WithElse_BindsPatternAndResult()
+    {
+        const string source = """
+union Maybe {
+    case Some(value: int)
+    case None
+}
+
+let option: Maybe = .Some(42)
+let value = if let .Some(x) = option {
+    x
+} else {
+    0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "if_pattern_expression_bound_shape",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifExpression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IfPatternExpressionSyntax>()
+            .Single();
+
+        var boundIf = Assert.IsType<BoundIfExpression>(model.GetBoundNode(ifExpression));
+        Assert.IsType<BoundIsPatternExpression>(boundIf.Condition);
+        boundIf.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+
+        var designation = ifExpression.Pattern
+            .DescendantNodesAndSelf()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        symbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+    }
+
+    [Fact]
+    public void IfPatternExpression_PatternLocalIsNotVisibleInElse()
+    {
+        const string code = """
+union Maybe {
+    case Some(value: int)
+    case None
+}
+
+let option: Maybe = .Some(42)
+let value = if let .Some(x) = option {
+    x
+} else {
+    x
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "if_pattern_expression_else_scope",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+
+        var model = compilation.GetSemanticModel(tree);
+        var elseIdentifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ElseExpressionClauseSyntax>()
+            .Single()
+            .Expression
+            .DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "x");
+
+        model.GetSymbolInfo(elseIdentifier).Symbol.ShouldBeNull();
+    }
+
+    [Fact]
+    public void IfPatternExpressionWithoutElse_ReportsDiagnostic()
+    {
+        const string code = """
+union Maybe {
+    case Some(value: int)
+    case None
+}
+
+let option: Maybe = .Some(42)
+let value = if let .Some(x) = option {
+    x
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV1901").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void IfExpressionWithoutBraces_AllowsAssignment()
     {
         const string code = """
