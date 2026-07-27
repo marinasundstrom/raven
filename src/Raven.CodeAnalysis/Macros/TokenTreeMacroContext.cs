@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class TokenTreeMacroContext
+public class TokenTreeMacroContext
 {
     private readonly IMacroTokenStreamProvider? _tokenStreamProvider;
     private readonly ImmutableArray<MacroKeyword> _keywords;
@@ -60,6 +60,7 @@ public sealed class TokenTreeMacroContext
         TokenTree = syntax.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(syntax));
+        Arguments = CreateArguments(syntax.ArgumentList, semanticModel);
         _tokenStreamProvider = tokenStreamProvider;
         _keywords = keywords.IsDefault ? ImmutableArray<MacroKeyword>.Empty : keywords;
         CancellationToken = cancellationToken;
@@ -72,6 +73,10 @@ public sealed class TokenTreeMacroContext
     public FreestandingMacroExpressionSyntax Syntax { get; }
 
     public MacroTokenTreeSyntax TokenTree { get; }
+
+    public ArgumentListSyntax ArgumentList => Syntax.ArgumentList;
+
+    public ImmutableArray<MacroArgument> Arguments { get; }
 
     public CancellationToken CancellationToken { get; }
 
@@ -196,4 +201,44 @@ public sealed class TokenTreeMacroContext
         var location = Syntax.SyntaxTree?.GetLocation(sourceSpan) ?? Location.None;
         return new MacroExpansionDiagnostic(severity, message, location, code);
     }
+
+    private static ImmutableArray<MacroArgument> CreateArguments(
+        ArgumentListSyntax argumentList,
+        SemanticModel semanticModel)
+    {
+        var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
+        foreach (var argument in argumentList.Arguments)
+            builder.Add(new MacroArgument(argument, semanticModel));
+
+        return builder.MoveToImmutable();
+    }
+}
+
+public sealed class TokenTreeMacroContext<TParameters> : TokenTreeMacroContext
+    where TParameters : class
+{
+    public TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax syntax,
+        TParameters parameters,
+        CancellationToken cancellationToken = default)
+        : base(compilation, semanticModel, syntax, cancellationToken)
+    {
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+    }
+
+    internal TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax syntax,
+        ITokenTreeExpressionMacro macro,
+        TParameters parameters,
+        CancellationToken cancellationToken = default)
+        : base(compilation, semanticModel, syntax, macro, cancellationToken)
+    {
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+    }
+
+    public TParameters Parameters { get; }
 }

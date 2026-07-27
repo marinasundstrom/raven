@@ -146,9 +146,22 @@ Attached declaration results use the corresponding
 members and peer declarations. `MacroExpansionResult.Empty` represents no
 declaration change.
 
-Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
-token-tree-only macro must be invoked with braces; an argument-based macro must
-be invoked with parentheses.
+Token-tree expression macros implement `ITokenTreeExpressionMacro`. They may
+accept a typed argument list before the body by implementing
+`ITokenTreeExpressionMacro<TParameters>`:
+
+```raven
+let result = #query(Dialect: "sql") {
+    from user in users
+    select user.Name
+}
+```
+
+The compiler binds the parenthesized arguments into `context.Parameters` while
+leaving the brace-delimited body unrestricted and available through the same
+raw text and token-stream APIs. A non-generic token-tree macro rejects supplied
+arguments. A token-tree macro must be invoked with braces; an argument-based
+macro must be invoked with parentheses.
 
 ### Expression quotes
 
@@ -274,7 +287,7 @@ Each parsed `MacroArgument` exposes a richer constant representation through `Co
 
 For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `FreestandingMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
 
-This raw-argument model is transitional. The intended direction is typed macro parameter objects, so macro signatures can be validated and presented like normal attributes in completion and signature help. The public contract now includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, and `IFreestandingExpressionMacro<TParameters>` for that bound-parameter model.
+This raw-argument model remains available for unrestricted macro implementations. Typed macro parameter objects allow macro signatures to be validated and later presented like normal attributes in completion and signature help. The public contract includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, `IFreestandingExpressionMacro<TParameters>`, and `ITokenTreeExpressionMacro<TParameters>` for that bound-parameter model.
 
 Example direction:
 
@@ -296,6 +309,7 @@ The current typed-parameter binding slice supports:
 * one public constructor for positional arguments
 * public writable properties for named arguments
 * constant conversion into common CLR primitive/reference types
+* typed arguments combined with an unrestricted token-tree body
 
 The target experience is that macro arguments bind like attribute arguments:
 

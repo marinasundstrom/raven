@@ -108,6 +108,20 @@ internal static class MacroParameterBinder
             diagnostics,
             out parameters);
 
+    public static bool TryBind(
+        string macroName,
+        Type parametersType,
+        TokenTreeMacroContext context,
+        DiagnosticBag diagnostics,
+        out object? parameters)
+        => TryBindCore(
+            macroName,
+            parametersType,
+            context.Syntax.Name.GetLocation(),
+            context.Arguments,
+            diagnostics,
+            out parameters);
+
     private static bool TryBindCore(
         string macroName,
         Type parametersType,

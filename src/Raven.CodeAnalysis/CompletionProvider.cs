@@ -2973,12 +2973,14 @@ public static class CompletionProvider
 
             var insertionText = macro switch
             {
+                ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name + "() { }",
                 ITokenTreeExpressionMacro => macro.Name + " { }",
                 _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
                 _ => macro.Name
             };
             var cursorOffset = macro switch
             {
+                ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name.Length + 1,
                 ITokenTreeExpressionMacro => insertionText.Length - 1,
                 _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
                 _ => (int?)null
@@ -3010,6 +3012,7 @@ public static class CompletionProvider
             : $"targets: {FormatMacroTargets(targets)}";
         var argumentsDisplay = macro switch
         {
+            ITokenTreeExpressionMacro when macro.AcceptsArguments => "accepts arguments and a token-tree body",
             ITokenTreeExpressionMacro => "accepts a token-tree body",
             _ when macro.AcceptsArguments => "accepts arguments",
             _ => "no arguments"

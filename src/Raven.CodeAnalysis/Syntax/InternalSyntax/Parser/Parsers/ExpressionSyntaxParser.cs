@@ -2638,13 +2638,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         MacroTokenTreeSyntax? tokenTree = null;
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-        {
             argumentList = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
-        }
-        else if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
-        {
+
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
             tokenTree = ParseMacroTokenTree();
-        }
 
         return FreestandingMacroExpression(hashToken, name, argumentList, tokenTree);
     }

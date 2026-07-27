@@ -6766,6 +6766,9 @@ public partial class SemanticModel
                 if (!RequiresInterfaceImplementation(interfaceMethod))
                     continue;
 
+                if (HasInheritedDefaultInterfaceImplementation(typeSymbol, interfaceMethod))
+                    continue;
+
                 if (ImplementsInterfaceMethod(typeSymbol, interfaceMethod))
                     continue;
 
@@ -6797,6 +6800,28 @@ public partial class SemanticModel
                     declaration.Identifier.GetLocation());
             }
         }
+    }
+
+    private static bool HasInheritedDefaultInterfaceImplementation(
+        INamedTypeSymbol typeSymbol,
+        IMethodSymbol interfaceMethod)
+    {
+        foreach (var candidateInterface in typeSymbol.AllInterfaces)
+        {
+            foreach (var candidateMethod in candidateInterface.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (candidateMethod.IsAbstract)
+                    continue;
+
+                if (candidateMethod.ExplicitInterfaceImplementations.Any(implementation =>
+                        SymbolEqualityComparer.Default.Equals(implementation, interfaceMethod)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool RequiresInterfaceImplementation(IMethodSymbol interfaceMethod)

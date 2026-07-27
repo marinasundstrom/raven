@@ -18,6 +18,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added replaceable macro token streams that emit `SyntaxToken`, including a
   default Raven-lexer-backed stream, macro-local keyword/reserved-word overlays,
   and compiler-discovered custom stream providers for DSL-specific lexers.
+- Added typed token-tree macro inputs through
+  `ITokenTreeExpressionMacro<TParameters>`, allowing validated positional or
+  named arguments before an unrestricted raw DSL body.
 - Added a Raven-authored `#guard { unless <expression> }` sample as the
   token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
   expression parsing, direct lowering, and end-to-end execution.

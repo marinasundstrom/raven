@@ -168,6 +168,31 @@ class MacroHost {
         Assert.Contains("token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void GetCompletions_ForTypedTokenTreeMacro_InsertsArgumentsBeforeBody()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val query = #typed()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TypedQueryMacro()));
+
+        var position = code.IndexOf('(', code.IndexOf("#typed", StringComparison.Ordinal));
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var query = Assert.Single(items.Where(static item => item.DisplayText == "typedQuery"));
+        Assert.Equal("typedQuery() { }", query.InsertionText);
+        Assert.Equal("typedQuery".Length + 1, query.CursorOffset);
+        Assert.Contains("arguments and a token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class ObservableMacro : IAttachedDeclarationMacro
     {
         public string Name => "Observable";
@@ -193,6 +218,19 @@ class MacroHost {
         public string Name => "query";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    private sealed class TypedQueryParameters
+    {
+        public string Dialect { get; set; } = string.Empty;
+    }
+
+    private sealed class TypedQueryMacro : ITokenTreeExpressionMacro<TypedQueryParameters>
+    {
+        public string Name => "typedQuery";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
             => FreestandingMacroExpansionResult.Empty;
     }
 }

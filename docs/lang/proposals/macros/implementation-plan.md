@@ -129,6 +129,44 @@ Current direct-contract validation:
 * live macro-project refresh tests: 2 passed; watched-file redesign case remains
   explicitly skipped
 
+## Active slice: typed token-tree inputs
+
+Status: **implemented and validated**
+
+Token-tree macros may combine ordinary typed invocation arguments with one
+unrestricted brace-delimited body:
+
+```raven
+let result = #query(Dialect: "sql") {
+    from user in users
+    select user.Name
+}
+```
+
+This applies the existing parameter-object model where it matters without
+constraining DSL content:
+
+* [x] parse a parenthesized argument list followed by a token-tree body
+* [x] add `ITokenTreeExpressionMacro<TParameters>` and
+  `TokenTreeMacroContext<TParameters>`
+* [x] expose raw `ArgumentList` and parsed `Arguments` on token-tree contexts
+* [x] bind positional and named constant arguments through the shared
+  `MacroParameterBinder`
+* [x] preserve custom token-stream and keyword-provider capabilities for typed
+  macros
+* [x] reject arguments supplied to non-generic token-tree macros
+* [x] demonstrate typed arguments plus custom raw-body lexing in the executable
+  token-stream sample
+* [x] pass the complete macro feature suite and sample validation
+
+Validation record for this slice:
+
+* focused parser, semantic, completion, and interface-conformance tests:
+  49 passed
+* complete macro feature suite: 61 passed
+* Raven-authored `macro-token-stream` provider and application build: passed
+* `macro-token-stream` runtime output: `42`
+
 ## Active slice: raw token-tree expression macros
 
 Status: **implemented and validated**

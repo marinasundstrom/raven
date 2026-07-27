@@ -105,6 +105,10 @@ macro Query(body: TokenStream) -> Expression {
     // ...
 }
 
+macro Query(dialect: string, body: TokenStream) -> Expression {
+    // ...
+}
+
 macro AddEquatable() on Type -> Members {
     // ...
 }
@@ -119,9 +123,10 @@ value types:
 * the result category selects the carrier and required expansion shape; and
 * an optional `on` clause selects an attached macro and constrains its target.
 
-Thus `Foo` is an argument-style freestanding expression macro, `Query` is a
-raw token-stream expression macro, and `AddEquatable` is an attached type macro
-that introduces members. Future input and result categories can cover
+Thus `Foo` is an argument-style freestanding expression macro, either `Query`
+form is a raw token-stream expression macro, and `AddEquatable` is an attached
+type macro that introduces members. A token-stream macro may combine typed
+value parameters with one unrestricted body projection. Future input and result categories can cover
 statements, declarations, types, patterns, and retained DSL structure without
 changing the basic declaration shape.
 
@@ -139,6 +144,7 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 | --- | --- |
 | `macro Foo(argument: Expression) -> Expression` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
 | `macro Query(body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
+| `macro Query(dialect: string, body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
 | `macro AddEquatable() on Type -> Members` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
 | `macro Observable() on Property -> Declaration` | `IAttachedDeclarationMacro` returning a replacement declaration |
 

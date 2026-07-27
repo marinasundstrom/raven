@@ -5,7 +5,11 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(CustomTokenMacro))]
 
-class CustomTokenMacro : ITokenTreeExpressionMacro, IMacroTokenStreamProvider {
+class CustomTokenParameters {
+    var Value: int = 0
+}
+
+class CustomTokenMacro : ITokenTreeExpressionMacro<CustomTokenParameters>, IMacroTokenStreamProvider {
     static val AnswerTokenRawKind: int => 80101
 
     val Name: string => "customToken"
@@ -14,7 +18,7 @@ class CustomTokenMacro : ITokenTreeExpressionMacro, IMacroTokenStreamProvider {
         CustomTokenStream(context, AnswerTokenRawKind)
     }
 
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext<CustomTokenParameters>) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()
         let token = stream.ReadToken()
         if token.RawKind != AnswerTokenRawKind
@@ -24,7 +28,8 @@ class CustomTokenMacro : ITokenTreeExpressionMacro, IMacroTokenStreamProvider {
                 context.CreateDiagnostic("Expected the custom token '⟨answer⟩'."))
         }
 
-        FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"))
+        FreestandingMacroExpansionResult.FromExpression(
+            ParseExpression(context.Parameters.Value.ToString()))
     }
 }
 

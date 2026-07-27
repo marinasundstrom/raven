@@ -121,7 +121,9 @@ internal static class MacroExpansionService
                     expression,
                     tokenTreeMacro,
                     cancellationToken);
-                result = tokenTreeMacro.Expand(context) ?? FreestandingMacroExpansionResult.Empty;
+                result = ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
+                    ?? tokenTreeMacro.Expand(context)
+                    ?? FreestandingMacroExpansionResult.Empty;
             }
             else
             {
@@ -250,6 +252,49 @@ internal static class MacroExpansionService
 
         var expandMethod = typedMacroInterface.GetMethod(
             nameof(IFreestandingExpressionMacro.Expand),
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            [typedContextType],
+            modifiers: null);
+
+        return (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+    }
+
+    private static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+        ITokenTreeExpressionMacro macro,
+        TokenTreeMacroContext context,
+        DiagnosticBag diagnostics)
+    {
+        var typedMacroInterface = macro.GetType()
+            .GetInterfaces()
+            .FirstOrDefault(static i =>
+                i.IsGenericType &&
+                i.GetGenericTypeDefinition() == typeof(ITokenTreeExpressionMacro<>));
+
+        if (typedMacroInterface is null)
+            return null;
+
+        var parametersType = typedMacroInterface.GetGenericArguments()[0];
+        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
+            return FreestandingMacroExpansionResult.Empty;
+
+        var typedContextType = typeof(TokenTreeMacroContext<>).MakeGenericType(parametersType);
+        var typedContext = Activator.CreateInstance(
+            typedContextType,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            [
+                context.Compilation,
+                context.SemanticModel,
+                context.Syntax,
+                macro,
+                parameters!,
+                context.CancellationToken
+            ],
+            culture: null);
+
+        var expandMethod = typedMacroInterface.GetMethod(
+            nameof(ITokenTreeExpressionMacro.Expand),
             BindingFlags.Public | BindingFlags.Instance,
             binder: null,
             [typedContextType],

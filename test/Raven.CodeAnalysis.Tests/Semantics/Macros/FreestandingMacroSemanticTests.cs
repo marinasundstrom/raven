@@ -683,6 +683,48 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Equal("42", expansion!.Expression!.ToString());
     }
 
+    [Fact]
+    public void TypedTokenTreeMacroParameters_BindAlongsideRawBody()
+    {
+        CapturingTokenTreeMacro.LastParameters = null;
+        CapturingTokenTreeMacro.LastBody = null;
+
+        var (compilation, tree) = CreateCompilation("""
+            func Main() -> int => #typedBody(3, Label: "item") {
+                custom content
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CapturingTokenTreeMacro)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expansion = model.GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        var parameters = Assert.IsType<RepeatMacroParameters>(CapturingTokenTreeMacro.LastParameters);
+        Assert.Equal(3, parameters.Count);
+        Assert.Equal("item", parameters.Label);
+        Assert.Contains("custom content", CapturingTokenTreeMacro.LastBody);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void UntypedTokenTreeMacro_RejectsArguments()
+    {
+        var (compilation, _) = CreateCompilation("""
+            func Main() -> int => #raven(3) {
+                42
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(RavenBodyMacro)));
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM012"));
+
+        Assert.Contains("does not accept arguments", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "raven";
@@ -692,6 +734,22 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             {
                 Expression = context.ParseExpression()
             };
+    }
+
+    public sealed class CapturingTokenTreeMacro : ITokenTreeExpressionMacro<RepeatMacroParameters>
+    {
+        public static RepeatMacroParameters? LastParameters { get; set; }
+
+        public static string? LastBody { get; set; }
+
+        public string Name => "typedBody";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<RepeatMacroParameters> context)
+        {
+            LastParameters = context.Parameters;
+            LastBody = context.GetBodyText();
+            return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+        }
     }
 
     public sealed class SelectBodyMacro : ITokenTreeExpressionMacro

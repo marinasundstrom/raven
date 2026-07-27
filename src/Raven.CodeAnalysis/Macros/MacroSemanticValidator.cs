@@ -127,15 +127,26 @@ internal static class MacroSemanticValidator
 
         if (expression.TokenTree is not null)
         {
-            if (loaded.Macro is ITokenTreeExpressionMacro)
-                return true;
+            if (loaded.Macro is not ITokenTreeExpressionMacro)
+            {
+                diagnostics?.Report(Diagnostic.Create(
+                    s_macroInvocationFormNotSupported,
+                    expression.TokenTree.GetLocation(),
+                    macroName,
+                    "does not accept a token-tree body"));
+                return false;
+            }
 
-            diagnostics?.Report(Diagnostic.Create(
-                s_macroInvocationFormNotSupported,
-                expression.TokenTree.GetLocation(),
-                macroName,
-                "does not accept a token-tree body"));
-            return false;
+            if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Macro.AcceptsArguments)
+            {
+                diagnostics?.Report(Diagnostic.Create(
+                    s_macroArgumentsNotSupported,
+                    expression.ArgumentList.GetLocation(),
+                    macroName));
+                return false;
+            }
+
+            return true;
         }
 
         if (loaded.Macro is not IFreestandingExpressionMacro)

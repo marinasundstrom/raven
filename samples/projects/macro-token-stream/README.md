@@ -6,16 +6,19 @@ token stream with a custom lexer.
 The application invokes:
 
 ```raven
-let answer = #customToken {
+let answer = #customToken(Value: 42) {
     ⟨answer⟩
 }
 ```
 
-The Raven-authored macro provider implements both `ITokenTreeExpressionMacro` and
-`IMacroTokenStreamProvider`. Its custom stream emits a `SyntaxToken` with an
+The Raven-authored macro provider implements
+`ITokenTreeExpressionMacro<CustomTokenParameters>` together with
+`IMacroTokenStreamProvider`. Raven binds the named `Value` argument into the
+strongly typed parameter object while preserving the brace body as unrestricted
+raw content. The custom stream emits a `SyntaxToken` with an
 application-defined `RawKind`, while `SyntaxKind.None` makes clear that the
 token is not part of Raven's normal lexer. The macro consumes that token and
-lowers the DSL directly to the ordinary Raven expression `42`.
+lowers the DSL directly to the ordinary Raven expression supplied by `Value`.
 
 This keeps custom lexing local to the macro invocation. It does not add a token
 kind to Raven or change how normal Raven source is lexed.

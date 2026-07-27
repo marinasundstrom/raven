@@ -64,6 +64,26 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
+    public void TokenTreeMacroExpression_ParsesArgumentsAndRawBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #repeat(3, Label: "item") {
+                custom content
+            }
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal(2, expression.ArgumentList.Arguments.Count);
+        Assert.Equal("Label", expression.ArgumentList.Arguments[1].NameColon?.Name.Identifier.ValueText);
+        Assert.Contains("custom content", Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void TokenTreeMacroExpression_AllowsCharactersOutsideRavenLexicalGrammar()
     {
         var tree = SyntaxTree.ParseText("""
