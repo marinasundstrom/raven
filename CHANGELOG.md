@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- `use` bindings no longer report `RAV9027` merely because their bound value is
+  not read; establishing the disposal lifetime counts as the declaration's
+  intended use.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.
