@@ -1166,7 +1166,7 @@ func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<strin
             "samples",
             "projects",
             "fulfillment-workflow");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "FulfillmentWorkflow.rvn");
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
         File.Exists(documentPath).ShouldBeTrue();
@@ -2337,7 +2337,7 @@ func Main() -> unit {
             "samples",
             "projects",
             "test-case");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "Program.rvn");
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
         File.Exists(documentPath).ShouldBeTrue();
@@ -2440,7 +2440,7 @@ func Main() -> unit {
             "samples",
             "projects",
             "test-case");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "Program.rvn");
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
         File.Exists(documentPath).ShouldBeTrue();

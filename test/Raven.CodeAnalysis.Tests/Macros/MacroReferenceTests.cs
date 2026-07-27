@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
 
@@ -10,24 +12,330 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 public sealed class MacroReferenceTests
 {
     [Fact]
-    public void MacroReference_FromAssembly_FindsMacroPlugin()
+    public void CompilerPluginMarker_RequiresAssemblyTarget()
     {
-        var reference = new MacroReference(typeof(TestMacroPlugin).Assembly);
+        var markedTree = SyntaxTree.ParseText("""
+            [assembly: RavenCompilerPlugin]
+            """);
+        var declarationMarkerTree = SyntaxTree.ParseText("""
+            [RavenCompilerPlugin]
+            class Plugin {}
+            """);
+        var unmarkedTree = SyntaxTree.ParseText("""
+            class Plugin {}
+            """);
 
-        var plugin = Assert.Single(reference.GetPlugins().OfType<TestMacroPlugin>());
-        var macro = Assert.Single(plugin.GetMacros().OfType<TestAttachedMacro>());
-
-        Assert.Equal("TestMacros", plugin.Name);
-        Assert.Equal("AddEquatable", macro.Name);
-        Assert.Equal(MacroKind.AttachedDeclaration, macro.Kind);
-        Assert.Equal(MacroTarget.Type, macro.Targets);
+        Assert.True(LocalMacroSyntaxClassifier.IsCompilerPluginTree(markedTree));
+        Assert.False(LocalMacroSyntaxClassifier.IsCompilerPluginTree(declarationMarkerTree));
+        Assert.False(LocalMacroSyntaxClassifier.IsCompilerPluginTree(unmarkedTree));
     }
 
     [Fact]
-    public void MacroReference_FromType_RejectsNonPluginTypes()
+    public void MacroReference_FromType_FindsDirectMacro()
+    {
+        var reference = new MacroReference(typeof(TestAttachedMacro));
+
+        var macro = Assert.Single(reference.Macros.OfType<TestAttachedMacro>());
+        Assert.Same(macro, Assert.Single(reference.Macros));
+
+        Assert.Equal("AddEquatable", macro.Name);
+        Assert.Equal(MacroKind.AttachedDeclaration, MacroFacts.GetKind(macro));
+        Assert.Equal(MacroTarget.Type, MacroFacts.GetTargets(macro));
+    }
+
+    [Fact]
+    public void MacroReference_FromType_RejectsNonMacroExportTypes()
     {
         var ex = Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(MacroReferenceTests)));
-        Assert.Contains("IRavenMacroPlugin", ex.Message);
+        Assert.Contains("exactly one supported macro category interface", ex.Message);
+    }
+
+    [Fact]
+    public void MacroReference_FromInMemoryRavenAssembly_ExpandsMacro()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
+
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+
+            class UnselectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "unselected"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+        var reference = MacroReference.CreateFromImage(
+            macroImage,
+            display: "same-project macro partition");
+
+        var macro = Assert.Single(reference.Macros);
+        Assert.Equal("answer", macro.Name);
+
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
+        var consumerCompilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(consumerTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(reference);
+
+        Assert.DoesNotContain(
+            consumerCompilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void MacroReference_BareCompilerPluginMarker_UsesFallbackDiscovery()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin]
+
+            class FirstMacro : ITokenTreeExpressionMacro {
+                val Name: string => "first"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+
+            class SecondMacro : ITokenTreeExpressionMacro {
+                val Name: string => "second"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+
+        var macros = MacroReference.CreateFromImage(macroImage)
+            .Macros
+            .Select(static macro => macro.Name)
+            .Order()
+            .ToArray();
+
+        Assert.Equal(["first", "second"], macros);
+    }
+
+    [Fact]
+    public void MacroReference_ExplicitManifestSupportsMultipleEntryPoints()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(FirstMacro))]
+            [assembly: RavenCompilerPlugin(typeof(SecondMacro))]
+
+            class FirstMacro : ITokenTreeExpressionMacro {
+                val Name: string => "first"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+
+            class UnselectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "unselected"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+
+            class SecondMacro : ITokenTreeExpressionMacro {
+                val Name: string => "second"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+
+        var macros = MacroReference.CreateFromImage(macroImage)
+            .Macros
+            .Select(static macro => macro.Name)
+            .ToArray();
+
+        Assert.Equal(["first", "second"], macros);
+    }
+
+    [Fact]
+    public void MacroReference_FromFile_UsesExplicitEntryPointManifest()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(SelectedMacro))]
+
+            class SelectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "selected"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+
+            class UnselectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "unselected"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+        var assemblyPath = Path.Combine(
+            Path.GetTempPath(),
+            $"RavenMacroReference_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+
+            var macro = Assert.Single(MacroReference.CreateFromFile(assemblyPath).Macros);
+
+            Assert.Equal("selected", macro.Name);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void Compilation_MarkedMetadataReference_AutomaticallyActivatesMacro()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
+
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
+                        Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """);
+        var assemblyPath = Path.Combine(
+            Path.GetTempPath(),
+            $"RavenReferencedMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+            var sourceTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
+            var baseCompilation = Compilation.Create(
+                    "Consumer",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(sourceTree)
+                .AddReferences(TestMetadataReferences.Default);
+            var compilation = baseCompilation.AddReferences(
+                MetadataReference.CreateFromFile(assemblyPath));
+
+            Assert.Contains(
+                baseCompilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Id == "RAVM010");
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            var reference = Assert.Single(compilation.MacroReferences);
+            Assert.Equal(Path.GetFullPath(assemblyPath), reference.Display);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void Compilation_UnmarkedMetadataReference_DoesNotExportMacro()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            class PrivateAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "privateAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
+                        Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """);
+        var assemblyPath = Path.Combine(
+            Path.GetTempPath(),
+            $"RavenUnexportedMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+            var compilation = Compilation.Create(
+                    "Consumer",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(SyntaxTree.ParseText(
+                    "func Main() -> int => #privateAnswer { }"))
+                .AddReferences(TestMetadataReferences.Default)
+                .AddReferences(MetadataReference.CreateFromFile(assemblyPath));
+
+            Assert.Contains(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Id == "RAVM010");
+            Assert.Empty(compilation.MacroReferences);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_InvalidDeclaredExport_ReportsLoadDiagnostic()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(NotAPlugin))]
+
+            class NotAPlugin {}
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText("func Main() -> unit {}"))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(MacroReference.CreateFromImage(
+                macroImage,
+                display: "invalid manifest"));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Id == "RAVM001");
+
+        Assert.Contains("NotAPlugin", diagnostic.GetMessage());
+        Assert.Contains("exactly one supported macro category interface", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void MacroReference_FromImage_RejectsEmptyAssembly()
+    {
+        var ex = Assert.Throws<System.ArgumentException>(() => MacroReference.CreateFromImage([]));
+        Assert.Contains("must not be empty", ex.Message);
     }
 
     [Fact]
@@ -38,12 +346,55 @@ public sealed class MacroReferenceTests
         Assert.Equal(typeof(ObservableMacroParameters), ((IMacroDefinition<ObservableMacroParameters>)macro).ParametersType);
     }
 
-    public sealed class TestMacroPlugin : IRavenMacroPlugin
+    [Fact]
+    public void MacroFacts_DescribesTypedPositionalAndNamedParameters()
     {
-        public string Name => "TestMacros";
+        var macro = new TypedParameterAttachedMacro();
 
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new TestAttachedMacro()];
+        Assert.Equal(typeof(ObservableMacroParameters), MacroFacts.GetParametersType(macro));
+        Assert.Collection(
+            MacroFacts.GetParameters(macro),
+            parameter =>
+            {
+                Assert.Equal("name", parameter.Name);
+                Assert.Equal(typeof(string), parameter.ParameterType);
+                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
+                Assert.Equal(0, parameter.Ordinal);
+                Assert.True(parameter.IsRequired);
+            },
+            parameter =>
+            {
+                Assert.Equal("count", parameter.Name);
+                Assert.Equal(typeof(int), parameter.ParameterType);
+                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
+                Assert.Equal(1, parameter.Ordinal);
+                Assert.False(parameter.IsRequired);
+                Assert.Equal(1, parameter.DefaultValue);
+            },
+            parameter =>
+            {
+                Assert.Equal("Notify", parameter.Name);
+                Assert.Equal(typeof(bool), parameter.ParameterType);
+                Assert.Equal(MacroParameterKind.Named, parameter.Kind);
+                Assert.Equal(-1, parameter.Ordinal);
+                Assert.False(parameter.IsRequired);
+            });
+    }
+
+    [Fact]
+    public void MacroFacts_RequiresExactlyOneCategoryInterface()
+    {
+        Assert.False(MacroFacts.TryGetKind(new UnclassifiedMacro(), out _));
+        Assert.False(MacroFacts.TryGetKind(new AmbiguousMacro(), out _));
+        Assert.Equal(MacroKind.AttachedDeclaration, MacroFacts.GetKind(new MisleadingKindMacro()));
+        Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(UnclassifiedMacro)));
+        Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(AmbiguousMacro)));
+    }
+
+    [Fact]
+    public void MacroFacts_ReturnsNoDeclarationTargetsForFreestandingMacro()
+    {
+        Assert.Equal(MacroTarget.None, MacroFacts.GetTargets(new TestTokenTreeMacro()));
     }
 
     public sealed class TestAttachedMacro : IAttachedDeclarationMacro
@@ -60,6 +411,16 @@ public sealed class MacroReferenceTests
 
     public sealed class ObservableMacroParameters
     {
+        public ObservableMacroParameters(string name, int count = 1)
+        {
+            Name = name;
+            Count = count;
+        }
+
+        public string Name { get; }
+
+        public int Count { get; }
+
         public bool Notify { get; init; } = true;
     }
 
@@ -73,5 +434,56 @@ public sealed class MacroReferenceTests
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => MacroExpansionResult.Empty;
+    }
+
+    public sealed class UnclassifiedMacro : IMacroDefinition
+    {
+        public string Name => "unclassified";
+    }
+
+    public sealed class TestTokenTreeMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "tokenTree";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    public sealed class AmbiguousMacro : IAttachedDeclarationMacro, ITokenTreeExpressionMacro
+    {
+        public string Name => "ambiguous";
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+            => MacroExpansionResult.Empty;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    public sealed class MisleadingKindMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "misleading";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+            => MacroExpansionResult.Empty;
+    }
+
+    private static byte[] EmitMacroAssembly(string source)
+    {
+        var macroTree = SyntaxTree.ParseText(source);
+        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location);
+        var macroCompilation = Compilation.Create(
+                $"InMemoryMacros_{System.Guid.NewGuid():N}",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(macroTree)
+            .AddReferences([.. TestMetadataReferences.Default, codeAnalysisReference]);
+
+        using var macroImage = new MemoryStream();
+        var macroEmit = macroCompilation.Emit(macroImage);
+        Assert.True(macroEmit.Success, string.Join(System.Environment.NewLine, macroEmit.Diagnostics));
+        return macroImage.ToArray();
     }
 }

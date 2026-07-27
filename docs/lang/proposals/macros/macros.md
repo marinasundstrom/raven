@@ -1,6 +1,11 @@
 # Raven Macro System
 
 > ⚠️ 🧩 This proposal has been partly implemented
+>
+> See the [living implementation plan](implementation-plan.md) for the active
+> slice, invariants, and follow-up work. See
+> [Macro and DSL developer experience](developer-experience.md) for the
+> intended authoring and editor model.
 
 Current implementation status:
 
@@ -8,12 +13,29 @@ Current implementation status:
 * `#` only starts a macro attribute when it is immediately followed by `[`. Other `#...` forms continue to lex as directives such as `#pragma`.
 * Macro-style attributes are kept out of the normal CLR attribute binding/emission pipeline.
 * Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
-* Project files can reference macro assemblies with `RavenMacro` items and the compiler now resolves attached macros against those plugin assemblies.
+* Raven macro projects can export direct macro definitions with
+  `[assembly: RavenCompilerPlugin(typeof(QueryMacro))]` and be consumed
+  through ordinary project references. The same provider marker works for C#
+  macro projects. Local-partition macros require no assembly export marker.
+  A bare marker retains fallback discovery. The former consumer-authored
+  `RavenMacro` item has been retired in favor of these ordinary references.
+* Marked direct DLL and resolved package references are discovered from
+  assembly metadata during compilation setup and enter the same registry as
+  local macros.
+* Split macro packages keep `ref/<tfm>` assemblies in the consumer metadata
+  graph while activating marked `lib/<tfm>` implementations separately.
+  Implementation-adjacent helper assemblies are resolved by the macro load
+  context, and runtime assets from transitive packages remain private macro
+  dependency probes.
 * Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
 * `MacroExpansionResult` now models both additive members and optional declaration replacement.
-* Generated-member and replacement integration into normal binding/codegen is not implemented yet.
+* Generated members, replacement declarations, and freestanding expression
+  results participate in normal binding and code generation.
+* Raw-body freestanding expression macros use `#name { ... }`, preserve DSL
+  source without ordinary Raven tokenization, and can delegate selected spans
+  back to Raven expression parsing.
 
 Related deferred proposals:
 
@@ -33,6 +55,11 @@ Raven macros provide:
 * Full tooling compatibility
 
 Macros are **compiler-integrated syntax transformers**, not textual preprocessors.
+Freestanding procedural macros are invoked with function-like or delimited
+syntax, while attached macros are applied as attributes. During binding, the
+compiler resolves the macro implementation and expands the invocation or
+attribute into typed ordinary Raven syntax. Binding then continues over that
+expansion before normal code generation.
 
 ---
 
@@ -134,10 +161,10 @@ This is intended to let the compiler eventually bind macro arguments the same wa
 
 Current validation diagnostics reported by the macro itself are surfaced through a shared compiler-owned diagnostic ID, with the specific macro name and message carried in the formatted text rather than through plugin-defined descriptor IDs.
 
-## Invocation Macros (future / Rust-style)
+## Token-tree expression macros
 
 ```raven
-linq! {
+#linq {
     from user in db.Users
     where user.IsActive && user.Age >= 21
     select user.Name
@@ -146,11 +173,14 @@ linq! {
 
 Characteristics:
 
-* Explicit `!` invocation marker
-* Body captured as `TokenTree`
-* Must appear in a valid syntactic slot
-* Deferred until after attached macros are stable
-* Not part of the current implementation slice
+* Uses the same `#name` family as argument-based freestanding macros.
+* The compiler captures the body as lossless raw source inside a balanced brace
+  envelope.
+* The macro may parse the body completely itself or delegate selected
+  body-relative spans to Raven fragment parsers.
+* The initial result category is an expression.
+* Replaceable standard/custom token streams and additional result categories
+  are tracked in the living implementation plan.
 
 ---
 
@@ -170,6 +200,24 @@ The parser enforces placement correctness.
 
 # 5. Macro Implementations
 
+## 5.0 Compiler plugin boundary
+
+Macros are compiler plugins. They are resolved and expanded during binding, and
+their output defines the ordinary Raven syntax that binding and emit continue
+over. They can run from the compiler-only `Compilation` API; a `Workspace`,
+project system, or MSBuild host is not required.
+
+Analyzers and generators are workspace plugins in Raven's architecture. Their
+discovery and scheduling occur around compilation and must not become the
+activation model for macros.
+
+Analyzers may optionally query retained structure for a macro that explicitly
+provides it. An `ExpressionSyntax` embedded in that structure can automatically
+trigger ordinary Raven expression analysis when an analyzer host is present. A
+direct-lowering or opaque macro has no structured analyzer view; analyzers must
+not infer one from raw tokens or expansion output. Macro expansion and
+diagnostics behave the same when no analyzer or workspace is present.
+
 ## 5.1 Compiled Macro Assemblies
 
 Macros are implemented as compiled code:
@@ -179,10 +227,36 @@ Macros are implemented as compiled code:
 
 They may reside in:
 
+* The compiler/SDK's automatically registered default macro environment
 * A referenced macro assembly
-* The same project (subject to compilation model)
+* The same project through a staged compile-time partition
 
-Macros are discovered via a well-known contract (e.g. `IMacro` and/or `[RavenMacro]`).
+Default macros such as `#quote`, and a future tracked-resource `#embedFile`,
+require no source import or explicit dependency. Whether a default is a compiler
+intrinsic or an SDK-bundled plugin is an implementation detail.
+
+Same-project declarations are a core development experience, not an optional
+packaging optimization. The compiler must compile and activate the local macro
+partition before binding dependent invocations, diagnose dependency cycles,
+and avoid requiring a separate project or an assembly written to disk. This
+in-memory path is required by the Playground.
+
+Macros are discovered through compiler-plugin metadata plus well-known macro
+contracts. The provider project/package should declare its compiler-plugin
+output once; consumers should receive that asset through an ordinary dependency
+rather than separately importing macro assemblies.
+
+The compiler can activate an emitted macro assembly directly from memory. The
+compiler API accepts explicitly classified local macro trees through
+`Compilation.AddMacroSyntaxTrees`, while normal compiler, Workspace, SDK, and
+Playground paths automatically classify direct macro declarations and
+declaration-granular `[LocalMacro]` support types. These trees compile and
+activate in memory before consumer binding and are excluded from runtime emit.
+
+When a local macro implementation references a declaration that exists only in
+the consumer partition, the compiler reports `RAVM003` at that reference. This
+is a phase dependency cycle: consumer binding requires local macro activation,
+so local macro activation cannot depend on consumer declarations.
 
 ---
 
@@ -278,17 +352,18 @@ Remapping:
 
 # 8. Embedded Raven Parsing
 
-`MacroContext` provides parser entrypoints:
+`TokenTreeMacroContext` provides parser entrypoints:
 
-* `ParseExpression(stopCondition)`
-* `ParseStatement(stopCondition)`
-* (optional) `ParseType`, `ParseMember`
+* `ParseExpression(bodyRelativeSpan)`
+* `ParseExpressionResult(bodyRelativeSpan)`
+* planned `ParseStatement`, `ParseType`, and `ParseMember` counterparts
 
 These:
 
-* Consume tokens from the macro cursor
+* Parse the selected authored body span
 * Use Raven’s real parser
 * Preserve original token spans
+* In the result-bearing form, preserve native Raven parser diagnostics
 
 This ensures precise source mapping for embedded Raven fragments.
 
@@ -334,7 +409,9 @@ The current implementation keeps macro execution adjacent to semantic analysis, 
 Today the flow is:
 
 1. Parse source
-2. Resolve attached macro attributes against loaded `RavenMacro` assemblies
+2. Resolve attached macro attributes against compiler-plugin assemblies
+   supplied by marked project, assembly, or package references, or the default
+   macro environment
 3. Validate macro target compatibility
 4. Invoke the plugin with structured Raven syntax
 5. Cache the resulting `MacroExpansionResult` on the semantic model
@@ -414,15 +491,20 @@ This enables:
 
 When completion occurs inside an embedded Raven fragment:
 
-1. The macro parses the fragment using `ParseExpression` or `ParseStatement`
-2. A temporary binder overlay is created
-3. Normal Raven completion is executed
+1. The retained macro structure identifies the body-relative region and its
+   expected Raven category, including empty recovery slots.
+2. The compiler maps the position into that region and invokes ordinary Raven
+   completion in the caller's semantic context.
+3. If the DSL introduces bindings visible in the region, the macro's structure
+   supplies a compiler-owned scope bridge for those names.
 
 This allows:
 
 * Member completion (e.g. `user.`)
 * Type-aware suggestions
 * Full semantic completion inside macro bodies
+* Raven completion at incomplete expression, statement, type, pattern, or
+  member slots
 
 ---
 
@@ -436,6 +518,8 @@ Macros may optionally provide:
 * Quick info
 
 These integrate with Raven’s tooling pipeline without requiring macro expansion.
+The language server presents compiler results; it does not recreate the DSL
+parser, semantic bridge, or expansion independently.
 
 ---
 

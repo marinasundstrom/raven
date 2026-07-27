@@ -97,7 +97,7 @@ public sealed class WorkspaceManagerTests : IDisposable
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -208,7 +208,7 @@ public sealed class WorkspaceManagerTests : IDisposable
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1353,7 +1353,7 @@ dotnet_diagnostic.RAV9029.severity = error
     {
         var repoRoot = GetRepositoryRoot();
         var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "macro-observable");
-        var appPath = Path.Combine(sampleRoot, "app", "src", "main.rvn");
+        var appPath = Path.Combine(sampleRoot, "app", "src", "Program.rvn");
         var appUri = DocumentUri.FromFileSystemPath(appPath);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -1394,7 +1394,7 @@ dotnet_diagnostic.RAV9029.severity = error
     {
         var repoRoot = GetRepositoryRoot();
         var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "macro-reactive");
-        var appPath = Path.Combine(sampleRoot, "app", "src", "main.rvn");
+        var appPath = Path.Combine(sampleRoot, "app", "src", "Program.rvn");
         var appUri = DocumentUri.FromFileSystemPath(appPath);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -1784,7 +1784,7 @@ func Main() -> unit {
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="../macros/ObservableMacros.rvnproj" />
+    <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1808,21 +1808,13 @@ func Main() -> () { }
 </Project>
 """);
         WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), """
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-class ObservableMacroPlugin: IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Observable"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-        [ObservableMacro()]
-    }
-}
+[assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
 class ObservableMacro: IAttachedDeclarationMacro {
     val Name: string => "Observable"
-    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
@@ -1845,7 +1837,7 @@ class ObservableMacro: IAttachedDeclarationMacro {
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="../macros/FreestandingMacros.rvnproj" />
+    <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1869,21 +1861,12 @@ func Main() -> int => #answer()
 </Project>
 """);
         WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), """
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 
-class FreestandingMacroPlugin: IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Answer"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-        [AnswerMacro()]
-    }
-}
+[assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
 class AnswerMacro: IFreestandingExpressionMacro {
     val Name: string => "answer"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
-    val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
         FreestandingMacroExpansionResult.Empty
@@ -1905,7 +1888,7 @@ class AnswerMacro: IFreestandingExpressionMacro {
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
-    <RavenMacro Include="../macros/FreestandingMacros.rvnproj" />
+    <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1934,28 +1917,17 @@ func Main() -> int => #answer()
     private static string CreateFreestandingMacroExpansionSource(string expansionText)
     {
         return $$"""
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-class FreestandingMacroPlugin: IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Answer"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-        [AnswerMacro()]
-    }
-}
+[assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
 class AnswerMacro: IFreestandingExpressionMacro {
     val Name: string => "answer"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
-    val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult with {
-            Expression = ParseExpression("{{expansionText}}")
-        }
+        FreestandingMacroExpansionResult.FromExpression(ParseExpression("{{expansionText}}"))
     }
 }
 """;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 using Raven.CodeAnalysis.Syntax;
@@ -45,6 +46,7 @@ internal static class MacroExpansionService
 
         foreach (var attribute in GetAttachedMacroAttributes(targetDeclaration))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             compilation.PerformanceInstrumentation.Macros.RecordAttachedExpansionInvocation();
 
             if (!MacroSemanticValidator.TryResolveAttachedMacro(compilation, attribute, targetDeclaration, diagnostics, out var loaded))
@@ -80,11 +82,13 @@ internal static class MacroExpansionService
             }
             catch (Exception ex)
             {
+                var failure = UnwrapExpansionFailure(ex);
+                RethrowCancellation(failure, cancellationToken);
                 diagnostics.Report(Diagnostic.Create(
                     s_macroExpansionFailed,
                     attribute.Name.GetLocation(),
                     loaded.Macro.Name,
-                    ex.Message));
+                    GetExpansionFailureMessage(failure)));
                 builder[attribute] = null;
             }
         }
@@ -99,6 +103,7 @@ internal static class MacroExpansionService
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         compilation.PerformanceInstrumentation.Macros.RecordFreestandingExpansionInvocation();
 
         if (!MacroSemanticValidator.TryResolveFreestandingMacro(compilation, expression, diagnostics, out var loaded))
@@ -106,10 +111,33 @@ internal static class MacroExpansionService
 
         try
         {
-            var context = new FreestandingMacroContext(compilation, semanticModel, expression, cancellationToken);
-            var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
-                ?? loaded.Macro.Expand(context)
-                ?? FreestandingMacroExpansionResult.Empty;
+            FreestandingMacroExpansionResult result;
+            if (expression.TokenTree is not null)
+            {
+                var tokenTreeMacro = (ITokenTreeExpressionMacro)loaded.Macro;
+                var context = new TokenTreeMacroContext(
+                    compilation,
+                    semanticModel,
+                    expression,
+                    tokenTreeMacro,
+                    cancellationToken);
+                result = ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
+                    ?? tokenTreeMacro.Expand(context)
+                    ?? FreestandingMacroExpansionResult.Empty;
+            }
+            else
+            {
+                var freestandingMacro = (IFreestandingExpressionMacro)loaded.Macro;
+                var context = new FreestandingMacroContext(
+                    compilation,
+                    semanticModel,
+                    expression,
+                    cancellationToken);
+                result = ExpandWithTypedParametersIfAvailable(freestandingMacro, context, diagnostics)
+                    ?? freestandingMacro.Expand(context)
+                    ?? FreestandingMacroExpansionResult.Empty;
+            }
+
             result = ContextualizeExpansionResult(expression, result);
             RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Expression);
 
@@ -122,13 +150,38 @@ internal static class MacroExpansionService
         }
         catch (Exception ex)
         {
+            var failure = UnwrapExpansionFailure(ex);
+            RethrowCancellation(failure, cancellationToken);
             diagnostics.Report(Diagnostic.Create(
                 s_macroExpansionFailed,
                 expression.Name.GetLocation(),
                 loaded.Macro.Name,
-                ex.Message));
+                GetExpansionFailureMessage(failure)));
             return null;
         }
+    }
+
+    private static Exception UnwrapExpansionFailure(Exception exception)
+    {
+        while (exception is TargetInvocationException { InnerException: not null } invocationException)
+            exception = invocationException.InnerException;
+
+        return exception;
+    }
+
+    private static void RethrowCancellation(Exception failure, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (failure is OperationCanceledException { CancellationToken.IsCancellationRequested: true })
+            ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    private static string GetExpansionFailureMessage(Exception exception)
+    {
+        return string.IsNullOrWhiteSpace(exception.Message)
+            ? exception.GetType().Name
+            : exception.Message;
     }
 
     private static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(
@@ -199,6 +252,49 @@ internal static class MacroExpansionService
 
         var expandMethod = typedMacroInterface.GetMethod(
             nameof(IFreestandingExpressionMacro.Expand),
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            [typedContextType],
+            modifiers: null);
+
+        return (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+    }
+
+    private static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+        ITokenTreeExpressionMacro macro,
+        TokenTreeMacroContext context,
+        DiagnosticBag diagnostics)
+    {
+        var typedMacroInterface = macro.GetType()
+            .GetInterfaces()
+            .FirstOrDefault(static i =>
+                i.IsGenericType &&
+                i.GetGenericTypeDefinition() == typeof(ITokenTreeExpressionMacro<>));
+
+        if (typedMacroInterface is null)
+            return null;
+
+        var parametersType = typedMacroInterface.GetGenericArguments()[0];
+        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
+            return FreestandingMacroExpansionResult.Empty;
+
+        var typedContextType = typeof(TokenTreeMacroContext<>).MakeGenericType(parametersType);
+        var typedContext = Activator.CreateInstance(
+            typedContextType,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            [
+                context.Compilation,
+                context.SemanticModel,
+                context.Syntax,
+                macro,
+                parameters!,
+                context.CancellationToken
+            ],
+            culture: null);
+
+        var expandMethod = typedMacroInterface.GetMethod(
+            nameof(ITokenTreeExpressionMacro.Expand),
             BindingFlags.Public | BindingFlags.Instance,
             binder: null,
             [typedContextType],

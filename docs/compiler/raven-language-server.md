@@ -5,7 +5,10 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 ## Features
 - **Text synchronization:** Opens, changes, saves, and closes documents through `TextDocumentSyncHandlerBase`, storing the latest text in the workspace.
 - **Diagnostics:** Publishes Raven diagnostics for the current file after each change, keeping previous semantic results visible while newer snapshot diagnostics are pending when their ranges can be translated safely.
-- **Completions:** Maps the compiler's completion items into LSP responses with snippet ranges for insertion.
+- **Completions:** Maps the compiler's completion items into LSP responses with
+  snippet ranges for insertion. `#` triggers context-aware macro completion:
+  expression positions offer freestanding and token-tree macros, while
+  declaration attributes offer attached macros.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
 - **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.
 - **Inlay hints:** The server provides inferred type annotation hints and invocation parameter-name hints. Both kinds include source edits where the hint can be applied directly.

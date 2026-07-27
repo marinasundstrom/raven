@@ -45,6 +45,8 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public SyntaxKind Kind => Green.Kind;
 
+    public int RawKind => Green?.RawKind ?? 0;
+
     public object? Value => Green?.GetValue();
 
     public string ValueText => Green?.GetValueText() ?? Text;
@@ -124,6 +126,14 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         var newGreen = Green.WithTrailingTrivia(trivialList.Green);
         return new SyntaxToken(newGreen, Parent);
+    }
+
+    public SyntaxToken WithRawKind(int rawKind)
+    {
+        if (Green is null)
+            return this;
+
+        return new SyntaxToken(Green.WithRawKind(rawKind), Parent, Position);
     }
 
     public Location GetLocation()

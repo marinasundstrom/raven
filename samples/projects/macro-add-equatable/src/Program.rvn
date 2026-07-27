@@ -1,0 +1,11 @@
+import System.*
+
+func Main() {
+    let user: IEquatable<User> = User("Ada", 37)
+
+    Console.WriteLine(user.Equals(User("Ada", 37)))
+    Console.WriteLine(user.Equals(User("Grace", 37)))
+}
+
+#[AddEquatable]
+class User(val Name: string, val Age: int)

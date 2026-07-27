@@ -1,0 +1,64 @@
+import System.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+[assembly: RavenCompilerPlugin(typeof(CustomTokenMacro))]
+
+class CustomTokenParameters {
+    var Value: int = 0
+}
+
+class CustomTokenMacro : ITokenTreeExpressionMacro<CustomTokenParameters>, IMacroTokenStreamProvider {
+    static val AnswerTokenRawKind: int => 80101
+
+    val Name: string => "customToken"
+
+    func CreateTokenStream(context: MacroTokenStreamContext) -> IMacroTokenStream {
+        CustomTokenStream(context, AnswerTokenRawKind)
+    }
+
+    func Expand(context: TokenTreeMacroContext<CustomTokenParameters>) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+        let token = stream.ReadToken()
+        if token.RawKind != AnswerTokenRawKind
+            || token.Text != "⟨answer⟩"
+            || !stream.IsEndOfFile {
+            return FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("Expected the custom token '⟨answer⟩'."))
+        }
+
+        FreestandingMacroExpansionResult.FromExpression(
+            ParseExpression(context.Parameters.Value.ToString()))
+    }
+}
+
+class CustomTokenStream : IMacroTokenStream {
+    private val _token: SyntaxToken
+    private var _hasRead: bool = false
+
+    init(context: MacroTokenStreamContext, rawKind: int) {
+        let text = context.BodyText.Trim()
+        let position = context.BodyText.IndexOf(text, StringComparison.Ordinal)
+        _token = Token(rawKind, text, position)
+    }
+
+    val IsEndOfFile: bool => _hasRead
+
+    func PeekToken(offset: int = 0) -> SyntaxToken {
+        if offset != 0 || _hasRead {
+            return default(SyntaxToken)
+        }
+
+        _token
+    }
+
+    func ReadToken() -> SyntaxToken {
+        if _hasRead {
+            return default(SyntaxToken)
+        }
+
+        _hasRead = true
+        _token
+    }
+}

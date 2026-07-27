@@ -4,7 +4,7 @@ import System.ComponentModel.*
 
 func Main() {
     let viewModel = MyViewModel()
-    viewModel.PropertyChanged += func (sender, args) => {
+    viewModel.PropertyChanged += func (_, args) => {
         WriteLine(args.PropertyName ?? "")
     }
     viewModel.Title = "Hello from Raven"
@@ -20,7 +20,7 @@ class MyViewModel : ObservableBase {
 abstract class ObservableBase : INotifyPropertyChanged {
     event PropertyChanged: PropertyChangedEventHandler?
 
-    #pragma warning disable-next-line RAV9019 RAV9012
+    #pragma warning disable-next-line RAV9019 RAV9012 RAV9030
     protected func RaisePropertyChanged(propertyName: string, oldValue: object?, newValue: object?) -> unit
         => PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
 }

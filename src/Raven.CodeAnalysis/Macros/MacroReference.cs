@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -9,32 +10,36 @@ namespace Raven.CodeAnalysis.Macros;
 
 public sealed class MacroReference
 {
-    private readonly Func<IEnumerable<IRavenMacroPlugin>> _pluginFactory;
+    private readonly Lazy<MacroSnapshot> _snapshot;
     private readonly string? _display;
     private readonly string? _sourceProjectFilePath;
 
-    public MacroReference(IRavenMacroPlugin plugin)
-        : this(() => [plugin], plugin.GetType().Assembly.FullName, sourceProjectFilePath: null)
+    public MacroReference(IMacroDefinition macro)
+        : this(
+            () => new MacroSnapshot([macro], LoadContext: null),
+            macro.GetType().Assembly.FullName,
+            sourceProjectFilePath: null)
     {
     }
 
-    public MacroReference(Type pluginType)
-        : this(() => [(IRavenMacroPlugin)Activator.CreateInstance(pluginType)!], pluginType.Assembly.FullName, sourceProjectFilePath: null)
+    public MacroReference(Type exportedType)
+        : this(CreateExportedTypeFactory(exportedType), exportedType.Assembly.FullName, sourceProjectFilePath: null)
     {
-        if (!typeof(IRavenMacroPlugin).IsAssignableFrom(pluginType))
-            throw new ArgumentException("Type must implement IRavenMacroPlugin", nameof(pluginType));
     }
 
     public MacroReference(Assembly assembly)
-        : this(CreateAssemblyPluginFactory(assembly),
+        : this(CreateAssemblyMacroFactory(assembly),
             assembly.Location,
             sourceProjectFilePath: null)
     {
     }
 
-    private MacroReference(Func<IEnumerable<IRavenMacroPlugin>> pluginFactory, string? display, string? sourceProjectFilePath)
+    private MacroReference(Func<MacroSnapshot> macroFactory, string? display, string? sourceProjectFilePath)
     {
-        _pluginFactory = pluginFactory ?? throw new ArgumentNullException(nameof(pluginFactory));
+        ArgumentNullException.ThrowIfNull(macroFactory);
+        _snapshot = new Lazy<MacroSnapshot>(
+            macroFactory,
+            LazyThreadSafetyMode.ExecutionAndPublication);
         _display = display;
         _sourceProjectFilePath = string.IsNullOrWhiteSpace(sourceProjectFilePath)
             ? null
@@ -44,56 +49,219 @@ public sealed class MacroReference
     public string Display => _display ?? "<macro-reference>";
     public string? SourceProjectFilePath => _sourceProjectFilePath;
 
-    public static MacroReference CreateFromFile(string assemblyPath, string? sourceProjectFilePath = null)
+    public static MacroReference CreateFromFile(
+        string assemblyPath,
+        string? sourceProjectFilePath = null)
+        => CreateFromFile(
+            assemblyPath,
+            sourceProjectFilePath,
+            dependencyAssemblyPaths: null);
+
+    internal static MacroReference CreateFromFile(
+        string assemblyPath,
+        string? sourceProjectFilePath,
+        IEnumerable<string>? dependencyAssemblyPaths)
     {
         if (string.IsNullOrWhiteSpace(assemblyPath))
             throw new ArgumentException("Assembly path is required.", nameof(assemblyPath));
 
         var fullPath = Path.GetFullPath(assemblyPath);
+        var dependencies = dependencyAssemblyPaths?
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Where(path => !string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray() ?? ImmutableArray<string>.Empty;
         return new MacroReference(
-            CreateFilePluginFactory(fullPath),
+            CreateFileMacroFactory(fullPath, dependencies),
             fullPath,
             sourceProjectFilePath);
     }
 
-    public IEnumerable<IRavenMacroPlugin> GetPlugins() => _pluginFactory();
-
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateAssemblyPluginFactory(Assembly assembly)
+    /// <summary>
+    /// Creates a macro reference from an emitted managed assembly image.
+    /// </summary>
+    /// <param name="assemblyImage">The complete portable executable image.</param>
+    /// <param name="display">An optional display name used in diagnostics.</param>
+    /// <returns>A lazily loaded macro reference.</returns>
+    public static MacroReference CreateFromImage(byte[] assemblyImage, string? display = null)
     {
-        var pluginTypes = new Lazy<Type[]>(
-            () => assembly.GetTypes()
-                .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
-                .ToArray(),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        ArgumentNullException.ThrowIfNull(assemblyImage);
+        if (assemblyImage.Length == 0)
+            throw new ArgumentException("Assembly image must not be empty.", nameof(assemblyImage));
 
-        return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
+        var image = (byte[])assemblyImage.Clone();
+        return new MacroReference(
+            CreateImageMacroFactory(image),
+            string.IsNullOrWhiteSpace(display) ? "<in-memory macro assembly>" : display,
+            sourceProjectFilePath: null);
     }
 
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateFilePluginFactory(string fullPath)
+    /// <summary>
+    /// Gets the immutable macro-definition snapshot exported by this reference.
+    /// </summary>
+    public ImmutableArray<IMacroDefinition> Macros => _snapshot.Value.Macros;
+
+    private static Func<MacroSnapshot> CreateAssemblyMacroFactory(Assembly assembly)
     {
-        var pluginTypes = new Lazy<Type[]>(
+        var exports = new Lazy<MacroAssemblyExports>(
+            () => GetExports(assembly),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
+        return () => exports.Value.CreateSnapshot();
+    }
+
+    private static Func<MacroSnapshot> CreateFileMacroFactory(
+        string fullPath,
+        ImmutableArray<string> dependencyAssemblyPaths)
+    {
+        var exports = new Lazy<MacroAssemblyExports>(
             () =>
             {
-                var loadContext = new MacroAssemblyLoadContext(fullPath);
+                var loadContext = new MacroAssemblyLoadContext(
+                    fullPath,
+                    dependencyAssemblyPaths);
                 var assembly = loadContext.LoadFromAssemblyPath(fullPath);
-                return assembly.GetTypes()
-                    .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
-                    .ToArray();
+                return GetExports(assembly, loadContext);
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
+        return () => exports.Value.CreateSnapshot();
     }
+
+    private static Func<MacroSnapshot> CreateImageMacroFactory(byte[] assemblyImage)
+    {
+        var exports = new Lazy<MacroAssemblyExports>(
+            () =>
+            {
+                var loadContext = new MacroAssemblyLoadContext();
+                using var stream = new MemoryStream(assemblyImage, writable: false);
+                var assembly = loadContext.LoadFromStream(stream);
+                return GetExports(assembly, loadContext);
+            },
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
+        return () => exports.Value.CreateSnapshot();
+    }
+
+    private static Func<MacroSnapshot> CreateExportedTypeFactory(Type exportedType)
+    {
+        ArgumentNullException.ThrowIfNull(exportedType);
+        if (!IsConstructibleExportedType(exportedType))
+        {
+            throw new ArgumentException(
+                $"Macro export '{exportedType.FullName}' must be a non-abstract class that implements exactly one supported macro category interface and has a public parameterless constructor.",
+                nameof(exportedType));
+        }
+
+        return () => new MacroSnapshot(
+            [(IMacroDefinition)Activator.CreateInstance(exportedType)!],
+            LoadContext: null);
+    }
+
+    private static MacroAssemblyExports GetExports(
+        Assembly assembly,
+        AssemblyLoadContext? loadContext = null)
+    {
+        var markers = assembly.GetCustomAttributes<RavenCompilerPluginAttribute>().ToArray();
+        var declaredTypes = markers
+            .Select(static marker => marker.ExportedType)
+            .Where(static type => type is not null)
+            .Cast<Type>()
+            .ToArray();
+
+        if (declaredTypes.Length > 0)
+        {
+            if (markers.Any(static marker => marker.ExportedType is null))
+            {
+                throw new InvalidOperationException(
+                    $"Compiler plugin assembly '{assembly.GetName().Name}' mixes explicit entry points with the fallback-discovery marker.");
+            }
+
+            foreach (var declaredType in declaredTypes)
+                ValidateExportedType(assembly, declaredType);
+
+            return new MacroAssemblyExports(
+                declaredTypes
+                    .Where(static type => typeof(IMacroDefinition).IsAssignableFrom(type))
+                    .Distinct()
+                    .ToArray(),
+                loadContext);
+        }
+
+        var exportedTypes = assembly.GetTypes();
+        return new MacroAssemblyExports(
+            exportedTypes
+                .Where(IsConstructibleExportedType)
+                .ToArray(),
+            loadContext);
+    }
+
+    private static void ValidateExportedType(Assembly assembly, Type exportedType)
+    {
+        if (exportedType.Assembly != assembly)
+        {
+            throw new InvalidOperationException(
+                $"Compiler plugin export '{exportedType.FullName}' must be declared in assembly '{assembly.GetName().Name}'.");
+        }
+
+        if (!IsConstructibleExportedType(exportedType))
+        {
+            throw new InvalidOperationException(
+                $"Compiler plugin export '{exportedType.FullName}' must be a non-abstract class that implements exactly one supported macro category interface and has a public parameterless constructor.");
+        }
+    }
+
+    private static bool IsConstructibleExportedType(Type type)
+        => type.IsClass
+            && typeof(IMacroDefinition).IsAssignableFrom(type)
+            && HasExactlyOneMacroRole(type)
+            && !type.IsAbstract
+            && !type.ContainsGenericParameters
+            && type.GetConstructor(Type.EmptyTypes) is not null;
+
+    private static bool HasExactlyOneMacroRole(Type type)
+        => (typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ? 1 : 0) +
+            (typeof(IFreestandingExpressionMacro).IsAssignableFrom(type) ? 1 : 0) +
+            (typeof(ITokenTreeExpressionMacro).IsAssignableFrom(type) ? 1 : 0) == 1;
+
+    private sealed record MacroAssemblyExports(
+        Type[] MacroTypes,
+        AssemblyLoadContext? LoadContext)
+    {
+        public MacroSnapshot CreateSnapshot()
+            => new(
+                MacroTypes
+                    .Select(static macroType => (IMacroDefinition)Activator.CreateInstance(macroType)!)
+                    .ToImmutableArray(),
+                LoadContext);
+    }
+
+    private sealed record MacroSnapshot(
+        ImmutableArray<IMacroDefinition> Macros,
+        AssemblyLoadContext? LoadContext);
 
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {
-        private static readonly Assembly s_macroContractsAssembly = typeof(IRavenMacroPlugin).Assembly;
-        private readonly AssemblyDependencyResolver _resolver;
+        private static readonly Assembly s_macroContractsAssembly = typeof(IMacroDefinition).Assembly;
+        private readonly AssemblyDependencyResolver? _resolver;
+        private readonly string? _mainAssemblyDirectory;
+        private readonly ImmutableArray<string> _dependencyAssemblyPaths;
+        private readonly object _loadGate = new();
 
-        public MacroAssemblyLoadContext(string mainAssemblyPath)
+        public MacroAssemblyLoadContext()
+            : base($"RavenMacro:InMemory:{Guid.NewGuid():N}", isCollectible: true)
+        {
+        }
+
+        public MacroAssemblyLoadContext(
+            string mainAssemblyPath,
+            ImmutableArray<string> dependencyAssemblyPaths)
             : base($"RavenMacro:{Path.GetFileNameWithoutExtension(mainAssemblyPath)}:{Guid.NewGuid():N}", isCollectible: true)
         {
             _resolver = new AssemblyDependencyResolver(mainAssemblyPath);
+            _mainAssemblyDirectory = Path.GetDirectoryName(mainAssemblyPath);
+            _dependencyAssemblyPaths = dependencyAssemblyPaths;
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -102,9 +270,67 @@ public sealed class MacroReference
             if (sharedAssembly is not null)
                 return sharedAssembly;
 
-            var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
+            lock (_loadGate)
+            {
+                var loadedAssembly = Assemblies.FirstOrDefault(
+                    assembly => AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        assembly.GetName()));
+                if (loadedAssembly is not null)
+                    return loadedAssembly;
+
+                return LoadDependency(assemblyName);
+            }
+        }
+
+        private Assembly? LoadDependency(AssemblyName assemblyName)
+        {
+            var assemblyPath = _resolver?.ResolveAssemblyToPath(assemblyName);
             if (!string.IsNullOrWhiteSpace(assemblyPath))
                 return LoadFromAssemblyPath(assemblyPath);
+
+            if (!string.IsNullOrWhiteSpace(_mainAssemblyDirectory) &&
+                !string.IsNullOrWhiteSpace(assemblyName.Name))
+            {
+                var adjacentAssemblyPath = Path.Combine(
+                    _mainAssemblyDirectory,
+                    $"{assemblyName.Name}.dll");
+                if (File.Exists(adjacentAssemblyPath) &&
+                    AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        AssemblyName.GetAssemblyName(adjacentAssemblyPath)))
+                {
+                    return LoadFromAssemblyPath(adjacentAssemblyPath);
+                }
+            }
+
+            foreach (var dependencyAssemblyPath in _dependencyAssemblyPaths)
+            {
+                if (!string.Equals(
+                        Path.GetFileNameWithoutExtension(dependencyAssemblyPath),
+                        assemblyName.Name,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !File.Exists(dependencyAssemblyPath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        AssemblyName.GetAssemblyName(dependencyAssemblyPath)))
+                    {
+                        return LoadFromAssemblyPath(dependencyAssemblyPath);
+                    }
+                }
+                catch (Exception exception) when (
+                    exception is BadImageFormatException or
+                        FileLoadException or
+                        FileNotFoundException)
+                {
+                }
+            }
 
             return null;
         }

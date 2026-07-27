@@ -10,6 +10,38 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Fact]
+    public void Evaluate_RavenMacroProjectItem_ReportsProjectReferenceMigration()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenMacro Include="Macros.rvnproj" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var exception = Assert.Throws<InvalidDataException>(
+                () => MsBuildProjectEvaluator.Evaluate(projectPath, RavenProjectConventions.Default));
+
+            Assert.Contains("no longer supported", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("ProjectReference", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("RavenCompilerPlugin", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MsBuildProject_LoadsRavenCompileItemsAndOptions()
     {
         var root = CreateTempDirectory();
@@ -458,7 +490,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void OpenProject_RavenMacroProjectReference_BuildsAndLoadsCurrentMacroAssembly()
+    public void OpenProject_MarkedCompilerPluginProjectReference_BuildsAndLoadsDirectMacro()
     {
         var root = CreateTempDirectory();
         try
@@ -470,19 +502,12 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
-                import System.Collections.Immutable.*
                 import System.Collections.Generic.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
                 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-                class ObservableMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Tests.Observable"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        [ObservableMacro()]
-                    }
-                }
+                [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
                 class ObservableMacro : IAttachedDeclarationMacro {
                     val Name: string => "Observable"
@@ -561,7 +586,7 @@ val value = WidgetFactory.CreateDefault()
                   </PropertyGroup>
                   <ItemGroup>
                     <RavenCompile Include="main.rvn" />
-                    <RavenMacro Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -579,7 +604,22 @@ val value = WidgetFactory.CreateDefault()
             Assert.NotNull(expansion);
             Assert.IsType<PropertyDeclarationSyntax>(expansion!.ReplacementDeclaration);
             Assert.Single(expansion.IntroducedMembers);
+            Assert.Single(project.MacroReferences);
+            Assert.Empty(project.ProjectReferences);
             Assert.True(File.Exists(Path.Combine(macrosDirectory, "bin", "Debug", "net10.0", "ObservableMacros.dll")));
+
+            workspace.SaveProject(projectId, appProjectPath);
+            var savedProject = System.Xml.Linq.XDocument.Load(appProjectPath);
+            Assert.Contains(
+                savedProject.Descendants(),
+                element =>
+                    element.Name.LocalName == "ProjectReference" &&
+                    PathsEqual(
+                        (string?)element.Attribute("Include"),
+                        Path.GetRelativePath(appDirectory, macroProjectPath)));
+            Assert.DoesNotContain(
+                savedProject.Descendants(),
+                static element => element.Name.LocalName == "RavenMacro");
         }
         finally
         {
@@ -588,7 +628,93 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter()
+    public void OpenProject_MarkedCSharpCompilerPluginProjectReference_BuildsAndLoadsDirectMacro()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var macrosDirectory = Path.Combine(root, "macros");
+            var appDirectory = Path.Combine(root, "app");
+            Directory.CreateDirectory(macrosDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            var macroSourcePath = Path.Combine(macrosDirectory, "AnswerMacro.cs");
+            File.WriteAllText(macroSourcePath, """
+                using Raven.CodeAnalysis.Macros;
+                using Raven.CodeAnalysis.Syntax;
+
+                [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
+
+                public sealed class AnswerMacro : ITokenTreeExpressionMacro
+                {
+                    public string Name => "answer";
+                    public MacroKind Kind => MacroKind.FreestandingExpression;
+
+                    public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+                        => FreestandingMacroExpansionResult.FromExpression(
+                            SyntaxFactory.ParseExpression("42"));
+                }
+                """);
+
+            var macroProjectPath = Path.Combine(macrosDirectory, "AnswerMacros.csproj");
+            var ravenCodeAnalysisPath = typeof(Compilation).Assembly.Location;
+            File.WriteAllText(macroProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>AnswerMacros</AssemblyName>
+                    <Nullable>enable</Nullable>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Reference Include="Raven.CodeAnalysis">
+                      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var appSourcePath = Path.Combine(appDirectory, "main.rvn");
+            File.WriteAllText(appSourcePath, "func Main() -> int => #answer { }");
+
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+            File.WriteAllText(appProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(appProjectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var compilation = workspace.GetCompilation(projectId);
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.Single(project.MacroReferences);
+            Assert.Empty(project.ProjectReferences);
+            Assert.True(File.Exists(Path.Combine(
+                macrosDirectory,
+                "bin",
+                "Debug",
+                "net10.0",
+                "AnswerMacros.dll")));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_CompilerPluginProjectReference_WithObservableReplacement_EmitsExpandedSetter()
     {
         var root = CreateTempDirectory();
         try
@@ -600,17 +726,10 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
-                import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
 
-                class ObservableMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Tests.Observable"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        [ObservableMacro()]
-                    }
-                }
+                [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
                 class ObservableMacro : IAttachedDeclarationMacro {
                     val Name: string => "Observable"
@@ -711,7 +830,7 @@ val value = WidgetFactory.CreateDefault()
                   </PropertyGroup>
                   <ItemGroup>
                     <RavenCompile Include="main.rvn" />
-                    <RavenMacro Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -740,7 +859,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void OpenProject_RavenMacroProjectReference_WithListComprehensionOverSyntaxList_ExpandsMacro()
+    public void OpenProject_CompilerPluginProjectReference_WithListComprehensionOverSyntaxList_ExpandsMacro()
     {
         var root = CreateTempDirectory();
         try
@@ -752,18 +871,11 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
-                import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
                 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-                class ObservableMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Tests.Observable"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        [ObservableMacro()]
-                    }
-                }
+                [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
                 class ObservableMacro : IAttachedDeclarationMacro {
                     val Name: string => "Observable"
@@ -828,7 +940,7 @@ val value = WidgetFactory.CreateDefault()
                   </PropertyGroup>
                   <ItemGroup>
                     <RavenCompile Include="main.rvn" />
-                    <RavenMacro Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -857,7 +969,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void GetRavenMacroOutputPath_IncludesTargetFrameworkSegment()
+    public void GetCompilerPluginOutputPath_IncludesTargetFrameworkSegment()
     {
         var root = CreateTempDirectory();
         try
@@ -876,7 +988,7 @@ val value = WidgetFactory.CreateDefault()
                 </Project>
                 """);
 
-            var outputPath = MsBuildProjectSystemService.GetRavenMacroOutputPath(
+            var outputPath = MsBuildProjectSystemService.GetCompilerPluginOutputPath(
                 projectPath,
                 configuration: "Debug",
                 targetFramework: "net11.0",
@@ -893,7 +1005,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void GetRavenMacroRebuildInputs_IncludeReferencedProjectOutputs()
+    public void GetCompilerPluginRebuildInputs_IncludeReferencedProjectOutputs()
     {
         var root = CreateTempDirectory();
         try
@@ -928,7 +1040,7 @@ val value = WidgetFactory.CreateDefault()
                 """);
 
             var evaluation = MsBuildProjectEvaluator.Evaluate(macroProjectPath, RavenProjectConventions.Default);
-            var rebuildInputs = MsBuildProjectSystemService.GetRavenMacroRebuildInputs(evaluation).ToArray();
+            var rebuildInputs = MsBuildProjectSystemService.GetCompilerPluginRebuildInputs(evaluation).ToArray();
             var helperOutputPath = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
                 Path.Combine(helperDirectory, "Helper.csproj"),
                 evaluation.Configuration,

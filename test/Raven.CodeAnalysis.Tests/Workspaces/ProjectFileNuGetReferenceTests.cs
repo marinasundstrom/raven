@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -62,6 +63,286 @@ public sealed class ProjectFileNuGetReferenceTests
         finally
         {
             Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_MarkedPackageAssembly_AutomaticallyActivatesMacro()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var projectDirectory = Path.Combine(root, "project");
+        var sourceDirectory = Path.Combine(projectDirectory, "src");
+        var packageAssemblyPath = Path.Combine(
+            globalPackages,
+            "fake.macro",
+            "1.0.0",
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(packageAssemblyPath)!);
+        Directory.CreateDirectory(sourceDirectory);
+        File.WriteAllBytes(packageAssemblyPath, EmitPackageMacroAssembly());
+
+        var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
+        File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
+
+        var projectPath = Path.Combine(projectDirectory, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <PackageReference Include="Fake.Macro" Version="1.0.0" />
+            </Project>
+            """);
+
+        var originalPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        Environment.SetEnvironmentVariable("NUGET_PACKAGES", globalPackages);
+        try
+        {
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var compilation = workspace.GetCompilation(projectId);
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.Contains(
+                project.MetadataReferences.OfType<PortableExecutableReference>(),
+                reference => string.Equals(
+                    reference.FilePath,
+                    packageAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase));
+            var macroReference = Assert.Single(compilation.MacroReferences);
+            Assert.Equal(Path.GetFullPath(packageAssemblyPath), macroReference.Display);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_SplitPackage_UsesReferenceAssemblyAndMacroImplementation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var projectDirectory = Path.Combine(root, "project");
+        var sourceDirectory = Path.Combine(projectDirectory, "src");
+        var packageRoot = Path.Combine(globalPackages, "fake.macro", "1.0.0");
+        var referenceAssemblyPath = Path.Combine(
+            packageRoot,
+            "ref",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+        var implementationAssemblyPath = Path.Combine(
+            packageRoot,
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+        var dependencyAssemblyPath = Path.Combine(
+            packageRoot,
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.Dependency.dll");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(referenceAssemblyPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(implementationAssemblyPath)!);
+        Directory.CreateDirectory(sourceDirectory);
+        File.WriteAllBytes(referenceAssemblyPath, EmitPackageReferenceAssembly("Fake.Macro"));
+        File.WriteAllBytes(
+            dependencyAssemblyPath,
+            EmitPackageMacroDependencyAssembly());
+        File.WriteAllBytes(
+            implementationAssemblyPath,
+            EmitPackageMacroAssembly(
+                "Fake.Macro",
+                "PackageMacroDependency.GetExpressionText()",
+                MetadataReference.CreateFromFile(dependencyAssemblyPath)));
+
+        var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
+        File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
+
+        var projectPath = Path.Combine(projectDirectory, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <PackageReference Include="Fake.Macro" Version="1.0.0" />
+            </Project>
+            """);
+
+        var originalPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        Environment.SetEnvironmentVariable("NUGET_PACKAGES", globalPackages);
+        try
+        {
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var compilation = workspace.GetCompilation(projectId);
+            var macroReference = Assert.Single(project.MacroReferences);
+
+            _ = macroReference.Macros;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.Contains(
+                project.MetadataReferences.OfType<PortableExecutableReference>(),
+                reference => string.Equals(
+                    reference.FilePath,
+                    referenceAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(
+                project.MetadataReferences.OfType<PortableExecutableReference>(),
+                reference => string.Equals(
+                    reference.FilePath,
+                    implementationAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(
+                project.MetadataReferences.OfType<PortableExecutableReference>(),
+                reference => string.Equals(
+                    reference.FilePath,
+                    dependencyAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(Path.GetFullPath(implementationAssemblyPath), macroReference.Display);
+            Assert.Equal(
+                Path.GetFullPath(implementationAssemblyPath),
+                Assert.Single(compilation.MacroReferences).Display);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolveReferencesFromAssets_TransitiveRuntimeDependencyIsPrivateToMacro()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var macroPackageRoot = Path.Combine(globalPackages, "fake.macro", "1.0.0");
+        var dependencyPackageRoot = Path.Combine(
+            globalPackages,
+            "fake.macro.dependency",
+            "1.0.0");
+        var referenceAssemblyPath = Path.Combine(
+            macroPackageRoot,
+            "ref",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+        var implementationAssemblyPath = Path.Combine(
+            macroPackageRoot,
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+        var dependencyAssemblyPath = Path.Combine(
+            dependencyPackageRoot,
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.Dependency.dll");
+        var assetsPath = Path.Combine(root, "project.assets.json");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(referenceAssemblyPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(implementationAssemblyPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(dependencyAssemblyPath)!);
+        File.WriteAllBytes(referenceAssemblyPath, EmitPackageReferenceAssembly("Fake.Macro"));
+        File.WriteAllBytes(
+            dependencyAssemblyPath,
+            EmitPackageMacroDependencyAssembly());
+        File.WriteAllBytes(
+            implementationAssemblyPath,
+            EmitPackageMacroAssembly(
+                "Fake.Macro",
+                "PackageMacroDependency.GetExpressionText()",
+                MetadataReference.CreateFromFile(dependencyAssemblyPath)));
+        File.WriteAllText(
+            assetsPath,
+            $$"""
+            {
+              "targets": {
+                "{{TestMetadataReferences.TargetFramework}}": {
+                  "Fake.Macro/1.0.0": {
+                    "type": "package",
+                    "dependencies": {
+                      "Fake.Macro.Dependency": "1.0.0"
+                    },
+                    "compile": {
+                      "ref/{{TestMetadataReferences.TargetFramework}}/Fake.Macro.dll": {}
+                    },
+                    "runtime": {
+                      "lib/{{TestMetadataReferences.TargetFramework}}/Fake.Macro.dll": {}
+                    }
+                  },
+                  "Fake.Macro.Dependency/1.0.0": {
+                    "type": "package",
+                    "compile": {
+                      "_._": {}
+                    },
+                    "runtime": {
+                      "lib/{{TestMetadataReferences.TargetFramework}}/Fake.Macro.Dependency.dll": {}
+                    }
+                  }
+                }
+              },
+              "libraries": {
+                "Fake.Macro/1.0.0": {
+                  "type": "package",
+                  "path": "fake.macro/1.0.0"
+                },
+                "Fake.Macro.Dependency/1.0.0": {
+                  "type": "package",
+                  "path": "fake.macro.dependency/1.0.0"
+                }
+              },
+              "project": {
+                "frameworks": {
+                  "{{TestMetadataReferences.TargetFramework}}": {}
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var resolution = NuGetPackageResolver.ResolveReferencesFromAssets(
+                assetsPath,
+                globalPackages,
+                TestMetadataReferences.TargetFramework);
+
+            var metadataReference = Assert.Single(
+                resolution.MetadataReferences.OfType<PortableExecutableReference>());
+            Assert.Equal(
+                Path.GetFullPath(referenceAssemblyPath),
+                metadataReference.FilePath);
+            var macroReference = Assert.Single(resolution.MacroReferences);
+            Assert.Equal(
+                Path.GetFullPath(implementationAssemblyPath),
+                macroReference.Display);
+
+            var compilation = Compilation.Create(
+                    "Consumer",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(SyntaxTree.ParseText(
+                    "func Main() -> int => #packageAnswer { }"))
+                .AddReferences(TestMetadataReferences.Default)
+                .AddReferences(resolution.MetadataReferences.ToArray())
+                .AddMacroReferences(resolution.MacroReferences.ToArray());
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 
@@ -425,7 +706,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var instrumentation = new PerformanceInstrumentation();
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -731,7 +1012,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -770,7 +1051,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -821,7 +1102,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1208,7 +1489,7 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "Program.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1220,9 +1501,9 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var patternDesignations = root.DescendantNodes()
             .OfType<SingleVariableDesignationSyntax>()
-            .Where(static designation => designation.Identifier.ValueText is "name" or "age")
+            .Where(static designation => designation.Identifier.ValueText == "name")
             .ToArray();
-        Assert.Equal(2, patternDesignations.Length);
+        Assert.Single(patternDesignations);
 
         foreach (var designation in patternDesignations)
             Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
@@ -1729,6 +2010,76 @@ public sealed class ProjectFileNuGetReferenceTests
 
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.EnumeratorCancellationAttributeMissing.Id);
+    }
+
+    private static byte[] EmitPackageMacroAssembly(
+        string? assemblyName = null,
+        string expressionText = "\"42\"",
+        MetadataReference? additionalReference = null)
+    {
+        var macroTree = SyntaxTree.ParseText($$"""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(PackageAnswerMacro))]
+
+            class PackageAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "packageAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
+                        Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression({{expressionText}}))
+            }
+            """);
+        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location);
+        MetadataReference[] references = additionalReference is null
+            ? [.. TestMetadataReferences.Default, codeAnalysisReference]
+            : new[] { additionalReference }
+                .Concat(TestMetadataReferences.Default)
+                .Append(codeAnalysisReference)
+                .ToArray();
+        var macroCompilation = Compilation.Create(
+                assemblyName ?? $"PackageMacros_{Guid.NewGuid():N}",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(macroTree)
+            .AddReferences(references);
+
+        using var image = new MemoryStream();
+        var emitResult = macroCompilation.Emit(image);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        return image.ToArray();
+    }
+
+    private static byte[] EmitPackageMacroDependencyAssembly()
+    {
+        var compilation = Compilation.Create(
+                "Fake.Macro.Dependency",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText("""
+                public class PackageMacroDependency {
+                    public static func GetExpressionText() -> string => "42"
+                }
+                """))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        return image.ToArray();
+    }
+
+    private static byte[] EmitPackageReferenceAssembly(string assemblyName)
+    {
+        var compilation = Compilation.Create(
+                assemblyName,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText("class PackageReferenceMarker {}"))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        return image.ToArray();
     }
 
 }

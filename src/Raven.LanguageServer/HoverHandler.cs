@@ -80,7 +80,10 @@ internal sealed class HoverHandler : IHoverHandler
         {
             currentStage = "analysisContext";
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(
+                request.TextDocument.Uri,
+                request.Position,
+                effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return null;
@@ -626,41 +629,31 @@ internal sealed class HoverHandler : IHoverHandler
     {
         foreach (var macroReference in compilation.MacroReferences)
         {
-            IEnumerable<IRavenMacroPlugin> plugins;
+            IEnumerable<IMacroDefinition> macros;
             try
             {
-                plugins = macroReference.GetPlugins().ToArray();
+                macros = macroReference.Macros;
             }
             catch
             {
                 continue;
             }
 
-            foreach (var plugin in plugins)
+            foreach (var macro in macros)
             {
-                ImmutableArray<IMacroDefinition> macros;
-                try
-                {
-                    macros = plugin.GetMacros();
-                }
-                catch
-                {
-                    continue;
-                }
-
-                var macro = macros.FirstOrDefault(candidate => string.Equals(candidate.Name, macroName, StringComparison.Ordinal));
-                if (macro is null)
+                if (!string.Equals(macro.Name, macroName, StringComparison.Ordinal))
                     continue;
 
-                var kindDisplay = macro.Kind switch
+                var kindDisplay = MacroFacts.GetKind(macro) switch
                 {
                     MacroKind.AttachedDeclaration => "Attached declaration macro",
                     MacroKind.FreestandingExpression => "Freestanding expression macro",
                     _ => "Macro"
                 };
-                var targetsDisplay = macro.Targets == MacroTarget.None
+                var targets = MacroFacts.GetTargets(macro);
+                var targetsDisplay = targets == MacroTarget.None
                     ? null
-                    : $"Targets `{FormatMacroTargets(macro.Targets)}`.";
+                    : $"Targets `{FormatMacroTargets(targets)}`.";
                 var argumentsDisplay = macro.AcceptsArguments
                     ? "Accepts arguments."
                     : "No arguments.";

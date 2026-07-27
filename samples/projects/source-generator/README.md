@@ -19,7 +19,7 @@ namespace Generated
 class HomeControllerRoute {}
 ```
 
-The maintained `src/main.rvn` file uses `Generated.HomeControllerRoute`, proving
+The maintained `src/Controllers.rvn` file uses `Generated.HomeControllerRoute`, proving
 that generated source participates in normal binding without being written
 into the source directory.
 

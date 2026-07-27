@@ -11,7 +11,8 @@ public static class CompletionProvider
     private readonly record struct MacroCompletionContext(
         MacroKind Kind,
         string Prefix,
-        TextSpan ReplacementSpan);
+        TextSpan ReplacementSpan,
+        bool WrapAttachedAttribute = false);
 
     public static IEnumerable<CompletionItem> GetCompletions(
         SyntaxToken token,
@@ -28,12 +29,19 @@ public static class CompletionProvider
                 return macroCompletions;
         }
 
+        var macroParameterCompletions = GetMacroParameterCompletions(
+            model.Compilation,
+            token,
+            sourceText,
+            position).ToArray();
         var binder = model.GetBinder(token.Parent);
         if (token.Parent is { } tokenParent)
             model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(tokenParent);
 
-        var completions = new List<CompletionItem>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var completions = new List<CompletionItem>(macroParameterCompletions);
+        var seen = new HashSet<string>(
+            macroParameterCompletions.Select(static completion => completion.DisplayText),
+            StringComparer.Ordinal);
 
         bool IsAccessible(ISymbol symbol)
         {
@@ -2929,15 +2937,117 @@ public static class CompletionProvider
         }
 
         var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+        var freestandingInvocationStart = freestandingMacro?.ArgumentList.OpenParenToken.IsMissing == false
+            ? freestandingMacro.ArgumentList.OpenParenToken.SpanStart
+            : freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart;
         if (freestandingMacro is not null &&
             position >= freestandingMacro.HashToken.Span.End &&
-            position <= freestandingMacro.ArgumentList.OpenParenToken.SpanStart)
+            (position <= freestandingInvocationStart ||
+             position == freestandingMacro.HashToken.Span.End))
         {
             CreateMacroCompletionContext(freestandingMacro.Name, MacroKind.FreestandingExpression, sourceText, position, out context);
             return true;
         }
 
+        if (token.Parent is IncompleteMemberDeclarationSyntax incompleteMember &&
+            incompleteMember.SkippedTokens.LeadingTrivia
+                .Where(static trivia => trivia.Kind == SyntaxKind.SkippedTokensTrivia)
+                .Select(static trivia => trivia.GetStructure())
+                .OfType<SkippedTokensTrivia>()
+                .SelectMany(static trivia => trivia.Tokens)
+                .Any(static skipped => skipped.IsKind(SyntaxKind.HashToken)))
+        {
+            context = new MacroCompletionContext(
+                MacroKind.AttachedDeclaration,
+                Prefix: string.Empty,
+                ReplacementSpan: new TextSpan(position, 0),
+                WrapAttachedAttribute: true);
+            return true;
+        }
+
         return false;
+    }
+
+    private static IEnumerable<CompletionItem> GetMacroParameterCompletions(
+        Compilation compilation,
+        SyntaxToken token,
+        SourceText sourceText,
+        int position)
+    {
+        var argumentList = token.Parent?.AncestorsAndSelf()
+            .OfType<ArgumentListSyntax>()
+            .FirstOrDefault();
+        if (argumentList is null ||
+            position < argumentList.OpenParenToken.Span.End ||
+            position > argumentList.CloseParenToken.SpanStart)
+        {
+            yield break;
+        }
+
+        IMacroDefinition? macro = argumentList.Parent switch
+        {
+            AttributeSyntax attribute when
+                attribute.TryGetMacroName(out var name) &&
+                compilation.GetMacroRegistry().TryResolveAttachedMacro(name, out var loaded) =>
+                loaded.Macro,
+            FreestandingMacroExpressionSyntax expression when
+                expression.TryGetMacroName(out var name) &&
+                compilation.GetMacroRegistry().TryResolveFreestandingMacro(name, out var loaded) =>
+                loaded.Macro,
+            _ => null
+        };
+        if (macro is null)
+            yield break;
+
+        var replacementSpan = new TextSpan(position, 0);
+        var prefix = string.Empty;
+        string? currentNamedArgument = null;
+        var isParameterNamePosition =
+            token.IsKind(SyntaxKind.OpenParenToken) ||
+            token.IsKind(SyntaxKind.CommaToken);
+        if (token.Parent?.GetAncestor<ArgumentSyntax>() is { } currentArgument &&
+            currentArgument.Parent == argumentList)
+        {
+            currentNamedArgument = currentArgument.NameColon?.Name.Identifier.ValueText;
+            var candidateToken = currentArgument.NameColon?.Name.Identifier ?? token;
+            if (candidateToken.IsKind(SyntaxKind.IdentifierToken) &&
+                position >= candidateToken.Span.Start &&
+                position <= candidateToken.Span.End)
+            {
+                replacementSpan = candidateToken.Span;
+                var prefixLength = Math.Clamp(position - candidateToken.Span.Start, 0, candidateToken.Span.Length);
+                prefix = sourceText.ToString(new TextSpan(candidateToken.Span.Start, prefixLength));
+                isParameterNamePosition =
+                    currentArgument.NameColon is not null ||
+                    currentArgument.Expression is IdentifierNameSyntax;
+            }
+        }
+
+        if (!isParameterNamePosition)
+            yield break;
+
+        var usedNames = argumentList.Arguments
+            .Select(static argument => argument.NameColon?.Name.Identifier.ValueText)
+            .Where(static name => !string.IsNullOrEmpty(name))
+            .ToHashSet(StringComparer.Ordinal);
+        if (currentNamedArgument is not null)
+            usedNames.Remove(currentNamedArgument);
+
+        foreach (var parameter in MacroFacts.GetParameters(macro))
+        {
+            if (parameter.Kind != MacroParameterKind.Named ||
+                usedNames.Contains(parameter.Name) ||
+                !parameter.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            yield return new CompletionItem(
+                DisplayText: parameter.Name,
+                InsertionText: parameter.Name + ": ",
+                ReplacementSpan: replacementSpan,
+                Description: $"macro argument: {parameter.TypeDisplayName}");
+        }
     }
 
     private static void CreateMacroCompletionContext(
@@ -2969,12 +3079,23 @@ public static class CompletionProvider
             if (!seen.Add(macro.Name) || !MacroNameMatchesPrefix(macro.Name, context.Prefix))
                 continue;
 
-            var insertionText = context.Kind == MacroKind.FreestandingExpression
-                ? macro.Name + "()"
-                : macro.Name;
-            var cursorOffset = context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments
-                ? insertionText.Length - 1
-                : (int?)null;
+            var insertionText = macro switch
+            {
+                ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name + "() { }",
+                ITokenTreeExpressionMacro => macro.Name + " { }",
+                _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{macro.Name}()]",
+                _ when context.WrapAttachedAttribute => $"[{macro.Name}]",
+                _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
+                _ => macro.Name
+            };
+            var cursorOffset = macro switch
+            {
+                ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name.Length + 1,
+                ITokenTreeExpressionMacro => insertionText.Length - 1,
+                _ when context.WrapAttachedAttribute && macro.AcceptsArguments => macro.Name.Length + 2,
+                _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
+                _ => (int?)null
+            };
 
             yield return new CompletionItem(
                 DisplayText: macro.Name,
@@ -2986,54 +3107,27 @@ public static class CompletionProvider
     }
 
     private static IEnumerable<IMacroDefinition> EnumerateMacros(Compilation compilation, MacroKind kind)
-    {
-        foreach (var macroReference in compilation.MacroReferences)
-        {
-            IEnumerable<IRavenMacroPlugin> plugins;
-            try
-            {
-                plugins = macroReference.GetPlugins().ToArray();
-            }
-            catch
-            {
-                continue;
-            }
-
-            foreach (var plugin in plugins)
-            {
-                ImmutableArray<IMacroDefinition> macros;
-                try
-                {
-                    macros = plugin.GetMacros();
-                }
-                catch
-                {
-                    continue;
-                }
-
-                foreach (var macro in macros)
-                {
-                    if (macro.Kind == kind)
-                        yield return macro;
-                }
-            }
-        }
-    }
+        => compilation.GetMacroRegistry().GetMacros(kind);
 
     private static string CreateMacroDescription(IMacroDefinition macro)
     {
-        var kindDisplay = macro.Kind switch
+        var kindDisplay = MacroFacts.GetKind(macro) switch
         {
             MacroKind.AttachedDeclaration => "attached declaration macro",
             MacroKind.FreestandingExpression => "freestanding expression macro",
             _ => "macro"
         };
-        var targetsDisplay = macro.Targets == MacroTarget.None
+        var targets = MacroFacts.GetTargets(macro);
+        var targetsDisplay = targets == MacroTarget.None
             ? null
-            : $"targets: {FormatMacroTargets(macro.Targets)}";
-        var argumentsDisplay = macro.AcceptsArguments
-            ? "accepts arguments"
-            : "no arguments";
+            : $"targets: {FormatMacroTargets(targets)}";
+        var argumentsDisplay = macro switch
+        {
+            ITokenTreeExpressionMacro when macro.AcceptsArguments => "accepts arguments and a token-tree body",
+            ITokenTreeExpressionMacro => "accepts a token-tree body",
+            _ when macro.AcceptsArguments => "accepts arguments",
+            _ => "no arguments"
+        };
 
         return string.Join(
             " • ",

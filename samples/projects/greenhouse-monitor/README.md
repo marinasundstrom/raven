@@ -21,7 +21,7 @@ Project file:
 
 Source files:
 
-- `src/main.rvn` contains the domain model, evaluation rules, and console report
+- `src/GreenhouseMonitor.rvn` contains the domain model, evaluation rules, and console report
 - `src/telemetry.rvn` defines the polling interface, simulates a device, and
   validates its data
 

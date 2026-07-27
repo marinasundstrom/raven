@@ -14,6 +14,8 @@ public enum RavenQuoterOutputLanguage
 /// </summary>
 public sealed class RavenQuoterOptions
 {
+    internal Func<SyntaxNode, string?>? NodeSourceOverride { get; init; }
+
     /// <summary>
     /// The source language used for imports, declarations, and collections.
     /// </summary>
@@ -32,11 +34,25 @@ public sealed class RavenQuoterOptions
     public bool WrapInClass { get; init; } = false;
 
     /// <summary>
+    /// Append a call to <c>NormalizeWhitespace()</c> to the generated root.
+    /// Disable this when the generated factory expression must preserve the
+    /// quoted node's exact static result type.
+    /// </summary>
+    public bool NormalizeWhitespace { get; init; } = true;
+
+    /// <summary>
     /// If true, imports <c>SyntaxFactory</c> members and emits
     /// <c>CompilationUnit()</c>. If false, emits
     /// <c>SyntaxFactory.CompilationUnit()</c>.
     /// </summary>
     public bool UseStaticSyntaxFactoryImport { get; init; } = true;
+
+    /// <summary>
+    /// Fully qualify syntax factory, syntax kind, and syntax node type names.
+    /// This allows the generated expression to bind without syntax namespace
+    /// imports in the consuming source file.
+    /// </summary>
+    public bool FullyQualifyNames { get; init; } = false;
 
     /// <summary>
     /// If true, imports appropriate for <see cref="OutputLanguage"/> are generated.

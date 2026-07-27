@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -16,7 +17,8 @@ public class IdentifierTokenTests
         private int _index;
         public Action<IS.DiagnosticInfo>? DiagnosticSink { get; set; }
 
-        public SingleTokenLexer(ParserInternal.Token token) {
+        public SingleTokenLexer(ParserInternal.Token token)
+        {
             _tokens = new[] { token, new ParserInternal.Token(SyntaxKind.EndOfFileToken, string.Empty) };
         }
 
@@ -77,5 +79,25 @@ public class IdentifierTokenTests
 
         Assert.Equal(SyntaxKind.IdentifierToken, token.Kind);
         Assert.Equal("import", token.Text);
+    }
+
+    [Fact]
+    public void RawKind_AllowsMacroLocalTokenClassificationWithoutChangingRavenKind()
+    {
+        const int customKeywordRawKind = 70_001;
+        var identifier = SyntaxFactory.Identifier("select")
+            .WithRawKind(customKeywordRawKind);
+
+        Assert.Equal(SyntaxKind.IdentifierToken, identifier.Kind);
+        Assert.Equal(customKeywordRawKind, identifier.RawKind);
+
+        var customToken = SyntaxFactory.Token(
+            rawKind: 70_002,
+            text: "⟨value⟩",
+            position: 12);
+
+        Assert.Equal(SyntaxKind.None, customToken.Kind);
+        Assert.Equal(70_002, customToken.RawKind);
+        Assert.Equal(new TextSpan(12, "⟨value⟩".Length), customToken.Span);
     }
 }

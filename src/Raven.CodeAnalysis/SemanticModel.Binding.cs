@@ -2812,11 +2812,12 @@ public partial class SemanticModel
         var typeSymbol = GetDeclaredTypeSymbol(declaration);
         var declarationBinder = new ClassDeclarationBinder(parentBinder, typeSymbol, declaration);
         declarationBinder.EnsureTypeParameterConstraintTypesResolved(typeSymbol.TypeParameters);
+        var effectiveDeclaration = GetEffectiveNominalTypeDeclaration(declaration);
 
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
-        var defaultBaseType = GetDefaultBaseTypeForNominalDeclaration(declaration, objectType, valueType);
+        var defaultBaseType = GetDefaultBaseTypeForNominalDeclaration(effectiveDeclaration, objectType, valueType);
         var defaultInterfaces = GetDefaultNominalInterfaces(typeSymbol);
-        var shape = declarationBinder.BindNominalTypeShape(declaration, defaultBaseType, defaultInterfaces);
+        var shape = declarationBinder.BindNominalTypeShape(effectiveDeclaration, defaultBaseType, defaultInterfaces);
         var baseTypeSymbol = shape.BaseType;
         var interfaceList = shape.Interfaces;
 
@@ -2837,6 +2838,25 @@ public partial class SemanticModel
             ResolveSealedHierarchyPermits(declaration, typeSymbol, declarationBinder);
 
         classBinders.Add((declaration, declarationBinder));
+    }
+
+    private TypeDeclarationSyntax GetEffectiveNominalTypeDeclaration(TypeDeclarationSyntax declaration)
+    {
+        var effectiveDeclaration = declaration;
+
+        foreach (var attribute in declaration.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            if (!attribute.IsMacroAttribute())
+                continue;
+
+            if (GetMacroExpansion(attribute)?.ReplacementDeclaration is TypeDeclarationSyntax replacement &&
+                IsNominalTypeDeclaration(replacement))
+            {
+                effectiveDeclaration = replacement;
+            }
+        }
+
+        return effectiveDeclaration;
     }
 
     internal bool TryEnsureTypeMemberSignaturesDeclared(SourceNamedTypeSymbol typeSymbol)
@@ -6746,6 +6766,9 @@ public partial class SemanticModel
                 if (!RequiresInterfaceImplementation(interfaceMethod))
                     continue;
 
+                if (HasInheritedDefaultInterfaceImplementation(typeSymbol, interfaceMethod))
+                    continue;
+
                 if (ImplementsInterfaceMethod(typeSymbol, interfaceMethod))
                     continue;
 
@@ -6777,6 +6800,28 @@ public partial class SemanticModel
                     declaration.Identifier.GetLocation());
             }
         }
+    }
+
+    private static bool HasInheritedDefaultInterfaceImplementation(
+        INamedTypeSymbol typeSymbol,
+        IMethodSymbol interfaceMethod)
+    {
+        foreach (var candidateInterface in typeSymbol.AllInterfaces)
+        {
+            foreach (var candidateMethod in candidateInterface.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (candidateMethod.IsAbstract)
+                    continue;
+
+                if (candidateMethod.ExplicitInterfaceImplementations.Any(implementation =>
+                        SymbolEqualityComparer.Default.Equals(implementation, interfaceMethod)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool RequiresInterfaceImplementation(IMethodSymbol interfaceMethod)

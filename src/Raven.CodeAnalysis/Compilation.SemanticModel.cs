@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -33,6 +34,15 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets macro signature help at a position in a syntax tree within this compilation.
+    /// </summary>
+    public MacroSignatureHelp? GetMacroSignatureHelp(SyntaxTree syntaxTree, int position)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        return GetSemanticModel(syntaxTree).GetMacroSignatureHelp(position);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>
@@ -52,12 +62,48 @@ public partial class Compilation
     {
         EnsureSetup();
 
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.GetSemanticModel(syntaxTree);
+
         return GetOrCreateSemanticModel(syntaxTree);
+    }
+
+    /// <summary>
+    /// Gets the semantic model that owns an authored position, including when
+    /// <paramref name="syntaxTree"/> was split into local macro and consumer
+    /// projections.
+    /// </summary>
+    public SemanticModel GetSemanticModel(SyntaxTree syntaxTree, int position)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        if ((uint)position > (uint)syntaxTree.Length)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        EnsureSetup();
+
+        if (_syntaxTrees.Contains(syntaxTree) || _macroSyntaxTrees.Contains(syntaxTree))
+            return GetSemanticModel(syntaxTree);
+
+        var preferMacro = LocalMacroSyntaxClassifier.IsLocalMacroPosition(syntaxTree, position);
+        var primaryTrees = preferMacro ? _macroSyntaxTrees : _syntaxTrees;
+        var secondaryTrees = preferMacro ? _syntaxTrees : _macroSyntaxTrees;
+        var projectedTree = FindProjectedSemanticTree(
+            syntaxTree,
+            primaryTrees,
+            secondaryTrees,
+            preferMacro);
+        if (projectedTree is null)
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
+
+        return GetSemanticModel(projectedTree);
     }
 
     internal bool TryGetSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         EnsureSetup();
+
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.TryGetSemanticModel(syntaxTree, out semanticModel);
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -72,6 +118,12 @@ public partial class Compilation
 
     internal bool TryGetExistingSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
+        if (_macroSyntaxTrees.Contains(syntaxTree) &&
+            _macroPartitionCompilation is not null)
+        {
+            return _macroPartitionCompilation.TryGetExistingSemanticModel(syntaxTree, out semanticModel);
+        }
+
         if (_generatedSemanticModels.TryGetValue(syntaxTree, out semanticModel!))
             return true;
 
@@ -85,6 +137,9 @@ public partial class Compilation
     internal bool TryGetSemanticModelForDeclarationBinding(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         EnsureSetup();
+
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.TryGetSemanticModelForDeclarationBinding(syntaxTree, out semanticModel);
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -112,9 +167,65 @@ public partial class Compilation
         return _semanticModels.GetOrAdd(syntaxTree, tree => new SemanticModel(this, tree));
     }
 
+    private static SyntaxTree? FindProjectedSemanticTree(
+        SyntaxTree authoredTree,
+        SyntaxTree[] primaryTrees,
+        SyntaxTree[] secondaryTrees,
+        bool preferMacro)
+    {
+        var partition = LocalMacroSyntaxClassifier.Partition(authoredTree);
+        var projectedTree = preferMacro
+            ? partition.MacroTree ?? partition.ConsumerTree
+            : partition.ConsumerTree ?? partition.MacroTree;
+        var projectedText = projectedTree?.GetText()?.ToString();
+        if (projectedText is null)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(authoredTree.FilePath))
+        {
+            var pathMatch = FindTreeByPathAndText(
+                primaryTrees,
+                authoredTree.FilePath,
+                projectedText);
+            pathMatch ??= FindTreeByPathAndText(
+                secondaryTrees,
+                authoredTree.FilePath,
+                projectedText);
+            if (pathMatch is not null)
+                return pathMatch;
+        }
+
+        return primaryTrees
+            .Concat(secondaryTrees)
+            .FirstOrDefault(compilationTree =>
+                string.Equals(
+                    compilationTree.GetText()?.ToString(),
+                    projectedText,
+                    StringComparison.Ordinal));
+
+        static SyntaxTree? FindTreeByPathAndText(
+            IEnumerable<SyntaxTree> trees,
+            string filePath,
+            string projectedText)
+            => trees.FirstOrDefault(compilationTree =>
+                !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
+                string.Equals(
+                    compilationTree.FilePath,
+                    filePath,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    compilationTree.GetText()?.ToString(),
+                    projectedText,
+                    StringComparison.Ordinal));
+    }
+
     internal SemanticModel CreateTransientSemanticModel(SyntaxTree syntaxTree)
     {
         EnsureSetup();
+
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.CreateTransientSemanticModel(syntaxTree);
+
         EnsureSourceDeclarationsComplete();
 
         if (_generatedSemanticModels.TryGetValue(syntaxTree, out var generatedSemanticModel))

@@ -204,6 +204,33 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private sealed class SemanticMethodNameAnalyzer : DiagnosticAnalyzer
+    {
+        public static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0013",
+            title: "Semantic method name",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Method '{0}'",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterSyntaxNodeAction(ctx =>
+            {
+                var symbol = ctx.SemanticModel.GetDeclaredSymbol(ctx.Node);
+                if (symbol is IMethodSymbol method)
+                {
+                    ctx.ReportDiagnostic(Diagnostic.Create(
+                        Descriptor,
+                        ctx.Node.GetLocation(),
+                        method.Name));
+                }
+            }, SyntaxKind.MethodDeclaration);
+        }
+    }
+
     private sealed class NodeScopedAnalyzer : DiagnosticAnalyzer
     {
         private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
@@ -605,6 +632,49 @@ func F() -> unit { }
             .ToList();
 
         diagnostics.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_MixedLocalMacro_RunsForBothSemanticProjections()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+[LocalMacro]
+class MacroSupport {
+    func MacroMethod() -> unit { }
+}
+
+class RuntimeSupport {
+    func RuntimeMethod() -> unit { }
+}
+""";
+        var solution = workspace.CurrentSolution.AddDocument(
+            docId,
+            "test.rvn",
+            SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new SemanticMethodNameAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId)
+            .Where(diagnostic => diagnostic.Descriptor.Id == SemanticMethodNameAnalyzer.Descriptor.Id)
+            .Select(static diagnostic => diagnostic.GetMessage())
+            .OrderBy(static message => message)
+            .ToArray();
+
+        diagnostics.ShouldBe([
+            "Method 'MacroMethod'",
+            "Method 'RuntimeMethod'"
+        ]);
     }
 
     [Fact]

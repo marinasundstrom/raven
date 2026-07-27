@@ -11,7 +11,7 @@ internal static class MacroSemanticValidator
         "Unknown macro",
         "",
         "",
-        "Macro '{0}' could not be resolved. Add a matching Raven macro plugin reference.",
+        "Macro '{0}' could not be resolved. Add a matching Raven macro reference.",
         "compiler",
         DiagnosticSeverity.Error,
         true);
@@ -32,6 +32,16 @@ internal static class MacroSemanticValidator
         "",
         "",
         "Macro '{0}' does not accept arguments.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor s_macroInvocationFormNotSupported = DiagnosticDescriptor.Create(
+        "RAVM013",
+        "Macro invocation form not supported",
+        "",
+        "",
+        "Macro '{0}' {1}.",
         "compiler",
         DiagnosticSeverity.Error,
         true);
@@ -112,6 +122,40 @@ internal static class MacroSemanticValidator
         if (!registry.TryResolveFreestandingMacro(macroName, out loaded))
         {
             diagnostics?.Report(Diagnostic.Create(s_unknownMacro, expression.Name.GetLocation(), macroName));
+            return false;
+        }
+
+        if (expression.TokenTree is not null)
+        {
+            if (loaded.Macro is not ITokenTreeExpressionMacro)
+            {
+                diagnostics?.Report(Diagnostic.Create(
+                    s_macroInvocationFormNotSupported,
+                    expression.TokenTree.GetLocation(),
+                    macroName,
+                    "does not accept a token-tree body"));
+                return false;
+            }
+
+            if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Macro.AcceptsArguments)
+            {
+                diagnostics?.Report(Diagnostic.Create(
+                    s_macroArgumentsNotSupported,
+                    expression.ArgumentList.GetLocation(),
+                    macroName));
+                return false;
+            }
+
+            return true;
+        }
+
+        if (loaded.Macro is not IFreestandingExpressionMacro)
+        {
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroInvocationFormNotSupported,
+                expression.Name.GetLocation(),
+                macroName,
+                "requires a token-tree body"));
             return false;
         }
 

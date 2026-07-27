@@ -29,7 +29,7 @@ The compiled JavaScript emits to `out/` and is referenced by the extension manif
 The extension exposes settings to control language-server resolution and debug compilation:
 - `raven.sdkPath` (string): Override the Raven SDK root directory. When this is unset, the extension runs `rvn sdk path` to discover an installed SDK. The extension looks in that root for bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`.
 - `raven.languageServerPath` (string): Override the resolved `Raven.LanguageServer.dll` path. Use this when working with custom build outputs or packaged bits.
-- `raven.autoBuildLanguageServerOnActivate` (boolean): When enabled, the extension builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation if it can find the project in the current workspace or extension ancestors. This is intended for Raven source-workspace development and is ignored when `raven.languageServerPath` is set.
+- `raven.autoBuildLanguageServerOnActivate` (boolean): Opt-in source-development setting that builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` before activation if it can find the project in the current workspace or extension ancestors. It can substantially delay startup and is ignored when `raven.languageServerPath` is set.
 - `raven.compilerProjectPath` (string): Override the path used to locate a prebuilt `rvnc.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler driver is available.
 - `raven.targetFramework` (string): Optional target framework (for example, `net10.0`) passed to debug compile invocations.
 - `raven.inlayHints.enabled` (boolean): Master switch for Raven inlay hints.

@@ -71,7 +71,30 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/markdown-docs/README.md` (Markdown-first comments, editor highlighting, and default Markdown/XML projections)
 - `samples/projects/syntax-tree-api/README.md` (parse and inspect Raven syntax trees from Raven code)
 - `samples/projects/syntax-quoter/README.md` (generate Raven SyntaxFactory code from Raven source)
+- `samples/projects/macro-token-stream/README.md` (replace Raven's macro token stream with a custom lexer)
+- `samples/projects/macro-quote/README.md` (construct another macro's expansion with `#quote`)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
+
+### Source file naming and organization
+
+Raven project samples follow the same organization expected of ordinary Raven
+projects:
+
+- Use `Main.rvn` only when the file contains the `Main` entry point by itself.
+- Use `Program.rvn` for top-level statements or a program file that encompasses
+  multiple functions or types, including its `Main` entry point.
+- Use `<Type>.rvn` for a file centered on one primary type. Closely related
+  enums, unions, helper types, and functions may remain beside it when that
+  primary type clearly owns the concept.
+- Use `<area-name>.rvn` for a related collection of types and functions, similar
+  to a module or domain area.
+- Use `<function>.rvn` for a function that deserves its own file.
+- As a sample grows, extract types, functions, or domain areas into appropriately
+  named files, especially when the organization itself is part of what the
+  sample demonstrates.
+
+The convention is meant to make intent visible, not to require one file per
+type in every small example.
 
 ### Project build workflow
 

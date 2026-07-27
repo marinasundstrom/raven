@@ -1,9 +1,0 @@
-import System.Console.*
-
-func Main() {
-    let user = User("Ada", 37)
-    WriteLine(user.Name)
-}
-
-#[AddEquatable]
-class User(val Name: string, val Age: int)

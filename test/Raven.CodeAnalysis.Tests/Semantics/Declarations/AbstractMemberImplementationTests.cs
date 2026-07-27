@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Testing;
 
 using Xunit;
@@ -147,5 +148,31 @@ class Logger : ILogger {
 """;
 
         CreateVerifier(source).Verify();
+    }
+
+    [Fact]
+    public void InheritedMetadataDefaultInterfaceMethod_DoesNotRequireImplementation()
+    {
+        const string source = """
+import Raven.CodeAnalysis.Macros.*
+
+class Parameters {
+}
+
+class TypedMacro : ITokenTreeExpressionMacro<Parameters> {
+    val Name: string => "typed"
+
+    func Expand(context: TokenTreeMacroContext<Parameters>) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
+    }
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        verifier.Test.State.AdditionalReferences =
+        [
+            MetadataReference.CreateFromFile(typeof(ITokenTreeExpressionMacro<>).Assembly.Location)
+        ];
+        verifier.Verify();
     }
 }

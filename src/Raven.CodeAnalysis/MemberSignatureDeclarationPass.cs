@@ -701,6 +701,7 @@ internal static class MemberSignatureDeclarationPass
             ]);
         }
 
+        methodSymbol.MarkSignatureSkeleton();
         return methodSymbol;
     }
 

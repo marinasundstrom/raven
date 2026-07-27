@@ -408,7 +408,7 @@ function resolveLanguageServerProjectPath(): string | undefined {
 
 async function ensureLanguageServerBuilt(): Promise<void> {
   const configuration = vscode.workspace.getConfiguration('raven');
-  if (!configuration.get<boolean>('autoBuildLanguageServerOnActivate', true)) {
+  if (!configuration.get<boolean>('autoBuildLanguageServerOnActivate', false)) {
     return;
   }
 

@@ -1,0 +1,9 @@
+import System.Console.*
+import Raven.CodeAnalysis.Syntax.*
+
+let expression: ExpressionSyntax = #quote {
+    20 + 22
+}
+
+WriteLine("Quoted Raven expression:")
+WriteLine(expression.ToFullString())

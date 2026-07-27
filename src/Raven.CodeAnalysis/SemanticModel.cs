@@ -310,6 +310,23 @@ public partial class SemanticModel
     }
 
     /// <summary>
+    /// Gets macro signature help at a position in this semantic model's syntax tree.
+    /// </summary>
+    /// <param name="position">The zero-based position in the syntax tree.</param>
+    /// <returns>The macro signature at the position, or <see langword="null"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="position"/> is outside the tree bounds.</exception>
+    public MacroSignatureHelp? GetMacroSignatureHelp(int position)
+    {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
+        var treeLength = SyntaxTree.GetRoot().FullSpan.End;
+        if ((uint)position > (uint)treeLength)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        return MacroSignatureHelpService.GetSignatureHelp(this, position);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in this semantic model's syntax tree asynchronously.
     /// </summary>
     /// <param name="position">The zero-based position in the syntax tree.</param>

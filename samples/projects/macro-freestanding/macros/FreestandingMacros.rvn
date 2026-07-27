@@ -1,0 +1,305 @@
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+[assembly: RavenCompilerPlugin(typeof(AddMacro))]
+[assembly: RavenCompilerPlugin(typeof(GuardMacro))]
+[assembly: RavenCompilerPlugin(typeof(ChooseMacro))]
+[assembly: RavenCompilerPlugin(typeof(QueryMacro))]
+
+class AddMacro : IFreestandingExpressionMacro {
+    val Name: string => "add"
+    val AcceptsArguments: bool => true
+
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        if context.Arguments.Length != 2 {
+            return FreestandingMacroExpansionResult.Empty
+        }
+
+        FreestandingMacroExpansionResult {
+            Expression = #quote {
+                #(context.Arguments[0].Expression) + #(context.Arguments[1].Expression)
+            }
+        }
+    }
+}
+
+class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
+    static val UnlessKeywordRawKind: int => 80001
+
+    val Name: string => "guard"
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [MacroKeyword("unless", UnlessKeywordRawKind)]
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+
+        if stream.IsEndOfFile {
+            return Error(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
+        }
+
+        let keyword = stream.ReadToken()
+        if keyword.RawKind != UnlessKeywordRawKind {
+            return Error(context, keyword.Span, "Expected the 'unless' keyword.")
+        }
+
+        if stream.IsEndOfFile {
+            return Error(context, keyword.Span, "Expected a Raven expression after 'unless'.")
+        }
+
+        let expressionSpan = TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length)
+        let condition = context.ParseExpression(expressionSpan)
+
+        FreestandingMacroExpansionResult {
+            Expression = PrefixOperatorExpression(
+                SyntaxKind.LogicalNotExpression,
+                ExclamationToken,
+                condition)
+        }
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
+            MacroDiagnostics = [
+                context.CreateBodyDiagnostic(span, message, code: "GUARD001")
+            ]
+        }
+    }
+}
+
+class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
+    static val TestKeywordRawKind: int => 80002
+    static val ThenKeywordRawKind: int => 80003
+    static val OtherwiseKeywordRawKind: int => 80004
+
+    val Name: string => "choose"
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [
+            MacroKeyword("test", TestKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("then", ThenKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
+        ]
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+
+        if stream.IsEndOfFile {
+            return Error(context, TextSpan(0, 0), "Expected a 'test' clause.")
+        }
+
+        let testKeyword = stream.ReadToken()
+        if testKeyword.RawKind != TestKeywordRawKind {
+            return Error(context, testKeyword.Span, "Expected the 'test' keyword.")
+        }
+
+        var thenKeyword = testKeyword
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+            if token.RawKind == ThenKeywordRawKind {
+                thenKeyword = token
+                break
+            }
+        }
+
+        if thenKeyword.RawKind != ThenKeywordRawKind {
+            return Error(context, testKeyword.Span, "Expected a 'then' clause.")
+        }
+
+        var otherwiseKeyword = thenKeyword
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+            if token.RawKind == OtherwiseKeywordRawKind {
+                otherwiseKeyword = token
+                break
+            }
+        }
+
+        if otherwiseKeyword.RawKind != OtherwiseKeywordRawKind {
+            return Error(context, thenKeyword.Span, "Expected an 'otherwise' clause.")
+        }
+
+        let condition = context.ParseExpression(
+            TextSpan.FromBounds(testKeyword.Span.End, thenKeyword.SpanStart))
+        let whenTrue = context.ParseExpression(
+            TextSpan.FromBounds(thenKeyword.Span.End, otherwiseKeyword.SpanStart))
+        let whenFalse = context.ParseExpression(
+            TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length))
+
+        FreestandingMacroExpansionResult {
+            Expression = IfExpression(
+                IfKeyword,
+                condition,
+                whenTrue,
+                ElseExpressionClause(ElseKeyword, whenFalse))
+        }
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
+            MacroDiagnostics = [
+                context.CreateBodyDiagnostic(span, message, code: "CHOOSE001")
+            ]
+        }
+    }
+}
+
+class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
+    static val FromKeywordRawKind: int => 80005
+    static val SelectKeywordRawKind: int => 80006
+
+    val Name: string => "query"
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [
+            MacroKeyword("from", FromKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("select", SelectKeywordRawKind, MacroKeywordClassification.ReservedWord)
+        ]
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+
+        if stream.IsEndOfFile {
+            return Error(context, TextSpan(0, 0), "Expected a 'from' clause.")
+        }
+
+        let fromKeyword = stream.ReadToken()
+        if fromKeyword.RawKind != FromKeywordRawKind {
+            return Error(context, fromKeyword.Span, "Expected the 'from' keyword.")
+        }
+
+        if stream.IsEndOfFile {
+            return Error(context, fromKeyword.Span, "Expected a range variable after 'from'.")
+        }
+
+        let rangeVariable = stream.ReadToken()
+        if rangeVariable.Kind != SyntaxKind.IdentifierToken {
+            return Error(context, rangeVariable.Span, "Expected a range-variable identifier.")
+        }
+
+        if stream.IsEndOfFile {
+            return Error(context, rangeVariable.Span, "Expected 'in' after the range variable.")
+        }
+
+        let inKeyword = stream.ReadToken()
+        if inKeyword.Kind != SyntaxKind.InKeyword {
+            return Error(context, inKeyword.Span, "Expected the 'in' keyword.")
+        }
+
+        var whereKeyword = inKeyword
+        var selectKeyword = inKeyword
+
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+
+            if token.RawKind == SelectKeywordRawKind {
+                selectKeyword = token
+                break
+            }
+
+            if token.Kind == SyntaxKind.WhereKeyword && whereKeyword.Kind != SyntaxKind.WhereKeyword {
+                whereKeyword = token
+            }
+        }
+
+        if selectKeyword.RawKind != SelectKeywordRawKind {
+            let diagnosticToken = if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+                whereKeyword
+            } else {
+                inKeyword
+            }
+            return Error(context, diagnosticToken.Span, "Expected a 'select' clause.")
+        }
+
+        let sourceEnd = if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+            whereKeyword.SpanStart
+        } else {
+            selectKeyword.SpanStart
+        }
+
+        let sourceResult = context.ParseExpressionResult(
+            TextSpan.FromBounds(inKeyword.Span.End, sourceEnd))
+        var query: ExpressionSyntax = sourceResult.Syntax
+        var diagnostics = sourceResult.Diagnostics
+
+        if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+            let predicateResult = context.ParseExpressionResult(
+                TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart))
+            if diagnostics.Length == 0 && predicateResult.HasErrors {
+                diagnostics = predicateResult.Diagnostics
+            }
+            query = InvokeQueryOperator(
+                query,
+                "Where",
+                CreateLambda(rangeVariable.ValueText, predicateResult.Syntax))
+        }
+
+        let selectorResult = context.ParseExpressionResult(
+            TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length))
+        if diagnostics.Length == 0 && selectorResult.HasErrors {
+            diagnostics = selectorResult.Diagnostics
+        }
+        query = InvokeQueryOperator(
+            query,
+            "Select",
+            CreateLambda(rangeVariable.ValueText, selectorResult.Syntax))
+
+        FreestandingMacroExpansionResult {
+            Expression = query
+            Diagnostics = diagnostics
+        }
+    }
+
+    static func CreateLambda(parameterName: string, expression: ExpressionSyntax) -> ExpressionSyntax {
+        SimpleFunctionExpression(
+            Token(SyntaxKind.None),
+            Token(SyntaxKind.None),
+            Token(SyntaxKind.None),
+            Parameter(
+                List<AttributeListSyntax>(),
+                Identifier(parameterName)),
+            null,
+            null,
+            ArrowExpressionClause(expression))
+    }
+
+    static func InvokeQueryOperator(
+        source: ExpressionSyntax,
+        methodName: string,
+        argument: ExpressionSyntax
+    ) -> ExpressionSyntax {
+        InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                source,
+                DotToken,
+                IdentifierName(methodName)),
+            ArgumentList(
+                SeparatedList<ArgumentSyntax>([
+                    SyntaxNodeOrToken(Argument(argument))
+                ])))
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
+            MacroDiagnostics = [
+                context.CreateBodyDiagnostic(span, message, code: "QUERY001")
+            ]
+        }
+    }
+}

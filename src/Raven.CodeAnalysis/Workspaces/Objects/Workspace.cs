@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -313,8 +314,13 @@ public class Workspace
         var assemblyName = !string.IsNullOrWhiteSpace(project.AssemblyName)
             ? project.AssemblyName
             : project.Name;
-        var compilation = Compilation.Create(assemblyName,
-            syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
+        var compilation = Compilation.Create(
+                assemblyName,
+                syntaxTrees: [],
+                references.ToArray(),
+                [.. project.MacroReferences],
+                project.CompilationOptions)
+            .AddSyntaxTreesWithLocalMacros([.. syntaxTrees]);
 
         var generators = project.GeneratorReferences
             .SelectMany(static reference => reference.GetGenerators())
@@ -766,12 +772,13 @@ public class Workspace
             $"projectVersion={project.Version}, documentVersion={document.Version}, allowBusySkip=false");
 
         var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+        var compilationSyntaxTrees = GetCompilationSyntaxTrees(document, compilation);
         ImmutableArray<Diagnostic> diagnostics;
         try
         {
             diagnostics = GetDocumentAnalyzerDiagnostics(
                 project,
-                syntaxTree,
+                compilationSyntaxTrees,
                 compilation,
                 analyzerOptions,
                 allowBusySkip: false,
@@ -823,14 +830,8 @@ public class Workspace
         var syntaxTree = document.SyntaxTree
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
-        var compilationSyntaxTree = compilation.SyntaxTrees.FirstOrDefault(tree =>
-            ReferenceEquals(tree, syntaxTree) ||
-            (!string.IsNullOrWhiteSpace(tree.FilePath) &&
-             !string.IsNullOrWhiteSpace(syntaxTree.FilePath) &&
-             string.Equals(tree.FilePath, syntaxTree.FilePath, StringComparison.OrdinalIgnoreCase)));
-
-        if (compilationSyntaxTree is null)
-            throw new InvalidOperationException("Document syntax tree is not part of the compilation.");
+        var compilationSyntaxTrees = GetCompilationSyntaxTrees(document, compilation);
+        var compilationSyntaxTree = compilationSyntaxTrees[0];
 
         if (document.Project.CompilationOptions?.RunAnalyzers == false)
             return [];
@@ -865,7 +866,7 @@ public class Workspace
         {
             diagnostics = GetDocumentAnalyzerDiagnostics(
                 document.Project,
-                compilationSyntaxTree,
+                compilationSyntaxTrees,
                 compilation,
                 analyzerOptions,
                 allowBusySkip,
@@ -905,21 +906,100 @@ public class Workspace
 
     private ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
         Project project,
-        SyntaxTree syntaxTree,
+        ImmutableArray<SyntaxTree> syntaxTrees,
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions,
         bool allowBusySkip,
         bool semanticAccessAlreadyHeld,
         CancellationToken cancellationToken)
-        => DocumentAnalyzerDriver.Run(
-            project,
-            syntaxTree,
-            compilation,
-            analyzerOptions,
-            Services.WorkspaceEventSink,
-            cancellationToken,
-            allowBusySkip,
-            semanticAccessAlreadyHeld);
+    {
+        var diagnostics = new HashSet<Diagnostic>();
+        foreach (var syntaxTree in syntaxTrees)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AddDiagnostics(
+                diagnostics,
+                DocumentAnalyzerDriver.Run(
+                    project,
+                    syntaxTree,
+                    compilation,
+                    analyzerOptions,
+                    Services.WorkspaceEventSink,
+                    cancellationToken,
+                    allowBusySkip,
+                    semanticAccessAlreadyHeld && syntaxTrees.Length == 1),
+                cancellationToken);
+        }
+
+        return diagnostics
+            .OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance)
+            .ToImmutableArray();
+    }
+
+    private static ImmutableArray<SyntaxTree> GetCompilationSyntaxTrees(
+        Document document,
+        Compilation compilation)
+    {
+        var authoredTree = document.SyntaxTree
+            ?? throw new InvalidOperationException("Document does not have a syntax tree.");
+        var syntaxTrees = ImmutableArray.CreateBuilder<SyntaxTree>(2);
+
+        AddIfOwned(authoredTree);
+        if (syntaxTrees.Count > 0)
+            return syntaxTrees.ToImmutable();
+
+        var filePath = document.FilePath;
+        if (!string.IsNullOrWhiteSpace(filePath) && filePath != "file")
+        {
+            foreach (var candidate in compilation.SyntaxTrees.Concat(compilation.MacroSyntaxTrees))
+            {
+                if (string.Equals(candidate.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+                    Add(candidate);
+            }
+        }
+
+        if (syntaxTrees.Count > 0)
+            return syntaxTrees.ToImmutable();
+
+        var partition = LocalMacroSyntaxClassifier.Partition(authoredTree);
+        AddEquivalent(partition.ConsumerTree, compilation.SyntaxTrees);
+        AddEquivalent(partition.MacroTree, compilation.MacroSyntaxTrees);
+
+        if (syntaxTrees.Count == 0)
+            throw new InvalidOperationException("Document syntax tree is not part of the compilation.");
+
+        return syntaxTrees.ToImmutable();
+
+        void AddIfOwned(SyntaxTree syntaxTree)
+        {
+            if (compilation.SyntaxTrees.Contains(syntaxTree) ||
+                compilation.MacroSyntaxTrees.Contains(syntaxTree))
+            {
+                Add(syntaxTree);
+            }
+        }
+
+        void AddEquivalent(SyntaxTree? projectedTree, IEnumerable<SyntaxTree> candidates)
+        {
+            if (projectedTree is null)
+                return;
+
+            var projectedText = projectedTree.GetText()?.ToString();
+            if (projectedText is null)
+                return;
+
+            var match = candidates.FirstOrDefault(candidate =>
+                string.Equals(candidate.GetText()?.ToString(), projectedText, StringComparison.Ordinal));
+            if (match is not null)
+                Add(match);
+        }
+
+        void Add(SyntaxTree syntaxTree)
+        {
+            if (!syntaxTrees.Contains(syntaxTree))
+                syntaxTrees.Add(syntaxTree);
+        }
+    }
 
     private void ReportWorkspaceEvent(
         string operation,

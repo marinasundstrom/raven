@@ -21,6 +21,7 @@ public partial class Compilation
     private readonly object _setupLock = new();
     private INamespaceSymbol? _globalNamespace;
     private readonly SyntaxTree[] _syntaxTrees;
+    private readonly SyntaxTree[] _macroSyntaxTrees;
     private readonly MetadataReference[] _references;
     private readonly MacroReference[] _macroReferences;
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
@@ -73,6 +74,8 @@ public partial class Compilation
     private bool isSettingUp;
     private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
+    private ImmutableArray<MacroReference> _activeMacroReferences;
+    private ImmutableArray<Diagnostic> _macroPartitionDiagnostics = ImmutableArray<Diagnostic>.Empty;
     private CompilationSymbolLookup? _symbolLookup;
     private SourceDeclarationIndex? _sourceDeclarationIndex;
     private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
@@ -107,6 +110,7 @@ public partial class Compilation
     private Compilation(
         string? assemblyName,
         SyntaxTree[] syntaxTrees,
+        SyntaxTree[] macroSyntaxTrees,
         MetadataReference[] references,
         MacroReference[] macroReferences,
         CompilationOptions? options = null,
@@ -114,6 +118,7 @@ public partial class Compilation
     {
         AssemblyName = string.IsNullOrWhiteSpace(assemblyName) ? "assembly" : assemblyName;
         _syntaxTrees = syntaxTrees;
+        _macroSyntaxTrees = macroSyntaxTrees;
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
@@ -143,11 +148,23 @@ public partial class Compilation
     public IModuleSymbol Module { get; private set; }
 
     public IEnumerable<MetadataReference> References => _references;
-    public IEnumerable<MacroReference> MacroReferences => _macroReferences;
+    public IEnumerable<MacroReference> MacroReferences
+    {
+        get
+        {
+            EnsureSetup();
+            return _activeMacroReferences;
+        }
+    }
 
     public IEnumerable<IAssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
 
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
+
+    /// <summary>
+    /// Gets the syntax trees in the compile-time-only local macro partition.
+    /// </summary>
+    public SyntaxTree[] MacroSyntaxTrees => _macroSyntaxTrees;
 
     public ImmutableArray<Diagnostic> GeneratorDiagnostics => _generatorDiagnostics;
 
@@ -172,7 +189,11 @@ public partial class Compilation
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
-    public INamespaceSymbol GetSourceGlobalNamespace() => SourceGlobalNamespace!.AsSourceNamespace();
+    public INamespaceSymbol GetSourceGlobalNamespace()
+    {
+        EnsureSetup();
+        return SourceGlobalNamespace.AsSourceNamespace();
+    }
 
     public Assembly CoreAssembly { get; private set; }
     public Assembly RuntimeCoreAssembly { get; private set; }
@@ -601,19 +622,19 @@ public partial class Compilation
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
-        return new Compilation(assemblyName, syntaxTrees, [], [], options);
+        return new Compilation(assemblyName, syntaxTrees, [], [], [], options);
     }
 
     public static Compilation Create(string assemblyName, CompilationOptions? options = null)
     {
-        return new Compilation(assemblyName, [], [], [], options);
+        return new Compilation(assemblyName, [], [], [], [], options);
     }
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
         if (references.Length == 0)
             references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
-        return new Compilation(assemblyName, syntaxTrees, references, [], options);
+        return new Compilation(assemblyName, syntaxTrees, [], references, [], options);
     }
 
     public static Compilation Create(
@@ -625,7 +646,7 @@ public partial class Compilation
     {
         if (references.Length == 0)
             references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
-        return new Compilation(assemblyName, syntaxTrees, references, macroReferences, options);
+        return new Compilation(assemblyName, syntaxTrees, [], references, macroReferences, options);
     }
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
@@ -633,6 +654,58 @@ public partial class Compilation
         return new Compilation(
             AssemblyName,
             _syntaxTrees.Concat(syntaxTrees).ToArray(),
+            _macroSyntaxTrees,
+            _references,
+            _macroReferences,
+            Options,
+            _generatorDiagnostics);
+    }
+
+    /// <summary>
+    /// Adds ordinary source trees and automatically moves direct macro
+    /// declarations and declarations marked with <see cref="LocalMacroAttribute"/>
+    /// into the local macro partition.
+    /// </summary>
+    public Compilation AddSyntaxTreesWithLocalMacros(params SyntaxTree[] syntaxTrees)
+    {
+        var localMacroTrees = new List<SyntaxTree>();
+        var consumerTrees = new List<SyntaxTree>();
+        var hasDeclarationPartition = false;
+        foreach (var syntaxTree in syntaxTrees)
+        {
+            var partition = LocalMacroSyntaxClassifier.Partition(syntaxTree);
+            if (partition.ConsumerTree is not null)
+                consumerTrees.Add(partition.ConsumerTree);
+            if (partition.MacroTree is not null)
+                localMacroTrees.Add(partition.MacroTree);
+            if (partition.ConsumerTree is not null && partition.MacroTree is not null)
+                hasDeclarationPartition = true;
+        }
+
+        return new Compilation(
+            AssemblyName,
+            _syntaxTrees.Concat(consumerTrees).ToArray(),
+            _macroSyntaxTrees.Concat(localMacroTrees).ToArray(),
+            hasDeclarationPartition ? EnsureMacroContractsReference(_references) : _references,
+            _macroReferences,
+            Options,
+            _generatorDiagnostics);
+    }
+
+    /// <summary>
+    /// Adds source trees to the compile-time-only local macro partition.
+    /// </summary>
+    /// <remarks>
+    /// The partition is compiled and activated in memory before consumer macro
+    /// invocations are bound. Its declarations are not emitted into the
+    /// consumer assembly.
+    /// </remarks>
+    public Compilation AddMacroSyntaxTrees(params SyntaxTree[] syntaxTrees)
+    {
+        return new Compilation(
+            AssemblyName,
+            _syntaxTrees,
+            _macroSyntaxTrees.Concat(syntaxTrees).ToArray(),
             _references,
             _macroReferences,
             Options,
@@ -640,21 +713,28 @@ public partial class Compilation
     }
 
     internal Compilation WithGeneratorDiagnostics(ImmutableArray<Diagnostic> diagnostics)
-        => new(AssemblyName, _syntaxTrees, _references, _macroReferences, Options, diagnostics);
+        => new(AssemblyName, _syntaxTrees, _macroSyntaxTrees, _references, _macroReferences, Options, diagnostics);
 
     public Compilation AddReferences(params MetadataReference[] references)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, references, _macroReferences, Options, _generatorDiagnostics);
+        return new Compilation(
+            AssemblyName,
+            _syntaxTrees,
+            _macroSyntaxTrees,
+            _references.Concat(references).ToArray(),
+            _macroReferences,
+            Options,
+            _generatorDiagnostics);
     }
 
     public Compilation AddMacroReferences(params MacroReference[] macroReferences)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, _references, macroReferences, Options, _generatorDiagnostics);
+        return new Compilation(AssemblyName, _syntaxTrees, _macroSyntaxTrees, _references, macroReferences, Options, _generatorDiagnostics);
     }
 
     public Compilation WithAssemblyName(string? assemblyName)
     {
-        return new Compilation(assemblyName, _syntaxTrees, _references, _macroReferences, Options, _generatorDiagnostics);
+        return new Compilation(assemblyName, _syntaxTrees, _macroSyntaxTrees, _references, _macroReferences, Options, _generatorDiagnostics);
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
@@ -754,9 +834,44 @@ public partial class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, [], assemblyDeclaringSyntaxReferences);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
-        _macroRegistry = MacroRegistry.Create(_macroReferences);
+        var localMacroReference = CompileLocalMacroPartition();
+        _activeMacroReferences = GetActiveMacroReferences(localMacroReference);
+        _macroRegistry = MacroRegistry.Create(_activeMacroReferences);
 
         InitializeTopLevelPrograms();
+    }
+
+    private ImmutableArray<MacroReference> GetActiveMacroReferences(MacroReference? localMacroReference)
+    {
+        var references = ImmutableArray.CreateBuilder<MacroReference>();
+        references.AddRange(_macroReferences);
+
+        var explicitAssemblyPaths = _macroReferences
+            .Select(static reference => reference.Display)
+            .Where(Path.IsPathFullyQualified)
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var metadataReference in _references.OfType<PortableExecutableReference>())
+        {
+            if (string.IsNullOrWhiteSpace(metadataReference.FilePath))
+                continue;
+
+            var assemblyPath = Path.GetFullPath(metadataReference.FilePath);
+            if (explicitAssemblyPaths.Contains(assemblyPath) || !File.Exists(assemblyPath))
+                continue;
+
+            if (!MacroAssemblyMetadata.HasCompilerPluginMarker(assemblyPath))
+                continue;
+
+            references.Add(MacroReference.CreateFromFile(assemblyPath));
+            explicitAssemblyPaths.Add(assemblyPath);
+        }
+
+        if (localMacroReference is not null)
+            references.Add(localMacroReference);
+
+        return references.ToImmutable();
     }
 
     private bool TryReuseMetadataLoadContext(
@@ -833,7 +948,8 @@ public partial class Compilation
     internal MacroRegistry GetMacroRegistry()
     {
         EnsureSetup();
-        return _macroRegistry ??= MacroRegistry.Create(_macroReferences);
+        return _macroRegistry ??= MacroRegistry.Create(
+            _activeMacroReferences.IsDefault ? _macroReferences : _activeMacroReferences);
     }
 
     private bool TryGetVisibleValueScopeDeclarations(

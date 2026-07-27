@@ -69,7 +69,7 @@ class CounterViewModel {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(new ObservableMacro()));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var token = syntaxTree.GetRoot()
@@ -254,14 +254,6 @@ val maybe: int? = default
         Assert.Equal(SyntaxKind.DefaultKeyword, token.Kind);
 
         return (semanticModel, token, defaultExpression);
-    }
-
-    private sealed class ObservableMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ObservableMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ObservableMacro()];
     }
 
     private sealed class ObservableMacro : IAttachedDeclarationMacro

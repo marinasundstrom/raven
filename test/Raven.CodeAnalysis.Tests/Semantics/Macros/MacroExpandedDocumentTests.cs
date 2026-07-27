@@ -27,8 +27,9 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(MacroCodeGenTests.EmitMacroPlugin)),
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacroPlugin)));
+            new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
+            new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()),
+            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var expandedRoot = model.GetExpandedRoot();
@@ -62,7 +63,9 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(FormattingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new ObservableMacro()),
+            new MacroReference(new WrapMacro()));
 
         var model = compilation.GetSemanticModel(tree);
         var expandedText = model.GetExpandedRoot().ToFullString();
@@ -89,7 +92,9 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(StackingOrderMacroPlugin)));
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new FirstMacro()),
+            new MacroReference(new SecondMacro()));
 
         var model = compilation.GetSemanticModel(tree);
         var expandedText = model.GetExpandedRoot().ToFullString();
@@ -119,7 +124,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(MacroCodeGenTests.EmitMacroPlugin)));
+            new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
+            new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()));
 
         var model = compilation.GetSemanticModel(tree);
 
@@ -140,7 +146,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(MacroCodeGenTests.EmitMacroPlugin)));
+            new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
+            new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot()
@@ -167,7 +174,9 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             OutputKind.DynamicallyLinkedLibrary,
             performanceInstrumentation: instrumentation);
         var compilation = CreateCompilation(tree, options: options)
-            .AddMacroReferences(new MacroReference(typeof(FormattingMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new WrapMacro()));
 
         var model = compilation.GetSemanticModel(tree);
         var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
@@ -184,22 +193,6 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         var index = text.IndexOf(value, StringComparison.Ordinal);
         Assert.True(index >= 0, $"Expected to find '{value}' in expanded text.");
         return index;
-    }
-
-    public sealed class FormattingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(FormattingMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ObservableMacro(), new WrapMacro()];
-    }
-
-    public sealed class StackingOrderMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(StackingOrderMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new FirstMacro(), new SecondMacro()];
     }
 
     private sealed class ObservableMacro : IAttachedDeclarationMacro
@@ -245,8 +238,6 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     private sealed class WrapMacro : IFreestandingExpressionMacro
     {
         public string Name => "wrap";
-
-        public MacroTarget Targets => MacroTarget.None;
 
         public bool AcceptsArguments => true;
 

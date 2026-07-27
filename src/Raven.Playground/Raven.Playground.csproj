@@ -35,6 +35,8 @@
   </Target>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\Raven.CodeAnalysis\bin\$(Configuration)\net10.0\Raven.CodeAnalysis.dll"
+                      LogicalName="Raven.Playground.Framework.Raven.CodeAnalysis.dll" />
     <EmbeddedResource Include="..\Raven.Core\bin\$(Configuration)\net10.0\Raven.Core.dll"
                       LogicalName="Raven.Playground.Framework.Raven.Core.dll" />
   </ItemGroup>

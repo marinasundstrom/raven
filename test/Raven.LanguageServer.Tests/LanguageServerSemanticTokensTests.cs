@@ -751,7 +751,7 @@ func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError
     }
 
     [Fact]
-    public async Task SemanticTokens_ClassifyTrailingBlockCallsAndBodySymbolsAsync()
+    public async Task SemanticTokens_ClassifyLambdaCallsAndBodySymbolsAsync()
     {
         const string code = """
 class Store {
@@ -769,12 +769,12 @@ func Route(prefix: string, body: () -> string) -> string {
 
 func Main() -> string {
     val store = Store()
-    return Route("") {
-        GET("/{id:int}") { id =>
+    return Route("", () => {
+        GET("/{id:int}", (id) => {
             val value = store.Find(id)
             value
-        }
-    }
+        })
+    })
 }
 """;
 

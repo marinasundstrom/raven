@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Text;
@@ -104,6 +105,102 @@ public class DocumentTests
 
         var model = await newDoc.GetSemanticModelAsync();
         Assert.NotNull(model);
+    }
+
+    [Fact]
+    public async Task GetSemanticModelAsync_PositionRoutesMixedLocalMacroDocument()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "App",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var source = CreateMixedMacroSupportSource("MacroSupport");
+        var addedDocument = project.AddDocument("main.rvn", SourceText.From(source));
+        workspace.TryApplyChanges(addedDocument.Project.Solution);
+
+        var document = workspace.CurrentSolution.GetDocument(addedDocument.Id)!;
+        var compilation = workspace.GetCompilation(projectId);
+        var macroPosition = source.IndexOf("MacroSupport", StringComparison.Ordinal);
+        var consumerPosition = source.IndexOf("Main", StringComparison.Ordinal);
+
+        var macroModel = await document.GetSemanticModelAsync(macroPosition);
+        var consumerModel = await document.GetSemanticModelAsync(consumerPosition);
+        var defaultModel = await document.GetSemanticModelAsync();
+
+        Assert.NotNull(macroModel);
+        Assert.NotNull(consumerModel);
+        Assert.NotNull(defaultModel);
+        Assert.Contains(macroModel!.SyntaxTree, compilation.MacroSyntaxTrees);
+        Assert.Contains(consumerModel!.SyntaxTree, compilation.SyntaxTrees);
+        Assert.Same(consumerModel.SyntaxTree, defaultModel!.SyntaxTree);
+
+        var macroDeclaration = macroModel.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+        var mainDeclaration = consumerModel.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        Assert.Equal(
+            "MacroSupport",
+            Assert.IsAssignableFrom<INamedTypeSymbol>(
+                macroModel.GetDeclaredSymbol(macroDeclaration)).Name);
+        Assert.Equal(
+            "Main",
+            Assert.IsAssignableFrom<IMethodSymbol>(
+                consumerModel.GetDeclaredSymbol(mainDeclaration)).Name);
+    }
+
+    [Fact]
+    public async Task GetSemanticModelAsync_PositionRoutesCurrentMacroProjectionAfterEdit()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "App",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = CreateMixedMacroSupportSource("InitialMacroSupport");
+        var addedDocument = project.AddDocument("main.rvn", SourceText.From(initialSource));
+        workspace.TryApplyChanges(addedDocument.Project.Solution);
+
+        var initialDocument = workspace.CurrentSolution.GetDocument(addedDocument.Id)!;
+        var initialPosition = initialSource.IndexOf("InitialMacroSupport", StringComparison.Ordinal);
+        var initialModel = await initialDocument.GetSemanticModelAsync(initialPosition);
+        Assert.NotNull(initialModel);
+
+        var updatedSource = CreateMixedMacroSupportSource("UpdatedMacroSupport");
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(
+                addedDocument.Id,
+                SourceText.From(updatedSource)));
+
+        var updatedDocument = workspace.CurrentSolution.GetDocument(addedDocument.Id)!;
+        var updatedPosition = updatedSource.IndexOf("UpdatedMacroSupport", StringComparison.Ordinal);
+        var updatedModel = await updatedDocument.GetSemanticModelAsync(updatedPosition);
+        var updatedCompilation = workspace.GetCompilation(projectId);
+
+        Assert.NotNull(updatedModel);
+        Assert.Contains(updatedModel!.SyntaxTree, updatedCompilation.MacroSyntaxTrees);
+        Assert.NotSame(initialModel!.SyntaxTree, updatedModel.SyntaxTree);
+        var declaration = updatedModel.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+        Assert.Equal(
+            "UpdatedMacroSupport",
+            Assert.IsAssignableFrom<INamedTypeSymbol>(
+                updatedModel.GetDeclaredSymbol(declaration)).Name);
     }
 
     [Fact]
@@ -218,4 +315,14 @@ public class DocumentTests
         var syntaxTreeField = documentInfo!.GetType().GetField("_syntaxTree", BindingFlags.Instance | BindingFlags.NonPublic);
         return syntaxTreeField?.GetValue(documentInfo) as SyntaxTree;
     }
+
+    private static string CreateMixedMacroSupportSource(string typeName)
+        => $$"""
+            [LocalMacro]
+            class {{typeName}} {
+                val Value: int => 42
+            }
+
+            func Main() -> int => 0
+            """;
 }

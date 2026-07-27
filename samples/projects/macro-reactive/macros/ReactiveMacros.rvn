@@ -1,18 +1,12 @@
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-class ReactiveMacroPlugin : IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Reactive"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [ObservableMacro(), SubscribeMacro()]
-}
+[assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
+[assembly: RavenCompilerPlugin(typeof(SubscribeMacro))]
 
 class ObservableMacro : IAttachedDeclarationMacro {
     val Name: string => "Observable"
-    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
@@ -188,8 +182,6 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
 class SubscribeMacro : IFreestandingExpressionMacro {
     val Name: string => "subscribe"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
-    val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {

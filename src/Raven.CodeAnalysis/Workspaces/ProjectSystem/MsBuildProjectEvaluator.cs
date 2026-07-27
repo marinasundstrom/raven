@@ -7,6 +7,7 @@ using System.Xml.Linq;
 
 using Microsoft.Build.Evaluation;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Text;
 
 using MSBuildProject = Microsoft.Build.Evaluation.Project;
@@ -75,10 +76,18 @@ internal static class MsBuildProjectEvaluator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
 
-        var macroReferencePaths = project.GetItems("RavenMacro")
+        var managedSourcePaths = project.GetItems("Compile")
             .Select(item => GetFullPath(projectDirectory, item))
+            .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
+
+        if (project.GetItems("RavenMacro").Count > 0)
+        {
+            throw new InvalidDataException(
+                "The RavenMacro project item is no longer supported. " +
+                "Reference a project marked with RavenCompilerPlugin using ProjectReference.");
+        }
 
         var analyzerReferencePaths = project.GetItems("Analyzer")
             .Select(item => GetFullPath(projectDirectory, item))
@@ -175,6 +184,10 @@ internal static class MsBuildProjectEvaluator
             MarkdownDocumentationOutputPath: GetOptionalProperty(project, "MarkdownDocumentationOutputPath"));
 
         var outputPath = GetProjectOutputPath(projectDirectory, project, targetFramework, configuration, assemblyName);
+        var isCompilerPlugin = documents.Any(static document =>
+            LocalMacroSyntaxClassifier.IsCompilerPluginTree(
+                SyntaxTree.ParseText(document.Text, path: document.FilePath ?? document.Name))) ||
+            managedSourcePaths.Any(IsCSharpCompilerPluginSource);
 
         return new MsBuildProjectEvaluationResult(
             name,
@@ -187,14 +200,35 @@ internal static class MsBuildProjectEvaluator
             documents,
             metadataReferencePaths,
             projectReferencePaths,
-            macroReferencePaths,
             analyzerReferencePaths,
             generatorReferencePaths,
             packageReferences,
             frameworkReferences,
             new ProjectPreludeOptions(generatePreludeImports, preludeImports),
             generatedSourceDirectory,
-            documentationOptions);
+            documentationOptions,
+            isCompilerPlugin);
+    }
+
+    private static bool IsCSharpCompilerPluginSource(string sourcePath)
+    {
+        var syntaxTree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            File.ReadAllText(sourcePath),
+            path: sourcePath);
+        var root = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        return root.AttributeLists
+            .Where(static list => string.Equals(
+                list.Target?.Identifier.ValueText,
+                "assembly",
+                StringComparison.Ordinal))
+            .SelectMany(static list => list.Attributes)
+            .Any(static attribute =>
+            {
+                var name = attribute.Name.GetLastToken().ValueText;
+                return string.Equals(name, nameof(RavenCompilerPluginAttribute), StringComparison.Ordinal) ||
+                    string.Equals(name, "RavenCompilerPlugin", StringComparison.Ordinal);
+            });
     }
 
     public static string? TryResolveReferencedProjectOutputPath(
@@ -426,11 +460,11 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<DocumentInfo> Documents,
     ImmutableArray<string> MetadataReferencePaths,
     ImmutableArray<string> ProjectReferencePaths,
-    ImmutableArray<string> MacroReferencePaths,
     ImmutableArray<string> AnalyzerReferencePaths,
     ImmutableArray<string> GeneratorReferencePaths,
     ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,
     ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
     ProjectPreludeOptions PreludeOptions,
     string GeneratedSourceDirectory,
-    ProjectDocumentationOptions DocumentationOptions);
+    ProjectDocumentationOptions DocumentationOptions,
+    bool IsCompilerPlugin);

@@ -129,4 +129,26 @@ public class RavenQuoterTests
         Assert.Contains("expression:", quoted);
         Assert.DoesNotContain("terminatorToken:", quoted);
     }
+
+    [Fact]
+    public void Quote_CanEmitFullyQualifiedExpressionWithoutNormalization()
+    {
+        var quoted = RavenQuoter.Quote(
+            SyntaxFactory.ParseExpression("left + right"),
+            new RavenQuoterOptions
+            {
+                GenerateUsingDirectives = false,
+                FullyQualifyNames = true,
+                NormalizeWhitespace = false
+            });
+
+        Assert.StartsWith(
+            "Raven.CodeAnalysis.Syntax.SyntaxFactory.InfixOperatorExpression(",
+            quoted);
+        Assert.Contains(
+            "Raven.CodeAnalysis.Syntax.SyntaxKind.AddExpression",
+            quoted);
+        Assert.DoesNotContain("NormalizeWhitespace", quoted);
+        Assert.Empty(SyntaxTree.ParseText($"val quoted = {quoted}").GetDiagnostics());
+    }
 }

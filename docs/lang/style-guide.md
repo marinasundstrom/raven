@@ -67,6 +67,21 @@ func Max(x: int, y: int) -> int {
 - Leave a blank line between the import block and the first declaration or
   statement.
 
+## Source file organization
+
+- Use `Main.rvn` only when the file contains the `Main` entry point by itself.
+- Use `Program.rvn` for top-level statements or a program file that encompasses
+  multiple functions or types, including its `Main` entry point.
+- Use `<Type>.rvn` for a file centered on one primary type. Closely related
+  enums, unions, helper types, and functions may remain in that file when the
+  primary type clearly owns the concept.
+- Use `<area-name>.rvn` for a related collection of types and functions, similar
+  to a module or domain area.
+- Use `<function>.rvn` for a function that deserves its own file.
+- A small, cohesive program may remain in one `Program.rvn` file. As a project
+  grows, extract types, functions, or domain areas into appropriately named
+  files, especially when that organization improves the example or API story.
+
 ## Attributes and macros
 
 - Place attributes and attached macros on the line directly above the target

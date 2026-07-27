@@ -54,7 +54,7 @@ func Test(item: Foo) -> bool {
 
             resolution.ShouldNotBeNull();
             resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe(expectedName);
-            resolution.Value.Span.ShouldBe(identifier.Identifier.Span);
+            resolution.Value.Node.Span.ShouldBe(identifier.Identifier.Span);
         }
     }
 
@@ -1842,7 +1842,7 @@ func Main() -> int {
     }
 
     [Fact]
-    public void TrailingBlockParameterHover_UsesContextualDelegateParameterType()
+    public void LambdaParameterHover_UsesContextualDelegateParameterType()
     {
         const string code = """
 class Store {
@@ -1854,9 +1854,9 @@ func Use(handler: int -> string) -> string {
 }
 
 func Route(store: Store) -> string {
-    Use { id =>
+    Use((id) => {
         store.Find(id)
-    }
+    })
 }
 """;
 
@@ -1871,9 +1871,8 @@ func Route(store: Store) -> string {
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
-        var trailingBlock = root.DescendantNodes().OfType<TrailingBlockExpressionSyntax>().Single();
-        trailingBlock.Parameter.ShouldNotBeNull();
-        var parameter = trailingBlock.Parameter!;
+        var lambda = root.DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var parameter = lambda.ParameterList.Parameters.Single();
 
         var parameterSymbol = semanticModel.GetFunctionExpressionParameterSymbol(parameter);
         parameterSymbol.ShouldNotBeNull();

@@ -102,6 +102,14 @@ internal abstract class ParseContext
 
     public virtual SyntaxToken ReadToken() => Parent?.ReadToken() ?? throw new InvalidOperationException("No base or parent set");
 
+    public virtual SyntaxToken ReadMacroBodyToken(out bool isTerminated)
+    {
+        if (Parent is null)
+            throw new InvalidOperationException("No base or parent set");
+
+        return Parent.ReadMacroBodyToken(out isTerminated);
+    }
+
     public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
 
     public virtual TextSpan GetEndOfLastToken(int width = 0) => Parent?.GetEndOfLastToken(width) ?? throw new InvalidOperationException("No base or parent set");

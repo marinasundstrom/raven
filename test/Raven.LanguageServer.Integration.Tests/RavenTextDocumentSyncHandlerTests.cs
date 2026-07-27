@@ -439,7 +439,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             "samples",
             "projects",
             "aspnet-minimal-api");
-        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var documentPath = Path.Combine(sampleRoot, "src", "Program.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
 
         Directory.Exists(sampleRoot).ShouldBeTrue();
@@ -464,6 +464,10 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         var savedCode = await File.ReadAllTextAsync(documentPath);
         var initialCode = savedCode.Replace("use app = builder.Build()", "val app = builder.Build()", StringComparison.Ordinal);
         initialCode.ShouldNotBe(savedCode);
+        var declarationOffset = initialCode.IndexOf("val app", StringComparison.Ordinal);
+        var declarationRange = PositionHelper.ToRange(
+            SourceText.From(initialCode),
+            new TextSpan(declarationOffset, "val".Length));
 
         _ = await store.UpsertDocumentWithResultAsync(uri, SourceText.From(initialCode));
         GetDocumentSessions(handler)[uri] = 1;
@@ -479,9 +483,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             ContentChanges = new Container<TextDocumentContentChangeEvent>(
                 new TextDocumentContentChangeEvent
                 {
-                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
-                        new Position(12, 0),
-                        new Position(12, 3)),
+                    Range = declarationRange,
                     Text = "use"
                 })
         }, CancellationToken.None);

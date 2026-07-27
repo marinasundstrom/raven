@@ -20,6 +20,8 @@
           href: raven-for-absolute-beginners.md
         - name: Raven for C# developers
           href: raven-for-csharp-developers.md
+        - name: Metaprogramming in Raven
+          href: metaprogramming.md
         - name: Domain modeling
           href: lang/domain-modeling.md
         - name: Style guide

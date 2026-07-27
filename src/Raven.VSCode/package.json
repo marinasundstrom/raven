@@ -306,8 +306,8 @@
         },
         "raven.autoBuildLanguageServerOnActivate": {
           "type": "boolean",
-          "default": true,
-          "description": "When the extension can find src/Raven.LanguageServer/Raven.LanguageServer.csproj in the current workspace or extension ancestors, build it on activation before launching the language server. Ignored when raven.languageServerPath is set."
+          "default": false,
+          "description": "When enabled, build src/Raven.LanguageServer/Raven.LanguageServer.csproj before launching the language server. This can significantly delay activation and is intended only for source-workspace development. Ignored when raven.languageServerPath is set."
         },
         "raven.inlayHints.enabled": {
           "type": "boolean",

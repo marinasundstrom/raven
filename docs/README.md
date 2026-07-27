@@ -18,6 +18,7 @@ what a feature does, when to use it, and show representative Raven examples.
 * [Introduction](introduction.md)
 * [Raven for absolute beginners](raven-for-absolute-beginners.md)
 * [Raven for C# developers](raven-for-csharp-developers.md)
+* [Metaprogramming in Raven](metaprogramming.md)
 * [Language docs](lang/README.md)
 * [Domain modeling](lang/domain-modeling.md)
 
@@ -32,6 +33,7 @@ what a feature does, when to use it, and show representative Raven examples.
 * [Compiler and command line](compiler/raven-compiler.md)
 * [Project system](compiler/project-system.md)
 * [Extend a Raven project](compiler/extending-projects.md)
+* [Metaprogramming in Raven](metaprogramming.md)
 * [VS Code extension](compiler/raven-vscode-extension.md)
 
 ### Compiler API

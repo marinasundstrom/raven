@@ -73,9 +73,18 @@ public static class RavenQuoter
 
             w.Write("return ");
             writer.WriteNode(root);
-            w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
-                ? ".NormalizeWhitespace()"
-                : ".NormalizeWhitespace();");
+            if (options.NormalizeWhitespace)
+            {
+                w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                    ? ".NormalizeWhitespace()"
+                    : ".NormalizeWhitespace();");
+            }
+            else
+            {
+                w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                    ? string.Empty
+                    : ";");
+            }
 
             w.Unindent();
             w.WriteLine("}");
@@ -85,9 +94,18 @@ public static class RavenQuoter
         else
         {
             writer.WriteNode(root);
-            w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
-                ? ".NormalizeWhitespace()"
-                : ".NormalizeWhitespace();");
+            if (options.NormalizeWhitespace)
+            {
+                w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                    ? ".NormalizeWhitespace()"
+                    : ".NormalizeWhitespace();");
+            }
+            else
+            {
+                w.WriteLine(options.OutputLanguage == RavenQuoterOutputLanguage.Raven
+                    ? string.Empty
+                    : ";");
+            }
         }
 
         return w.ToString();
@@ -169,7 +187,12 @@ public static class RavenQuoter
 
         private void WriteFactoryMethodName(string methodName)
         {
-            if (_options.UseStaticSyntaxFactoryImport)
+            if (_options.FullyQualifyNames)
+            {
+                _w.Write("Raven.CodeAnalysis.Syntax.SyntaxFactory.");
+                _w.Write(methodName);
+            }
+            else if (_options.UseStaticSyntaxFactoryImport)
                 _w.Write(methodName);
             else
             {
@@ -180,6 +203,13 @@ public static class RavenQuoter
 
         private void WriteNodeInternal(SyntaxNode node)
         {
+            var sourceOverride = _options.NodeSourceOverride?.Invoke(node);
+            if (sourceOverride is not null)
+            {
+                WriteSourceOverride(node, sourceOverride);
+                return;
+            }
+
             var type = node.GetType();
             var typeName = type.Name;
             if (typeName.EndsWith("Syntax", StringComparison.Ordinal))
@@ -344,6 +374,13 @@ public static class RavenQuoter
             }
         }
 
+        private void WriteSourceOverride(SyntaxNode node, string source)
+        {
+            _w.Write("(");
+            _w.Write(source);
+            _w.Write(")");
+        }
+
         private bool NodesMatchForSelection(SyntaxNode original, SyntaxNode recreated)
         {
             if (original.GetType() != recreated.GetType())
@@ -399,7 +436,7 @@ public static class RavenQuoter
 
             if (type.IsEnum)
             {
-                _w.Write(type.Name);
+                WriteTypeName(type);
                 _w.Write(".");
                 _w.Write(Enum.GetName(type, value) ?? value.ToString());
                 return;
@@ -457,14 +494,18 @@ public static class RavenQuoter
                         if (token.IsMissing)
                         {
                             WriteFactoryMethodName("MissingToken");
-                            _w.Write("(SyntaxKind.");
+                            _w.Write("(");
+                            WriteTypeName(typeof(SyntaxKind));
+                            _w.Write(".");
                             _w.Write(token.Kind.ToString());
                             _w.Write(")");
                         }
                         else
                         {
                             WriteFactoryMethodName("Token");
-                            _w.Write("(SyntaxKind.");
+                            _w.Write("(");
+                            WriteTypeName(typeof(SyntaxKind));
+                            _w.Write(".");
                             _w.Write(token.Kind.ToString());
                             _w.Write(")");
                         }
@@ -504,14 +545,18 @@ public static class RavenQuoter
                     if (token.IsMissing)
                     {
                         WriteFactoryMethodName("MissingToken");
-                        _w.Write("(SyntaxKind.");
+                        _w.Write("(");
+                        WriteTypeName(typeof(SyntaxKind));
+                        _w.Write(".");
                         _w.Write(token.Kind.ToString());
                         _w.Write(")");
                     }
                     else
                     {
                         WriteFactoryMethodName("Token");
-                        _w.Write("(SyntaxKind.");
+                        _w.Write("(");
+                        WriteTypeName(typeof(SyntaxKind));
+                        _w.Write(".");
                         _w.Write(token.Kind.ToString());
                         _w.Write(")");
                     }
@@ -597,9 +642,9 @@ public static class RavenQuoter
             if (list.Count == 1)
             {
                 WriteFactoryMethodName("TriviaList");
-                _w.Write("(");
+                _w.Write("([");
                 WriteSingleTrivia(list[0]);
-                _w.Write(")");
+                _w.Write("])");
                 return;
             }
 
@@ -628,7 +673,9 @@ public static class RavenQuoter
         private void WriteSingleTrivia(SyntaxTrivia trivia)
         {
             WriteFactoryMethodName("Trivia");
-            _w.Write("(SyntaxKind.");
+            _w.Write("(");
+            WriteTypeName(typeof(SyntaxKind));
+            _w.Write(".");
             _w.Write(trivia.Kind.ToString());
             _w.Write(", ");
             _w.Write(Literal(trivia.ToString()));
@@ -638,14 +685,13 @@ public static class RavenQuoter
         private void WriteSyntaxList(Type elemType, IEnumerable listEnumerable)
         {
             var items = listEnumerable.Cast<object?>().ToList();
-            var typeName = elemType.Name;
 
             if (items.Count == 0)
             {
-                //_w.Write($"SyntaxList<{typeName}>.Empty");
-
                 WriteFactoryMethodName("List");
-                _w.Write($"<{typeName}>()");
+                _w.Write("<");
+                WriteTypeName(elemType);
+                _w.Write(">()");
 
                 return;
             }
@@ -653,7 +699,9 @@ public static class RavenQuoter
             if (items.Count == 1)
             {
                 WriteFactoryMethodName("SingletonList");
-                _w.Write($"<{typeName}>(");
+                _w.Write("<");
+                WriteTypeName(elemType);
+                _w.Write(">(");
 
                 var hasMoreThanOneChild = items[0] is SyntaxNode sn && sn.DescendantNodes().Any();
 
@@ -675,9 +723,15 @@ public static class RavenQuoter
             }
 
             WriteFactoryMethodName("List");
-            _w.Write($"<{typeName}>(");
+            _w.Write("<");
+            WriteTypeName(elemType);
+            _w.Write(">(");
             if (_options.OutputLanguage == RavenQuoterOutputLanguage.CSharp)
-                _w.Write($"new {typeName}[]");
+            {
+                _w.Write("new ");
+                WriteTypeName(elemType);
+                _w.Write("[]");
+            }
             _w.WriteLine();
             _w.WriteLine(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "[" : "{");
             _w.Indent();
@@ -698,14 +752,13 @@ public static class RavenQuoter
         private void WriteSeparatedSyntaxList(Type elemType, IEnumerable listEnumerable)
         {
             var items = listEnumerable.Cast<object?>().ToList();
-            var typeName = elemType.Name;
 
             if (items.Count == 0)
             {
-                //_w.Write($"SeparateSyntaxSyntax<{typeName}>.Empty");
-
                 WriteFactoryMethodName("SeparatedList");
-                _w.Write($"<{typeName}>()");
+                _w.Write("<");
+                WriteTypeName(elemType);
+                _w.Write(">()");
 
                 return;
             }
@@ -713,7 +766,9 @@ public static class RavenQuoter
             if (items.Count == 1)
             {
                 WriteFactoryMethodName("SingletonSeparatedList");
-                _w.Write($"<{typeName}>(");
+                _w.Write("<");
+                WriteTypeName(elemType);
+                _w.Write(">(");
 
                 var hasMoreThanOneChild = items[0] is SyntaxNode sn && sn.DescendantNodesAndTokens().Count() > 1;
 
@@ -735,9 +790,15 @@ public static class RavenQuoter
             }
 
             WriteFactoryMethodName("SeparatedList");
-            _w.Write($"<{typeName}>(");
+            _w.Write("<");
+            WriteTypeName(elemType);
+            _w.Write(">(");
             if (_options.OutputLanguage == RavenQuoterOutputLanguage.CSharp)
-                _w.Write($"new {typeName}[]");
+            {
+                _w.Write("new ");
+                WriteTypeName(elemType);
+                _w.Write("[]");
+            }
             _w.WriteLine();
             _w.WriteLine(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "[" : "{");
             _w.Indent();
@@ -753,6 +814,13 @@ public static class RavenQuoter
 
             _w.Unindent();
             _w.Write(_options.OutputLanguage == RavenQuoterOutputLanguage.Raven ? "])" : "})");
+        }
+
+        private void WriteTypeName(Type type)
+        {
+            _w.Write(_options.FullyQualifyNames
+                ? type.FullName ?? type.Name
+                : type.Name);
         }
 
         private static bool IsDefaultValue(Type type, object? value)

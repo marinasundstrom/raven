@@ -7,6 +7,185 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - `use` bindings no longer report `RAV9027` merely because their bound value is
   not read; establishing the disposal lifetime counts as the declaration's
   intended use.
+- Added raw-body token-tree expression macros with `#name { ... }` syntax,
+  lossless DSL body capture, body-relative diagnostics, and helpers for parsing
+  the complete body or selected embedded spans as Raven expressions. Macro
+  bodies bypass ordinary Raven tokenization, while expansion continues through
+  normal semantic binding and emit.
+- Added `SyntaxToken.RawKind`, macro-local token reclassification through
+  `WithRawKind`, and detached custom-token construction without changing
+  ordinary Raven `SyntaxKind` classification or lexing.
+- Added replaceable macro token streams that emit `SyntaxToken`, including a
+  default Raven-lexer-backed stream, macro-local keyword/reserved-word overlays,
+  and compiler-discovered custom stream providers for DSL-specific lexers.
+- Added typed token-tree macro inputs through
+  `ITokenTreeExpressionMacro<TParameters>`, allowing validated positional or
+  named arguments before an unrestricted raw DSL body.
+- Added compiler-owned typed macro parameter descriptors and named-argument
+  completion for attached, argument-style, and token-tree macros.
+- Added context-aware macro-name completion for incomplete invocations.
+  Typing `#` in an expression offers only freestanding and token-tree macros;
+  typing it in a declaration offers only attached macros and inserts the
+  complete `#[Macro]` attribute form.
+- Added a Raven-authored `#guard { unless <expression> }` sample as the
+  token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
+  expression parsing, direct lowering, and end-to-end execution.
+- Extended the token-tree macro sample with
+  `#choose { test ... then ... otherwise ... }`, demonstrating multiple
+  macro-local clauses, independently parsed Raven fragments, body-mapped
+  missing-clause diagnostics, and direct lowering to an `if` expression.
+- Added a minimal LINQ-like `#query` macro sample with one `from`, optional
+  `where`, and one `select` clause, directly lowering caller-scoped Raven
+  fragments to ordinary `Where`/`Select` calls and authored range-variable
+  lambdas.
+- Added diagnostic-bearing embedded Raven expression parsing for token-tree
+  macros. `ParseExpressionResult` returns recovered syntax plus immutable
+  native parser diagnostics mapped to the authored invocation, while the
+  existing `ParseExpression` convenience API remains available.
+- Added complete-body and selected-span Raven statement parsing for token-tree
+  macros. `ParseStatement` returns recovered `StatementSyntax`, while
+  `ParseStatementResult` also retains native authored-source diagnostics and
+  rejects trailing input.
+- Added compiler-owned macro signature help for typed attached, freestanding,
+  and token-tree invocations. The semantic model now exposes normalized macro
+  parameters and the active argument, and the language server presents that
+  result including token-tree body shape.
+- Added the compiler-owned expression-only `#quote { ... }` intrinsic. It
+  preserves tokens and trivia, rejects malformed or trailing input at authored
+  locations, expands to fully qualified `SyntaxFactory` construction, and
+  participates in macro-name completion without a plugin reference.
+- Added `#(expression)` holes inside expression quotes. Holes are discovered
+  through the macro token stream without changing Raven lexing, accept ordinary
+  Raven expressions that bind as `ExpressionSyntax`, preserve surrounding
+  quote trivia, and retain native diagnostics at authored locations.
+- Migrated the Raven-authored sample `#add` procedural macro to construct its
+  expansion with `#quote` and argument-expression holes, validating quote while
+  compiling a macro plugin and loading that plugin in a consuming project.
+- Centralized automatically available macros in the compiler's default macro
+  environment and added `MacroReference.CreateFromImage`, allowing emitted
+  Raven macro plugins to be activated directly from memory as a foundation for
+  same-project macros and the Playground.
+- Added an explicit compile-time-only macro source partition to `Compilation`.
+  `AddMacroSyntaxTrees` compiles Raven macro declarations in memory before
+  consumer binding, reports partition diagnostics through the consumer
+  compilation, includes local macros in completion, and excludes plugin
+  implementation types from runtime emit.
+- Added automatic direct-declaration discovery for same-project macros. Macro
+  interface implementations move into the compile-time partition through
+  compiler, Workspace, and SDK compilation paths, while retaining
+  semantic-model access and requiring neither a `RavenMacro` item nor an
+  explicit compiler-contract project reference.
+- Retired the transitional consumer-authored `RavenMacro` project item.
+  Reusable compiler-plugin providers now use ordinary marked project,
+  assembly, or package references; project loaders report migration guidance
+  when the removed item is encountered.
+- Removed the transitional `IRavenMacroPlugin` aggregation contract and
+  `[LocalMacroPlugin]` source marker. Macros are now registered directly as
+  `IMacroDefinition` implementations.
+- Made macro category classification compiler-owned. Definitions implement
+  exactly one category-specific macro interface, and `MacroFacts` derives
+  `MacroKind` without a macro-overridable discriminator property.
+- Moved macro target applicability to `IAttachedDeclarationMacro`, removing
+  redundant `MacroTarget.None` implementations from freestanding and
+  token-tree macros while retaining normalized queries through `MacroFacts`.
+- Added focused sample projects for custom macro token streams and quote-based
+  macro expansion.
+- Applied nominal-type macro replacements to base/interface binding, allowing
+  an attached macro to add a real interface contract alongside generated
+  members.
+- Migrated the remaining C# macro sample providers to Raven-authored macro
+  projects.
+- Renamed project sample files around their entry point, program, primary type,
+  or related type group instead of using `main.rvn` universally.
+- Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
+  compiler and tooling queries reuse the same definition instances.
+- Kept collectible macro assembly contexts alive for the lifetime of their
+  cached macro snapshots, preventing referenced helper assemblies from failing
+  to load when collection occurs before expansion.
+- Made VS Code language-server builds on extension activation opt-in. The
+  extension now starts an existing workspace or packaged server immediately by
+  default instead of blocking activation on a full compiler dependency build.
+- Added declaration-granular same-project macros through `[LocalMacro]`.
+  Marked top-level declarations are compiled and activated separately while
+  ordinary declarations in the same source remain runtime code, enabling macros
+  to be declared and consumed in one Playground buffer.
+- Reused emitted same-project macro partition artifacts across consumer-only
+  incremental edits, while invalidating them for macro or reference changes and
+  remapping cached partition diagnostics to the current syntax-tree projection.
+- Added `RAVM003` for local macro implementations that depend on consumer
+  declarations, identifying the compile-time activation cycle at the authored
+  reference in both dedicated and mixed-source macro layouts.
+- Added position-aware semantic-model lookup for mixed local-macro documents.
+  `Compilation.GetSemanticModel(tree, position)` and
+  `Document.GetSemanticModelAsync(position)` now route macro declaration
+  positions to the current macro projection while preserving the consumer model
+  for ordinary source positions and existing positionless calls.
+- Routed language-server hover and completion through the position-aware
+  semantic projection, enabling ordinary Raven symbol information and member
+  completion inside same-buffer local macro implementations.
+- Routed language-server definition, references, and rename through the
+  position-aware semantic projection. Reference search now scans both
+  compiler-owned projections of a mixed document while returning edits and
+  locations against the original authored source.
+- Made workspace analyzer execution projection-aware for mixed local-macro
+  documents. Syntax-node, symbol, operation, and syntax-tree actions now see
+  both ordinary consumer code and Raven macro implementation code with the
+  semantic model that owns each projection.
+- Added `FreestandingMacroExpansionResult` factory methods for expression
+  results, forwarded parser diagnostics, macro-authored diagnostics, and
+  combined diagnostic results. The built-in `#quote` macro and Playground
+  local-macro example now use the factory path.
+- Added matching `MacroExpansionResult` factories for attached declaration
+  replacement, introduced members, peer declarations, and diagnostic-only
+  results. Mutable result properties remain available for compatibility.
+- Stabilized attached property replacement binding so declaration-pass
+  accessor skeletons are completed once and later binds reuse the registered
+  accessor symbols. Replacement properties now expose the same getter and
+  setter identities through both the property and containing type.
+- Improved typed macro failure diagnostics by unwrapping reflection invocation
+  failures. Attached and freestanding macro authors now see their underlying
+  exception message at the authored macro name instead of a generic reflection
+  wrapper message.
+- Made attached and freestanding macro expansion cancellation-aware. Direct
+  and reflection-wrapped cancellation now propagates to the compiler caller,
+  does not produce `RAVM020`, and does not cache a failed expansion, allowing a
+  later uncanceled request to retry normally.
+- Added the provider-owned `[assembly: RavenCompilerPlugin]` marker for
+  reusable Raven macro projects. Consumers can now use an ordinary
+  `ProjectReference`; the workspace builds and activates marked providers as
+  compiler plugins without adding them as runtime project references or
+  scanning unmarked dependencies.
+- Added deterministic macro export manifests through repeatable
+  `[assembly: RavenCompilerPlugin(typeof(MacroType))]` markers. File, assembly,
+  and in-memory macro references now select direct macro definitions, retain
+  bare-marker fallback discovery, and report invalid manifests as `RAVM001`.
+  Same-project macro partitions discover direct definitions without an
+  assembly export marker.
+- Added provider-marked C# compiler-plugin project references. Raven projects
+  can now consume a C# macro provider through an ordinary `ProjectReference`;
+  the project system builds and activates marked providers without adding them
+  to the consumer's runtime reference graph or scanning unmarked dependencies.
+- Added compiler-owned discovery of marked portable assembly references.
+  Direct DLL and resolved package references now join the same active macro
+  registry as explicit and same-project macros after a metadata-only marker
+  check; unmarked assemblies are never activated or searched for macro types.
+- Added split NuGet package support for compiler plugins. Consumer binding now
+  retains a package's `ref/<tfm>` assembly while a marked `lib/<tfm>`
+  implementation is activated separately as a macro reference. Macro helper
+  assemblies shipped beside the implementation are resolved without requiring
+  an application `.deps.json`; runtime assets supplied by transitive NuGet
+  packages are carried as private identity-checked macro dependency probes
+  rather than consumer metadata references.
+- Deferred assembly custom-attribute emission until source type builders and
+  members exist, allowing assembly attributes such as macro manifests to carry
+  `typeof` values that refer to types declared in the same Raven assembly.
+- Added runnable Playground examples for constructing syntax with `#quote` and
+  for defining local attached, argument-style expression, and token-tree
+  expression macros.
+- Prevented incomplete recovered source symbols from aborting external
+  documentation emission when no stable documentation member ID can be built.
+- Changed `Compilation.AddReferences` to append metadata references, matching
+  its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

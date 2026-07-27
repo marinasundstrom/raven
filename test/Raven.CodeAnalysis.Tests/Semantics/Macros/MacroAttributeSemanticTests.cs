@@ -42,7 +42,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM010");
@@ -60,7 +60,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CaseTrackingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CaseTrackingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
@@ -83,7 +83,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM011"));
@@ -98,7 +98,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ExpandingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ExpandingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
@@ -122,7 +122,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ArgumentCapturingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ArgumentCapturingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
@@ -159,7 +159,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ConstantReadingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ConstantReadingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
@@ -179,7 +179,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TestAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM012"));
@@ -196,7 +196,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TypedParameterMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TypedParameterAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
@@ -217,7 +217,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TypedParameterMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TypedParameterAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM032"));
@@ -232,7 +232,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ExpandingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ExpandingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
@@ -252,7 +252,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ReplacingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ReplacingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
@@ -274,7 +274,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ReplacingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ReplacingAttachedMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var propertyDeclaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
@@ -300,7 +300,9 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ParentChildMacroPlugin)));
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(InspectMembersMacro)),
+            new MacroReference(typeof(RenameMemberMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
@@ -324,7 +326,9 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             }
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(TrackingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(TrackingFirstMacro)),
+            new MacroReference(typeof(TrackingSecondMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Last();
@@ -343,7 +347,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(DiagnosticMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(DiagnosticAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVTEST001"));
@@ -358,7 +362,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidationMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidationAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM021"));
@@ -381,19 +385,78 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             class Widget {}
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingMacroPlugin)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingAttachedMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM020"));
         Assert.Contains("AddEquatable", diagnostic.GetMessage());
     }
 
-    public sealed class TestMacroPlugin : IRavenMacroPlugin
+    [Fact]
+    public void TypedMacroExpansionFailure_ReportsUnderlyingException()
     {
-        public string Name => "TestMacroPlugin";
+        var (compilation, tree) = CreateCompilation("""
+            #[TypedBoom]
+            class Widget {}
+            """);
 
-        public System.Collections.Immutable.ImmutableArray<IMacroDefinition> GetMacros()
-            => [new TestAttachedMacro()];
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingTypedAttachedMacro)));
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(static d => d.Id == "RAVM020"));
+
+        Assert.Contains("TypedBoom", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("typed plugin boom", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("target of an invocation", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        Assert.Equal(attribute.Name.Span, diagnostic.Location.SourceSpan);
+    }
+
+    [Fact]
+    public void AttachedMacroCancellation_PropagatesAndDoesNotCacheFailure()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[CancelRaw]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(CancellingAttachedMacro)),
+            new MacroReference(typeof(CancellingTypedAttachedMacro)));
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        using var cancellationSource = new CancellationTokenSource();
+        CancellingAttachedMacro.CancellationSource = cancellationSource;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => model.GetMacroExpansion(attribute, cancellationSource.Token));
+
+        CancellingAttachedMacro.CancellationSource = null;
+        Assert.NotNull(model.GetMacroExpansion(attribute));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
+    }
+
+    [Fact]
+    public void TypedAttachedMacroCancellation_PropagatesThroughReflectionAndDoesNotCacheFailure()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[CancelTyped]
+            class Widget {}
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(CancellingAttachedMacro)),
+            new MacroReference(typeof(CancellingTypedAttachedMacro)));
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+        using var cancellationSource = new CancellationTokenSource();
+        CancellingTypedAttachedMacro.CancellationSource = cancellationSource;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => model.GetMacroExpansion(attribute, cancellationSource.Token));
+
+        CancellingTypedAttachedMacro.CancellationSource = null;
+        Assert.NotNull(model.GetMacroExpansion(attribute));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
     }
 
     public sealed class TestAttachedMacro : IAttachedDeclarationMacro
@@ -405,14 +468,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         public MacroTarget Targets => MacroTarget.Type;
 
         public MacroExpansionResult Expand(AttachedMacroContext context) => MacroExpansionResult.Empty;
-    }
-
-    public sealed class CaseTrackingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "CaseTrackingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new CaseTrackingAttachedMacro()];
     }
 
     public sealed class CaseTrackingAttachedMacro : IAttachedDeclarationMacro
@@ -433,22 +488,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class ExpandingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ExpandingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ExpandingAttachedMacro()];
-    }
-
-    public sealed class ConstantReadingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ConstantReadingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ConstantReadingAttachedMacro()];
-    }
-
     public sealed class ConstantReadingAttachedMacro : IAttachedDeclarationMacro
     {
         public static object? LastCapturedValue { get; set; }
@@ -466,14 +505,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             LastCapturedValue = context.Arguments[0].Constant.Value;
             return MacroExpansionResult.Empty;
         }
-    }
-
-    public sealed class TypedParameterMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "TypedParameterMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new TypedParameterAttachedMacro()];
     }
 
     public sealed class ObservableMacroParameters
@@ -531,14 +562,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class DiagnosticMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "DiagnosticMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new DiagnosticAttachedMacro()];
-    }
-
     public sealed class DiagnosticAttachedMacro : IAttachedDeclarationMacro
     {
         private static readonly DiagnosticDescriptor s_macroDiagnostic = DiagnosticDescriptor.Create(
@@ -564,14 +587,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             };
     }
 
-    public sealed class ThrowingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ThrowingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ThrowingAttachedMacro()];
-    }
-
     public sealed class ThrowingAttachedMacro : IAttachedDeclarationMacro
     {
         public string Name => "AddEquatable";
@@ -584,28 +599,48 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             => throw new InvalidOperationException("plugin boom");
     }
 
-    public sealed class ValidationMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ValidationMacroPlugin";
+    public sealed class ThrowingTypedMacroParameters;
 
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ValidationAttachedMacro()];
+    public sealed class ThrowingTypedAttachedMacro : IAttachedDeclarationMacro<ThrowingTypedMacroParameters>
+    {
+        public string Name => "TypedBoom";
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<ThrowingTypedMacroParameters> context)
+            => throw new InvalidOperationException("typed plugin boom");
     }
 
-    public sealed class ParentChildMacroPlugin : IRavenMacroPlugin
+    public sealed class CancellingAttachedMacro : IAttachedDeclarationMacro
     {
-        public string Name => "ParentChildMacroPlugin";
+        public static CancellationTokenSource? CancellationSource { get; set; }
 
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new InspectMembersMacro(), new RenameMemberMacro()];
+        public string Name => "CancelRaw";
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            CancellationSource?.Cancel();
+            context.CancellationToken.ThrowIfCancellationRequested();
+            return MacroExpansionResult.Empty;
+        }
     }
 
-    public sealed class TrackingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "TrackingMacroPlugin";
+    public sealed class CancellingTypedAttachedMacroParameters;
 
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new TrackingFirstMacro(), new TrackingSecondMacro()];
+    public sealed class CancellingTypedAttachedMacro : IAttachedDeclarationMacro<CancellingTypedAttachedMacroParameters>
+    {
+        public static CancellationTokenSource? CancellationSource { get; set; }
+
+        public string Name => "CancelTyped";
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<CancellingTypedAttachedMacroParameters> context)
+        {
+            CancellationSource?.Cancel();
+            context.CancellationToken.ThrowIfCancellationRequested();
+            return MacroExpansionResult.Empty;
+        }
     }
 
     public sealed class ValidationAttachedMacroParameters(string name)
@@ -746,14 +781,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class ArgumentCapturingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ArgumentCapturingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ArgumentCapturingAttachedMacro()];
-    }
-
     public sealed class ArgumentCapturingAttachedMacro : IAttachedDeclarationMacro
     {
         public static ArgumentListSyntax? LastCapturedArguments { get; set; }
@@ -773,14 +800,6 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             LastParsedArguments = context.Arguments;
             return MacroExpansionResult.Empty;
         }
-    }
-
-    public sealed class ReplacingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ReplacingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ReplacingAttachedMacro()];
     }
 
     public sealed class ReplacingAttachedMacro : IAttachedDeclarationMacro

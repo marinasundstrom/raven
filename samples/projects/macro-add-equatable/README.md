@@ -1,33 +1,44 @@
 # Macro AddEquatable (`.rvnproj`)
 
-This sample shows the intended shape of an attached macro project for Raven.
+This sample shows an attached macro that makes an annotated Raven class
+implement `System.IEquatable<T>`.
 
 Current status:
 
 - `#[AddEquatable]` parses as a macro-style attribute.
 - Macro-style attributes are intentionally excluded from normal CLR attribute binding/emission.
-- The .NET plugin contract exists.
-- Raven project files can reference macro assemblies with `RavenMacro`.
+- The macro is implemented in Raven through the object-oriented compiler-plugin
+  contracts.
+- The provider declares
+  `[assembly: RavenCompilerPlugin(typeof(AddEquatableMacro))]`, exporting the
+  macro definition directly without a plugin container.
+- The Raven application consumes the provider through an ordinary
+  `ProjectReference`; no consumer-authored `RavenMacro` item is needed.
 - The compiler resolves attached macros and invokes plugin expansion generically.
-- Expansion results are currently available through the semantic model for tooling and inspection; generated members are not yet merged into binding/codegen.
+- The macro replaces the class base list with one that includes
+  `IEquatable<User>` while preserving any authored base types.
+- The macro introduces `Equals(other: User)`, which compares the sample's
+  `Name` and `Age` properties.
+- The replacement type shape and generated member participate in ordinary
+  binding and code generation.
 
 Files:
 
 - `MacroAddEquatable.rvnproj`: Raven project using `#[AddEquatable]`
-- `src/main.rvn`: Raven source that uses the macro-style attribute
-- `macros/AddEquatableMacros.csproj`: example .NET macro plugin project
-- `macros/AddEquatableMacroPlugin.cs`: example plugin implementation that returns a generated member through `MacroExpansionResult`
+- `src/Program.rvn`: Raven source that uses the macro-style attribute
+- `macros/AddEquatableMacros.rvnproj`: Raven macro plugin project
+- `macros/AddEquatableMacro.rvn`: attached macro implementation that replaces the type shape and introduces `Equals`
 
-The project file includes a `RavenMacro` item that points at the built plugin assembly.
-
-Build the Raven source:
+Build and run the Raven application. Its normal project reference builds and
+activates the marked Raven provider:
 
 ```bash
-dotnet build MacroAddEquatable.rvnproj --property WarningLevel=0
+dotnet run --project MacroAddEquatable.rvnproj --property WarningLevel=0
 ```
 
-Build the example plugin assembly:
+Expected output:
 
-```bash
-dotnet build macros/AddEquatableMacros.csproj /property:WarningLevel=0
+```text
+True
+False
 ```

@@ -24,7 +24,8 @@ class MyViewModel: ObservableBase {
 Current status:
 
 - The macro plugin is written in Raven, not C#.
-- `#[Observable]` is resolved from a `RavenMacro` assembly reference.
+- `#[Observable]` is resolved from an ordinary project reference to an
+  assembly marked with `RavenCompilerPlugin`.
 - The plugin transforms `context.CurrentDeclaration`, while `context.TargetDeclaration` remains available as the original authored syntax.
 - The plugin builds its expansion with the syntax API instead of parsing a generated source string.
 - The plugin returns both an introduced backing field and a replacement property declaration through `MacroExpansionResult`.
@@ -35,9 +36,9 @@ Current status:
 Files:
 
 - `app/MacroObservable.rvnproj`: Raven application using `#[Observable]`
-- `app/src/main.rvn`: `ObservableBase` plus `MyViewModel`
+- `app/src/Program.rvn`: `ObservableBase` plus `MyViewModel`
 - `macros/ObservableMacros.rvnproj`: Raven macro plugin project
-- `macros/main.rvn`: plugin implementation of `IRavenMacroPlugin` / `IAttachedDeclarationMacro`
+- `macros/ObservableMacro.rvn`: directly exported `IAttachedDeclarationMacro` implementation
 
 Build the macro plugin first:
 

@@ -38,4 +38,83 @@ public sealed class FreestandingMacroParsingTests
 
         Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
     }
+
+    [Fact]
+    public void TokenTreeMacroExpression_PreservesRawDslBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #xml {
+                <root data="{not a Raven expression}">
+                    {{ nested { content } }}
+                </root>
+            }
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var tokenTree = Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree);
+        Assert.Contains("<root data=\"{not a Raven expression}\">", tokenTree.ToFullString());
+        Assert.Contains("{{ nested { content } }}", tokenTree.BodyToken.Text);
+        Assert.Equal(SyntaxKind.MacroBodyToken, tokenTree.BodyToken.Kind);
+        Assert.False(tokenTree.CloseBraceToken.IsMissing);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TokenTreeMacroExpression_ParsesArgumentsAndRawBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #repeat(3, Label: "item") {
+                custom content
+            }
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal(2, expression.ArgumentList.Arguments.Count);
+        Assert.Equal("Label", expression.ArgumentList.Arguments[1].NameColon?.Name.Identifier.ValueText);
+        Assert.Contains("custom content", Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TokenTreeMacroExpression_AllowsCharactersOutsideRavenLexicalGrammar()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #dsl {
+                `custom-key` ::= ⟨value⟩
+            }
+            """);
+
+        var tokenTree = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroTokenTreeSyntax>()
+            .Single();
+
+        Assert.Contains("`custom-key` ::= ⟨value⟩", tokenTree.ToFullString());
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TokenTreeMacroExpression_UnterminatedBodyReportsMissingBrace()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #dsl {
+                custom content
+            """);
+
+        var tokenTree = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroTokenTreeSyntax>()
+            .Single();
+
+        Assert.True(tokenTree.CloseBraceToken.IsMissing);
+        Assert.Contains(tree.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV1003");
+    }
 }
