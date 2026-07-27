@@ -36,10 +36,11 @@ func Main() -> unit {
 Current status:
 
 - The macro plugin is written in Raven, not C#.
-- The plugin declares `[assembly: RavenCompilerPlugin]`, and the application
-  consumes it through an ordinary `ProjectReference`. The SDK classifies the
-  marked provider as a compiler plugin without a consumer-authored
-  `RavenMacro` item.
+- The plugin explicitly declares
+  `[assembly: RavenCompilerPlugin(typeof(FreestandingMacroPlugin))]`, and the
+  application consumes it through an ordinary `ProjectReference`. The SDK
+  classifies the marked provider as a compiler plugin without a
+  consumer-authored `RavenMacro` item or fallback type discovery.
 - `#add` uses the compiler-owned `#quote` intrinsic inside the Raven-authored
   macro implementation. Its two argument expressions are inserted with
   `#(...)` holes, producing `left + right` without manually assembling the

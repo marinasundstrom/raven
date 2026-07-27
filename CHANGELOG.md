@@ -109,6 +109,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `ProjectReference`; the workspace builds and activates marked providers as
   compiler plugins without adding them as runtime project references or
   scanning unmarked dependencies.
+- Added deterministic compiler-plugin entry-point manifests through repeatable
+  `[assembly: RavenCompilerPlugin(typeof(PluginType))]` markers. File, assembly,
+  and in-memory macro references now select only declared plugin types, retain
+  bare-marker fallback discovery, and report invalid manifests as `RAVM001`.
+- Deferred assembly custom-attribute emission until source type builders and
+  members exist, allowing assembly attributes such as macro manifests to carry
+  `typeof` values that refer to types declared in the same Raven assembly.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

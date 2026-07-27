@@ -1064,7 +1064,6 @@ internal class CodeGenerator
             var coreAssembly = _compilation.EmitCoreAssembly ?? typeof(object).Assembly;
             AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, coreAssembly);
             ModuleBuilder = DefineDynamicModuleWithSymbols(AssemblyBuilder, _compilation.AssemblyName);
-            ApplyCustomAttributes(_compilation.Assembly.GetAttributes(), attribute => AssemblyBuilder.SetCustomAttribute(attribute));
 
             DetermineShimTypeRequirements();
             PrintDebug("Determined shim type requirements.");
@@ -1088,6 +1087,7 @@ internal class CodeGenerator
             var entryPointSymbol = _compilation.GetEntryPoint();
             DefineMemberBuilders();
             PrintDebug("Member builders defined.");
+            ApplyCustomAttributes(_compilation.Assembly.GetAttributes(), attribute => AssemblyBuilder.SetCustomAttribute(attribute));
 
             EmitMemberILBodies();
             PrintDebug("Member IL bodies emitted.");

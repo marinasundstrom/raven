@@ -93,9 +93,7 @@ public sealed class MacroReference
             {
                 var loadContext = new MacroAssemblyLoadContext(fullPath);
                 var assembly = loadContext.LoadFromAssemblyPath(fullPath);
-                return assembly.GetTypes()
-                    .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
-                    .ToArray();
+                return GetPluginTypes(assembly);
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -118,9 +116,54 @@ public sealed class MacroReference
     }
 
     private static Type[] GetPluginTypes(Assembly assembly)
-        => assembly.GetTypes()
-            .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
+    {
+        var markers = assembly.GetCustomAttributes<RavenCompilerPluginAttribute>().ToArray();
+        var declaredPluginTypes = markers
+            .Select(static marker => marker.PluginType)
+            .Where(static type => type is not null)
+            .Cast<Type>()
             .ToArray();
+
+        if (declaredPluginTypes.Length > 0)
+        {
+            if (markers.Any(static marker => marker.PluginType is null))
+            {
+                throw new InvalidOperationException(
+                    $"Compiler plugin assembly '{assembly.GetName().Name}' mixes explicit entry points with the fallback-discovery marker.");
+            }
+
+            foreach (var pluginType in declaredPluginTypes)
+                ValidateDeclaredPluginType(assembly, pluginType);
+
+            return declaredPluginTypes.Distinct().ToArray();
+        }
+
+        return assembly.GetTypes()
+            .Where(IsConstructiblePluginType)
+            .ToArray();
+    }
+
+    private static void ValidateDeclaredPluginType(Assembly assembly, Type pluginType)
+    {
+        if (pluginType.Assembly != assembly)
+        {
+            throw new InvalidOperationException(
+                $"Compiler plugin entry point '{pluginType.FullName}' must be declared in assembly '{assembly.GetName().Name}'.");
+        }
+
+        if (!IsConstructiblePluginType(pluginType))
+        {
+            throw new InvalidOperationException(
+                $"Compiler plugin entry point '{pluginType.FullName}' must be a non-abstract class that implements {nameof(IRavenMacroPlugin)} and has a public parameterless constructor.");
+        }
+    }
+
+    private static bool IsConstructiblePluginType(Type type)
+        => type.IsClass
+            && typeof(IRavenMacroPlugin).IsAssignableFrom(type)
+            && !type.IsAbstract
+            && !type.ContainsGenericParameters
+            && type.GetConstructor(Type.EmptyTypes) is not null;
 
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {

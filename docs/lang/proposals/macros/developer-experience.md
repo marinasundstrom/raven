@@ -84,6 +84,12 @@ The near-term authoring priorities are:
 Retained DSL structure, custom completion, and syntax highlighting build on
 this loop later; they are not prerequisites for it.
 
+Dedicated syntax for declaring a macro is also post-MVP work. It may eventually
+hide repetitive plugin or macro classes, but the object-oriented contracts
+remain the stable authoring and execution surface. A shorthand must lower to or
+interoperate with those contracts so Raven-authored shorthand and ordinary
+.NET implementations remain one macro ecosystem.
+
 ## Two kinds of syntax structure
 
 ### Raven invocation carriers
@@ -375,18 +381,18 @@ dependency. The SDK reads the provider metadata, classifies the compiler-plugin
 asset, and passes it to `Compilation`; the compiler loads its manifest and
 registers the exported macros.
 
-Provider identity may be represented by an assembly-level marker emitted by
-the macro project, conceptually:
+Provider identity is represented by an assembly-level marker emitted by the
+macro project. The preferred form names each exported plugin entry point:
 
 ```raven
-[assembly: RavenCompilerPlugin]
+[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]
 ```
 
-The marker may explicitly list one or more plugin types when they are known.
-That is the preferred deterministic manifest. A bare marker can authorize
-fallback discovery of `IRavenMacroPlugin` implementations inside that marked
-assembly when plugin types were not declared individually. Raven must never
-perform that type scan for an unmarked runtime reference.
+The marker is repeatable when an assembly exports multiple plugin types. A bare
+marker authorizes fallback discovery of `IRavenMacroPlugin` implementations
+inside that marked assembly when plugin types were not declared individually.
+Explicit and bare forms cannot be mixed. Raven must never perform that type
+scan for an unmarked runtime reference.
 
 Consumers should not need a separate source import or an analyzer-like
 "import macros from this assembly" item. Conversely, Raven must not discover
@@ -394,17 +400,18 @@ plugins by scanning and executing every ordinary runtime reference. Provider
 metadata supplies explicit plugin identity and execution intent while keeping
 the consumer dependency model conventional.
 
-Raven macro projects now use `[assembly: RavenCompilerPlugin]` with an ordinary
-consumer `ProjectReference`. The bare marker authorizes fallback discovery of
-`IRavenMacroPlugin` implementations and the marked project is kept out of the
-consumer's runtime project-reference graph. The current source-level
-classification is limited to Raven project references.
+Raven macro projects now use
+`[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]` with an ordinary
+consumer `ProjectReference`. Explicit manifests select only the declared
+entry-point types; the bare marker remains the fallback-discovery form. The
+marked project is kept out of the consumer's runtime project-reference graph.
+The current source-level classification is limited to Raven project
+references.
 
 `RavenMacro` remains transitional plumbing for existing projects and direct
-assembly paths. Provider-marked package assets, C# provider projects, and an
-explicit manifest that names plugin types remain follow-up work. Macro-name
-conflicts and load failures remain compilation diagnostics regardless of how
-the plugin asset was resolved.
+assembly paths. Provider-marked package assets and C# provider projects remain
+follow-up work. Macro-name conflicts and load failures remain compilation
+diagnostics regardless of how the plugin asset was resolved.
 
 ## Default macro environment
 

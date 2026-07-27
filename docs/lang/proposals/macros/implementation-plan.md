@@ -34,6 +34,35 @@ Implemented before the token-tree work:
 * expansion diagnostics, semantic binding, emit, expanded-document views,
   completion, hover, and definition support
 
+## Infrastructure MVP gate
+
+The current priority is a dependable macro system, not dedicated syntax for
+declaring macros. The MVP is built around the object-oriented plugin contracts
+and must cover the normal compile, project, and token-stream paths before
+authoring shorthand is designed.
+
+* [x] compiler-owned macro discovery, registration, diagnostics, and expansion
+  through `Compilation` without requiring a `Workspace`
+* [x] attached, argument-style expression, and raw token-tree expression
+  invocation carriers
+* [x] replaceable `IMacroTokenStream` implementations whose output primitive is
+  `SyntaxToken`, including provider-owned `RawKind` values and keyword overlays
+* [x] Raven expression and statement fragment parsing inside token-tree bodies
+* [x] direct lowering to ordinary Raven syntax, source-located diagnostics,
+  cancellation, expansion caching, and expansion-result factories
+* [x] same-project and Playground activation through an in-memory compile-time
+  partition
+* [x] Raven compiler-plugin project references with explicit entry-point
+  manifests and bare-marker fallback discovery
+* [ ] provider-marked package assets and C# compiler-plugin project references
+* [ ] finish the representative authoring and project integration tests needed
+  to treat these contracts as stable enough for broader use
+
+Retained DSL structure, custom editor providers, additional syntax categories,
+and dedicated macro declaration syntax are post-MVP layers. Dedicated
+declaration syntax must lower to or interoperate with the object-oriented
+contracts rather than replace them.
+
 ## Active slice: raw token-tree expression macros
 
 Status: **implemented and validated**
@@ -396,10 +425,10 @@ compiler-plugin assets:
    `[assembly: RavenCompilerPlugin]`;
 2. [x] consumers use a normal Raven project dependency;
 3. the SDK resolves the marked asset and passes it to the compilation;
-4. the compiler loads its manifest and exported macro contracts; an
-   assembly-level marker may explicitly list plugin types or authorize fallback
-   discovery of `IRavenMacroPlugin` implementations within that marked
-   assembly; and
+4. [x] the compiler loads its manifest and exported macro contracts; a
+   repeatable assembly-level marker may explicitly name plugin types or a bare
+   marker may authorize fallback discovery of `IRavenMacroPlugin`
+   implementations within that marked assembly; and
 5. normal duplicate-name, compatibility, and load diagnostics continue to
    apply.
 
@@ -421,15 +450,34 @@ Remaining work:
 * classify provider-marked package assets;
 * support marked C# compiler-plugin projects without scanning arbitrary
   runtime assemblies;
-* allow the marker or generated manifest to name plugin entry-point types
-  explicitly; and
 * retire `RavenMacro` only after existing direct-assembly and package scenarios
   have replacements.
+
+Explicit manifests use
+`[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]`, repeated for each
+entry point. The loader validates that every declared type belongs to the
+marked assembly, is a concrete `IRavenMacroPlugin`, and has a public
+parameterless constructor. Invalid or mixed explicit/fallback manifests are
+reported through the existing `RAVM001` compiler diagnostic. Assembly, image,
+and file activation share this behavior.
+
+Dedicated macro declaration syntax is deliberately outside the infrastructure
+MVP. First stabilize token streams, ordinary OO authoring, expansion,
+diagnostics, and project activation. A later shorthand may remove class
+boilerplate only by lowering to or interoperating with these same contracts.
 
 Validation record for this slice:
 
 * focused marker-classification and marked-project loading tests: 2 passed
 * complete macro-reference and MSBuild project-system suites: 19 passed
+* `scripts/test-feature-suite.sh macros`: 58 passed
+* compiler-driver `macro-freestanding` project validation: passed
+* `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
+  `answer + 1`
+
+Explicit entry-point manifest validation:
+
+* focused macro-reference tests: 10 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
 * compiler-driver `macro-freestanding` project validation: passed
 * `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,

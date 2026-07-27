@@ -54,12 +54,21 @@ public sealed class MacroReferenceTests
     [Fact]
     public void MacroReference_FromInMemoryRavenAssembly_ExpandsMacro()
     {
-        var macroTree = SyntaxTree.ParseText("""
+        var macroImage = EmitMacroAssembly("""
             import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
 
+            [assembly: RavenCompilerPlugin(typeof(InMemoryMacroPlugin))]
+
             class InMemoryMacroPlugin : IRavenMacroPlugin {
                 val Name: string => "InMemory"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [AnswerMacro()]
+            }
+
+            class UnselectedMacroPlugin : IRavenMacroPlugin {
+                val Name: string => "Unselected"
 
                 func GetMacros() -> ImmutableArray<IMacroDefinition>
                     => [AnswerMacro()]
@@ -77,16 +86,12 @@ public sealed class MacroReferenceTests
                 }
             }
             """);
-        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IRavenMacroPlugin).Assembly.Location);
-        var macroCompilation = Compilation.Create(
-                "InMemoryMacros",
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(macroTree)
-            .AddReferences([.. TestMetadataReferences.Default, codeAnalysisReference]);
+        var reference = MacroReference.CreateFromImage(
+            macroImage,
+            display: "same-project macro partition");
 
-        using var macroImage = new MemoryStream();
-        var macroEmit = macroCompilation.Emit(macroImage);
-        Assert.True(macroEmit.Success, string.Join(System.Environment.NewLine, macroEmit.Diagnostics));
+        var plugin = Assert.Single(reference.GetPlugins());
+        Assert.Equal("InMemory", plugin.Name);
 
         var consumerTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
         var consumerCompilation = Compilation.Create(
@@ -94,13 +99,165 @@ public sealed class MacroReferenceTests
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(consumerTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(MacroReference.CreateFromImage(
-                macroImage.ToArray(),
-                display: "same-project macro partition"));
+            .AddMacroReferences(reference);
 
         Assert.DoesNotContain(
             consumerCompilation.GetDiagnostics(),
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void MacroReference_BareCompilerPluginMarker_UsesFallbackDiscovery()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin]
+
+            class FirstPlugin : IRavenMacroPlugin {
+                val Name: string => "First"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class SecondPlugin : IRavenMacroPlugin {
+                val Name: string => "Second"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class EmptyMacro : ITokenTreeExpressionMacro {
+                val Name: string => "empty"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+
+        var plugins = MacroReference.CreateFromImage(macroImage)
+            .GetPlugins()
+            .Select(static plugin => plugin.Name)
+            .Order()
+            .ToArray();
+
+        Assert.Equal(["First", "Second"], plugins);
+    }
+
+    [Fact]
+    public void MacroReference_ExplicitManifestSupportsMultipleEntryPoints()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(FirstPlugin))]
+            [assembly: RavenCompilerPlugin(typeof(SecondPlugin))]
+
+            class FirstPlugin : IRavenMacroPlugin {
+                val Name: string => "First"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class UnselectedPlugin : IRavenMacroPlugin {
+                val Name: string => "Unselected"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class SecondPlugin : IRavenMacroPlugin {
+                val Name: string => "Second"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class EmptyMacro : ITokenTreeExpressionMacro {
+                val Name: string => "empty"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+
+        var plugins = MacroReference.CreateFromImage(macroImage)
+            .GetPlugins()
+            .Select(static plugin => plugin.Name)
+            .ToArray();
+
+        Assert.Equal(["First", "Second"], plugins);
+    }
+
+    [Fact]
+    public void MacroReference_FromFile_UsesExplicitEntryPointManifest()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(SelectedPlugin))]
+
+            class SelectedPlugin : IRavenMacroPlugin {
+                val Name: string => "Selected"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class UnselectedPlugin : IRavenMacroPlugin {
+                val Name: string => "Unselected"
+                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            }
+
+            class EmptyMacro : ITokenTreeExpressionMacro {
+                val Name: string => "empty"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+        var assemblyPath = Path.Combine(
+            Path.GetTempPath(),
+            $"RavenMacroReference_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+
+            var plugin = Assert.Single(MacroReference.CreateFromFile(assemblyPath).GetPlugins());
+
+            Assert.Equal("Selected", plugin.Name);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_InvalidDeclaredEntryPoint_ReportsLoadDiagnostic()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(NotAPlugin))]
+
+            class NotAPlugin {}
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText("func Main() -> unit {}"))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(MacroReference.CreateFromImage(
+                macroImage,
+                display: "invalid manifest"));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Id == "RAVM001");
+
+        Assert.Contains("NotAPlugin", diagnostic.GetMessage());
+        Assert.Contains(nameof(IRavenMacroPlugin), diagnostic.GetMessage());
     }
 
     [Fact]
@@ -153,5 +310,21 @@ public sealed class MacroReferenceTests
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => MacroExpansionResult.Empty;
+    }
+
+    private static byte[] EmitMacroAssembly(string source)
+    {
+        var macroTree = SyntaxTree.ParseText(source);
+        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IRavenMacroPlugin).Assembly.Location);
+        var macroCompilation = Compilation.Create(
+                $"InMemoryMacros_{System.Guid.NewGuid():N}",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(macroTree)
+            .AddReferences([.. TestMetadataReferences.Default, codeAnalysisReference]);
+
+        using var macroImage = new MemoryStream();
+        var macroEmit = macroCompilation.Emit(macroImage);
+        Assert.True(macroEmit.Success, string.Join(System.Environment.NewLine, macroEmit.Diagnostics));
+        return macroImage.ToArray();
     }
 }

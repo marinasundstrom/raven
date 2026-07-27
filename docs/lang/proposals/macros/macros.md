@@ -13,9 +13,11 @@ Current implementation status:
 * `#` only starts a macro attribute when it is immediately followed by `[`. Other `#...` forms continue to lex as directives such as `#pragma`.
 * Macro-style attributes are kept out of the normal CLR attribute binding/emission pipeline.
 * Initial .NET plugin contracts exist under `Raven.CodeAnalysis.Macros`.
-* Raven macro projects can declare `[assembly: RavenCompilerPlugin]` and be
-  consumed through ordinary project references. Transitional `RavenMacro`
-  items remain supported for existing projects and direct assembly paths.
+* Raven macro projects can declare explicit entry points with
+  `[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]` and be consumed
+  through ordinary project references. A bare marker retains fallback
+  discovery. Transitional `RavenMacro` items remain supported for existing
+  projects and direct assembly paths.
 * Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.

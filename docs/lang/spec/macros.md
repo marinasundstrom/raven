@@ -30,10 +30,21 @@ be loaded.
 
 Macros are resolved from compiler-plugin assemblies. Their meaning is defined
 by the referenced macro implementation, not by the parser. A reusable Raven
-macro project marks its assembly with `RavenCompilerPlugin` and consumers use a
-normal project reference. Explicit `RavenMacro` items remain transitional
-plumbing for existing projects and direct assembly paths while package asset
-classification is developed.
+macro project marks its assembly with `RavenCompilerPlugin`, preferably naming
+each `IRavenMacroPlugin` entry point explicitly:
+
+```raven
+[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]
+```
+
+Apply the marker once for each exported plugin type. The declared type must be
+a non-abstract class in the marked assembly, implement `IRavenMacroPlugin`, and
+have a public parameterless constructor. A bare
+`[assembly: RavenCompilerPlugin]` marker authorizes fallback discovery of all
+such implementations in that assembly. Explicit and bare markers cannot be
+mixed. Consumers use a normal project reference. Explicit `RavenMacro` items
+remain transitional plumbing for existing projects and direct assembly paths
+while package asset classification is developed.
 
 `MacroKind` remains part of the common `IMacroDefinition` surface, but it is implied by the specialized macro interface:
 
@@ -377,8 +388,8 @@ its `IRavenMacroPlugin` implementations.
 Raven does not scan unmarked runtime references for plugins, and consumer
 source needs no macro import directive. `RavenMacro` remains supported as
 transitional plumbing for existing projects and direct assembly references.
-Provider-marked package assets and explicit plugin-type manifests remain future
-SDK work.
+Provider-marked package assets and C# provider project classification remain
+future SDK work.
 
 The selected Raven compiler and SDK may also register a version-matched default
 macro set automatically. Default macros require no source import or explicit
@@ -410,6 +421,14 @@ The SDK form needs neither a `RavenMacro` item nor an explicit project reference
 to the compiler contracts. `LocalMacroPluginAttribute` is not written with
 `#[...]`: it classifies compiler-plugin implementation source rather than
 invoking a macro.
+
+The object-oriented macro contracts are the authoritative MVP authoring and
+execution model. Raven may later add dedicated declaration syntax that removes
+plugin or macro class boilerplate, but that syntax is intentionally deferred
+until the infrastructure and common macro cases are stable. Any such syntax
+must lower to or interoperate with the same `IRavenMacroPlugin`,
+`IMacroDefinition`, context, token-stream, diagnostic, and expansion-result
+contracts; it must not create a parallel macro execution model.
 
 The automatic rule is intentionally syntax-only and file-granular. Local macro
 plugins and their supporting types must be kept in a dedicated source file;
