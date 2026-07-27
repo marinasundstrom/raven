@@ -22,6 +22,11 @@
     "onCommand:raven.toggleNameInlayHints",
     "onCommand:raven.showMacroExpansion",
     "onCommand:raven.showCodeActionPreview",
+    "onCommand:raven.syntaxTree.refresh",
+    "onCommand:raven.syntaxTree.showAuthored",
+    "onCommand:raven.syntaxTree.showExpanded",
+    "onCommand:raven.syntaxTree.showExpandedDocument",
+    "onView:raven.syntaxTree",
     "onCommand:raven.openDocumentation"
   ],
   "main": "./out/extension.js",
@@ -76,9 +81,60 @@
       {
         "command": "raven.showCodeActionPreview",
         "title": "Raven: Show Code Action Preview"
+      },
+      {
+        "command": "raven.syntaxTree.refresh",
+        "title": "Raven: Refresh Syntax Tree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "raven.syntaxTree.showAuthored",
+        "title": "Raven: Show Authored Syntax Tree",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "raven.syntaxTree.showExpanded",
+        "title": "Raven: Show Expanded Syntax Tree",
+        "icon": "$(symbol-structure)"
+      },
+      {
+        "command": "raven.syntaxTree.showExpandedDocument",
+        "title": "Raven: Open Expanded Document",
+        "icon": "$(open-preview)"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "raven.syntaxTree",
+          "name": "Raven Syntax Tree",
+          "when": "resourceLangId == raven"
+        }
+      ]
+    },
     "menus": {
+      "view/title": [
+        {
+          "command": "raven.syntaxTree.refresh",
+          "when": "view == raven.syntaxTree",
+          "group": "navigation"
+        },
+        {
+          "command": "raven.syntaxTree.showExpanded",
+          "when": "view == raven.syntaxTree && raven.syntaxTreeView == authored",
+          "group": "navigation@1"
+        },
+        {
+          "command": "raven.syntaxTree.showAuthored",
+          "when": "view == raven.syntaxTree && raven.syntaxTreeView == expanded",
+          "group": "navigation@1"
+        },
+        {
+          "command": "raven.syntaxTree.showExpandedDocument",
+          "when": "view == raven.syntaxTree",
+          "group": "navigation@2"
+        }
+      ],
       "editor/title": [
         {
           "command": "raven.run.compileAndRun",

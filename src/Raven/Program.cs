@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -333,9 +334,19 @@ static int RunDevCommand(string[] args)
         return 1;
     }
 
-    var compilation = session.Compilation;
-    var diagnostics = session.GetDiagnostics();
-    var document = SelectDocument(session.Project, options.InputPaths);
+    var project = session.Project;
+    var document = SelectDocument(project, options.InputPaths, options.DocumentPath);
+    if (document is not null && options.SourceTextPath is not null)
+    {
+        using var sourceStream = File.OpenRead(options.SourceTextPath);
+        var updatedDocument = document.WithText(SourceText.From(sourceStream));
+        session.Workspace.TryApplyChanges(updatedDocument.Project.Solution);
+        project = session.Workspace.CurrentSolution.GetProject(session.ProjectId)!;
+        document = project.GetDocument(document.Id);
+    }
+
+    var compilation = session.Workspace.GetCompilation(session.ProjectId);
+    var diagnostics = session.Workspace.GetDiagnostics(session.ProjectId);
     var syntaxTree = document?.GetSyntaxTreeAsync().GetAwaiter().GetResult();
     var root = syntaxTree?.GetRoot();
 
@@ -345,7 +356,26 @@ static int RunDevCommand(string[] args)
             if (root is null)
                 return SingleDocumentRequired(options.CommandName);
 
-            root.PrintSyntaxTree(new PrinterOptions
+            var syntaxRoot = options.SyntaxView == SyntaxView.Expanded && syntaxTree is not null
+                ? compilation.GetSemanticModel(syntaxTree).GetExpandedRoot()
+                : root;
+
+            if (options.SyntaxTreeFormat == SyntaxTreeFormat.Json)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(
+                    new SyntaxVisualizerDocument(
+                        options.SyntaxView == SyntaxView.Expanded ? "expanded" : "authored",
+                        syntaxRoot.ToFullString(),
+                        CreateSyntaxVisualizerNode(syntaxRoot, propertyName: null)),
+                    new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        WriteIndented = true
+                    }));
+                return 0;
+            }
+
+            syntaxRoot.PrintSyntaxTree(new PrinterOptions
             {
                 IncludeNames = true,
                 IncludeTokens = true,
@@ -469,8 +499,19 @@ static int SingleDocumentRequired(string commandName)
     return 1;
 }
 
-static Document? SelectDocument(Project project, IReadOnlyList<string> inputPaths)
+static Document? SelectDocument(
+    Project project,
+    IReadOnlyList<string> inputPaths,
+    string? documentPath)
 {
+    if (documentPath is not null)
+    {
+        var fullDocumentPath = Path.GetFullPath(documentPath);
+        return project.Documents.FirstOrDefault(
+            document => document.FilePath is not null &&
+                string.Equals(Path.GetFullPath(document.FilePath), fullDocumentPath, StringComparison.OrdinalIgnoreCase));
+    }
+
     var sourceInputs = inputPaths
         .Where(static path => !RavenFileExtensions.HasProjectExtension(path))
         .Select(Path.GetFullPath)
@@ -553,6 +594,9 @@ static bool TryParseDevCommand(string[] args, out DevCommandOptions options)
     var inputs = new List<string>();
     var noProjectRestore = false;
     var syntaxTreeFormat = SyntaxTreeFormat.Flat;
+    var syntaxView = SyntaxView.Authored;
+    string? documentPath = null;
+    string? sourceTextPath = null;
     var dumpFormat = DevDumpFormat.Pretty;
     var macroMode = MacroDumpMode.Both;
     var boundTreeView = BoundTreeView.Original;
@@ -575,6 +619,19 @@ static bool TryParseDevCommand(string[] args, out DevCommandOptions options)
                 break;
             case "--no-project-restore":
                 noProjectRestore = true;
+                break;
+            case "--syntax-view":
+                if (!TryConsumeValue(args, ref i, out var syntaxViewValue) ||
+                    !TryParseSyntaxView(syntaxViewValue, out syntaxView))
+                    return InvalidValue(arg);
+                break;
+            case "--document":
+                if (!TryConsumeValue(args, ref i, out documentPath))
+                    return MissingValue(arg);
+                break;
+            case "--source-text":
+                if (!TryConsumeValue(args, ref i, out sourceTextPath))
+                    return MissingValue(arg);
                 break;
             case "--bound-tree-view":
             case "--bt-view":
@@ -638,6 +695,9 @@ static bool TryParseDevCommand(string[] args, out DevCommandOptions options)
         targetFramework,
         noProjectRestore,
         syntaxTreeFormat,
+        syntaxView,
+        documentPath,
+        sourceTextPath,
         dumpFormat,
         macroMode,
         boundTreeView,
@@ -671,14 +731,110 @@ static bool TryConsumeValue(string[] args, ref int index, out string value)
 
 static bool TryParseSyntaxTreeFormat(string value, out SyntaxTreeFormat format)
 {
-    format = value.ToLowerInvariant() switch
+    var normalizedValue = value.ToLowerInvariant();
+    format = normalizedValue switch
     {
         "flat" => SyntaxTreeFormat.Flat,
         "group" or "grouped" => SyntaxTreeFormat.Group,
+        "json" => SyntaxTreeFormat.Json,
         _ => SyntaxTreeFormat.Flat
     };
-    return value is "flat" or "group" or "grouped";
+    return normalizedValue is "flat" or "group" or "grouped" or "json";
 }
+
+static bool TryParseSyntaxView(string value, out SyntaxView view)
+{
+    var normalizedValue = value.ToLowerInvariant();
+    view = normalizedValue switch
+    {
+        "authored" or "original" => SyntaxView.Authored,
+        "expanded" => SyntaxView.Expanded,
+        _ => SyntaxView.Authored
+    };
+    return normalizedValue is "authored" or "original" or "expanded";
+}
+
+static SyntaxVisualizerElement CreateSyntaxVisualizerNode(SyntaxNode node, string? propertyName)
+{
+    var children = new List<SyntaxVisualizerElement>();
+    foreach (var child in node.ChildNodesAndTokens())
+    {
+        if (child.TryGetNode(out var childNode))
+        {
+            var childPropertyName = node.GetPropertyNameForChild(childNode)
+                ?? node.GetPropertyNameForListItem(childNode);
+            children.Add(CreateSyntaxVisualizerNode(childNode, childPropertyName));
+        }
+        else if (child.TryGetToken(out var token))
+        {
+            var childPropertyName = node.GetPropertyNameForChild(token)
+                ?? node.GetPropertyNameForListItem(token);
+            children.Add(CreateSyntaxVisualizerToken(token, childPropertyName));
+        }
+    }
+
+    return new SyntaxVisualizerElement(
+        Category: "node",
+        Kind: node.Kind.ToString(),
+        RawKind: (int)node.Kind,
+        PropertyName: propertyName,
+        Text: null,
+        Span: CreateSyntaxVisualizerSpan(node.Span),
+        FullSpan: CreateSyntaxVisualizerSpan(node.FullSpan),
+        IsMissing: node.IsMissing,
+        Diagnostics: CreateSyntaxVisualizerDiagnostics(node.GetDiagnostics(traverse: false)),
+        Children: children);
+}
+
+static SyntaxVisualizerElement CreateSyntaxVisualizerToken(SyntaxToken token, string? propertyName)
+{
+    var children = new List<SyntaxVisualizerElement>();
+    children.AddRange(token.LeadingTrivia.Select(trivia => CreateSyntaxVisualizerTrivia(trivia, "LeadingTrivia")));
+    children.AddRange(token.TrailingTrivia.Select(trivia => CreateSyntaxVisualizerTrivia(trivia, "TrailingTrivia")));
+
+    return new SyntaxVisualizerElement(
+        Category: "token",
+        Kind: token.Kind.ToString(),
+        RawKind: token.RawKind,
+        PropertyName: propertyName,
+        Text: token.Text,
+        Span: CreateSyntaxVisualizerSpan(token.Span),
+        FullSpan: CreateSyntaxVisualizerSpan(token.FullSpan),
+        IsMissing: token.IsMissing,
+        Diagnostics: CreateSyntaxVisualizerDiagnostics(token.GetDiagnostics()),
+        Children: children);
+}
+
+static SyntaxVisualizerElement CreateSyntaxVisualizerTrivia(SyntaxTrivia trivia, string propertyName)
+{
+    var structure = trivia.GetStructure();
+    var children = structure is null
+        ? []
+        : new[] { CreateSyntaxVisualizerNode(structure, "Structure") };
+
+    return new SyntaxVisualizerElement(
+        Category: "trivia",
+        Kind: trivia.Kind.ToString(),
+        RawKind: (int)trivia.Kind,
+        PropertyName: propertyName,
+        Text: trivia.Text,
+        Span: CreateSyntaxVisualizerSpan(trivia.Span),
+        FullSpan: CreateSyntaxVisualizerSpan(trivia.FullSpan),
+        IsMissing: false,
+        Diagnostics: CreateSyntaxVisualizerDiagnostics(trivia.GetDiagnostics()),
+        Children: children);
+}
+
+static SyntaxVisualizerSpan CreateSyntaxVisualizerSpan(TextSpan span)
+    => new(span.Start, span.Length);
+
+static IReadOnlyList<SyntaxVisualizerDiagnostic> CreateSyntaxVisualizerDiagnostics(IEnumerable<Diagnostic> diagnostics)
+    => diagnostics
+        .Select(static diagnostic => new SyntaxVisualizerDiagnostic(
+            diagnostic.Id,
+            diagnostic.Severity.ToString(),
+            diagnostic.GetMessage()))
+        .ToArray();
 
 static bool TryParseDumpFormat(string value, out DevDumpFormat format)
 {
@@ -934,7 +1090,7 @@ static void PrintDevHelp()
     Console.WriteLine("Usage: rvn dev <command> [options] <source-files|project-file.rvnproj>");
     Console.WriteLine();
     Console.WriteLine("Commands:");
-    Console.WriteLine("  syntax [flat|group]       Print syntax tree.");
+    Console.WriteLine("  syntax [flat|group|json]  Print syntax tree (--syntax-view authored|expanded).");
     Console.WriteLine("  syntax-internal           Print internal green syntax tree.");
     Console.WriteLine("  dump [plain|pretty]       Dump source syntax view.");
     Console.WriteLine("  macros [mode]             Dump macro source views.");
@@ -1010,6 +1166,9 @@ sealed record DevCommandOptions(
     string? TargetFramework,
     bool NoProjectRestore,
     SyntaxTreeFormat SyntaxTreeFormat,
+    SyntaxView SyntaxView,
+    string? DocumentPath,
+    string? SourceTextPath,
     DevDumpFormat DumpFormat,
     MacroDumpMode MacroMode,
     BoundTreeView BoundTreeView,
@@ -1023,6 +1182,9 @@ sealed record DevCommandOptions(
         null,
         false,
         SyntaxTreeFormat.Flat,
+        SyntaxView.Authored,
+        null,
+        null,
         DevDumpFormat.Pretty,
         MacroDumpMode.Both,
         BoundTreeView.Original,
@@ -1046,8 +1208,36 @@ enum DevCommand
 enum SyntaxTreeFormat
 {
     Flat,
-    Group
+    Group,
+    Json
 }
+
+enum SyntaxView
+{
+    Authored,
+    Expanded
+}
+
+sealed record SyntaxVisualizerDocument(
+    string View,
+    string SourceText,
+    SyntaxVisualizerElement Root);
+
+sealed record SyntaxVisualizerElement(
+    string Category,
+    string Kind,
+    int RawKind,
+    string? PropertyName,
+    string? Text,
+    SyntaxVisualizerSpan Span,
+    SyntaxVisualizerSpan FullSpan,
+    bool IsMissing,
+    IReadOnlyList<SyntaxVisualizerDiagnostic> Diagnostics,
+    IReadOnlyList<SyntaxVisualizerElement> Children);
+
+sealed record SyntaxVisualizerSpan(int Start, int Length);
+
+sealed record SyntaxVisualizerDiagnostic(string Id, string Severity, string Message);
 
 enum DevDumpFormat
 {

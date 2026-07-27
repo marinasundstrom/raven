@@ -6,6 +6,26 @@ It also adds Raven debug integration: F5 can compile and launch either a single 
 
 `.rvnproj` and legacy `.ravenproj` files are associated to VS Code's `xml` language mode by default, so they get XML/MSBuild colorization in the editor.
 
+## Syntax tree visualizer
+
+The Explorer includes an opt-in **Raven Syntax Tree** view modeled after the
+Roslyn Syntax Visualizer. It uses `rvn dev syntax json` as its data source and
+updates after edits to the active Raven document.
+
+- Expand nodes to inspect syntax nodes, tokens, leading/trailing trivia,
+  property roles, raw kinds, spans, missing elements, and diagnostics.
+- Select an item to reveal its span in the corresponding source document.
+- Use the tree toolbar to switch between the authored tree and the fully
+  macro-expanded tree.
+- Use **Raven: Open Expanded Document** to inspect the complete expanded source
+  beside the authored document. Selecting items in the expanded tree navigates
+  within that read-only expanded document.
+
+Project-backed documents are loaded through their `.rvnproj`, so referenced and
+same-project macros participate in expansion. Unsaved editor text is supplied
+to the tool as an in-memory-style source override without modifying the file on
+disk.
+
 ## Prerequisites
 - .NET SDK installed and on your `PATH`.
 - A built Raven language server (`Raven.LanguageServer.dll`). The extension auto-discovers common locations:

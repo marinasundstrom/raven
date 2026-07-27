@@ -4,6 +4,15 @@ import * as crypto from 'crypto';
 import { execFile, execFileSync, ExecFileOptions } from 'child_process';
 import * as vscode from 'vscode';
 import { CloseAction, ErrorAction, InlayHintRefreshRequest, InlayHintRequest, InlayHintsProviderShape, LanguageClient, LanguageClientOptions, ServerOptions, State, StateChangeEvent, Trace } from 'vscode-languageclient/node';
+import {
+  ExpandedSyntaxContentProvider,
+  LoadedSyntaxTree,
+  revealSyntaxTreeItem,
+  SyntaxTreeDataProvider,
+  SyntaxTreeItem,
+  SyntaxTreeToolDocument,
+  SyntaxTreeViewMode
+} from './syntaxTreeVisualizer';
 
 let client: LanguageClient | undefined;
 let clientStopPromise: Promise<void> | undefined;
@@ -1148,6 +1157,78 @@ function resolveFrontendInvocation(targetFramework: string | undefined): ToolInv
   return undefined;
 }
 
+async function loadSyntaxTree(
+  document: vscode.TextDocument,
+  view: SyntaxTreeViewMode,
+  expandedContentProvider: ExpandedSyntaxContentProvider,
+  storagePath: string
+): Promise<LoadedSyntaxTree> {
+  const targetFramework = document.uri.scheme === 'file'
+    ? resolveTargetFramework(document.fileName)
+    : undefined;
+  const frontend = resolveFrontendInvocation(targetFramework);
+  if (!frontend) {
+    throw new Error(
+      'Unable to locate the Raven developer tool. Install the Raven SDK, set "raven.sdkPath", or build src/Raven/Raven.csproj.'
+    );
+  }
+
+  const temporaryDirectory = path.join(
+    storagePath,
+    'syntax-tree',
+    createStableHash(document.uri.toString())
+  );
+  fs.mkdirSync(temporaryDirectory, { recursive: true });
+  const temporaryPath = path.join(
+    temporaryDirectory,
+    `${crypto.randomUUID()}${path.extname(document.fileName) || '.rvn'}`
+  );
+
+  try {
+    await fs.promises.writeFile(temporaryPath, document.getText(), 'utf8');
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+    const sourcePath = document.uri.scheme === 'file' && fs.existsSync(document.fileName)
+      ? document.fileName
+      : undefined;
+    const projectPath = sourcePath ? resolveOwningProjectPath(sourcePath) : undefined;
+    const inputPath = projectPath ?? sourcePath ?? temporaryPath;
+    const syntaxArguments = [
+      ...frontend.args,
+      'dev',
+      'syntax',
+      'json',
+      '--syntax-view',
+      view
+    ];
+    if (sourcePath) {
+      syntaxArguments.push('--document', sourcePath, '--source-text', temporaryPath);
+    }
+    syntaxArguments.push(inputPath);
+
+    const result = await execFileText(
+      frontend.executable,
+      syntaxArguments,
+      {
+        cwd: workspaceFolder ?? path.dirname(temporaryPath),
+        maxBuffer: 32 * 1024 * 1024
+      }
+    );
+    const toolDocument = JSON.parse(result.stdout) as SyntaxTreeToolDocument;
+    return {
+      root: toolDocument.root,
+      navigationUri: toolDocument.view === 'expanded'
+        ? expandedContentProvider.update(document.uri, toolDocument.sourceText)
+        : document.uri
+    };
+  } catch (error) {
+    const execError = error as ExecFileTextError;
+    const details = execError.stderr?.trim() || execError.stdout?.trim() || execError.message;
+    throw new Error(details);
+  } finally {
+    await fs.promises.rm(temporaryPath, { force: true });
+  }
+}
+
 function resolveTargetFramework(targetPath: string): string | undefined {
   const configuration = vscode.workspace.getConfiguration('raven');
   const configuredFramework = configuration.get<string>('targetFramework')?.trim();
@@ -1617,6 +1698,70 @@ export function activate(context: vscode.ExtensionContext): void {
   void startClient(context, 'activate');
   void offerSdkInstallationIfMissing(context);
 
+  const expandedSyntaxContentProvider = new ExpandedSyntaxContentProvider();
+  context.subscriptions.push(
+    expandedSyntaxContentProvider,
+    vscode.workspace.registerTextDocumentContentProvider(
+      'raven-expanded',
+      expandedSyntaxContentProvider
+    )
+  );
+  const syntaxTreeProvider = new SyntaxTreeDataProvider(
+    (document, view) => loadSyntaxTree(
+      document,
+      view,
+      expandedSyntaxContentProvider,
+      context.globalStorageUri.fsPath
+    ),
+    message => output.appendLine(message)
+  );
+  const syntaxTreeView = vscode.window.createTreeView('raven.syntaxTree', {
+    treeDataProvider: syntaxTreeProvider,
+    showCollapseAll: true
+  });
+  context.subscriptions.push(syntaxTreeProvider, syntaxTreeView);
+  syntaxTreeProvider.setActiveDocument(vscode.window.activeTextEditor?.document);
+  syntaxTreeProvider.setVisible(syntaxTreeView.visible);
+  context.subscriptions.push(
+    syntaxTreeView.onDidChangeVisibility(event => syntaxTreeProvider.setVisible(event.visible)),
+    vscode.window.onDidChangeActiveTextEditor(editor => syntaxTreeProvider.setActiveDocument(editor?.document)),
+    vscode.commands.registerCommand('raven.syntaxTree.refresh', () => syntaxTreeProvider.refresh()),
+    vscode.commands.registerCommand('raven.syntaxTree.showAuthored', async () => {
+      syntaxTreeProvider.setView('authored');
+      syntaxTreeView.description = 'Authored';
+      await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'authored');
+    }),
+    vscode.commands.registerCommand('raven.syntaxTree.showExpanded', async () => {
+      syntaxTreeProvider.setView('expanded');
+      syntaxTreeView.description = 'Expanded';
+      await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'expanded');
+    }),
+    vscode.commands.registerCommand('raven.syntaxTree.showExpandedDocument', async () => {
+      const document = syntaxTreeProvider.getActiveDocument();
+      if (!document) {
+        void vscode.window.showInformationMessage('Open a Raven document to view its expanded source.');
+        return;
+      }
+
+      const loadedTree = await loadSyntaxTree(
+        document,
+        'expanded',
+        expandedSyntaxContentProvider,
+        context.globalStorageUri.fsPath
+      );
+      const expandedDocument = await vscode.workspace.openTextDocument(loadedTree.navigationUri);
+      await vscode.window.showTextDocument(expandedDocument, {
+        preview: true,
+        viewColumn: vscode.ViewColumn.Beside
+      });
+    }),
+    vscode.commands.registerCommand('raven.syntaxTree.reveal', async (item: SyntaxTreeItem) => {
+      await revealSyntaxTreeItem(item);
+    })
+  );
+  syntaxTreeView.description = 'Authored';
+  void vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'authored');
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('raven.inlayHints.enabled') ||
@@ -1631,6 +1776,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document.languageId !== 'raven') {
         return;
+      }
+
+      if (vscode.window.activeTextEditor?.document.uri.toString() === event.document.uri.toString()) {
+        syntaxTreeProvider.scheduleRefresh();
       }
 
       if (areRavenInlayHintsEnabled() &&

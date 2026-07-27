@@ -2,6 +2,14 @@
 
 The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP process so `.rvn` files, with legacy `.rav` compatibility, can surface diagnostics, completions, and inlay hints. The language server publishes syntax diagnostics immediately after edits and keeps previous semantic diagnostics and inlays visible for unchanged ranges while newer snapshot results are pending. It auto-discovers the language server build output and starts it with `dotnet` when the extension activates.
 
+The Explorer also contains an opt-in **Raven Syntax Tree** debugging view. It
+renders nodes, tokens, trivia, syntax property roles, raw kinds, spans, missing
+elements, and diagnostics from the machine-readable `rvn dev syntax json`
+output. The toolbar switches between the authored syntax tree and the fully
+macro-expanded tree, and can open the complete expanded source in a read-only
+virtual Raven document. Tree selections reveal the corresponding authored or
+expanded source range.
+
 ## Prerequisites
 - .NET SDK available on your `PATH` so the client can start the language server.
 - Node.js 18+ for building and running the extension.

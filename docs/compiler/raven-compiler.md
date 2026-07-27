@@ -114,7 +114,10 @@ editors can discover the same SDK root.
 
 `rvn dev` hosts internal debug views outside the compiler binary:
 
-- `rvn dev syntax [flat|group] <input>` &ndash; print syntax tree
+- `rvn dev syntax [flat|group|json] [--syntax-view authored|expanded] <input>`
+  &ndash; print the authored or fully macro-expanded syntax tree. JSON mode
+  includes the corresponding complete source text and structured
+  node/token/trivia data for editor tooling.
 - `rvn dev dump [plain|pretty] <input>` &ndash; dump source syntax view
 - `rvn dev macros [original|expanded|both] <input>` &ndash; dump macro source views
 - `rvn dev binders <input>` &ndash; print binder tree

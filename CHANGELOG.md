@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a Roslyn-inspired syntax tree visualizer to the VS Code extension. The
+  Explorer view presents compiler-produced nodes, tokens, trivia, property
+  roles, spans, raw kinds, missing elements, and diagnostics; supports authored
+  and fully macro-expanded trees; and can open the complete expanded source.
+  `rvn dev syntax` now exposes the structured JSON and source-override contract
+  used by the view.
 - Namespace-level types, delegates, unions, and extension declarations now
   default to `internal`; `public` explicitly exports them from the assembly and
   is no longer diagnosed as redundant in that position. Type members,
