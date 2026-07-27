@@ -28,7 +28,7 @@ class MyViewModel {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ObservableMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -63,7 +63,7 @@ class MyViewModel {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ObservableMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -101,7 +101,7 @@ class MyViewModel {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(DetachedObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(DetachedObservableMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -138,7 +138,9 @@ class MyViewModel {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(StackingMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(typeof(FirstStackingMacro)),
+                new MacroReference(typeof(SecondStackingMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -170,7 +172,9 @@ class Harness {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(FreestandingMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(typeof(AnswerMacro)),
+                new MacroReference(typeof(RavenBodyMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -204,7 +208,9 @@ class Harness {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(FreestandingMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(typeof(AnswerMacro)),
+                new MacroReference(typeof(RavenBodyMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -240,7 +246,7 @@ class Harness {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ReactiveSubscribeMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ReactiveSubscribeMacro)));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
@@ -270,7 +276,7 @@ class MyViewModel {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ObservableMacro)));
 
         var tryGetMacroHint = typeof(HoverHandler)
             .GetMethod("TryGetMacroHint", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -314,7 +320,7 @@ class Harness {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ArgumentAwareFreestandingMacroPlugin)))
+            .AddMacroReferences(new MacroReference(typeof(SubscribeMacro)))
             .AddReferences(LanguageServerTestReferences.Default);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -356,7 +362,7 @@ class Program {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ObservableMacroPlugin)))
+            .AddMacroReferences(new MacroReference(typeof(ObservableMacro)))
             .AddReferences(LanguageServerTestReferences.Default);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -374,14 +380,6 @@ class Program {
         var propertySymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
         propertySymbol.Name.ShouldBe("Title");
         propertySymbol.ContainingType?.Name.ShouldBe("MyViewModel");
-    }
-
-    public sealed class ObservableMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ObservableMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ObservableMacro()];
     }
 
     public sealed class ObservableMacro : IAttachedDeclarationMacro
@@ -414,14 +412,6 @@ class Program {
                 ReplacementDeclaration = (PropertyDeclarationSyntax)container.Members[1]
             };
         }
-    }
-
-    public sealed class DetachedObservableMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "DetachedObservableMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new DetachedObservableMacro()];
     }
 
     public sealed class DetachedObservableMacro : IAttachedDeclarationMacro
@@ -507,14 +497,6 @@ class Program {
         }
     }
 
-    public sealed class FreestandingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "FreestandingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new AnswerMacro(), new RavenBodyMacro()];
-    }
-
     public sealed class AnswerMacro : IFreestandingExpressionMacro
     {
         public string Name => "answer";
@@ -538,14 +520,6 @@ class Program {
             {
                 Expression = context.ParseExpression()
             };
-    }
-
-    public sealed class ArgumentAwareFreestandingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ArgumentAwareFreestandingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new SubscribeMacro()];
     }
 
     public sealed class SubscribeMacro : IFreestandingExpressionMacro
@@ -583,14 +557,6 @@ class Program {
         }
     }
 
-    public sealed class ReactiveSubscribeMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "ReactiveSubscribeMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ReactiveSubscribeMacro()];
-    }
-
     public sealed class ReactiveSubscribeMacro : IFreestandingExpressionMacro
     {
         public string Name => "subscribe";
@@ -624,14 +590,6 @@ class Program {
                         ])))
             };
         }
-    }
-
-    public sealed class StackingMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "StackingMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new FirstStackingMacro(), new SecondStackingMacro()];
     }
 
     public sealed class FirstStackingMacro : IAttachedDeclarationMacro

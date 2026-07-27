@@ -1,21 +1,10 @@
-import System.Collections.Immutable.*
 import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-[LocalMacro]
-class PlaygroundMacros : IRavenMacroPlugin {
-    val Name: string => "Playground macros"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [AddGreetingMacro(), TwiceMacro(), UnlessMacro()]
-}
-
-[LocalMacro]
 class AddGreetingMacro : IAttachedDeclarationMacro {
     val Name: string => "AddGreeting"
-    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Type
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
@@ -32,10 +21,8 @@ class AddGreetingMacro : IAttachedDeclarationMacro {
     }
 }
 
-[LocalMacro]
 class TwiceMacro : IFreestandingExpressionMacro {
     val Name: string => "twice"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
     val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 
@@ -52,10 +39,8 @@ class TwiceMacro : IFreestandingExpressionMacro {
     }
 }
 
-[LocalMacro]
 class UnlessMacro : ITokenTreeExpressionMacro {
     val Name: string => "unless"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
     val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {

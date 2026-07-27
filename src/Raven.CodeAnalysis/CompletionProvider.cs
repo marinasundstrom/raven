@@ -2998,7 +2998,7 @@ public static class CompletionProvider
 
     private static string CreateMacroDescription(IMacroDefinition macro)
     {
-        var kindDisplay = macro.Kind switch
+        var kindDisplay = MacroFacts.GetKind(macro) switch
         {
             MacroKind.AttachedDeclaration => "attached declaration macro",
             MacroKind.FreestandingExpression => "freestanding expression macro",

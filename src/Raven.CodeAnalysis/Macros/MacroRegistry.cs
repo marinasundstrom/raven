@@ -9,7 +9,7 @@ internal sealed class MacroRegistry
 {
     private static readonly DiagnosticDescriptor s_macroLoadFailed = DiagnosticDescriptor.Create(
         "RAVM001",
-        "Macro plugin load failed",
+        "Macro reference load failed",
         "",
         "",
         "Failed to load macro reference '{0}': {1}",
@@ -22,7 +22,17 @@ internal sealed class MacroRegistry
         "Duplicate macro name",
         "",
         "",
-        "Macro '{0}' is exported by multiple plugins: '{1}' and '{2}'",
+        "Macro '{0}' is exported by multiple references: '{1}' and '{2}'",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor s_invalidMacroContract = DiagnosticDescriptor.Create(
+        "RAVM004",
+        "Invalid macro contract",
+        "",
+        "",
+        "Macro definition '{0}' from '{1}' must implement exactly one supported macro category interface",
         "compiler",
         DiagnosticSeverity.Error,
         true);
@@ -48,15 +58,15 @@ internal sealed class MacroRegistry
         var attachedMacros = ImmutableDictionary.CreateBuilder<string, LoadedAttachedMacro>(StringComparer.Ordinal);
         var freestandingMacros = ImmutableDictionary.CreateBuilder<string, LoadedFreestandingMacro>(StringComparer.Ordinal);
 
-        foreach (var plugin in DefaultMacroEnvironment.Plugins)
-            RegisterPlugin(plugin);
+        foreach (var macro in DefaultMacroEnvironment.Macros)
+            RegisterMacro(macro, "Raven.Compiler");
 
         foreach (var reference in references)
         {
             try
             {
-                foreach (var plugin in reference.GetPlugins())
-                    RegisterPlugin(plugin);
+                foreach (var macro in reference.Macros)
+                    RegisterMacro(macro, reference.Display);
             }
             catch (Exception ex)
             {
@@ -66,57 +76,64 @@ internal sealed class MacroRegistry
 
         return new MacroRegistry(attachedMacros.ToImmutable(), freestandingMacros.ToImmutable(), diagnostics.ToImmutable());
 
-        void RegisterPlugin(IRavenMacroPlugin plugin)
+        void RegisterMacro(IMacroDefinition macro, string origin)
         {
-            foreach (var macro in plugin.GetMacros())
+            if (!MacroFacts.TryGetKind(macro, out _))
             {
-                switch (macro)
-                {
-                    case IAttachedDeclarationMacro attached:
-                        if (attachedMacros.TryGetValue(attached.Name, out var existingAttached))
-                        {
-                            diagnostics.Add(Diagnostic.Create(
-                                s_duplicateMacroName,
-                                Location.None,
-                                attached.Name,
-                                existingAttached.Plugin.Name,
-                                plugin.Name));
-                            continue;
-                        }
+                diagnostics.Add(Diagnostic.Create(
+                    s_invalidMacroContract,
+                    Location.None,
+                    macro.GetType().FullName ?? macro.GetType().Name,
+                    origin));
+                return;
+            }
 
-                        attachedMacros.Add(attached.Name, new LoadedAttachedMacro(plugin, attached));
-                        break;
+            switch (macro)
+            {
+                case IAttachedDeclarationMacro attached:
+                    if (attachedMacros.TryGetValue(attached.Name, out var existingAttached))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            s_duplicateMacroName,
+                            Location.None,
+                            attached.Name,
+                            existingAttached.Origin,
+                            origin));
+                        return;
+                    }
 
-                    case IFreestandingExpressionMacro freestanding:
-                        if (freestandingMacros.TryGetValue(freestanding.Name, out var existingFreestanding))
-                        {
-                            diagnostics.Add(Diagnostic.Create(
-                                s_duplicateMacroName,
-                                Location.None,
-                                freestanding.Name,
-                                existingFreestanding.Plugin.Name,
-                                plugin.Name));
-                            continue;
-                        }
+                    attachedMacros.Add(attached.Name, new LoadedAttachedMacro(origin, attached));
+                    break;
 
-                        freestandingMacros.Add(freestanding.Name, new LoadedFreestandingMacro(plugin, freestanding));
-                        break;
+                case IFreestandingExpressionMacro freestanding:
+                    if (freestandingMacros.TryGetValue(freestanding.Name, out var existingFreestanding))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            s_duplicateMacroName,
+                            Location.None,
+                            freestanding.Name,
+                            existingFreestanding.Origin,
+                            origin));
+                        return;
+                    }
 
-                    case ITokenTreeExpressionMacro tokenTree:
-                        if (freestandingMacros.TryGetValue(tokenTree.Name, out var existingTokenTree))
-                        {
-                            diagnostics.Add(Diagnostic.Create(
-                                s_duplicateMacroName,
-                                Location.None,
-                                tokenTree.Name,
-                                existingTokenTree.Plugin.Name,
-                                plugin.Name));
-                            continue;
-                        }
+                    freestandingMacros.Add(freestanding.Name, new LoadedFreestandingMacro(origin, freestanding));
+                    break;
 
-                        freestandingMacros.Add(tokenTree.Name, new LoadedFreestandingMacro(plugin, tokenTree));
-                        break;
-                }
+                case ITokenTreeExpressionMacro tokenTree:
+                    if (freestandingMacros.TryGetValue(tokenTree.Name, out var existingTokenTree))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            s_duplicateMacroName,
+                            Location.None,
+                            tokenTree.Name,
+                            existingTokenTree.Origin,
+                            origin));
+                        return;
+                    }
+
+                    freestandingMacros.Add(tokenTree.Name, new LoadedFreestandingMacro(origin, tokenTree));
+                    break;
             }
         }
     }
@@ -136,5 +153,5 @@ internal sealed class MacroRegistry
         };
 }
 
-internal readonly record struct LoadedAttachedMacro(IRavenMacroPlugin Plugin, IAttachedDeclarationMacro Macro);
-internal readonly record struct LoadedFreestandingMacro(IRavenMacroPlugin Plugin, IMacroDefinition Macro);
+internal readonly record struct LoadedAttachedMacro(string Origin, IAttachedDeclarationMacro Macro);
+internal readonly record struct LoadedFreestandingMacro(string Origin, IMacroDefinition Macro);

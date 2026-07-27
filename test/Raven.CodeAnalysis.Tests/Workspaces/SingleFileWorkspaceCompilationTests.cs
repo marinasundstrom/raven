@@ -126,16 +126,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             "macros.rvn",
             SourceText.From(
                 """
-                import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
-
-                [LocalMacroPlugin]
-                class LocalMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Local"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition>
-                        => [LocalAnswerMacro()]
-                }
 
                 class LocalAnswerMacro : ITokenTreeExpressionMacro {
                     val Name: string => "localAnswer"
@@ -207,18 +198,8 @@ public sealed class SingleFileWorkspaceCompilationTests
 
     private static string CreateMixedLocalAnswerMacroSource(int answer, int addend)
         => $$"""
-            import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
 
-            [LocalMacro]
-            class LocalMacroPlugin : IRavenMacroPlugin {
-                val Name: string => "Local"
-
-                func GetMacros() -> ImmutableArray<IMacroDefinition>
-                    => [LocalAnswerMacro()]
-            }
-
-            [LocalMacro]
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression

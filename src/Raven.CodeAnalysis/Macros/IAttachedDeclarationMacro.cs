@@ -4,8 +4,6 @@ namespace Raven.CodeAnalysis.Macros;
 
 public interface IAttachedDeclarationMacro : IMacroDefinition
 {
-    MacroKind IMacroDefinition.Kind => MacroKind.AttachedDeclaration;
-
     MacroExpansionResult Expand(AttachedMacroContext context);
 }
 

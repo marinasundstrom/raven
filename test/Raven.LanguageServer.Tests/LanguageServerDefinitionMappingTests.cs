@@ -119,18 +119,12 @@ func Main() -> () {
 """);
         var macroPath = Path.Combine(fixture.Root, "macros", "main.rvn");
         fixture.WriteRavenFile(macroPath, """
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 
-class ObservableMacroPlugin : IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Observable"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition> => [ObservableMacro()]
-}
+[assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
 class ObservableMacro : IAttachedDeclarationMacro {
     val Name: string => "Observable"
-    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
@@ -190,19 +184,13 @@ class MyViewModel {
 """);
         var macroPath = Path.Combine(fixture.Root, "macros", "main.rvn");
         fixture.WriteRavenFile(macroPath, """
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-class AnswerMacroPlugin : IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Answer"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition> => [AnswerMacro()]
-}
+[assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
 class AnswerMacro : IFreestandingExpressionMacro {
     val Name: string => "answer"
-    val Kind: MacroKind => MacroKind.FreestandingExpression
     val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {

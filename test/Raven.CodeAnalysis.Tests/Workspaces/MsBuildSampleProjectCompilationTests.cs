@@ -147,20 +147,10 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 """);
 
             File.WriteAllText(Path.Combine(sourceDirectory, "macros.rvn"), """
-                import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
-
-                [LocalMacroPlugin]
-                class LocalMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Local"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition>
-                        => [LocalAnswerMacro()]
-                }
 
                 class LocalAnswerMacro : ITokenTreeExpressionMacro {
                     val Name: string => "localAnswer"
-                    val Kind: MacroKind => MacroKind.FreestandingExpression
                     val Targets: MacroTarget => MacroTarget.None
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {

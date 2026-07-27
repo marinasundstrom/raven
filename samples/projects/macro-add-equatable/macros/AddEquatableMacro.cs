@@ -9,8 +9,6 @@ public sealed class AddEquatableMacro : IAttachedDeclarationMacro
 {
     public string Name => "AddEquatable";
 
-    public MacroKind Kind => MacroKind.AttachedDeclaration;
-
     public MacroTarget Targets => MacroTarget.Type;
 
     public MacroExpansionResult Expand(AttachedMacroContext context)

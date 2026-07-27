@@ -215,8 +215,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
     {
         try
         {
-            return macroReference.GetPlugins()
-                .SelectMany(static plugin => plugin.GetMacros())
+            return macroReference.Macros
                 .Where(macro => string.Equals(macro.Name, macroName, StringComparison.Ordinal))
                 .ToArray();
         }

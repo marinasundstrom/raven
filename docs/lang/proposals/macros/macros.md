@@ -250,9 +250,9 @@ rather than separately importing macro assemblies.
 The compiler can activate an emitted macro assembly directly from memory. The
 compiler API accepts explicitly classified local macro trees through
 `Compilation.AddMacroSyntaxTrees`, while normal compiler, Workspace, SDK, and
-Playground paths automatically classify `[LocalMacroPlugin]` files and
-declaration-granular `[LocalMacro]` types. These trees compile and activate in
-memory before consumer binding and are excluded from runtime emit.
+Playground paths automatically classify direct macro declarations and
+declaration-granular `[LocalMacro]` support types. These trees compile and
+activate in memory before consumer binding and are excluded from runtime emit.
 
 When a local macro implementation references a declaration that exists only in
 the consumer partition, the compiler reports `RAVM003` at that reference. This

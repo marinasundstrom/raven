@@ -116,15 +116,7 @@ public sealed class QueryMacroCodeGenTests
         => Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(QueryMacroPlugin)));
-
-    public sealed class QueryMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(QueryMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new QueryMacro()];
-    }
+            .AddMacroReferences(new MacroReference(typeof(QueryMacro)));
 
     public sealed class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
     {

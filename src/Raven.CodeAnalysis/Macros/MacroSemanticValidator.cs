@@ -11,7 +11,7 @@ internal static class MacroSemanticValidator
         "Unknown macro",
         "",
         "",
-        "Macro '{0}' could not be resolved. Add a matching Raven macro plugin reference.",
+        "Macro '{0}' could not be resolved. Add a matching Raven macro reference.",
         "compiler",
         DiagnosticSeverity.Error,
         true);

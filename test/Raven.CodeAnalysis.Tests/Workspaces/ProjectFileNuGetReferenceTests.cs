@@ -2027,7 +2027,7 @@ public sealed class ProjectFileNuGetReferenceTests
                         Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression({{expressionText}}))
             }
             """);
-        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IRavenMacroPlugin).Assembly.Location);
+        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location);
         MetadataReference[] references = additionalReference is null
             ? [.. TestMetadataReferences.Default, codeAnalysisReference]
             : new[] { additionalReference }

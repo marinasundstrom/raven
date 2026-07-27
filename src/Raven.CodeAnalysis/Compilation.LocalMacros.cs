@@ -214,7 +214,7 @@ public partial class Compilation
     private static MetadataReference[] EnsureMacroContractsReference(
         MetadataReference[] references)
     {
-        var contractsAssemblyPath = typeof(IRavenMacroPlugin).Assembly.Location;
+        var contractsAssemblyPath = typeof(IMacroDefinition).Assembly.Location;
         if (!string.IsNullOrWhiteSpace(contractsAssemblyPath) &&
             !references
                 .OfType<PortableExecutableReference>()

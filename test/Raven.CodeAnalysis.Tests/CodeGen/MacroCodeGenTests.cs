@@ -29,7 +29,9 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(EmitMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new IntroducedMethodMacro()),
+                new MacroReference(new ObservablePropertyMacro()));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -63,7 +65,9 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(EmitMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new IntroducedMethodMacro()),
+                new MacroReference(new ObservablePropertyMacro()));
 
         AssertObservablePropertyShape(compilation, syntaxTree);
 
@@ -99,7 +103,9 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(EmitMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new IntroducedMethodMacro()),
+                new MacroReference(new ObservablePropertyMacro()));
 
         AssertObservablePropertyShape(compilation, syntaxTree);
 
@@ -143,7 +149,7 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(SampleLikeObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(new SampleLikeObservablePropertyMacro()));
 
         var model = compilation.GetSemanticModel(syntaxTree);
         var propertyDeclaration = syntaxTree.GetRoot()
@@ -185,7 +191,9 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(EmitMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new IntroducedMethodMacro()),
+                new MacroReference(new ObservablePropertyMacro()));
 
         var model = compilation.GetSemanticModel(syntaxTree);
         var propertyDeclaration = syntaxTree.GetRoot()
@@ -230,7 +238,7 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(DetachedSyntaxFactoryObservableMacroPlugin)));
+            .AddMacroReferences(new MacroReference(new DetachedSyntaxFactoryObservablePropertyMacro()));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -266,7 +274,7 @@ public sealed class MacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(GenericInitializerMacroPlugin)));
+            .AddMacroReferences(new MacroReference(new GenericInitializerReactivePropertyMacro()));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -319,15 +327,7 @@ public sealed class MacroCodeGenTests
         Assert.NotNull(generatedModel.GetBoundNode(setSyntax.Body!, BoundTreeView.Lowered));
     }
 
-    public sealed class EmitMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "EmitMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new IntroducedMethodMacro(), new ObservablePropertyMacro()];
-    }
-
-    private sealed class IntroducedMethodMacro : IAttachedDeclarationMacro
+    public sealed class IntroducedMethodMacro : IAttachedDeclarationMacro
     {
         public string Name => "AddEquatable";
 
@@ -350,7 +350,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    private sealed class ObservablePropertyMacro : IAttachedDeclarationMacro
+    public sealed class ObservablePropertyMacro : IAttachedDeclarationMacro
     {
         public string Name => "Observable";
 
@@ -391,14 +391,6 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    public sealed class SampleLikeObservableMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "SampleLikeObservableMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new SampleLikeObservablePropertyMacro()];
-    }
-
     private sealed class SampleLikeObservablePropertyMacro : IAttachedDeclarationMacro
     {
         public string Name => "Observable";
@@ -434,14 +426,6 @@ public sealed class MacroCodeGenTests
                 IntroducedMembers = [backingStorage]
             };
         }
-    }
-
-    public sealed class DetachedSyntaxFactoryObservableMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "DetachedSyntaxFactoryObservableMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new DetachedSyntaxFactoryObservablePropertyMacro()];
     }
 
     private sealed class DetachedSyntaxFactoryObservablePropertyMacro : IAttachedDeclarationMacro
@@ -524,14 +508,6 @@ public sealed class MacroCodeGenTests
                 IntroducedMembers = [backingStorage]
             };
         }
-    }
-
-    public sealed class GenericInitializerMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => "GenericInitializerMacroPlugin";
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new GenericInitializerReactivePropertyMacro()];
     }
 
     private sealed class GenericInitializerReactivePropertyMacro : IAttachedDeclarationMacro

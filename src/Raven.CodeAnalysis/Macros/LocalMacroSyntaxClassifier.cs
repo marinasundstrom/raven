@@ -11,20 +11,27 @@ internal static class LocalMacroSyntaxClassifier
 {
     private const string DeclarationMarkerName = "LocalMacro";
     private const string DeclarationMarkerAttributeName = "LocalMacroAttribute";
-    private const string FileMarkerName = "LocalMacroPlugin";
-    private const string FileMarkerAttributeName = "LocalMacroPluginAttribute";
     private const string CompilerPluginMarkerName = "RavenCompilerPlugin";
     private const string CompilerPluginMarkerAttributeName = "RavenCompilerPluginAttribute";
+    private static readonly HashSet<string> s_macroInterfaceNames =
+    [
+        nameof(IAttachedDeclarationMacro),
+        nameof(IFreestandingExpressionMacro),
+        nameof(ITokenTreeExpressionMacro)
+    ];
 
     public static bool IsLocalMacroTree(SyntaxTree syntaxTree)
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
-        return GetTopLevelTypeDeclarations(syntaxTree)
-            .Any(static declaration => HasMarkerAttribute(
-                declaration,
-                FileMarkerName,
-                FileMarkerAttributeName));
+        if (IsCompilerPluginTree(syntaxTree))
+            return false;
+
+        var members = syntaxTree.GetRoot().Members;
+        return members.Count > 0 &&
+            members.All(member =>
+                member is TypeDeclarationSyntax declaration &&
+                IsLocalMacroDeclaration(declaration));
     }
 
     public static bool IsCompilerPluginTree(SyntaxTree syntaxTree)
@@ -47,15 +54,15 @@ internal static class LocalMacroSyntaxClassifier
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
+        if (IsCompilerPluginTree(syntaxTree))
+            return new LocalMacroSyntaxPartition(syntaxTree, null);
+
         if (IsLocalMacroTree(syntaxTree))
             return new LocalMacroSyntaxPartition(null, syntaxTree);
 
         var declarations = GetTopLevelTypeDeclarations(syntaxTree)
             .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
-            .Where(static declaration => HasMarkerAttribute(
-                declaration,
-                DeclarationMarkerName,
-                DeclarationMarkerAttributeName))
+            .Where(IsLocalMacroDeclaration)
             .ToArray();
         if (declarations.Length == 0)
             return new LocalMacroSyntaxPartition(syntaxTree, null);
@@ -72,15 +79,12 @@ internal static class LocalMacroSyntaxClassifier
         if ((uint)position > (uint)syntaxTree.Length)
             throw new ArgumentOutOfRangeException(nameof(position));
 
-        if (IsLocalMacroTree(syntaxTree))
-            return true;
+        if (IsCompilerPluginTree(syntaxTree))
+            return false;
 
         return GetTopLevelTypeDeclarations(syntaxTree)
             .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
-            .Where(static declaration => HasMarkerAttribute(
-                declaration,
-                DeclarationMarkerName,
-                DeclarationMarkerAttributeName))
+            .Where(IsLocalMacroDeclaration)
             .Any(declaration =>
                 position >= declaration.FullSpan.Start &&
                 position < declaration.FullSpan.End);
@@ -99,6 +103,34 @@ internal static class LocalMacroSyntaxClassifier
         => declaration.AttributeLists
             .SelectMany(static list => list.Attributes)
             .Any(attribute => IsMarkerAttribute(attribute, markerName, markerAttributeName));
+
+    private static bool IsLocalMacroDeclaration(TypeDeclarationSyntax declaration)
+        => HasMarkerAttribute(
+                declaration,
+                DeclarationMarkerName,
+                DeclarationMarkerAttributeName) ||
+            ImplementsMacroInterface(declaration);
+
+    private static bool ImplementsMacroInterface(TypeDeclarationSyntax declaration)
+    {
+        var baseList = declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList,
+            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
+            _ => null
+        };
+        if (baseList is null)
+            return false;
+
+        return baseList.Types.Any(baseType =>
+        {
+            var identifier = baseType.Type
+                .DescendantTokens()
+                .LastOrDefault(static token => token.Kind == SyntaxKind.IdentifierToken);
+            return s_macroInterfaceNames.Contains(identifier.ValueText);
+        });
+    }
 
     private static bool IsMarkerAttribute(
         AttributeSyntax attribute,

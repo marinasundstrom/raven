@@ -54,11 +54,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   consumer binding, reports partition diagnostics through the consumer
   compilation, includes local macros in completion, and excludes plugin
   implementation types from runtime emit.
-- Added automatic dedicated-file discovery for same-project macros.
-  `[LocalMacroPlugin]` moves its complete source file into the compile-time
-  partition through compiler, Workspace, and SDK compilation paths, while
-  retaining semantic-model access and requiring neither a `RavenMacro` item nor
-  an explicit compiler-contract project reference.
+- Added automatic direct-declaration discovery for same-project macros. Macro
+  interface implementations move into the compile-time partition through
+  compiler, Workspace, and SDK compilation paths, while retaining
+  semantic-model access and requiring neither a `RavenMacro` item nor an
+  explicit compiler-contract project reference.
+- Removed the transitional `IRavenMacroPlugin` aggregation contract and
+  `[LocalMacroPlugin]` source marker. Macros are now registered directly as
+  `IMacroDefinition` implementations.
+- Made macro category classification compiler-owned. Definitions implement
+  exactly one category-specific macro interface, and `MacroFacts` derives
+  `MacroKind` without a macro-overridable discriminator property.
+- Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
+  compiler and tooling queries reuse the same definition instances.
 - Added declaration-granular same-project macros through `[LocalMacro]`.
   Marked top-level declarations are compiled and activated separately while
   ordinary declarations in the same source remain runtime code, enabling macros
@@ -111,10 +119,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   scanning unmarked dependencies.
 - Added deterministic macro export manifests through repeatable
   `[assembly: RavenCompilerPlugin(typeof(MacroType))]` markers. File, assembly,
-  and in-memory macro references now select direct macro definitions or
-  compatibility plugin containers, retain bare-marker fallback discovery, and
-  report invalid manifests as `RAVM001`. Same-project macro partitions discover
-  direct definitions without an assembly export marker.
+  and in-memory macro references now select direct macro definitions, retain
+  bare-marker fallback discovery, and report invalid manifests as `RAVM001`.
+  Same-project macro partitions discover direct definitions without an
+  assembly export marker.
 - Added provider-marked C# compiler-plugin project references. Raven projects
   can now consume a C# macro provider through an ordinary `ProjectReference`;
   the project system builds and activates marked providers without adding them

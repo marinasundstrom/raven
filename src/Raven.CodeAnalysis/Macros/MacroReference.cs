@@ -10,18 +10,13 @@ namespace Raven.CodeAnalysis.Macros;
 
 public sealed class MacroReference
 {
-    private readonly Func<IEnumerable<IRavenMacroPlugin>> _pluginFactory;
+    private readonly Lazy<ImmutableArray<IMacroDefinition>> _macros;
     private readonly string? _display;
     private readonly string? _sourceProjectFilePath;
 
-    public MacroReference(IRavenMacroPlugin plugin)
-        : this(() => [plugin], plugin.GetType().Assembly.FullName, sourceProjectFilePath: null)
-    {
-    }
-
     public MacroReference(IMacroDefinition macro)
         : this(
-            () => [new ManifestMacroPlugin(macro.GetType().Assembly.GetName().Name, [macro])],
+            () => [macro],
             macro.GetType().Assembly.FullName,
             sourceProjectFilePath: null)
     {
@@ -33,15 +28,18 @@ public sealed class MacroReference
     }
 
     public MacroReference(Assembly assembly)
-        : this(CreateAssemblyPluginFactory(assembly),
+        : this(CreateAssemblyMacroFactory(assembly),
             assembly.Location,
             sourceProjectFilePath: null)
     {
     }
 
-    private MacroReference(Func<IEnumerable<IRavenMacroPlugin>> pluginFactory, string? display, string? sourceProjectFilePath)
+    private MacroReference(Func<ImmutableArray<IMacroDefinition>> macroFactory, string? display, string? sourceProjectFilePath)
     {
-        _pluginFactory = pluginFactory ?? throw new ArgumentNullException(nameof(pluginFactory));
+        ArgumentNullException.ThrowIfNull(macroFactory);
+        _macros = new Lazy<ImmutableArray<IMacroDefinition>>(
+            macroFactory,
+            LazyThreadSafetyMode.ExecutionAndPublication);
         _display = display;
         _sourceProjectFilePath = string.IsNullOrWhiteSpace(sourceProjectFilePath)
             ? null
@@ -75,7 +73,7 @@ public sealed class MacroReference
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray() ?? ImmutableArray<string>.Empty;
         return new MacroReference(
-            CreateFilePluginFactory(fullPath, dependencies),
+            CreateFileMacroFactory(fullPath, dependencies),
             fullPath,
             sourceProjectFilePath);
     }
@@ -94,23 +92,26 @@ public sealed class MacroReference
 
         var image = (byte[])assemblyImage.Clone();
         return new MacroReference(
-            CreateImagePluginFactory(image),
+            CreateImageMacroFactory(image),
             string.IsNullOrWhiteSpace(display) ? "<in-memory macro assembly>" : display,
             sourceProjectFilePath: null);
     }
 
-    public IEnumerable<IRavenMacroPlugin> GetPlugins() => _pluginFactory();
+    /// <summary>
+    /// Gets the immutable macro-definition snapshot exported by this reference.
+    /// </summary>
+    public ImmutableArray<IMacroDefinition> Macros => _macros.Value;
 
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateAssemblyPluginFactory(Assembly assembly)
+    private static Func<ImmutableArray<IMacroDefinition>> CreateAssemblyMacroFactory(Assembly assembly)
     {
         var exports = new Lazy<MacroAssemblyExports>(
             () => GetExports(assembly),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => exports.Value.CreatePlugins();
+        return () => exports.Value.CreateMacros();
     }
 
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateFilePluginFactory(
+    private static Func<ImmutableArray<IMacroDefinition>> CreateFileMacroFactory(
         string fullPath,
         ImmutableArray<string> dependencyAssemblyPaths)
     {
@@ -125,10 +126,10 @@ public sealed class MacroReference
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => exports.Value.CreatePlugins();
+        return () => exports.Value.CreateMacros();
     }
 
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateImagePluginFactory(byte[] assemblyImage)
+    private static Func<ImmutableArray<IMacroDefinition>> CreateImageMacroFactory(byte[] assemblyImage)
     {
         var exports = new Lazy<MacroAssemblyExports>(
             () =>
@@ -140,28 +141,20 @@ public sealed class MacroReference
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => exports.Value.CreatePlugins();
+        return () => exports.Value.CreateMacros();
     }
 
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateExportedTypeFactory(Type exportedType)
+    private static Func<ImmutableArray<IMacroDefinition>> CreateExportedTypeFactory(Type exportedType)
     {
         ArgumentNullException.ThrowIfNull(exportedType);
         if (!IsConstructibleExportedType(exportedType))
         {
             throw new ArgumentException(
-                $"Macro export '{exportedType.FullName}' must be a non-abstract class that implements {nameof(IMacroDefinition)} or {nameof(IRavenMacroPlugin)} and has a public parameterless constructor.",
+                $"Macro export '{exportedType.FullName}' must be a non-abstract class that implements exactly one supported macro category interface and has a public parameterless constructor.",
                 nameof(exportedType));
         }
 
-        if (typeof(IRavenMacroPlugin).IsAssignableFrom(exportedType))
-            return () => [(IRavenMacroPlugin)Activator.CreateInstance(exportedType)!];
-
-        return () =>
-        [
-            new ManifestMacroPlugin(
-                exportedType.Assembly.GetName().Name,
-                [(IMacroDefinition)Activator.CreateInstance(exportedType)!])
-        ];
+        return () => [(IMacroDefinition)Activator.CreateInstance(exportedType)!];
     }
 
     private static MacroAssemblyExports GetExports(
@@ -187,11 +180,6 @@ public sealed class MacroReference
                 ValidateExportedType(assembly, declaredType);
 
             return new MacroAssemblyExports(
-                assembly.GetName().Name,
-                declaredTypes
-                    .Where(static type => typeof(IRavenMacroPlugin).IsAssignableFrom(type))
-                    .Distinct()
-                    .ToArray(),
                 declaredTypes
                     .Where(static type => typeof(IMacroDefinition).IsAssignableFrom(type))
                     .Distinct()
@@ -200,24 +188,10 @@ public sealed class MacroReference
         }
 
         var exportedTypes = assembly.GetTypes();
-        var pluginTypes = exportedTypes
-            .Where(IsConstructiblePluginType)
-            .ToArray();
-
-        // A legacy plugin owns macro aggregation when one is present. Otherwise,
-        // the assembly is a direct macro partition and its definitions are the
-        // exports. This prevents definitions returned by a compatibility plugin
-        // from also being registered independently.
         return new MacroAssemblyExports(
-            assembly.GetName().Name,
-            pluginTypes,
-            pluginTypes.Length > 0
-                ? []
-                : exportedTypes
-                    .Where(static type =>
-                        IsConstructibleExportedType(type) &&
-                        typeof(IMacroDefinition).IsAssignableFrom(type))
-                    .ToArray(),
+            exportedTypes
+                .Where(IsConstructibleExportedType)
+                .ToArray(),
             loadContext);
     }
 
@@ -232,67 +206,36 @@ public sealed class MacroReference
         if (!IsConstructibleExportedType(exportedType))
         {
             throw new InvalidOperationException(
-                $"Compiler plugin export '{exportedType.FullName}' must be a non-abstract class that implements {nameof(IMacroDefinition)} or {nameof(IRavenMacroPlugin)} and has a public parameterless constructor.");
+                $"Compiler plugin export '{exportedType.FullName}' must be a non-abstract class that implements exactly one supported macro category interface and has a public parameterless constructor.");
         }
     }
 
     private static bool IsConstructibleExportedType(Type type)
         => type.IsClass
-            && (typeof(IMacroDefinition).IsAssignableFrom(type) ||
-                typeof(IRavenMacroPlugin).IsAssignableFrom(type))
+            && typeof(IMacroDefinition).IsAssignableFrom(type)
+            && HasExactlyOneMacroRole(type)
             && !type.IsAbstract
             && !type.ContainsGenericParameters
             && type.GetConstructor(Type.EmptyTypes) is not null;
 
-    private static bool IsConstructiblePluginType(Type type)
-        => type.IsClass
-            && typeof(IRavenMacroPlugin).IsAssignableFrom(type)
-            && !type.IsAbstract
-            && !type.ContainsGenericParameters
-            && type.GetConstructor(Type.EmptyTypes) is not null;
+    private static bool HasExactlyOneMacroRole(Type type)
+        => (typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ? 1 : 0) +
+            (typeof(IFreestandingExpressionMacro).IsAssignableFrom(type) ? 1 : 0) +
+            (typeof(ITokenTreeExpressionMacro).IsAssignableFrom(type) ? 1 : 0) == 1;
 
     private sealed record MacroAssemblyExports(
-        string? AssemblyName,
-        Type[] PluginTypes,
         Type[] MacroTypes,
         AssemblyLoadContext? LoadContext)
     {
-        public IEnumerable<IRavenMacroPlugin> CreatePlugins()
-        {
-            foreach (var pluginType in PluginTypes)
-                yield return (IRavenMacroPlugin)Activator.CreateInstance(pluginType)!;
-
-            if (MacroTypes.Length > 0)
-            {
-                yield return new ManifestMacroPlugin(
-                    AssemblyName,
-                    MacroTypes
-                        .Select(static type => (IMacroDefinition)Activator.CreateInstance(type)!)
-                        .ToImmutableArray());
-            }
-        }
-    }
-
-    private sealed class ManifestMacroPlugin : IRavenMacroPlugin
-    {
-        private readonly ImmutableArray<IMacroDefinition> _macros;
-
-        public ManifestMacroPlugin(string? assemblyName, ImmutableArray<IMacroDefinition> macros)
-        {
-            Name = string.IsNullOrWhiteSpace(assemblyName)
-                ? "<manifest macros>"
-                : assemblyName;
-            _macros = macros;
-        }
-
-        public string Name { get; }
-
-        public ImmutableArray<IMacroDefinition> GetMacros() => _macros;
+        public ImmutableArray<IMacroDefinition> CreateMacros()
+            => MacroTypes
+                .Select(static macroType => (IMacroDefinition)Activator.CreateInstance(macroType)!)
+                .ToImmutableArray();
     }
 
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {
-        private static readonly Assembly s_macroContractsAssembly = typeof(IRavenMacroPlugin).Assembly;
+        private static readonly Assembly s_macroContractsAssembly = typeof(IMacroDefinition).Assembly;
         private readonly AssemblyDependencyResolver? _resolver;
         private readonly string? _mainAssemblyDirectory;
         private readonly ImmutableArray<string> _dependencyAssemblyPaths;

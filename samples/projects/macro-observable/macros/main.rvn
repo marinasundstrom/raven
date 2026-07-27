@@ -1,18 +1,11 @@
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-class ObservableMacroPlugin : IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Observable"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [ObservableMacro()]
-}
+[assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
 class ObservableMacro : IAttachedDeclarationMacro {
     val Name: string => "Observable"
-    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {

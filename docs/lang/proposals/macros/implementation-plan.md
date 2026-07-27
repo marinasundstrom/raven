@@ -37,7 +37,7 @@ Implemented before the token-tree work:
 ## Infrastructure MVP gate
 
 The current priority is a dependable macro system, not dedicated syntax for
-declaring macros. The MVP is built around the object-oriented plugin contracts
+declaring macros. The MVP is built around the object-oriented macro contracts
 and must cover the normal compile, project, and token-stream paths before
 authoring shorthand is designed.
 
@@ -57,7 +57,7 @@ authoring shorthand is designed.
 * [x] C# compiler-plugin project references using the same provider marker and
   manifest
 * [x] metadata-marker discovery for direct assembly and package references
-* [ ] finish the representative authoring and project integration tests needed
+* [x] finish the representative authoring and project integration tests needed
   to treat these contracts as stable enough for broader use
 
 Retained DSL structure, custom editor providers, additional syntax categories,
@@ -72,7 +72,7 @@ Macro activation has two origins but one result:
 * portable assembly references are inspected once per compilation setup for
   the assembly marker and activated from their manifest.
 
-Both paths produce the same active `MacroReference`/plugin registry consumed by
+Both paths produce the same active `MacroReference` registry consumed by
 binding and expansion. The registry does not branch on origin. A future
 `IMacroSymbol` may represent that common semantic identity, but a new symbol
 kind is not required for the infrastructure MVP.
@@ -80,17 +80,52 @@ kind is not required for the infrastructure MVP.
 Direct macro definitions are the primary activation unit. Same-compilation
 definitions are discovered in the local compile-time partition, while
 referenced definitions must be exported by their assembly manifest.
-`IRavenMacroPlugin` remains a compatibility aggregation adapter rather than the
-semantic definition of a macro. A later Swift-inspired authoring model may
-synthesize the local partition and registration manifest from dedicated syntax
-while preserving the current category-specific macro, context, diagnostic,
-token-stream, and expansion-result contracts.
+Each definition must implement exactly one category-specific macro interface;
+`MacroKind` is derived by compiler-owned `MacroFacts` and cannot be supplied or
+overridden by the implementation.
+A later Swift-inspired authoring model may synthesize the local partition and
+registration manifest from dedicated syntax while preserving the current
+category-specific macro, context, diagnostic, token-stream, and
+expansion-result contracts.
 
 The active set belongs to one immutable compilation snapshot. Editing local
 macro declarations, adding or removing a portable reference, or changing a
 referenced assembly fingerprint creates a new activation set and registry.
 Unchanged local partitions and metadata-load state remain eligible for the
 existing incremental reuse paths.
+
+`MacroReference.Macros` exposes that activation result as a cached
+`ImmutableArray<IMacroDefinition>`. Repeated compiler and tooling queries see
+the same definition instances for the snapshot rather than re-running an
+enumerable factory.
+
+### MVP authoring and activation matrix
+
+The representative integration paths exercise the direct-macro model:
+
+| Origin | Registration | Representative coverage |
+| --- | --- | --- |
+| Same Raven compilation | automatic direct-class discovery in the compile-time partition | `RavenProject_BuildsSameProjectMacroWithoutMacroProjectItem`, single-file workspace tests, and Playground local-macro samples |
+| Referenced Raven project | `[assembly: RavenCompilerPlugin(typeof(MacroType))]` | direct attached-macro project-reference test and the freestanding sample project |
+| Referenced C# project | `[assembly: RavenCompilerPlugin(typeof(MacroType))]` | direct token-tree project-reference test and the attached-macro sample project |
+| Direct DLL or metadata image | assembly manifest | macro-reference tests for file, image, multiple exports, invalid exports, and bare-marker fallback |
+| NuGet package | assembly manifest on selected compile/runtime assets | package tests for direct, split reference/runtime, adjacent helper, and transitive runtime dependencies |
+| Compiler built-in | compiler registration | `#quote` semantic, runtime, completion, and Playground coverage |
+
+Across those origins, focused compiler suites cover attached declaration,
+argument-style expression, and raw token-tree expression macros. The
+same-project path deliberately has no assembly export attribute: local macro
+classes are available only to their declaring compilation unless the eventual
+emitted assembly explicitly exports them. Macro aggregation containers are not
+part of the compiler contract; each macro is registered directly.
+
+Current direct-contract validation:
+
+* complete macro feature suite: 58 passed
+* focused compiler/project activation and partition tests: 17 passed
+* focused language-server expansion and definition tests: 12 passed
+* live macro-project refresh tests: 2 passed; watched-file redesign case remains
+  explicitly skipped
 
 ## Active slice: raw token-tree expression macros
 
@@ -455,10 +490,10 @@ compiler-plugin assets:
 2. [x] consumers use a normal Raven project dependency;
 3. the SDK resolves the marked asset and passes it to the compilation;
 4. [x] the compiler loads its manifest and exported macro contracts; a
-   repeatable assembly-level marker may explicitly name macro definitions or
-   compatibility plugin types, while a bare marker authorizes fallback
-   discovery within that marked assembly; and
-5. normal duplicate-name, compatibility, and load diagnostics continue to
+   repeatable assembly-level marker may explicitly name macro definitions,
+   while a bare marker authorizes fallback discovery within that marked
+   assembly; and
+5. normal duplicate-name and load diagnostics continue to
    apply.
 
 Do not scan every ordinary runtime reference for macro implementations.
@@ -502,9 +537,9 @@ Validation for split-package activation:
 Explicit manifests use
 `[assembly: RavenCompilerPlugin(typeof(QueryMacro))]`, repeated for each
 exported macro. The loader validates that every declared type belongs to the
-marked assembly, is a concrete `IMacroDefinition` or compatibility
-`IRavenMacroPlugin`, and has a public parameterless constructor. Invalid or
-mixed explicit/fallback manifests are
+marked assembly, is a concrete definition implementing exactly one macro role,
+and has a public parameterless constructor. Invalid or mixed explicit/fallback
+manifests are
 reported through the existing `RAVM001` compiler diagnostic. Assembly, image,
 and file activation share this behavior.
 
@@ -538,6 +573,12 @@ projects using the object-oriented API directly remain equivalent. Local
 declarations enter the compile-time partition without assembly export metadata.
 Only an explicitly exported declaration in a provider assembly synthesizes a
 `RavenCompilerPlugin(typeof(...))` manifest entry.
+
+The signature derives the category from three independent axes: input roles,
+an optional attachment target, and the result role. It must cover attached,
+argument-style, and token-tree macros without reintroducing a separate
+`MacroKind` annotation. The detailed lowering matrix lives in
+[Macro and DSL developer experience](developer-experience.md).
 
 Validation record for this slice:
 
@@ -605,8 +646,8 @@ Status: **same-project and incremental-cache MVP implemented and validated**
 * [x] include activated local macros in compiler-owned completion
 * [x] preserve compiler-only operation without `Workspace`, MSBuild, or an
   on-disk plugin artifact
-* [x] automatically classify a source file containing a
-  `[LocalMacroPlugin]` declaration in compiler and workspace construction
+* [x] automatically classify direct macro declarations in compiler and
+  workspace construction
 * [x] preserve semantic-model access to the compile-time-only file
 * [x] build an SDK project that declares and consumes a macro without a
   `RavenMacro` item or explicit compiler-contract reference
@@ -626,12 +667,13 @@ Status: **same-project and incremental-cache MVP implemented and validated**
 * [x] run workspace analyzers over macro and consumer projections with their
   owning semantic models
 
-The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
-attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
-type declaration, the complete syntax tree is moved into the compile-time
-partition. The attribute itself is declared by `Raven.CodeAnalysis.Macros` and
-is distinct from both `#[...]` macro invocations and the assembly-level
-`RavenCompilerPlugin` marker for reusable compiler-plugin dependencies.
+The automatic MVP uses a syntax-only rule. A top-level declaration whose base
+list names one of the category-specific macro interfaces is moved into the
+compile-time partition. A file containing only such declarations becomes a
+dedicated macro tree automatically. Supporting types can be moved
+declaration-by-declaration with `[LocalMacro]`; that attribute is distinct from
+both `#[...]` macro invocations and the assembly-level `RavenCompilerPlugin`
+marker for reusable compiler-plugin dependencies.
 
 Keeping the rule syntax-only avoids binding consumer source before plugin
 activation. Keeping it file-granular preserves the initial acyclic boundary:

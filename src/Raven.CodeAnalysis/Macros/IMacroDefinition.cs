@@ -6,8 +6,6 @@ public interface IMacroDefinition
 {
     string Name { get; }
 
-    MacroKind Kind { get; }
-
     MacroTarget Targets { get; }
 
     bool AcceptsArguments => false;

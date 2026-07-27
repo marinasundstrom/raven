@@ -458,7 +458,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void OpenProject_MarkedCompilerPluginProjectReference_BuildsAndLoadsCurrentMacroAssembly()
+    public void OpenProject_MarkedCompilerPluginProjectReference_BuildsAndLoadsDirectMacro()
     {
         var root = CreateTempDirectory();
         try
@@ -470,21 +470,12 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
-                import System.Collections.Immutable.*
                 import System.Collections.Generic.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
                 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-                [assembly: RavenCompilerPlugin]
-
-                class ObservableMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Tests.Observable"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        [ObservableMacro()]
-                    }
-                }
+                [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
                 class ObservableMacro : IAttachedDeclarationMacro {
                     val Name: string => "Observable"
@@ -592,7 +583,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void OpenProject_MarkedCSharpCompilerPluginProjectReference_BuildsAndLoadsMacroAssembly()
+    public void OpenProject_MarkedCSharpCompilerPluginProjectReference_BuildsAndLoadsDirectMacro()
     {
         var root = CreateTempDirectory();
         try
@@ -604,20 +595,10 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "AnswerMacro.cs");
             File.WriteAllText(macroSourcePath, """
-                using System.Collections.Immutable;
-
                 using Raven.CodeAnalysis.Macros;
                 using Raven.CodeAnalysis.Syntax;
 
-                [assembly: RavenCompilerPlugin(typeof(AnswerMacroPlugin))]
-
-                public sealed class AnswerMacroPlugin : IRavenMacroPlugin
-                {
-                    public string Name => "Tests.CSharpAnswer";
-
-                    public ImmutableArray<IMacroDefinition> GetMacros()
-                        => [new AnswerMacro()];
-                }
+                [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
                 public sealed class AnswerMacro : ITokenTreeExpressionMacro
                 {
@@ -701,17 +682,10 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
-                import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
 
-                class ObservableMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Tests.Observable"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        [ObservableMacro()]
-                    }
-                }
+                [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
                 class ObservableMacro : IAttachedDeclarationMacro {
                     val Name: string => "Observable"
@@ -853,18 +827,11 @@ val value = WidgetFactory.CreateDefault()
 
             var macroSourcePath = Path.Combine(macrosDirectory, "main.rvn");
             File.WriteAllText(macroSourcePath, """"
-                import System.Collections.Immutable.*
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
                 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-                class ObservableMacroPlugin : IRavenMacroPlugin {
-                    val Name: string => "Tests.Observable"
-
-                    func GetMacros() -> ImmutableArray<IMacroDefinition> {
-                        [ObservableMacro()]
-                    }
-                }
+                [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
                 class ObservableMacro : IAttachedDeclarationMacro {
                     val Name: string => "Observable"

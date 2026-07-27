@@ -21,16 +21,7 @@ class MacroHost {
 }
 """;
         var macroTree = SyntaxTree.ParseText("""
-            import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
-
-            [LocalMacroPlugin]
-            class LocalMacroPlugin : IRavenMacroPlugin {
-                val Name: string => "Local"
-
-                func GetMacros() -> ImmutableArray<IMacroDefinition>
-                    => [LocalAnswerMacro()]
-            }
 
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
@@ -102,7 +93,10 @@ class CounterViewModel {
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ReactiveMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new SubscribeMacro()),
+                new MacroReference(new QueryMacro()));
 
         var position = code.IndexOf(']', StringComparison.Ordinal);
         var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
@@ -127,7 +121,10 @@ class MacroHost {
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ReactiveMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new SubscribeMacro()),
+                new MacroReference(new QueryMacro()));
 
         var position = code.IndexOf('(', code.IndexOf("#sub", StringComparison.Ordinal));
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -158,7 +155,10 @@ class MacroHost {
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddMacroReferences(new MacroReference(typeof(ReactiveMacroPlugin)));
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new SubscribeMacro()),
+                new MacroReference(new QueryMacro()));
 
         var position = code.IndexOf('(', code.IndexOf("#que", StringComparison.Ordinal));
         var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
@@ -167,14 +167,6 @@ class MacroHost {
         Assert.Equal("query { }", query.InsertionText);
         Assert.Equal(query.InsertionText.Length - 1, query.CursorOffset);
         Assert.Contains("token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
-    }
-
-    public sealed class ReactiveMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(ReactiveMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ObservableMacro(), new SubscribeMacro(), new QueryMacro()];
     }
 
     private sealed class ObservableMacro : IAttachedDeclarationMacro

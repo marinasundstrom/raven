@@ -88,7 +88,8 @@ public sealed class Document
     /// </summary>
     /// <remarks>
     /// For a document containing declaration-granular local macros, positions
-    /// inside a declaration marked with <see cref="LocalMacroAttribute"/>
+    /// inside a direct macro declaration or a declaration marked with
+    /// <see cref="LocalMacroAttribute"/>
     /// resolve through the compile-time macro projection. Other positions
     /// resolve through the consumer projection. Query nodes from the returned
     /// model's <see cref="SemanticModel.SyntaxTree"/>.

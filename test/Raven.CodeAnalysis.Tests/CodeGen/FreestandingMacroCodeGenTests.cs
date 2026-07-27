@@ -71,7 +71,7 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(AddMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(AddMacro)));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -103,7 +103,7 @@ public sealed class FreestandingMacroCodeGenTests
             var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddSyntaxTrees(syntaxTree)
                 .AddReferences(TestMetadataReferences.Default)
-                .AddMacroReferences(new MacroReference(typeof(EmbedTextMacroPlugin)));
+                .AddMacroReferences(new MacroReference(typeof(EmbedTextMacro)));
 
             using var peStream = new MemoryStream();
             var result = compilation.Emit(peStream);
@@ -133,7 +133,7 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(EmbedTextMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(EmbedTextMacro)));
 
         var diagnostic = Assert.Single(
             compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
@@ -160,7 +160,7 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(TokenTreeMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(RavenBodyMacro)));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -190,7 +190,7 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(GuardMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(GuardMacro)));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -223,7 +223,7 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(ChooseMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ChooseMacro)));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -251,21 +251,13 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(ChooseMacroPlugin)));
+            .AddMacroReferences(new MacroReference(typeof(ChooseMacro)));
 
         var diagnostic = Assert.Single(
             compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
 
         Assert.Contains("CHOOSE001: Expected an 'otherwise' clause.", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.Equal("then", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
-    }
-
-    public sealed class AddMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(AddMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new AddMacro()];
     }
 
     public sealed class AddMacro : IFreestandingExpressionMacro<AddMacroParameters>
@@ -286,14 +278,6 @@ public sealed class FreestandingMacroCodeGenTests
         public int Left { get; } = left;
 
         public int Right { get; set; }
-    }
-
-    public sealed class EmbedTextMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(EmbedTextMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new EmbedTextMacro()];
     }
 
     public sealed class EmbedTextMacro : IFreestandingExpressionMacro<EmbedTextMacroParameters>
@@ -341,14 +325,6 @@ public sealed class FreestandingMacroCodeGenTests
         public string Path { get; } = path;
     }
 
-    public sealed class TokenTreeMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(TokenTreeMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new RavenBodyMacro()];
-    }
-
     public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "raven";
@@ -359,14 +335,6 @@ public sealed class FreestandingMacroCodeGenTests
             {
                 Expression = context.ParseExpression()
             };
-    }
-
-    public sealed class GuardMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(GuardMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new GuardMacro()];
     }
 
     public sealed class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
@@ -417,14 +385,6 @@ public sealed class FreestandingMacroCodeGenTests
                     context.CreateBodyDiagnostic(span, message, code: "GUARD001")
                 ]
             };
-    }
-
-    public sealed class ChooseMacroPlugin : IRavenMacroPlugin
-    {
-        public string Name => nameof(ChooseMacroPlugin);
-
-        public ImmutableArray<IMacroDefinition> GetMacros()
-            => [new ChooseMacro()];
     }
 
     public sealed class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider

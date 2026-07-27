@@ -125,6 +125,33 @@ that introduces members. Future input and result categories can cover
 statements, declarations, types, patterns, and retained DSL structure without
 changing the basic declaration shape.
 
+The declaration model has three independent axes:
+
+| Axis | Examples | What it controls |
+| --- | --- | --- |
+| Input role | typed value, `Expression`, `TokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
+| Attachment | absent or `on Type` / `on Property` | freestanding versus attached invocation and the allowed target category |
+| Result role | `Expression`, `Members`, `Declaration` | the carrier position and the syntax shape accepted from expansion |
+
+Those axes cover every MVP macro kind without a separate `kind` annotation:
+
+| Declaration shape | Lowered contract |
+| --- | --- |
+| `macro Foo(argument: Expression) -> Expression` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
+| `macro Query(body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
+| `macro AddEquatable() on Type -> Members` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
+| `macro Observable() on Property -> Declaration` | `IAttachedDeclarationMacro` returning a replacement declaration |
+
+Typed parameter lists may lower through the existing generic macro interfaces
+and compiler-owned parameter objects. Syntax-role parameters such as
+`Expression` and `TokenStream` are context projections rather than ordinary
+runtime values. The result role selects the appropriate expansion-result
+factory. The synthesized class therefore needs no redundant macro-category
+property: its implemented interface is the category. A definition implementing
+zero or multiple category interfaces is invalid. Compiler and tooling code use
+compiler-owned `MacroFacts`/registry metadata to query `MacroKind`; the
+implementation cannot override that discriminator.
+
 This syntax must lower to the object-oriented MVP API. Conceptually, the
 compiler synthesizes a class implementing the inferred category-specific macro
 interface and an `Expand` method whose body comes from the declaration body.
@@ -456,10 +483,9 @@ macro project. The preferred form names each exported macro definition:
 ```
 
 The marker is repeatable when an assembly exports multiple macros. A bare
-marker authorizes fallback discovery of direct macro definitions or legacy
-`IRavenMacroPlugin` containers inside that marked assembly. Explicit and bare
-forms cannot be mixed. Raven must never perform that type scan for an unmarked
-runtime reference.
+marker authorizes fallback discovery of direct macro definitions inside that
+marked assembly. Explicit and bare forms cannot be mixed. Raven must never
+perform that type scan for an unmarked runtime reference.
 
 Consumers should not need a separate source import or an analyzer-like
 "import macros from this assembly" item. Conversely, Raven must not discover
@@ -497,8 +523,7 @@ invalidated. A future macro symbol may expose that common identity to semantic
 APIs without requiring analyzers or consumers to understand the activation
 mechanism.
 
-`IRavenMacroPlugin` remains compatibility and transport plumbing. Assembly
-manifests can export macro implementation classes directly, and local
+Assembly manifests export macro implementation classes directly, and local
 compile-time partitions discover their concrete macro definitions without an
 assembly attribute. A future Swift-inspired declaration model may generate the
 partition and export metadata from dedicated syntax, allowing ordinary authors
@@ -589,32 +614,28 @@ plugins, and forwards their diagnostics through the consumer compilation.
 Completion reads from the same compiler macro registry and therefore includes
 successfully activated local macros.
 
-For the dedicated-file MVP, a project may instead mark a macro declaration:
+For the dedicated-file MVP, the compiler recognizes direct macro declarations:
 
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
-[LocalMacroPlugin]
 class AnswerMacro: ITokenTreeExpressionMacro {
     // ...
 }
 ```
 
 When syntax trees are added through
-`Compilation.AddSyntaxTreesWithLocalMacros`, or through normal Workspace and
-SDK project construction, the complete file containing that marker is
-classified into the local compile-time partition. No `RavenMacro` item,
-separate project, on-disk plugin assembly, or explicit project reference to
-`Raven.CodeAnalysis` is required. The local partition receives the compatible
-compiler contracts automatically.
+`Compilation.AddSyntaxTreesWithLocalMacros`, or normal Workspace and SDK
+project construction, recognizes the macro interface in the declaration's base
+list and places that declaration in the local compile-time partition. No
+`RavenMacro` item, separate project, on-disk plugin assembly, or explicit
+project reference to `Raven.CodeAnalysis` is required. The local partition
+receives the compatible compiler contracts automatically.
 
-This is deliberately a syntax-only, file-granular rule. The macro definitions
-and their supporting implementation types must live in a dedicated source file;
-ordinary consumer declarations in that file would also be compile-time-only.
-`LocalMacroPluginAttribute` is a local source-partition marker, not a macro
-invocation and not the assembly-level `RavenCompilerPlugin` export marker.
-Once a source tree is in the local partition, direct macro definitions are
-discovered without any assembly attribute.
+This is deliberately a syntax-only rule. A file containing only direct macros
+is classified as a dedicated compile-time source file; supporting declarations
+can be marked `[LocalMacro]`. Direct macro definitions are discovered without
+any assembly attribute.
 
 Interactive and mixed-file code can instead mark individual top-level
 compile-time declarations:

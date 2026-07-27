@@ -662,9 +662,9 @@ public partial class Compilation
     }
 
     /// <summary>
-    /// Adds ordinary source trees and automatically moves trees containing a
-    /// <see cref="LocalMacroPluginAttribute"/> declaration into the local macro
-    /// partition.
+    /// Adds ordinary source trees and automatically moves direct macro
+    /// declarations and declarations marked with <see cref="LocalMacroAttribute"/>
+    /// into the local macro partition.
     /// </summary>
     public Compilation AddSyntaxTreesWithLocalMacros(params SyntaxTree[] syntaxTrees)
     {
