@@ -183,6 +183,12 @@ public sealed class ProjectFileNuGetReferenceTests
             var projectId = workspace.OpenProject(projectPath);
             var project = workspace.CurrentSolution.GetProject(projectId)!;
             var compilation = workspace.GetCompilation(projectId);
+            var macroReference = Assert.Single(project.MacroReferences);
+
+            _ = macroReference.Macros;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
 
             Assert.DoesNotContain(
                 compilation.GetDiagnostics(),
@@ -205,7 +211,6 @@ public sealed class ProjectFileNuGetReferenceTests
                     reference.FilePath,
                     dependencyAssemblyPath,
                     StringComparison.OrdinalIgnoreCase));
-            var macroReference = Assert.Single(project.MacroReferences);
             Assert.Equal(Path.GetFullPath(implementationAssemblyPath), macroReference.Display);
             Assert.Equal(
                 Path.GetFullPath(implementationAssemblyPath),

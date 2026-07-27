@@ -10,13 +10,13 @@ namespace Raven.CodeAnalysis.Macros;
 
 public sealed class MacroReference
 {
-    private readonly Lazy<ImmutableArray<IMacroDefinition>> _macros;
+    private readonly Lazy<MacroSnapshot> _snapshot;
     private readonly string? _display;
     private readonly string? _sourceProjectFilePath;
 
     public MacroReference(IMacroDefinition macro)
         : this(
-            () => [macro],
+            () => new MacroSnapshot([macro], LoadContext: null),
             macro.GetType().Assembly.FullName,
             sourceProjectFilePath: null)
     {
@@ -34,10 +34,10 @@ public sealed class MacroReference
     {
     }
 
-    private MacroReference(Func<ImmutableArray<IMacroDefinition>> macroFactory, string? display, string? sourceProjectFilePath)
+    private MacroReference(Func<MacroSnapshot> macroFactory, string? display, string? sourceProjectFilePath)
     {
         ArgumentNullException.ThrowIfNull(macroFactory);
-        _macros = new Lazy<ImmutableArray<IMacroDefinition>>(
+        _snapshot = new Lazy<MacroSnapshot>(
             macroFactory,
             LazyThreadSafetyMode.ExecutionAndPublication);
         _display = display;
@@ -100,18 +100,18 @@ public sealed class MacroReference
     /// <summary>
     /// Gets the immutable macro-definition snapshot exported by this reference.
     /// </summary>
-    public ImmutableArray<IMacroDefinition> Macros => _macros.Value;
+    public ImmutableArray<IMacroDefinition> Macros => _snapshot.Value.Macros;
 
-    private static Func<ImmutableArray<IMacroDefinition>> CreateAssemblyMacroFactory(Assembly assembly)
+    private static Func<MacroSnapshot> CreateAssemblyMacroFactory(Assembly assembly)
     {
         var exports = new Lazy<MacroAssemblyExports>(
             () => GetExports(assembly),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => exports.Value.CreateMacros();
+        return () => exports.Value.CreateSnapshot();
     }
 
-    private static Func<ImmutableArray<IMacroDefinition>> CreateFileMacroFactory(
+    private static Func<MacroSnapshot> CreateFileMacroFactory(
         string fullPath,
         ImmutableArray<string> dependencyAssemblyPaths)
     {
@@ -126,10 +126,10 @@ public sealed class MacroReference
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => exports.Value.CreateMacros();
+        return () => exports.Value.CreateSnapshot();
     }
 
-    private static Func<ImmutableArray<IMacroDefinition>> CreateImageMacroFactory(byte[] assemblyImage)
+    private static Func<MacroSnapshot> CreateImageMacroFactory(byte[] assemblyImage)
     {
         var exports = new Lazy<MacroAssemblyExports>(
             () =>
@@ -141,10 +141,10 @@ public sealed class MacroReference
             },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
-        return () => exports.Value.CreateMacros();
+        return () => exports.Value.CreateSnapshot();
     }
 
-    private static Func<ImmutableArray<IMacroDefinition>> CreateExportedTypeFactory(Type exportedType)
+    private static Func<MacroSnapshot> CreateExportedTypeFactory(Type exportedType)
     {
         ArgumentNullException.ThrowIfNull(exportedType);
         if (!IsConstructibleExportedType(exportedType))
@@ -154,7 +154,9 @@ public sealed class MacroReference
                 nameof(exportedType));
         }
 
-        return () => [(IMacroDefinition)Activator.CreateInstance(exportedType)!];
+        return () => new MacroSnapshot(
+            [(IMacroDefinition)Activator.CreateInstance(exportedType)!],
+            LoadContext: null);
     }
 
     private static MacroAssemblyExports GetExports(
@@ -227,11 +229,17 @@ public sealed class MacroReference
         Type[] MacroTypes,
         AssemblyLoadContext? LoadContext)
     {
-        public ImmutableArray<IMacroDefinition> CreateMacros()
-            => MacroTypes
-                .Select(static macroType => (IMacroDefinition)Activator.CreateInstance(macroType)!)
-                .ToImmutableArray();
+        public MacroSnapshot CreateSnapshot()
+            => new(
+                MacroTypes
+                    .Select(static macroType => (IMacroDefinition)Activator.CreateInstance(macroType)!)
+                    .ToImmutableArray(),
+                LoadContext);
     }
+
+    private sealed record MacroSnapshot(
+        ImmutableArray<IMacroDefinition> Macros,
+        AssemblyLoadContext? LoadContext);
 
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {
@@ -239,6 +247,7 @@ public sealed class MacroReference
         private readonly AssemblyDependencyResolver? _resolver;
         private readonly string? _mainAssemblyDirectory;
         private readonly ImmutableArray<string> _dependencyAssemblyPaths;
+        private readonly object _loadGate = new();
 
         public MacroAssemblyLoadContext()
             : base($"RavenMacro:InMemory:{Guid.NewGuid():N}", isCollectible: true)
@@ -261,6 +270,21 @@ public sealed class MacroReference
             if (sharedAssembly is not null)
                 return sharedAssembly;
 
+            lock (_loadGate)
+            {
+                var loadedAssembly = Assemblies.FirstOrDefault(
+                    assembly => AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        assembly.GetName()));
+                if (loadedAssembly is not null)
+                    return loadedAssembly;
+
+                return LoadDependency(assemblyName);
+            }
+        }
+
+        private Assembly? LoadDependency(AssemblyName assemblyName)
+        {
             var assemblyPath = _resolver?.ResolveAssemblyToPath(assemblyName);
             if (!string.IsNullOrWhiteSpace(assemblyPath))
                 return LoadFromAssemblyPath(assemblyPath);

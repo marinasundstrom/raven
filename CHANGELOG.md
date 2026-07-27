@@ -99,6 +99,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   or related type group instead of using `main.rvn` universally.
 - Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
   compiler and tooling queries reuse the same definition instances.
+- Kept collectible macro assembly contexts alive for the lifetime of their
+  cached macro snapshots, preventing referenced helper assemblies from failing
+  to load when collection occurs before expansion.
 - Made VS Code language-server builds on extension activation opt-in. The
   extension now starts an existing workspace or packaged server immediately by
   default instead of blocking activation on a full compiler dependency build.

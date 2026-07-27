@@ -99,7 +99,9 @@ existing incremental reuse paths.
 `MacroReference.Macros` exposes that activation result as a cached
 `ImmutableArray<IMacroDefinition>`. Repeated compiler and tooling queries see
 the same definition instances for the snapshot rather than re-running an
-enumerable factory.
+enumerable factory. File- and image-backed snapshots retain their collectible
+assembly load context for the full `MacroReference` lifetime so lazily invoked
+macro dependencies remain resolvable during expansion.
 
 ### MVP authoring and activation matrix
 
