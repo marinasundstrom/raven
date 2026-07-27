@@ -44,7 +44,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(OptionJsonConverterFactory))]
-union Option<T> {
+public union Option<T> {
     /// Represents an available value.
     case Some(value: T)
 
@@ -206,7 +206,7 @@ union Option<T> {
 }
 
 /// Defines nullable-reference conversions for `Option`.
-extension OptionExtensions1<T : class> for Option<T> {
+public extension OptionExtensions1<T : class> for Option<T> {
     /// Converts an option to its nullable reference representation.
     static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
@@ -225,7 +225,7 @@ extension OptionExtensions1<T : class> for Option<T> {
 }
 
 /// Defines nullable-value conversions for `Option`.
-extension OptionExtensions2<T : struct> for Option<T> {
+public extension OptionExtensions2<T : struct> for Option<T> {
     /// Converts an option to its nullable value representation.
     static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
@@ -244,7 +244,7 @@ extension OptionExtensions2<T : struct> for Option<T> {
 }
 
 /// Converts `Option` values to and from their natural JSON value representation.
-class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
 
     /// Gets whether the converter handles JSON `null` directly.
     override val HandleNull: bool { get; } = true
@@ -275,7 +275,7 @@ class OptionJsonConverter<T> : JsonConverter<Option<T>> {
 }
 
 /// Creates JSON converters for constructed `Option` types.
-class OptionJsonConverterFactory : JsonConverterFactory {
+public class OptionJsonConverterFactory : JsonConverterFactory {
 
     /// Determines whether the specified type is an `Option` type.
     override func CanConvert(typeToConvert: Type) -> bool {
@@ -294,7 +294,7 @@ class OptionJsonConverterFactory : JsonConverterFactory {
 }
 
 /// Provides operations for nested options.
-extension OptionExtensionsNested<T> for Option<Option<T>> {
+public extension OptionExtensionsNested<T> for Option<Option<T>> {
 
     /// Flattens `Option<Option<T>>` into `Option<T>`.
     func Flatten() -> Option<T> {

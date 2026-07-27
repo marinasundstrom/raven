@@ -62,21 +62,16 @@ internal partial class TypeMemberBinder : Binder
     private Accessibility GetDefaultMemberAccessibility()
         => IsNamespaceMembersContainer
             ? Accessibility.Internal
-            : Compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+            : Accessibility.Public;
 
     private void ReportRedundantPublicModifierIfNeeded(SyntaxTokenList modifiers)
     {
-        if (!Compilation.Options.MembersPublicByDefault)
-            return;
-
         foreach (var modifier in modifiers)
         {
             if (modifier.Kind != SyntaxKind.PublicKeyword)
                 continue;
 
-            _diagnostics.ReportPublicModifierRedundantInPublicByDefaultMode(modifier.GetLocation());
+            _diagnostics.ReportPublicModifierRedundant(modifier.GetLocation());
             break;
         }
     }

@@ -145,8 +145,6 @@ internal static class MsBuildProjectEvaluator
             GetOptionalProperty(project, "DisabledAnalyzers") ??
             GetOptionalProperty(project, "RavenDisabledAnalyzers"));
         var returnedValueHandling = GetReturnedValueHandlingProperty(project);
-        var membersPublicByDefault = GetBooleanProperty(project, "MembersPublicByDefault")
-            ?? GetBooleanProperty(project, "RavenMembersPublicByDefault");
         var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
             ?? true;
@@ -165,9 +163,6 @@ internal static class MsBuildProjectEvaluator
 
         if (returnedValueHandling is { } returnedValueHandlingMode)
             compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);
-
-        if (membersPublicByDefault is bool configuredMembersPublicByDefault)
-            compilationOptions = compilationOptions.WithMembersPublicByDefault(configuredMembersPublicByDefault);
 
         var intermediateOutputPath = project.GetPropertyValue("IntermediateOutputPath");
         var generatedSourceDirectory = GetGeneratedSourceDirectory(projectDirectory, intermediateOutputPath, configuration, conventions);

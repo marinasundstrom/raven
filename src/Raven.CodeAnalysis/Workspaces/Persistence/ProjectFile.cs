@@ -65,8 +65,6 @@ internal static class ProjectFile
                 projectElement.Add(new XAttribute("DisabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(opts.DisabledAnalyzers)));
             if (opts.ReturnedValueHandlingModeConfigured)
                 projectElement.Add(new XAttribute("ReturnedValueHandlingMode", ReturnedValueHandlingOptions.ToProjectFileValue(opts.ReturnedValueHandlingMode)));
-            if (opts.MembersPublicByDefaultConfigured)
-                projectElement.Add(new XAttribute("MembersPublicByDefault", opts.MembersPublicByDefault));
         }
 
         foreach (var projRef in project.ProjectReferences)
@@ -117,7 +115,6 @@ internal static class ProjectFile
             ?? (string?)root.Attribute("RavenReturnedValueHandling");
         var enableReturnedValueAnalyzerAttr = (string?)root.Attribute("EnableReturnedValueAnalyzer")
             ?? (string?)root.Attribute("RavenEnableReturnedValueAnalyzer");
-        var membersPublicByDefaultAttr = (string?)root.Attribute("MembersPublicByDefault");
         var generatePreludeImports = true;
         var generatePreludeImportsAttr = (string?)root.Attribute("GeneratePreludeImports");
         if (generatePreludeImportsAttr is string gpi && bool.TryParse(gpi, out var parsedGeneratePreludeImports))
@@ -155,8 +152,6 @@ internal static class ProjectFile
                 enableReturnedValueAnalyzer ? ReturnedValueHandlingMode.Full : ReturnedValueHandlingMode.Off);
         }
 
-        if (membersPublicByDefaultAttr is string mpbd && bool.TryParse(mpbd, out var membersPublicByDefault))
-            options = options.WithMembersPublicByDefault(membersPublicByDefault);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;

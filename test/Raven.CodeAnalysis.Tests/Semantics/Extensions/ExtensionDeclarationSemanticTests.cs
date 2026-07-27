@@ -215,8 +215,7 @@ public extension PublicExt for int {
 """;
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithMembersPublicByDefault(false)
-            .WithSpecificDiagnosticOption("RAV0907", ReportDiagnostic.Suppress);
+            .WithSpecificDiagnosticOption("RAV0908", ReportDiagnostic.Suppress);
         var (compilation, tree) = CreateCompilation(source, options: options);
         compilation.EnsureSetup();
 

@@ -20,8 +20,6 @@ public sealed record CompilerWorkspaceOptions
 
     public bool AllowNamespaceMemberImports { get; init; } = true;
 
-    public bool? MembersPublicByDefault { get; init; } = true;
-
     public bool UseRuntimeAsync { get; init; }
 
     public bool EmbedCoreTypes { get; init; } = true;

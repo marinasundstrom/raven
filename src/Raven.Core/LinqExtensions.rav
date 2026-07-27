@@ -9,7 +9,7 @@ import System.Result.*
 /// Provides `Option`- and `Result`-returning sequence operations.
 ///
 /// @typeparam T The sequence element type.
-extension EnumerableOption<T> for IEnumerable<T> {
+public extension EnumerableOption<T> for IEnumerable<T> {
 
     // -------------------------
     // First

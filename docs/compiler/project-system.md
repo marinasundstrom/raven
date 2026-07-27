@@ -20,7 +20,6 @@ Primary MSBuild properties Raven currently consumes:
 - `OutputType` (`Exe` or `Library`)
 - `AllowUnsafeBlocks` or `AllowUnsafe`
 - `AllowGlobalStatements` or `RavenAllowGlobalStatements`
-- `MembersPublicByDefault` or `RavenMembersPublicByDefault`
 - `FrameworkProjections` or `RavenFrameworkProjections` (`Standard` by default,
   or `None` for the ordinary .NET API surface)
 - `IntermediateOutputPath`
@@ -374,7 +373,9 @@ Example:
 Current behavior:
 
 - `RavenWorkspace.OpenProject(...)` can open that project through `MsBuildProjectSystemService`.
-- `TargetFramework`, `AssemblyName`, `OutputType`, `AllowUnsafe` / `AllowUnsafeBlocks`, `AllowGlobalStatements`, and `MembersPublicByDefault` are mapped into Raven project state.
+- `TargetFramework`, `AssemblyName`, `OutputType`, `AllowUnsafe` /
+  `AllowUnsafeBlocks`, and `AllowGlobalStatements` are mapped into Raven
+  project state.
 - `ProjectReference` paths are surfaced through the project-system abstraction so callers such as the language server can recurse without knowing the concrete project-file format.
 - Referenced Raven MSBuild projects become workspace project references when they are loaded.
 - Referenced non-Raven MSBuild projects are consumed as metadata references when their evaluated `TargetPath` already exists on disk.

@@ -102,8 +102,6 @@ editors can discover the same SDK root.
 - `--no-namespace-members` &ndash; disable namespace-level `func` and `const` declarations
 - `--namespace-member-imports` &ndash; enable namespace lookup/completion promotion from `[TopLevel]` containers (default)
 - `--no-namespace-member-imports` &ndash; disable namespace lookup/completion promotion from `[TopLevel]` containers
-- `--members-public-by-default` &ndash; class/struct members default to `public`
-- `--no-members-public-by-default` &ndash; class/struct members use normal defaults (`private` for class/struct members)
 - `--returned-value-handling <default|full|none|info|warning|error>` &ndash; configure the
   built-in returned-value analyzer (`RAV9029`); project files control analyzer mode, while
   `.editorconfig` controls severity

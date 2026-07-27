@@ -22,4 +22,9 @@ The synthesized `Invoke` method also preserves parameter lifetime metadata.
 In particular, `scoped` parameters emit `ScopedRefAttribute` when required,
 including parameters that use generic types permitting ref-like arguments.
 
-If the return type clause is omitted, the delegate returns `unit`. Delegate declarations support generic type parameters and constraints using the same `where` clause rules as other type declarations. Accessibility defaults follow the standard type rules: top-level delegates are `public` unless marked `internal`, and an explicit top-level `public` modifier is redundant and diagnosed. Nested delegates default to `private` except when declared inside interfaces.
+If the return type clause is omitted, the delegate returns `unit`. Delegate
+declarations support generic type parameters and constraints using the same
+`where` clause rules as other type declarations. Accessibility follows the
+standard type rules: namespace-level delegates default to `internal` and
+require `public` to be exported from the assembly, while nested delegates
+default to `public`.

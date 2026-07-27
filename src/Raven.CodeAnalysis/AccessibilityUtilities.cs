@@ -78,28 +78,15 @@ internal static class AccessibilityUtilities
     public static Accessibility GetDefaultTypeAccessibility(ISymbol? containingSymbol)
     {
         if (containingSymbol is null)
-            return Accessibility.Public;
+            return Accessibility.Internal;
 
         if (containingSymbol is INamespaceSymbol)
+            return Accessibility.Internal;
+
+        if (containingSymbol is INamedTypeSymbol)
             return Accessibility.Public;
 
-        if (containingSymbol is INamedTypeSymbol containingType)
-        {
-            if (containingType.TypeKind == TypeKind.Interface)
-                return Accessibility.Public;
-
-            return Accessibility.Private;
-        }
-
-        return Accessibility.Public;
-    }
-
-    public static Accessibility GetDefaultMemberAccessibility(INamedTypeSymbol containingType)
-    {
-        if (containingType.TypeKind == TypeKind.Interface)
-            return Accessibility.Public;
-
-        return Accessibility.Private;
+        return Accessibility.Internal;
     }
 
     public static bool IsAccessible(ISymbol symbol, ISymbol? within, string? withinFilePath = null)

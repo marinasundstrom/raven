@@ -7,7 +7,7 @@ import System.Result.*
 import System.Runtime.CompilerServices.*
 
 /// Provides carrier-returning parsing projections for 32-bit integers.
-extension Int32Extensions for Int32 {
+public extension Int32Extensions for Int32 {
 
     /// Parses an integer and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.int32.tryparse.string.option.v1")]
@@ -43,7 +43,7 @@ extension Int32Extensions for Int32 {
 }
 
 /// Provides carrier-returning parsing projections for 64-bit integers.
-extension Int64Extensions for Int64 {
+public extension Int64Extensions for Int64 {
     /// Parses a long integer and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.int64.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<long> {
@@ -63,7 +63,7 @@ extension Int64Extensions for Int64 {
 }
 
 /// Provides carrier-returning parsing projections for double-precision numbers.
-extension DoubleExtensions for Double {
+public extension DoubleExtensions for Double {
     /// Parses a double and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.double.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<double> {
@@ -83,7 +83,7 @@ extension DoubleExtensions for Double {
 }
 
 /// Provides carrier-returning parsing projections for decimal numbers.
-extension DecimalExtensions for Decimal {
+public extension DecimalExtensions for Decimal {
     /// Parses a decimal and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.decimal.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<decimal> {
@@ -103,7 +103,7 @@ extension DecimalExtensions for Decimal {
 }
 
 /// Provides carrier-returning parsing projections for GUIDs.
-extension GuidExtensions for Guid {
+public extension GuidExtensions for Guid {
     /// Parses a GUID and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.guid.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<Guid> {
@@ -126,7 +126,7 @@ extension GuidExtensions for Guid {
 }
 
 /// Provides carrier-returning parsing projections for date and time values.
-extension DateTimeExtensions for DateTime {
+public extension DateTimeExtensions for DateTime {
     /// Parses a date and time and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.datetime.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<DateTime> {
@@ -146,7 +146,7 @@ extension DateTimeExtensions for DateTime {
 }
 
 /// Provides carrier-returning parsing projections for offset date and time values.
-extension DateTimeOffsetExtensions for DateTimeOffset {
+public extension DateTimeOffsetExtensions for DateTimeOffset {
     /// Parses an offset date and time and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.datetimeoffset.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<DateTimeOffset> {
@@ -156,7 +156,7 @@ extension DateTimeOffsetExtensions for DateTimeOffset {
 }
 
 /// Provides carrier-returning parsing projections for dates.
-extension DateOnlyExtensions for DateOnly {
+public extension DateOnlyExtensions for DateOnly {
     /// Parses a date and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.dateonly.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<DateOnly> {
@@ -166,7 +166,7 @@ extension DateOnlyExtensions for DateOnly {
 }
 
 /// Provides carrier-returning parsing projections for times.
-extension TimeOnlyExtensions for TimeOnly {
+public extension TimeOnlyExtensions for TimeOnly {
     /// Parses a time and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.timeonly.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<TimeOnly> {
@@ -176,7 +176,7 @@ extension TimeOnlyExtensions for TimeOnly {
 }
 
 /// Provides carrier-returning parsing projections for time intervals.
-extension TimeSpanExtensions for TimeSpan {
+public extension TimeSpanExtensions for TimeSpan {
     /// Parses a time interval and returns `Some` on success or `None` on failure.
     [FrameworkProjection("system.timespan.tryparse.string.option.v1")]
     static func TryParse(input: string?) -> Option<TimeSpan> {

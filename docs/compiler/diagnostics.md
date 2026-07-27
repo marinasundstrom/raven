@@ -155,8 +155,7 @@ call site.
 | `RAV0815` | Error | Cannot assign void to an implicitly-typed variable | Cannot assign void to an implicitly-typed variable | — |
 | `RAV0905` | Error | Required member must be set | Required member '{memberName}' must be set | `samples/oop/required-members-basic.rav` |
 | `RAV0906` | Error | Required field must be mutable | Required field '{fieldName}' must be mutable | `samples/oop/required-members-basic.rav` |
-| `RAV0907` | Warning | Public-by-default mode is disabled | Public-by-default mode is disabled; declare member accessibility explicitly while migrating. | — |
-| `RAV0908` | Warning | Redundant public modifier | Modifier 'public' is redundant when members are public by default. | — |
+| `RAV0908` | Warning | Redundant public modifier | Modifier 'public' is redundant because type members are public by default. | — |
 | `RAV0909` | Error | Method declaration missing func keyword | Method declaration '{methodName}' must include the 'func' keyword. | — |
 | `RAV0910` | Warning | val property set accessor must be restricted | Property '{propertyName}' is declared 'val' and its '{accessorKind}' accessor must be less accessible than the getter. | — |
 | `RAV0911` | Warning | var property requires writable shape | Property '{propertyName}' is declared 'var' but has no writable shape. Add a 'set'/'init' accessor or a storage initializer. | — |

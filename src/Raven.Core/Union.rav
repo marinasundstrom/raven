@@ -8,7 +8,7 @@ import System.Text.Json.Serialization.*
 /// @typeparam T1 The first alternative type.
 /// @typeparam T2 The second alternative type.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union Union<T1, T2>(T1 | T2)
+public union Union<T1, T2>(T1 | T2)
 
 /// Represents a value that can contain one of three alternative types.
 ///
@@ -16,7 +16,7 @@ union Union<T1, T2>(T1 | T2)
 /// @typeparam T2 The second alternative type.
 /// @typeparam T3 The third alternative type.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union Union<T1, T2, T3>(T1 | T2 | T3)
+public union Union<T1, T2, T3>(T1 | T2 | T3)
 
 /// Represents a value that can contain one of four alternative types.
 ///
@@ -25,7 +25,7 @@ union Union<T1, T2, T3>(T1 | T2 | T3)
 /// @typeparam T3 The third alternative type.
 /// @typeparam T4 The fourth alternative type.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union Union<T1, T2, T3, T4>(T1 | T2 | T3 | T4)
+public union Union<T1, T2, T3, T4>(T1 | T2 | T3 | T4)
 
 /// Represents a value that can contain one of five alternative types.
 ///
@@ -35,4 +35,4 @@ union Union<T1, T2, T3, T4>(T1 | T2 | T3 | T4)
 /// @typeparam T4 The fourth alternative type.
 /// @typeparam T5 The fifth alternative type.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union Union<T1, T2, T3, T4, T5>(T1 | T2 | T3 | T4 | T5)
+public union Union<T1, T2, T3, T4, T5>(T1 | T2 | T3 | T4 | T5)

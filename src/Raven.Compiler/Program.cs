@@ -44,8 +44,6 @@ var isCompilerDriverInvocation = string.Equals(invocationName, "rvnc", StringCom
 // --no-global-statements - disable top-level/global statements
 // --no-namespace-members - disable namespace-scope function and const declarations
 // --no-namespace-member-imports - disable namespace imports from [TopLevel] containers
-// --members-public-by-default - members default to public in classes/structs (default behavior)
-// --no-members-public-by-default - disable public-by-default and require explicit public
 // --runtime-async    - enable runtime-async metadata emission
 // --no-runtime-async - disable runtime-async metadata emission
 // -o <path>         - output assembly path
@@ -91,7 +89,6 @@ var allowNamespaceMembers = true;
 var allowNamespaceMembersSpecified = false;
 var allowNamespaceMemberImports = true;
 var allowNamespaceMemberImportsSpecified = false;
-bool? membersPublicByDefaultOverride = true;
 bool? runtimeAsyncOverride = null;
 
 var printSyntaxTree = false;
@@ -390,12 +387,6 @@ for (int i = 0; i < args.Length; i++)
         case "--no-top-level-member-imports":
             allowNamespaceMemberImports = false;
             allowNamespaceMemberImportsSpecified = true;
-            break;
-        case "--members-public-by-default":
-            membersPublicByDefaultOverride = true;
-            break;
-        case "--no-members-public-by-default":
-            membersPublicByDefaultOverride = false;
             break;
         case "--runtime-async":
             runtimeAsyncOverride = true;
@@ -928,7 +919,6 @@ var executionOptions = new CompilerExecutionOptions(
     allowNamespaceMembersSpecified,
     allowNamespaceMemberImports,
     allowNamespaceMemberImportsSpecified,
-    membersPublicByDefaultOverride,
     useRuntimeAsync,
     showSuggestions,
     enableAsyncInvestigation,
@@ -1031,10 +1021,6 @@ foreach (var r in additionalRefs)
 
 if (projectFileInput is not null)
 {
-    var cliMembersPublicByDefaultOverride = options.MembersPublicByDefaultConfigured
-        ? options.MembersPublicByDefault
-        : (bool?)null;
-
     if (project.CompilationOptions is { } projectOptions)
     {
         options = projectOptions
@@ -1054,9 +1040,6 @@ if (projectFileInput is not null)
 
         if (executionOptions.AllowNamespaceMemberImportsSpecified)
             options = options.WithAllowNamespaceMemberImports(executionOptions.AllowNamespaceMemberImports);
-
-        if (cliMembersPublicByDefaultOverride is bool membersPublicByDefault)
-            options = options.WithMembersPublicByDefault(membersPublicByDefault);
     }
 
     assemblyName = !string.IsNullOrWhiteSpace(project.AssemblyName)
@@ -1711,9 +1694,6 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
         .WithEnableSuggestions(executionOptions.EnableSuggestions)
         .WithPerformanceInstrumentation(executionOptions.PerformanceInstrumentation);
 
-    if (executionOptions.MembersPublicByDefault is bool membersPublicByDefault)
-        options = options.WithMembersPublicByDefault(membersPublicByDefault);
-
     if (executionOptions.EnableAsyncInvestigation)
     {
         options = options.WithAsyncInvestigation(
@@ -2261,10 +2241,6 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("                     Enable namespace imports from [TopLevel] containers (default)");
         Console.WriteLine("  --no-namespace-member-imports");
         Console.WriteLine("                     Disable namespace imports from [TopLevel] containers");
-        Console.WriteLine("  --members-public-by-default");
-        Console.WriteLine("                     Members default to public in classes/structs (default)");
-        Console.WriteLine("  --no-members-public-by-default");
-        Console.WriteLine("                     Disable public-by-default and require explicit public");
         Console.WriteLine("  --runtime-async    Enable runtime-async metadata emission");
         Console.WriteLine("  --no-runtime-async");
         Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
@@ -2302,10 +2278,6 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("                     Enable namespace imports from [TopLevel] containers (default)");
     Console.WriteLine("  --no-namespace-member-imports");
     Console.WriteLine("                     Disable namespace imports from [TopLevel] containers");
-    Console.WriteLine("  --members-public-by-default");
-    Console.WriteLine("                     Members default to public in classes/structs (default)");
-    Console.WriteLine("  --no-members-public-by-default");
-    Console.WriteLine("                     Disable public-by-default and require explicit public");
     Console.WriteLine("  --runtime-async  Enable runtime-async metadata emission");
     Console.WriteLine("  --no-runtime-async");
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
@@ -2916,7 +2888,6 @@ readonly record struct CompilerExecutionOptions(
     bool AllowNamespaceMembersSpecified,
     bool AllowNamespaceMemberImports,
     bool AllowNamespaceMemberImportsSpecified,
-    bool? MembersPublicByDefault,
     bool UseRuntimeAsync,
     bool EnableSuggestions,
     bool EnableAsyncInvestigation,

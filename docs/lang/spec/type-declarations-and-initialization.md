@@ -163,18 +163,36 @@ one keyword produces the expected CLR combinations:
 
 Default accessibility depends on the declaration context:
 
-* Top-level classes, structs, interfaces, and enums default to `public`.
-  Use `internal` when a top-level type should be visible only within the
-  current assembly. An explicit `public` modifier is redundant in this
-  position and is diagnosed.
-* Nested types default to `private` unless they are declared inside an
-  interface, in which case they are implicitly `public`.
-* Member declarations (fields, methods, properties, indexers, constructors, and lifecycle blocks)
-  default to `public` for classes/structs and interfaces.
+* Namespace-level types—including classes, structs, records, interfaces,
+  enums, unions, delegates, and extension declarations—default to `internal`.
+  A namespace-level declaration must use `public` to become part of the
+  assembly's exported API. Because `public` changes the assembly boundary in
+  this position, it is not redundant.
+* Nested types are type members and default to `public`.
+* Other type members (fields, methods, properties, indexers, constructors, and
+  lifecycle blocks) default to `public` for classes, structs, and interfaces.
   Narrower visibility requires an explicit modifier such as `private`,
   `internal`, or `protected`.
 
 Constructors and lifecycle declarations follow these rules as well.
+
+Accessibility composes through containment. A public member of an internal
+type is effectively internal because callers outside the assembly cannot name
+its containing type. This keeps the assembly export boundary explicit without
+requiring access modifiers throughout implementation-only types.
+
+This asymmetry is intentional. In an application or in implementation-only
+library code, namespace-level declarations need no modifier because they stay
+inside the assembly. In a class library, `public` visually identifies the
+declarations deliberately exposed to referencing assemblies. Within a type,
+members need a modifier only when access is narrowed. The result is less
+modifier noise and a smaller cognitive burden when scanning either an
+assembly's exported surface or a type's private implementation details.
+
+An explicit `public` modifier remains legal on a type member even when public
+is the default. The compiler may report the style diagnostic `RAV0908` for the
+redundant modifier; projects that prefer explicit member accessibility may
+suppress that diagnostic and enforce their convention with an analyzer.
 
 `fileprivate` is a source-level restriction for type-like declarations. The compiler enforces same-file visibility during binding, and mangles the emitted metadata name for the generated type so file-local helpers do not publish a stable CLR-facing type name.
 

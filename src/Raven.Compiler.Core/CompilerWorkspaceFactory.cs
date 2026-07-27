@@ -106,9 +106,6 @@ public static class CompilerWorkspaceFactory
                 .WithRuntimeAsync(options.UseRuntimeAsync)
                 .WithEmbedCoreTypes(options.EmbedCoreTypes)
                 .WithEnableSuggestions(options.EnableSuggestions);
-
-            if (workspaceOptions.MembersPublicByDefault is bool membersPublicByDefault)
-                options = options.WithMembersPublicByDefault(membersPublicByDefault);
         }
 
         project = project
@@ -132,9 +129,6 @@ public static class CompilerWorkspaceFactory
             .WithRuntimeAsync(workspaceOptions.UseRuntimeAsync)
             .WithEmbedCoreTypes(workspaceOptions.EmbedCoreTypes)
             .WithEnableSuggestions(workspaceOptions.EnableSuggestions);
-
-        if (workspaceOptions.MembersPublicByDefault is bool membersPublicByDefault)
-            options = options.WithMembersPublicByDefault(membersPublicByDefault);
 
         return options;
     }

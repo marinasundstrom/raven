@@ -176,6 +176,42 @@ val value: Hidden = default(Hidden)
         Assert.All(diagnostics, diagnostic => Assert.Equal(["type", "Hidden"], diagnostic.GetMessageArgs()));
     }
 
+    [Fact]
+    public void NamespaceLevelTypeWithoutModifier_IsInternalAcrossAssemblies()
+    {
+        const string librarySource = """
+namespace Lib
+
+class Hidden {}
+public class Exported {}
+""";
+
+        var metadataReference = CreateMetadataReference(librarySource);
+
+        const string source = """
+import Lib.*
+
+val hidden: Hidden = default(Hidden)
+val exported: Exported = Exported()
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "consumer",
+            [tree],
+            TestMetadataReferences.Default.Append(metadataReference).ToArray());
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.SymbolIsInaccessible.Id)
+            .ToArray();
+
+        Assert.Equal(2, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal(["type", "Hidden"], diagnostic.GetMessageArgs()));
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.GetMessage().Contains("Exported"));
+    }
+
     private static MetadataReference CreateMetadataReference(string source)
     {
         return TestMetadataFactory.CreateFileReferenceFromSource(

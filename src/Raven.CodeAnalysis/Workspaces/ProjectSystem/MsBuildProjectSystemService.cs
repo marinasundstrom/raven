@@ -233,17 +233,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             RemoveProperty(root, "RavenReturnedValueHandlingMode");
         RemoveProperty(root, "RavenReturnedValueHandling");
 
-        if (compilationOptions?.MembersPublicByDefaultConfigured == true)
-        {
-            var membersPublicByDefault = compilationOptions.MembersPublicByDefault.ToString().ToLowerInvariant();
-            UpdateProperty(root, "MembersPublicByDefault", membersPublicByDefault);
-            RemoveProperty(root, "RavenMembersPublicByDefault");
-        }
-        else
-        {
-            RemoveProperty(root, "MembersPublicByDefault");
-            RemoveProperty(root, "RavenMembersPublicByDefault");
-        }
+        RemoveProperty(root, "MembersPublicByDefault");
+        RemoveProperty(root, "RavenMembersPublicByDefault");
 
         var documentationOptions = project.DocumentationOptions;
         UpdateProperty(root, "GenerateDocumentationFile", ((documentationOptions?.GenerateXmlDocumentation) ?? false).ToString().ToLowerInvariant());

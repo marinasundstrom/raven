@@ -45,7 +45,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(ResultJsonConverterFactory))]
-union Result<T, E> {
+public union Result<T, E> {
     /// Represents a successful result value.
     case Ok(value: T)
 
@@ -199,7 +199,7 @@ union Result<T, E> {
 }
 
 /// Converts `Result` values to and from tagged JSON objects.
-class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
+public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
     /// Reads a tagged JSON object as an `Ok` or `Error` result.
     override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
@@ -247,7 +247,7 @@ class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 }
 
 /// Creates JSON converters for constructed `Result` types.
-class ResultJsonConverterFactory : JsonConverterFactory {
+public class ResultJsonConverterFactory : JsonConverterFactory {
 
     /// Determines whether the specified type is a `Result` type.
     override func CanConvert(typeToConvert: Type) -> bool {
@@ -266,7 +266,7 @@ class ResultJsonConverterFactory : JsonConverterFactory {
 }
 
 /// Provides contextual error operations for results whose error implements `IError`.
-extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
+public extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
     /// Wraps the error channel with additional context while preserving the original error type.
     func WithContext(message: string) -> Result<T, ContextError<E>> {
         self.MapError(error => error.WithContext(message))

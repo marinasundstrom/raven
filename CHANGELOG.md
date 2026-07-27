@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Namespace-level types, delegates, unions, and extension declarations now
+  default to `internal`; `public` explicitly exports them from the assembly and
+  is no longer diagnosed as redundant in that position. Type members,
+  including nested types, default to `public`, while Raven.Core now marks its
+  exported declarations explicitly. The former `MembersPublicByDefault`
+  compilation/project option and its CLI switches have been removed.
 - `use` bindings no longer report `RAV9027` merely because their bound value is
   not read; establishing the disposal lifetime counts as the declaration's
   intended use.

@@ -7,7 +7,7 @@ import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
 /// Configures JSON serialization for a tagged Raven union.
-class RavenTaggedUnionJsonConverterAttribute : JsonConverterAttribute {
+public class RavenTaggedUnionJsonConverterAttribute : JsonConverterAttribute {
 
     private val _caseDiscriminatorPropertyName: string
 
@@ -28,7 +28,7 @@ class RavenTaggedUnionJsonConverterAttribute : JsonConverterAttribute {
 }
 
 /// Creates JSON converters for tagged Raven unions.
-class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
+public class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
 
     /// Gets the default JSON property used to identify a union case.
     static val DefaultCaseDiscriminatorPropertyName: string => "\$case"
@@ -94,7 +94,7 @@ class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
 }
 
 /// Converts a tagged Raven union to and from a discriminator-based JSON object.
-class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
+public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _unionType: Type = typeof(TUnion)
 
@@ -314,7 +314,7 @@ class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 }
 
 /// Creates JSON converters for parenthesized type unions.
-class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
+public class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
 
     /// Gets the JSON property used to preserve an ambiguous runtime type.
     static val TypeDiscriminatorPropertyName: string => "\$type"
@@ -354,7 +354,7 @@ class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
 }
 
 /// Converts a parenthesized type union to and from JSON.
-class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
+public class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _unionType: Type = typeof(TUnion)
 

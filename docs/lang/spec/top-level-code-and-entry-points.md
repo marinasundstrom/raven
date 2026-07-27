@@ -54,6 +54,14 @@ diagnoses the modifier rather than treating it as meaningful. `private`,
 top-level function or constant has no source-level containing type or
 inheritance surface.
 
+The same assembly-boundary rule applies to namespace-level type declarations:
+classes, structs, records, interfaces, enums, unions, delegates, and extension
+declarations default to `internal`, and `public` explicitly exports them.
+Members declared inside a type default to `public`; their effective visibility
+cannot exceed that of the containing type. As a result, an internal type can
+usually omit modifiers on its members while a library exposes only the
+namespace-level declarations deliberately marked `public`.
+
 Top-level `func` declarations support the same parameter, return type, generic
 type parameter, and `where` constraint syntax as methods and local functions.
 Top-level `const` declarations follow constant binding rules and are emitted as

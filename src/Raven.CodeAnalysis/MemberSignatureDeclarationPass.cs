@@ -34,12 +34,9 @@ internal static class MemberSignatureDeclarationPass
         var isOverride = methodDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = methodDeclaration.Modifiers.Any(static modifier => modifier.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var isAbstract = methodDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AbstractKeyword);
-        var defaultAccessibility = compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(
             methodDeclaration.Modifiers,
-            defaultAccessibility);
+            Accessibility.Public);
         var methodKind = methodDeclaration.ExplicitInterfaceSpecifier is not null
             ? MethodKind.ExplicitInterfaceImplementation
             : MethodKind.Ordinary;
@@ -174,12 +171,9 @@ internal static class MemberSignatureDeclarationPass
             return;
 
         var isStatic = constructorDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
-        var defaultAccessibility = compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
         var constructorAccessibility = isStatic
             ? Accessibility.Private
-            : AccessibilityUtilities.DetermineAccessibility(constructorDeclaration.Modifiers, defaultAccessibility);
+            : AccessibilityUtilities.DetermineAccessibility(constructorDeclaration.Modifiers, Accessibility.Public);
         var constructorMetadataName = isStatic ? ".cctor" : ".ctor";
         var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
 
@@ -218,12 +212,9 @@ internal static class MemberSignatureDeclarationPass
             return;
 
         var isStatic = constructorDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
-        var defaultAccessibility = compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
         var constructorAccessibility = isStatic
             ? Accessibility.Private
-            : AccessibilityUtilities.DetermineAccessibility(constructorDeclaration.Modifiers, defaultAccessibility);
+            : AccessibilityUtilities.DetermineAccessibility(constructorDeclaration.Modifiers, Accessibility.Public);
         var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
 
         var constructorSymbol = new SourceMethodSymbol(
@@ -396,12 +387,9 @@ internal static class MemberSignatureDeclarationPass
         }
 
         var isStatic = propertyDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
-        var defaultAccessibility = compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
         var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(
             propertyDeclaration.Modifiers,
-            defaultAccessibility);
+            Accessibility.Public);
         var propertySymbol = new SourcePropertySymbol(
             propertyDeclaration.Identifier.ValueText,
             propertyType,
@@ -516,12 +504,9 @@ internal static class MemberSignatureDeclarationPass
         var isStatic = fieldDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
         var isReadonly = fieldDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.ReadonlyKeyword);
         var isRequired = fieldDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.RequiredKeyword);
-        var defaultAccessibility = compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
         var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
             fieldDeclaration.Modifiers,
-            defaultAccessibility);
+            Accessibility.Public);
 
         foreach (var declarator in fieldDeclaration.Declaration.Declarators)
         {
@@ -620,12 +605,9 @@ internal static class MemberSignatureDeclarationPass
             return;
 
         var isStatic = eventDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
-        var defaultAccessibility = compilation.Options.MembersPublicByDefault
-            ? Accessibility.Public
-            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
         var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(
             eventDeclaration.Modifiers,
-            defaultAccessibility);
+            Accessibility.Public);
         var eventSymbol = new SourceEventSymbol(
             eventDeclaration.Identifier.ValueText,
             eventType,

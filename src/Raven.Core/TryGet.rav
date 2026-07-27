@@ -9,7 +9,7 @@ import System.Runtime.CompilerServices.*
 ///
 /// @typeparam TKey The dictionary key type.
 /// @typeparam TValue The dictionary value type.
-extension DictionaryExtensions<TKey, TValue> for Dictionary<TKey, TValue> {
+public extension DictionaryExtensions<TKey, TValue> for Dictionary<TKey, TValue> {
 
     /// Looks up a key without exposing an `out` parameter.
     ///

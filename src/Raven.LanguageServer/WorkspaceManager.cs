@@ -1928,8 +1928,7 @@ internal sealed class WorkspaceManager
 
     private ProjectId CreateProject(string name)
     {
-        var compilationOptions = new CompilationOptions(OutputKind.ConsoleApplication)
-            .WithMembersPublicByDefault(true);
+        var compilationOptions = new CompilationOptions(OutputKind.ConsoleApplication);
         compilationOptions = NormalizeCompilationOptionsForLanguageServer(
             compilationOptions,
             _compilerPerformanceInstrumentation);

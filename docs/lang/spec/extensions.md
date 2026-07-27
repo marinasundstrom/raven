@@ -9,11 +9,12 @@ specific type via a `for` clause. Importing the container brings its members
 into scope for lookup.
 
 An extension declaration may omit its identifier, in which case the
-compiler synthesizes a private, mangled container name. Public extensions or
-extensions must declare an explicit identifier so the container can be referenced
-and imported by name. Applying `fileprivate` keeps the declaration file-local and
-mangles the emitted metadata name even when the source uses an explicit
-identifier.
+compiler synthesizes a private, mangled container name. Public extensions and
+extensions imported by name must declare an explicit identifier so the
+container can be referenced. Namespace-level extension declarations default to
+`internal`; `public` explicitly exports a named extension from the assembly.
+Applying `fileprivate` keeps the declaration file-local and mangles the emitted
+metadata name even when the source uses an explicit identifier.
 
 Extensions may declare type parameters and generic constraints.
 These constraints participate in extension resolution: an extension is

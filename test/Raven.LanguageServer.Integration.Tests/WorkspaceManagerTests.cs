@@ -23,13 +23,11 @@ public sealed class WorkspaceManagerTests : IDisposable
     public void NormalizeCompilationOptionsForLanguageServer_AttachesCompilerPerformanceInstrumentation()
     {
         var instrumentation = new PerformanceInstrumentation();
-        var options = new CompilationOptions(OutputKind.ConsoleApplication)
-            .WithMembersPublicByDefault(false);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
 
         var normalized = WorkspaceManager.NormalizeCompilationOptionsForLanguageServer(options, instrumentation);
 
         normalized.PerformanceInstrumentation.ShouldBe(instrumentation);
-        normalized.MembersPublicByDefault.ShouldBeFalse();
     }
 
     [Fact]

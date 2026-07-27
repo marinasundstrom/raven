@@ -654,7 +654,7 @@ class Container {
         const string code = """
 import System.*
 class Container {
-    public delegate MyHandler(value: int) -> unit
+    delegate MyHandler(value: int) -> unit
 
     func Provide() -> unit {
         val action: Action<int> = func (x: int) {

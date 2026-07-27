@@ -443,7 +443,6 @@ public partial class SemanticModel
         }
 
         ReportInvalidTypeModifiers(classDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(classDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
         ReportRedundantTypeModifiers(classDecl, _declarationDiagnostics);
 
         var declaredTypeKind = IsStructLikeNominalType(classDecl)
@@ -469,7 +468,7 @@ public partial class SemanticModel
         var isFileScoped = HasFileScopeModifier(classDecl.Modifiers);
         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
             classDecl.Modifiers,
-            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+            Accessibility.Internal);
 
         var declarationLocation = classDecl.GetLocation();
         var declarationReference = classDecl.GetReference();
@@ -860,7 +859,7 @@ public partial class SemanticModel
                         }
 
                         ReportInvalidTypeModifiers(nestedClass, isNestedType: true, _declarationDiagnostics);
-                        ReportRedundantPublicTypeModifierIfNeeded(nestedClass, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(nestedClass, _declarationDiagnostics);
                         ReportRedundantTypeModifiers(nestedClass, _declarationDiagnostics);
 
                         var nestedTypeKind = IsStructLikeNominalType(nestedClass)
@@ -986,7 +985,7 @@ public partial class SemanticModel
                         }
 
                         ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
-                        ReportRedundantPublicTypeModifierIfNeeded(nestedInterface, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(nestedInterface, _declarationDiagnostics);
 
                         var nestedHasSealedModifier = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
                         var nestedHasPermitsClause = nestedInterface.PermitsClause is not null;
@@ -1081,7 +1080,7 @@ public partial class SemanticModel
                         }
 
                         ReportInvalidTypeModifiers(enumDecl, isNestedType: true, _declarationDiagnostics);
-                        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, _declarationDiagnostics);
 
                         var enumSymbol = new SourceNamedTypeSymbol(
                             enumDecl.Identifier.ValueText,
@@ -1121,7 +1120,7 @@ public partial class SemanticModel
                         }
 
                         ReportInvalidTypeModifiers(nestedUnion, isNestedType: true, _declarationDiagnostics);
-                        ReportRedundantPublicTypeModifierIfNeeded(nestedUnion, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(nestedUnion, _declarationDiagnostics);
                         var nestedUnionTypeKind = GetUnionTypeKind(nestedUnion);
                         var nestedUnionBaseType = GetUnionBaseType(nestedUnionTypeKind);
 
@@ -1161,7 +1160,7 @@ public partial class SemanticModel
                         }
 
                         ReportInvalidTypeModifiers(delegateDecl, isNestedType: true, _declarationDiagnostics);
-                        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, _declarationDiagnostics);
 
                         var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             delegateDecl.Modifiers,
@@ -1207,7 +1206,6 @@ public partial class SemanticModel
         }
 
         ReportInvalidTypeModifiers(delegateDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         ReportExternalTypeRedeclaration(
             parentNamespace,
@@ -1219,7 +1217,7 @@ public partial class SemanticModel
 
         var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
             delegateDecl.Modifiers,
-            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+            Accessibility.Internal);
 
         var delegateSymbol = new SourceNamedTypeSymbol(
             delegateDecl.Identifier.ValueText,
@@ -1259,7 +1257,6 @@ public partial class SemanticModel
         }
 
         ReportInvalidTypeModifiers(interfaceDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(interfaceDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var hasSealedModifier = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
         var hasPermitsClause = interfaceDecl.PermitsClause is not null;
@@ -1278,7 +1275,7 @@ public partial class SemanticModel
         var isFileScoped = HasFileScopeModifier(interfaceDecl.Modifiers);
         var interfaceAccessibility = AccessibilityUtilities.DetermineAccessibility(
             interfaceDecl.Modifiers,
-            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+            Accessibility.Internal);
 
         var parentSourceNamespace = parentNamespace.AsSourceNamespace();
         var existingType = parentSourceNamespace is not null
@@ -1346,11 +1343,10 @@ public partial class SemanticModel
     private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(extensionDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(extensionDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             extensionDecl.Modifiers,
-            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+            Accessibility.Internal);
         var isFileScoped = HasFileScopeModifier(extensionDecl.Modifiers);
 
         var hasExplicitPublicModifier = extensionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PublicKeyword);
@@ -1421,11 +1417,10 @@ public partial class SemanticModel
         }
 
         ReportInvalidTypeModifiers(enumDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
             enumDecl.Modifiers,
-            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+            Accessibility.Internal);
         ReportExternalTypeRedeclaration(
             parentNamespace,
             enumDecl.Identifier,
@@ -1467,7 +1462,6 @@ public partial class SemanticModel
         }
 
         ReportInvalidTypeModifiers(unionDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(unionDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
         var namespaceSymbol = parentNamespace.AsSourceNamespace();
@@ -1481,7 +1475,7 @@ public partial class SemanticModel
         var isFileScoped = HasFileScopeModifier(unionDecl.Modifiers);
         var unionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             unionDecl.Modifiers,
-            AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
+            Accessibility.Internal);
 
         var existingType = namespaceSymbol is not null
             ? FindExistingDeclaredType(namespaceSymbol, unionDecl.Identifier.ValueText, unionTypeKind, unionDecl.TypeParameterList?.Parameters.Count ?? 0)
@@ -3148,12 +3142,8 @@ public partial class SemanticModel
 
     private static void ReportRedundantPublicTypeModifierIfNeeded(
         MemberDeclarationSyntax declaration,
-        bool publicIsDefault,
         DiagnosticBag diagnostics)
     {
-        if (!publicIsDefault)
-            return;
-
         SyntaxTokenList modifiers;
         switch (declaration)
         {
@@ -3181,7 +3171,7 @@ public partial class SemanticModel
             if (modifier.Kind != SyntaxKind.PublicKeyword)
                 continue;
 
-            diagnostics.ReportPublicModifierRedundantInPublicByDefaultMode(modifier.GetLocation());
+            diagnostics.ReportPublicModifierRedundant(modifier.GetLocation());
             return;
         }
     }
