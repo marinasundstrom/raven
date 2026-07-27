@@ -22,6 +22,8 @@
           href: raven-for-csharp-developers.md
         - name: Metaprogramming in Raven
           href: metaprogramming.md
+        - name: Meaning of Raven features
+          href: lang/feature-meaning.md
         - name: Domain modeling
           href: lang/domain-modeling.md
         - name: Style guide

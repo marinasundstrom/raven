@@ -36,6 +36,8 @@ or browse the Markdown sources under [`docs/`](docs/).
   shapes translated into Raven idioms.
 - [Language Philosophy](docs/lang/philosophy.md) - design principles for Raven
   language changes.
+- [Meaning of Raven Features](docs/lang/feature-meaning.md) - semantic guidance
+  for choosing language constructs in application code.
 - [Domain Modeling](docs/lang/domain-modeling.md) - patterns for values, states,
   behavior, dependencies, and object-oriented models.
 - [Language Specification](docs/lang/spec/language-specification.md) - current

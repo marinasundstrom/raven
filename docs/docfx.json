@@ -17,6 +17,7 @@
           "lang/README.md",
           "lang/toc.yml",
           "lang/philosophy.md",
+          "lang/feature-meaning.md",
           "lang/domain-modeling.md",
           "lang/style-guide.md",
           "lang/spec/*.md",

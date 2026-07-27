@@ -108,5 +108,10 @@ Use repo skills for task-specific workflows:
 - `raven-test-triage` for baseline/runtime stabilization and regression coverage
 - `raven-lsp-debug` for language service failures
 
+When authoring ordinary Raven application code or samples, consult
+`docs/lang/feature-meaning.md` before choosing language constructs. It describes
+the semantic intent of records, classes, unions, `Option`, `Result`, patterns,
+functions, and .NET boundary shapes.
+
 **External components:**
 No external type-union analyzer project is part of this repository.

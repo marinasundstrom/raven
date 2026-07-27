@@ -257,6 +257,8 @@
   items:
     - name: Language philosophy
       href: philosophy.md
+    - name: Meaning of Raven features
+      href: feature-meaning.md
     - name: Domain modeling
       href: domain-modeling.md
     - name: Style guide
