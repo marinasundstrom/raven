@@ -41,6 +41,10 @@ In a macro you can put any content and parse it however you want.
 * Replace the consumer-authored `RavenMacro` item with provider-declared
   compiler-plugin metadata carried through normal project/package references.
   Do not scan and execute arbitrary runtime references.
+  * [x] Recognize `[assembly: RavenCompilerPlugin]` on referenced Raven
+    projects and activate them through ordinary `ProjectReference` items.
+  * [ ] Classify marked package assets and C# provider projects.
+  * [ ] Add an explicit plugin-entry-point manifest.
 * Support macros declared and consumed in the same project through an acyclic
   compile-time source partition. The activation path must work in memory for
   the Playground, exclude compile-time-only implementation details from normal

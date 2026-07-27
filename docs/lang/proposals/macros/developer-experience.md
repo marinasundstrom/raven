@@ -394,11 +394,17 @@ plugins by scanning and executing every ordinary runtime reference. Provider
 metadata supplies explicit plugin identity and execution intent while keeping
 the consumer dependency model conventional.
 
-The current `<RavenMacro Include="...">` item is MVP plumbing to replace with
-this provider-declared asset model. Macro-name conflicts and load failures
-remain compilation diagnostics regardless of how the plugin asset was
-resolved. The final assembly attribute names and whether the explicit manifest
-stores plugin types directly or through generated metadata remain open.
+Raven macro projects now use `[assembly: RavenCompilerPlugin]` with an ordinary
+consumer `ProjectReference`. The bare marker authorizes fallback discovery of
+`IRavenMacroPlugin` implementations and the marked project is kept out of the
+consumer's runtime project-reference graph. The current source-level
+classification is limited to Raven project references.
+
+`RavenMacro` remains transitional plumbing for existing projects and direct
+assembly paths. Provider-marked package assets, C# provider projects, and an
+explicit manifest that names plugin types remain follow-up work. Macro-name
+conflicts and load failures remain compilation diagnostics regardless of how
+the plugin asset was resolved.
 
 ## Default macro environment
 
@@ -508,8 +514,8 @@ This is deliberately a syntax-only, file-granular rule. The macro plugin and
 its supporting implementation types must live in a dedicated source file;
 ordinary consumer declarations in that file would also be compile-time-only.
 `LocalMacroPluginAttribute` is a local source-partition marker, not a macro
-invocation and not the future assembly-level marker that opts reusable
-dependency outputs into compiler-plugin discovery.
+invocation and not the assembly-level `RavenCompilerPlugin` marker that opts
+reusable dependency outputs into compiler-plugin discovery.
 
 Interactive and mixed-file code can instead mark individual top-level
 compile-time declarations:

@@ -4,6 +4,8 @@ import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.CodeAnalysis.Text.*
 
+[assembly: RavenCompilerPlugin]
+
 class FreestandingMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Freestanding"
 

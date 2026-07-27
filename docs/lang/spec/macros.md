@@ -29,10 +29,11 @@ Compiling and expanding a macro must not require a workspace or any analyzer to
 be loaded.
 
 Macros are resolved from compiler-plugin assemblies. Their meaning is defined
-by the referenced macro implementation, not by the parser. The current SDK
-uses an explicit `RavenMacro` project item as transitional plumbing; the
-intended dependency model is provider-declared compiler-plugin metadata carried
-through a normal project or package dependency.
+by the referenced macro implementation, not by the parser. A reusable Raven
+macro project marks its assembly with `RavenCompilerPlugin` and consumers use a
+normal project reference. Explicit `RavenMacro` items remain transitional
+plumbing for existing projects and direct assembly paths while package asset
+classification is developed.
 
 `MacroKind` remains part of the common `IMacroDefinition` surface, but it is implied by the specialized macro interface:
 
@@ -347,28 +348,37 @@ When designing attached macros:
 
 ## Project references
 
-The current SDK references macro implementations with `RavenMacro` items in the
-project file.
+A reusable Raven macro project marks its output as a compiler plugin:
 
-Example:
+```raven
+import Raven.CodeAnalysis.Macros.*
+
+[assembly: RavenCompilerPlugin]
+
+class ProjectMacros: IRavenMacroPlugin {
+    // ...
+}
+```
+
+The consumer uses an ordinary project reference:
 
 ```xml
 <ItemGroup>
-  <RavenMacro Include="../macros/ObservableMacros.rvnproj" />
+  <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
 </ItemGroup>
 ```
 
-The compiler loads the referenced macro assembly, resolves exported macros by name, validates target compatibility, and reports failures as ordinary diagnostics.
+The workspace recognizes the assembly-targeted marker in referenced Raven
+projects, builds the provider through the compiler-plugin path, and passes the
+resulting macro reference to `Compilation`. The marked provider is not added as
+a runtime project reference. A bare marker currently authorizes discovery of
+its `IRavenMacroPlugin` implementations.
 
-`RavenMacro` is not the intended final consumer experience. A macro
-project/package should declare that its output is a Raven compiler plugin. A
-consumer then takes a normal project or package dependency, and the SDK
-classifies and passes the compiler-plugin asset to the compilation
-automatically. Raven should not scan and execute every ordinary runtime
-reference, and source files should not need macro import directives. A future
-assembly-level compiler-plugin marker may explicitly identify plugin types or
-authorize discovery of `IRavenMacroPlugin` implementations within that marked
-assembly.
+Raven does not scan unmarked runtime references for plugins, and consumer
+source needs no macro import directive. `RavenMacro` remains supported as
+transitional plumbing for existing projects and direct assembly references.
+Provider-marked package assets and explicit plugin-type manifests remain future
+SDK work.
 
 The selected Raven compiler and SDK may also register a version-matched default
 macro set automatically. Default macros require no source import or explicit

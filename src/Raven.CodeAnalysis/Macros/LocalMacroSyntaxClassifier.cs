@@ -13,6 +13,8 @@ internal static class LocalMacroSyntaxClassifier
     private const string DeclarationMarkerAttributeName = "LocalMacroAttribute";
     private const string FileMarkerName = "LocalMacroPlugin";
     private const string FileMarkerAttributeName = "LocalMacroPluginAttribute";
+    private const string CompilerPluginMarkerName = "RavenCompilerPlugin";
+    private const string CompilerPluginMarkerAttributeName = "RavenCompilerPluginAttribute";
 
     public static bool IsLocalMacroTree(SyntaxTree syntaxTree)
     {
@@ -23,6 +25,22 @@ internal static class LocalMacroSyntaxClassifier
                 declaration,
                 FileMarkerName,
                 FileMarkerAttributeName));
+    }
+
+    public static bool IsCompilerPluginTree(SyntaxTree syntaxTree)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
+        return syntaxTree.GetRoot().AttributeLists
+            .Where(static list => string.Equals(
+                list.Target?.Identifier.ValueText,
+                "assembly",
+                StringComparison.Ordinal))
+            .SelectMany(static list => list.Attributes)
+            .Any(static attribute => IsMarkerAttribute(
+                attribute,
+                CompilerPluginMarkerName,
+                CompilerPluginMarkerAttributeName));
     }
 
     public static LocalMacroSyntaxPartition Partition(SyntaxTree syntaxTree)

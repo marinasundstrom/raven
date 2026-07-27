@@ -385,13 +385,16 @@ Validation record for this slice:
 * focused attached and freestanding semantic suites: 47 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
 
-## Future SDK integration: provider-declared compiler plugins
+## SDK integration: provider-declared compiler plugins
+
+Status: **Raven project-reference MVP implemented**
 
 Replace consumer-authored `RavenMacro` items with provider-declared
 compiler-plugin assets:
 
-1. a Raven macro project or package marks its output as a compiler plugin;
-2. consumers use a normal project or package dependency;
+1. [x] a Raven macro project marks its output with
+   `[assembly: RavenCompilerPlugin]`;
+2. [x] consumers use a normal Raven project dependency;
 3. the SDK resolves the marked asset and passes it to the compilation;
 4. the compiler loads its manifest and exported macro contracts; an
    assembly-level marker may explicitly list plugin types or authorize fallback
@@ -405,6 +408,32 @@ Provider metadata is the explicit execution boundary; consumer source imports
 are unnecessary because macro names are registered with the compilation.
 Prefer explicit plugin types in the manifest and restrict reflection discovery
 to assemblies carrying the compiler-plugin marker.
+
+The current MVP recognizes the assembly marker syntactically in referenced
+Raven projects, builds the provider through the existing macro-project path,
+and adds its output as a `MacroReference` rather than a runtime
+`ProjectReference`. Unmarked Raven and non-Raven project references retain
+their ordinary behavior. The representative `macro-freestanding` sample uses
+this path.
+
+Remaining work:
+
+* classify provider-marked package assets;
+* support marked C# compiler-plugin projects without scanning arbitrary
+  runtime assemblies;
+* allow the marker or generated manifest to name plugin entry-point types
+  explicitly; and
+* retire `RavenMacro` only after existing direct-assembly and package scenarios
+  have replacements.
+
+Validation record for this slice:
+
+* focused marker-classification and marked-project loading tests: 2 passed
+* complete macro-reference and MSBuild project-system suites: 19 passed
+* `scripts/test-feature-suite.sh macros`: 58 passed
+* compiler-driver `macro-freestanding` project validation: passed
+* `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
+  `answer + 1`
 
 ## Active slice: default environment and in-memory activation
 
@@ -466,8 +495,8 @@ The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
 attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
 type declaration, the complete syntax tree is moved into the compile-time
 partition. The attribute itself is declared by `Raven.CodeAnalysis.Macros` and
-is distinct from both `#[...]` macro invocations and the future assembly-level
-provider marker for reusable compiler-plugin dependencies.
+is distinct from both `#[...]` macro invocations and the assembly-level
+`RavenCompilerPlugin` marker for reusable compiler-plugin dependencies.
 
 Keeping the rule syntax-only avoids binding consumer source before plugin
 activation. Keeping it file-granular preserves the initial acyclic boundary:

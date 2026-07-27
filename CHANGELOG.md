@@ -104,6 +104,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and reflection-wrapped cancellation now propagates to the compiler caller,
   does not produce `RAVM020`, and does not cache a failed expansion, allowing a
   later uncanceled request to retry normally.
+- Added the provider-owned `[assembly: RavenCompilerPlugin]` marker for
+  reusable Raven macro projects. Consumers can now use an ordinary
+  `ProjectReference`; the workspace builds and activates marked providers as
+  compiler plugins without adding them as runtime project references or
+  scanning unmarked dependencies.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

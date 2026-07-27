@@ -458,7 +458,7 @@ val value = WidgetFactory.CreateDefault()
     }
 
     [Fact]
-    public void OpenProject_RavenMacroProjectReference_BuildsAndLoadsCurrentMacroAssembly()
+    public void OpenProject_MarkedCompilerPluginProjectReference_BuildsAndLoadsCurrentMacroAssembly()
     {
         var root = CreateTempDirectory();
         try
@@ -475,6 +475,8 @@ val value = WidgetFactory.CreateDefault()
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.CodeAnalysis.Syntax.*
                 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+                [assembly: RavenCompilerPlugin]
 
                 class ObservableMacroPlugin : IRavenMacroPlugin {
                     val Name: string => "Tests.Observable"
@@ -561,7 +563,7 @@ val value = WidgetFactory.CreateDefault()
                   </PropertyGroup>
                   <ItemGroup>
                     <RavenCompile Include="main.rvn" />
-                    <RavenMacro Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -579,6 +581,8 @@ val value = WidgetFactory.CreateDefault()
             Assert.NotNull(expansion);
             Assert.IsType<PropertyDeclarationSyntax>(expansion!.ReplacementDeclaration);
             Assert.Single(expansion.IntroducedMembers);
+            Assert.Single(project.MacroReferences);
+            Assert.Empty(project.ProjectReferences);
             Assert.True(File.Exists(Path.Combine(macrosDirectory, "bin", "Debug", "net10.0", "ObservableMacros.dll")));
         }
         finally

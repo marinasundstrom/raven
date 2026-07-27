@@ -12,6 +12,25 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 public sealed class MacroReferenceTests
 {
     [Fact]
+    public void CompilerPluginMarker_RequiresAssemblyTarget()
+    {
+        var markedTree = SyntaxTree.ParseText("""
+            [assembly: RavenCompilerPlugin]
+            """);
+        var declarationMarkerTree = SyntaxTree.ParseText("""
+            [RavenCompilerPlugin]
+            class Plugin {}
+            """);
+        var unmarkedTree = SyntaxTree.ParseText("""
+            class Plugin {}
+            """);
+
+        Assert.True(LocalMacroSyntaxClassifier.IsCompilerPluginTree(markedTree));
+        Assert.False(LocalMacroSyntaxClassifier.IsCompilerPluginTree(declarationMarkerTree));
+        Assert.False(LocalMacroSyntaxClassifier.IsCompilerPluginTree(unmarkedTree));
+    }
+
+    [Fact]
     public void MacroReference_FromAssembly_FindsMacroPlugin()
     {
         var reference = new MacroReference(typeof(TestMacroPlugin).Assembly);

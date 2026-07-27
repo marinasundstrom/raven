@@ -36,7 +36,10 @@ func Main() -> unit {
 Current status:
 
 - The macro plugin is written in Raven, not C#.
-- `#add(...)` is resolved from a `RavenMacro` project reference.
+- The plugin declares `[assembly: RavenCompilerPlugin]`, and the application
+  consumes it through an ordinary `ProjectReference`. The SDK classifies the
+  marked provider as a compiler plugin without a consumer-authored
+  `RavenMacro` item.
 - `#add` uses the compiler-owned `#quote` intrinsic inside the Raven-authored
   macro implementation. Its two argument expressions are inserted with
   `#(...)` holes, producing `left + right` without manually assembling the
@@ -78,13 +81,8 @@ Files:
 - `macros/FreestandingMacros.rvnproj`: Raven macro plugin project
 - `macros/main.rvn`: plugin implementation of `IRavenMacroPlugin` / `IFreestandingExpressionMacro`
 
-Build the macro plugin first:
-
-```bash
-dotnet build macros/FreestandingMacros.rvnproj --property WarningLevel=0
-```
-
-Then analyze, build, or run the executable sample project:
+Analyze, build, or run the executable sample project. Its normal project
+reference builds and activates the marked macro provider:
 
 ```bash
 dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- app/MacroFreestanding.rvnproj --no-emit

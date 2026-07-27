@@ -7,6 +7,7 @@ using System.Xml.Linq;
 
 using Microsoft.Build.Evaluation;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Text;
 
 using MSBuildProject = Microsoft.Build.Evaluation.Project;
@@ -175,6 +176,9 @@ internal static class MsBuildProjectEvaluator
             MarkdownDocumentationOutputPath: GetOptionalProperty(project, "MarkdownDocumentationOutputPath"));
 
         var outputPath = GetProjectOutputPath(projectDirectory, project, targetFramework, configuration, assemblyName);
+        var isCompilerPlugin = documents.Any(static document =>
+            LocalMacroSyntaxClassifier.IsCompilerPluginTree(
+                SyntaxTree.ParseText(document.Text, path: document.FilePath ?? document.Name)));
 
         return new MsBuildProjectEvaluationResult(
             name,
@@ -194,7 +198,8 @@ internal static class MsBuildProjectEvaluator
             frameworkReferences,
             new ProjectPreludeOptions(generatePreludeImports, preludeImports),
             generatedSourceDirectory,
-            documentationOptions);
+            documentationOptions,
+            isCompilerPlugin);
     }
 
     public static string? TryResolveReferencedProjectOutputPath(
@@ -433,4 +438,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
     ProjectPreludeOptions PreludeOptions,
     string GeneratedSourceDirectory,
-    ProjectDocumentationOptions DocumentationOptions);
+    ProjectDocumentationOptions DocumentationOptions,
+    bool IsCompilerPlugin);

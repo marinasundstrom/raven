@@ -133,6 +133,22 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)
         {
+            if (string.Equals(
+                    Path.GetExtension(referencedProjectPath),
+                    ".rvnproj",
+                    StringComparison.OrdinalIgnoreCase) &&
+                MsBuildProjectEvaluator.Evaluate(
+                    referencedProjectPath,
+                    _conventions,
+                    evaluation.TargetFramework).IsCompilerPlugin)
+            {
+                var outputPath = BuildRavenMacroProject(referencedProjectPath, evaluation, raven);
+                solution = solution.AddMacroReference(
+                    projectId,
+                    MacroReference.CreateFromFile(outputPath, referencedProjectPath));
+                continue;
+            }
+
             var loadedProject = raven.CurrentSolution.Projects.FirstOrDefault(
                 project => string.Equals(project.FilePath, referencedProjectPath, StringComparison.OrdinalIgnoreCase));
 
