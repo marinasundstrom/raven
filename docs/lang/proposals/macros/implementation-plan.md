@@ -129,6 +129,23 @@ Current direct-contract validation:
 * live macro-project refresh tests: 2 passed; watched-file redesign case remains
   explicitly skipped
 
+## Active slice: macro invocation completion
+
+Status: **implemented and validated**
+
+Macro names are discoverable from the first `#`, including incomplete syntax:
+
+* [x] trigger language-server completion on `#` and `[`
+* [x] offer only freestanding and token-tree macros in expression positions
+* [x] offer only attached macros in declaration attribute positions
+* [x] insert `#[Macro]` when completion starts from a bare declaration `#`
+* [x] retain partial-name, invocation-shape, and typed-parameter completion
+
+Validation record for this slice:
+
+* focused compiler macro-completion tests: 14 passed
+* focused language-server completion registration and mapping tests: passed
+
 ## Active slice: typed token-tree inputs
 
 Status: **implemented and validated**

@@ -23,6 +23,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   named arguments before an unrestricted raw DSL body.
 - Added compiler-owned typed macro parameter descriptors and named-argument
   completion for attached, argument-style, and token-tree macros.
+- Added context-aware macro-name completion for incomplete invocations.
+  Typing `#` in an expression offers only freestanding and token-tree macros;
+  typing it in a declaration offers only attached macros and inserts the
+  complete `#[Macro]` attribute form.
 - Added a Raven-authored `#guard { unless <expression> }` sample as the
   token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
   expression parsing, direct lowering, and end-to-end execution.

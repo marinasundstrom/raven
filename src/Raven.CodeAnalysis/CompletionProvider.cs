@@ -11,7 +11,8 @@ public static class CompletionProvider
     private readonly record struct MacroCompletionContext(
         MacroKind Kind,
         string Prefix,
-        TextSpan ReplacementSpan);
+        TextSpan ReplacementSpan,
+        bool WrapAttachedAttribute = false);
 
     public static IEnumerable<CompletionItem> GetCompletions(
         SyntaxToken token,
@@ -2941,9 +2942,26 @@ public static class CompletionProvider
             : freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart;
         if (freestandingMacro is not null &&
             position >= freestandingMacro.HashToken.Span.End &&
-            position <= freestandingInvocationStart)
+            (position <= freestandingInvocationStart ||
+             position == freestandingMacro.HashToken.Span.End))
         {
             CreateMacroCompletionContext(freestandingMacro.Name, MacroKind.FreestandingExpression, sourceText, position, out context);
+            return true;
+        }
+
+        if (token.Parent is IncompleteMemberDeclarationSyntax incompleteMember &&
+            incompleteMember.SkippedTokens.LeadingTrivia
+                .Where(static trivia => trivia.Kind == SyntaxKind.SkippedTokensTrivia)
+                .Select(static trivia => trivia.GetStructure())
+                .OfType<SkippedTokensTrivia>()
+                .SelectMany(static trivia => trivia.Tokens)
+                .Any(static skipped => skipped.IsKind(SyntaxKind.HashToken)))
+        {
+            context = new MacroCompletionContext(
+                MacroKind.AttachedDeclaration,
+                Prefix: string.Empty,
+                ReplacementSpan: new TextSpan(position, 0),
+                WrapAttachedAttribute: true);
             return true;
         }
 
@@ -3065,6 +3083,8 @@ public static class CompletionProvider
             {
                 ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name + "() { }",
                 ITokenTreeExpressionMacro => macro.Name + " { }",
+                _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{macro.Name}()]",
+                _ when context.WrapAttachedAttribute => $"[{macro.Name}]",
                 _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
                 _ => macro.Name
             };
@@ -3072,6 +3092,7 @@ public static class CompletionProvider
             {
                 ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name.Length + 1,
                 ITokenTreeExpressionMacro => insertionText.Length - 1,
+                _ when context.WrapAttachedAttribute && macro.AcceptsArguments => macro.Name.Length + 2,
                 _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
                 _ => (int?)null
             };

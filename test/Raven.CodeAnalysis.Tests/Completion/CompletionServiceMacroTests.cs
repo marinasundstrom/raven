@@ -11,6 +11,84 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public sealed class CompletionServiceMacroTests
 {
     [Fact]
+    public void GetCompletions_AfterHashInExpression_ReturnsOnlyFreestandingMacros()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val answer = #
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new SubscribeMacro()),
+                new MacroReference(new QueryMacro()));
+
+        var position = code.IndexOf('#', StringComparison.Ordinal) + 1;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "subscribe");
+        Assert.Contains(items, static item => item.DisplayText == "query");
+        Assert.DoesNotContain(items, static item => item.DisplayText == "Observable");
+    }
+
+    [Fact]
+    public void GetCompletions_InsideEmptyMacroAttribute_ReturnsOnlyAttachedMacros()
+    {
+        const string code = """
+class CounterViewModel {
+    #[]
+    var Count: int = 0
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new SubscribeMacro()),
+                new MacroReference(new QueryMacro()));
+
+        var position = code.IndexOf("#[", StringComparison.Ordinal) + 2;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "Observable");
+        Assert.DoesNotContain(items, static item => item.DisplayText is "subscribe" or "query");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterHashInDeclaration_ReturnsOnlyAttachedMacros()
+    {
+        const string code = """
+class CounterViewModel {
+    #
+    var Count: int = 0
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(
+                new MacroReference(new ObservableMacro()),
+                new MacroReference(new SubscribeMacro()),
+                new MacroReference(new QueryMacro()));
+
+        var position = code.IndexOf('#', StringComparison.Ordinal) + 1;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var observable = Assert.Single(items.Where(static item => item.DisplayText == "Observable"));
+        Assert.Equal("[Observable]", observable.InsertionText);
+        Assert.DoesNotContain(items, static item => item.DisplayText is "subscribe" or "query");
+    }
+
+    [Fact]
     public void GetCompletions_InFreestandingMacroName_ReturnsLocalMacro()
     {
         const string code = """
