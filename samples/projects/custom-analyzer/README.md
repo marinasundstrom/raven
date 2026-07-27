@@ -27,5 +27,5 @@ The build succeeds with the custom diagnostic:
 warning SAMPLE001: Type name 'customer_record' should start with an uppercase letter.
 ```
 
-Rename the class in `src/main.rvn` to `CustomerRecord` and build again to remove
+Rename the class in `src/CustomerRecord.rvn` to `CustomerRecord` and build again to remove
 the warning.

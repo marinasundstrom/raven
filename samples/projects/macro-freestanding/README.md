@@ -78,9 +78,9 @@ Current status:
 Files:
 
 - `app/MacroFreestanding.rvnproj`: Raven application using `#add(...)`
-- `app/src/main.rvn`: executable sample
+- `app/src/Main.rvn`: executable entry point
 - `macros/FreestandingMacros.rvnproj`: Raven macro plugin project
-- `macros/main.rvn`: direct implementations of the category-specific macro interfaces
+- `macros/FreestandingMacros.rvn`: related implementations of the category-specific macro interfaces
 
 Analyze, build, or run the executable sample project. Its normal project
 reference builds and activates the marked macro provider:

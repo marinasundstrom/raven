@@ -25,7 +25,7 @@ Current status:
 Files:
 
 - `MacroAddEquatable.rvnproj`: Raven project using `#[AddEquatable]`
-- `src/main.rvn`: Raven source that uses the macro-style attribute
+- `src/Program.rvn`: Raven source that uses the macro-style attribute
 - `macros/AddEquatableMacros.rvnproj`: Raven macro plugin project
 - `macros/AddEquatableMacro.rvn`: attached macro implementation that replaces the type shape and introduces `Equals`
 

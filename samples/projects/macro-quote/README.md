@@ -20,9 +20,9 @@ the resulting syntax becomes the expansion used by the application.
 Files:
 
 - `app/MacroQuote.rvnproj`: Raven application using `#twice`
-- `app/src/main.rvn`: macro invocation
+- `app/src/Main.rvn`: macro invocation and executable entry point
 - `macros/QuoteMacros.rvnproj`: Raven compiler-plugin project
-- `macros/main.rvn`: quote-based macro implementation
+- `macros/TwiceMacro.rvn`: quote-based macro implementation
 
 Run the sample:
 

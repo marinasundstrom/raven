@@ -5,7 +5,7 @@ This sample shows a C# SDK project referencing a Raven project through ordinary 
 Files:
 
 - `src/raven/RavenGreeter.rvnproj` - Raven project producing `RavenGreeter.dll`
-- `src/raven/main.rvn` - Raven code consumed from C#
+- `src/raven/Greeter.rvn` - Raven code consumed from C#
 - `src/csharp/Host.csproj` - C# host project with a `ProjectReference` to the Raven project
 - `src/csharp/Program.cs` - Calls `Greeter.Message()` directly
 

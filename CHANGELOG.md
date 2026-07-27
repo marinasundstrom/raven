@@ -78,6 +78,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   members.
 - Migrated the remaining C# macro sample providers to Raven-authored macro
   projects.
+- Renamed project sample files around their entry point, program, primary type,
+  or related type group instead of using `main.rvn` universally.
 - Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
   compiler and tooling queries reuse the same definition instances.
 - Made VS Code language-server builds on extension activation opt-in. The

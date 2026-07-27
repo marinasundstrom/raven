@@ -12,7 +12,7 @@ Files:
 
 - `.editorconfig`: rule severity overrides.
 - `AnalyzerEditorConfig.rvnproj`: project file.
-- `src/main.rvn`: source that intentionally uses nullable values, `throw`, and regular LINQ.
+- `src/Program.rvn`: program that intentionally uses nullable values, `throw`, and regular LINQ.
 
 ## Build
 

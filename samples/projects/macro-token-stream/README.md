@@ -23,7 +23,7 @@ kind to Raven or change how normal Raven source is lexed.
 Files:
 
 - `app/MacroTokenStream.rvnproj`: Raven application using the macro
-- `app/src/main.rvn`: token-tree invocation
+- `app/src/Main.rvn`: token-tree invocation and executable entry point
 - `macros/TokenStreamMacros.rvnproj`: Raven compiler-plugin project
 - `macros/CustomTokenMacro.rvn`: custom token stream and macro expansion
 

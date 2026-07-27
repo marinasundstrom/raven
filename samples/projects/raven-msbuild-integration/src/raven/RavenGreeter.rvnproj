@@ -5,6 +5,6 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <RavenCompile Include="Greeter.rvn" />
   </ItemGroup>
 </Project>

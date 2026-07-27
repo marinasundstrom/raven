@@ -11,7 +11,7 @@ Project file:
 
 Source file:
 
-- `src/main.rvn`
+- `src/Program.rvn`
 
 ## Build
 
