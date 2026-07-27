@@ -56,7 +56,7 @@ authoring shorthand is designed.
   manifests and bare-marker fallback discovery
 * [x] C# compiler-plugin project references using the same provider marker and
   manifest
-* [ ] provider-marked package assets
+* [x] metadata-marker discovery for direct assembly and package references
 * [ ] finish the representative authoring and project integration tests needed
   to treat these contracts as stable enough for broader use
 
@@ -64,6 +64,33 @@ Retained DSL structure, custom editor providers, additional syntax categories,
 and dedicated macro declaration syntax are post-MVP layers. Dedicated
 declaration syntax must lower to or interoperate with the object-oriented
 contracts rather than replace them.
+
+Macro activation has two origins but one result:
+
+* same-compilation declarations are emitted as an isolated in-memory
+  compile-time partition; and
+* portable assembly references are inspected once per compilation setup for
+  the assembly marker and activated from their manifest.
+
+Both paths produce the same active `MacroReference`/plugin registry consumed by
+binding and expansion. The registry does not branch on origin. A future
+`IMacroSymbol` may represent that common semantic identity, but a new symbol
+kind is not required for the infrastructure MVP.
+
+Direct macro definitions are the primary activation unit. Same-compilation
+definitions are discovered in the local compile-time partition, while
+referenced definitions must be exported by their assembly manifest.
+`IRavenMacroPlugin` remains a compatibility aggregation adapter rather than the
+semantic definition of a macro. A later Swift-inspired authoring model may
+synthesize the local partition and registration manifest from dedicated syntax
+while preserving the current category-specific macro, context, diagnostic,
+token-stream, and expansion-result contracts.
+
+The active set belongs to one immutable compilation snapshot. Editing local
+macro declarations, adding or removing a portable reference, or changing a
+referenced assembly fingerprint creates a new activation set and registry.
+Unchanged local partitions and metadata-load state remain eligible for the
+existing incremental reuse paths.
 
 ## Active slice: raw token-tree expression macros
 
@@ -428,16 +455,16 @@ compiler-plugin assets:
 2. [x] consumers use a normal Raven project dependency;
 3. the SDK resolves the marked asset and passes it to the compilation;
 4. [x] the compiler loads its manifest and exported macro contracts; a
-   repeatable assembly-level marker may explicitly name plugin types or a bare
-   marker may authorize fallback discovery of `IRavenMacroPlugin`
-   implementations within that marked assembly; and
+   repeatable assembly-level marker may explicitly name macro definitions or
+   compatibility plugin types, while a bare marker authorizes fallback
+   discovery within that marked assembly; and
 5. normal duplicate-name, compatibility, and load diagnostics continue to
    apply.
 
 Do not scan every ordinary runtime reference for macro implementations.
 Provider metadata is the explicit execution boundary; consumer source imports
 are unnecessary because macro names are registered with the compilation.
-Prefer explicit plugin types in the manifest and restrict reflection discovery
+Prefer explicit macro types in the manifest and restrict reflection discovery
 to assemblies carrying the compiler-plugin marker.
 
 The current MVP recognizes the assembly marker syntactically in evaluated
@@ -449,15 +476,18 @@ samples cover Raven and C# providers respectively.
 
 Remaining work:
 
-* classify provider-marked package assets;
-* retire `RavenMacro` only after existing direct-assembly and package scenarios
-  have replacements.
+* cover package layouts that publish a separate reference assembly and runtime
+  implementation asset;
+* improve package-local dependency resolution for macro implementations; and
+* retire `RavenMacro` after the remaining compatibility scenarios have
+  replacements.
 
 Explicit manifests use
-`[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]`, repeated for each
-entry point. The loader validates that every declared type belongs to the
-marked assembly, is a concrete `IRavenMacroPlugin`, and has a public
-parameterless constructor. Invalid or mixed explicit/fallback manifests are
+`[assembly: RavenCompilerPlugin(typeof(QueryMacro))]`, repeated for each
+exported macro. The loader validates that every declared type belongs to the
+marked assembly, is a concrete `IMacroDefinition` or compatibility
+`IRavenMacroPlugin`, and has a public parameterless constructor. Invalid or
+mixed explicit/fallback manifests are
 reported through the existing `RAVM001` compiler diagnostic. Assembly, image,
 and file activation share this behavior.
 
@@ -465,11 +495,14 @@ Dedicated macro declaration syntax is deliberately outside the infrastructure
 MVP. First stabilize token streams, ordinary OO authoring, expansion,
 diagnostics, and project activation. A later shorthand may remove class
 boilerplate only by lowering to or interoperating with these same contracts.
+It may also synthesize the assembly export registration currently expressed
+through `RavenCompilerPlugin`.
 
 Validation record for this slice:
 
-* focused marker-classification and marked-project loading tests: 2 passed
-* complete macro-reference and MSBuild project-system suites: 19 passed
+* focused manifest, referenced-assembly, package, and unmarked local macro
+  activation tests: 14 passed
+* complete MSBuild project-system service suite: 14 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
 * compiler-driver `macro-freestanding` project validation: passed
 * `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
@@ -477,11 +510,16 @@ Validation record for this slice:
 
 C# compiler-plugin project validation:
 
-* focused marked C# project-reference integration test: passed
-* complete MSBuild project-system suite: 14 passed
+* `macro-add-equatable` C# provider runtime output: `Ada`
 * `scripts/test-feature-suite.sh macros`: 58 passed
 * compiler-driver `macro-add-equatable` project validation: passed
 * `macro-add-equatable` runtime output: `Ada`
+
+Referenced-assembly discovery validation:
+
+* marked direct metadata-reference activation: passed
+* marked package assembly activation from the global package cache: passed
+* unmarked reference behavior remains unchanged
 
 Explicit entry-point manifest validation:
 

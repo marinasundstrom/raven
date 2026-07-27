@@ -4,14 +4,10 @@ import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.CodeAnalysis.Text.*
 
-[assembly: RavenCompilerPlugin(typeof(FreestandingMacroPlugin))]
-
-class FreestandingMacroPlugin : IRavenMacroPlugin {
-    val Name: string => "SampleMacros.Freestanding"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [AddMacro(), GuardMacro(), ChooseMacro(), QueryMacro()]
-}
+[assembly: RavenCompilerPlugin(typeof(AddMacro))]
+[assembly: RavenCompilerPlugin(typeof(GuardMacro))]
+[assembly: RavenCompilerPlugin(typeof(ChooseMacro))]
+[assembly: RavenCompilerPlugin(typeof(QueryMacro))]
 
 class AddMacro : IFreestandingExpressionMacro {
     val Name: string => "add"

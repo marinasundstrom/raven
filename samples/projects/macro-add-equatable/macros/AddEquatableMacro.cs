@@ -1,19 +1,9 @@
-using System.Collections.Immutable;
-
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 
-[assembly: RavenCompilerPlugin(typeof(SampleMacros.AddEquatableMacroPlugin))]
+[assembly: RavenCompilerPlugin(typeof(SampleMacros.AddEquatableMacro))]
 
 namespace SampleMacros;
-
-public sealed class AddEquatableMacroPlugin : IRavenMacroPlugin
-{
-    public string Name => "SampleMacros.AddEquatable";
-
-    public ImmutableArray<IMacroDefinition> GetMacros()
-        => [new AddEquatableMacro()];
-}
 
 public sealed class AddEquatableMacro : IAttachedDeclarationMacro
 {

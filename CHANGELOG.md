@@ -109,14 +109,20 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `ProjectReference`; the workspace builds and activates marked providers as
   compiler plugins without adding them as runtime project references or
   scanning unmarked dependencies.
-- Added deterministic compiler-plugin entry-point manifests through repeatable
-  `[assembly: RavenCompilerPlugin(typeof(PluginType))]` markers. File, assembly,
-  and in-memory macro references now select only declared plugin types, retain
-  bare-marker fallback discovery, and report invalid manifests as `RAVM001`.
+- Added deterministic macro export manifests through repeatable
+  `[assembly: RavenCompilerPlugin(typeof(MacroType))]` markers. File, assembly,
+  and in-memory macro references now select direct macro definitions or
+  compatibility plugin containers, retain bare-marker fallback discovery, and
+  report invalid manifests as `RAVM001`. Same-project macro partitions discover
+  direct definitions without an assembly export marker.
 - Added provider-marked C# compiler-plugin project references. Raven projects
   can now consume a C# macro provider through an ordinary `ProjectReference`;
   the project system builds and activates marked providers without adding them
   to the consumer's runtime reference graph or scanning unmarked dependencies.
+- Added compiler-owned discovery of marked portable assembly references.
+  Direct DLL and resolved package references now join the same active macro
+  registry as explicit and same-project macros after a metadata-only marker
+  check; unmarked assemblies are never activated or searched for macro types.
 - Deferred assembly custom-attribute emission until source type builders and
   members exist, allowing assembly attributes such as macro manifests to carry
   `typeof` values that refer to types declared in the same Raven assembly.

@@ -74,6 +74,7 @@ public partial class Compilation
     private bool isSettingUp;
     private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
+    private ImmutableArray<MacroReference> _activeMacroReferences;
     private ImmutableArray<Diagnostic> _macroPartitionDiagnostics = ImmutableArray<Diagnostic>.Empty;
     private CompilationSymbolLookup? _symbolLookup;
     private SourceDeclarationIndex? _sourceDeclarationIndex;
@@ -147,7 +148,14 @@ public partial class Compilation
     public IModuleSymbol Module { get; private set; }
 
     public IEnumerable<MetadataReference> References => _references;
-    public IEnumerable<MacroReference> MacroReferences => _macroReferences;
+    public IEnumerable<MacroReference> MacroReferences
+    {
+        get
+        {
+            EnsureSetup();
+            return _activeMacroReferences;
+        }
+    }
 
     public IEnumerable<IAssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
 
@@ -827,12 +835,69 @@ public partial class Compilation
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
         var localMacroReference = CompileLocalMacroPartition();
-        _macroRegistry = MacroRegistry.Create(
-            localMacroReference is null
-                ? _macroReferences
-                : _macroReferences.Append(localMacroReference));
+        _activeMacroReferences = GetActiveMacroReferences(localMacroReference);
+        _macroRegistry = MacroRegistry.Create(_activeMacroReferences);
 
         InitializeTopLevelPrograms();
+    }
+
+    private ImmutableArray<MacroReference> GetActiveMacroReferences(MacroReference? localMacroReference)
+    {
+        var references = ImmutableArray.CreateBuilder<MacroReference>();
+        references.AddRange(_macroReferences);
+
+        var explicitAssemblyPaths = _macroReferences
+            .Select(static reference => reference.Display)
+            .Where(Path.IsPathFullyQualified)
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var metadataReference in _references.OfType<PortableExecutableReference>())
+        {
+            if (string.IsNullOrWhiteSpace(metadataReference.FilePath))
+                continue;
+
+            var assemblyPath = Path.GetFullPath(metadataReference.FilePath);
+            if (explicitAssemblyPaths.Contains(assemblyPath) || !File.Exists(assemblyPath))
+                continue;
+
+            if (GetAssemblyOrModuleSymbol(metadataReference) is not PEAssemblySymbol assembly ||
+                !HasCompilerPluginMarker(assembly.GetAssemblyInfo()))
+            {
+                continue;
+            }
+
+            references.Add(MacroReference.CreateFromFile(assemblyPath));
+            explicitAssemblyPaths.Add(assemblyPath);
+        }
+
+        if (localMacroReference is not null)
+            references.Add(localMacroReference);
+
+        return references.ToImmutable();
+    }
+
+    private static bool HasCompilerPluginMarker(Assembly assembly)
+    {
+        const string compilerPluginAttributeMetadataName =
+            "Raven.CodeAnalysis.Macros.RavenCompilerPluginAttribute";
+
+        try
+        {
+            return assembly.GetCustomAttributesData().Any(static attribute =>
+                string.Equals(
+                    attribute.AttributeType.FullName,
+                    compilerPluginAttributeMetadataName,
+                    StringComparison.Ordinal));
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or
+                BadImageFormatException or
+                FileNotFoundException or
+                TypeLoadException)
+        {
+            return false;
+        }
     }
 
     private bool TryReuseMetadataLoadContext(
@@ -909,7 +974,8 @@ public partial class Compilation
     internal MacroRegistry GetMacroRegistry()
     {
         EnsureSetup();
-        return _macroRegistry ??= MacroRegistry.Create(_macroReferences);
+        return _macroRegistry ??= MacroRegistry.Create(
+            _activeMacroReferences.IsDefault ? _macroReferences : _activeMacroReferences);
     }
 
     private bool TryGetVisibleValueScopeDeclarations(

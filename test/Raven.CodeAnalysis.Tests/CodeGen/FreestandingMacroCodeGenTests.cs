@@ -18,16 +18,7 @@ public sealed class FreestandingMacroCodeGenTests
     public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
     {
         var macroTree = SyntaxTree.ParseText("""
-            import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
-
-            [LocalMacroPlugin]
-            class LocalMacroPlugin : IRavenMacroPlugin {
-                val Name: string => "Local"
-
-                func GetMacros() -> ImmutableArray<IMacroDefinition>
-                    => [LocalAnswerMacro()]
-            }
 
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
@@ -63,7 +54,6 @@ public sealed class FreestandingMacroCodeGenTests
             .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
 
         Assert.Equal(42, method!.Invoke(null, null));
-        Assert.Null(loaded.Assembly.GetType("LocalMacroPlugin"));
         Assert.Null(loaded.Assembly.GetType("LocalAnswerMacro"));
     }
 

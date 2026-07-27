@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -62,6 +63,65 @@ public sealed class ProjectFileNuGetReferenceTests
         finally
         {
             Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_MarkedPackageAssembly_AutomaticallyActivatesMacro()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var projectDirectory = Path.Combine(root, "project");
+        var sourceDirectory = Path.Combine(projectDirectory, "src");
+        var packageAssemblyPath = Path.Combine(
+            globalPackages,
+            "fake.macro",
+            "1.0.0",
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(packageAssemblyPath)!);
+        Directory.CreateDirectory(sourceDirectory);
+        File.WriteAllBytes(packageAssemblyPath, EmitPackageMacroAssembly());
+
+        var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
+        File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
+
+        var projectPath = Path.Combine(projectDirectory, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <PackageReference Include="Fake.Macro" Version="1.0.0" />
+            </Project>
+            """);
+
+        var originalPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        Environment.SetEnvironmentVariable("NUGET_PACKAGES", globalPackages);
+        try
+        {
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var compilation = workspace.GetCompilation(projectId);
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.Contains(
+                project.MetadataReferences.OfType<PortableExecutableReference>(),
+                reference => string.Equals(
+                    reference.FilePath,
+                    packageAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase));
+            var macroReference = Assert.Single(compilation.MacroReferences);
+            Assert.Equal(Path.GetFullPath(packageAssemblyPath), macroReference.Display);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+            Directory.Delete(root, recursive: true);
         }
     }
 
@@ -1729,6 +1789,36 @@ public sealed class ProjectFileNuGetReferenceTests
 
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.EnumeratorCancellationAttributeMissing.Id);
+    }
+
+    private static byte[] EmitPackageMacroAssembly()
+    {
+        var macroTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(PackageAnswerMacro))]
+
+            class PackageAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "packageAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
+                        Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """);
+        var codeAnalysisReference = MetadataReference.CreateFromFile(typeof(IRavenMacroPlugin).Assembly.Location);
+        var macroCompilation = Compilation.Create(
+                $"PackageMacros_{Guid.NewGuid():N}",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(macroTree)
+            .AddReferences([.. TestMetadataReferences.Default, codeAnalysisReference]);
+
+        using var image = new MemoryStream();
+        var emitResult = macroCompilation.Emit(image);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        return image.ToArray();
     }
 
 }

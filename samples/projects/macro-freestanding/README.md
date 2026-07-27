@@ -35,12 +35,12 @@ func Main() -> unit {
 
 Current status:
 
-- The macro plugin is written in Raven, not C#.
-- The plugin explicitly declares
-  `[assembly: RavenCompilerPlugin(typeof(FreestandingMacroPlugin))]`, and the
+- The macro definitions are written in Raven, not C#.
+- The provider explicitly exports each macro definition with repeatable
+  `[assembly: RavenCompilerPlugin(typeof(...))]` attributes, and the
   application consumes it through an ordinary `ProjectReference`. The SDK
   classifies the marked provider as a compiler plugin without a
-  consumer-authored `RavenMacro` item or fallback type discovery.
+  consumer-authored `RavenMacro` item or plugin container.
 - `#add` uses the compiler-owned `#quote` intrinsic inside the Raven-authored
   macro implementation. Its two argument expressions are inserted with
   `#(...)` holes, producing `left + right` without manually assembling the
@@ -80,7 +80,7 @@ Files:
 - `app/MacroFreestanding.rvnproj`: Raven application using `#add(...)`
 - `app/src/main.rvn`: executable sample
 - `macros/FreestandingMacros.rvnproj`: Raven macro plugin project
-- `macros/main.rvn`: plugin implementation of `IRavenMacroPlugin` / `IFreestandingExpressionMacro`
+- `macros/main.rvn`: direct implementations of the category-specific macro interfaces
 
 Analyze, build, or run the executable sample project. Its normal project
 reference builds and activates the marked macro provider:

@@ -44,8 +44,11 @@ In a macro you can put any content and parse it however you want.
   * [x] Recognize `[assembly: RavenCompilerPlugin]` on referenced Raven
     projects and activate them through ordinary `ProjectReference` items.
   * [x] Classify marked C# provider projects.
-  * [ ] Classify marked package assets.
-  * [x] Add an explicit plugin-entry-point manifest.
+  * [x] Discover marked direct DLL and package references through compilation
+    metadata.
+  * [ ] Resolve packages that separate reference and runtime plugin assets.
+  * [x] Add an explicit macro-export manifest with compatibility support for
+    plugin containers.
 * Support macros declared and consumed in the same project through an acyclic
   compile-time source partition. The activation path must work in memory for
   the Playground, exclude compile-time-only implementation details from normal

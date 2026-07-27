@@ -45,9 +45,10 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroReference_FromType_RejectsNonPluginTypes()
+    public void MacroReference_FromType_RejectsNonMacroExportTypes()
     {
         var ex = Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(MacroReferenceTests)));
+        Assert.Contains(nameof(IMacroDefinition), ex.Message);
         Assert.Contains("IRavenMacroPlugin", ex.Message);
     }
 
@@ -148,29 +149,31 @@ public sealed class MacroReferenceTests
     public void MacroReference_ExplicitManifestSupportsMultipleEntryPoints()
     {
         var macroImage = EmitMacroAssembly("""
-            import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
 
-            [assembly: RavenCompilerPlugin(typeof(FirstPlugin))]
-            [assembly: RavenCompilerPlugin(typeof(SecondPlugin))]
+            [assembly: RavenCompilerPlugin(typeof(FirstMacro))]
+            [assembly: RavenCompilerPlugin(typeof(SecondMacro))]
 
-            class FirstPlugin : IRavenMacroPlugin {
-                val Name: string => "First"
-                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            class FirstMacro : ITokenTreeExpressionMacro {
+                val Name: string => "first"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
             }
 
-            class UnselectedPlugin : IRavenMacroPlugin {
-                val Name: string => "Unselected"
-                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            class UnselectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "unselected"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
             }
 
-            class SecondPlugin : IRavenMacroPlugin {
-                val Name: string => "Second"
-                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
-            }
-
-            class EmptyMacro : ITokenTreeExpressionMacro {
-                val Name: string => "empty"
+            class SecondMacro : ITokenTreeExpressionMacro {
+                val Name: string => "second"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
                 val Targets: MacroTarget => MacroTarget.None
 
@@ -179,35 +182,35 @@ public sealed class MacroReferenceTests
             }
             """);
 
-        var plugins = MacroReference.CreateFromImage(macroImage)
+        var macros = Assert.Single(MacroReference.CreateFromImage(macroImage)
             .GetPlugins()
-            .Select(static plugin => plugin.Name)
+            .ToArray())
+            .GetMacros()
+            .Select(static macro => macro.Name)
             .ToArray();
 
-        Assert.Equal(["First", "Second"], plugins);
+        Assert.Equal(["first", "second"], macros);
     }
 
     [Fact]
     public void MacroReference_FromFile_UsesExplicitEntryPointManifest()
     {
         var macroImage = EmitMacroAssembly("""
-            import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
 
-            [assembly: RavenCompilerPlugin(typeof(SelectedPlugin))]
+            [assembly: RavenCompilerPlugin(typeof(SelectedMacro))]
 
-            class SelectedPlugin : IRavenMacroPlugin {
-                val Name: string => "Selected"
-                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
+            class SelectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "selected"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
             }
 
-            class UnselectedPlugin : IRavenMacroPlugin {
-                val Name: string => "Unselected"
-                func GetMacros() -> ImmutableArray<IMacroDefinition> => [EmptyMacro()]
-            }
-
-            class EmptyMacro : ITokenTreeExpressionMacro {
-                val Name: string => "empty"
+            class UnselectedMacro : ITokenTreeExpressionMacro {
+                val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
                 val Targets: MacroTarget => MacroTarget.None
 
@@ -224,8 +227,9 @@ public sealed class MacroReferenceTests
             File.WriteAllBytes(assemblyPath, macroImage);
 
             var plugin = Assert.Single(MacroReference.CreateFromFile(assemblyPath).GetPlugins());
+            var macro = Assert.Single(plugin.GetMacros());
 
-            Assert.Equal("Selected", plugin.Name);
+            Assert.Equal("selected", macro.Name);
         }
         finally
         {
@@ -234,7 +238,98 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroReference_InvalidDeclaredEntryPoint_ReportsLoadDiagnostic()
+    public void Compilation_MarkedMetadataReference_AutomaticallyActivatesMacro()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
+
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
+                        Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """);
+        var assemblyPath = Path.Combine(
+            Path.GetTempPath(),
+            $"RavenReferencedMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+            var sourceTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
+            var baseCompilation = Compilation.Create(
+                    "Consumer",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(sourceTree)
+                .AddReferences(TestMetadataReferences.Default);
+            var compilation = baseCompilation.AddReferences(
+                MetadataReference.CreateFromFile(assemblyPath));
+
+            Assert.Contains(
+                baseCompilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Id == "RAVM010");
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            var reference = Assert.Single(compilation.MacroReferences);
+            Assert.Equal(Path.GetFullPath(assemblyPath), reference.Display);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void Compilation_UnmarkedMetadataReference_DoesNotExportMacro()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            class PrivateAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "privateAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
+                        Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """);
+        var assemblyPath = Path.Combine(
+            Path.GetTempPath(),
+            $"RavenUnexportedMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+            var compilation = Compilation.Create(
+                    "Consumer",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(SyntaxTree.ParseText(
+                    "func Main() -> int => #privateAnswer { }"))
+                .AddReferences(TestMetadataReferences.Default)
+                .AddReferences(MetadataReference.CreateFromFile(assemblyPath));
+
+            Assert.Contains(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Id == "RAVM010");
+            Assert.Empty(compilation.MacroReferences);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_InvalidDeclaredExport_ReportsLoadDiagnostic()
     {
         var macroImage = EmitMacroAssembly("""
             import Raven.CodeAnalysis.Macros.*

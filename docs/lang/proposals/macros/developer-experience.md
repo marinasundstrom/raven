@@ -85,10 +85,11 @@ Retained DSL structure, custom completion, and syntax highlighting build on
 this loop later; they are not prerequisites for it.
 
 Dedicated syntax for declaring a macro is also post-MVP work. It may eventually
-hide repetitive plugin or macro classes, but the object-oriented contracts
-remain the stable authoring and execution surface. A shorthand must lower to or
-interoperate with those contracts so Raven-authored shorthand and ordinary
-.NET implementations remain one macro ecosystem.
+hide repetitive plugin or macro classes as well as `[LocalMacro]` partition
+markers. The object-oriented contracts remain the stable authoring and
+execution surface. A shorthand must lower to or interoperate with those
+contracts so Raven-authored shorthand and ordinary .NET implementations remain
+one macro ecosystem.
 
 ## Two kinds of syntax structure
 
@@ -382,28 +383,28 @@ asset, and passes it to `Compilation`; the compiler loads its manifest and
 registers the exported macros.
 
 Provider identity is represented by an assembly-level marker emitted by the
-macro project. The preferred form names each exported plugin entry point:
+macro project. The preferred form names each exported macro definition:
 
 ```raven
-[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]
+[assembly: RavenCompilerPlugin(typeof(QueryMacro))]
 ```
 
-The marker is repeatable when an assembly exports multiple plugin types. A bare
-marker authorizes fallback discovery of `IRavenMacroPlugin` implementations
-inside that marked assembly when plugin types were not declared individually.
-Explicit and bare forms cannot be mixed. Raven must never perform that type
-scan for an unmarked runtime reference.
+The marker is repeatable when an assembly exports multiple macros. A bare
+marker authorizes fallback discovery of direct macro definitions or legacy
+`IRavenMacroPlugin` containers inside that marked assembly. Explicit and bare
+forms cannot be mixed. Raven must never perform that type scan for an unmarked
+runtime reference.
 
 Consumers should not need a separate source import or an analyzer-like
 "import macros from this assembly" item. Conversely, Raven must not discover
 plugins by scanning and executing every ordinary runtime reference. Provider
-metadata supplies explicit plugin identity and execution intent while keeping
+metadata supplies explicit macro identity and execution intent while keeping
 the consumer dependency model conventional.
 
 Raven macro projects now use
-`[assembly: RavenCompilerPlugin(typeof(ProjectMacros))]` with an ordinary
-consumer `ProjectReference`. Explicit manifests select only the declared
-entry-point types; the bare marker remains the fallback-discovery form. The
+`[assembly: RavenCompilerPlugin(typeof(QueryMacro))]` with an ordinary consumer
+`ProjectReference`. Explicit manifests select only the declared macro types;
+the bare marker remains the fallback-discovery form. The
 marked project is kept out of the consumer's runtime project-reference graph.
 The same marker and manifest work in C# compiler-plugin projects. The project
 system syntax-classifies evaluated Raven or C# source for the assembly-targeted
@@ -411,9 +412,27 @@ marker, builds only marked providers, and does not scan unmarked runtime
 dependencies.
 
 `RavenMacro` remains transitional plumbing for existing projects and direct
-assembly paths. Provider-marked package assets remain follow-up work.
-Macro-name conflicts and load failures remain compilation diagnostics
-regardless of how the plugin asset was resolved.
+assembly paths. Direct DLL references and package assemblies resolved as
+portable references are inspected for the provider marker during compilation
+setup and join the same active registry. This is a metadata-only inspection;
+unmarked assemblies are not executed or searched for plugin types. Package
+layouts with separate reference/runtime assets and package-local plugin
+dependencies need further hardening. Macro-name conflicts and load failures
+remain compilation diagnostics regardless of how the plugin asset was
+resolved.
+
+Local and referenced macros have the same semantic result after activation.
+Their origin determines only how their implementation class is produced and
+invalidated. A future macro symbol may expose that common identity to semantic
+APIs without requiring analyzers or consumers to understand the activation
+mechanism.
+
+`IRavenMacroPlugin` remains compatibility and transport plumbing. Assembly
+manifests can export macro implementation classes directly, and local
+compile-time partitions discover their concrete macro definitions without an
+assembly attribute. A future Swift-inspired declaration model may generate the
+partition and export metadata from dedicated syntax, allowing ordinary authors
+to avoid local partition attributes as well.
 
 ## Default macro environment
 
@@ -500,13 +519,13 @@ plugins, and forwards their diagnostics through the consumer compilation.
 Completion reads from the same compiler macro registry and therefore includes
 successfully activated local macros.
 
-For the dedicated-file MVP, a project may instead mark a plugin declaration:
+For the dedicated-file MVP, a project may instead mark a macro declaration:
 
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
 [LocalMacroPlugin]
-class ProjectMacros: IRavenMacroPlugin {
+class AnswerMacro: ITokenTreeExpressionMacro {
     // ...
 }
 ```
@@ -519,27 +538,19 @@ separate project, on-disk plugin assembly, or explicit project reference to
 `Raven.CodeAnalysis` is required. The local partition receives the compatible
 compiler contracts automatically.
 
-This is deliberately a syntax-only, file-granular rule. The macro plugin and
-its supporting implementation types must live in a dedicated source file;
+This is deliberately a syntax-only, file-granular rule. The macro definitions
+and their supporting implementation types must live in a dedicated source file;
 ordinary consumer declarations in that file would also be compile-time-only.
 `LocalMacroPluginAttribute` is a local source-partition marker, not a macro
-invocation and not the assembly-level `RavenCompilerPlugin` marker that opts
-reusable dependency outputs into compiler-plugin discovery.
+invocation and not the assembly-level `RavenCompilerPlugin` export marker.
+Once a source tree is in the local partition, direct macro definitions are
+discovered without any assembly attribute.
 
 Interactive and mixed-file code can instead mark individual top-level
 compile-time declarations:
 
 ```raven
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
-
-[LocalMacro]
-class ProjectMacros: IRavenMacroPlugin {
-    val Name: string => "Project macros"
-
-    func GetMacros() -> ImmutableArray<IMacroDefinition>
-        => [AnswerMacro()]
-}
 
 [LocalMacro]
 class AnswerMacro: ITokenTreeExpressionMacro {
@@ -550,7 +561,7 @@ let answer = #answer { }
 ```
 
 `[LocalMacro]` moves only the marked top-level declaration and its nested
-declarations into the compile-time partition. Each separate top-level plugin or
+declarations into the compile-time partition. Each separate top-level macro or
 support type must be marked. The compiler derives macro and consumer syntax
 trees with the same length and line layout as the authored document, replacing
 the opposite partition with whitespace so expansion diagnostics map to the
