@@ -107,8 +107,7 @@
       "explorer": [
         {
           "id": "raven.syntaxTree",
-          "name": "Raven Syntax Tree",
-          "when": "resourceLangId == raven"
+          "name": "Raven Syntax Tree"
         }
       ]
     },

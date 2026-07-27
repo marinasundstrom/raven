@@ -1722,6 +1722,13 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(syntaxTreeProvider, syntaxTreeView);
   syntaxTreeProvider.setActiveDocument(vscode.window.activeTextEditor?.document);
   syntaxTreeProvider.setVisible(syntaxTreeView.visible);
+
+  const focusSyntaxTreeView = async (): Promise<void> => {
+    await vscode.commands.executeCommand('workbench.view.explorer');
+    await vscode.commands.executeCommand('raven.syntaxTree.focus');
+    syntaxTreeProvider.refresh();
+  };
+
   context.subscriptions.push(
     syntaxTreeView.onDidChangeVisibility(event => syntaxTreeProvider.setVisible(event.visible)),
     vscode.window.onDidChangeActiveTextEditor(editor => syntaxTreeProvider.setActiveDocument(editor?.document)),
@@ -1730,11 +1737,13 @@ export function activate(context: vscode.ExtensionContext): void {
       syntaxTreeProvider.setView('authored');
       syntaxTreeView.description = 'Authored';
       await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'authored');
+      await focusSyntaxTreeView();
     }),
     vscode.commands.registerCommand('raven.syntaxTree.showExpanded', async () => {
       syntaxTreeProvider.setView('expanded');
       syntaxTreeView.description = 'Expanded';
       await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'expanded');
+      await focusSyntaxTreeView();
     }),
     vscode.commands.registerCommand('raven.syntaxTree.showExpandedDocument', async () => {
       const document = syntaxTreeProvider.getActiveDocument();
