@@ -152,6 +152,12 @@ zero or multiple category interfaces is invalid. Compiler and tooling code use
 compiler-owned `MacroFacts`/registry metadata to query `MacroKind`; the
 implementation cannot override that discriminator.
 
+Likewise, target applicability belongs only to the attached-macro contract.
+`IAttachedDeclarationMacro.Targets` represents the optional `on` clause;
+freestanding and token-tree macro classes do not implement a meaningless
+`Targets = None` member. Common tooling can query the normalized value through
+`MacroFacts.GetTargets`.
+
 This syntax must lower to the object-oriented MVP API. Conceptually, the
 compiler synthesizes a class implementing the inferred category-specific macro
 interface and an `Expand` method whose body comes from the declaration body.

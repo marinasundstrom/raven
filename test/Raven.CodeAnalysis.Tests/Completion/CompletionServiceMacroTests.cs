@@ -26,7 +26,6 @@ class MacroHost {
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -183,8 +182,6 @@ class MacroHost {
     {
         public string Name => "subscribe";
 
-        public MacroTarget Targets => MacroTarget.None;
-
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
@@ -194,8 +191,6 @@ class MacroHost {
     private sealed class QueryMacro : ITokenTreeExpressionMacro
     {
         public string Name => "query";
-
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;

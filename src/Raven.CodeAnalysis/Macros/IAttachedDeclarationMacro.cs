@@ -4,6 +4,8 @@ namespace Raven.CodeAnalysis.Macros;
 
 public interface IAttachedDeclarationMacro : IMacroDefinition
 {
+    MacroTarget Targets { get; }
+
     MacroExpansionResult Expand(AttachedMacroContext context);
 }
 

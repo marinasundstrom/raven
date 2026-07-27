@@ -20,8 +20,6 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
 
     public string Name => "quote";
 
-    public MacroTarget Targets => MacroTarget.None;
-
     public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
     {
         var splicePreparation = PrepareExpressionSplices(context);

@@ -2020,7 +2020,6 @@ public sealed class ProjectFileNuGetReferenceTests
             class PackageAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "packageAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.FromExpression(

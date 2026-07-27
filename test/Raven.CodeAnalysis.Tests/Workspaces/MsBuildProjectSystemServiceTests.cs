@@ -604,7 +604,6 @@ val value = WidgetFactory.CreateDefault()
                 {
                     public string Name => "answer";
                     public MacroKind Kind => MacroKind.FreestandingExpression;
-                    public MacroTarget Targets => MacroTarget.None;
 
                     public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
                         => FreestandingMacroExpansionResult.FromExpression(

@@ -1867,7 +1867,6 @@ import Raven.CodeAnalysis.Macros.*
 
 class AnswerMacro: IFreestandingExpressionMacro {
     val Name: string => "answer"
-    val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
         FreestandingMacroExpansionResult.Empty
@@ -1926,7 +1925,6 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 class AnswerMacro: IFreestandingExpressionMacro {
     val Name: string => "answer"
-    val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
         FreestandingMacroExpansionResult.FromExpression(ParseExpression("{{expansionText}}"))

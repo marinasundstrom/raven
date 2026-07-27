@@ -3004,9 +3004,10 @@ public static class CompletionProvider
             MacroKind.FreestandingExpression => "freestanding expression macro",
             _ => "macro"
         };
-        var targetsDisplay = macro.Targets == MacroTarget.None
+        var targets = MacroFacts.GetTargets(macro);
+        var targetsDisplay = targets == MacroTarget.None
             ? null
-            : $"targets: {FormatMacroTargets(macro.Targets)}";
+            : $"targets: {FormatMacroTargets(targets)}";
         var argumentsDisplay = macro switch
         {
             ITokenTreeExpressionMacro => "accepts a token-tree body",

@@ -52,4 +52,16 @@ public static class MacroFacts
             : MacroKind.FreestandingExpression;
         return true;
     }
+
+    /// <summary>
+    /// Gets the declaration targets supported by an attached macro, or
+    /// <see cref="MacroTarget.None"/> for a freestanding macro.
+    /// </summary>
+    public static MacroTarget GetTargets(IMacroDefinition macro)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+        return macro is IAttachedDeclarationMacro attached
+            ? attached.Targets
+            : MacroTarget.None;
+    }
 }

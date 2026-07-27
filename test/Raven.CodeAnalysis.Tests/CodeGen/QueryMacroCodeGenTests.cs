@@ -124,7 +124,6 @@ public sealed class QueryMacroCodeGenTests
         private const int SelectKeywordRawKind = 80_006;
 
         public string Name => "query";
-        public MacroTarget Targets => MacroTarget.None;
 
         public ImmutableArray<MacroKeyword> Keywords =>
         [

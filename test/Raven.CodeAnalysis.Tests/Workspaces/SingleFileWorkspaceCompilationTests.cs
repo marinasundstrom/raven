@@ -131,7 +131,6 @@ public sealed class SingleFileWorkspaceCompilationTests
                 class LocalAnswerMacro : ITokenTreeExpressionMacro {
                     val Name: string => "localAnswer"
                     val Kind: MacroKind => MacroKind.FreestandingExpression
-                    val Targets: MacroTarget => MacroTarget.None
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                         FreestandingMacroExpansionResult {
@@ -203,7 +202,6 @@ public sealed class SingleFileWorkspaceCompilationTests
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {

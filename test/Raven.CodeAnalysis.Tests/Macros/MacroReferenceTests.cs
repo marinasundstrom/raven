@@ -40,7 +40,7 @@ public sealed class MacroReferenceTests
 
         Assert.Equal("AddEquatable", macro.Name);
         Assert.Equal(MacroKind.AttachedDeclaration, MacroFacts.GetKind(macro));
-        Assert.Equal(MacroTarget.Type, macro.Targets);
+        Assert.Equal(MacroTarget.Type, MacroFacts.GetTargets(macro));
     }
 
     [Fact]
@@ -61,7 +61,6 @@ public sealed class MacroReferenceTests
             class AnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -73,7 +72,6 @@ public sealed class MacroReferenceTests
             class UnselectedMacro : ITokenTreeExpressionMacro {
                 val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -110,7 +108,6 @@ public sealed class MacroReferenceTests
             class FirstMacro : ITokenTreeExpressionMacro {
                 val Name: string => "first"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -119,7 +116,6 @@ public sealed class MacroReferenceTests
             class SecondMacro : ITokenTreeExpressionMacro {
                 val Name: string => "second"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -147,7 +143,6 @@ public sealed class MacroReferenceTests
             class FirstMacro : ITokenTreeExpressionMacro {
                 val Name: string => "first"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -156,7 +151,6 @@ public sealed class MacroReferenceTests
             class UnselectedMacro : ITokenTreeExpressionMacro {
                 val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -165,7 +159,6 @@ public sealed class MacroReferenceTests
             class SecondMacro : ITokenTreeExpressionMacro {
                 val Name: string => "second"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -191,7 +184,6 @@ public sealed class MacroReferenceTests
             class SelectedMacro : ITokenTreeExpressionMacro {
                 val Name: string => "selected"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -200,7 +192,6 @@ public sealed class MacroReferenceTests
             class UnselectedMacro : ITokenTreeExpressionMacro {
                 val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -235,7 +226,6 @@ public sealed class MacroReferenceTests
             class AnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.FromExpression(
@@ -282,7 +272,6 @@ public sealed class MacroReferenceTests
             class PrivateAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "privateAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.FromExpression(
@@ -367,6 +356,12 @@ public sealed class MacroReferenceTests
         Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(AmbiguousMacro)));
     }
 
+    [Fact]
+    public void MacroFacts_ReturnsNoDeclarationTargetsForFreestandingMacro()
+    {
+        Assert.Equal(MacroTarget.None, MacroFacts.GetTargets(new TestTokenTreeMacro()));
+    }
+
     public sealed class TestAttachedMacro : IAttachedDeclarationMacro
     {
         public string Name => "AddEquatable";
@@ -399,7 +394,14 @@ public sealed class MacroReferenceTests
     public sealed class UnclassifiedMacro : IMacroDefinition
     {
         public string Name => "unclassified";
-        public MacroTarget Targets => MacroTarget.None;
+    }
+
+    public sealed class TestTokenTreeMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "tokenTree";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     public sealed class AmbiguousMacro : IAttachedDeclarationMacro, ITokenTreeExpressionMacro

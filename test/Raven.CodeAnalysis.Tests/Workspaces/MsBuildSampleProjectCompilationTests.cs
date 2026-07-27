@@ -151,7 +151,6 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
                 class LocalAnswerMacro : ITokenTreeExpressionMacro {
                     val Name: string => "localAnswer"
-                    val Targets: MacroTarget => MacroTarget.None
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                         FreestandingMacroExpansionResult {

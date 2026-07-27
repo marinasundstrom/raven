@@ -182,7 +182,6 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
 class SubscribeMacro : IFreestandingExpressionMacro {
     val Name: string => "subscribe"
-    val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {

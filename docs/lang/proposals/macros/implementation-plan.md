@@ -82,7 +82,9 @@ definitions are discovered in the local compile-time partition, while
 referenced definitions must be exported by their assembly manifest.
 Each definition must implement exactly one category-specific macro interface;
 `MacroKind` is derived by compiler-owned `MacroFacts` and cannot be supplied or
-overridden by the implementation.
+overridden by the implementation. Target applicability is declared only by
+`IAttachedDeclarationMacro`; `MacroFacts.GetTargets` normalizes freestanding
+definitions to `MacroTarget.None` for common tooling.
 A later Swift-inspired authoring model may synthesize the local partition and
 registration manifest from dedicated syntax while preserving the current
 category-specific macro, context, diagnostic, token-stream, and

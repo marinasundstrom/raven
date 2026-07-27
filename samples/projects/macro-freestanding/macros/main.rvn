@@ -11,7 +11,6 @@ import Raven.CodeAnalysis.Text.*
 
 class AddMacro : IFreestandingExpressionMacro {
     val Name: string => "add"
-    val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
@@ -31,7 +30,6 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
     static val UnlessKeywordRawKind: int => 80001
 
     val Name: string => "guard"
-    val Targets: MacroTarget => MacroTarget.None
 
     val Keywords: ImmutableArray<MacroKeyword>
         => [MacroKeyword("unless", UnlessKeywordRawKind)]
@@ -82,7 +80,6 @@ class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
     static val OtherwiseKeywordRawKind: int => 80004
 
     val Name: string => "choose"
-    val Targets: MacroTarget => MacroTarget.None
 
     val Keywords: ImmutableArray<MacroKeyword>
         => [
@@ -163,7 +160,6 @@ class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
     static val SelectKeywordRawKind: int => 80006
 
     val Name: string => "query"
-    val Targets: MacroTarget => MacroTarget.None
 
     val Keywords: ImmutableArray<MacroKeyword>
         => [

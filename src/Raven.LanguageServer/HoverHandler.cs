@@ -650,9 +650,10 @@ internal sealed class HoverHandler : IHoverHandler
                     MacroKind.FreestandingExpression => "Freestanding expression macro",
                     _ => "Macro"
                 };
-                var targetsDisplay = macro.Targets == MacroTarget.None
+                var targets = MacroFacts.GetTargets(macro);
+                var targetsDisplay = targets == MacroTarget.None
                     ? null
-                    : $"Targets `{FormatMacroTargets(macro.Targets)}`.";
+                    : $"Targets `{FormatMacroTargets(targets)}`.";
                 var argumentsDisplay = macro.AcceptsArguments
                     ? "Accepts arguments."
                     : "No arguments.";

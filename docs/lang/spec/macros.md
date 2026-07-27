@@ -57,6 +57,12 @@ single category-specific interface implemented by the definition:
 * `IFreestandingExpressionMacro` implies `FreestandingExpression`
 * `ITokenTreeExpressionMacro` implies `FreestandingExpression`
 
+Target applicability belongs to `IAttachedDeclarationMacro`. Attached
+definitions expose `Targets`; freestanding and token-tree definitions do not
+declare a redundant `MacroTarget.None` property. Code that handles the common
+`IMacroDefinition` surface can use `MacroFacts.GetTargets`, which returns
+`MacroTarget.None` for non-attached definitions.
+
 ## Attached macro syntax
 
 An attached macro uses a `#` directly followed by an attribute list:

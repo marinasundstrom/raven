@@ -239,8 +239,6 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         public string Name => "wrap";
 
-        public MacroTarget Targets => MacroTarget.None;
-
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)

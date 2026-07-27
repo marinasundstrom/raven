@@ -22,7 +22,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             class AnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -152,7 +151,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             class BrokenMacro : ITokenTreeExpressionMacro {
                 val Name: string => "broken"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
                 val Missing: MissingMacro
             }
             """, path: "local-macros.rvn");
@@ -197,7 +195,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             class AnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     val answer = ConsumerConfiguration.Answer
@@ -239,7 +236,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             class AnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     val answer = ConsumerConfiguration.Answer
@@ -292,7 +288,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -691,7 +686,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "raven";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
@@ -703,7 +697,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class SelectBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "select";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
@@ -722,7 +715,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class StatementBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "statement";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
@@ -737,7 +729,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class StatementSelectBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "statementSelect";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
@@ -757,7 +748,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class StatementResultBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "statementResult";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
@@ -773,7 +763,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class RejectBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "reject";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
@@ -798,7 +787,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         private const int SelectKeywordRawKind = 80_001;
 
         public string Name => "keywordStream";
-        public MacroTarget Targets => MacroTarget.None;
 
         public ImmutableArray<MacroKeyword> Keywords =>
         [
@@ -831,7 +819,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         private const int CustomValueRawKind = 80_002;
 
         public string Name => "customStream";
-        public MacroTarget Targets => MacroTarget.None;
 
         public IMacroTokenStream CreateTokenStream(MacroTokenStreamContext context)
             => new SingleCustomTokenStream(context, CustomValueRawKind);
@@ -890,7 +877,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     {
         public string Name => "answer";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
             => new()
@@ -905,7 +891,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         public string Name => "repeat";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<RepeatMacroParameters> context)
         {
@@ -929,7 +914,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public sealed class ThrowingTypedFreestandingMacro : IFreestandingExpressionMacro<ThrowingTypedFreestandingMacroParameters>
     {
         public string Name => "typedBoom";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(
             FreestandingMacroContext<ThrowingTypedFreestandingMacroParameters> context)
@@ -941,7 +925,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public static CancellationTokenSource? CancellationSource { get; set; }
 
         public string Name => "cancelRaw";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
         {
@@ -958,7 +941,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public static CancellationTokenSource? CancellationSource { get; set; }
 
         public string Name => "cancelTyped";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(
             FreestandingMacroContext<CancellingTypedFreestandingMacroParameters> context)
@@ -978,7 +960,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     {
         public string Name => "repeat";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<ValidatingFreestandingMacroParameters> context)
         {
@@ -1007,7 +988,6 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     {
         public string Name => "subscribe";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)

@@ -23,7 +23,6 @@ public sealed class FreestandingMacroCodeGenTests
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
-                val Targets: MacroTarget => MacroTarget.None
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -264,7 +263,6 @@ public sealed class FreestandingMacroCodeGenTests
     {
         public string Name => "add";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<AddMacroParameters> context)
             => new()
@@ -284,7 +282,6 @@ public sealed class FreestandingMacroCodeGenTests
     {
         public string Name => "embedText";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(
             FreestandingMacroContext<EmbedTextMacroParameters> context)
@@ -328,7 +325,6 @@ public sealed class FreestandingMacroCodeGenTests
     public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "raven";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
@@ -342,7 +338,6 @@ public sealed class FreestandingMacroCodeGenTests
         private const int UnlessKeywordRawKind = 80_001;
 
         public string Name => "guard";
-        public MacroTarget Targets => MacroTarget.None;
 
         public ImmutableArray<MacroKeyword> Keywords =>
         [
@@ -394,7 +389,6 @@ public sealed class FreestandingMacroCodeGenTests
         private const int OtherwiseKeywordRawKind = 80_004;
 
         public string Name => "choose";
-        public MacroTarget Targets => MacroTarget.None;
 
         public ImmutableArray<MacroKeyword> Keywords =>
         [

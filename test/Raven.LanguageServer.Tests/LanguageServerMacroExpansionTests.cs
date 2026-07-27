@@ -501,7 +501,6 @@ class Program {
     {
         public string Name => "answer";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
             => new()
@@ -513,7 +512,6 @@ class Program {
     public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
     {
         public string Name => "raven";
-        public MacroTarget Targets => MacroTarget.None;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
@@ -526,7 +524,6 @@ class Program {
     {
         public string Name => "subscribe";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
@@ -561,7 +558,6 @@ class Program {
     {
         public string Name => "subscribe";
         public MacroKind Kind => MacroKind.FreestandingExpression;
-        public MacroTarget Targets => MacroTarget.None;
         public bool AcceptsArguments => true;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)

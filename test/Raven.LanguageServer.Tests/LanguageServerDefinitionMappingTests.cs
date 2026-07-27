@@ -191,7 +191,6 @@ import Raven.CodeAnalysis.Syntax.*
 
 class AnswerMacro : IFreestandingExpressionMacro {
     val Name: string => "answer"
-    val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
         FreestandingMacroExpansionResult.Empty

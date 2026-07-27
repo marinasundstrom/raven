@@ -23,7 +23,6 @@ class AddGreetingMacro : IAttachedDeclarationMacro {
 
 class TwiceMacro : IFreestandingExpressionMacro {
     val Name: string => "twice"
-    val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
@@ -41,7 +40,6 @@ class TwiceMacro : IFreestandingExpressionMacro {
 
 class UnlessMacro : ITokenTreeExpressionMacro {
     val Name: string => "unless"
-    val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let condition = context.ParseExpression()
