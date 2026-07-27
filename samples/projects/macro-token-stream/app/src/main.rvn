@@ -1,0 +1,9 @@
+import System.Console.*
+
+func Main() {
+    let answer = #customToken {
+        ⟨answer⟩
+    }
+
+    WriteLine(answer)
+}

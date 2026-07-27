@@ -146,6 +146,10 @@ Inserted syntax keeps its own tokens and trivia. Trivia between an internal
 hole and neighboring quoted tokens is retained on those quoted neighbors.
 Holes do not yet support token, identifier, list, or repeated insertion.
 
+The runnable `samples/projects/macro-quote` project demonstrates this authoring
+pattern with a Raven-authored `#twice` macro. It quotes an addition expression
+and splices the caller's argument syntax into both operands.
+
 ## Goals
 
 * Capture Raven syntax without first encoding it as a string.

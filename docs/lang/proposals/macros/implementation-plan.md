@@ -200,6 +200,7 @@ compiler contracts:
 * [x] keep token positions body-relative while retaining the authored
   `BodySpan` for document mapping
 * [x] add focused default-overlay and custom-provider tests
+* [x] add a runnable custom-token-stream sample project
 * [x] update the language specification and changelog
 * [x] pass the complete macro feature suite
 
@@ -207,6 +208,7 @@ Validation record for this slice:
 
 * `scripts/test-feature-suite.sh macros`: 41 passed
 * focused default-overlay and custom-provider tests: 2 passed
+* `macro-token-stream` runtime output: `42`
 
 ## Active slice: direct-lowering macro MVP
 
@@ -591,6 +593,7 @@ Validation record for this slice:
 * compiler-driver `macro-freestanding` project validation: passed
 * `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
   `answer + 1`
+* dedicated `macro-quote` runtime output: `42`
 
 C# compiler-plugin project validation:
 

@@ -71,6 +71,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Moved macro target applicability to `IAttachedDeclarationMacro`, removing
   redundant `MacroTarget.None` implementations from freestanding and
   token-tree macros while retaining normalized queries through `MacroFacts`.
+- Added focused sample projects for custom macro token streams and quote-based
+  macro expansion.
 - Changed `MacroReference` to expose a cached immutable `Macros` snapshot so
   compiler and tooling queries reuse the same definition instances.
 - Made VS Code language-server builds on extension activation opt-in. The
