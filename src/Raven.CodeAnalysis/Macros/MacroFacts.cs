@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Reflection;
 
 namespace Raven.CodeAnalysis.Macros;
 
@@ -63,5 +66,76 @@ public static class MacroFacts
         return macro is IAttachedDeclarationMacro attached
             ? attached.Targets
             : MacroTarget.None;
+    }
+
+    /// <summary>
+    /// Gets the parameter-object type declared by a typed macro definition, or
+    /// <see langword="null"/> for an untyped definition.
+    /// </summary>
+    public static Type? GetParametersType(IMacroDefinition macro)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+
+        var parameterTypes = macro.GetType()
+            .GetInterfaces()
+            .Where(static candidate =>
+                candidate.IsGenericType &&
+                candidate.GetGenericTypeDefinition() == typeof(IMacroDefinition<>))
+            .Select(static candidate => candidate.GetGenericArguments()[0])
+            .Distinct()
+            .Take(2)
+            .ToArray();
+
+        return parameterTypes.Length == 1 ? parameterTypes[0] : null;
+    }
+
+    /// <summary>
+    /// Gets the compiler-normalized positional and named parameter descriptors
+    /// for a typed macro definition.
+    /// </summary>
+    public static ImmutableArray<MacroParameterDescriptor> GetParameters(IMacroDefinition macro)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+
+        var parametersType = GetParametersType(macro);
+        if (parametersType is null || !parametersType.IsClass || parametersType.IsAbstract)
+            return ImmutableArray<MacroParameterDescriptor>.Empty;
+
+        var constructors = parametersType
+            .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+            .OrderByDescending(static constructor => constructor.GetParameters().Length)
+            .ToArray();
+        if (constructors.Length != 1)
+            return ImmutableArray<MacroParameterDescriptor>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<MacroParameterDescriptor>();
+        var constructorParameters = constructors[0].GetParameters();
+        for (var ordinal = 0; ordinal < constructorParameters.Length; ordinal++)
+        {
+            var parameter = constructorParameters[ordinal];
+            builder.Add(new MacroParameterDescriptor(
+                parameter.Name ?? $"arg{ordinal}",
+                parameter.ParameterType,
+                MacroParameterKind.Positional,
+                ordinal,
+                isRequired: !parameter.HasDefaultValue,
+                defaultValue: parameter.HasDefaultValue ? parameter.DefaultValue : null));
+        }
+
+        foreach (var property in parametersType
+                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                     .Where(static property => property.SetMethod is not null)
+                     .OrderBy(static property => property.Name, StringComparer.Ordinal))
+        {
+            builder.Add(new MacroParameterDescriptor(
+                property.Name,
+                property.PropertyType,
+                MacroParameterKind.Named,
+                ordinal: -1,
+                isRequired: false,
+                defaultValue: null));
+        }
+
+        return builder.ToImmutable();
     }
 }

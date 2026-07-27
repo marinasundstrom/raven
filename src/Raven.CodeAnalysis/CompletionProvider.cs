@@ -28,12 +28,19 @@ public static class CompletionProvider
                 return macroCompletions;
         }
 
+        var macroParameterCompletions = GetMacroParameterCompletions(
+            model.Compilation,
+            token,
+            sourceText,
+            position).ToArray();
         var binder = model.GetBinder(token.Parent);
         if (token.Parent is { } tokenParent)
             model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(tokenParent);
 
-        var completions = new List<CompletionItem>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var completions = new List<CompletionItem>(macroParameterCompletions);
+        var seen = new HashSet<string>(
+            macroParameterCompletions.Select(static completion => completion.DisplayText),
+            StringComparer.Ordinal);
 
         bool IsAccessible(ISymbol symbol)
         {
@@ -2929,8 +2936,9 @@ public static class CompletionProvider
         }
 
         var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
-        var freestandingInvocationStart = freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart
-            ?? freestandingMacro?.ArgumentList.OpenParenToken.SpanStart;
+        var freestandingInvocationStart = freestandingMacro?.ArgumentList.OpenParenToken.IsMissing == false
+            ? freestandingMacro.ArgumentList.OpenParenToken.SpanStart
+            : freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart;
         if (freestandingMacro is not null &&
             position >= freestandingMacro.HashToken.Span.End &&
             position <= freestandingInvocationStart)
@@ -2940,6 +2948,112 @@ public static class CompletionProvider
         }
 
         return false;
+    }
+
+    private static IEnumerable<CompletionItem> GetMacroParameterCompletions(
+        Compilation compilation,
+        SyntaxToken token,
+        SourceText sourceText,
+        int position)
+    {
+        var argumentList = token.Parent?.AncestorsAndSelf()
+            .OfType<ArgumentListSyntax>()
+            .FirstOrDefault();
+        if (argumentList is null ||
+            position < argumentList.OpenParenToken.Span.End ||
+            position > argumentList.CloseParenToken.SpanStart)
+        {
+            yield break;
+        }
+
+        IMacroDefinition? macro = argumentList.Parent switch
+        {
+            AttributeSyntax attribute when
+                attribute.TryGetMacroName(out var name) &&
+                compilation.GetMacroRegistry().TryResolveAttachedMacro(name, out var loaded) =>
+                loaded.Macro,
+            FreestandingMacroExpressionSyntax expression when
+                expression.TryGetMacroName(out var name) &&
+                compilation.GetMacroRegistry().TryResolveFreestandingMacro(name, out var loaded) =>
+                loaded.Macro,
+            _ => null
+        };
+        if (macro is null)
+            yield break;
+
+        var replacementSpan = new TextSpan(position, 0);
+        var prefix = string.Empty;
+        string? currentNamedArgument = null;
+        var isParameterNamePosition =
+            token.IsKind(SyntaxKind.OpenParenToken) ||
+            token.IsKind(SyntaxKind.CommaToken);
+        if (token.Parent?.GetAncestor<ArgumentSyntax>() is { } currentArgument &&
+            currentArgument.Parent == argumentList)
+        {
+            currentNamedArgument = currentArgument.NameColon?.Name.Identifier.ValueText;
+            var candidateToken = currentArgument.NameColon?.Name.Identifier ?? token;
+            if (candidateToken.IsKind(SyntaxKind.IdentifierToken) &&
+                position >= candidateToken.Span.Start &&
+                position <= candidateToken.Span.End)
+            {
+                replacementSpan = candidateToken.Span;
+                var prefixLength = Math.Clamp(position - candidateToken.Span.Start, 0, candidateToken.Span.Length);
+                prefix = sourceText.ToString(new TextSpan(candidateToken.Span.Start, prefixLength));
+                isParameterNamePosition =
+                    currentArgument.NameColon is not null ||
+                    currentArgument.Expression is IdentifierNameSyntax;
+            }
+        }
+
+        if (!isParameterNamePosition)
+            yield break;
+
+        var usedNames = argumentList.Arguments
+            .Select(static argument => argument.NameColon?.Name.Identifier.ValueText)
+            .Where(static name => !string.IsNullOrEmpty(name))
+            .ToHashSet(StringComparer.Ordinal);
+        if (currentNamedArgument is not null)
+            usedNames.Remove(currentNamedArgument);
+
+        foreach (var parameter in MacroFacts.GetParameters(macro))
+        {
+            if (parameter.Kind != MacroParameterKind.Named ||
+                usedNames.Contains(parameter.Name) ||
+                !parameter.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            yield return new CompletionItem(
+                DisplayText: parameter.Name,
+                InsertionText: parameter.Name + ": ",
+                ReplacementSpan: replacementSpan,
+                Description: $"macro argument: {GetMacroParameterTypeDisplay(parameter.ParameterType)}");
+        }
+    }
+
+    private static string GetMacroParameterTypeDisplay(Type type)
+    {
+        var nullableType = Nullable.GetUnderlyingType(type);
+        if (nullableType is not null)
+            return GetMacroParameterTypeDisplay(nullableType) + "?";
+
+        return type == typeof(bool) ? "bool"
+            : type == typeof(byte) ? "byte"
+            : type == typeof(sbyte) ? "sbyte"
+            : type == typeof(short) ? "short"
+            : type == typeof(ushort) ? "ushort"
+            : type == typeof(int) ? "int"
+            : type == typeof(uint) ? "uint"
+            : type == typeof(long) ? "long"
+            : type == typeof(ulong) ? "ulong"
+            : type == typeof(float) ? "float"
+            : type == typeof(double) ? "double"
+            : type == typeof(decimal) ? "decimal"
+            : type == typeof(char) ? "char"
+            : type == typeof(string) ? "string"
+            : type == typeof(object) ? "object"
+            : type.Name;
     }
 
     private static void CreateMacroCompletionContext(

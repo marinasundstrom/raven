@@ -167,6 +167,34 @@ Validation record for this slice:
 * Raven-authored `macro-token-stream` provider and application build: passed
 * `macro-token-stream` runtime output: `42`
 
+## Active slice: typed parameter tooling schema
+
+Status: **implemented and validated**
+
+Typed parameter objects are the .NET-native value-input contract for macros.
+They do not replace syntax-role inputs such as raw token streams or embedded
+Raven expressions.
+
+* [x] add compiler-owned `MacroParameterDescriptor` and
+  `MacroParameterKind`
+* [x] expose normalized parameter types and descriptors through `MacroFacts`
+* [x] describe required/defaulted positional constructor parameters
+* [x] describe writable or init-style properties as named parameters
+* [x] offer unused named parameters in attached, argument-style, and token-tree
+  macro completion
+* [x] include Raven-facing parameter types in completion descriptions
+* [x] pass the complete macro feature suite and sample validation
+
+Compiler-owned macro signature help should build on the same descriptors in a
+later tooling slice; it does not require another parameter metadata contract.
+
+Validation record for this slice:
+
+* focused parameter API and macro completion tests: 12 passed
+* complete macro feature suite: 61 passed
+* Raven-authored `macro-token-stream` provider and application build: passed
+* `macro-token-stream` runtime output: `42`
+
 ## Active slice: raw token-tree expression macros
 
 Status: **implemented and validated**

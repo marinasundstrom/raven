@@ -193,6 +193,131 @@ class MacroHost {
         Assert.Contains("arguments and a token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void GetCompletions_InTypedTokenTreeArguments_ReturnsNamedParameters()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val query = #typedQuery(Di) {
+            query content
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TypedQueryMacro()));
+
+        var position = code.IndexOf("Di)", StringComparison.Ordinal) + 2;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var dialect = Assert.Single(items.Where(static item => item.DisplayText == "Dialect"));
+        Assert.Equal("Dialect: ", dialect.InsertionText);
+        Assert.Equal("Di", code.Substring(dialect.ReplacementSpan.Start, dialect.ReplacementSpan.Length));
+        Assert.Equal("macro argument: string", dialect.Description);
+    }
+
+    [Fact]
+    public void GetCompletions_InTypedTokenTreeArguments_OmitsAlreadyNamedParameters()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val query = #typedQuery(Dialect: "sql", ) {
+            query content
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TypedQueryMacro()));
+
+        var position = code.IndexOf(", )", StringComparison.Ordinal) + 2;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.DoesNotContain(items, static item => item.DisplayText == "Dialect");
+        var optimize = Assert.Single(items.Where(static item => item.DisplayText == "Optimize"));
+        Assert.Equal("Optimize: ", optimize.InsertionText);
+        Assert.Equal("macro argument: bool", optimize.Description);
+    }
+
+    [Fact]
+    public void GetCompletions_InsideTypedMacroArgumentValue_DoesNotOfferParameterNames()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val query = #typedQuery(Dialect: "sql") {
+            query content
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TypedQueryMacro()));
+
+        var position = code.IndexOf("sql", StringComparison.Ordinal) + 2;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.DoesNotContain(items, static item => item.DisplayText is "Dialect" or "Optimize");
+    }
+
+    [Fact]
+    public void GetCompletions_InTypedAttachedMacroArguments_ReturnsNamedParameters()
+    {
+        const string code = """
+class ViewModel {
+    #[TypedObservable(No)]
+    var Title: string = ""
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TypedObservableMacro()));
+
+        var position = code.IndexOf("No)", StringComparison.Ordinal) + 2;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var notify = Assert.Single(items.Where(static item => item.DisplayText == "Notify"));
+        Assert.Equal("Notify: ", notify.InsertionText);
+        Assert.Equal("macro argument: bool", notify.Description);
+    }
+
+    [Fact]
+    public void GetCompletions_InTypedFreestandingMacroArguments_ReturnsNamedParameters()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val answer = #typedCall(Mo)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TypedCallMacro()));
+
+        var position = code.IndexOf("Mo)", StringComparison.Ordinal) + 2;
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var mode = Assert.Single(items.Where(static item => item.DisplayText == "Mode"));
+        Assert.Equal("Mode: ", mode.InsertionText);
+        Assert.Equal("macro argument: string", mode.Description);
+    }
+
     private sealed class ObservableMacro : IAttachedDeclarationMacro
     {
         public string Name => "Observable";
@@ -224,6 +349,8 @@ class MacroHost {
     private sealed class TypedQueryParameters
     {
         public string Dialect { get; set; } = string.Empty;
+
+        public bool Optimize { get; set; }
     }
 
     private sealed class TypedQueryMacro : ITokenTreeExpressionMacro<TypedQueryParameters>
@@ -231,6 +358,34 @@ class MacroHost {
         public string Name => "typedQuery";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    private sealed class TypedObservableParameters
+    {
+        public bool Notify { get; set; }
+    }
+
+    private sealed class TypedObservableMacro : IAttachedDeclarationMacro<TypedObservableParameters>
+    {
+        public string Name => "TypedObservable";
+
+        public MacroTarget Targets => MacroTarget.Property;
+
+        public MacroExpansionResult Expand(AttachedMacroContext<TypedObservableParameters> context)
+            => MacroExpansionResult.Empty;
+    }
+
+    private sealed class TypedCallParameters
+    {
+        public string Mode { get; set; } = string.Empty;
+    }
+
+    private sealed class TypedCallMacro : IFreestandingExpressionMacro<TypedCallParameters>
+    {
+        public string Name => "typedCall";
+
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<TypedCallParameters> context)
             => FreestandingMacroExpansionResult.Empty;
     }
 }

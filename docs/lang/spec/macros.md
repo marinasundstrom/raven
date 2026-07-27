@@ -311,6 +311,18 @@ The current typed-parameter binding slice supports:
 * constant conversion into common CLR primitive/reference types
 * typed arguments combined with an unrestricted token-tree body
 
+`MacroFacts.GetParametersType(...)` and `MacroFacts.GetParameters(...)` expose
+the compiler-normalized parameter schema without requiring tooling to inspect
+the macro implementation itself. Each `MacroParameterDescriptor` identifies
+the CLR type, positional or named role, ordinal, required state, and optional
+constructor default.
+
+Completion uses that schema inside typed attached, argument-style, and
+token-tree macro argument lists. It offers unused writable properties with
+their Raven-facing type and inserts the named-argument form, such as
+`Optimize: `. Constructor parameters remain positional and are represented in
+the schema for future signature help.
+
 The target experience is that macro arguments bind like attribute arguments:
 
 * completion for named arguments

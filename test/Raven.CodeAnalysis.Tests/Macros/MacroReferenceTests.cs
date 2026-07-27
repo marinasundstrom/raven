@@ -347,6 +347,41 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroFacts_DescribesTypedPositionalAndNamedParameters()
+    {
+        var macro = new TypedParameterAttachedMacro();
+
+        Assert.Equal(typeof(ObservableMacroParameters), MacroFacts.GetParametersType(macro));
+        Assert.Collection(
+            MacroFacts.GetParameters(macro),
+            parameter =>
+            {
+                Assert.Equal("name", parameter.Name);
+                Assert.Equal(typeof(string), parameter.ParameterType);
+                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
+                Assert.Equal(0, parameter.Ordinal);
+                Assert.True(parameter.IsRequired);
+            },
+            parameter =>
+            {
+                Assert.Equal("count", parameter.Name);
+                Assert.Equal(typeof(int), parameter.ParameterType);
+                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
+                Assert.Equal(1, parameter.Ordinal);
+                Assert.False(parameter.IsRequired);
+                Assert.Equal(1, parameter.DefaultValue);
+            },
+            parameter =>
+            {
+                Assert.Equal("Notify", parameter.Name);
+                Assert.Equal(typeof(bool), parameter.ParameterType);
+                Assert.Equal(MacroParameterKind.Named, parameter.Kind);
+                Assert.Equal(-1, parameter.Ordinal);
+                Assert.False(parameter.IsRequired);
+            });
+    }
+
+    [Fact]
     public void MacroFacts_RequiresExactlyOneCategoryInterface()
     {
         Assert.False(MacroFacts.TryGetKind(new UnclassifiedMacro(), out _));
@@ -376,6 +411,16 @@ public sealed class MacroReferenceTests
 
     public sealed class ObservableMacroParameters
     {
+        public ObservableMacroParameters(string name, int count = 1)
+        {
+            Name = name;
+            Count = count;
+        }
+
+        public string Name { get; }
+
+        public int Count { get; }
+
         public bool Notify { get; init; } = true;
     }
 

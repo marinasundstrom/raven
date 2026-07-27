@@ -158,6 +158,14 @@ zero or multiple category interfaces is invalid. Compiler and tooling code use
 compiler-owned `MacroFacts`/registry metadata to query `MacroKind`; the
 implementation cannot override that discriminator.
 
+The object-oriented API exposes its normalized typed-value schema through
+`MacroFacts.GetParameters`. Tooling consumes `MacroParameterDescriptor`
+instances rather than repeating reflection over plugin classes. Constructor
+parameters describe ordered inputs; writable or init-style properties describe
+named inputs. This same schema drives named-argument completion today and can
+drive signature help and future macro declaration lowering without changing
+the expansion context contract.
+
 Likewise, target applicability belongs only to the attached-macro contract.
 `IAttachedDeclarationMacro.Targets` represents the optional `on` clause;
 freestanding and token-tree macro classes do not implement a meaningless
