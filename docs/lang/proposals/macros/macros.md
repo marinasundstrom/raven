@@ -26,7 +26,8 @@ Current implementation status:
 * Split macro packages keep `ref/<tfm>` assemblies in the consumer metadata
   graph while activating marked `lib/<tfm>` implementations separately.
   Implementation-adjacent helper assemblies are resolved by the macro load
-  context.
+  context, and runtime assets from transitive packages remain private macro
+  dependency probes.
 * Freestanding expression macros now use `#name(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.

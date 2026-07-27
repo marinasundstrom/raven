@@ -485,10 +485,11 @@ unmarked assemblies are not executed or searched for plugin types. For split
 packages, the `ref/<tfm>` asset remains the consumer metadata reference and a
 marked `lib/<tfm>` implementation is activated separately as a macro
 reference. Helper assemblies beside that implementation are resolved by the
-macro load context. Dependencies supplied only by separate transitive package
-directories still need further hardening. Macro-name conflicts and load
-failures remain compilation diagnostics regardless of how the plugin asset was
-resolved.
+macro load context. Runtime assemblies from separate transitive packages are
+carried from the selected `project.assets.json` target graph as private,
+identity-checked dependency probes; they do not enter the consumer metadata
+graph. Macro-name conflicts and load failures remain compilation diagnostics
+regardless of how the plugin asset was resolved.
 
 Local and referenced macros have the same semantic result after activation.
 Their origin determines only how their implementation class is produced and

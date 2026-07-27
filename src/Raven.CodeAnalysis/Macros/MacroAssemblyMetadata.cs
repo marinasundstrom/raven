@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
@@ -38,6 +39,53 @@ internal static class MacroAssemblyMetadata
 
         return false;
     }
+
+    public static string? GetAssemblyName(string assemblyPath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var peReader = new PEReader(stream);
+            if (!peReader.HasMetadata)
+                return null;
+
+            var reader = peReader.GetMetadataReader();
+            return reader.IsAssembly
+                ? reader.GetString(reader.GetAssemblyDefinition().Name)
+                : null;
+        }
+        catch (Exception exception) when (IsMetadataReadFailure(exception))
+        {
+            return null;
+        }
+    }
+
+    public static ImmutableArray<string> GetReferencedAssemblyNames(string assemblyPath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var peReader = new PEReader(stream);
+            if (!peReader.HasMetadata)
+                return ImmutableArray<string>.Empty;
+
+            var reader = peReader.GetMetadataReader();
+            var builder = ImmutableArray.CreateBuilder<string>();
+            foreach (var handle in reader.AssemblyReferences)
+                builder.Add(reader.GetString(reader.GetAssemblyReference(handle).Name));
+            return builder.ToImmutable();
+        }
+        catch (Exception exception) when (IsMetadataReadFailure(exception))
+        {
+            return ImmutableArray<string>.Empty;
+        }
+    }
+
+    private static bool IsMetadataReadFailure(Exception exception)
+        => exception is BadImageFormatException or
+            IOException or
+            InvalidOperationException or
+            UnauthorizedAccessException;
 
     private static bool IsCompilerPluginAttribute(MetadataReader reader, EntityHandle constructor)
     {

@@ -127,7 +127,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   retains a package's `ref/<tfm>` assembly while a marked `lib/<tfm>`
   implementation is activated separately as a macro reference. Macro helper
   assemblies shipped beside the implementation are resolved without requiring
-  an application `.deps.json`.
+  an application `.deps.json`; runtime assets supplied by transitive NuGet
+  packages are carried as private identity-checked macro dependency probes
+  rather than consumer metadata references.
 - Deferred assembly custom-attribute emission until source type builders and
   members exist, allowing assembly attributes such as macro manifests to carry
   `typeof` values that refer to types declared in the same Raven assembly.

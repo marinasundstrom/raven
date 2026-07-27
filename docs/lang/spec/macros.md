@@ -404,7 +404,10 @@ changes. Existing portable-reference fingerprints prevent a changed assembly
 at the same path from reusing stale metadata state. For a package with separate
 assets, the `ref/<tfm>` assembly remains a consumer metadata reference while a
 marked `lib/<tfm>` implementation is activated as a macro reference. The macro
-load context resolves helper assemblies placed beside that implementation.
+load context resolves helper assemblies placed beside that implementation and
+uses runtime assets from the selected NuGet target graph to resolve
+dependencies supplied by transitive packages. These private dependency probes
+are not consumer metadata references.
 
 The selected Raven compiler and SDK may also register a version-matched default
 macro set automatically. Default macros require no source import or explicit

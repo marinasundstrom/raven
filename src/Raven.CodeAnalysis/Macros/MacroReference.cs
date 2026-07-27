@@ -51,14 +51,31 @@ public sealed class MacroReference
     public string Display => _display ?? "<macro-reference>";
     public string? SourceProjectFilePath => _sourceProjectFilePath;
 
-    public static MacroReference CreateFromFile(string assemblyPath, string? sourceProjectFilePath = null)
+    public static MacroReference CreateFromFile(
+        string assemblyPath,
+        string? sourceProjectFilePath = null)
+        => CreateFromFile(
+            assemblyPath,
+            sourceProjectFilePath,
+            dependencyAssemblyPaths: null);
+
+    internal static MacroReference CreateFromFile(
+        string assemblyPath,
+        string? sourceProjectFilePath,
+        IEnumerable<string>? dependencyAssemblyPaths)
     {
         if (string.IsNullOrWhiteSpace(assemblyPath))
             throw new ArgumentException("Assembly path is required.", nameof(assemblyPath));
 
         var fullPath = Path.GetFullPath(assemblyPath);
+        var dependencies = dependencyAssemblyPaths?
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Where(path => !string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray() ?? ImmutableArray<string>.Empty;
         return new MacroReference(
-            CreateFilePluginFactory(fullPath),
+            CreateFilePluginFactory(fullPath, dependencies),
             fullPath,
             sourceProjectFilePath);
     }
@@ -93,12 +110,16 @@ public sealed class MacroReference
         return () => exports.Value.CreatePlugins();
     }
 
-    private static Func<IEnumerable<IRavenMacroPlugin>> CreateFilePluginFactory(string fullPath)
+    private static Func<IEnumerable<IRavenMacroPlugin>> CreateFilePluginFactory(
+        string fullPath,
+        ImmutableArray<string> dependencyAssemblyPaths)
     {
         var exports = new Lazy<MacroAssemblyExports>(
             () =>
             {
-                var loadContext = new MacroAssemblyLoadContext(fullPath);
+                var loadContext = new MacroAssemblyLoadContext(
+                    fullPath,
+                    dependencyAssemblyPaths);
                 var assembly = loadContext.LoadFromAssemblyPath(fullPath);
                 return GetExports(assembly, loadContext);
             },
@@ -274,17 +295,21 @@ public sealed class MacroReference
         private static readonly Assembly s_macroContractsAssembly = typeof(IRavenMacroPlugin).Assembly;
         private readonly AssemblyDependencyResolver? _resolver;
         private readonly string? _mainAssemblyDirectory;
+        private readonly ImmutableArray<string> _dependencyAssemblyPaths;
 
         public MacroAssemblyLoadContext()
             : base($"RavenMacro:InMemory:{Guid.NewGuid():N}", isCollectible: true)
         {
         }
 
-        public MacroAssemblyLoadContext(string mainAssemblyPath)
+        public MacroAssemblyLoadContext(
+            string mainAssemblyPath,
+            ImmutableArray<string> dependencyAssemblyPaths)
             : base($"RavenMacro:{Path.GetFileNameWithoutExtension(mainAssemblyPath)}:{Guid.NewGuid():N}", isCollectible: true)
         {
             _resolver = new AssemblyDependencyResolver(mainAssemblyPath);
             _mainAssemblyDirectory = Path.GetDirectoryName(mainAssemblyPath);
+            _dependencyAssemblyPaths = dependencyAssemblyPaths;
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -309,6 +334,34 @@ public sealed class MacroReference
                         AssemblyName.GetAssemblyName(adjacentAssemblyPath)))
                 {
                     return LoadFromAssemblyPath(adjacentAssemblyPath);
+                }
+            }
+
+            foreach (var dependencyAssemblyPath in _dependencyAssemblyPaths)
+            {
+                if (!string.Equals(
+                        Path.GetFileNameWithoutExtension(dependencyAssemblyPath),
+                        assemblyName.Name,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !File.Exists(dependencyAssemblyPath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        AssemblyName.GetAssemblyName(dependencyAssemblyPath)))
+                    {
+                        return LoadFromAssemblyPath(dependencyAssemblyPath);
+                    }
+                }
+                catch (Exception exception) when (
+                    exception is BadImageFormatException or
+                        FileLoadException or
+                        FileNotFoundException)
+                {
                 }
             }
 

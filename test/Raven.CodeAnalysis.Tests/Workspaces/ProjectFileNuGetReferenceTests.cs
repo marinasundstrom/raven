@@ -219,6 +219,129 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void ResolveReferencesFromAssets_TransitiveRuntimeDependencyIsPrivateToMacro()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var macroPackageRoot = Path.Combine(globalPackages, "fake.macro", "1.0.0");
+        var dependencyPackageRoot = Path.Combine(
+            globalPackages,
+            "fake.macro.dependency",
+            "1.0.0");
+        var referenceAssemblyPath = Path.Combine(
+            macroPackageRoot,
+            "ref",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+        var implementationAssemblyPath = Path.Combine(
+            macroPackageRoot,
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.dll");
+        var dependencyAssemblyPath = Path.Combine(
+            dependencyPackageRoot,
+            "lib",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Macro.Dependency.dll");
+        var assetsPath = Path.Combine(root, "project.assets.json");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(referenceAssemblyPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(implementationAssemblyPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(dependencyAssemblyPath)!);
+        File.WriteAllBytes(referenceAssemblyPath, EmitPackageReferenceAssembly("Fake.Macro"));
+        File.WriteAllBytes(
+            dependencyAssemblyPath,
+            EmitPackageMacroDependencyAssembly());
+        File.WriteAllBytes(
+            implementationAssemblyPath,
+            EmitPackageMacroAssembly(
+                "Fake.Macro",
+                "PackageMacroDependency.GetExpressionText()",
+                MetadataReference.CreateFromFile(dependencyAssemblyPath)));
+        File.WriteAllText(
+            assetsPath,
+            $$"""
+            {
+              "targets": {
+                "{{TestMetadataReferences.TargetFramework}}": {
+                  "Fake.Macro/1.0.0": {
+                    "type": "package",
+                    "dependencies": {
+                      "Fake.Macro.Dependency": "1.0.0"
+                    },
+                    "compile": {
+                      "ref/{{TestMetadataReferences.TargetFramework}}/Fake.Macro.dll": {}
+                    },
+                    "runtime": {
+                      "lib/{{TestMetadataReferences.TargetFramework}}/Fake.Macro.dll": {}
+                    }
+                  },
+                  "Fake.Macro.Dependency/1.0.0": {
+                    "type": "package",
+                    "compile": {
+                      "_._": {}
+                    },
+                    "runtime": {
+                      "lib/{{TestMetadataReferences.TargetFramework}}/Fake.Macro.Dependency.dll": {}
+                    }
+                  }
+                }
+              },
+              "libraries": {
+                "Fake.Macro/1.0.0": {
+                  "type": "package",
+                  "path": "fake.macro/1.0.0"
+                },
+                "Fake.Macro.Dependency/1.0.0": {
+                  "type": "package",
+                  "path": "fake.macro.dependency/1.0.0"
+                }
+              },
+              "project": {
+                "frameworks": {
+                  "{{TestMetadataReferences.TargetFramework}}": {}
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var resolution = NuGetPackageResolver.ResolveReferencesFromAssets(
+                assetsPath,
+                globalPackages,
+                TestMetadataReferences.TargetFramework);
+
+            var metadataReference = Assert.Single(
+                resolution.MetadataReferences.OfType<PortableExecutableReference>());
+            Assert.Equal(
+                Path.GetFullPath(referenceAssemblyPath),
+                metadataReference.FilePath);
+            var macroReference = Assert.Single(resolution.MacroReferences);
+            Assert.Equal(
+                Path.GetFullPath(implementationAssemblyPath),
+                macroReference.Display);
+
+            var compilation = Compilation.Create(
+                    "Consumer",
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddSyntaxTrees(SyntaxTree.ParseText(
+                    "func Main() -> int => #packageAnswer { }"))
+                .AddReferences(TestMetadataReferences.Default)
+                .AddReferences(resolution.MetadataReferences.ToArray())
+                .AddMacroReferences(resolution.MacroReferences.ToArray());
+
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void OpenProject_FrameworkReference_ResolvesFromInstalledPacks()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

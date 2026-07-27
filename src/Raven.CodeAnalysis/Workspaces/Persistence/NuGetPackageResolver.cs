@@ -13,6 +13,9 @@ namespace Raven.CodeAnalysis;
 
 internal static class NuGetPackageResolver
 {
+    private static readonly ImmutableHashSet<string> s_platformAssemblyNames =
+        GetPlatformAssemblyNames();
+
     public static PackageResolutionResult ResolveReferences(
         string projectFilePath,
         string targetFramework,
@@ -25,12 +28,14 @@ internal static class NuGetPackageResolver
         var globalPackagesFolder = GetGlobalPackagesFolder();
         var resolvedPaths = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroPaths = ImmutableArray.CreateBuilder<string>();
+        var resolvedMacroDependencyPaths = ImmutableArray.CreateBuilder<string>();
 
         if (frameworkReferences.IsDefaultOrEmpty &&
             TryResolveDirectlyFromGlobalCache(globalPackagesFolder, targetFramework, packageReferences, out var directReferences))
         {
             resolvedPaths.AddRange(directReferences.PackageReferencePaths);
             resolvedMacroPaths.AddRange(directReferences.MacroReferencePaths);
+            resolvedMacroDependencyPaths.AddRange(directReferences.MacroDependencyPaths);
         }
         else
         {
@@ -44,16 +49,49 @@ internal static class NuGetPackageResolver
             resolvedPaths.AddRange(restoreResult.PackageReferencePaths);
             resolvedPaths.AddRange(restoreResult.FrameworkPackReferencePaths);
             resolvedMacroPaths.AddRange(restoreResult.MacroReferencePaths);
+            resolvedMacroDependencyPaths.AddRange(restoreResult.MacroDependencyPaths);
         }
 
+        return CreatePackageResolution(
+            resolvedPaths,
+            resolvedMacroPaths,
+            resolvedMacroDependencyPaths);
+    }
+
+    internal static PackageResolutionResult ResolveReferencesFromAssets(
+        string assetsPath,
+        string globalPackagesFolder,
+        string targetFramework)
+    {
+        var resolution = ParseResolutionFromAssets(
+            assetsPath,
+            globalPackagesFolder,
+            targetFramework);
+        return CreatePackageResolution(
+            resolution.PackageReferencePaths.Concat(resolution.FrameworkPackReferencePaths),
+            resolution.MacroReferencePaths,
+            resolution.MacroDependencyPaths);
+    }
+
+    private static PackageResolutionResult CreatePackageResolution(
+        IEnumerable<string> resolvedPaths,
+        IEnumerable<string> resolvedMacroPaths,
+        IEnumerable<string> resolvedMacroDependencyPaths)
+    {
         var metadataReferences = resolvedPaths
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(MetadataReference.CreateFromFile)
             .Select(static x => (MetadataReference)x)
             .ToImmutableArray();
+        var macroDependencyPaths = resolvedMacroDependencyPaths
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
         var macroReferences = resolvedMacroPaths
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(static path => MacroReference.CreateFromFile(path))
+            .Select(path => MacroReference.CreateFromFile(
+                path,
+                sourceProjectFilePath: null,
+                dependencyAssemblyPaths: macroDependencyPaths))
             .ToImmutableArray();
 
         return new PackageResolutionResult(metadataReferences, macroReferences);
@@ -67,6 +105,7 @@ internal static class NuGetPackageResolver
     {
         var resolved = ImmutableArray.CreateBuilder<string>();
         var resolvedMacros = ImmutableArray.CreateBuilder<string>();
+        var resolvedMacroDependencies = ImmutableArray.CreateBuilder<string>();
 
         foreach (var package in packageReferences)
         {
@@ -83,17 +122,92 @@ internal static class NuGetPackageResolver
             }
 
             resolved.AddRange(packageReferencesForTarget);
+            var implementationAssemblies = ResolveAssembliesFromGroupFolder(
+                packageRoot,
+                "lib",
+                targetFramework);
             resolvedMacros.AddRange(
-                ResolveAssembliesFromGroupFolder(packageRoot, "lib", targetFramework)
-                    .Where(MacroAssemblyMetadata.HasCompilerPluginMarker));
+                implementationAssemblies.Where(
+                    MacroAssemblyMetadata.HasCompilerPluginMarker));
+            resolvedMacroDependencies.AddRange(implementationAssemblies);
+        }
+
+        if (!CanResolveMacroDependenciesDirectly(
+                resolvedMacros,
+                resolvedMacroDependencies))
+        {
+            references = RestoreResolutionResult.Empty;
+            return false;
         }
 
         references = new RestoreResolutionResult(
             resolved.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedMacros.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
+            resolvedMacroDependencies.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             ImmutableArray<string>.Empty);
 
         return true;
+    }
+
+    private static bool CanResolveMacroDependenciesDirectly(
+        IEnumerable<string> macroAssemblyPaths,
+        IEnumerable<string> dependencyAssemblyPaths)
+    {
+        var availableAssemblyPaths = dependencyAssemblyPaths
+            .Select(path => (
+                Name: MacroAssemblyMetadata.GetAssemblyName(path),
+                Path: path))
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
+            .GroupBy(static item => item.Name!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.First().Path,
+                StringComparer.OrdinalIgnoreCase);
+        var pending = new Queue<string>(macroAssemblyPaths);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (pending.TryDequeue(out var assemblyPath))
+        {
+            if (!visited.Add(assemblyPath))
+                continue;
+
+            foreach (var referencedAssemblyName in
+                     MacroAssemblyMetadata.GetReferencedAssemblyNames(assemblyPath))
+            {
+                if (IsSharedMacroDependency(referencedAssemblyName))
+                    continue;
+                if (!availableAssemblyPaths.TryGetValue(
+                        referencedAssemblyName,
+                        out var dependencyPath))
+                    return false;
+
+                pending.Enqueue(dependencyPath);
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsSharedMacroDependency(string assemblyName)
+        => string.Equals(
+                assemblyName,
+                typeof(IMacroDefinition).Assembly.GetName().Name,
+                StringComparison.OrdinalIgnoreCase)
+            || s_platformAssemblyNames.Contains(assemblyName);
+
+    private static ImmutableHashSet<string> GetPlatformAssemblyNames()
+    {
+        if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is not string paths)
+        {
+            return ImmutableHashSet.Create<string>(
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        return paths
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static RestoreResolutionResult RestoreAndResolveReferencesFromAssets(
@@ -220,6 +334,7 @@ internal static class NuGetPackageResolver
 
         var resolvedPackagePaths = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroPaths = ImmutableArray.CreateBuilder<string>();
+        var resolvedMacroDependencyPaths = ImmutableArray.CreateBuilder<string>();
         foreach (var libraryTarget in targets.GetProperty(targetKey).EnumerateObject())
         {
             var libraryName = libraryTarget.Name;
@@ -261,11 +376,12 @@ internal static class NuGetPackageResolver
                         globalPackagesFolder,
                         packagePath.Replace('/', Path.DirectorySeparatorChar),
                         runtimeAsset.Name.Replace('/', Path.DirectorySeparatorChar));
-                    if (File.Exists(fullPath) &&
-                        MacroAssemblyMetadata.HasCompilerPluginMarker(fullPath))
-                    {
+                    if (!File.Exists(fullPath))
+                        continue;
+
+                    resolvedMacroDependencyPaths.Add(fullPath);
+                    if (MacroAssemblyMetadata.HasCompilerPluginMarker(fullPath))
                         resolvedMacroPaths.Add(fullPath);
-                    }
                 }
             }
         }
@@ -275,6 +391,7 @@ internal static class NuGetPackageResolver
         return new RestoreResolutionResult(
             resolvedPackagePaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedMacroPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
+            resolvedMacroDependencyPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedFrameworkPackPaths);
     }
 
@@ -553,9 +670,11 @@ internal static class NuGetPackageResolver
     private sealed record RestoreResolutionResult(
         ImmutableArray<string> PackageReferencePaths,
         ImmutableArray<string> MacroReferencePaths,
+        ImmutableArray<string> MacroDependencyPaths,
         ImmutableArray<string> FrameworkPackReferencePaths)
     {
         public static RestoreResolutionResult Empty { get; } = new(
+            ImmutableArray<string>.Empty,
             ImmutableArray<string>.Empty,
             ImmutableArray<string>.Empty,
             ImmutableArray<string>.Empty);

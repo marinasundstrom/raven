@@ -476,8 +476,6 @@ samples cover Raven and C# providers respectively.
 
 Remaining work:
 
-* resolve macro implementation dependencies supplied by separate transitive
-  packages rather than beside the main implementation assembly; and
 * retire `RavenMacro` after the remaining compatibility scenarios have
   replacements.
 
@@ -487,12 +485,17 @@ consumer binding while placing its marked implementation in
 `lib/<tfm>/Provider.dll`; only the reference assembly enters the consumer
 metadata graph, while the implementation becomes a `MacroReference`. The macro
 load context also probes beside the implementation for package-local helper
-assemblies when no application `.deps.json` is available.
+assemblies when no application `.deps.json` is available. When NuGet restore
+produces `project.assets.json`, every runtime assembly in the selected target
+graph—including assets from transitive packages—is available as an
+identity-checked private dependency probe for the macro load context. Those
+runtime-only probes do not become consumer metadata references.
 
 Validation for split-package activation:
 
 * focused macro-reference and package activation tests: 15 passed
-* focused package resolution tests: 3 passed
+* focused package resolution tests, including a transitive runtime-only
+  dependency: 4 passed
 * complete MSBuild project-system service suite: 14 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
 
