@@ -45,6 +45,40 @@ public sealed class MacroCodeGenTests
     }
 
     [Fact]
+    public void AttachedTypeMacro_ReplacementBaseListAndIntroducedMethod_AreEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import System.*
+
+            class Harness {
+                public static func Run() -> bool {
+                    val first: IEquatable<Widget> = Widget("Ada", 37)
+                    return first.Equals(Widget("Ada", 37))
+                }
+            }
+
+            #[AddEquatableContract]
+            class Widget(val Name: string, val Age: int)
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new EquatableContractMacro()));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(true, method!.Invoke(null, null));
+    }
+
+    [Fact]
     public void AttachedPropertyMacro_ReplacementProperty_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
@@ -347,6 +381,32 @@ public sealed class MacroCodeGenTests
                 Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single()).Members.Single());
 
             return MacroExpansionResult.FromIntroducedMembers([method]);
+        }
+    }
+
+    public sealed class EquatableContractMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "AddEquatableContract";
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var current = Assert.IsType<ClassDeclarationSyntax>(context.CurrentDeclaration);
+            var typeName = current.Identifier.ValueText;
+            var tree = SyntaxFactory.ParseSyntaxTree($$"""
+                class __GeneratedContainer : System.IEquatable<{{typeName}}> {
+                    func Equals(other: {{typeName}}) -> bool {
+                        return Name == other.Name && Age == other.Age
+                    }
+                }
+                """);
+            var container = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
+            var method = Assert.IsType<MethodDeclarationSyntax>(container.Members.Single());
+
+            return MacroExpansionResult.FromReplacement(
+                current.WithBaseList(container.BaseList),
+                [method]);
         }
     }
 

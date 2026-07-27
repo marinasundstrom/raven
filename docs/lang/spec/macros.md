@@ -341,6 +341,11 @@ When Raven integrates the results for one declaration, it uses this order:
 
 If a macro returns `ReplacementDeclaration`, that replacement becomes the `CurrentDeclaration` seen by later attached macros on the same declaration. If a macro only introduces members or peer declarations, `CurrentDeclaration` does not change.
 
+For an attached nominal-type macro, the effective replacement declaration also
+supplies the base class and interface list used when Raven binds the type shape.
+This allows a macro to introduce a required member and add its corresponding
+interface contract in the same expansion.
+
 For parent/child relationships, parent-declaration macros still see the original parsed shape of the parent declaration. A macro attached to a type should not assume that attached macros on its members have already rewritten the type syntax visible through `AttachedMacroContext.TargetDeclaration` or `AttachedMacroContext.CurrentDeclaration`.
 
 The current attached-macro system supports these generic result shapes:

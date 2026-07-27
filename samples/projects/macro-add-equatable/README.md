@@ -1,6 +1,7 @@
 # Macro AddEquatable (`.rvnproj`)
 
-This sample shows the intended shape of an attached macro project for Raven.
+This sample shows an attached macro that makes an annotated Raven class
+implement `System.IEquatable<T>`.
 
 Current status:
 
@@ -14,7 +15,12 @@ Current status:
 - The Raven application consumes the provider through an ordinary
   `ProjectReference`; no consumer-authored `RavenMacro` item is needed.
 - The compiler resolves attached macros and invokes plugin expansion generically.
-- Generated members participate in ordinary binding and code generation.
+- The macro replaces the class base list with one that includes
+  `IEquatable<User>` while preserving any authored base types.
+- The macro introduces `Equals(other: User)`, which compares the sample's
+  `Name` and `Age` properties.
+- The replacement type shape and generated member participate in ordinary
+  binding and code generation.
 
 Files:
 
@@ -33,5 +39,6 @@ dotnet run --project MacroAddEquatable.rvnproj --property WarningLevel=0
 Expected output:
 
 ```text
-Ada
+True
+False
 ```

@@ -1,8 +1,10 @@
-import System.Console.*
+import System.*
 
 func Main() {
-    let user = User("Ada", 37)
-    WriteLine(user.Name)
+    let user: IEquatable<User> = User("Ada", 37)
+
+    Console.WriteLine(user.Equals(User("Ada", 37)))
+    Console.WriteLine(user.Equals(User("Grace", 37)))
 }
 
 #[AddEquatable]

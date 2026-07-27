@@ -597,10 +597,10 @@ Validation record for this slice:
 
 C# compiler-plugin project validation:
 
-* `macro-add-equatable` C# provider runtime output: `Ada`
+* `macro-add-equatable` C# provider runtime output: `True`, `False`
 * `scripts/test-feature-suite.sh macros`: 58 passed
 * compiler-driver `macro-add-equatable` project validation: passed
-* `macro-add-equatable` runtime output: `Ada`
+* `macro-add-equatable` runtime output: `True`, `False`
 
 Referenced-assembly discovery validation:
 
