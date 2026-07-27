@@ -134,7 +134,7 @@ static class ConsoleEx
                 fileName = Path.GetFileName(path);
 
 #if DEBUG
-                if (fileDirectory is not null)
+                if (!string.IsNullOrEmpty(fileDirectory))
                     fileDirectory = Path.GetRelativePath(Environment.CurrentDirectory, fileDirectory);
 #endif
             }
