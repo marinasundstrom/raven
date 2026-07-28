@@ -63,8 +63,8 @@ class Counter {
 </Project>
 """);
         fixture.WriteRavenFile(Path.Combine(fixture.Root, "lib", "src", "Greeter.rvn"), """
-class Greeter {
-    func Say() -> string => "Hi"
+public class Greeter {
+    public func Say() -> string => "Hi"
 }
 """);
 

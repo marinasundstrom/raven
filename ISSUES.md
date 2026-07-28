@@ -6,19 +6,14 @@ by tests, and prefer small repros over broad historical failure summaries.
 
 ## Active Issues
 
-### Language-server unit and integration suites are currently red
+### Language-server integration suite is currently red
 
-- **Unit suite:** `Raven.LanguageServer.Tests` builds and runs, with 4 failures,
-  160 passes, and 3 skips. The failures cover object-initializer hover setup,
-  constructed union hover display, argument-identifier binding, and
-  cross-project definition mapping.
-- **Integration suite:** Stale fixture paths from the July 27 descriptive
+- **Current state:** Stale fixture paths from the July 27 descriptive
   sample-file rename have been corrected. Remaining failures report missing
   local or parameter inlay hints for large/range-scoped documents. The full
   run exits nonzero after a long tail.
-- **Suggested next step:** Diagnose the current semantic and inlay regressions,
-  then restore the unit suite before using
-  integration timing as a correctness signal.
+- **Suggested next step:** Diagnose the current semantic and inlay regressions
+  before using integration timing as a correctness signal.
 
 ## DSL Follow-ups
 
@@ -100,6 +95,14 @@ overload specificity and extension-method resolution for these APIs so DSL
 metadata helpers can stay thin wrappers over ASP.NET Core.
 
 ## Recently Fixed
+
+### Language-server unit suite restored
+
+- **Fixed:** Updated stale hover fixtures for object-initializer syntax,
+  metadata union display, and object construction, and made the cross-project
+  definition fixture's referenced API public.
+- **Validation:** `Raven.LanguageServer.Tests` passes with 164 tests and 3
+  intentional skips.
 
 ### Baseline test suite restored as a clean gate
 

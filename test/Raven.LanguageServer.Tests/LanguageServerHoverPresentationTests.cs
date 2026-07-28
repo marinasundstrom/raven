@@ -533,7 +533,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union struct Option<string>");
+        signature.ShouldBe("union struct Option<string>: IUnion");
     }
 
     [Fact]
@@ -1706,7 +1706,7 @@ import System.Text.Json.*
 record Foo(val Name: string)
 
 val foo = Foo("Foo")
-val options = JsonSerializerOptions with {
+val options = JsonSerializerOptions {
     WriteIndented = true
 }
 
@@ -3582,7 +3582,7 @@ class C {
         var token = root.DescendantTokens().First(t =>
             t.Kind == SyntaxKind.IdentifierToken &&
             t.ValueText == "Name" &&
-            t.Parent?.AncestorsAndSelf().Any(static n => n is AssignmentStatementSyntax) == true);
+            t.Parent?.AncestorsAndSelf().Any(static n => n is ObjectInitializerAssignmentEntrySyntax) == true);
 
         Should.NotThrow(() => SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1));
     }
