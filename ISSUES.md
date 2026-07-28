@@ -90,11 +90,12 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 ### Sample-backed language-server integration fixtures refreshed
 
 - **Fixed:** Updated stale sample paths, ASP.NET hover targets, `val`-to-`let`
-  markers, multiline route-handler lookup, and visible-range boundaries after
-  recent sample changes.
+  markers, multiline route-handler lookup, visible-range boundaries, and
+  headless replay/edit scenario inputs after recent sample changes.
 - **Validation:** Focused EF Core snapshot/inlay, ASP.NET, vehicle inlay-cache,
-  large visible-range, and incremental-edit tests pass. The full integration
-  suite was not rerun because of its long tail.
+  large visible-range, incremental-edit tests, and renamed-file headless
+  replay/edit probes pass. The full integration suite was not rerun because of
+  its long tail.
 
 ### Language-server unit suite restored
 
