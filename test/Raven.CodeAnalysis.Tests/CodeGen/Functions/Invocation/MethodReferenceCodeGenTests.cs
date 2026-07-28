@@ -182,7 +182,7 @@ class Program {
     }
 
     static func Run() -> int {
-        val o = ["1", "2", "3"].ToDictionary(x => x, y => int.Parse(y))
+        val o = ["1", "22", "333"].ToDictionary(x => x, y => y.Length)
         ForEach(o, Capture)
         count
     }

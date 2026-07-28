@@ -25,7 +25,7 @@ public class PublicType { }
         var internalType = assembly.GetType("InternalType", throwOnError: true)!;
         var publicType = assembly.GetType("PublicType", throwOnError: true)!;
 
-        Assert.True(defaultType.IsPublic);
+        Assert.True(defaultType.IsNotPublic);
         Assert.True(internalType.IsNotPublic);
         Assert.True(publicType.IsPublic);
     }
@@ -50,7 +50,7 @@ public interface IContainer {
         var interfaceContainer = assembly.GetType("IContainer", throwOnError: true)!;
         var flags = BindingFlags.Public | BindingFlags.NonPublic;
 
-        AssertNestedVisibility(container, "DefaultNested", TypeAttributes.NestedPrivate, flags);
+        AssertNestedVisibility(container, "DefaultNested", TypeAttributes.NestedPublic, flags);
         AssertNestedVisibility(container, "PublicNested", TypeAttributes.NestedPublic, flags);
         AssertNestedVisibility(interfaceContainer, "InterfaceNested", TypeAttributes.NestedPublic, flags);
     }
@@ -105,7 +105,7 @@ internal class Sample {
         var methodDecl = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
 
         var defaultTypeSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecls["DefaultType"])!;
-        Assert.Equal(Accessibility.Public, defaultTypeSymbol.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Internal, defaultTypeSymbol.DeclaredAccessibility);
 
         var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecls["Sample"])!;
         Assert.Equal(Accessibility.Internal, classSymbol.DeclaredAccessibility);
@@ -144,7 +144,7 @@ interface IContainer {
         var publicNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["PublicNested"])!;
         var interfaceNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["InterfaceNested"])!;
 
-        Assert.Equal(Accessibility.Private, defaultNested.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Public, defaultNested.DeclaredAccessibility);
         Assert.Equal(Accessibility.Public, publicNested.DeclaredAccessibility);
         Assert.Equal(Accessibility.Public, interfaceNested.DeclaredAccessibility);
     }

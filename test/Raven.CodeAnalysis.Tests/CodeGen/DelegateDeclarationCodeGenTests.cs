@@ -102,9 +102,9 @@ public interface IContainer {
         var interfaceContainer = assembly.GetType("IContainer", throwOnError: true)!;
         var flags = BindingFlags.Public | BindingFlags.NonPublic;
 
-        Assert.True(defaultHandler.IsPublic);
+        Assert.True(defaultHandler.IsNotPublic);
         Assert.True(publicHandler.IsPublic);
-        AssertNestedVisibility(container, "DefaultNested", TypeAttributes.NestedPrivate, flags);
+        AssertNestedVisibility(container, "DefaultNested", TypeAttributes.NestedPublic, flags);
         AssertNestedVisibility(container, "PublicNested", TypeAttributes.NestedPublic, flags);
         AssertNestedVisibility(interfaceContainer, "InterfaceNested", TypeAttributes.NestedPublic, flags);
     }

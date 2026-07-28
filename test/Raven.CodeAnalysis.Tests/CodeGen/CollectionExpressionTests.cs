@@ -98,7 +98,7 @@ import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union JsonValue(string | double | bool | JsonObject | JsonValue[])
+union class JsonValue(string | double | bool | JsonObject | JsonValue[])
 
 [JsonConverter(typeof(JsonObjectConverter))]
 record JsonObject(Properties: IDictionary<string, JsonValue>)
