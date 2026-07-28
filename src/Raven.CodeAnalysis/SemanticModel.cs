@@ -14424,6 +14424,7 @@ public partial class SemanticModel
         {
             MethodDeclarationSyntax => binder is MethodBinder,
             BlockStatementSyntax { Parent: BaseMethodDeclarationSyntax or FunctionStatementSyntax } => binder is MethodBodyBinder,
+            BlockStatementSyntax { Parent: MacroFunctionDeclarationSyntax } => binder is MacroFunctionBodyBinder,
             _ => true
         };
     }
@@ -14706,7 +14707,8 @@ public partial class SemanticModel
             WhileStatementSyntax or
             WhilePatternStatementSyntax or
             ForStatementSyntax or
-            FunctionStatementSyntax;
+            FunctionStatementSyntax or
+            MacroFunctionDeclarationSyntax;
     }
 
     private bool TryResolveMethodSymbolForDeclaration(SyntaxNode declaration, out IMethodSymbol methodSymbol)

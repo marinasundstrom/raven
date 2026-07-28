@@ -67,23 +67,37 @@ func Main() -> int => 0
     }
 
     [Fact]
-    public async Task HoverHandler_MacroFunctionParameterAndBody_UseSignatureSemanticProjectionAsync()
+    public async Task HoverHandler_MacroFunctionBody_UsesMethodLikeSemanticProjectionAsync()
     {
         const string text = """
 import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Macros.*
 
-macro func Identity(value: int) {
-    expand value
+macro func Double(value: int) {
+    let doubled = value * 2
+    let text = doubled.ToString()
+    expand SyntaxFactory.ParseExpression(text)
 }
 
-func Main() -> int => #Identity(42)
+macro func FirstToken(tokens: IMacroTokenStream) {
+    let token = tokens.ReadToken()
+    expand SyntaxFactory.ParseExpression(token.Text)
+}
+
+func Main() -> int => #Double(21)
 """;
         var results = await ReplayInlineHoversAsync(
             text,
             new HoverReplayTarget("parameter", "value: int", 1, "value: int"),
-            new HoverReplayTarget("body", "expand value", "expand ".Length + 1, "value: int"));
+            new HoverReplayTarget("parameter reference", "value * 2", 1, "value: int"),
+            new HoverReplayTarget("local reference", "doubled.ToString", 1, "val doubled: int"),
+            new HoverReplayTarget("member invocation", "ToString()", 1, "ToString() -> string"),
+            new HoverReplayTarget("imported invocation", "ParseExpression(text)", 1, "ParseExpression"),
+            new HoverReplayTarget("later local", "ParseExpression(text)", "ParseExpression(".Length + 1, "val text: string"),
+            new HoverReplayTarget("token stream invocation", "ReadToken()", 1, "ReadToken()"),
+            new HoverReplayTarget("token member", "token.Text", "token.".Length + 1, "Text"));
 
-        results.Count.ShouldBe(2);
+        results.Count.ShouldBe(8);
     }
 
     [Fact]

@@ -12,14 +12,18 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class MacroFunctionSymbolTests : CompilationTestBase
 {
     [Fact]
-    public void AuthoredMacroPosition_UsesSignatureSemanticModelForParameterAndBody()
+    public void AuthoredMacroPosition_BindsParameterLocalsAndMemberInvocations()
     {
         const string source = """
-            macro func Identity(value: int) {
-                expand value
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Double(value: int) {
+                let doubled = value * 2
+                let text = doubled.ToString()
+                expand SyntaxFactory.ParseExpression(text)
             }
 
-            func Main() -> int => #Identity(42)
+            func Main() -> int => #Double(21)
             """;
         var authoredTree = SyntaxTree.ParseText(SourceText.From(source), path: "main.rvn");
         var compilation = Compilation.Create(
@@ -27,7 +31,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default)
             .AddSyntaxTreesWithLocalMacros(authoredTree);
-        var bodyOffset = source.IndexOf("expand value", StringComparison.Ordinal) + "expand ".Length;
+        var bodyOffset = source.IndexOf("let doubled", StringComparison.Ordinal);
 
         var model = compilation.GetSemanticModel(authoredTree, bodyOffset);
         var declaration = model.SyntaxTree.GetRoot()
@@ -35,13 +39,39 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             .OfType<MacroFunctionDeclarationSyntax>()
             .Single();
         var parameterSyntax = declaration.ParameterList.Parameters.Single();
-        var bodyReference = declaration.Body!.DescendantNodes()
+        var bodyIdentifiers = declaration.Body!.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
+            .ToArray();
+        var parameterReference = bodyIdentifiers
             .Single(identifier => identifier.Identifier.ValueText == "value");
+        var doubledReference = bodyIdentifiers
+            .Single(identifier => identifier.Identifier.ValueText == "doubled");
+        var textReference = bodyIdentifiers
+            .Single(identifier => identifier.Identifier.ValueText == "text");
+        var toStringReference = bodyIdentifiers
+            .Single(identifier => identifier.Identifier.ValueText == "ToString");
+        var parseExpressionReference = bodyIdentifiers
+            .Single(identifier => identifier.Identifier.ValueText == "ParseExpression");
+        var declarators = declaration.Body.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(declarator => declarator.Identifier.ValueText);
 
         var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
-        Assert.Same(parameter, model.GetSymbolInfo(bodyReference).Symbol);
+        Assert.Same(parameter, model.GetSymbolInfo(parameterReference).Symbol);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+
+        var doubled = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["doubled"]));
+        Assert.Same(doubled, model.GetSymbolInfo(doubledReference).Symbol);
+        Assert.Equal(SpecialType.System_Int32, doubled.Type.SpecialType);
+
+        var text = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["text"]));
+        Assert.Same(text, model.GetSymbolInfo(textReference).Symbol);
+        Assert.Equal(SpecialType.System_String, text.Type.SpecialType);
+
+        Assert.Equal("ToString", Assert.IsAssignableFrom<IMethodSymbol>(
+            model.GetSymbolInfo(toStringReference).Symbol).Name);
+        Assert.Equal("ParseExpression", Assert.IsAssignableFrom<IMethodSymbol>(
+            model.GetSymbolInfo(parseExpressionReference).Symbol).Name);
     }
 
     [Fact]

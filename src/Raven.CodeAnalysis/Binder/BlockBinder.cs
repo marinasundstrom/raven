@@ -1095,6 +1095,11 @@ partial class BlockBinder : Binder
                 {
                     pastBoundary = true;
                 }
+                else if (current is MacroFunctionBinder boundaryMacroBinder &&
+                         !SymbolEqualityComparer.Default.Equals(boundaryMacroBinder.GetMacroFunctionSymbol(), boundarySymbol))
+                {
+                    pastBoundary = true;
+                }
                 else if (current is TopLevelBinder or FunctionExpressionBinder)
                 {
                     pastBoundary = true;
@@ -1121,6 +1126,15 @@ partial class BlockBinder : Binder
             if (allowLocalsAndParams && current is MethodBinder methodBinder)
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
+                {
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                        yield return param;
+                }
+            }
+
+            if (allowLocalsAndParams && current is MacroFunctionBinder macroFunctionBinder)
+            {
+                foreach (var param in macroFunctionBinder.GetMacroFunctionSymbol().Parameters)
                 {
                     if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
@@ -16225,6 +16239,9 @@ partial class BlockBinder : Binder
     {
         get
         {
+            if (_containingSymbol is IMacroFunctionSymbol)
+                return true;
+
             if (_containingSymbol is not IMethodSymbol method)
                 return false;
 
@@ -16275,6 +16292,11 @@ partial class BlockBinder : Binder
                 {
                     pastBoundary = true;
                 }
+                else if (current is MacroFunctionBinder boundaryMacroBinder &&
+                         !SymbolEqualityComparer.Default.Equals(boundaryMacroBinder.GetMacroFunctionSymbol(), boundarySymbol))
+                {
+                    pastBoundary = true;
+                }
                 else if (current is TopLevelBinder or FunctionExpressionBinder)
                 {
                     pastBoundary = true;
@@ -16311,6 +16333,13 @@ partial class BlockBinder : Binder
             if (allowLocalsAndParams && current is MethodBinder methodBinder)
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                        yield return param;
+            }
+
+            if (allowLocalsAndParams && current is MacroFunctionBinder macroFunctionBinder)
+            {
+                foreach (var param in macroFunctionBinder.GetMacroFunctionSymbol().Parameters)
                     if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
             }
@@ -16439,6 +16468,15 @@ partial class BlockBinder : Binder
             if (current is MethodBinder methodBinder)
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
+                {
+                    if (seen.Add(param.Name))
+                        yield return param;
+                }
+            }
+
+            if (current is MacroFunctionBinder macroFunctionBinder)
+            {
+                foreach (var param in macroFunctionBinder.GetMacroFunctionSymbol().Parameters)
                 {
                     if (seen.Add(param.Name))
                         yield return param;
