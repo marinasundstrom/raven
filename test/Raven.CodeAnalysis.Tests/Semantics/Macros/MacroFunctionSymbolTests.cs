@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -10,6 +11,39 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
 public sealed class MacroFunctionSymbolTests : CompilationTestBase
 {
+    [Fact]
+    public void AuthoredMacroPosition_UsesSignatureSemanticModelForParameterAndBody()
+    {
+        const string source = """
+            macro func Identity(value: int) {
+                expand value
+            }
+
+            func Main() -> int => #Identity(42)
+            """;
+        var authoredTree = SyntaxTree.ParseText(SourceText.From(source), path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(authoredTree);
+        var bodyOffset = source.IndexOf("expand value", StringComparison.Ordinal) + "expand ".Length;
+
+        var model = compilation.GetSemanticModel(authoredTree, bodyOffset);
+        var declaration = model.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var parameterSyntax = declaration.ParameterList.Parameters.Single();
+        var bodyReference = declaration.Body!.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "value");
+
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        Assert.Same(parameter, model.GetSymbolInfo(bodyReference).Symbol);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+    }
+
     [Fact]
     public void MacroFunctionDeclaration_DeclaresDistinctMacroFunctionSymbol()
     {

@@ -67,6 +67,26 @@ func Main() -> int => 0
     }
 
     [Fact]
+    public async Task HoverHandler_MacroFunctionParameterAndBody_UseSignatureSemanticProjectionAsync()
+    {
+        const string text = """
+import Raven.CodeAnalysis.Syntax.*
+
+macro func Identity(value: int) {
+    expand value
+}
+
+func Main() -> int => #Identity(42)
+""";
+        var results = await ReplayInlineHoversAsync(
+            text,
+            new HoverReplayTarget("parameter", "value: int", 1, "value: int"),
+            new HoverReplayTarget("body", "expand value", "expand ".Length + 1, "value: int"));
+
+        results.Count.ShouldBe(2);
+    }
+
+    [Fact]
     public async Task DefinitionHandler_LocalMacroDeclaration_UsesMacroSemanticProjectionAsync()
     {
         const string text = """

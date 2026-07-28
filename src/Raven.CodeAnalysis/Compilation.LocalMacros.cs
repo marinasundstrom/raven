@@ -21,6 +21,7 @@ public partial class Compilation
         DiagnosticSeverity.Error);
 
     private Compilation? _macroPartitionCompilation;
+    private Compilation? _macroSignatureCompilation;
     private LocalMacroPartitionArtifact? _localMacroPartitionArtifact;
     private bool _hasReusedLocalMacroPartitionArtifact;
 
@@ -30,7 +31,7 @@ public partial class Compilation
             return null;
 
         var references = EnsureMacroContractsReference(_references);
-        var signatureCompilation = new Compilation(
+        _macroSignatureCompilation = new Compilation(
             $"{AssemblyName}.MacroSignatures",
             _macroSyntaxTrees,
             [],
@@ -40,7 +41,7 @@ public partial class Compilation
         var loweredMacroTrees = _macroSyntaxTrees
             .Select(tree => MacroFunctionLowering.Lower(
                 tree,
-                signatureCompilation.GetSemanticModel(tree)))
+                _macroSignatureCompilation.GetSemanticModel(tree)))
             .ToArray();
         _macroPartitionCompilation = new Compilation(
             $"{AssemblyName}.Macros",

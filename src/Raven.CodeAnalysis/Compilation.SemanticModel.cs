@@ -63,7 +63,7 @@ public partial class Compilation
         EnsureSetup();
 
         if (_macroSyntaxTrees.Contains(syntaxTree))
-            return _macroPartitionCompilation!.GetSemanticModel(syntaxTree);
+            return _macroSignatureCompilation!.GetSemanticModel(syntaxTree);
 
         return GetOrCreateSemanticModel(syntaxTree);
     }
@@ -103,7 +103,7 @@ public partial class Compilation
         EnsureSetup();
 
         if (_macroSyntaxTrees.Contains(syntaxTree))
-            return _macroPartitionCompilation!.TryGetSemanticModel(syntaxTree, out semanticModel);
+            return _macroSignatureCompilation!.TryGetSemanticModel(syntaxTree, out semanticModel);
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -119,9 +119,9 @@ public partial class Compilation
     internal bool TryGetExistingSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         if (_macroSyntaxTrees.Contains(syntaxTree) &&
-            _macroPartitionCompilation is not null)
+            _macroSignatureCompilation is not null)
         {
-            return _macroPartitionCompilation.TryGetExistingSemanticModel(syntaxTree, out semanticModel);
+            return _macroSignatureCompilation.TryGetExistingSemanticModel(syntaxTree, out semanticModel);
         }
 
         if (_generatedSemanticModels.TryGetValue(syntaxTree, out semanticModel!))
@@ -139,7 +139,7 @@ public partial class Compilation
         EnsureSetup();
 
         if (_macroSyntaxTrees.Contains(syntaxTree))
-            return _macroPartitionCompilation!.TryGetSemanticModelForDeclarationBinding(syntaxTree, out semanticModel);
+            return _macroSignatureCompilation!.TryGetSemanticModelForDeclarationBinding(syntaxTree, out semanticModel);
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -224,7 +224,7 @@ public partial class Compilation
         EnsureSetup();
 
         if (_macroSyntaxTrees.Contains(syntaxTree))
-            return _macroPartitionCompilation!.CreateTransientSemanticModel(syntaxTree);
+            return _macroSignatureCompilation!.CreateTransientSemanticModel(syntaxTree);
 
         EnsureSourceDeclarationsComplete();
 

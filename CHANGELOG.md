@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed language-server hover inside authored `macro func` declarations so
+  parameter declarations and parameter references in macro bodies use the
+  macro signature semantic model instead of failing during projection.
 - Prevented authored macro-function parameters and attached-target names from
   colliding with compiler-generated adapter locals during local macro lowering.
 - Updated the Playground metaprogramming sample to use native macro functions

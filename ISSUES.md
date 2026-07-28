@@ -87,6 +87,15 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 
 ## Recently Fixed
 
+### Macro function declaration hover
+
+- **Fixed:** Authored macro syntax trees now use their signature compilation
+  for semantic queries. Hover resolves macro parameters at their declarations
+  and references inside macro bodies instead of failing because the authored
+  tree was absent from the lowered macro compilation.
+- **Coverage:** Focused compiler semantic-model and language-server integration
+  tests cover both hover positions.
+
 ### Incremental owner analysis avoids syntax text materialization
 
 - **Fixed:** Incremental executable-owner change detection now compares

@@ -1875,6 +1875,15 @@ public partial class SemanticModel
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
+        if (node is IdentifierNameSyntax macroParameterReference &&
+            TryGetMacroFunctionParameterReference(macroParameterReference, out var macroParameter))
+        {
+            var macroParameterInfo = new SymbolInfo(macroParameter);
+            StoreSymbolMapping(node, macroParameterInfo);
+            StoreNodeInterestSymbolDescriptor(node, macroParameter);
+            return macroParameterInfo;
+        }
+
         if (TryGetPipeInvocationSymbolInfo(node, out var pipeInvocationInfo))
         {
             pipeInvocationInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, pipeInvocationInfo);
@@ -2514,6 +2523,26 @@ public partial class SemanticModel
 
         StoreSymbolMapping(node, info);
         return info;
+    }
+
+    private bool TryGetMacroFunctionParameterReference(
+        IdentifierNameSyntax identifier,
+        out IParameterSymbol parameter)
+    {
+        parameter = null!;
+        var declaration = identifier.Ancestors()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .FirstOrDefault();
+        if (declaration is null)
+            return false;
+
+        Compilation.EnsureSourceDeclarationsDeclared();
+        if (!TryGetMacroFunctionSymbol(declaration, out var macroFunction))
+            return false;
+
+        parameter = macroFunction.Parameters.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, identifier.Identifier.ValueText, StringComparison.Ordinal))!;
+        return parameter is not null;
     }
 
     private static bool IsExpressionWithoutDirectSymbol(ExpressionSyntax expression)
