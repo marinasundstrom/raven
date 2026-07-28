@@ -723,8 +723,10 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document =>
             string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var originalText = File.ReadAllText(sourcePath);
         var updatedText = SourceText.From(
-            File.ReadAllText(sourcePath).Replace("val minAge = 21", "val minAge = 26", StringComparison.Ordinal));
+            originalText.Replace("let minAge = 21", "let minAge = 26", StringComparison.Ordinal));
+        Assert.NotEqual(originalText, updatedText.ToString());
         workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, updatedText));
 
         var compilation = workspace.GetCompilation(projectId);

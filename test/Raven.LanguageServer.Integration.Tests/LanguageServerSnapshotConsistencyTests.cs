@@ -2413,9 +2413,9 @@ record CustomError(val Message: string)
         context.ShouldNotBeNull();
 
         var sourceText = context.Value.SourceText;
-        var queryOffset = text.IndexOf("val query =", StringComparison.Ordinal);
+        var queryOffset = text.IndexOf("let query =", StringComparison.Ordinal);
         queryOffset.ShouldBeGreaterThanOrEqualTo(0);
-        queryOffset += "val ".Length + 2;
+        queryOffset += "let ".Length + 2;
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
@@ -2467,7 +2467,7 @@ record CustomError(val Message: string)
                 hover.Contents.MarkupContent.ShouldNotBeNull();
                 var hoverText = hover.Contents.MarkupContent!.Value;
                 hoverText.ShouldContain(targetName);
-                hoverText.ShouldNotContain("val query");
+                hoverText.ShouldNotContain("let query");
                 assertHover(hoverText);
                 hover.Range.ShouldNotBeNull();
                 hover.Range.Start.Line.ShouldBe(hover.Range.End.Line);
@@ -2688,12 +2688,12 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         File.Exists(filePath).ShouldBeTrue();
 
         var originalText = File.ReadAllText(filePath);
-        var minAgeMatch = Regex.Match(originalText, @"val minAge = (?<value>\d+)");
+        var minAgeMatch = Regex.Match(originalText, @"let minAge = (?<value>\d+)");
         minAgeMatch.Success.ShouldBeTrue();
         var currentMinAge = int.Parse(minAgeMatch.Groups["value"].Value);
         var updatedText = string.Concat(
             originalText.AsSpan(0, minAgeMatch.Index),
-            $"val minAge = {currentMinAge + 1}",
+            $"let minAge = {currentMinAge + 1}",
             originalText.AsSpan(minAgeMatch.Index + minAgeMatch.Length));
         updatedText.ShouldNotBe(originalText);
 
@@ -2755,7 +2755,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
             hover.ShouldNotBeNull();
             hover.Contents.MarkupContent.ShouldNotBeNull();
             hover.Contents.MarkupContent!.Value.ShouldContain("Where");
-            hover.Contents.MarkupContent!.Value.ShouldNotContain("val query: Error");
+            hover.Contents.MarkupContent!.Value.ShouldNotContain("let query: Error");
         }
     }
 
