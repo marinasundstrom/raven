@@ -1429,17 +1429,7 @@ function activate(context) {
         await vscode.commands.executeCommand('raven.syntaxTree.focus');
         syntaxTreeProvider.refresh();
     };
-    context.subscriptions.push(syntaxTreeView.onDidChangeVisibility(event => syntaxTreeProvider.setVisible(event.visible)), vscode.window.onDidChangeActiveTextEditor(editor => syntaxTreeProvider.setActiveDocument(editor?.document)), vscode.commands.registerCommand('raven.syntaxTree.refresh', () => syntaxTreeProvider.refresh()), vscode.commands.registerCommand('raven.syntaxTree.showAuthored', async () => {
-        syntaxTreeProvider.setView('authored');
-        syntaxTreeView.description = 'Authored';
-        await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'authored');
-        await focusSyntaxTreeView();
-    }), vscode.commands.registerCommand('raven.syntaxTree.showExpanded', async () => {
-        syntaxTreeProvider.setView('expanded');
-        syntaxTreeView.description = 'Expanded';
-        await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'expanded');
-        await focusSyntaxTreeView();
-    }), vscode.commands.registerCommand('raven.syntaxTree.showExpandedDocument', async () => {
+    const openExpandedSyntaxDocument = async () => {
         const document = syntaxTreeProvider.getActiveDocument();
         if (!document) {
             void vscode.window.showInformationMessage('Open a Raven document to view its expanded source.');
@@ -1451,7 +1441,19 @@ function activate(context) {
             preview: true,
             viewColumn: vscode.ViewColumn.Beside
         });
-    }), vscode.commands.registerCommand('raven.syntaxTree.reveal', async (item) => {
+    };
+    context.subscriptions.push(syntaxTreeView.onDidChangeVisibility(event => syntaxTreeProvider.setVisible(event.visible)), vscode.window.onDidChangeActiveTextEditor(editor => syntaxTreeProvider.setActiveDocument(editor?.document)), vscode.commands.registerCommand('raven.syntaxTree.refresh', () => syntaxTreeProvider.refresh()), vscode.commands.registerCommand('raven.syntaxTree.showAuthored', async () => {
+        syntaxTreeProvider.setView('authored');
+        syntaxTreeView.description = 'Authored';
+        await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'authored');
+        await focusSyntaxTreeView();
+    }), vscode.commands.registerCommand('raven.syntaxTree.showExpanded', async () => {
+        syntaxTreeProvider.setView('expanded');
+        syntaxTreeView.description = 'Expanded';
+        await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'expanded');
+        await openExpandedSyntaxDocument();
+        await focusSyntaxTreeView();
+    }), vscode.commands.registerCommand('raven.syntaxTree.showExpandedDocument', openExpandedSyntaxDocument), vscode.commands.registerCommand('raven.syntaxTree.reveal', async (item) => {
         await (0, syntaxTreeVisualizer_1.revealSyntaxTreeItem)(item);
     }));
     syntaxTreeView.description = 'Authored';

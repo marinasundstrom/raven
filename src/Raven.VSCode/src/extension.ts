@@ -1729,6 +1729,26 @@ export function activate(context: vscode.ExtensionContext): void {
     syntaxTreeProvider.refresh();
   };
 
+  const openExpandedSyntaxDocument = async (): Promise<void> => {
+    const document = syntaxTreeProvider.getActiveDocument();
+    if (!document) {
+      void vscode.window.showInformationMessage('Open a Raven document to view its expanded source.');
+      return;
+    }
+
+    const loadedTree = await loadSyntaxTree(
+      document,
+      'expanded',
+      expandedSyntaxContentProvider,
+      context.globalStorageUri.fsPath
+    );
+    const expandedDocument = await vscode.workspace.openTextDocument(loadedTree.navigationUri);
+    await vscode.window.showTextDocument(expandedDocument, {
+      preview: true,
+      viewColumn: vscode.ViewColumn.Beside
+    });
+  };
+
   context.subscriptions.push(
     syntaxTreeView.onDidChangeVisibility(event => syntaxTreeProvider.setVisible(event.visible)),
     vscode.window.onDidChangeActiveTextEditor(editor => syntaxTreeProvider.setActiveDocument(editor?.document)),
@@ -1743,27 +1763,10 @@ export function activate(context: vscode.ExtensionContext): void {
       syntaxTreeProvider.setView('expanded');
       syntaxTreeView.description = 'Expanded';
       await vscode.commands.executeCommand('setContext', 'raven.syntaxTreeView', 'expanded');
+      await openExpandedSyntaxDocument();
       await focusSyntaxTreeView();
     }),
-    vscode.commands.registerCommand('raven.syntaxTree.showExpandedDocument', async () => {
-      const document = syntaxTreeProvider.getActiveDocument();
-      if (!document) {
-        void vscode.window.showInformationMessage('Open a Raven document to view its expanded source.');
-        return;
-      }
-
-      const loadedTree = await loadSyntaxTree(
-        document,
-        'expanded',
-        expandedSyntaxContentProvider,
-        context.globalStorageUri.fsPath
-      );
-      const expandedDocument = await vscode.workspace.openTextDocument(loadedTree.navigationUri);
-      await vscode.window.showTextDocument(expandedDocument, {
-        preview: true,
-        viewColumn: vscode.ViewColumn.Beside
-      });
-    }),
+    vscode.commands.registerCommand('raven.syntaxTree.showExpandedDocument', openExpandedSyntaxDocument),
     vscode.commands.registerCommand('raven.syntaxTree.reveal', async (item: SyntaxTreeItem) => {
       await revealSyntaxTreeItem(item);
     })

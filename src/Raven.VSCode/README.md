@@ -16,7 +16,8 @@ updates after edits to the active Raven document.
   property roles, raw kinds, spans, missing elements, and diagnostics.
 - Select an item to reveal its span in the corresponding source document.
 - Use the tree toolbar to switch between the authored tree and the fully
-  macro-expanded tree.
+  macro-expanded tree. Switching to the expanded tree opens the complete,
+  read-only expanded document beside the active Raven source.
 - Use **Raven: Open Expanded Document** to inspect the complete expanded source
   beside the authored document. Selecting items in the expanded tree navigates
   within that read-only expanded document.
@@ -24,6 +25,7 @@ updates after edits to the active Raven document.
 The view is always available from the Explorer's Views menu. Run
 **Raven: Show Authored Syntax Tree** or **Raven: Show Expanded Syntax Tree**
 from the Command Palette to open Explorer, focus the view, and select its mode.
+Showing the expanded tree also opens its expanded document.
 
 Project-backed documents are loaded through their `.rvnproj`, so referenced and
 same-project macros participate in expansion. Unsaved editor text is supplied

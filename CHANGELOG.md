@@ -48,7 +48,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added a Roslyn-inspired syntax tree visualizer to the VS Code extension. The
   Explorer view presents compiler-produced nodes, tokens, trivia, property
   roles, spans, raw kinds, missing elements, and diagnostics; supports authored
-  and fully macro-expanded trees; and can open the complete expanded source.
+  and fully macro-expanded trees; and opens the complete expanded source when
+  switching to the expanded tree.
   `rvn dev syntax` now exposes the structured JSON and source-override contract
   used by the view.
 - Namespace-level types, delegates, unions, and extension declarations now
