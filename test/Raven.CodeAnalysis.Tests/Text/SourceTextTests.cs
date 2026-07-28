@@ -9,6 +9,15 @@ namespace Raven.CodeAnalysis.Text.Tests;
 public class SourceTextTests
 {
     [Fact]
+    public void Indexer_ReturnsCharacterWithoutMaterializingSubText()
+    {
+        var sourceText = SourceText.From("Raven");
+
+        Assert.Equal('R', sourceText[0]);
+        Assert.Equal('n', sourceText[sourceText.Length - 1]);
+    }
+
+    [Fact]
     public void GetTextReader_AsciiOffset_DoesNotRewind()
     {
         const string text = "prefix\"value\"";

@@ -49,13 +49,7 @@ public class SourceText
         return new SourceText(textReader.ReadToEnd(), encoding);
     }
 
-    public char this[int index]
-    {
-        get
-        {
-            throw new Exception();
-        }
-    }
+    public char this[int index] => _text[index];
 
     public SourceText WithChange(int position, string newText)
     {

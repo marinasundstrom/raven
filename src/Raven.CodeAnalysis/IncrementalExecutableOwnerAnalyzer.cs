@@ -219,6 +219,19 @@ internal static class IncrementalExecutableOwnerAnalyzer
             return false;
         }
 
+        if (TryGetSourceSpan(previousOwner, out var previousSource, out var previousSourceSpan) &&
+            TryGetSourceSpan(currentOwner, out var currentSource, out var currentSourceSpan))
+        {
+            return TryComputeOwnerRelativeTextChange(
+                previousOwner,
+                previousSource,
+                previousSourceSpan,
+                currentOwner,
+                currentSource,
+                currentSourceSpan,
+                out ownerChange);
+        }
+
         var previousText = previousOwner.ToString();
         var currentText = currentOwner.ToString();
 
@@ -247,6 +260,66 @@ internal static class IncrementalExecutableOwnerAnalyzer
             currentEnd--;
         }
 
+        return CreateOwnerRelativeTextChange(
+            previousOwner,
+            start,
+            previousEnd,
+            currentOwner,
+            currentEnd,
+            out ownerChange);
+    }
+
+    private static bool TryComputeOwnerRelativeTextChange(
+        SyntaxNode previousOwner,
+        Text.SourceText previousSource,
+        Text.TextSpan previousSpan,
+        SyntaxNode currentOwner,
+        Text.SourceText currentSource,
+        Text.TextSpan currentSpan,
+        out Compilation.OwnerRelativeTextChange ownerChange)
+    {
+        var start = 0;
+        while (start < previousSpan.Length &&
+               start < currentSpan.Length &&
+               previousSource[previousSpan.Start + start] == currentSource[currentSpan.Start + start])
+        {
+            start++;
+        }
+
+        if (start == previousSpan.Length && start == currentSpan.Length)
+        {
+            ownerChange = default;
+            return false;
+        }
+
+        var previousEnd = previousSpan.Length - 1;
+        var currentEnd = currentSpan.Length - 1;
+
+        while (previousEnd >= start &&
+               currentEnd >= start &&
+               previousSource[previousSpan.Start + previousEnd] == currentSource[currentSpan.Start + currentEnd])
+        {
+            previousEnd--;
+            currentEnd--;
+        }
+
+        return CreateOwnerRelativeTextChange(
+            previousOwner,
+            start,
+            previousEnd,
+            currentOwner,
+            currentEnd,
+            out ownerChange);
+    }
+
+    private static bool CreateOwnerRelativeTextChange(
+        SyntaxNode previousOwner,
+        int start,
+        int previousEnd,
+        SyntaxNode currentOwner,
+        int currentEnd,
+        out Compilation.OwnerRelativeTextChange ownerChange)
+    {
         var previousSpan = new Text.TextSpan(start, previousEnd - start + 1);
         var currentSpan = new Text.TextSpan(start, currentEnd - start + 1);
         ownerChange = new Compilation.OwnerRelativeTextChange(
@@ -254,6 +327,24 @@ internal static class IncrementalExecutableOwnerAnalyzer
             currentSpan,
             ClassifyOwnerRelativeChange(previousOwner, previousSpan, currentOwner, currentSpan));
         return true;
+    }
+
+    private static bool TryGetSourceSpan(
+        SyntaxNode node,
+        out Text.SourceText sourceText,
+        out Text.TextSpan span)
+    {
+        span = node.Span;
+        if (node.SyntaxTree?.TryGetText(out sourceText) == true &&
+            span.Start >= 0 &&
+            span.End <= sourceText.Length)
+        {
+            return true;
+        }
+
+        sourceText = null!;
+        span = default;
+        return false;
     }
 
     private static bool AreEquivalentIgnoringTrivia(SyntaxNode previousOwner, SyntaxNode currentOwner)
@@ -360,6 +451,21 @@ internal static class IncrementalExecutableOwnerAnalyzer
         if (OverlapsOrContainsInsertion(previousRelativeSpan, parentChange.PreviousSpan) ||
             OverlapsOrContainsInsertion(currentRelativeSpan, parentChange.CurrentSpan))
         {
+            return true;
+        }
+
+        if (TryGetSourceSpan(previousOwner, out var previousSource, out var previousSpan) &&
+            TryGetSourceSpan(currentOwner, out var currentSource, out var currentSpan))
+        {
+            if (previousSpan.Length != currentSpan.Length)
+                return false;
+
+            for (var index = 0; index < previousSpan.Length; index++)
+            {
+                if (previousSource[previousSpan.Start + index] != currentSource[currentSpan.Start + index])
+                    return false;
+            }
+
             return true;
         }
 

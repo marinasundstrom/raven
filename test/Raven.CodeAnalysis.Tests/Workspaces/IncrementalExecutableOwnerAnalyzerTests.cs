@@ -94,6 +94,10 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
                 }
             }
             """));
+        var previousMethod = previousTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
         var currentMethod = currentTree.GetRoot()
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
@@ -104,6 +108,10 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
 
         result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
         change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyExpression);
+        change.PreviousSpan.Length.ShouldBe(1);
+        change.CurrentSpan.Length.ShouldBe(1);
+        previousTree.GetText()![previousMethod.Span.Start + change.PreviousSpan.Start].ShouldBe('+');
+        currentTree.GetText()![currentMethod.Span.Start + change.CurrentSpan.Start].ShouldBe('-');
     }
 
     [Fact]

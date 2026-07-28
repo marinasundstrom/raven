@@ -88,6 +88,12 @@ The preferred query path is:
    pattern;
 4. complete binding only when the API explicitly requires full semantic state.
 
+Hot incremental paths should operate on immutable `SourceText` spans instead of
+rendering syntax nodes to temporary strings. When a derived string is genuinely
+needed repeatedly, cache it at the immutable syntax, symbol, binder, or snapshot
+boundary that owns its validity; do not add cache-specific responsibilities to
+language-service callers.
+
 ## Diagnostics
 
 Diagnostics are produced by distinct owners:
