@@ -1867,6 +1867,8 @@ union MyResult<T>(List<T> | int)
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
         var initialCode = code.Replace("use app = builder.Build()", "val app = builder.Build()", StringComparison.Ordinal);
+        initialCode.ShouldNotBe(code);
+
         await store.UpsertDocumentAsync(uri, initialCode);
 
         var initialSourceText = Raven.CodeAnalysis.Text.SourceText.From(initialCode);

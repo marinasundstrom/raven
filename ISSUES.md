@@ -91,7 +91,9 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 
 - **Fixed:** Updated stale sample paths, ASP.NET hover targets, `val`-to-`let`
   markers, multiline route-handler lookup, visible-range boundaries, and
-  headless replay/edit scenario inputs after recent sample changes.
+  headless replay/edit scenario inputs after recent sample changes. Sample-backed
+  edit tests now assert that their text transformations actually changed the
+  source.
 - **Validation:** Focused EF Core snapshot/inlay, ASP.NET, vehicle inlay-cache,
   large visible-range, incremental-edit tests, and renamed-file headless
   replay/edit probes pass. The full integration suite was not rerun because of

@@ -2242,10 +2242,15 @@ func Main() -> unit {
 
         var code = await File.ReadAllTextAsync(filePath);
         var withDotCode = code.Replace(
-            "    val names = query.ToList()",
-            "    query.\n\n    val names = query.ToList()",
+            "    let names = query.ToList()",
+            "    query.\n\n    let names = query.ToList()",
             StringComparison.Ordinal);
+        withDotCode.ShouldNotBe(code);
+
         var withoutDotCode = withDotCode.Replace("    query.\n", "    query\n", StringComparison.Ordinal);
+        withoutDotCode.ShouldNotBe(withDotCode);
+        withoutDotCode.ShouldNotBe(code);
+
         var uri = DocumentUri.FromFileSystemPath(filePath);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");

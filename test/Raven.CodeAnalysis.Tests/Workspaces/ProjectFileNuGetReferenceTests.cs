@@ -1110,11 +1110,14 @@ public sealed class ProjectFileNuGetReferenceTests
         var projectId = workspace.OpenProject(projectPath);
         var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document =>
             string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var originalText = File.ReadAllText(sourcePath);
         var updatedText = SourceText.From(
-            File.ReadAllText(sourcePath).Replace(
+            originalText.Replace(
                 "    let names = query.ToList()",
                 "    let names = query.P",
                 StringComparison.Ordinal));
+        Assert.NotEqual(originalText, updatedText.ToString());
+
         workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, updatedText));
 
         var compilation = workspace.GetCompilation(projectId);
@@ -1442,6 +1445,7 @@ public sealed class ProjectFileNuGetReferenceTests
             string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
         var sourceText = document.GetTextAsync().GetAwaiter().GetResult()!.ToString();
         var updatedText = sourceText.Replace("CreateBuilder(args)", "CreateBuilder( args)", StringComparison.Ordinal);
+        Assert.NotEqual(sourceText, updatedText);
 
         workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From(updatedText))).ShouldBeTrue();
 
