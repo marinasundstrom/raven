@@ -410,6 +410,10 @@ which representation must be available and when it must be available:
 | .NET reflection | Emitted types, members, attributes, and metadata | Runtime | Code must discover or invoke compiled program structure |
 | Raven macros | Authored syntax transformed through compiler expansion | Compile time | A reusable language abstraction must generate or reshape the program itself |
 
+Raven's macro system is currently a work in progress. Use it for experimentation
+with compile-time transformations, but expect the model and APIs to evolve. See
+[Metaprogramming in Raven](../metaprogramming.md) for its current status.
+
 Prefer the least powerful representation that directly matches the use case.
 An ordinary generic, function, delegate, interface, or attribute is clearer
 when no code or program structure needs to be inspected or transformed.

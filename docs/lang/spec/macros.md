@@ -1,5 +1,11 @@
 # Macros
 
+> [!NOTE]
+> **Status: work in progress.** This page documents the macro behavior currently
+> implemented by the compiler, not a stable compatibility contract. Macro
+> syntax, the authoring and activation model, compiler APIs, and tooling
+> integration may change as the design develops.
+
 ## Overview
 
 Raven supports attached declaration macros and freestanding expression macros. A macro is a compiler-driven expansion that produces ordinary Raven syntax before normal semantic analysis continues.

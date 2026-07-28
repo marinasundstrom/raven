@@ -238,6 +238,9 @@ Analyzers observe code. Source generators add compilation-wide derived code.
 Macros are a separate language mechanism for explicit compile-time behavior at
 an invocation site.
 
+The macro system is currently a work in progress and remains subject to change.
+See [Metaprogramming in Raven](../metaprogramming.md) for its current status.
+
 Choose an analyzer for feedback, a generator for project-wide derived
 declarations, and a macro when the source itself should explicitly invoke a
 compile-time operation.

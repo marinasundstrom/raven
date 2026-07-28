@@ -5,6 +5,9 @@ expression-oriented style, explicit mutability, pattern matching,
 `Option`/`Result`-based flow, records and primary constructors,
 extensions/traits, and direct .NET interop.
 
+Raven is under active development. The reference describes current behavior
+and marks features whose design is still especially likely to change.
+
 ## Start here
 
 * [Introduction](../introduction.md)

@@ -4,9 +4,8 @@ Raven is a pragmatic, typed application language for .NET that makes functional
 composition, algebraic modeling, and object-oriented design complementary parts
 of one toolset, with direct access to the .NET runtime and ecosystem.
 
-> [!IMPORTANT]
-> Raven is under active development. The documentation describes the current
-> compiler, but language and tooling details can change before a stable release.
+Raven is under active development. These pages describe the compiler as it
+works today and identify areas whose design is still changing.
 
 ## Learn Raven
 

@@ -84,6 +84,9 @@ func Max(x: int, y: int) -> int {
 
 ## Attributes and macros
 
+These conventions describe the current macro syntax. The macro model is still a
+work in progress and may change as it develops.
+
 - Place attributes and attached macros on the line directly above the target
   declaration.
 - Do not insert blank lines between an attribute/macro and the declaration it

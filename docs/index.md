@@ -12,7 +12,7 @@ _layout: landing
       <a class="raven-button raven-button-primary" href="getting-started.md">Get started <span aria-hidden="true">→</span></a>
       <a class="raven-button" href="https://marinasundstrom.github.io/raven/playground/">Try the Playground</a>
     </div>
-    <p class="raven-preview-note">Raven is experimental and under active development.</p>
+    <p class="raven-preview-note">Raven is under active development. Evolving areas are marked in the documentation.</p>
   </div>
   <div class="raven-hero-code raven-code-carousel" aria-label="Raven code examples" data-raven-carousel>
     <div class="raven-code-slide" id="raven-sample-modeling" role="tabpanel" aria-labelledby="raven-sample-modeling-tab">
