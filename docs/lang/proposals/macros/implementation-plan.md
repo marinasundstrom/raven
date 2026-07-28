@@ -688,31 +688,42 @@ The current candidate is a function-like declaration whose parameter roles,
 result role, and optional target clause describe the macro category:
 
 ```raven
-macro Foo(argument: Expression) -> Expression {
+macro func Foo(argument: Expression) -> Expression {
     // ...
 }
 
-macro Query(body: TokenStream) -> Expression {
+macro func Query(body: TokenStream) -> Expression {
     // ...
 }
 
-macro AddEquatable() on Type -> Members {
+macro func AddEquatable() on Type -> Members {
     // ...
 }
 ```
 
-This is defined as lowering sugar. The compiler synthesizes the corresponding
-macro class, category-specific interface implementation, and `Expand` method;
-projects using the object-oriented API directly remain equivalent. Local
-declarations enter the compile-time partition without assembly export metadata.
-Only an explicitly exported declaration in a provider assembly synthesizes a
-`RavenCompilerPlugin(typeof(...))` manifest entry.
+`macro` is intended to be contextual before the existing `func` declaration,
+keeping the new keyword surface narrow. This is defined as source-level
+lowering over the shared dynamic and typed macro infrastructure. The compiler
+may initially synthesize the corresponding parameter-object class,
+category-specific adapter, and `Expand` method, but these generated types are
+not the semantic identity of the macro function and are not a compatibility
+constraint. Local declarations enter the compile-time partition without
+assembly export metadata. Only an explicitly exported declaration in a
+provider assembly synthesizes provider manifest metadata.
 
 The signature derives the category from three independent axes: input roles,
 an optional attachment target, and the result role. It must cover attached,
 argument-style, and token-tree macros without reintroducing a separate
 `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).
+
+The future strongly typed layer also includes symbolic generic arguments.
+Explicit macro type arguments bind to `ITypeSymbol` values, participate in
+constraint validation before expansion, and remain distinct from CLR generic
+parameters on the provider implementation. A macro function may eventually
+declare a call-site semantic result type, while its implementation supplies
+syntax that the compiler binds and verifies against that result. Generic
+inference and overload resolution remain later layers.
 
 Validation record for this slice:
 

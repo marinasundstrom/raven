@@ -89,33 +89,74 @@ this loop later; they are not prerequisites for it.
 
 Dedicated syntax for declaring a macro is also post-MVP work. It may eventually
 hide repetitive plugin or macro classes as well as `[LocalMacro]` partition
-markers. The object-oriented contracts remain the stable authoring and
-execution surface. A shorthand must lower to or interoperate with those
-contracts so Raven-authored shorthand and ordinary .NET implementations remain
-one macro ecosystem.
+markers. The current object-oriented contracts establish the shared expansion
+infrastructure, but they are not a compatibility constraint while the language
+and macro model are still developing. A shorthand should use the same
+invocation contexts, diagnostics, token streams, and expansion results so
+Raven-authored shorthand and ordinary .NET implementations remain one macro
+ecosystem, even if the adapter ABI changes.
+
+### Dynamic and strongly typed layers
+
+The current model deliberately permits both dynamic and strongly typed macro
+implementations.
+
+A dynamic implementation receives a base context containing the invocation
+syntax, raw argument list, parsed `MacroArgument` values, semantic services,
+and cancellation. It interprets those inputs itself. This is the unrestricted
+foundation and remains necessary for macros whose grammar or argument meaning
+cannot be expressed by a fixed signature.
+
+A strongly typed implementation builds on that same context. Its generic
+macro contract identifies a parameter-object type, the compiler binds constant
+positional and named arguments into that object, and the corresponding typed
+context exposes it through `Parameters`. The parameter object therefore acts
+as a signature and property bag; it does not define a separate expansion
+engine.
+
+Future strongly typed inputs should extend this layering rather than create a
+parallel model. A normalized typed input frame can eventually contain:
+
+* constant values converted to declared Raven-facing types;
+* parsed syntax values with an explicit syntax role;
+* symbolic generic type arguments and their constraints; and
+* a token-tree or other unrestricted body projection when declared.
+
+The base context remains available for diagnostics and advanced inspection.
+The typed layer provides the normal path for tooling, validation, and concise
+macro implementations.
 
 ### Candidate macro declaration syntax
 
 A compact declaration can encode the invocation input and expansion category
-in a function-like signature:
+in a function-like signature. `macro` is proposed as a contextual modifier on
+the existing `func` declaration rather than as the start of an unrelated
+declaration grammar:
 
 ```raven
-macro Foo(argument: Expression) -> Expression {
+macro func Foo(argument: Expression) -> Expression {
     // ...
 }
 
-macro Query(body: TokenStream) -> Expression {
+macro func Query(body: TokenStream) -> Expression {
     // ...
 }
 
-macro Query(dialect: string, body: TokenStream) -> Expression {
+macro func Query(dialect: string, body: TokenStream) -> Expression {
     // ...
 }
 
-macro AddEquatable() on Type -> Members {
+macro func AddEquatable() on Type -> Members {
     // ...
 }
 ```
+
+This spelling reuses `func`, ordinary parameter lists, generic type-argument
+lists, `where` constraints, `->`, and the existing block form. New reserved
+keywords should be avoided unless they distinguish semantics that cannot be
+expressed clearly through contextual syntax. In particular, input-role names
+such as `Expression` and `TokenStream` can initially be contextual
+compiler-known types rather than keywords.
 
 The signature categories are compile-time syntax roles, not runtime Raven
 value types:
@@ -145,11 +186,11 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro Foo(argument: Expression) -> Expression` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
-| `macro Query(body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
-| `macro Query(dialect: string, body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
-| `macro AddEquatable() on Type -> Members` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
-| `macro Observable() on Property -> Declaration` | `IAttachedDeclarationMacro` returning a replacement declaration |
+| `macro func Foo(argument: Expression) -> Expression` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
+| `macro func Query(body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
+| `macro func Query(dialect: string, body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
+| `macro func AddEquatable() on Type -> Members` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
+| `macro func Observable() on Property -> Declaration` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
 Typed parameter lists may lower through the existing generic macro interfaces
 and compiler-owned parameter objects. Syntax-role parameters such as
@@ -169,20 +210,71 @@ named inputs. This same schema drives named-argument completion today and can
 drive signature help and future macro declaration lowering without changing
 the expansion context contract.
 
+### Generic macro functions and semantic result types
+
+Generic macro parameters need a stronger model than preserving
+`GenericNameSyntax` at the invocation. They are compile-time symbolic types,
+not CLR generic parameters on the generated macro class. A consumer may pass a
+type declared in the same source compilation, which is unavailable when the
+macro provider assembly itself is compiled.
+
+A bound macro type argument should therefore retain both its authored
+`TypeSyntax` and resolved `ITypeSymbol`, together with its location and
+constraint result. Macro lookup validates name and arity, ordinary Raven type
+binding resolves each argument, and constraints are checked before expansion.
+The typed context or generated input frame then exposes a compiler-owned
+symbolic type-argument value to the implementation.
+
+The intended direction can be illustrated by `compile!`:
+
+```raven
+macro func compile<TDelegate>(body: syntax Expression) -> TDelegate
+    where TDelegate: Delegate
+{
+    expand quote! {
+        RavenCompiler.Compile<#type(TDelegate)>(#body)
+    }
+}
+```
+
+This example is semantic design notation, not committed grammar:
+
+* `body` is parsed as Raven expression syntax;
+* `TDelegate` is bound symbolically and checked against `Delegate`;
+* `-> TDelegate` describes the type observed at the macro call site;
+* the macro implementation produces expression syntax; and
+* the compiler binds the expansion and verifies that it converts to
+  `TDelegate`.
+
+The distinction between the call-site result type and the syntax returned by
+the expansion implementation is essential if macros are to behave like
+functions in semantic tooling. A contextual `expand` statement is one possible
+way to make that distinction visible. Before introducing it, the design should
+evaluate whether an existing construct or an inferred final expression can
+express the same meaning without ambiguity. Likewise, `syntax` and `#type`
+are placeholders for syntax-role and type-splice concepts, not accepted
+keyword proposals.
+
+Generic inference and macro overload resolution can follow after explicit type
+arguments, constraints, and expansion-result validation are stable. Initially,
+registry identity can include name, generic arity, and invocation envelope
+without requiring general overload resolution.
+
 Likewise, target applicability belongs only to the attached-macro contract.
 `IAttachedDeclarationMacro.Targets` represents the optional `on` clause;
 freestanding and token-tree macro classes do not implement a meaningless
 `Targets = None` member. Common tooling can query the normalized value through
 `MacroFacts.GetTargets`.
 
-This syntax must lower to the object-oriented MVP API. Conceptually, the
-compiler synthesizes a class implementing the inferred category-specific macro
-interface and an `Expand` method whose body comes from the declaration body.
-It projects named inputs from the appropriate expansion context and wraps
-successful syntax returns with the matching expansion-result factory. Source
-locations, diagnostics, cancellation, and generated-member navigation must map
-back to the authored macro declaration rather than exposing the synthesized
-class.
+This syntax must lower to the shared macro infrastructure. Initially, the
+compiler may synthesize a parameter-object class, a category-specific adapter,
+and an `Expand` method whose body comes from the declaration body. Those are
+implementation details rather than the semantic identity of the declaration.
+The semantic identity is a macro function signature plus its expansion entry
+point, so the adapter shape can evolve without changing the source model.
+Source locations, diagnostics, cancellation, and generated-member navigation
+must map back to the authored macro declaration rather than exposing generated
+types.
 
 A local macro declaration is placed in the same compile-time partition as
 today's `[LocalMacro]` declaration and is discovered there without an assembly
@@ -200,12 +292,16 @@ their requirements:
   more explicit spelling such as `syntax Expression`;
 * how a macro that needs to return diagnostics alongside syntax spells its
   advanced result type;
+* whether expansion syntax needs a contextual `expand` construct or can reuse
+  an existing return/final-expression form without obscuring the call-site
+  result type;
 * whether delimiter choice is inferred from input roles or declared
   explicitly; and
 * how overloads and generic macro declarations participate in lookup.
 
-These are surface-language decisions. They must not change the generated
-interface, context, token-stream, diagnostic, and expansion-result contracts.
+These are surface-language decisions. They should preserve the shared context,
+token-stream, diagnostic, and expansion-result semantics, but the generated
+adapter interfaces may change as the macro model develops.
 
 ## Two kinds of syntax structure
 
