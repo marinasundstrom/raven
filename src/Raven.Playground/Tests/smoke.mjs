@@ -109,8 +109,8 @@ try {
   if (!sharedSource.includes("Raven link")) {
     throw new Error(`Expected shared source to load from the URL, got ${sharedSource}.`);
   }
-  const sharedSelection = await sharedPage.getByLabel("Example").evaluate(select => select.value);
-  if (sharedSelection !== "") {
+  const sharedSelection = (await sharedPage.locator(".example-picker-trigger").textContent()).trim();
+  if (!sharedSelection.includes("Shared program")) {
     throw new Error(`Expected the shared program selector state, got '${sharedSelection}'.`);
   }
   await sharedPage.close();
@@ -162,12 +162,36 @@ try {
     .first()
     .waitFor({ timeout: 30_000 });
 
-  const examplePicker = page.getByLabel("Example");
+  const examplePicker = page.locator(".example-picker-trigger");
   const examples = await (await fetch(`${url}examples/index.json`)).json();
+  if (examples.some(example => !example.category)) {
+    throw new Error("Expected every example to belong to a category.");
+  }
+  await examplePicker.click();
+  const exampleDialog = page.getByRole("dialog", { name: "Choose an example" });
+  await exampleDialog.getByRole("heading", { name: "Basics" }).waitFor();
+  await exampleDialog.getByRole("heading", { name: "Unions and patterns" }).waitFor();
+  const exampleSearch = exampleDialog.getByRole("searchbox", { name: "Search examples" });
+  await exampleSearch.fill("typestate");
+  const filteredOptions = exampleDialog.getByRole("option");
+  if (await filteredOptions.count() !== 1 ||
+      !(await filteredOptions.first().textContent()).includes("State-safe connections")) {
+    throw new Error("Expected example search to filter the grouped list.");
+  }
+  await exampleDialog.getByRole("button", { name: "Clear example search" }).click();
+  if (await exampleDialog.getByRole("option").count() !== examples.length) {
+    throw new Error("Expected clearing example search to restore every example.");
+  }
+  await page.keyboard.press("Escape");
+  await exampleDialog.waitFor({ state: "hidden" });
+
   await page.getByRole("link", { name: "Documentation" }).waitFor();
   await page.getByRole("link", { name: "GitHub" }).waitFor();
   for (const example of examples) {
-    await examplePicker.selectOption(example.id);
+    await examplePicker.click();
+    await page.getByRole("dialog", { name: "Choose an example" })
+      .getByRole("option", { name: example.title, exact: true })
+      .click();
     await page.waitForFunction(
       () => !new URL(window.location.href).searchParams.has("source"),
       { timeout: 30_000 },

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Replaced the Playground's native example selector with a themed, searchable
+  picker that organizes samples into a Basics section and feature-focused
+  groups.
 - Added expression-form pattern binding with
   `if let pattern = value { ... } else { ... }`. It uses the same pattern and
   capture semantics as the existing statement form, scopes captures to the

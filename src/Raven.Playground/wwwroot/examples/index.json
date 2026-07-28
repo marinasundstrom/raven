@@ -2,141 +2,169 @@
   {
     "id": "hello",
     "title": "Hello, Raven",
-    "file": "hello.rvn"
+    "file": "hello.rvn",
+    "category": "Basics"
   },
   {
     "id": "quote-macro",
     "title": "Build syntax with the quote macro",
-    "file": "quote-macro.rvn"
+    "file": "quote-macro.rvn",
+    "category": "Metaprogramming"
   },
   {
     "id": "local-macros",
     "title": "Define and use procedural macros",
-    "file": "local-macros.rvn"
+    "file": "local-macros.rvn",
+    "category": "Metaprogramming"
   },
   {
     "id": "delivery-status",
     "title": "Delivery pricing with domain types",
-    "file": "delivery-status.rvn"
+    "file": "delivery-status.rvn",
+    "category": "Domain modeling"
   },
   {
     "id": "fulfillment-route",
     "title": "Fulfillment with sealed hierarchies",
-    "file": "fulfillment-route.rvn"
+    "file": "fulfillment-route.rvn",
+    "category": "Domain modeling"
   },
   {
     "id": "records",
     "title": "Records and deconstruction",
-    "file": "records.rvn"
+    "file": "records.rvn",
+    "category": "Basics"
   },
   {
     "id": "with-expressions",
     "title": "Immutable updates with with",
-    "file": "with-expressions.rvn"
+    "file": "with-expressions.rvn",
+    "category": "Basics"
   },
   {
     "id": "greenhouse-monitoring",
     "title": "Domain modeling with a functional core",
-    "file": "greenhouse-monitoring.rvn"
+    "file": "greenhouse-monitoring.rvn",
+    "category": "Domain modeling"
   },
   {
     "id": "connection-typestate",
     "title": "State-safe connections with typestate",
-    "file": "connection-typestate.rvn"
+    "file": "connection-typestate.rvn",
+    "category": "Domain modeling"
   },
   {
     "id": "shipment-lookup",
     "title": "Shipment migration with type unions",
-    "file": "shipment-lookup.rvn"
+    "file": "shipment-lookup.rvn",
+    "category": "Unions and patterns"
   },
   {
     "id": "union-declarations",
     "title": "Union declarations, cases, and members",
-    "file": "union-declarations.rvn"
+    "file": "union-declarations.rvn",
+    "category": "Unions and patterns"
   },
   {
     "id": "restock-patterns",
     "title": "Restocking with for patterns",
-    "file": "restock-patterns.rvn"
+    "file": "restock-patterns.rvn",
+    "category": "Unions and patterns"
   },
   {
     "id": "parcel-feed",
     "title": "Parcel scanning with while let",
-    "file": "parcel-feed.rvn"
+    "file": "parcel-feed.rvn",
+    "category": "Unions and patterns"
   },
   {
     "id": "dispatch-board",
     "title": "Dispatch planning with comprehensions",
-    "file": "dispatch-board.rvn"
+    "file": "dispatch-board.rvn",
+    "category": "Queries and async"
   },
   {
     "id": "linq-query",
     "title": "Querying shipments with LINQ",
-    "file": "linq-query.rvn"
+    "file": "linq-query.rvn",
+    "category": "Queries and async"
   },
   {
     "id": "linq-outcomes",
     "title": "LINQ queries returning Option and Result",
-    "file": "linq-outcomes.rvn"
+    "file": "linq-outcomes.rvn",
+    "category": "Queries and async"
   },
   {
     "id": "checkout-async",
     "title": "Checkout preparation with async/await",
-    "file": "checkout-async.rvn"
+    "file": "checkout-async.rvn",
+    "category": "Queries and async"
   },
   {
     "id": "telemetry-stream",
     "title": "Cold-chain monitoring with async streams",
-    "file": "telemetry-stream.rvn"
+    "file": "telemetry-stream.rvn",
+    "category": "Queries and async"
   },
   {
     "id": "webhook-routing",
     "title": "Webhook routing with structural patterns",
-    "file": "webhook-routing.rvn"
+    "file": "webhook-routing.rvn",
+    "category": "Unions and patterns"
   },
   {
     "id": "http-json",
     "title": "Loading JSON over HTTP",
-    "file": "http-json.rvn"
+    "file": "http-json.rvn",
+    "category": "Queries and async"
   },
   {
     "id": "result",
     "title": "Result propagation",
-    "file": "result.rvn"
+    "file": "result.rvn",
+    "category": "Options and results"
   },
   {
     "id": "option-result-methods",
     "title": "Option and Result methods",
-    "file": "option-result-methods.rvn"
+    "file": "option-result-methods.rvn",
+    "category": "Options and results"
   },
   {
     "id": "order-boundary",
     "title": "Error conversion at a domain boundary",
-    "file": "order-boundary.rvn"
+    "file": "order-boundary.rvn",
+    "category": "Options and results"
   },
   {
     "id": "option-search",
     "title": "Option and let…else",
-    "file": "option-search.rvn"
+    "file": "option-search.rvn",
+    "category": "Options and results"
   },
   {
     "id": "projected-parsing",
     "title": ".NET parsing as typed flow",
-    "file": "projected-parsing.rvn"
+    "file": "projected-parsing.rvn",
+    "category": "Options and results"
   },
   {
     "id": "price-import",
     "title": "Price imports with try expressions",
-    "file": "price-import.rvn"
+    "file": "price-import.rvn",
+    "category": "Options and results"
   },
   {
     "id": "pipeline",
     "title": "Data flow with pipelines",
-    "file": "pipeline.rvn"
+    "file": "pipeline.rvn",
+    "category": "Basics"
   },
   {
     "id": "higher-order",
     "title": "Functions as values",
-    "file": "higher-order.rvn"
+    "file": "higher-order.rvn",
+    "category": "Basics"
   }
 ]

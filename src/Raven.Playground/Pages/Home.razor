@@ -42,19 +42,81 @@
                     <span class="panel-kicker">Source</span>
                     <h2 id="editor-heading">main.rav</h2>
                 </div>
-                <label class="example-picker">
-                    <span>Example</span>
-                    <select value="@_selectedExampleId" disabled="@_isBusy" @onchange="SelectExampleAsync">
-                        @if (string.IsNullOrEmpty(_selectedExampleId))
-                        {
-                            <option value="">Shared program</option>
-                        }
-                        @foreach (var example in _examples)
-                        {
-                            <option value="@example.Id">@example.Title</option>
-                        }
-                    </select>
-                </label>
+                <div class="example-picker">
+                    <span class="example-picker-label">Example</span>
+                    <button class="example-picker-trigger"
+                            type="button"
+                            disabled="@_isBusy"
+                            aria-expanded="@_examplePickerOpen"
+                            aria-haspopup="dialog"
+                            aria-controls="example-picker-popover"
+                            aria-label="Choose example, @SelectedExampleTitle"
+                            @onclick="ToggleExamplePickerAsync">
+                        <span>@SelectedExampleTitle</span>
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="m4 6 4 4 4-4" />
+                        </svg>
+                    </button>
+                    @if (_examplePickerOpen)
+                    {
+                        <div class="example-picker-backdrop" aria-hidden="true" @onclick="CloseExamplePicker"></div>
+                        <div id="example-picker-popover"
+                             class="example-picker-popover"
+                             role="dialog"
+                             aria-label="Choose an example"
+                             @onkeydown="HandleExamplePickerKeyDown">
+                            <div class="example-search">
+                                <svg viewBox="0 0 16 16" aria-hidden="true">
+                                    <circle cx="7" cy="7" r="4.25" />
+                                    <path d="m10.25 10.25 3 3" />
+                                </svg>
+                                <input @ref="_exampleSearchElement"
+                                       type="search"
+                                       placeholder="Search examples…"
+                                       aria-label="Search examples"
+                                       autocomplete="off"
+                                       @bind="_exampleQuery"
+                                       @bind:event="oninput" />
+                                @if (!string.IsNullOrEmpty(_exampleQuery))
+                                {
+                                    <button class="example-search-clear"
+                                            type="button"
+                                            aria-label="Clear example search"
+                                            @onclick="ClearExampleSearchAsync">×</button>
+                                }
+                            </div>
+                            <div class="example-options" role="listbox" aria-label="Examples">
+                                @foreach (var group in FilteredExampleGroups)
+                                {
+                                    <section class="example-group" role="group" aria-labelledby="@GroupLabelId(group.Key)">
+                                        <h3 id="@GroupLabelId(group.Key)">@group.Key</h3>
+                                        @foreach (var example in group)
+                                        {
+                                            <button class="example-option"
+                                                    type="button"
+                                                    role="option"
+                                                    aria-selected="@(example.Id == _selectedExampleId)"
+                                                    @onclick="() => SelectExampleAsync(example.Id)">
+                                                <span>@example.Title</span>
+                                                @if (example.Id == _selectedExampleId)
+                                                {
+                                                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="m3.5 8 3 3 6-6" />
+                                                    </svg>
+                                                }
+                                            </button>
+                                        }
+                                    </section>
+                                }
+                                @if (!FilteredExamples.Any())
+                                {
+                                    <p class="example-empty">No examples match “@_exampleQuery”.</p>
+                                }
+                            </div>
+                            <p class="example-picker-hint">@FilteredExamples.Count() of @_examples.Count examples</p>
+                        </div>
+                    }
+                </div>
                 <div class="actions">
                     <button class="compile-button" type="button" disabled="@_isBusy" @onclick="CompileAsync">
                         Compile <kbd>F6</kbd>
@@ -113,6 +175,7 @@
 
 @code {
     private ElementReference _editorElement;
+    private ElementReference _exampleSearchElement;
     private IJSObjectReference? _module;
     private IJSObjectReference? _editor;
     private DotNetObjectReference<Home>? _commandTarget;
@@ -121,11 +184,27 @@
     private string _selectedExampleId = string.Empty;
     private string _initialSource = string.Empty;
     private string _shareStatus = string.Empty;
+    private string _exampleQuery = string.Empty;
+    private bool _examplePickerOpen;
     private bool _initialSourceLoaded;
     private bool _isBusy;
     private string _themeMode = "system";
     private IReadOnlyList<string> _diagnostics = [];
     private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
+
+    private IEnumerable<PlaygroundExampleEntry> FilteredExamples =>
+        string.IsNullOrWhiteSpace(_exampleQuery)
+            ? _examples
+            : _examples.Where(example =>
+                example.Title.Contains(_exampleQuery, StringComparison.OrdinalIgnoreCase) ||
+                example.Category.Contains(_exampleQuery, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<IGrouping<string, PlaygroundExampleEntry>> FilteredExampleGroups =>
+        FilteredExamples.GroupBy(example => example.Category);
+
+    private string SelectedExampleTitle =>
+        _examples.FirstOrDefault(example => example.Id == _selectedExampleId)?.Title
+        ?? "Shared program";
 
     private string StatusClass => _status switch
     {
@@ -183,15 +262,43 @@
         await _module.InvokeVoidAsync("setThemeMode", _themeMode);
     }
 
-    private async Task SelectExampleAsync(ChangeEventArgs args)
+    private async Task ToggleExamplePickerAsync()
     {
-        var id = args.Value?.ToString();
+        _examplePickerOpen = !_examplePickerOpen;
+        if (!_examplePickerOpen)
+            return;
+
+        await Task.Yield();
+        await _exampleSearchElement.FocusAsync();
+    }
+
+    private void CloseExamplePicker()
+    {
+        _examplePickerOpen = false;
+        _exampleQuery = string.Empty;
+    }
+
+    private void HandleExamplePickerKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            CloseExamplePicker();
+    }
+
+    private async Task ClearExampleSearchAsync()
+    {
+        _exampleQuery = string.Empty;
+        await _exampleSearchElement.FocusAsync();
+    }
+
+    private async Task SelectExampleAsync(string id)
+    {
         var example = _examples.FirstOrDefault(example =>
             string.Equals(example.Id, id, StringComparison.Ordinal));
         if (example is null || _editor is null)
             return;
 
         _selectedExampleId = example.Id;
+        CloseExamplePicker();
         var source = await Http.GetStringAsync($"examples/{example.File}");
         await _editor.InvokeVoidAsync("setValue", source);
         if (_module is not null)
@@ -211,6 +318,7 @@
         var encodedSource = EncodeSource(source);
         var copied = await _module.InvokeAsync<bool>("setSharedSource", encodedSource);
         _selectedExampleId = string.Empty;
+        CloseExamplePicker();
         _shareStatus = copied ? "Link copied" : "Link ready";
     }
 
@@ -300,7 +408,10 @@
         return false;
     }
 
-    private sealed record PlaygroundExampleEntry(string Id, string Title, string File);
+    private static string GroupLabelId(string category) =>
+        $"example-group-{category.ToLowerInvariant().Replace(' ', '-')}";
+
+    private sealed record PlaygroundExampleEntry(string Id, string Title, string File, string Category);
 
     private async Task CompileCoreAsync(bool run)
     {
