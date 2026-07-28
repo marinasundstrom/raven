@@ -515,6 +515,14 @@ The current typed-parameter binding slice supports:
 * constant conversion into common CLR primitive/reference types
 * typed arguments combined with an unrestricted token-tree body
 
+Typed value parameters are limited to values representable by the compiler's
+constant model and conversions explicitly supported by the macro binder. The
+compiler does not execute caller expressions to obtain argument values and
+does not inject arbitrary runtime objects into a macro. Arguments outside this
+boundary are rejected with a diagnostic. Syntax-node and token-stream inputs
+remain explicit, type-directed projections so the macro contract makes access
+to authored code visible.
+
 `MacroFacts.GetParametersType(...)` and `MacroFacts.GetParameters(...)` expose
 the compiler-normalized parameter schema without requiring tooling to inspect
 the macro implementation itself. Each `MacroParameterDescriptor` identifies

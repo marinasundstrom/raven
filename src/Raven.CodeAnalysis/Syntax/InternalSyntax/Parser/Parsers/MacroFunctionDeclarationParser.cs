@@ -18,6 +18,16 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
         => IsMacroKeyword(PeekToken()) &&
            PeekToken(1).IsKind(SyntaxKind.FuncKeyword);
 
+    public bool IsDeclarationStartAfterModifiers()
+    {
+        var offset = 0;
+        while (IsDeclarationModifier(PeekToken(offset).Kind))
+            offset++;
+
+        return IsMacroKeyword(PeekToken(offset)) &&
+               PeekToken(offset + 1).IsKind(SyntaxKind.FuncKeyword);
+    }
+
     public MacroFunctionDeclarationSyntax Parse(
         SyntaxList attributeLists,
         SyntaxList modifiers)
@@ -111,6 +121,25 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
 
     internal static bool IsMacroKeyword(SyntaxToken token)
         => IsContextualKeyword(token, "macro");
+
+    private static bool IsDeclarationModifier(SyntaxKind kind)
+        => kind is SyntaxKind.PublicKeyword or
+            SyntaxKind.PrivateKeyword or
+            SyntaxKind.InternalKeyword or
+            SyntaxKind.ProtectedKeyword or
+            SyntaxKind.FileprivateKeyword or
+            SyntaxKind.StaticKeyword or
+            SyntaxKind.RefKeyword or
+            SyntaxKind.ReadonlyKeyword or
+            SyntaxKind.AbstractKeyword or
+            SyntaxKind.FinalKeyword or
+            SyntaxKind.SealedKeyword or
+            SyntaxKind.PartialKeyword or
+            SyntaxKind.VirtualKeyword or
+            SyntaxKind.AsyncKeyword or
+            SyntaxKind.OpenKeyword or
+            SyntaxKind.RecordKeyword or
+            SyntaxKind.OverrideKeyword;
 
     private static bool IsContextualKeyword(SyntaxToken token, string value)
         => token.IsKind(SyntaxKind.IdentifierToken) &&

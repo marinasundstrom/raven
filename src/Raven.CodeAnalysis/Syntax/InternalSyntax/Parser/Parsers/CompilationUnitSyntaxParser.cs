@@ -210,7 +210,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
-                 nextToken.IsKind(SyntaxKind.AsyncKeyword) ||
+                 (nextToken.IsKind(SyntaxKind.AsyncKeyword) &&
+                  new MacroFunctionDeclarationParser(this).IsDeclarationStartAfterModifiers()) ||
                  nextToken.IsKind(SyntaxKind.ExternKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken) ||
                  nextToken.IsKind(SyntaxKind.HashToken))
