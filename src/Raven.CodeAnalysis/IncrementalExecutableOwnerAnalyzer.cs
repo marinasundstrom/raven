@@ -370,7 +370,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
             if (previous.Kind != current.Kind ||
                 previous.IsMissing != current.IsMissing ||
                 !string.Equals(previous.Text, current.Text, StringComparison.Ordinal) ||
-                !string.Equals(previous.ValueText, current.ValueText, StringComparison.Ordinal))
+                !Equals(previous.Value, current.Value))
             {
                 return false;
             }

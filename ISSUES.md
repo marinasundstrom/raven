@@ -91,8 +91,8 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 
 - **Fixed:** Incremental executable-owner change detection now compares
   immutable `SourceText` spans directly instead of rendering both syntax owners
-  into temporary strings. Detached syntax retains the existing rendering
-  fallback.
+  into temporary strings, and compares token values without formatting them.
+  Detached syntax retains the existing rendering fallback.
 - **Coverage:** Focused source-text and incremental-owner tests verify direct
   character access and exact owner-relative change spans.
 
