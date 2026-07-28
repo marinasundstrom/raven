@@ -38,14 +38,28 @@ button { font: inherit; }
     margin-bottom: 16px;
 }
 
+.hero-copy {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: center;
+}
+
 .hero-copy .raven-brand {
-    margin-bottom: 10px;
+    grid-row: 1 / span 3;
+    margin: 0;
 }
 
 .hero-copy .raven-brand-mark {
     width: 2.25rem;
     height: 2.25rem;
     border-radius: 0.68rem;
+}
+
+.hero-copy .eyebrow,
+.hero-copy h1,
+.hero-copy .lede {
+    grid-column: 2;
 }
 
 .hero-tools {
@@ -122,7 +136,7 @@ h1 {
 .workspace {
     display: grid;
     grid-template-columns: minmax(0, 1.65fr) minmax(320px, .8fr);
-    height: clamp(500px, calc(100dvh - 220px), 780px);
+    height: clamp(500px, calc(100dvh - 170px), 820px);
     min-height: 500px;
     border: 1px solid var(--line);
     border-radius: var(--raven-radius);

@@ -6,8 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Made the Playground own and serve its theme stylesheet directly so local
   development and standalone subpath deployments use the same asset URL.
-- Reduced the Playground header's vertical footprint so the complete desktop
-  workspace fits without page-level scrolling on typical laptop viewports.
+- Reduced the Playground header to a compact Raven mark beside its title so the
+  complete desktop workspace fits without page-level scrolling on typical
+  laptop viewports.
 - Replaced the Playground's native example selector with a themed, searchable
   picker that organizes samples into a Basics section and feature-focused
   groups.

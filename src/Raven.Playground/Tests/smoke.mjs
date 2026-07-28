@@ -82,6 +82,19 @@ try {
   if (!themeBackground) {
     throw new Error("Expected the Raven theme variables to apply to the Playground.");
   }
+  if (await page.locator(".raven-brand-copy").count() !== 0) {
+    throw new Error("Expected the compact Playground header to omit the brand copy.");
+  }
+  const mastheadAlignment = await page.evaluate(() => {
+    const mark = document.querySelector(".hero-copy .raven-brand-mark")?.getBoundingClientRect();
+    const heading = document.querySelector(".hero-copy h1")?.getBoundingClientRect();
+    return mark && heading
+      ? { markRight: mark.right, headingLeft: heading.left }
+      : null;
+  });
+  if (!mastheadAlignment || mastheadAlignment.markRight > mastheadAlignment.headingLeft) {
+    throw new Error("Expected the Raven mark to sit before the Playground heading.");
+  }
 
   const editor = page.locator(".monaco-editor");
   await editor.waitFor();
