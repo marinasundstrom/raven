@@ -3,60 +3,39 @@ import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-class AddGreetingMacro : IAttachedDeclarationMacro {
-    val Name: string => "AddGreeting"
-    val Targets: MacroTarget => MacroTarget.Type
-
-    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        let tree = ParseSyntaxTree(
-            "class Generated { func Greeting() -> string => \"Hello from an attached macro\" }")
-        let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] else {
-            return MacroExpansionResult.Empty
+macro func AddGreeting() on Type {
+    let tree = ParseSyntaxTree(
+        "class Generated { func Greeting() -> string => \"Hello from an attached macro\" }")
+    if let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] {
+        if let method: MethodDeclarationSyntax = container.Members[0] {
+            introduce method
         }
-        let method: MethodDeclarationSyntax = container.Members[0] else {
-            return MacroExpansionResult.Empty
-        }
-
-        MacroExpansionResult.FromIntroducedMembers([method])
     }
 }
 
-class TwiceMacro : IFreestandingExpressionMacro {
-    val Name: string => "twice"
-    val AcceptsArguments: bool => true
-
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        if context.Arguments.Length != 1 {
-            return FreestandingMacroExpansionResult.Empty
-        }
-
-        FreestandingMacroExpansionResult.FromExpression(
-            quote! {
-                #(context.Arguments[0].Expression) * 2
-            }
-        )
+macro func Twice(value: ExpressionSyntax) {
+    expand quote! {
+        #(value) * 2
     }
 }
 
-class UnlessMacro : ITokenTreeExpressionMacro {
-    val Name: string => "unless"
+macro func Unless(tokens: IMacroTokenStream) {
+    var source = ""
+    while !tokens.IsEndOfFile {
+        source = source + tokens.ReadToken().Text
+    }
 
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-        let condition = context.ParseExpression()
-
-        FreestandingMacroExpansionResult.FromExpression(
-            quote! {
-                !#(condition)
-            }
-        )
+    let condition = ParseExpression(source)
+    expand quote! {
+        !#(condition)
     }
 }
 
 #[AddGreeting]
 class Greeter {}
 
-let answer = #twice(21)
-let shouldContinue = unless! {
+let answer = #Twice(21)
+let shouldContinue = Unless! {
     answer == 0
 }
 

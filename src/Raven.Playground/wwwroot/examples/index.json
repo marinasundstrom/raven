@@ -13,7 +13,7 @@
   },
   {
     "id": "local-macros",
-    "title": "Define and use procedural macros",
+    "title": "Define and use macro functions",
     "file": "local-macros.rvn",
     "category": "Metaprogramming"
   },

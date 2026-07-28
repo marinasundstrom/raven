@@ -10,7 +10,10 @@ internal static class AssemblyReferenceNormalizer
         "System.Collections"
     ];
 
-    internal static void NormalizeCoreLibReference(Stream peInput, Stream peOutput)
+    internal static void NormalizeCoreLibReference(
+        Stream peInput,
+        Stream peOutput,
+        IAssemblyResolver? assemblyResolver = null)
     {
         if (peInput is null)
             throw new ArgumentNullException(nameof(peInput));
@@ -19,13 +22,15 @@ internal static class AssemblyReferenceNormalizer
 
         peInput.Position = 0;
 
-        var assembly = AssemblyDefinition.ReadAssembly(
-            peInput,
-            new ReaderParameters
-            {
-                InMemory = true,
-                ReadingMode = ReadingMode.Immediate
-            });
+        var readerParameters = new ReaderParameters
+        {
+            InMemory = true,
+            ReadingMode = ReadingMode.Deferred
+        };
+        if (assemblyResolver is not null)
+            readerParameters.AssemblyResolver = assemblyResolver;
+
+        var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
 
         var module = assembly.MainModule;
         var coreLibRefs = module.AssemblyReferences
