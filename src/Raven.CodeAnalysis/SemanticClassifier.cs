@@ -30,6 +30,11 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
+            else if (descendant.Parent is MacroFunctionDeclarationSyntax macroFunction &&
+                     descendant == macroFunction.MacroKeyword)
+            {
+                tokenMap[descendant] = SemanticClassification.Keyword;
+            }
             // Interpolated-string punctuation: color ${ and } as interpolation (but only when they belong to an Interpolation node).
             else if ((kind == SyntaxKind.DollarToken ||
                       kind == SyntaxKind.OpenBraceToken ||
@@ -175,6 +180,7 @@ public static class SemanticClassifier
             DelegateDeclarationSyntax => SemanticClassification.Type,
             BaseMethodDeclarationSyntax => SemanticClassification.Method,
             FunctionStatementSyntax => SemanticClassification.Method,
+            MacroFunctionDeclarationSyntax => SemanticClassification.Method,
             PropertyDeclarationSyntax => SemanticClassification.Property,
             EventDeclarationSyntax => SemanticClassification.Event,
             InvocationExpressionSyntax => SemanticClassification.Method,

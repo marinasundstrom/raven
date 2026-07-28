@@ -192,6 +192,33 @@ raw text and token-stream APIs. A non-generic token-tree macro rejects supplied
 arguments. A token-tree macro must be invoked with braces; an argument-based
 macro must be invoked with parentheses.
 
+### Macro function declarations
+
+Raven recognizes the initial function-oriented macro declaration syntax at
+compilation-unit and namespace-member scope:
+
+```raven
+macro func Compile<TDelegate>(body: Expression) -> TDelegate
+    where TDelegate: Delegate
+{
+    // Expansion implementation
+}
+```
+
+`macro` is contextual. It remains an ordinary identifier unless it is followed
+by `func` where a member declaration may begin. The syntax tree represents the
+construct with a dedicated `MacroFunctionDeclarationSyntax`, retaining
+attributes, modifiers, generic parameters, ordinary parameters, a return
+clause, constraints, and either a block or expression body.
+
+This is currently a syntax-only feature boundary. Binding, macro symbol
+creation, activation, lowering to the shared context/parameter-object
+infrastructure, and expansion execution remain future work. Existing
+class-authored dynamic and strongly typed macros continue to define and test
+the executable macro engine while this declaration model develops.
+Namespace-qualified macro lookup, imported short names, and naming conventions
+are likewise outside this parsing slice.
+
 ### Expression quotes
 
 `quote! { expression }`, equivalently `#quote { expression }`, is a

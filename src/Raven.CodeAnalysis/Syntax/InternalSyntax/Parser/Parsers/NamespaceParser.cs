@@ -149,7 +149,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
     {
         static bool IsLikelyNamespaceMemberStart(SyntaxToken token)
         {
-            return token.Kind is
+            return MacroFunctionDeclarationParser.IsMacroKeyword(token) ||
+                token.Kind is
                 SyntaxKind.ImportKeyword or
                 SyntaxKind.AliasKeyword or
                 SyntaxKind.NamespaceKeyword or
@@ -228,6 +229,9 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 case FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration:
                     terminatorKind = fileScopedNamespaceDeclaration.TerminatorToken.Kind;
                     return true;
+                case MacroFunctionDeclarationSyntax macroFunctionDeclaration:
+                    terminatorKind = macroFunctionDeclaration.TerminatorToken.Kind;
+                    return true;
                 default:
                     terminatorKind = SyntaxKind.None;
                     return false;
@@ -284,6 +288,15 @@ internal class NamespaceDeclarationParser : SyntaxParser
             AddMemberDeclarationWithSeparatorValidation(namespaceDeclaration);
             order = MemberOrder.Members;
         }
+        else if (new MacroFunctionDeclarationParser(this).IsDeclarationStart())
+        {
+            var macroDeclaration = new MacroFunctionDeclarationParser(this).Parse(
+                SyntaxList.Empty,
+                SyntaxList.Empty);
+
+            AddMemberDeclarationWithSeparatorValidation(macroDeclaration);
+            order = MemberOrder.Members;
+        }
         else if (nextToken.IsKind(SyntaxKind.ConstKeyword) ||
                  nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
@@ -306,6 +319,16 @@ internal class NamespaceDeclarationParser : SyntaxParser
             var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
             var tokenAfterModifiers = PeekToken();
+
+            var macroParser = new MacroFunctionDeclarationParser(this);
+            if (macroParser.IsDeclarationStart())
+            {
+                var macroDeclaration = macroParser.Parse(attributeLists, modifiers);
+
+                AddMemberDeclarationWithSeparatorValidation(macroDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
 
             if (attributeLists.GetChildren()
                     .OfType<AttributeListSyntax>()

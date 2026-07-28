@@ -524,6 +524,18 @@
                     "match": "\\b(extension)\\b"
                 },
                 {
+                    "name": "meta.declaration.macro-function.raven",
+                    "match": "\\b(macro)(\\s+)(func)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.declaration.macro.raven storage.modifier.macro.raven"
+                        },
+                        "3": {
+                            "name": "keyword.declaration.function.raven storage.type.function.raven"
+                        }
+                    }
+                },
+                {
                     "name": "keyword.declaration.function.raven storage.type.function.raven",
                     "match": "\\b(func)\\b"
                 },

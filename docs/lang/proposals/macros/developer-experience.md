@@ -260,6 +260,33 @@ arguments, constraints, and expansion-result validation are stable. Initially,
 registry identity can include name, generic arity, and invocation envelope
 without requiring general overload resolution.
 
+### Names and qualification
+
+Namespace-qualified macro identity is a later semantic layer and is outside the
+initial `macro func` parsing slice. The intended direction is nevertheless the
+same as for ordinary functions and members: a macro has one canonical qualified
+identity, imports make its short name available in scope, and qualification is
+the explicit escape hatch for collisions.
+
+For a macro function, its namespace and declaration name naturally form that
+identity. A class-authored macro can use its implementation type as the
+qualified identity while retaining its declared macro name as the convenient
+imported spelling. The registry should eventually resolve symbols through
+namespace/import rules rather than treating one process-wide string as the
+complete identity.
+
+Whether public macro names conventionally begin with an uppercase letter is
+also deferred. Capitalized forms such as `Macros.Compile! { ... }` align with
+Raven and .NET aesthetics, especially when qualified, but this should begin as
+naming guidance or an analyzer rather than a parser restriction.
+
+Presenting the construct as a function is the source-level abstraction. It
+makes a macro easier to offer, discover, and call through its signature and
+behavior without exposing registration classes, property bags, adapters, or
+other expansion-engine plumbing. Those mechanisms remain useful compiler and
+provider implementation choices, but they are not part of the macro author's
+or caller's conceptual model.
+
 Likewise, target applicability belongs only to the attached-macro contract.
 `IAttachedDeclarationMacro.Targets` represents the optional `on` clause;
 freestanding and token-tree macro classes do not implement a meaningless

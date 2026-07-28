@@ -1225,6 +1225,20 @@
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
+  <Node Name="MacroFunctionDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="MacroKeyword" Type="Token" />
+    <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="ParameterList" Type="ParameterList" />
+    <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+  </Node>
   <Node Name="TypeDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="BaseTypeDeclaration" />
   </Node>

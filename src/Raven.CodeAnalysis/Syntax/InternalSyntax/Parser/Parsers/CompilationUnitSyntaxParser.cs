@@ -115,7 +115,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
     {
-        return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
+        return MacroFunctionDeclarationParser.IsMacroKeyword(token) ||
+            token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
             SyntaxKind.ConstKeyword or SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
@@ -187,6 +188,15 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             AddMemberDeclaration(memberDeclarations, namespaceDeclaration);
             order = MemberOrder.Members;
         }
+        else if (new MacroFunctionDeclarationParser(this).IsDeclarationStart())
+        {
+            var macroDeclaration = new MacroFunctionDeclarationParser(this).Parse(
+                SyntaxList.Empty,
+                SyntaxList.Empty);
+
+            AddMemberDeclaration(memberDeclarations, macroDeclaration);
+            order = MemberOrder.Members;
+        }
         else if (nextToken.IsKind(SyntaxKind.ConstKeyword) ||
                  nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
@@ -210,6 +220,16 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
             var tokenAfterModifiers = PeekToken();
+
+            var macroParser = new MacroFunctionDeclarationParser(this);
+            if (macroParser.IsDeclarationStart())
+            {
+                var macroDeclaration = macroParser.Parse(attributeLists, modifiers);
+
+                AddMemberDeclaration(memberDeclarations, macroDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
 
             if (attributeLists.GetChildren()
                     .OfType<AttributeListSyntax>()
@@ -494,6 +514,9 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 return true;
             case FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration:
                 terminatorKind = fileScopedNamespaceDeclaration.TerminatorToken.Kind;
+                return true;
+            case MacroFunctionDeclarationSyntax macroFunctionDeclaration:
+                terminatorKind = macroFunctionDeclaration.TerminatorToken.Kind;
                 return true;
             default:
                 terminatorKind = SyntaxKind.None;

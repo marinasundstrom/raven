@@ -83,6 +83,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and token-tree invocations. The semantic model now exposes normalized macro
   parameters and the active argument, and the language server presents that
   result including token-tree body shape.
+- Added the syntax-only `macro func` declaration boundary at compilation-unit
+  and namespace-member scope. It uses a dedicated
+  `MacroFunctionDeclarationSyntax`, treats `macro` contextually, and reuses
+  ordinary function signatures, generic parameters, constraints, bodies, and
+  recovery while semantic activation and lowering remain future work.
 - Added the compiler-owned expression-only `#quote { ... }` intrinsic. It
   preserves tokens and trivia, rejects malformed or trailing input at authored
   locations, expands to fully qualified `SyntaxFactory` construction, and
