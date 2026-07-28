@@ -6,15 +6,6 @@ by tests, and prefer small repros over broad historical failure summaries.
 
 ## Active Issues
 
-### Language-server integration suite is currently red
-
-- **Current state:** Stale fixture paths from the July 27 descriptive
-  sample-file rename have been corrected. Remaining failures report missing
-  local or parameter inlay hints for large/range-scoped documents. The full
-  run exits nonzero after a long tail.
-- **Suggested next step:** Diagnose the current semantic and inlay regressions
-  before using integration timing as a correctness signal.
-
 ## DSL Follow-ups
 
 These items were found while building the ASP.NET Core trailing-block DSL sample.
@@ -95,6 +86,14 @@ overload specificity and extension-method resolution for these APIs so DSL
 metadata helpers can stay thin wrappers over ASP.NET Core.
 
 ## Recently Fixed
+
+### Sample-backed language-server integration fixtures refreshed
+
+- **Fixed:** Updated stale sample paths, ASP.NET hover targets, multiline route
+  handler lookup, and visible-range boundaries after recent sample changes.
+- **Validation:** Focused EF Core, ASP.NET, vehicle inlay-cache, and large
+  visible-range integration tests pass. The full integration suite was not
+  rerun because of its long tail.
 
 ### Language-server unit suite restored
 

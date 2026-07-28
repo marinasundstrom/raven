@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
@@ -2050,8 +2051,14 @@ func Main() -> unit {
         var vehicleHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, vehicleInsertion);
         AssertHasHintAtInsertion(sourceText, vehicleHints, vehicleInsertion, " -> ");
 
-        const string routeHandler = "async func (context: VehicleDbContext, cancellationToken: CancellationToken)";
-        var routeHandlerInsertion = code.IndexOf(routeHandler, StringComparison.Ordinal) + routeHandler.Length;
+        var routeHandler = SyntaxTree.ParseText(code)
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .First(function => function.ReturnType is null &&
+                               function.ParameterList.Parameters.Any(parameter =>
+                                   parameter.Identifier.ValueText == "context"));
+        var routeHandlerInsertion = routeHandler.ParameterList.Span.End;
         var routeHandlerHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, routeHandlerInsertion);
         AssertHasHintAtInsertion(sourceText, routeHandlerHints, routeHandlerInsertion, " -> ");
     }
@@ -2410,6 +2417,9 @@ func Main() -> unit {
         var code = await File.ReadAllTextAsync(documentPath);
         await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
+        var vanInsertion = code.IndexOf("van = VehicleEntity()", StringComparison.Ordinal) + "van".Length;
+        var hatchbackInsertion = code.IndexOf("hatchback = VehicleEntity()", StringComparison.Ordinal) + "hatchback".Length;
+        var entryInsertion = code.IndexOf("entry = FuelConsumptionRecord()", StringComparison.Ordinal) + "entry".Length;
 
         var result = await handler.Handle(new InlayHintParams
         {
@@ -2417,14 +2427,11 @@ func Main() -> unit {
             Range = new LspRange
             {
                 Start = new Position(0, 0),
-                End = new Position(50, 0)
+                End = PositionHelper.ToRange(sourceText, new TextSpan(0, entryInsertion + 1)).End
             }
         }, CancellationToken.None);
 
         var hints = result.ToArray();
-        var vanInsertion = code.IndexOf("van = VehicleEntity()", StringComparison.Ordinal) + "van".Length;
-        var hatchbackInsertion = code.IndexOf("hatchback = VehicleEntity()", StringComparison.Ordinal) + "hatchback".Length;
-        var entryInsertion = code.IndexOf("entry = FuelConsumptionRecord()", StringComparison.Ordinal) + "entry".Length;
 
         AssertHasHintAtInsertion(sourceText, hints, vanInsertion, ": VehicleEntity");
         AssertHasHintAtInsertion(sourceText, hints, hatchbackInsertion, ": VehicleEntity");
