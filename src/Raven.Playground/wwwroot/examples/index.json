@@ -50,6 +50,11 @@
     "file": "shipment-lookup.rvn"
   },
   {
+    "id": "union-declarations",
+    "title": "Union declarations, cases, and members",
+    "file": "union-declarations.rvn"
+  },
+  {
     "id": "restock-patterns",
     "title": "Restocking with for patterns",
     "file": "restock-patterns.rvn"
@@ -63,6 +68,16 @@
     "id": "dispatch-board",
     "title": "Dispatch planning with comprehensions",
     "file": "dispatch-board.rvn"
+  },
+  {
+    "id": "linq-query",
+    "title": "Querying shipments with LINQ",
+    "file": "linq-query.rvn"
+  },
+  {
+    "id": "linq-outcomes",
+    "title": "LINQ queries returning Option and Result",
+    "file": "linq-outcomes.rvn"
   },
   {
     "id": "checkout-async",
@@ -88,6 +103,11 @@
     "id": "result",
     "title": "Result propagation",
     "file": "result.rvn"
+  },
+  {
+    "id": "option-result-methods",
+    "title": "Option and Result methods",
+    "file": "option-result-methods.rvn"
   },
   {
     "id": "order-boundary",

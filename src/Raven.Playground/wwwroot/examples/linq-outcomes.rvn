@@ -1,0 +1,39 @@
+import System.Linq.*
+
+record Shipment(Id: int, Destination: string, WeightKg: int)
+
+union LookupError {
+    case NoShipment(destination: string)
+    case SeveralShipments(destination: string)
+}
+
+let shipments = [
+    Shipment(101, "Haifa", 8)
+    Shipment(202, "Austin", 21)
+    Shipment(303, "Austin", 13)
+]
+
+let heavyShipment = shipments.FirstOrNone(shipment => shipment.WeightKg >= 20)
+
+match heavyShipment {
+    Some(let shipment) =>
+        Console.WriteLine("First heavy shipment: ${shipment.Id}")
+    None =>
+        Console.WriteLine("No heavy shipment")
+}
+
+let uniqueAustinShipment = shipments.SingleOrError(
+    shipment => shipment.Destination == "Austin",
+    () => LookupError.NoShipment("Austin"),
+    () => LookupError.SeveralShipments("Austin"))
+
+match uniqueAustinShipment {
+    Ok(let shipment) =>
+        Console.WriteLine("Unique Austin shipment: ${shipment.Id}")
+    Error(let error) =>
+        Console.WriteLine(error match {
+            .NoShipment(let destination) => "No shipment for $destination"
+            .SeveralShipments(let destination) =>
+                "Several shipments for $destination"
+        })
+}

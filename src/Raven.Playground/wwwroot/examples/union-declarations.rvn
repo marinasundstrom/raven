@@ -1,0 +1,51 @@
+record Email(Address: string)
+record Sms(Number: string)
+
+// A parenthesized union combines existing types.
+union ContactMethod(Email | Sms)
+
+func DescribeContact(contact: ContactMethod) -> string {
+    return contact match {
+        Email(let address) => "email $address"
+        Sms(let number) => "SMS $number"
+    }
+}
+
+// A body-form union can mix every case shape with ordinary members.
+union DeliveryState {
+    case Queued
+    case InTransit(location: string, remainingKm: int)
+    case Delivered {
+        Receipt: string
+        SignedBy: string? = null
+    }
+
+    val IsComplete: bool => self is .Delivered(_, _)
+
+    func Describe() -> string {
+        return self match {
+            .Queued => "queued"
+            .InTransit(let location, let remainingKm) =>
+                "at $location, $remainingKm km remaining"
+            .Delivered(let receipt, let signedBy) =>
+                if signedBy is string name {
+                    "delivered as $receipt, signed by $name"
+                } else {
+                    "delivered as $receipt"
+                }
+        }
+    }
+}
+
+let contact: ContactMethod = Email("dispatch@example.test")
+let queued: DeliveryState = .Queued
+let moving: DeliveryState = .InTransit("Haifa", 42)
+let delivered: DeliveryState = .Delivered {
+    Receipt = "RCPT-104"
+    SignedBy = "Mira"
+}
+
+Console.WriteLine(DescribeContact(contact))
+Console.WriteLine(queued.Describe())
+Console.WriteLine(moving.Describe())
+Console.WriteLine("${delivered.Describe()}; complete=${delivered.IsComplete}")

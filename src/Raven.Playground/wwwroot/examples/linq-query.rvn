@@ -1,0 +1,26 @@
+import System.Linq.*
+
+record Shipment(
+    Id: string,
+    Destination: string,
+    Cost: decimal,
+    IsPriority: bool)
+
+let shipments = [
+    Shipment("R-104", "Haifa", 240m, true)
+    Shipment("R-105", "Jerusalem", 85m, false)
+    Shipment("R-106", "Tel Aviv", 310m, true)
+]
+
+let priorityLabels = shipments
+    .Where(shipment => shipment.IsPriority)
+    .OrderByDescending(shipment => shipment.Cost)
+    .Select(shipment =>
+        "${shipment.Id} → ${shipment.Destination}: ${shipment.Cost} credits")
+
+for label in priorityLabels {
+    Console.WriteLine(label)
+}
+
+let expensiveCount = shipments.Count(shipment => shipment.Cost >= 200m)
+Console.WriteLine("Expensive shipments: $expensiveCount")

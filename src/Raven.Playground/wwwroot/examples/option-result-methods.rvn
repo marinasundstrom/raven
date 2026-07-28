@@ -1,0 +1,33 @@
+func Connect(endpoint: string) -> Result<string, string> {
+    if endpoint == "localhost:8080" {
+        return Ok("connected to $endpoint")
+    }
+
+    return Error("cannot connect to $endpoint")
+}
+
+func BuildConnection(portText: string) -> Result<string, string> {
+    return int.TryParse(portText)
+        .Filter(port => port > 0 && port <= 65535)
+        .Tap(port => Console.WriteLine("Validated port $port"))
+        .TapNone(() => Console.WriteLine("No valid port in '$portText'"))
+        .Map(port => "localhost:$port")
+        .IsOkOr("A valid port is required")
+        .Then(endpoint => Connect(endpoint))
+        .Map(message => message.ToUpperInvariant())
+        .MapError(error => "Configuration error: $error")
+        .Tap(message => Console.WriteLine("Success: $message"))
+        .TapError(error => Console.WriteLine("Failure: $error"))
+}
+
+let connected = BuildConnection("8080")
+let recovered = BuildConnection("not-a-port")
+    .OrElse(error => Ok("offline mode ($error)"))
+
+Console.WriteLine(connected.Match(
+    value => value,
+    error => error))
+
+Console.WriteLine(recovered.Match(
+    value => value,
+    error => error))
