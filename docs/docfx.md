@@ -24,10 +24,11 @@ Then open <http://localhost:8080>.
 
 The custom DocFX template lives in `docs/template/`. Its `public/main.css` and
 `public/main.js` adapt the modern DocFX template to Raven, including Raven code
-highlighting and automatic light/dark theme support. The canonical shared color,
-typography, and surface tokens live in
-`docs/template/public/raven-theme.css`; RavenDoc and the Playground consume that
-same file so the three surfaces remain visually connected.
+highlighting and automatic light/dark theme support. Its color, typography, and
+surface tokens live in `docs/template/public/raven-theme.css`. The standalone
+Playground owns an aligned copy in `src/Raven.Playground/wwwroot/css/` so local
+development and independent deployments do not depend on the documentation
+tree.
 
 Raven's purple accent, typography, cards, borders, and page surfaces define the
 site shell. Code is a distinct shared layer modeled on Visual Studio Code's

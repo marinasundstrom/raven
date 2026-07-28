@@ -21,12 +21,6 @@
     <ProjectReference Include="..\Raven.Core\Raven.Core.rvnproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="..\..\docs\template\public\raven-theme.css"
-             Link="wwwroot\css\raven-theme.css"
-             CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
   <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
     <Exec Command="npm ci --no-audit --no-fund"
           WorkingDirectory="$(MSBuildProjectDirectory)"

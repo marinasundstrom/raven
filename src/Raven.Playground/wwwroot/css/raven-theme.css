@@ -1,0 +1,127 @@
+:root {
+    color-scheme: light dark;
+    --raven-bg: #f7f6fa;
+    --raven-surface: #ffffff;
+    --raven-surface-raised: #f2eff7;
+    --raven-ink: #292334;
+    --raven-muted: #756d80;
+    --raven-line: #e4deeb;
+    --raven-accent: #7447d8;
+    --raven-accent-strong: #5d32bd;
+    --raven-accent-soft: #eee8fb;
+    --raven-secondary: #188d98;
+    --raven-success: #21866f;
+    --raven-danger: #bf4b56;
+    --raven-code-bg: #ffffff;
+    --raven-code-fg: #000000;
+    --raven-syntax-keyword: #0000ff;
+    --raven-syntax-type: #267f99;
+    --raven-syntax-function: #795e26;
+    --raven-syntax-string: #a31515;
+    --raven-syntax-number: #098658;
+    --raven-syntax-comment: #008000;
+    --raven-syntax-meta: #af00db;
+    --raven-syntax-invalid: #cd3131;
+    --raven-header-bg: rgba(255, 255, 255, 0.9);
+    --raven-shadow: 0 20px 55px rgba(48, 34, 73, 0.1);
+    --raven-radius: 18px;
+    --raven-font-sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --raven-font-mono: "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+}
+
+:root[data-theme="dark"],
+:root[data-bs-theme="dark"] {
+    --raven-bg: #100e15;
+    --raven-surface: #19161f;
+    --raven-surface-raised: #221e2a;
+    --raven-ink: #f2edf7;
+    --raven-muted: #aaa1b5;
+    --raven-line: #37303f;
+    --raven-accent: #af91ff;
+    --raven-accent-strong: #c0a8ff;
+    --raven-accent-soft: #2b2340;
+    --raven-secondary: #65cad2;
+    --raven-success: #69cbb2;
+    --raven-danger: #ff8992;
+    --raven-code-bg: #1e1e1e;
+    --raven-code-fg: #d4d4d4;
+    --raven-syntax-keyword: #569cd6;
+    --raven-syntax-type: #4ec9b0;
+    --raven-syntax-function: #dcdcaa;
+    --raven-syntax-string: #ce9178;
+    --raven-syntax-number: #b5cea8;
+    --raven-syntax-comment: #6a9955;
+    --raven-syntax-meta: #c586c0;
+    --raven-syntax-invalid: #f44747;
+    --raven-header-bg: rgba(25, 22, 31, 0.9);
+    --raven-shadow: 0 20px 55px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-bs-theme="light"]) {
+        --raven-bg: #100e15;
+        --raven-surface: #19161f;
+        --raven-surface-raised: #221e2a;
+        --raven-ink: #f2edf7;
+        --raven-muted: #aaa1b5;
+        --raven-line: #37303f;
+        --raven-accent: #af91ff;
+        --raven-accent-strong: #c0a8ff;
+        --raven-accent-soft: #2b2340;
+        --raven-secondary: #65cad2;
+        --raven-success: #69cbb2;
+        --raven-danger: #ff8992;
+        --raven-code-bg: #1e1e1e;
+        --raven-code-fg: #d4d4d4;
+        --raven-syntax-keyword: #569cd6;
+        --raven-syntax-type: #4ec9b0;
+        --raven-syntax-function: #dcdcaa;
+        --raven-syntax-string: #ce9178;
+        --raven-syntax-number: #b5cea8;
+        --raven-syntax-comment: #6a9955;
+        --raven-syntax-meta: #c586c0;
+        --raven-syntax-invalid: #f44747;
+        --raven-header-bg: rgba(25, 22, 31, 0.9);
+        --raven-shadow: 0 20px 55px rgba(0, 0, 0, 0.3);
+    }
+}
+
+.raven-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--raven-ink);
+    text-decoration: none;
+}
+
+.raven-brand:hover {
+    text-decoration: none;
+}
+
+.raven-brand-mark {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 0.78rem;
+    color: #fff;
+    background: linear-gradient(145deg, #7447d8, #188d98);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--raven-accent) 28%, transparent);
+    font: 800 1.05rem/1 var(--raven-font-sans);
+}
+
+.raven-brand-copy strong,
+.raven-brand-copy small {
+    display: block;
+}
+
+.raven-brand-copy strong {
+    letter-spacing: -0.015em;
+}
+
+.raven-brand-copy small {
+    color: var(--raven-muted);
+    font-size: 0.72rem;
+}

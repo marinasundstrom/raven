@@ -4,6 +4,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { chromium } from "playwright";
 
 const siteRoot = resolve(process.argv[2] ?? "");
+const basePath = "/playground/";
 
 if (!process.argv[2] || !existsSync(join(siteRoot, "index.html"))) {
   throw new Error("Pass the published playground wwwroot directory as the first argument.");
@@ -23,7 +24,15 @@ const contentTypes = new Map([
 
 const server = createServer((request, response) => {
   const requestPath = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
-  const relativePath = normalize(requestPath).replace(/^(\.\.(\/|\\|$))+/, "").replace(/^[/\\]+/, "");
+  if (!requestPath.startsWith(basePath)) {
+    response.writeHead(404);
+    response.end();
+    return;
+  }
+
+  const relativePath = normalize(requestPath.slice(basePath.length))
+    .replace(/^(\.\.(\/|\\|$))+/, "")
+    .replace(/^[/\\]+/, "");
   let filePath = join(siteRoot, relativePath || "index.html");
 
   if (!filePath.startsWith(`${siteRoot}/`) || !existsSync(filePath) || statSync(filePath).isDirectory()) {
@@ -43,7 +52,7 @@ await new Promise((resolveListen, reject) => {
 });
 
 const address = server.address();
-const url = `http://127.0.0.1:${address.port}/`;
+const url = `http://127.0.0.1:${address.port}${basePath}`;
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 const browserErrors = [];
@@ -56,6 +65,23 @@ page.on("pageerror", error => browserErrors.push(error.stack ?? error.message));
 try {
   await page.goto(url);
   await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+
+  const themeResponse = await page.request.get(`${url}css/raven-theme.css`);
+  const themeContentType = themeResponse.headers()["content-type"] ?? "";
+  const themeSource = await themeResponse.text();
+  if (!themeResponse.ok() ||
+      !themeContentType.startsWith("text/css") ||
+      !themeSource.includes("--raven-bg")) {
+    throw new Error(
+      `Expected the standalone Raven theme stylesheet, got ` +
+      `${themeResponse.status()} ${themeContentType}.`,
+    );
+  }
+  const themeBackground = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--raven-bg").trim());
+  if (!themeBackground) {
+    throw new Error("Expected the Raven theme variables to apply to the Playground.");
+  }
 
   const editor = page.locator(".monaco-editor");
   await editor.waitFor();
