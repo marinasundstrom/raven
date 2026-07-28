@@ -102,7 +102,7 @@ The expression expands to an ordinary Raven expression before normal expression 
 A token-tree expression macro uses a raw brace-delimited body:
 
 ```raven
-func Main() -> string => #query {
+func Main() -> string => query! {
     from user in users
     where user.IsActive
     select user.Name
@@ -151,11 +151,34 @@ accept a typed argument list before the body by implementing
 `ITokenTreeExpressionMacro<TParameters>`:
 
 ```raven
+let result = query!(Dialect: "sql") {
+    from user in users
+    select user.Name
+}
+```
+
+Token-tree macros retain a compatible hash spelling:
+
+```raven
 let result = #query(Dialect: "sql") {
     from user in users
     select user.Name
 }
 ```
+
+The two spellings have the same binding and expansion semantics. The syntax
+tree represents them as `BangMacroExpressionSyntax` and
+`HashMacroExpressionSyntax`, respectively, under the shared abstract
+`FreestandingMacroExpressionSyntax` base. The bang spelling requires a
+brace-delimited token-tree body. There must be no line break between the macro
+name and `!`, or between `!` (or its argument list) and the opening brace; this
+lookahead keeps ordinary postfix `!` expressions unambiguous.
+
+The bang spelling is the preferred source form. A freestanding macro is a
+parsed expression invocation that expands an owned region of syntax; it is not
+a preprocessor directive. Directive-looking syntax remains appropriate for
+lexical compilation controls such as `#if`, while `name! { ... }` preserves the
+ordinary flow of expression code.
 
 The compiler binds the parenthesized arguments into `context.Parameters` while
 leaving the brace-delimited body unrestricted and available through the same
@@ -165,7 +188,8 @@ macro must be invoked with parentheses.
 
 ### Expression quotes
 
-`#quote { expression }` is a compiler-owned token-tree macro. It captures one
+`quote! { expression }`, equivalently `#quote { expression }`, is a
+compiler-owned token-tree macro. It captures one
 complete Raven expression as syntax data and expands to ordinary, fully
 qualified `SyntaxFactory` construction code. Tokens and trivia are preserved.
 Parser diagnostics, trailing input, and incomplete recovery are rejected at
@@ -184,7 +208,8 @@ runtime reference to that assembly; the intrinsic itself does not require a
 macro reference. Statement, member, declaration, token, identifier,
 list, and repetition quote/splice forms are not part of the current language.
 
-`#quote` is syntax quotation, analogous in shape to the compiler-integrated
+`quote!`/`#quote` is syntax quotation, analogous in shape to the
+compiler-integrated
 operation quotation that converts a target-typed lambda to
 `Expression<TDelegate>`. The representations are different: expression trees
 contain standardized .NET operations and no source syntax, while `#quote`
@@ -225,7 +250,7 @@ standard stream, parse the remaining body-relative span as a Raven expression,
 and return an ordinary logical-negation expression:
 
 ```raven
-let shouldRetry = #guard {
+let shouldRetry = guard! {
     unless retryCount < 3
 }
 ```
@@ -235,7 +260,7 @@ Raven fragments. Retained DSL structure is optional and can be added later when
 editor tooling or more involved lowering requires it.
 
 A macro may identify several fragment spans from the same stream. For example,
-the sample `#choose` macro treats `test`, `then`, and `otherwise` as
+the sample `choose!` macro treats `test`, `then`, and `otherwise` as
 macro-reserved clause words, parses the text between them as three Raven
 expressions, and lowers them directly to an ordinary `if` expression. Clause
 words are not added to Raven's global keyword set.
@@ -243,7 +268,7 @@ words are not added to Raven's global keyword set.
 The initial LINQ-like sample supports:
 
 ```raven
-let result = #query {
+let result = query! {
     from item in source
     where item.IsActive
     select item.Name
@@ -340,7 +365,7 @@ metadata, matching ordinary Raven parameters. That attribute is not the
 representation for a token-tree body. A body has tokens and authored source
 spans rather than a string value, and future highlighting/completion support
 will use a general compiler-owned syntax-content descriptor. For example,
-`#quote { let x = "test" }` can identify its body as Raven syntax, while a DSL
+`quote! { let x = "test" }` can identify its body as Raven syntax, while a DSL
 macro can identify a standard or custom syntax without changing Raven's normal
 lexer.
 
@@ -536,7 +561,7 @@ class AnswerMacro: ITokenTreeExpressionMacro {
     // ...
 }
 
-let answer = #answer { }
+let answer = answer! { }
 ```
 
 `[LocalMacro]` classifies only the marked top-level type and everything nested

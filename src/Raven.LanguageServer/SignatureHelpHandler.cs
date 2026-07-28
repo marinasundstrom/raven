@@ -85,7 +85,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             var macroSignature = semanticModel.GetMacroSignatureHelp(offset);
             if (macroSignature is not null)
             {
-                var signature = CreateMacroSignatureInformation(macroSignature);
+                var signature = CreateMacroSignatureInformation(
+                    macroSignature,
+                    IsBangMacroInvocationAtPosition(root, offset));
                 resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
                 resultCount = 1;
 
@@ -210,14 +212,18 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         }
     }
 
-    internal static SignatureInformation CreateMacroSignatureInformation(MacroSignatureHelp signature)
+    internal static SignatureInformation CreateMacroSignatureInformation(
+        MacroSignatureHelp signature,
+        bool useBangSyntax = false)
     {
         var parameterLabels = signature.Parameters
             .Select(FormatMacroParameter)
             .ToArray();
         var invocation = signature.Kind == MacroKind.AttachedDeclaration
             ? $"#[{signature.Name}({string.Join(", ", parameterLabels)})]"
-            : $"#{signature.Name}({string.Join(", ", parameterLabels)})";
+            : useBangSyntax
+                ? $"{signature.Name}!({string.Join(", ", parameterLabels)})"
+                : $"#{signature.Name}({string.Join(", ", parameterLabels)})";
         if (signature.HasTokenTreeBody)
             invocation += " { ... }";
 
@@ -239,6 +245,21 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                         : "Freestanding expression macro."
             }
         };
+    }
+
+    private static bool IsBangMacroInvocationAtPosition(SyntaxNode root, int position)
+    {
+        foreach (var candidatePosition in new[] { position, position - 1 })
+        {
+            if (candidatePosition < 0 || candidatePosition > root.FullSpan.End)
+                continue;
+
+            var token = root.FindToken(candidatePosition);
+            if (token.Parent?.AncestorsAndSelf().OfType<BangMacroExpressionSyntax>().Any() == true)
+                return true;
+        }
+
+        return false;
     }
 
     private static string FormatMacroParameter(MacroParameterDescriptor parameter)

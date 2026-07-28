@@ -41,6 +41,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   the complete body or selected embedded spans as Raven expressions. Macro
   bodies bypass ordinary Raven tokenization, while expansion continues through
   normal semantic binding and emit.
+- Added the alternate `name! { ... }` spelling for token-tree expression
+  macros. It has a dedicated syntax node while sharing macro binding,
+  expansion, completion, and language-service behavior with `#name { ... }`.
 - Added `SyntaxToken.RawKind`, macro-local token reclassification through
   `WithRawKind`, and detached custom-token construction without changing
   ordinary Raven `SyntaxKind` classification or lexing.

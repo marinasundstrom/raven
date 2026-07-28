@@ -19,7 +19,7 @@ class AddMacro : IFreestandingExpressionMacro {
         }
 
         FreestandingMacroExpansionResult {
-            Expression = #quote {
+            Expression = quote! {
                 #(context.Arguments[0].Expression) + #(context.Arguments[1].Expression)
             }
         }

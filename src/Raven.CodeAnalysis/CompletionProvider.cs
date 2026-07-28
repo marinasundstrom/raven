@@ -12,7 +12,8 @@ public static class CompletionProvider
         MacroKind Kind,
         string Prefix,
         TextSpan ReplacementSpan,
-        bool WrapAttachedAttribute = false);
+        bool WrapAttachedAttribute = false,
+        bool PreserveInvocationSuffix = false);
 
     public static IEnumerable<CompletionItem> GetCompletions(
         SyntaxToken token,
@@ -2950,12 +2951,29 @@ public static class CompletionProvider
         var freestandingInvocationStart = freestandingMacro?.ArgumentList.OpenParenToken.IsMissing == false
             ? freestandingMacro.ArgumentList.OpenParenToken.SpanStart
             : freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart;
-        if (freestandingMacro is not null &&
-            position >= freestandingMacro.HashToken.Span.End &&
-            (position <= freestandingInvocationStart ||
-             position == freestandingMacro.HashToken.Span.End))
+        var freestandingNameStart = freestandingMacro switch
         {
-            CreateMacroCompletionContext(freestandingMacro.Name, MacroKind.FreestandingExpression, sourceText, position, out context);
+            HashMacroExpressionSyntax hashMacro => hashMacro.HashToken.Span.End,
+            BangMacroExpressionSyntax bangMacro => bangMacro.Name.Span.Start,
+            _ => int.MaxValue
+        };
+        var freestandingNameEnd = freestandingMacro switch
+        {
+            BangMacroExpressionSyntax bangMacro => bangMacro.ExclamationToken.SpanStart,
+            { } macro => freestandingInvocationStart ?? macro.Name.Span.End,
+            _ => int.MinValue
+        };
+        if (freestandingMacro is not null &&
+            position >= freestandingNameStart &&
+            position <= freestandingNameEnd)
+        {
+            CreateMacroCompletionContext(
+                freestandingMacro.Name,
+                MacroKind.FreestandingExpression,
+                sourceText,
+                position,
+                out context,
+                preserveInvocationSuffix: freestandingMacro is BangMacroExpressionSyntax);
             return true;
         }
 
@@ -3065,7 +3083,8 @@ public static class CompletionProvider
         MacroKind kind,
         SourceText sourceText,
         int position,
-        out MacroCompletionContext context)
+        out MacroCompletionContext context,
+        bool preserveInvocationSuffix = false)
     {
         var replacementSpan = nameNode.Span.Length > 0
             ? nameNode.Span
@@ -3075,7 +3094,11 @@ public static class CompletionProvider
             ? sourceText.ToString(new TextSpan(replacementSpan.Start, prefixLength))
             : string.Empty;
 
-        context = new MacroCompletionContext(kind, prefix, replacementSpan);
+        context = new MacroCompletionContext(
+            kind,
+            prefix,
+            replacementSpan,
+            PreserveInvocationSuffix: preserveInvocationSuffix);
     }
 
     private static IEnumerable<CompletionItem> GetMacroCompletions(
@@ -3089,23 +3112,27 @@ public static class CompletionProvider
             if (!seen.Add(macro.Name) || !MacroNameMatchesPrefix(macro.Name, context.Prefix))
                 continue;
 
-            var insertionText = macro switch
-            {
-                ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name + "() { }",
-                ITokenTreeExpressionMacro => macro.Name + " { }",
-                _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{macro.Name}()]",
-                _ when context.WrapAttachedAttribute => $"[{macro.Name}]",
-                _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
-                _ => macro.Name
-            };
-            var cursorOffset = macro switch
-            {
-                ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name.Length + 1,
-                ITokenTreeExpressionMacro => insertionText.Length - 1,
-                _ when context.WrapAttachedAttribute && macro.AcceptsArguments => macro.Name.Length + 2,
-                _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
-                _ => (int?)null
-            };
+            var insertionText = context.PreserveInvocationSuffix
+                ? macro.Name
+                : macro switch
+                {
+                    ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name + "() { }",
+                    ITokenTreeExpressionMacro => macro.Name + " { }",
+                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{macro.Name}()]",
+                    _ when context.WrapAttachedAttribute => $"[{macro.Name}]",
+                    _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
+                    _ => macro.Name
+                };
+            var cursorOffset = context.PreserveInvocationSuffix
+                ? null
+                : macro switch
+                {
+                    ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name.Length + 1,
+                    ITokenTreeExpressionMacro => insertionText.Length - 1,
+                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => macro.Name.Length + 2,
+                    _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
+                    _ => (int?)null
+                };
 
             yield return new CompletionItem(
                 DisplayText: macro.Name,

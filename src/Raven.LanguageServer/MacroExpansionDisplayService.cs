@@ -132,13 +132,22 @@ internal static class MacroExpansionDisplayService
 
         display = new MacroExpansionDisplay(
             macroName,
-            macroExpression.TokenTree is not null
-                ? $"#{macroName} {{ ... }}"
-                : $"#{macroName}(...)",
+            CreateInvocationDisplay(macroExpression, macroName),
             macroExpression.Span,
             CreatePreview(fullText),
             fullText);
         return true;
+    }
+
+    private static string CreateInvocationDisplay(
+        FreestandingMacroExpressionSyntax expression,
+        string macroName)
+    {
+        var arguments = expression.ArgumentList.OpenParenToken.IsMissing ? string.Empty : "(...)";
+        var body = expression.TokenTree is null ? string.Empty : " { ... }";
+        return expression is BangMacroExpressionSyntax
+            ? $"{macroName}!{arguments}{body}"
+            : $"#{macroName}{arguments}{body}";
     }
 
     private static string FormatNode(SyntaxNode node)
@@ -253,10 +262,13 @@ internal static class MacroExpansionDisplayService
     }
 
     private static TextSpan GetInvocationHeadSpan(FreestandingMacroExpressionSyntax expression)
-        => TextSpan.FromBounds(
-            expression.HashToken.Span.Start,
-            expression.TokenTree?.OpenBraceToken.Span.Start
-                ?? expression.ArgumentList.OpenParenToken.Span.Start);
+    {
+        var end = expression.TokenTree?.OpenBraceToken.Span.Start
+            ?? (!expression.ArgumentList.OpenParenToken.IsMissing
+                ? expression.ArgumentList.OpenParenToken.Span.Start
+                : expression.Name.Span.End);
+        return TextSpan.FromBounds(expression.Span.Start, end);
+    }
 
     private static bool Intersects(TextSpan span, int start, int end)
         => span.Start <= end && start <= span.End;

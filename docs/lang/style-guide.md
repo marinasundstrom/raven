@@ -93,10 +93,18 @@ func Max(x: int, y: int) -> int {
   prefer one declaration-owning macro plus additive helpers.
 - When both a parent declaration and its members use macros, keep the parent
   macro independent from member rewrites.
+- Prefer the invocation-like `name! { ... }` spelling for token-tree expression
+  macros. It keeps the expression flow visible and communicates that the macro
+  owns and transforms the following region of code. The `#name { ... }`
+  spelling remains supported.
 
 ```raven
 #[Observable]
 var Title: string = ""
+
+let syntax = quote! {
+    left + right
+}
 ```
 
 ## Generated syntax

@@ -480,12 +480,12 @@ let predicate: Expression<Func<User, bool>> =
     user => user.IsActive
 ```
 
-Raven's `#quote` intrinsic applies the same broad idea to Raven syntax. The
+Raven's `quote!` intrinsic applies the same broad idea to Raven syntax. The
 programmer writes a Raven fragment, and the compiler produces the
 `ExpressionSyntax` construction needed to recreate that fragment:
 
 ```raven
-let syntax: ExpressionSyntax = #quote {
+let syntax: ExpressionSyntax = quote! {
     left + right
 }
 ```

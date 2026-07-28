@@ -1,6 +1,6 @@
 # Quote Macro (`.rvnproj`)
 
-This sample shows `#quote` in its primary macro-authoring role: constructing the
+This sample shows `quote!` in its primary macro-authoring role: constructing the
 Raven syntax returned by another macro without manually assembling a syntax
 tree.
 
@@ -8,7 +8,7 @@ The Raven-authored `#twice` macro receives an ordinary Raven expression and
 returns:
 
 ```raven
-#quote {
+quote! {
     #(context.Arguments[0].Expression) + #(context.Arguments[0].Expression)
 }
 ```

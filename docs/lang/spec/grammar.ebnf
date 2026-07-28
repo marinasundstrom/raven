@@ -690,7 +690,17 @@ DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 TypeOfExpression         ::= 'typeof' '(' Type ')' ;
 NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
 FreestandingMacroExpression
-                         ::= '#' Identifier [TypeArgumentList] ArgumentList ;
+                         ::= HashMacroExpression
+                           | BangMacroExpression ;
+
+HashMacroExpression      ::= '#' Identifier [TypeArgumentList]
+                             ( ArgumentList
+                             | [ArgumentList] MacroTokenTree ) ;
+
+BangMacroExpression      ::= Identifier [TypeArgumentList] '!'
+                             [ArgumentList] MacroTokenTree ;
+
+MacroTokenTree           ::= '{' /* lossless raw source with balanced braces */ '}' ;
 
 (* `nameof` is a compile-time-only expression that produces the unqualified name of the referenced symbol.
    The operand is syntactic and is validated by the binder. *)

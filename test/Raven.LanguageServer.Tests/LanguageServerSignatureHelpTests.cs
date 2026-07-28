@@ -13,8 +13,12 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sighelp-{Guid.NewGuid():N}");
 
-    [Fact]
-    public async Task SignatureHelpHandler_TokenTreeMacro_ShowsCompilerOwnedSignatureAsync()
+    [Theory]
+    [InlineData("val syntax = #quote() { 42 }", "#quote() { ... }")]
+    [InlineData("val syntax = quote!() { 42 }", "quote!() { ... }")]
+    public async Task SignatureHelpHandler_TokenTreeMacro_ShowsCompilerOwnedSignatureAsync(
+        string code,
+        string expectedLabel)
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -32,9 +36,6 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "Program.rvn"));
-        const string code = """
-val syntax = #quote() { 42 }
-""";
         await store.UpsertDocumentAsync(uri, code);
 
         var sourceText = SourceText.From(code);
@@ -50,7 +51,7 @@ val syntax = #quote() { 42 }
         result.ShouldNotBeNull();
         result.ActiveSignature.ShouldBe(0);
         result.ActiveParameter.ShouldBe(0);
-        result.Signatures.Single().Label.ShouldBe("#quote() { ... }");
+        result.Signatures.Single().Label.ShouldBe(expectedLabel);
     }
 
     [Fact]

@@ -2,20 +2,20 @@ import System.Console.*
 
 func Main() -> unit {
     let answer = #add(20, Right: 22)
-    let shouldRetry = #guard {
+    let shouldRetry = guard! {
         unless answer == 42
     }
-    let verdict = #choose {
+    let verdict = choose! {
         test answer == 42
         then "correct"
         otherwise "wrong"
     }
-    let queryResult = #query {
+    let queryResult = query! {
         from value in [1, 2, 3, 4]
         where value > 2
         select value * 10
     }
-    let quoted = #quote {
+    let quoted = quote! {
         #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("answer")) + 1
     }
 

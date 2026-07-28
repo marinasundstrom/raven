@@ -6,7 +6,7 @@ token stream with a custom lexer.
 The application invokes:
 
 ```raven
-let answer = #customToken(Value: 42) {
+let answer = customToken!(Value: 42) {
     ⟨answer⟩
 }
 ```

@@ -32,6 +32,26 @@ public sealed class QuoteMacroCodeGenTests
     }
 
     [Fact]
+    public void QuoteMacro_BangExpression_ProducesSyntaxAtRuntime()
+    {
+        var result = InvokeRun("""
+            import System.*
+
+            class Harness {
+                public static func Run() -> string {
+                    let syntax = quote! {
+                        left + right
+                    }
+
+                    return syntax.ToString()
+                }
+            }
+            """);
+
+        Assert.Equal("left + right", result);
+    }
+
+    [Fact]
     public void QuoteMacro_Expression_PreservesTrivia()
     {
         var result = InvokeRun("""

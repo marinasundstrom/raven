@@ -8,20 +8,20 @@ The sample shape is:
 ```raven
 func Main() -> unit {
     val answer = #add(20, Right: 22)
-    val shouldRetry = #guard {
+    val shouldRetry = guard! {
         unless answer == 42
     }
-    val verdict = #choose {
+    val verdict = choose! {
         test answer == 42
         then "correct"
         otherwise "wrong"
     }
-    val queryResult = #query {
+    val queryResult = query! {
         from value in [1, 2, 3, 4]
         where value > 2
         select value * 10
     }
-    val quoted = #quote {
+    val quoted = quote! {
         #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("answer")) + 1
     }
 
@@ -41,24 +41,24 @@ Current status:
   application consumes it through an ordinary `ProjectReference`. The SDK
   classifies the marked provider as a compiler plugin without a
   consumer-authored `RavenMacro` item or plugin container.
-- `#add` uses the compiler-owned `#quote` intrinsic inside the Raven-authored
+- `#add` uses the compiler-owned `quote!` intrinsic inside the Raven-authored
   macro implementation. Its two argument expressions are inserted with
   `#(...)` holes, producing `left + right` without manually assembling the
   infix syntax tree.
 - The expansion reuses the original argument expression syntax and still
   returns an ordinary `ExpressionSyntax`.
 - The sample uses a named argument to show the current freestanding macro argument shape.
-- `#guard { unless ... }` is the token-tree MVP: Raven's standard macro token
+- `guard! { unless ... }` is the token-tree MVP: Raven's standard macro token
   stream recognizes `unless` as a body-scoped macro keyword, the macro delegates
   the remaining span to Raven's expression parser, and expansion produces the
   ordinary Raven expression `!(...)`.
 - The MVP deliberately lowers directly from the token stream. It does not build
   a custom DSL syntax tree.
-- `#choose` extends that approach to three clauses. It uses `test`, `then`, and
+- `choose!` extends that approach to three clauses. It uses `test`, `then`, and
   `otherwise` as macro-local reserved words, parses the text between them as
   three independent Raven expressions, and lowers directly to an ordinary
   Raven `if` expression.
-- `#query` is the first LINQ-like MVP. It supports one `from` clause, an
+- `query!` is the first LINQ-like MVP. It supports one `from` clause, an
   optional `where`, and one `select`. The authored range variable becomes the
   parameter of generated `Where` and `Select` lambdas, while the source,
   predicate, and projection remain independently parsed Raven expressions.
@@ -68,7 +68,7 @@ Current status:
 - The query MVP generates no hidden temporary names and retains no custom DSL
   tree. Additional generators, repeated clauses, ordering, joins, and editor
   services remain future work.
-- `#quote` is the compiler-owned expression-only quote MVP. It needs no plugin
+- `quote!` is the compiler-owned expression-only quote MVP. It needs no plugin
   registration, preserves the quoted expression's tokens and trivia, and
   expands to ordinary fully qualified `SyntaxFactory` calls. The app project
   explicitly references `Raven.CodeAnalysis` because the result is a runtime

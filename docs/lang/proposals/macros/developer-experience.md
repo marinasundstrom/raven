@@ -212,15 +212,22 @@ interface, context, token-stream, diagnostic, and expansion-result contracts.
 ### Raven invocation carriers
 
 The Raven syntax tree contains compiler-known carrier nodes at valid grammar
-positions. The current expression carrier is
-`FreestandingMacroExpressionSyntax`:
+positions. Expression carriers share the abstract
+`FreestandingMacroExpressionSyntax` base. The preferred invocation-like
+spelling uses `BangMacroExpressionSyntax`:
 
 ```raven
-val result = #query {
+val result = query! {
     from user in users
     select user.Name
 }
 ```
+
+This spelling reads as an invocation that owns a region of code instead of
+visually resembling a preprocessor directive. Macros are parsed expression
+carriers and do not select source text for compilation. Directive styling is
+reserved for facilities closer to preprocessing, such as `#if`. The compatible
+`#query { ... }` spelling uses `HashMacroExpressionSyntax`.
 
 Future carriers may represent statement and member/declaration positions. A
 carrier preserves the macro name, delimiters, and lossless raw body. It means

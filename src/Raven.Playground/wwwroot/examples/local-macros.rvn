@@ -31,7 +31,7 @@ class TwiceMacro : IFreestandingExpressionMacro {
         }
 
         FreestandingMacroExpansionResult.FromExpression(
-            #quote {
+            quote! {
                 #(context.Arguments[0].Expression) * 2
             }
         )
@@ -45,7 +45,7 @@ class UnlessMacro : ITokenTreeExpressionMacro {
         let condition = context.ParseExpression()
 
         FreestandingMacroExpansionResult.FromExpression(
-            #quote {
+            quote! {
                 !#(condition)
             }
         )
@@ -56,7 +56,7 @@ class UnlessMacro : ITokenTreeExpressionMacro {
 class Greeter {}
 
 let answer = #twice(21)
-let shouldContinue = #unless {
+let shouldContinue = unless! {
     answer == 0
 }
 

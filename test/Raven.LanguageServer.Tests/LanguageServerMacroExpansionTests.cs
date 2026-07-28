@@ -231,6 +231,40 @@ class Harness {
     }
 
     [Fact]
+    public void MacroExpansionDisplayService_BuildsPreviewForBangMacroExpression()
+    {
+        const string code = """
+class Harness {
+    func Run() -> int => raven! {
+        40 + 2
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(typeof(RavenBodyMacro)));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var sourceText = SourceText.From(code);
+        var root = syntaxTree.GetRoot();
+        var expression = root.DescendantNodes().OfType<BangMacroExpressionSyntax>().Single();
+
+        var success = MacroExpansionDisplayService.TryCreateForOffset(
+            sourceText,
+            semanticModel,
+            root,
+            expression.Name.Span.Start,
+            out var display);
+
+        success.ShouldBeTrue();
+        display.MacroName.ShouldBe("raven");
+        display.InvocationDisplay.ShouldBe("raven! { ... }");
+        display.FullText.ShouldBe("40 + 2");
+    }
+
+    [Fact]
     public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideFreestandingMacroArguments()
     {
         const string code = """

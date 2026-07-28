@@ -12,7 +12,7 @@ class TwiceMacro : IFreestandingExpressionMacro {
         }
 
         FreestandingMacroExpansionResult {
-            Expression = #quote {
+            Expression = quote! {
                 #(context.Arguments[0].Expression) + #(context.Arguments[0].Expression)
             }
         }

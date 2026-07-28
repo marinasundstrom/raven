@@ -147,7 +147,7 @@
             "patterns": [
                 {
                     "name": "meta.macro.freestanding.raven",
-                    "match": "(#)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+                    "match": "(#)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*(?:\\(|\\{))",
                     "captures": {
                         "1": {
                             "name": "punctuation.definition.macro.raven"
@@ -156,6 +156,10 @@
                             "name": "entity.name.function.macro.raven"
                         }
                     }
+                },
+                {
+                    "name": "entity.name.function.macro.raven",
+                    "match": "[A-Za-z_][A-Za-z0-9_]*(?=\\s*!\\s*(?:\\(|\\{))"
                 }
             ]
         },

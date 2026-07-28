@@ -17,7 +17,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<HashMacroExpressionSyntax>()
             .Single();
 
         Assert.True(expression.TryGetMacroName(out var macroName));
@@ -116,5 +116,78 @@ public sealed class FreestandingMacroParsingTests
 
         Assert.True(tokenTree.CloseBraceToken.IsMissing);
         Assert.Contains(tree.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV1003");
+    }
+
+    [Fact]
+    public void BangMacroExpression_ParsesDedicatedNodeAndPreservesRawBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => quote! {
+                left + right
+            }
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BangMacroExpressionSyntax>()
+            .Single();
+
+        Assert.True(expression.TryGetMacroName(out var macroName));
+        Assert.Equal("quote", macroName);
+        Assert.Equal(SyntaxKind.ExclamationToken, expression.ExclamationToken.Kind);
+        Assert.True(expression.ArgumentList.OpenParenToken.IsMissing);
+        Assert.Contains("left + right", Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void BangMacroExpression_ParsesGenericNameArgumentsAndRawBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => repeat<int>!(3, Label: "item") {
+                custom content
+            }
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BangMacroExpressionSyntax>()
+            .Single();
+
+        Assert.IsType<GenericNameSyntax>(expression.Name);
+        Assert.Equal(2, expression.ArgumentList.Arguments.Count);
+        Assert.Equal("Label", expression.ArgumentList.Arguments[1].NameColon?.Name.Identifier.ValueText);
+        Assert.Contains("custom content", Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PostfixExclamationWithoutMacroBody_RemainsPostfixOperator()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main(value: string?) -> string => value!.ToString()
+            """);
+
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<BangMacroExpressionSyntax>());
+        Assert.Contains(
+            tree.GetRoot().DescendantNodes().OfType<PostfixOperatorExpressionSyntax>(),
+            static expression => expression.Kind == SyntaxKind.SuppressNullableWarningExpression);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void LineBreakAfterExclamation_DoesNotStartBangMacroExpression()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main(value: string?) -> string {
+                value!
+                { value }
+            }
+            """);
+
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<BangMacroExpressionSyntax>());
+        Assert.Contains(
+            tree.GetRoot().DescendantNodes().OfType<PostfixOperatorExpressionSyntax>(),
+            static expression => expression.Kind == SyntaxKind.SuppressNullableWarningExpression);
     }
 }

@@ -158,6 +158,33 @@ class MacroHost {
     }
 
     [Fact]
+    public void GetCompletions_InBangMacroName_PreservesInvocationSuffix()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val syntax = quo! { 42 }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        var position = code.IndexOf('!', code.IndexOf("quo!", StringComparison.Ordinal));
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        var quote = Assert.Single(items.Where(static item => item.DisplayText == "quote"));
+        Assert.Equal("quote", quote.InsertionText);
+        Assert.Null(quote.CursorOffset);
+    }
+
+    [Fact]
     public void GetCompletions_InMacroAttributeName_ReturnsAttachedMacros()
     {
         const string code = """
