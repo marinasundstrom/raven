@@ -126,10 +126,10 @@ The base context remains available for diagnostics and advanced inspection.
 The typed layer provides the normal path for tooling, validation, and concise
 macro implementations.
 
-### Candidate macro declaration syntax
+### Macro declaration syntax
 
 A compact declaration can encode invocation inputs, attachment, and the
-call-site semantic type in a function-like signature. `macro` is proposed as a
+call-site semantic type in a function-like signature. `macro` is a
 contextual modifier on the existing `func` declaration rather than as the start
 of an unrelated declaration grammar:
 
@@ -190,7 +190,7 @@ The declaration model has four independent axes:
 | Call-site type | `int`, `TDelegate`, a user type | semantic type expected from the expanded value |
 | Contributions | `expand`, `replace`, `introduce` | syntax shape accumulated by reached body statements |
 
-The first executable slice makes expansion output explicit in the body rather
+The initial executable slice makes expansion output explicit in the body rather
 than treating an ordinary return type as provider plumbing. `expand`,
 `replace`, and `introduce` are contextual contribution statements. Reaching
 one updates a compiler-provided result state and execution continues. The last
@@ -229,9 +229,9 @@ The object-oriented API exposes its normalized typed-value schema through
 `MacroFacts.GetParameters`. Tooling consumes `MacroParameterDescriptor`
 instances rather than repeating reflection over plugin classes. Constructor
 parameters describe ordered inputs; writable or init-style properties describe
-named inputs. This same schema drives named-argument completion today and can
-drive signature help and future macro declaration lowering without changing
-the expansion context contract.
+named inputs. This same schema drives named-argument completion and signature
+help and also shapes generated macro-function parameter objects without
+changing the expansion context contract.
 
 ### Generic macro functions and semantic result types
 
@@ -260,7 +260,8 @@ macro func compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
 }
 ```
 
-This example is semantic design notation, not committed grammar:
+The declaration syntax in this example is accepted, but generic macro
+invocation and executable generic adapter lowering remain design work:
 
 * `body` is parsed as Raven expression syntax;
 * `TDelegate` is bound symbolically and checked against `Delegate`;
@@ -271,12 +272,9 @@ This example is semantic design notation, not committed grammar:
 
 The distinction between the call-site result type and the syntax returned by
 the expansion implementation is essential if macros are to behave like
-functions in semantic tooling. A contextual `expand` statement is one possible
-way to make that distinction visible. Before introducing it, the design should
-evaluate whether an existing construct or an inferred final expression can
-express the same meaning without ambiguity. Likewise, `syntax` and `#type`
-are placeholders for syntax-role and type-splice concepts, not accepted
-keyword proposals.
+functions in semantic tooling. The contextual `expand` statement makes that
+distinction explicit for the initial non-generic slice. `#type` remains design
+notation for a future symbolic type splice rather than accepted syntax.
 
 Generic inference and macro overload resolution can follow after explicit type
 arguments, constraints, and expansion-result validation are stable. Initially,
@@ -316,7 +314,7 @@ model itself. When a parameter expects syntax or a macro stream, declarations,
 symbols, descriptors, and language services retain the real types such as
 `ExpressionSyntax` and `IMacroTokenStream`.
 
-The semantic model should represent that abstraction with
+The semantic model represents that abstraction with
 `IMacroFunctionSymbol : ISymbol` and `SymbolKind.MacroFunction`.
 `IMacroFunctionSymbol` deliberately does not extend `IMethodSymbol`: the
 function-shaped declaration is not a CLR method and must not enter ordinary

@@ -737,7 +737,7 @@ class C {
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "Program.rvn");
         var outputDirectory = Path.Combine(Path.GetTempPath(), "raven-sequence-point-integration", Guid.NewGuid().ToString("N"));
 
         Directory.CreateDirectory(outputDirectory);

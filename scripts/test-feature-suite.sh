@@ -117,7 +117,7 @@ case "$suite" in
     filter="(FullyQualifiedName~.PartialClassTests.|FullyQualifiedName~.PartialClassDiagnosticsTests.|FullyQualifiedName~.PartialTypeTests.|FullyQualifiedName~.PartialMethodTests.|FullyQualifiedName~.PartialPropertyTests.|FullyQualifiedName~.PartialEventTests.|FullyQualifiedName~.PartialMemberModifierTests.|FullyQualifiedName~.PartialClassCodeGenTests.)"
     ;;
   macros)
-    filter="(FullyQualifiedName~.FreestandingMacroParsingTests.|FullyQualifiedName~.FreestandingMacroSemanticTests.|FullyQualifiedName~.MacroAttributeSemanticTests.|FullyQualifiedName~.MacroExpandedDocumentTests.|FullyQualifiedName~.FreestandingMacroCodeGenTests.|FullyQualifiedName~.MacroCodeGenTests.)"
+    filter="(FullyQualifiedName~.FreestandingMacroParsingTests.|FullyQualifiedName~.MacroFunctionDeclarationParsingTests.|FullyQualifiedName~.FreestandingMacroSemanticTests.|FullyQualifiedName~.MacroFunctionSymbolTests.|FullyQualifiedName~.MacroAttributeSemanticTests.|FullyQualifiedName~.MacroExpandedDocumentTests.|FullyQualifiedName~.FreestandingMacroCodeGenTests.|FullyQualifiedName~.MacroCodeGenTests.|FullyQualifiedName~MacroFunctionsSample_RunsThroughDotnetBuild)"
     ;;
   imports-and-namespaces)
     filter="(FullyQualifiedName~.NamespaceDirectiveSyntaxTests.|FullyQualifiedName~.NamespaceDirectiveTests.|FullyQualifiedName~.NamespaceResolutionTest.|FullyQualifiedName~.ImportResolutionTest.|FullyQualifiedName~.AliasResolutionTest.|FullyQualifiedName~.EscapedIdentifierSemanticTests.|FullyQualifiedName~.TypeSyntaxDirectResolutionTests.|FullyQualifiedName~.MultiFileCompilationTests.|FullyQualifiedName~.FileScopedNamespaceCodeGenTests.)"

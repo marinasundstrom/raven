@@ -33,6 +33,34 @@ This document summarizes near-term options for improving the Raven compiler's pe
 
 *Risks.* Aggressive interning can raise working-set size and introduce contention if done without batching. Refactoring diagnostic creation must preserve localization/formatting semantics and avoid hiding missing-argument errors.
 
+#### Allocation policy for a later optimization slice
+
+Treat string materialization as an explicit boundary rather than the default
+representation inside compiler hot paths:
+
+* retain `SourceText`, syntax nodes/tokens, and `TextSpan` slices instead of
+  calling `ToString` or `Substring` during parsing, binding, lookup, lowering,
+  and incremental comparison;
+* cache immutable derived names, display fragments, lookup keys, and parsed
+  projections on the syntax tree, binder, symbol, or compilation snapshot that
+  owns their validity;
+* key caches by every semantic input that affects the value, including syntax
+  identity, imports, references, options, and display format, and discard them
+  with the owning snapshot rather than allowing stale binders to self-heal;
+* prefer bounded snapshot-owned caches over process-wide interning so uncommon
+  source names and transient editor states are collectable;
+* use pooled builders or span-based formatting when a final string is required,
+  and materialize only at API, diagnostic, serialization, logging, or editor
+  presentation boundaries; and
+* measure allocation count, retained size, hit rate, and wall-clock improvement
+  before keeping a cache. Remove caches whose lookup and retention costs exceed
+  the avoided work.
+
+The current macro-function adapter lowering is a representative candidate: it
+copies the complete source, extracts substrings, builds replacement source, and
+reparses it. Structural lowering with an explicit authored-source map should
+eliminate those intermediate strings while improving diagnostic mapping.
+
 ## Recommendation
 Follow a phased, measurable plan to de-risk the improvements:
 

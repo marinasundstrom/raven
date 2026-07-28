@@ -2269,7 +2269,7 @@ record CustomError(val Message: string)
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var text = File.ReadAllText(filePath);
@@ -2295,20 +2295,20 @@ record CustomError(val Message: string)
         var root = context.Value.SyntaxTree.GetRoot();
 
         var sourceText = context.Value.SourceText;
-        var pingResultOffset = text.IndexOf("-> PingResult", StringComparison.Ordinal);
-        pingResultOffset.ShouldBeGreaterThanOrEqualTo(0);
-        pingResultOffset += "-> ".Length + 2;
+        var petOffset = text.IndexOf("-> Pet {", StringComparison.Ordinal);
+        petOffset.ShouldBeGreaterThanOrEqualTo(0);
+        petOffset += "-> ".Length + 1;
 
-        var customErrorOffset = text.IndexOf("CustomError>", StringComparison.Ordinal);
-        customErrorOffset.ShouldBeGreaterThanOrEqualTo(0);
-        customErrorOffset += 2;
+        var vaccinationStatusOffset = text.IndexOf("Task<VaccinationStatus>", StringComparison.Ordinal);
+        vaccinationStatusOffset.ShouldBeGreaterThanOrEqualTo(0);
+        vaccinationStatusOffset += "Task<".Length + 2;
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         foreach (var (offset, expectedName) in new[]
                  {
-                     (pingResultOffset, "PingResult"),
-                     (customErrorOffset, "CustomError")
+                     (petOffset, "Pet"),
+                     (vaccinationStatusOffset, "VaccinationStatus")
                  })
         {
             var hover = await handler.Handle(new HoverParams
@@ -2329,7 +2329,7 @@ record CustomError(val Message: string)
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var text = File.ReadAllText(filePath);
@@ -2355,20 +2355,20 @@ record CustomError(val Message: string)
         var root = context.Value.SyntaxTree.GetRoot();
 
         var sourceText = context.Value.SourceText;
-        var okOffset = text.IndexOf("Ok(PingResult", StringComparison.Ordinal);
-        okOffset.ShouldBeGreaterThanOrEqualTo(0);
-        okOffset += 1;
+        var currentOffset = text.IndexOf("VaccinationStatus.Current", StringComparison.Ordinal);
+        currentOffset.ShouldBeGreaterThanOrEqualTo(0);
+        currentOffset += "VaccinationStatus.".Length + 1;
 
-        var errorOffset = text.IndexOf("Error(CustomError", StringComparison.Ordinal);
-        errorOffset.ShouldBeGreaterThanOrEqualTo(0);
-        errorOffset += 1;
+        var dueOffset = text.IndexOf("VaccinationStatus.Due", StringComparison.Ordinal);
+        dueOffset.ShouldBeGreaterThanOrEqualTo(0);
+        dueOffset += "VaccinationStatus.".Length + 1;
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         foreach (var (offset, expectedName) in new[]
                  {
-                     (okOffset, "Ok"),
-                     (errorOffset, "Error")
+                     (currentOffset, "Current"),
+                     (dueOffset, "Due")
                  })
         {
             var hover = await handler.Handle(new HoverParams
@@ -2389,7 +2389,7 @@ record CustomError(val Message: string)
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var text = File.ReadAllText(filePath);
@@ -2480,7 +2480,7 @@ record CustomError(val Message: string)
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var text = File.ReadAllText(filePath);
@@ -2525,7 +2525,7 @@ record CustomError(val Message: string)
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var text = File.ReadAllText(filePath);
@@ -2684,7 +2684,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var originalText = File.ReadAllText(filePath);

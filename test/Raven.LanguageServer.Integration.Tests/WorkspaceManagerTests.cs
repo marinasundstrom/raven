@@ -1434,7 +1434,7 @@ dotnet_diagnostic.RAV9029.severity = error
     public async Task Initialize_RepositoryRoot_ResolvesMacrosForMacroReactiveSampleAsync()
     {
         var repoRoot = GetRepositoryRoot();
-        var appPath = Path.Combine(repoRoot, "samples", "projects", "macro-reactive", "app", "src", "main.rvn");
+        var appPath = Path.Combine(repoRoot, "samples", "projects", "macro-reactive", "app", "src", "Program.rvn");
         var appUri = DocumentUri.FromFileSystemPath(appPath);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");

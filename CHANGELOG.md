@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Prevented authored macro-function parameters and attached-target names from
+  colliding with compiler-generated adapter locals during local macro lowering.
 - Updated the Playground metaprogramming sample to use native macro functions
   with real `ExpressionSyntax` and `IMacroTokenStream` parameters, and made
   local macro partition emission work entirely in memory under WebAssembly.

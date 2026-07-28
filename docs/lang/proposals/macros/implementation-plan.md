@@ -36,10 +36,10 @@ Implemented before the token-tree work:
 
 ## Infrastructure MVP gate
 
-The current priority is a dependable macro system, not dedicated syntax for
-declaring macros. The MVP is built around the object-oriented macro contracts
-and must cover the normal compile, project, and token-stream paths before
-authoring shorthand is designed.
+The infrastructure MVP prioritized a dependable macro system before dedicated
+declaration syntax. It established the object-oriented macro contracts across
+the normal compile, project, and token-stream paths before the function-oriented
+authoring layer was added.
 
 * [x] compiler-owned macro discovery, registration, diagnostics, and expansion
   through `Compilation` without requiring a `Workspace`
@@ -60,10 +60,10 @@ authoring shorthand is designed.
 * [x] finish the representative authoring and project integration tests needed
   to treat these contracts as stable enough for broader use
 
-Retained DSL structure, custom editor providers, additional syntax categories,
-and dedicated macro declaration syntax are post-MVP layers. Dedicated
-declaration syntax must lower to or interoperate with the object-oriented
-contracts rather than replace them.
+Retained DSL structure, custom editor providers, and additional syntax
+categories remain post-MVP layers. The first dedicated declaration syntax,
+`macro func`, now lowers to the object-oriented contracts rather than replacing
+them.
 
 A compiler-backed compile-and-load macro is also post-MVP work. The compiler
 APIs already let an ordinary host emit an assembly image, load it into the same
@@ -81,7 +81,7 @@ Macro activation has two origins but one result:
   the assembly marker and activated from their manifest.
 
 Both paths produce the same active `MacroReference` registry consumed by
-binding and expansion. The registry does not branch on origin. The later
+binding and expansion. The registry does not branch on origin. The
 function-oriented source layer represents `macro func` declarations with
 `IMacroFunctionSymbol` and `SymbolKind.MacroFunction`; this symbol is distinct
 from both `IMethodSymbol` and the object-oriented provider instance held by the
@@ -96,8 +96,8 @@ Each definition must implement exactly one category-specific macro interface;
 overridden by the implementation. Target applicability is declared only by
 `IAttachedDeclarationMacro`; `MacroFacts.GetTargets` normalizes freestanding
 definitions to `MacroTarget.None` for common tooling.
-A later Swift-inspired authoring model may synthesize the local partition and
-registration manifest from dedicated syntax while preserving the current
+The function-oriented authoring model synthesizes local provider adapters and
+typed parameter objects from dedicated syntax while preserving the existing
 category-specific macro, context, diagnostic, token-stream, and
 expansion-result contracts.
 
@@ -141,6 +141,41 @@ Current direct-contract validation:
 * focused language-server expansion and definition tests: 12 passed
 * live macro-project refresh tests: 2 passed; watched-file redesign case remains
   explicitly skipped
+
+## Active slice: function-oriented macro declarations
+
+Status: **initial executable slice implemented and validated**
+
+`macro func` is the source-level authoring layer over the stable provider
+contracts:
+
+* [x] dedicated compilation-unit and namespace-member syntax
+* [x] `IMacroFunctionSymbol` semantic identity, parameters, generic parameters,
+  constraints, target information, and semantic classification
+* [x] same-compilation lowering for non-generic compilation-unit declarations
+* [x] argument-style, attached, `ExpressionSyntax`, and `IMacroTokenStream`
+  parameter roles
+* [x] synchronous `expand`, `replace`, and `introduce` contribution statements
+* [x] project and Playground samples
+* [x] curated parser, semantic, expansion, and project-runtime coverage
+
+Generic invocation and executable namespace-member declarations remain later
+layers. Namespace-qualified lookup, imported short names, and a common symbol
+projection for class-authored providers also remain open tooling work.
+
+The current adapter lowering reparses generated Raven source inside the local
+macro partition. Compiler-generated locals are allocated against authored
+identifiers so macro parameters and target bindings cannot collide with
+adapter plumbing. A later structural lowering/source-map slice should replace
+the textual adapter boundary before generated diagnostics are expected to map
+precisely into arbitrary macro bodies.
+
+Validation record for this slice:
+
+* `scripts/test-feature-suite.sh macros`: 89 passed
+* `scripts/test-feature-suite.sh macros --runtime`: 17 passed
+* focused macro-function parser and symbol tests: 19 passed
+* `macro-functions` project build and runtime output: `42`, `42`, `6`
 
 ## Active slice: macro invocation completion
 

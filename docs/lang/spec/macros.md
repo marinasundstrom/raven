@@ -308,8 +308,8 @@ asynchronous APIs internally without exposing asynchronous expansion semantics
 to Raven code.
 
 Generic macro invocation, executable namespace-member declarations,
-syntax-role inputs, token-stream declarations, namespace-qualified macro
-lookup, imported short names, and naming conventions remain later layers.
+namespace-qualified macro lookup, imported short names, and naming conventions
+remain later layers.
 Existing class-authored dynamic and strongly typed macros remain supported and
 expose the underlying provider API directly.
 

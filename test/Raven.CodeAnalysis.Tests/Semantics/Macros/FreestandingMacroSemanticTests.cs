@@ -47,6 +47,45 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void MacroFunction_UserParametersDoNotCollideWithLoweringNames()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func Add(
+                context: int,
+                __macroResult: int,
+                __macroContext: int,
+                __macroResultBuilder: int
+            ) {
+                let sum = context + __macroResult + __macroContext + __macroResultBuilder
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(sum.ToString())
+            }
+
+            func Main() -> int => #Add(10, 10, 10, 12)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionLoweringNameConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
     public void ExpressionMacroFunction_ProjectsAuthoredArgumentSyntaxAlongsideValues()
     {
         var sourceTree = SyntaxTree.ParseText(

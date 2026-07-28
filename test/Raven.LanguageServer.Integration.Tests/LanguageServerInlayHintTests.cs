@@ -2108,7 +2108,7 @@ func Main() -> unit {
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var code = await File.ReadAllTextAsync(filePath);
@@ -2145,7 +2145,7 @@ func Main() -> unit {
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var code = await File.ReadAllTextAsync(filePath);
@@ -2190,7 +2190,7 @@ func Main() -> unit {
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var code = await File.ReadAllTextAsync(filePath);
@@ -2230,7 +2230,7 @@ func Main() -> unit {
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var code = await File.ReadAllTextAsync(filePath);
@@ -2300,7 +2300,7 @@ func Main() -> unit {
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        var filePath = Path.Combine(projectRoot, "src", "Program.rvn");
         File.Exists(filePath).ShouldBeTrue();
 
         var code = await File.ReadAllTextAsync(filePath);

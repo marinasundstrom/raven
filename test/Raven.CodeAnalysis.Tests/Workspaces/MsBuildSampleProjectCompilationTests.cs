@@ -53,6 +53,33 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void MacroFunctionsSample_RunsThroughDotnetBuild()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var projectPath = Path.Combine(
+            repoRoot,
+            "samples",
+            "projects",
+            "macro-functions",
+            "MacroFunctions.rvnproj");
+        var result = RunProcess(
+            "dotnet",
+            $"run --project \"{projectPath}\" --property WarningLevel=0",
+            Path.GetDirectoryName(projectPath)!,
+            timeoutMilliseconds: 300_000);
+        output.WriteLine(result.StdOut);
+        output.WriteLine(result.StdErr);
+
+        Assert.True(
+            result.ExitCode == 0,
+            $"dotnet run failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+        Assert.Contains(
+            $"42{Environment.NewLine}42{Environment.NewLine}6",
+            result.StdOut,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RavenProject_BuildsThroughDotnetBuild()
     {
         var repoRoot = GetRepositoryRoot();

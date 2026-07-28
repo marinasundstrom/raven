@@ -60,6 +60,12 @@ internal static class MacroFunctionLowering
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0;
         var hasParameters = valueParameters.Length > 0;
+        var usedNames = declaration.DescendantTokens()
+            .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
+            .Select(static token => token.ValueText)
+            .ToHashSet(StringComparer.Ordinal);
+        var contextVariableName = AllocateGeneratedName(usedNames, "__macroContext");
+        var resultBuilderName = AllocateGeneratedName(usedNames, "__macroResultBuilder");
         var interfaceName = hasTokenTreeBody
             ? "Raven.CodeAnalysis.Macros.ITokenTreeExpressionMacro"
             : isAttached
@@ -97,27 +103,27 @@ internal static class MacroFunctionLowering
         }
 
         builder.AppendLine(
-            $"    func Expand(context: {contextName}) -> {resultName} {{");
+            $"    func Expand({contextVariableName}: {contextName}) -> {resultName} {{");
         builder.AppendLine(
-            "        let __macroResult = Raven.CodeAnalysis.Macros.MacroExpansionResultBuilder()");
+            $"        let {resultBuilderName} = Raven.CodeAnalysis.Macros.MacroExpansionResultBuilder()");
 
         foreach (var parameter in valueParameters)
         {
             builder.AppendLine(
-                $"        let {parameter.Syntax.Identifier.ValueText} = context.Parameters.{parameter.Syntax.Identifier.ValueText}");
+                $"        let {parameter.Syntax.Identifier.ValueText} = {contextVariableName}.Parameters.{parameter.Syntax.Identifier.ValueText}");
         }
 
         if (tokenStreamParameters.Length > 0)
         {
             var tokenStreamParameter = tokenStreamParameters[0];
             builder.AppendLine(
-                $"        let {tokenStreamParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.IMacroTokenStream = context.CreateTokenStream()");
+                $"        let {tokenStreamParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.IMacroTokenStream = {contextVariableName}.CreateTokenStream()");
         }
         else if (declaration.TargetClause is { } targetClause)
-            AppendTargetBinding(builder, targetClause, resultName);
+            AppendTargetBinding(builder, targetClause, resultName, contextVariableName);
 
-        AppendLoweredBody(builder, source, declaration);
-        builder.AppendLine($"        return __macroResult.{buildMethod}()");
+        AppendLoweredBody(builder, source, declaration, resultBuilderName);
+        builder.AppendLine($"        return {resultBuilderName}.{buildMethod}()");
         builder.AppendLine("    }");
         builder.AppendLine("}");
         return builder.ToString();
@@ -164,7 +170,8 @@ internal static class MacroFunctionLowering
     private static void AppendTargetBinding(
         StringBuilder builder,
         MacroTargetClauseSyntax targetClause,
-        string resultName)
+        string resultName,
+        string contextVariableName)
     {
         var targetName = targetClause.Identifier.Kind == SyntaxKind.None
             ? "target"
@@ -183,7 +190,7 @@ internal static class MacroFunctionLowering
         };
 
         builder.AppendLine(
-            $"        let {targetName}: {syntaxType} = context.CurrentDeclaration else {{");
+            $"        let {targetName}: {syntaxType} = {contextVariableName}.CurrentDeclaration else {{");
         builder.AppendLine($"            return {resultName}.Empty");
         builder.AppendLine("        }");
     }
@@ -191,7 +198,8 @@ internal static class MacroFunctionLowering
     private static void AppendLoweredBody(
         StringBuilder builder,
         string source,
-        MacroFunctionDeclarationSyntax declaration)
+        MacroFunctionDeclarationSyntax declaration,
+        string resultBuilderName)
     {
         if (declaration.Body is { } body)
         {
@@ -216,7 +224,7 @@ internal static class MacroFunctionLowering
                     _ => throw new InvalidOperationException()
                 };
                 content.Remove(relativeStart, contribution.Span.Length);
-                content.Insert(relativeStart, $"__macroResult.{method}({expression})");
+                content.Insert(relativeStart, $"{resultBuilderName}.{method}({expression})");
             }
 
             foreach (var line in content.ToString().Split('\n'))
@@ -225,8 +233,20 @@ internal static class MacroFunctionLowering
         else if (declaration.ExpressionBody is { } expressionBody)
         {
             builder.AppendLine(
-                $"        __macroResult.Expand({expressionBody.Expression})");
+                $"        {resultBuilderName}.Expand({expressionBody.Expression})");
         }
+    }
+
+    private static string AllocateGeneratedName(
+        ISet<string> usedNames,
+        string baseName)
+    {
+        var candidate = baseName;
+        var suffix = 0;
+        while (!usedNames.Add(candidate))
+            candidate = $"{baseName}{++suffix}";
+
+        return candidate;
     }
 
     private static string EscapeString(string value)

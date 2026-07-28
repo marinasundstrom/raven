@@ -6,20 +6,19 @@ by tests, and prefer small repros over broad historical failure summaries.
 
 ## Active Issues
 
-### Baseline test suite is currently red
+### Language-server unit and integration suites are currently red
 
-- **Impact:** `scripts/test-baseline.sh` cannot be used as a clean pass/fail gate
-  until unrelated existing failures are triaged.
-- **Observed during latest run:** `Raven.CodeAnalysis.Tests` ended with
-  86 failed tests, 2838 passed tests, and 17 skipped tests. Earlier in the same
-  baseline run, `Raven.LanguageServer.Tests` also failed to compile due to a
-  missing `ObjectInitializerAssignmentEntrySyntax` type.
-- **Examples of failing areas:** operator binding, parser pattern shape,
-  workspace macro project loading, exception handling diagnostics, match
-  expression inference, collection expression parsing, pointer semantics,
-  incremental compilation reuse, extension inference, and property codegen.
-- **Suggested next step:** Split this into smaller tracked issues by current
-  failure cluster. Do not use this broad item as a substitute for focused bugs.
+- **Unit suite:** `Raven.LanguageServer.Tests` builds and runs, with 4 failures,
+  160 passes, and 3 skips. The failures cover object-initializer hover setup,
+  constructed union hover display, argument-identifier binding, and
+  cross-project definition mapping.
+- **Integration suite:** Stale fixture paths from the July 27 descriptive
+  sample-file rename have been corrected. Remaining failures report missing
+  local or parameter inlay hints for large/range-scoped documents. The full
+  run exits nonzero after a long tail.
+- **Suggested next step:** Diagnose the current semantic and inlay regressions,
+  then restore the unit suite before using
+  integration timing as a correctness signal.
 
 ## DSL Follow-ups
 
@@ -101,6 +100,18 @@ overload specificity and extension-method resolution for these APIs so DSL
 metadata helpers can stay thin wrappers over ASP.NET Core.
 
 ## Recently Fixed
+
+### Baseline test suite restored as a clean gate
+
+- **Fixed:** `scripts/test-baseline.sh` now completes successfully across every
+  compiler batch and the included testing, async-diff, Raven.Core, and editor
+  projects.
+- **Previous behavior:** The recorded baseline had 86 compiler test failures
+  and a language-server compile failure, so it could not act as a pass/fail
+  gate.
+- **Validation:** The current baseline completed with no failures. Intentional
+  entry-point and file-scoped-code tests remain skipped by their existing test
+  annotations.
 
 ### Multiple endpoints per route group in the ASP.NET DSL sample
 
