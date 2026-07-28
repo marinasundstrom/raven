@@ -189,38 +189,56 @@ public partial class SemanticModel
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var current = node;
         var macroExpressions = node.DescendantNodesAndSelf()
             .OfType<FreestandingMacroExpressionSyntax>()
             .Where(expression => IsOwnedBy(expression, node))
             .OrderByDescending(GetDepth)
             .ToArray();
+        if (macroExpressions.Length == 0)
+            return node;
 
+        var scopes = new Dictionary<GreenNode, (SyntaxNode Scope, List<FreestandingMacroExpressionSyntax> Expressions)>(
+            ReferenceEqualityComparer.Instance);
         foreach (var expression in macroExpressions)
         {
-            var expansion = semanticModel.GetMacroExpansion(expression, cancellationToken);
-            if (expansion?.Expression is not { } replacementExpression)
-                continue;
-
-            var preparedExpression = PrepareExpandedExpression(replacementExpression);
-            var formattingScope = GetFormattingScope(expression);
-
-            if (formattingScope is null)
+            var scope = GetFormattingScope(expression) ?? expression;
+            if (!scopes.TryGetValue(scope.Green, out var entry))
             {
-                current = current.ReplaceNode(
-                    expression,
-                    preparedExpression.WithAdditionalAnnotations(Formatter.Annotation));
-                continue;
+                entry = (scope, []);
+                scopes.Add(scope.Green, entry);
             }
 
-            var rewrittenScope = formattingScope
-                .ReplaceNode(expression, preparedExpression)
-                .WithAdditionalAnnotations(Formatter.Annotation);
-
-            current = current.ReplaceNode(formattingScope, rewrittenScope);
+            entry.Expressions.Add(expression);
         }
 
-        return current;
+        var scopeReplacements = new Dictionary<GreenNode, GreenNode>(ReferenceEqualityComparer.Instance);
+        foreach (var (_, entry) in scopes)
+        {
+            var expressionReplacements = entry.Expressions.ToDictionary(
+                static expression => expression.Green,
+                expression => semanticModel.GetMacroExpansion(expression, cancellationToken)?.Expression is { } replacement
+                    ? PrepareExpandedExpression(replacement, expression).Green
+                    : expression.Green,
+                ReferenceEqualityComparer.Instance);
+            var rewrittenScope = entry.Scope.Green.ReplaceNodes(
+                expressionReplacements.ContainsKey,
+                green => expressionReplacements[green]);
+            var rewrittenScopeNode = rewrittenScope.CreateRed();
+            if (entry.Expressions.Any(static expression => expression.TokenTree is not null))
+            {
+                rewrittenScopeNode = rewrittenScopeNode.WithTrailingTrivia(
+                    entry.Scope.GetLastToken(includeZeroWidth: false).TrailingTrivia);
+            }
+
+            scopeReplacements.Add(
+                entry.Scope.Green,
+                rewrittenScopeNode.Green.WithAdditionalAnnotations(Formatter.Annotation));
+        }
+
+        var rewritten = node.Green.ReplaceNodes(
+            scopeReplacements.ContainsKey,
+            green => scopeReplacements[green]);
+        return rewritten.CreateRed(node.Parent, node.Position);
     }
 
     private static bool IsOwnedBy(SyntaxNode node, SyntaxNode owner)
@@ -325,6 +343,21 @@ public partial class SemanticModel
     private static TNode PrepareExpandedExpression<TNode>(TNode node)
         where TNode : SyntaxNode
         => ElasticizeFormattingTrivia(DetachNode(node));
+
+    private static TNode PrepareExpandedExpression<TNode>(
+        TNode node,
+        FreestandingMacroExpressionSyntax original)
+        where TNode : SyntaxNode
+    {
+        var prepared = PrepareExpandedExpression(node);
+        return original.TokenTree is null
+            ? prepared
+            : prepared
+                .WithLeadingTrivia(
+                    original.GetFirstToken(includeZeroWidth: true).LeadingTrivia)
+                .WithTrailingTrivia(
+                    original.GetLastToken(includeZeroWidth: true).TrailingTrivia);
+    }
 
     private static TNode ElasticizeFormattingTrivia<TNode>(TNode node)
         where TNode : SyntaxNode

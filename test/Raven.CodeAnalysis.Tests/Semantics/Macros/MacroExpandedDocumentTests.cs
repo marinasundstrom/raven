@@ -82,6 +82,49 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
+    public void GetExpandedRoot_RewritesEveryFreestandingMacroInSameMember()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() {
+                let first = #add(1, Right: 2)
+                let second = #add(3, Right: 4)
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.Contains("let first = 1 + 2", expandedText, StringComparison.Ordinal);
+        Assert.Contains("let second = 3 + 4", expandedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("#add(", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_PreservesLineBreakAfterBangMacro()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            func Main() {
+                let answer = raven! {
+                    6
+                }
+                WriteLine(answer)
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(FreestandingMacroSemanticTests.RavenBodyMacro)));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.Contains("let answer = 6\n    WriteLine(answer)", expandedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("raven!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetExpandedRoot_StacksAttachedDeclarationMacrosBySourceOrder()
     {
         var (compilation, tree) = CreateCompilation("""

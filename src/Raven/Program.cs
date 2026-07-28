@@ -356,8 +356,8 @@ static int RunDevCommand(string[] args)
             if (root is null)
                 return SingleDocumentRequired(options.CommandName);
 
-            var syntaxRoot = options.SyntaxView == SyntaxView.Expanded && syntaxTree is not null
-                ? compilation.GetSemanticModel(syntaxTree).GetExpandedRoot()
+            var syntaxRoot = options.SyntaxView == SyntaxView.Expanded && document is not null
+                ? document.GetExpandedSyntaxRootAsync().GetAwaiter().GetResult() ?? root
                 : root;
 
             if (options.SyntaxTreeFormat == SyntaxTreeFormat.Json)
@@ -423,11 +423,10 @@ static int RunDevCommand(string[] args)
             return 0;
 
         case DevCommand.Macros:
-            if (root is null || syntaxTree is null)
+            if (root is null || syntaxTree is null || document is null)
                 return SingleDocumentRequired(options.CommandName);
 
-            var macroSemanticModel = compilation.GetSemanticModel(syntaxTree);
-            var expandedRoot = macroSemanticModel.GetExpandedRoot();
+            var expandedRoot = document.GetExpandedSyntaxRootAsync().GetAwaiter().GetResult() ?? root;
             if (options.MacroMode is MacroDumpMode.Original or MacroDumpMode.Both)
             {
                 Console.WriteLine("=== Original ===");

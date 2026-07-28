@@ -87,6 +87,17 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 
 ## Recently Fixed
 
+### Expanded macro document command
+
+- **Fixed:** The developer syntax and macro commands now obtain expanded roots
+  through the workspace document, which reconciles authored documents with
+  their consumer and macro compilation projections.
+- **Also fixed:** Expanded roots replace every sibling freestanding macro in a
+  member and preserve the line break after multiline token-tree invocations.
+- **Coverage:** The macro expanded-document suite covers multiple invocations
+  in one function and multiline `name! { ... }` expansion; the VS Code command
+  shape was replayed against the `macro-functions` sample with source override.
+
 ### Macro function declaration hover
 
 - **Fixed:** Authored macro syntax trees now use their signature compilation

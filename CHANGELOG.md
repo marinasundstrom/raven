@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed expanded-document commands for projects containing authored
+  `macro func` declarations. `rvn dev syntax --syntax-view expanded` and
+  `rvn dev macros` now resolve the workspace document's projected compilation
+  tree, expand every sibling macro invocation, and preserve line breaks after
+  multiline token-tree invocations.
 - Fixed language-server hover inside authored `macro func` declarations.
   Their signature semantic model now provides method-like body scopes, so
   parameter declarations, locals, references, member access, and invocations
