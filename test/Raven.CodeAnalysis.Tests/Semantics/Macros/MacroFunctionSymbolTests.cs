@@ -49,6 +49,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
 
         var parameter = Assert.Single(symbol.Parameters);
         Assert.Equal("value", parameter.Name);
+        Assert.Equal(MacroParameterRole.Value, parameter.MacroRole);
         Assert.Same(symbol, parameter.ContainingSymbol);
         Assert.Same(typeParameter, parameter.Type);
         Assert.Same(parameter, model.GetDeclaredSymbol(declaration.ParameterList.Parameters.Single()));
@@ -146,5 +147,53 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
+    }
+
+    [Fact]
+    public void TokenStreamMacroFunction_ExposesTypeDirectedParameterRoles()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            macro func Query(dialect: string, tokens: TokenStream) {
+                expand ParseQuery(dialect, tokens)
+            }
+            """);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
+        Assert.Equal(MacroTarget.None, symbol.Targets);
+        Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
+        Assert.Equal(MacroParameterRole.TokenStream, symbol.Parameters[1].MacroRole);
+        Assert.Equal("TokenStream", symbol.Parameters[1].Type.Name);
+        Assert.Contains("tokens: TokenStream", symbol.ToDisplayString());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TokenStreamMacroParameter_ValidatesSpecialBindingRules()
+    {
+        var (compilation, _) = CreateCompilation("""
+            macro func Defaulted(content: TokenStream = null) {
+                expand content
+            }
+
+            macro func Duplicate(first: TokenStream, second: TokenStream) {
+                expand first
+            }
+
+            macro func Attached(tokens: TokenStream) on Type {
+                introduce tokens.ReadToken()
+            }
+            """);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0929");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0930");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0931");
     }
 }

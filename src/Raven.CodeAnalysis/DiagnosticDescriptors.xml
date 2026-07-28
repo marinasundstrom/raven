@@ -1202,4 +1202,16 @@
     Title="Invalid macro contribution"
     Message="'{instruction}' cannot be used in a {macroKind} macro function."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0929" Identifier="TokenStreamMacroParameterCannotHaveDefault"
+    Title="Token-stream macro parameters are compiler supplied"
+    Message="TokenStream parameter '{parameterName}' cannot have a default value because the compiler supplies it from the invocation body."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0930" Identifier="TokenStreamMacroCannotBeAttached"
+    Title="Token-stream macros are freestanding"
+    Message="Macro function '{macroName}' cannot combine an attached target with a TokenStream parameter."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0931" Identifier="MultipleTokenStreamMacroParameters"
+    Title="Only one token-stream parameter is allowed"
+    Message="Macro function '{macroName}' cannot declare more than one TokenStream parameter."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

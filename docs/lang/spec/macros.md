@@ -236,8 +236,24 @@ The named form `on property: Property` binds the current declaration to
 target roles correspond to `MacroTarget`: `Type`, `Method`, `Property`,
 `Field`, `Event`, `Parameter`, `Accessor`, and `Constructor`. A declaration
 without `on` is an argument-style freestanding expression macro. Token-stream
-input remains a separate, future declaration role and is not inferred from an
-ordinary parameter type.
+input uses the same parameter syntax:
+
+```raven
+macro func Query(dialect: string, body: TokenStream) {
+    let token = body.ReadToken()
+    expand BuildQuery(dialect, token)
+}
+```
+
+`TokenStream` is a contextual compiler-known parameter type within a macro
+function signature. It denotes the single raw `{ ... }` invocation body and is
+bound to `IMacroTokenStream`; it is not an argument supplied inside the
+invocation's argument list. Other parameters remain typed caller-supplied
+values, so the example is invoked as `Query!("sql") { ... }`. A macro function
+may declare at most one `TokenStream` parameter. It cannot have a default value
+or be combined with an attached `on` target. `IParameterSymbol.MacroRole`
+distinguishes caller-supplied `Value` parameters from the compiler-supplied
+`TokenStream` parameter for semantic tooling.
 
 Macro bodies are ordinary synchronous Raven blocks augmented by three
 contextual contribution statements:

@@ -47,6 +47,41 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void TokenStreamMacroFunction_CompilesIntoTypedLocalProviderAndExpands()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func FirstTokenLength(tokens: TokenStream, offset: int) {
+                let token = tokens.ReadToken()
+                let length = token.Text.Length + offset
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
+            }
+
+            func Main() -> int => FirstTokenLength!(1) { raven }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "TokenStreamMacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("6", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
     public void AttachedMacroFunction_CombinesReachedContributions()
     {
         var sourceTree = SyntaxTree.ParseText(

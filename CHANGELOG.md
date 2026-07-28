@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added native token-stream inputs to macro functions. A compiler-known
+  `body: TokenStream` parameter selects token-tree invocation syntax and binds
+  the raw body as `IMacroTokenStream`, while the remaining parameters continue
+  to use the typed caller-supplied argument model.
 - Made `macro func` declarations executable as same-compilation argument-style
   and attached macros. Attached declarations use contextual `on Property` or
   `on property: Property` target clauses, and ordinary synchronous bodies can

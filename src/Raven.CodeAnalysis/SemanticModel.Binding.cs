@@ -318,6 +318,36 @@ public partial class SemanticModel
             }
         }
 
+        var tokenStreamParameters = declaration.ParameterList.Parameters
+            .Where(IsTokenStreamMacroParameter)
+            .ToArray();
+        if (tokenStreamParameters.Length > 0)
+        {
+            var tokenStreamParameter = tokenStreamParameters[0];
+
+            foreach (var defaultedParameter in tokenStreamParameters
+                .Where(static parameter => parameter.DefaultValue is not null))
+            {
+                _declarationDiagnostics.ReportTokenStreamMacroParameterCannotHaveDefault(
+                    defaultedParameter.Identifier.ValueText,
+                    defaultedParameter.DefaultValue!.GetLocation());
+            }
+
+            if (declaration.TargetClause is not null)
+            {
+                _declarationDiagnostics.ReportTokenStreamMacroCannotBeAttached(
+                    declaration.Identifier.ValueText,
+                    tokenStreamParameter.TypeAnnotation!.Type.GetLocation());
+            }
+
+            if (tokenStreamParameters.Length > 1)
+            {
+                _declarationDiagnostics.ReportMultipleTokenStreamMacroParameters(
+                    declaration.Identifier.ValueText,
+                    tokenStreamParameters[1].TypeAnnotation!.Type.GetLocation());
+            }
+        }
+
         TypeParameterInitializer.InitializeMacroFunctionTypeParameters(
             symbol,
             declaration.TypeParameterList,
@@ -339,12 +369,26 @@ public partial class SemanticModel
         var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
         foreach (var parameter in declaration.ParameterList.Parameters)
         {
+            var isTokenStream = IsTokenStreamMacroParameter(parameter);
+            var parameterTypeOverride = isTokenStream
+                ? Compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Macros.IMacroTokenStream")
+                    ?? new ErrorTypeSymbol(
+                        Compilation,
+                        "TokenStream",
+                        Compilation.GlobalNamespace,
+                        [parameter.TypeAnnotation!.Type.GetLocation()],
+                        [parameter.TypeAnnotation.Type.GetReference()])
+                : null;
             parameters.Add(MemberSignatureDeclarationPass.CreateSkeletonParameterSymbol(
                 this,
                 parameter,
                 symbol,
                 containingType: null,
-                symbol.TypeParameters));
+                symbol.TypeParameters,
+                parameterTypeOverride,
+                isTokenStream
+                    ? MacroParameterRole.TokenStream
+                    : MacroParameterRole.Value));
         }
 
         symbol.SetParameters(parameters.ToImmutable());
@@ -362,6 +406,10 @@ public partial class SemanticModel
 
         sourceNamespace.AddMember(symbol);
     }
+
+    private static bool IsTokenStreamMacroParameter(ParameterSyntax parameter)
+        => parameter.TypeAnnotation?.Type is IdentifierNameSyntax identifier &&
+           identifier.Identifier.ValueText == "TokenStream";
 
     private void ValidateMacroContributionStatements(
         MacroFunctionDeclarationSyntax declaration,

@@ -708,7 +708,7 @@ macro func AddEquatable() on Type {
 `macro` is intended to be contextual before the existing `func` declaration,
 keeping the new keyword surface narrow. This is defined as source-level
 lowering over the shared dynamic and typed macro infrastructure. The compiler
-may initially synthesize the corresponding parameter-object class,
+currently synthesizes the corresponding parameter-object class,
 category-specific adapter, and `Expand` method, but these generated types are
 not the semantic identity of the macro function and are not a compatibility
 constraint. Local declarations enter the compile-time partition without
@@ -720,6 +720,12 @@ semantic type, and reached `expand`/`replace`/`introduce` contributions. It
 must cover attached, argument-style, and token-tree macros without
 reintroducing a separate `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).
+
+Token-tree macro functions use an ordinary-looking `body: TokenStream`
+parameter. Binding partitions the signature by `MacroParameterRole`: value
+parameters populate the generated typed parameter object, while the single
+token-stream parameter is supplied through
+`TokenTreeMacroContext.CreateTokenStream()`.
 
 The future strongly typed layer also includes symbolic generic arguments.
 Explicit macro type arguments bind to `ITypeSymbol` values, participate in

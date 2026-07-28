@@ -624,7 +624,10 @@ public static partial class SymbolExtensions
                 result.Append('(');
                 result.Append(string.Join(
                     ", ",
-                    macroFunctionSymbol.Parameters.Select(parameter => FormatParameter(parameter, format))));
+                    macroFunctionSymbol.Parameters.Select(parameter =>
+                        parameter.MacroRole == MacroParameterRole.TokenStream
+                            ? $"{EscapeIdentifierIfNeeded(parameter.Name, format)}: TokenStream"
+                            : FormatParameter(parameter, format))));
                 result.Append(')');
             }
 

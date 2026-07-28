@@ -390,6 +390,12 @@ public interface IParameterSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
 
+    /// <summary>
+    /// Gets how this parameter is supplied when it belongs to a macro
+    /// function, or <see cref="MacroParameterRole.None"/> otherwise.
+    /// </summary>
+    MacroParameterRole MacroRole => MacroParameterRole.None;
+
     bool IsVarParams { get; }
 
     RefKind RefKind { get; }

@@ -320,6 +320,13 @@ generation. Its parameters and generic parameters retain their familiar
 signature meaning, but generic ownership is
 `TypeParameterOwnerKind.MacroFunction`, not `Method`.
 
+Parameter binding follows the type-directed model familiar from ASP.NET Core
+minimal APIs. Ordinary parameter types have the `Value` role and bind from the
+macro invocation's argument list. The compiler-known `TokenStream` type has
+the `TokenStream` role and binds from the following raw token-tree body.
+`IParameterSymbol.MacroRole` exposes that distinction without adding a second
+parameter syntax.
+
 Macro functions are synchronous transformations. They do not support an
 `async` modifier or `await` expressions. Compiler scheduling and provider
 infrastructure may use asynchronous APIs internally, but that is an

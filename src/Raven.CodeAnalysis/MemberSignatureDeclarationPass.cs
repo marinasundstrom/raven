@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -786,13 +787,15 @@ internal static class MemberSignatureDeclarationPass
         ParameterSyntax parameter,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> typeParameters)
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        ITypeSymbol? parameterTypeOverride = null,
+        MacroParameterRole macroRole = MacroParameterRole.None)
     {
         var compilation = semanticModel.Compilation;
         var typeSyntax = parameter.TypeAnnotation?.Type;
-        var parameterType = typeSyntax is null
+        var parameterType = parameterTypeOverride ?? (typeSyntax is null
             ? compilation.ErrorTypeSymbol
-            : ResolveSkeletonType(semanticModel, typeSyntax, compilation.ErrorTypeSymbol, containingType, typeParameters);
+            : ResolveSkeletonType(semanticModel, typeSyntax, compilation.ErrorTypeSymbol, containingType, typeParameters));
         var defaultEvaluation = TypeMemberBinder.EvaluateParameterDefaultValue(parameter, parameterType);
         var hasExplicitDefaultValue = defaultEvaluation is { HasDefaultSyntax: true, Success: true };
         var refKind = ParameterSyntaxUtilities.GetRefKind(parameter);
@@ -818,7 +821,8 @@ internal static class MemberSignatureDeclarationPass
             hasExplicitDefaultValue ? defaultEvaluation.Value : null,
             isMutable: refKind is RefKind.Ref or RefKind.Out,
             isVarParams: TypeMemberBinder.IsVarParamsSyntax(parameter),
-            scopedKind: scopedKind);
+            scopedKind: scopedKind,
+            macroRole: macroRole);
     }
 
     internal static ITypeSymbol ResolveSkeletonType(

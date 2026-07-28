@@ -147,7 +147,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             if (ReferenceEquals(px, py))
                 return true;
 
-            if (px.RefKind != py.RefKind)
+            if (px.RefKind != py.RefKind ||
+                px.MacroRole != py.MacroRole)
                 return false;
 
             if (!EqualsCore(px.Type, py.Type, visited))
@@ -501,6 +502,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (obj is IParameterSymbol parameterSymbol)
         {
             hash.Add(parameterSymbol.RefKind);
+            hash.Add(parameterSymbol.MacroRole);
             hash.Add(GetHashCodeCore(parameterSymbol.Type, visited));
             return hash.ToHashCode();
         }

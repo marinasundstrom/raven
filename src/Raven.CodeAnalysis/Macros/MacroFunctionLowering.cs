@@ -41,17 +41,30 @@ internal static class MacroFunctionLowering
         var providerName = $"__RavenMacroFunction_{declaration.Identifier.ValueText}_{suffix}";
         var parametersName = $"{providerName}_Parameters";
         var isAttached = declaration.TargetClause is not null;
-        var hasParameters = declaration.ParameterList.Parameters.Count > 0;
-        var interfaceName = isAttached
+        var tokenStreamParameters = declaration.ParameterList.Parameters
+            .Where(IsTokenStreamParameter)
+            .ToArray();
+        var valueParameters = declaration.ParameterList.Parameters
+            .Where(static parameter => !IsTokenStreamParameter(parameter))
+            .ToArray();
+        var hasTokenTreeBody = tokenStreamParameters.Length > 0;
+        var hasParameters = valueParameters.Length > 0;
+        var interfaceName = hasTokenTreeBody
+            ? "Raven.CodeAnalysis.Macros.ITokenTreeExpressionMacro"
+            : isAttached
             ? "Raven.CodeAnalysis.Macros.IAttachedDeclarationMacro"
             : "Raven.CodeAnalysis.Macros.IFreestandingExpressionMacro";
-        var contextName = isAttached
+        var contextName = hasTokenTreeBody
+            ? "Raven.CodeAnalysis.Macros.TokenTreeMacroContext"
+            : isAttached
             ? "Raven.CodeAnalysis.Macros.AttachedMacroContext"
             : "Raven.CodeAnalysis.Macros.FreestandingMacroContext";
-        var resultName = isAttached
+        var resultName = hasTokenTreeBody
+            ? "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult"
+            : isAttached
             ? "Raven.CodeAnalysis.Macros.MacroExpansionResult"
             : "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult";
-        var buildMethod = isAttached ? "BuildAttached" : "BuildFreestanding";
+        var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildFreestanding";
 
         if (hasParameters)
         {
@@ -61,7 +74,7 @@ internal static class MacroFunctionLowering
 
         var builder = new StringBuilder();
         if (hasParameters)
-            AppendParametersClass(builder, declaration, parametersName);
+            AppendParametersClass(builder, valueParameters, parametersName);
 
         builder.AppendLine($"class {providerName} : {interfaceName} {{");
         builder.AppendLine(
@@ -77,13 +90,18 @@ internal static class MacroFunctionLowering
         builder.AppendLine(
             "        let __macroResult = Raven.CodeAnalysis.Macros.MacroExpansionResultBuilder()");
 
-        foreach (var parameter in declaration.ParameterList.Parameters)
+        foreach (var parameter in valueParameters)
         {
             builder.AppendLine(
                 $"        let {parameter.Identifier.ValueText} = context.Parameters.{parameter.Identifier.ValueText}");
         }
 
-        if (declaration.TargetClause is { } targetClause)
+        if (tokenStreamParameters.FirstOrDefault() is { } tokenStreamParameter)
+        {
+            builder.AppendLine(
+                $"        let {tokenStreamParameter.Identifier.ValueText}: Raven.CodeAnalysis.Macros.IMacroTokenStream = context.CreateTokenStream()");
+        }
+        else if (declaration.TargetClause is { } targetClause)
             AppendTargetBinding(builder, targetClause, resultName);
 
         AppendLoweredBody(builder, source, declaration);
@@ -95,11 +113,11 @@ internal static class MacroFunctionLowering
 
     private static void AppendParametersClass(
         StringBuilder builder,
-        MacroFunctionDeclarationSyntax declaration,
+        IReadOnlyList<ParameterSyntax> parameters,
         string parametersName)
     {
         builder.AppendLine($"class {parametersName} {{");
-        foreach (var parameter in declaration.ParameterList.Parameters)
+        foreach (var parameter in parameters)
         {
             builder.AppendLine(
                 $"    var {parameter.Identifier.ValueText}: {GetParameterType(parameter)}");
@@ -108,7 +126,7 @@ internal static class MacroFunctionLowering
         builder.Append($"    init(");
         builder.Append(string.Join(
             ", ",
-            declaration.ParameterList.Parameters.Select(parameter =>
+            parameters.Select(parameter =>
             {
                 var defaultValue = parameter.DefaultValue is null
                     ? string.Empty
@@ -116,7 +134,7 @@ internal static class MacroFunctionLowering
                 return $"{parameter.Identifier.ValueText}: {GetParameterType(parameter)}{defaultValue}";
             })));
         builder.AppendLine(") {");
-        foreach (var parameter in declaration.ParameterList.Parameters)
+        foreach (var parameter in parameters)
         {
             builder.AppendLine(
                 $"        self.{parameter.Identifier.ValueText} = {parameter.Identifier.ValueText}");
@@ -127,6 +145,10 @@ internal static class MacroFunctionLowering
 
     private static string GetParameterType(ParameterSyntax parameter)
         => parameter.TypeAnnotation?.Type.ToString() ?? "object";
+
+    private static bool IsTokenStreamParameter(ParameterSyntax parameter)
+        => parameter.TypeAnnotation?.Type is IdentifierNameSyntax identifier &&
+           identifier.Identifier.ValueText == "TokenStream";
 
     private static void AppendTargetBinding(
         StringBuilder builder,

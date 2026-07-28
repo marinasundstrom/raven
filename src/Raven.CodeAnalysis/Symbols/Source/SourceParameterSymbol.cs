@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Macros;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
@@ -15,7 +17,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         object? explicitDefaultValue = null,
         bool isMutable = false,
         bool isVarParams = false,
-        ScopedKind scopedKind = ScopedKind.None)
+        ScopedKind scopedKind = ScopedKind.None,
+        MacroParameterRole macroRole = MacroParameterRole.None)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = parameterType;
@@ -24,6 +27,7 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         ExplicitDefaultValue = explicitDefaultValue;
         IsMutable = isMutable;
         IsVarParams = isVarParams;
+        MacroRole = macroRole;
         ScopedKind = scopedKind != ScopedKind.None
             ? scopedKind
             : refKind switch
@@ -41,6 +45,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     public RefKind RefKind { get; }
 
     public ScopedKind ScopedKind { get; }
+
+    public MacroParameterRole MacroRole { get; }
 
     public bool HasExplicitDefaultValue { get; }
 

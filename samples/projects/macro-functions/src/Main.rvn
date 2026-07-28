@@ -5,7 +5,15 @@ macro func Double(value: int) {
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
 }
 
+macro func FirstTokenLength(offset: int, tokens: TokenStream) {
+    let token = tokens.ReadToken()
+    let length = token.Text.Length + offset
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
+}
+
 func Main() {
     let answer = #Double(21)
+    let tokenLength = FirstTokenLength!(1) { raven }
     WriteLine(answer)
+    WriteLine(tokenLength)
 }

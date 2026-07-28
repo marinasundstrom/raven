@@ -178,6 +178,27 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
+    public void MacroFunctionDeclaration_ParsesTokenStreamInputAsParameter()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro func FirstTokenLength(offset: int, tokens: TokenStream) {
+                let token = tokens.ReadToken()
+                expand ParseExpression((token.Text.Length + offset).ToString())
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members));
+        var parameter = declaration.ParameterList.Parameters[1];
+
+        var classifications = SemanticClassifier.Classify(declaration);
+        Assert.Equal("tokens", parameter.Identifier.ValueText);
+        Assert.Equal("TokenStream", parameter.TypeAnnotation!.Type.ToString());
+        Assert.Equal(SemanticClassification.Parameter, classifications.Tokens[parameter.Identifier]);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ExpansionWords_RemainIdentifiersOutsideMacroFunctions()
     {
         var tree = SyntaxTree.ParseText("""
