@@ -1641,7 +1641,7 @@ func Test() {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_LooseFileOpenedIntoProject_InvalidatesDependentDiagnosticsAsync()
+    public async Task TryGetDiagnosticsAsync_LooseFileOpenedAsFileApplication_DoesNotAffectProjectDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -1697,7 +1697,7 @@ func Test() {
         var looseTestUri = DocumentUri.FromFileSystemPath(looseTestPath);
         await store.UpsertDocumentAsync(looseTestUri, testCode);
         store.GetOpenDocumentUrisInSameProject(looseTestUri, excludeSelf: true)
-            .ShouldContain(mainUri);
+            .ShouldNotContain(mainUri);
 
         var updatedResult = await store.TryGetDiagnosticsAsync(
             mainUri,
@@ -1705,7 +1705,121 @@ func Test() {
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
         updatedResult.WasSkipped.ShouldBeFalse();
-        HasNotInScopeDiagnostic(updatedResult.Diagnostics, "Test").ShouldBeFalse();
+        HasNotInScopeDiagnostic(updatedResult.Diagnostics, "Test").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_StandaloneFilesUseSeparateApplicationProjectsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var mainPath = Path.Combine(_tempRoot, "main.rvn");
+        const string mainCode = "Test()";
+        File.WriteAllText(mainPath, mainCode);
+
+        var otherPath = Path.Combine(_tempRoot, "other.rvn");
+        const string otherCode = """
+func Test() {
+}
+""";
+        File.WriteAllText(otherPath, otherCode);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var otherUri = DocumentUri.FromFileSystemPath(otherPath);
+        await store.UpsertDocumentAsync(mainUri, mainCode);
+        await store.UpsertDocumentAsync(otherUri, otherCode);
+
+        store.GetOpenDocumentUrisInSameProject(mainUri, excludeSelf: true)
+            .ShouldNotContain(otherUri);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        result.WasSkipped.ShouldBeFalse();
+        HasNotInScopeDiagnostic(result.Diagnostics, "Test").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_StandaloneFileUsesDefaultPreludeAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var sourcePath = Path.Combine(_tempRoot, "main.rvn");
+        const string source = """Console.WriteLine("Hello")""";
+        File.WriteAllText(sourcePath, source);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        await store.UpsertDocumentAsync(uri, source);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeFalse();
+        workspace.CurrentSolution.Projects.Single().Documents
+            .ShouldContain(document => document.Name.EndsWith(".Prelude.g.rvn", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task StandaloneFile_CloseRemovesEphemeralProjectAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var sourcePath = Path.Combine(_tempRoot, "main.rvn");
+        const string source = """Console.WriteLine("Hello")""";
+        File.WriteAllText(sourcePath, source);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        await store.UpsertDocumentAsync(uri, source);
+
+        workspace.CurrentSolution.Projects.Count().ShouldBe(1);
+        store.RemoveDocument(uri).ShouldBeTrue();
+        workspace.CurrentSolution.Projects.ShouldBeEmpty();
+
+        await store.UpsertDocumentAsync(uri, source);
+        workspace.CurrentSolution.Projects.Count().ShouldBe(1);
     }
 
     [Fact]

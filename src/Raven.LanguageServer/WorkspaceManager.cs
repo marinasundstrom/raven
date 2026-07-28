@@ -57,6 +57,7 @@ internal sealed class WorkspaceManager
     private readonly ImmutableArray<CodeFixProvider> _builtInCodeFixProviders;
     private readonly ImmutableArray<CodeRefactoringProvider> _builtInCodeRefactoringProviders;
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ProjectId> _fileApplicationProjectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<DocumentUri, byte> _openDocumentUris = new();
     private readonly ConcurrentDictionary<ProjectId, CancellationTokenSource> _pendingMacroConsumerRefreshes = new();
@@ -102,6 +103,7 @@ internal sealed class WorkspaceManager
         {
             _workspace.OpenSolution(_workspace.CreateSolution());
             _projectsByRoot.Clear();
+            _fileApplicationProjectsByRoot.Clear();
             _semanticDiagnosticsBlockedRoots.Clear();
             _editorConfigDiagnosticOptionsByProject.Clear();
             _fallbackProjectId = null;
@@ -117,13 +119,12 @@ internal sealed class WorkspaceManager
                 }
                 else
                 {
-                    _projectsByRoot[root] = CreateProjectForRoot(root);
                     if (semanticDiagnosticsBlocked)
                         _semanticDiagnosticsBlockedRoots.Add(root);
                 }
             }
 
-            if (_projectsByRoot.Count == 0)
+            if (_projectsByRoot.Count == 0 && roots.Count == 0)
                 _fallbackProjectId = CreateFallbackProject();
         }
     }
@@ -1532,7 +1533,23 @@ internal sealed class WorkspaceManager
             }
             else
             {
-                var solution = _workspace.CurrentSolution.RemoveDocument(ownedDocument.DocumentId);
+                var solution = _workspace.CurrentSolution;
+                var filePath = uri.GetFileSystemPath();
+                var normalizedFilePath = !string.IsNullOrWhiteSpace(filePath)
+                    ? NormalizePath(filePath)
+                    : null;
+                if (normalizedFilePath is not null &&
+                    _fileApplicationProjectsByRoot.TryGetValue(normalizedFilePath, out var fileApplicationProjectId) &&
+                    fileApplicationProjectId == ownedDocument.ProjectId)
+                {
+                    solution = solution.RemoveProject(ownedDocument.ProjectId);
+                    _fileApplicationProjectsByRoot.Remove(normalizedFilePath);
+                }
+                else
+                {
+                    solution = solution.RemoveDocument(ownedDocument.DocumentId);
+                }
+
                 _workspace.TryApplyChanges(solution);
             }
         }
@@ -1830,7 +1847,11 @@ internal sealed class WorkspaceManager
             if (preferredProjectId != default &&
                 TryFindExistingDocument(_workspace.CurrentSolution, preferredProjectId, normalizedFilePath, out var existingDocument, out var ownerProjectId))
             {
-                ownedDocument = new OwnedDocument(existingDocument.Id, ownerProjectId, existingDocument.Version, IsProjectDocument: true);
+                ownedDocument = new OwnedDocument(
+                    existingDocument.Id,
+                    ownerProjectId,
+                    existingDocument.Version,
+                    IsProjectDocument: !IsFileApplicationProject(ownerProjectId));
                 _documents[uri] = ownedDocument;
                 return true;
             }
@@ -1843,7 +1864,11 @@ internal sealed class WorkspaceManager
                 if (match is null)
                     continue;
 
-                ownedDocument = new OwnedDocument(match.Id, project.Id, match.Version, IsProjectDocument: true);
+                ownedDocument = new OwnedDocument(
+                    match.Id,
+                    project.Id,
+                    match.Version,
+                    IsProjectDocument: !IsFileApplicationProject(project.Id));
                 _documents[uri] = ownedDocument;
                 return true;
             }
@@ -1896,16 +1921,42 @@ internal sealed class WorkspaceManager
             return EnsureFallbackProject();
 
         var normalizedPath = NormalizePath(documentPath);
-        var bestRoot = _projectsByRoot.Keys
-            .Where(root => IsWithinRoot(normalizedPath, root))
-            .OrderByDescending(root => root.Length)
-            .FirstOrDefault();
+        if (TryFindProjectDocument(normalizedPath, out var projectId))
+            return projectId;
 
-        if (bestRoot is not null)
-            return _projectsByRoot[bestRoot];
+        if (_fileApplicationProjectsByRoot.TryGetValue(normalizedPath, out projectId) &&
+            _workspace.CurrentSolution.GetProject(projectId) is not null)
+        {
+            return projectId;
+        }
 
-        return EnsureFallbackProject();
+        projectId = CreateFileApplicationProject(normalizedPath);
+        _fileApplicationProjectsByRoot[normalizedPath] = projectId;
+        return projectId;
     }
+
+    private bool TryFindProjectDocument(string normalizedPath, out ProjectId projectId)
+    {
+        foreach (var project in _workspace.CurrentSolution.Projects)
+        {
+            if (string.IsNullOrWhiteSpace(project.FilePath))
+                continue;
+
+            if (project.Documents.Any(document =>
+                !string.IsNullOrWhiteSpace(document.FilePath) &&
+                string.Equals(NormalizePath(document.FilePath), normalizedPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                projectId = project.Id;
+                return true;
+            }
+        }
+
+        projectId = default;
+        return false;
+    }
+
+    private bool IsFileApplicationProject(ProjectId projectId)
+        => _fileApplicationProjectsByRoot.ContainsValue(projectId);
 
     private ProjectId EnsureFallbackProject()
     {
@@ -1917,13 +1968,25 @@ internal sealed class WorkspaceManager
     private ProjectId CreateFallbackProject()
         => CreateProject("RavenLanguageServer");
 
-    private ProjectId CreateProjectForRoot(string root)
+    private ProjectId CreateFileApplicationProject(string rootFilePath)
     {
-        var directoryName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        if (string.IsNullOrWhiteSpace(directoryName))
-            directoryName = "RavenWorkspace";
+        var applicationName = Path.GetFileNameWithoutExtension(rootFilePath);
+        if (string.IsNullOrWhiteSpace(applicationName))
+            applicationName = "RavenFileApplication";
 
-        return CreateProject($"Raven_{directoryName}");
+        var projectId = CreateProject($"RavenFile_{applicationName}");
+        var preludeName = $"{applicationName}.Prelude.g{RavenFileExtensions.Raven}";
+        var preludePath = Path.Combine(
+            Path.GetDirectoryName(rootFilePath) ?? Environment.CurrentDirectory,
+            preludeName);
+        var preludeDocumentId = DocumentId.CreateNew(projectId);
+        var solution = _workspace.CurrentSolution.AddDocument(
+            preludeDocumentId,
+            preludeName,
+            RavenPrelude.CreateDefaultSourceText(),
+            preludePath);
+        _workspace.TryApplyChanges(solution);
+        return projectId;
     }
 
     private ProjectId CreateProject(string name)

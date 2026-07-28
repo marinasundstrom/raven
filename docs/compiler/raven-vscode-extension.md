@@ -59,6 +59,20 @@ The extension contributes a `Raven` debug type:
 
 You can start it by pressing F5 in a Raven file, or by running `Raven: Compile and Debug Active File` from the command palette.
 
+## Running a file or project
+
+**Raven: Run Active File/Project** uses the `rvn` frontend. Selecting a `.rvn`
+or legacy `.rav` source runs that file as an isolated file-based application
+through `rvn run`; selecting a `.rvnproj` or legacy `.ravenproj` file runs that
+project. The command opens an interactive terminal rooted beside the selected
+file so application input and output behave like an ordinary script or console
+application.
+
+Language features follow evaluated project membership. A source included by a
+project receives that project's semantic context; a source outside project
+items receives an isolated file-application context even when a project file
+exists elsewhere in the workspace.
+
 ## Packaging
 `scripts/package-vscode.sh` publishes a framework-dependent language server into a `server/` directory next to `package.json` and creates the VSIX. The compiler remains in the separately installed Raven SDK. The client searches an explicit SDK path first, an SDK reported by `rvn sdk path`, workspace build outputs, the packaged server, and finally any user-provided direct assembly overrides.
 

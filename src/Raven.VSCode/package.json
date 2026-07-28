@@ -48,7 +48,7 @@
     "commands": [
       {
         "command": "raven.run.compileAndRun",
-        "title": "Raven: Compile and Run"
+        "title": "Raven: Run Active File/Project"
       },
       {
         "command": "raven.debug.compileAndDebug",

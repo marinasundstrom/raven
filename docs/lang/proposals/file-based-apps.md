@@ -3,9 +3,10 @@
 > ℹ️ This proposal is under consideration
 
 > **Implementation status:** single-file running, CLI argument forwarding,
-> shorthand invocation, and first-line shebang support are implemented.
-> Single-file `build`, includes, dependency/configuration directives, persistent
-> build caching, publishing, and project conversion remain future stages.
+> shorthand invocation, first-line shebang support, isolated language-server
+> projects, and VS Code run integration are implemented. Single-file `build`,
+> includes, dependency/configuration directives, persistent build caching,
+> publishing, and project conversion remain future stages.
 
 ## Summary
 

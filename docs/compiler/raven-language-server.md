@@ -21,6 +21,23 @@ The server code lives in `src/Raven.LanguageServer` and boots from `Program.cs`,
 - `CompletionHandler`: Uses the compiler `CompletionService` to answer LSP completion requests.
 - `PositionHelper`: Converts between LSP positions/ranges and Raven text spans.
 
+## Project and file-application contexts
+
+The language server uses evaluated `.rvnproj` membership when an opened source
+file belongs to a Raven project. Cross-file lookup, diagnostics, navigation,
+and other semantic features then use that project snapshot.
+
+A source file that is not included by an evaluated project is treated as the
+root of its own file-based application. It receives an isolated ephemeral
+project with the standard Raven prelude and framework references. Other loose
+files in the same directory or workspace do not enter that compilation merely
+because they are open. This matches `rvn run <file.rvn>` and prevents unrelated
+scripts from contributing declarations or entry points to one another.
+
+Closing a standalone root removes its ephemeral project. Future file-based
+source directives will extend this project with explicitly resolved documents
+rather than reverting to directory-wide implicit inclusion.
+
 ## Inlay hints
 
 Raven currently emits two inlay hint categories:

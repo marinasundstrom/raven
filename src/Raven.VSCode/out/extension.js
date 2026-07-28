@@ -1342,6 +1342,17 @@ function resolveCommandTarget(uri) {
 function resolveEffectiveTargetPath(targetPath) {
     return resolveOwningProjectPath(targetPath) ?? targetPath;
 }
+function quoteTerminalArgument(value) {
+    if (process.platform === 'win32') {
+        return `"${value.replace(/"/g, '""')}"`;
+    }
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+function createTerminalCommand(invocation, args) {
+    return [invocation.executable, ...invocation.args, ...args]
+        .map(quoteTerminalArgument)
+        .join(' ');
+}
 class RavenDebugConfigurationProvider {
     provideDebugConfigurations() {
         return [{
@@ -1587,16 +1598,18 @@ function activate(context) {
             void vscode.window.showErrorMessage('No active Raven file to run.');
             return;
         }
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Compiling ${path.basename(resolveEffectiveTargetPath(target))}`
-        }, async () => {
-            const { outputPath, cwd } = await buildTarget(target);
-            const terminal = vscode.window.createTerminal({ name: 'Raven: Run', cwd });
-            terminal.show(true);
-            // Quote the path to handle spaces.
-            terminal.sendText(`dotnet "${outputPath}"`);
+        const frontend = resolveFrontendInvocation(resolveTargetFramework(target));
+        if (!frontend) {
+            void vscode.window.showErrorMessage('Unable to locate rvn. Install the Raven SDK, set "raven.sdkPath", or build src/Raven/Raven.csproj.');
+            return;
+        }
+        const cwd = path.dirname(target);
+        const terminal = vscode.window.createTerminal({
+            name: isRavenProjectFile(target) ? 'Raven: Run Project' : 'Raven: Run File',
+            cwd
         });
+        terminal.show(true);
+        terminal.sendText(createTerminalCommand(frontend, ['run', target]));
     }));
     context.subscriptions.push(vscode.commands.registerCommand('raven.build.activeTarget', async (uri) => {
         const target = resolveCommandTarget(uri);

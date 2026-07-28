@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- VS Code and the language server now treat a source file outside evaluated
+  `.rvnproj` items as an isolated file-based application. Loose files no longer
+  leak declarations into one another or nearby projects, standalone snapshots
+  receive the standard prelude, and Run Active File/Project invokes `rvn run`
+  in an interactive terminal.
 - Added first-class file-based applications through `rvn run <file.rvn>` and
   the `rvn <file.rvn>` shorthand. Arguments after `--` reach `Main`, process
   exit codes are preserved, and one-shot compilation artifacts are isolated
