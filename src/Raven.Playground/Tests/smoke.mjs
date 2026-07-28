@@ -87,6 +87,19 @@ try {
   if (settledWorkspaceHeight > 800) {
     throw new Error(`Expected a bounded desktop workspace, got ${settledWorkspaceHeight}px.`);
   }
+  const pageDimensions = await page.evaluate(() => ({
+    viewportHeight: window.innerHeight,
+    documentHeight: Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight,
+    ),
+  }));
+  if (pageDimensions.documentHeight > pageDimensions.viewportHeight + 1) {
+    throw new Error(
+      `Expected the desktop playground to fit without page scrolling, but its document is ` +
+      `${pageDimensions.documentHeight}px tall in a ${pageDimensions.viewportHeight}px viewport.`,
+    );
+  }
 
   const initialSource = (await editor.locator(".view-lines").textContent()).replaceAll("\u00a0", " ");
   if (!initialSource.includes("Hello from $language in WebAssembly")) {

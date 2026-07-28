@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reduced the Playground header's vertical footprint so the complete desktop
+  workspace fits without page-level scrolling on typical laptop viewports.
 - Replaced the Playground's native example selector with a themed, searchable
   picker that organizes samples into a Basics section and feature-focused
   groups.

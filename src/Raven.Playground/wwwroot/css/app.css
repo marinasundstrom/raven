@@ -27,19 +27,25 @@ button { font: inherit; }
     width: min(1500px, 100%);
     min-height: 100vh;
     margin: 0 auto;
-    padding: 36px clamp(18px, 4vw, 64px) 24px;
+    padding: 20px clamp(18px, 4vw, 64px) 16px;
 }
 
 .hero {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 32px;
-    margin-bottom: 28px;
+    gap: 24px;
+    margin-bottom: 16px;
 }
 
 .hero-copy .raven-brand {
-    margin-bottom: 2rem;
+    margin-bottom: 10px;
+}
+
+.hero-copy .raven-brand-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.68rem;
 }
 
 .hero-tools {
@@ -69,7 +75,7 @@ button { font: inherit; }
 }
 
 .eyebrow, .panel-kicker {
-    margin: 0 0 7px;
+    margin: 0 0 4px;
     color: var(--accent);
     font-size: 11px;
     font-weight: 750;
@@ -79,15 +85,17 @@ button { font: inherit; }
 
 h1 {
     margin: 0;
-    font-size: clamp(30px, 4vw, 52px);
+    font-size: clamp(28px, 3vw, 40px);
     font-weight: 650;
+    line-height: 1.05;
     letter-spacing: -.045em;
 }
 
 .lede {
     max-width: 620px;
-    margin: 10px 0 0;
+    margin: 5px 0 0;
     color: var(--muted);
+    font-size: 14px;
     line-height: 1.5;
 }
 
@@ -114,8 +122,8 @@ h1 {
 .workspace {
     display: grid;
     grid-template-columns: minmax(0, 1.65fr) minmax(320px, .8fr);
-    height: clamp(640px, calc(100dvh - 240px), 760px);
-    min-height: 640px;
+    height: clamp(500px, calc(100dvh - 220px), 780px);
+    min-height: 500px;
     border: 1px solid var(--line);
     border-radius: var(--raven-radius);
     overflow: visible;
