@@ -330,6 +330,22 @@ internal class Lexer : ILexer, IMacroBodyScanner
         _tokenStartPosition = _currentPosition;
         RememberConditionalState(_currentPosition);
 
+        if (_currentPosition == 0 &&
+            PeekChar(out var firstCharacter) &&
+            firstCharacter == '#' &&
+            _textSource.PeekChar(1, out var secondCharacter) &&
+            secondCharacter == '!')
+        {
+            _stringBuilder.Clear();
+            while (PeekChar(out var character) && !IsEndOfLine(character))
+            {
+                ReadChar();
+                _stringBuilder.Append(character);
+            }
+
+            return new Token(SyntaxKind.SingleLineCommentTrivia, GetStringBuilderValue());
+        }
+
         if (!IsCurrentBranchActive && !IsConditionalDirectiveAheadAtLineStart())
         {
             var disabledText = ReadDisabledText();

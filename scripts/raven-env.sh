@@ -22,6 +22,12 @@ fi
 _raven_env_dir="$(cd "$(dirname "$_raven_env_script")/.." && pwd)"
 _raven_env_configuration="${RAVEN_CONFIGURATION:-Debug}"
 _raven_env_framework="${RAVEN_FRAMEWORK:-net10.0}"
+_raven_env_bin_dir="$_raven_env_dir/eng/development"
+
+case ":$PATH:" in
+  *":$_raven_env_bin_dir:"*) ;;
+  *) export PATH="$_raven_env_bin_dir:$PATH" ;;
+esac
 
 rvn() {
   dotnet "$_raven_env_dir/src/Raven/bin/$_raven_env_configuration/$_raven_env_framework/rvn.dll" "$@"
@@ -34,4 +40,5 @@ rvnc() {
 echo "Raven shell helpers loaded."
 echo "  rvn  -> src/Raven/bin/$_raven_env_configuration/$_raven_env_framework/rvn.dll"
 echo "  rvnc -> src/Raven.Compiler/bin/$_raven_env_configuration/$_raven_env_framework/rvnc.dll"
+echo "  executable .rvn files can resolve rvn through $_raven_env_bin_dir"
 echo "Override with RAVEN_CONFIGURATION or RAVEN_FRAMEWORK before sourcing."

@@ -3,7 +3,8 @@
 Lexical rules define how source text is divided into names, keywords, literals,
 comments, and punctuation.
 
-The file extension for source code files is: `.rav`.
+The primary file extension for source code files is `.rvn`. The legacy `.rav`
+extension remains recognized.
 
 ## Grammar
 
@@ -93,6 +94,21 @@ Two forms of comments are supported:
   span multiple lines but **do not nest**—a `/*` encountered inside a
   multi-line comment is treated as ordinary text. If the end of the file is
   reached before `*/`, the comment consumes the remainder of the file.
+
+An executable file-based application may begin with a Unix shebang:
+
+```raven
+#!/usr/bin/env rvn
+
+System.Console.WriteLine("Hello")
+```
+
+The `#!` sequence is recognized only at byte/character position zero on the
+first physical line. The complete line is preserved as comment trivia and does
+not participate in parsing or semantic analysis. A `#!` sequence elsewhere is
+ordinary Raven punctuation and is diagnosed when it does not form valid
+syntax. Because Unix requires `#!` to be the first two bytes, executable Raven
+files should use UTF-8 without a byte-order mark.
 
 Comment contents are treated as uninterpreted Unicode text. Any Unicode scalar
 value may appear inside a comment without escaping, including characters that

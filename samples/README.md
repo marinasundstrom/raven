@@ -2,15 +2,35 @@
 
 ## Running a single sample
 
-1. `cd samples`
-2. Compile from the sample directory with:
+Build the tools and load the repository-local commands:
 
-   ```
-   dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file>.rvn -o <file>.dll
-   ```
+```bash
+dotnet build src/Raven/Raven.csproj -f net10.0
+dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
+source scripts/raven-env.sh
+```
 
-   Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
-3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
+Then run a standalone Raven file directly:
+
+```bash
+rvn run samples/scripts/hello.rvn -- Raven
+rvn samples/scripts/hello.rvn -- Raven
+```
+
+See [`samples/scripts/README.md`](scripts/README.md) for the focused file-based
+application example.
+
+For direct compiler-driver work:
+
+```bash
+cd samples
+dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file>.rvn -o <file>.dll
+dotnet <file>.dll
+```
+
+Use the relative path for nested samples (for example,
+`async/async-await.rav`). The batch `build.sh` and `run.sh` scripts remain
+available for broad sample checks.
 
 Async sample note:
 - `samples/async/async-valuetask.rav` demonstrates `ValueTask` and `ValueTask<T>` in async functions.

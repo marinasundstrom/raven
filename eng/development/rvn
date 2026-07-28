@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPOSITORY_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+CONFIGURATION=${RAVEN_CONFIGURATION:-Debug}
+FRAMEWORK=${RAVEN_FRAMEWORK:-net10.0}
+
+exec dotnet "$REPOSITORY_ROOT/src/Raven/bin/$CONFIGURATION/$FRAMEWORK/rvn.dll" "$@"

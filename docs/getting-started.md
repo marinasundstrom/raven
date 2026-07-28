@@ -79,7 +79,40 @@ The walkthrough keeps using explicit `dotnet run` commands so it works without
 shell setup. If you sourced `scripts/raven-env.sh`, you can replace those with
 the shorter `rvn` and `rvnc` forms.
 
-## 3. Compile and run a known sample
+## 3. Run one file without a project
+
+For a small program, learning exercise, or command-line helper, Raven can run a
+single source file as a file-based application:
+
+```bash
+rvn run samples/scripts/hello.rvn -- Raven
+```
+
+The source path itself is shorthand for `run`:
+
+```bash
+rvn samples/scripts/hello.rvn Raven
+```
+
+On macOS or Linux, the sample's `#!/usr/bin/env rvn` shebang and executable bit
+provide the script-shaped flow directly:
+
+```bash
+./samples/scripts/hello.rvn Raven
+```
+
+Sourcing `scripts/raven-env.sh` adds the repository's development launcher to
+`PATH`, so `/usr/bin/env` can find the locally built `rvn`. An installed Raven
+SDK provides the same launcher globally.
+
+For `rvn run`, arguments after `--` are passed to `Main(args: string[])`; the
+shorthand and shebang forms pass arguments following the source path directly.
+The command compiles with ordinary Raven semantics, runs the resulting managed
+application, returns its exit code, and removes its isolated temporary
+artifacts afterward. A `.rvnproj` becomes useful when the application needs
+project-level sources, dependencies, or build configuration.
+
+## 4. Compile and run a known sample
 
 Start with a sample that exercises .NET interop, LINQ-style extensions,
 `Option`, and `Result`:
@@ -100,7 +133,7 @@ dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- 
 To get source-highlighted diagnostics from the compiler driver, add
 `--highlight`.
 
-## 4. What to notice if you write C#
+## 5. What to notice if you write C#
 
 The sample is intentionally shaped like a small C# service: load a request, find
 a rate plan, apply optional discounts/surcharges, and return a decision. Raven's
@@ -298,7 +331,7 @@ This is still ordinary .NET code. The sample imports `System.Linq.*`, uses
 `IEnumerable<T>`, calls string APIs, and emits IL. Raven changes the source
 model for domain flow; it does not ask you to leave the .NET ecosystem.
 
-## 5. Inspect syntax and binding
+## 6. Inspect syntax and binding
 
 The `rvn dev` commands are useful when learning the language or debugging the
 compiler.
@@ -326,7 +359,7 @@ Other useful views include:
 Creating a `.debug/` directory in the current or a parent folder also causes
 `rvnc` to write debug dumps while compiling.
 
-## 6. Write a first Raven file
+## 7. Write a first Raven file
 
 Create `hello.rav` in the repository root or another scratch directory:
 
@@ -353,7 +386,7 @@ dotnet /tmp/hello.dll
 
 The example uses `()` as the empty result type. Raven does not use `void`.
 
-## 7. Read current Raven style
+## 8. Read current Raven style
 
 Current documentation and samples follow these rules:
 
@@ -397,7 +430,7 @@ func Resolve(requests: ShipmentRequest[]) -> Result<ShipmentRequest, string> {
 }
 ```
 
-## 8. Create a project
+## 9. Create a project
 
 Project scaffolding lives behind the `rvn init` command. If you sourced
 `scripts/raven-env.sh`, run:
@@ -435,7 +468,7 @@ dotnet build path/to/App.rvnproj
 dotnet run --project path/to/App.rvnproj
 ```
 
-## 9. Where to go next
+## 10. Where to go next
 
 - [Raven for absolute beginners](raven-for-absolute-beginners.md) if you are new
   to programming itself.

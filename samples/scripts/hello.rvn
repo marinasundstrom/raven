@@ -1,0 +1,9 @@
+#!/usr/bin/env rvn
+
+func Main(args: string[]) {
+    System.Console.WriteLine("Hello from a single Raven file!")
+
+    for argument in args {
+        System.Console.WriteLine("Argument: ${argument}")
+    }
+}

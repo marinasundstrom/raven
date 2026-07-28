@@ -32,7 +32,13 @@ if (args.Length == 1 && args[0] is "--version" or "version")
 
 var stopwatch = Stopwatch.StartNew();
 var invocationName = Path.GetFileNameWithoutExtension(Environment.GetCommandLineArgs().FirstOrDefault() ?? "rvn");
-var isCompilerDriverInvocation = string.Equals(invocationName, "rvnc", StringComparison.OrdinalIgnoreCase);
+var isFrontendInvocation = string.Equals(
+    Environment.GetEnvironmentVariable("RAVEN_FRONTEND_INVOCATION"),
+    "1",
+    StringComparison.Ordinal);
+var isCompilerDriverInvocation =
+    string.Equals(invocationName, "rvnc", StringComparison.OrdinalIgnoreCase) &&
+    !isFrontendInvocation;
 
 // Options:
 // --framework <tfm> - target framework
@@ -76,6 +82,7 @@ if (args.Length > 0 && string.Equals(args[0], "init", StringComparison.OrdinalIg
 }
 
 var sourceFiles = new List<string>();
+var applicationArguments = new List<string>();
 var additionalRefs = new List<string>();
 var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
@@ -139,6 +146,12 @@ var documentationFormatExplicitlySet = false;
 
 for (int i = 0; i < args.Length; i++)
 {
+    if (args[i] == "--")
+    {
+        applicationArguments.AddRange(args.Skip(i + 1));
+        break;
+    }
+
     switch (args[i])
     {
         case "-o":
@@ -435,6 +448,13 @@ if (showHelp || hasInvalidOption)
         Environment.ExitCode = 0;
 
     PrintHelp(isCompilerDriverInvocation);
+    return;
+}
+
+if (applicationArguments.Count > 0 && !run)
+{
+    AnsiConsole.MarkupLine("[red]Application arguments after '--' require --run.[/]");
+    Environment.ExitCode = 1;
     return;
 }
 
@@ -1741,7 +1761,7 @@ else
         }
         else if (result.Success)
         {
-            RunAssembly(outputFilePath);
+            RunAssembly(outputFilePath, applicationArguments);
         }
     }
 }
@@ -2549,14 +2569,18 @@ static bool TryGetCompilerDriverRejectedOption(
     return option.Length > 0;
 }
 
-static void RunAssembly(string outputFilePath)
+static void RunAssembly(string outputFilePath, IReadOnlyList<string> arguments)
 {
-    using var process = Process.Start(new ProcessStartInfo
+    var startInfo = new ProcessStartInfo
     {
         FileName = "dotnet",
-        ArgumentList = { outputFilePath },
         UseShellExecute = false,
-    });
+    };
+    startInfo.ArgumentList.Add(outputFilePath);
+    foreach (var argument in arguments)
+        startInfo.ArgumentList.Add(argument);
+
+    using var process = Process.Start(startInfo);
 
     if (process is null)
     {

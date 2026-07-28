@@ -219,6 +219,16 @@ rvn build HelloRaven.rvnproj
 rvn run HelloRaven.rvnproj
 ```
 
+For a small program or learning exercise, run one source file without creating
+a project:
+
+```bash
+rvn run samples/scripts/hello.rvn -- Raven
+rvn samples/scripts/hello.rvn Raven
+```
+
+Arguments after `--` are passed to the application.
+
 Equivalent .NET SDK commands work for `.rvnproj` applications:
 
 ```bash

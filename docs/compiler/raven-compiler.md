@@ -6,14 +6,17 @@ selection, and assembly emission.
 
 `rvn` is the frontend tool. It owns scaffolding and internal development views,
 using the shared compiler workspace setup from `Raven.Compiler.Core`.
-Application builds should use the .NET SDK surface: `dotnet build` and
+It also runs a source file as an isolated file-based application. Project
+application builds use the .NET SDK surface: `dotnet build` and
 `dotnet run --project`.
 
 ## Usage
 
 ```bash
 rvnc [compiler-options] <source-files|project-file.rvnproj>
+rvn <file.rvn> [application-args]
 rvn build [project-file.rvnproj] [dotnet-build-options]
+rvn run <file.rvn> [compiler-options] [-- application-args]
 rvn run [project-file.rvnproj] [dotnet-run-options] [-- application-args]
 rvn clean [project-file.rvnproj] [dotnet-clean-options]
 rvn doctor
@@ -130,18 +133,39 @@ editors can discover the same SDK root.
 `RavenQuoter` emits Raven source by default. API callers can select the legacy
 C# rendering with `RavenQuoterOptions.OutputLanguage`.
 
-## `rvn build`, `rvn run`, and `rvn clean`
+## File-based applications and project commands
 
-These are frontend conveniences over the .NET SDK project workflow:
+Run a single source file without creating a project:
+
+```bash
+rvn run app.rvn
+rvn run app.rvn -- first second
+rvn app.rvn first second
+```
+
+Arguments after `--` belong to the application. Compiler options, such as
+`--framework`, occur before the separator. The source uses normal Raven
+compilation and execution semantics; generated artifacts live in an isolated
+temporary directory and are removed when execution finishes.
+
+An executable file may use the portable `#!/usr/bin/env rvn` shebang and run
+directly on Unix-like systems:
+
+```bash
+chmod +x app.rvn
+./app.rvn first second
+```
+
+Project commands remain frontend conveniences over the .NET SDK workflow:
 
 - `rvn build [project.rvnproj] [dotnet-build-options]` runs `dotnet build`
-- `rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]` runs `dotnet run --project`
+- `rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]` runs
+  `dotnet run --project`
 - `rvn clean [project.rvnproj] [dotnet-clean-options]` runs `dotnet clean`
 
 When the project path is omitted, `rvn` uses the single `.rvnproj` file in the
-current directory. The commands do not invoke `rvnc` directly; MSBuild owns
-restore, NuGet/package resolution, project references, and language target
-selection.
+current directory. MSBuild owns restore, NuGet/package resolution, project
+references, and language target selection for project inputs.
 
 ## Init command
 

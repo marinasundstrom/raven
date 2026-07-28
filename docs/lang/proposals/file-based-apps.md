@@ -2,6 +2,11 @@
 
 > ℹ️ This proposal is under consideration
 
+> **Implementation status:** single-file running, CLI argument forwarding,
+> shorthand invocation, and first-line shebang support are implemented.
+> Single-file `build`, includes, dependency/configuration directives, persistent
+> build caching, publishing, and project conversion remain future stages.
+
 ## Summary
 
 Allow a Raven source file to be built, run, and eventually published without a

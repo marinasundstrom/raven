@@ -166,6 +166,10 @@
         "comments": {
             "patterns": [
                 {
+                    "name": "comment.line.shebang.raven",
+                    "match": "\\A#!.*$"
+                },
+                {
                     "name": "meta.preprocessor.conditional.raven",
                     "begin": "^(\\s*)(#)(\\s*)(if|elif|else|endif)\\b",
                     "beginCaptures": {

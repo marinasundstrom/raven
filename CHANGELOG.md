@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added first-class file-based applications through `rvn run <file.rvn>` and
+  the `rvn <file.rvn>` shorthand. Arguments after `--` reach `Main`, process
+  exit codes are preserved, and one-shot compilation artifacts are isolated
+  from the source tree and cleaned after execution. A first-line
+  `#!/usr/bin/env rvn` shebang is preserved as trivia, enabling executable
+  Raven files on Unix-like systems.
 - Macro completion items now carry `IMacroSymbol` and map to VS Code's distinct
   snippet icon instead of appearing as ordinary classes or untyped text.
 - Added compiler symbols for loaded and intrinsic macros. `nameof` now accepts
