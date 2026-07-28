@@ -3126,6 +3126,16 @@ public static class CompletionProvider
             if (!seen.Add(name) || !MacroNameMatchesPrefix(name, context.Prefix))
                 continue;
 
+            if (!compilation.GetMacroRegistry().TryResolveMacroSymbol(
+                    compilation,
+                    contextNode,
+                    name,
+                    out var macroSymbol,
+                    out _))
+            {
+                continue;
+            }
+
             var insertionText = context.PreserveInvocationSuffix
                 ? name
                 : macro switch
@@ -3153,7 +3163,8 @@ public static class CompletionProvider
                 InsertionText: insertionText,
                 ReplacementSpan: context.ReplacementSpan,
                 CursorOffset: cursorOffset,
-                Description: CreateMacroDescription(macro));
+                Description: CreateMacroDescription(macro),
+                Symbol: macroSymbol);
         }
     }
 

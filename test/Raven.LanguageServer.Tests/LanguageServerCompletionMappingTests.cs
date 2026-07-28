@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -100,6 +101,22 @@ public class LanguageServerCompletionMappingTests
 
         mapped.Kind.ShouldBe(CompletionItemKind.Interface);
         mapped.Kind.ShouldNotBe(CompletionItemKind.Function);
+    }
+
+    [Fact]
+    public void ToLspCompletion_MacroCompletion_UsesDistinctSnippetIcon()
+    {
+        var text = SourceText.From("quo");
+        var item = new Raven.CodeAnalysis.CompletionItem(
+            DisplayText: "quote",
+            InsertionText: "quote! { }",
+            ReplacementSpan: new TextSpan(0, 3),
+            Symbol: new FakeMacroSymbol("quote"));
+
+        var mapped = CompletionItemMapper.ToLspCompletion(item, text);
+
+        mapped.Kind.ShouldBe(CompletionItemKind.Snippet);
+        mapped.Kind.ShouldNotBe(CompletionItemKind.Class);
     }
 
     [Fact]
@@ -207,6 +224,18 @@ public class LanguageServerCompletionMappingTests
             : base(RavenSymbolKind.Local, name, containingSymbol, containingNamespace)
         {
         }
+    }
+
+    private sealed class FakeMacroSymbol : FakeSymbol, IMacroSymbol
+    {
+        public FakeMacroSymbol(string name)
+            : base(RavenSymbolKind.Macro, name)
+        {
+        }
+
+        public MacroKind MacroKind => MacroKind.FreestandingExpression;
+
+        public MacroTarget Targets => MacroTarget.None;
     }
 
     private sealed class FakeNamedTypeSymbol : FakeSymbol, INamedTypeSymbol

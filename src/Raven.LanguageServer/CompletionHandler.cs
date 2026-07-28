@@ -198,6 +198,7 @@ internal sealed class CompletionHandler : ICompletionHandler
         {
             return symbol switch
             {
+                IMacroSymbol => CompletionItemKind.Snippet,
                 IMethodSymbol method when method.MethodKind == MethodKind.Constructor => CompletionItemKind.Constructor,
                 IMethodSymbol method when method.IsExtensionMethod => CompletionItemKind.Function,
                 IMethodSymbol => CompletionItemKind.Method,

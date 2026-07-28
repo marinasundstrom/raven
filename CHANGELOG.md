@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Macro completion items now carry `IMacroSymbol` and map to VS Code's distinct
+  snippet icon instead of appearing as ordinary classes or untyped text.
 - Added compiler symbols for loaded and intrinsic macros. `nameof` now accepts
   macro names and preserves the resolved alias or canonical spelling, while
   `typeof` reports a dedicated diagnostic when its operand resolves to a macro.

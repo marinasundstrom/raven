@@ -158,6 +158,9 @@ class MacroHost {
         Assert.Equal("quote { }", quote.InsertionText);
         Assert.Equal(quote.InsertionText.Length - 1, quote.CursorOffset);
         Assert.Contains("token-tree body", quote.Description, StringComparison.OrdinalIgnoreCase);
+        var symbol = Assert.IsAssignableFrom<IMacroSymbol>(quote.Symbol);
+        Assert.Equal(SymbolKind.Macro, symbol.Kind);
+        Assert.Equal("Raven.Macros.Quote", symbol.CanonicalName);
     }
 
     [Fact]
