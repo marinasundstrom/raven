@@ -47,11 +47,49 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void ExpressionMacroFunction_ProjectsAuthoredArgumentSyntaxAlongsideValues()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func AddOffset(offset: int, expression: LiteralExpressionSyntax) {
+                let source = expression.ToString() + " + " + offset.ToString()
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
+            }
+
+            func Main() -> int => #AddOffset(2, 40)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "ExpressionMacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("40 + 2", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
     public void TokenStreamMacroFunction_CompilesIntoTypedLocalProviderAndExpands()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func FirstTokenLength(tokens: TokenStream, offset: int) {
+            import Raven.CodeAnalysis.Macros.*
+
+            macro func FirstTokenLength(tokens: IMacroTokenStream, offset: int) {
                 let token = tokens.ReadToken()
                 let length = token.Text.Length + offset
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())

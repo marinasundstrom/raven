@@ -30,8 +30,17 @@ public partial class Compilation
             return null;
 
         var references = EnsureMacroContractsReference(_references);
+        var signatureCompilation = new Compilation(
+            $"{AssemblyName}.MacroSignatures",
+            _macroSyntaxTrees,
+            [],
+            references,
+            _macroReferences,
+            Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var loweredMacroTrees = _macroSyntaxTrees
-            .Select(MacroFunctionLowering.Lower)
+            .Select(tree => MacroFunctionLowering.Lower(
+                tree,
+                signatureCompilation.GetSemanticModel(tree)))
             .ToArray();
         _macroPartitionCompilation = new Compilation(
             $"{AssemblyName}.Macros",

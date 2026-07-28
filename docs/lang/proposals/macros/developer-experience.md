@@ -134,15 +134,15 @@ contextual modifier on the existing `func` declaration rather than as the start
 of an unrelated declaration grammar:
 
 ```raven
-macro func Foo(argument: Expression) -> Expression {
+macro func Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
     // ...
 }
 
-macro func Query(body: TokenStream) -> Expression {
+macro func Query(body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
-macro func Query(dialect: string, body: TokenStream) -> Expression {
+macro func Query(dialect: string, body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
@@ -161,16 +161,14 @@ macro func Observable(enabled: bool) on property: Property {
 This spelling reuses `func`, ordinary parameter lists, generic type-argument
 lists, `where` constraints, `->`, and the existing block form. New reserved
 keywords should be avoided unless they distinguish semantics that cannot be
-expressed clearly through contextual syntax. In particular, input-role names
-such as `Expression` and `TokenStream` can initially be contextual
-compiler-known types rather than keywords.
+expressed clearly through contextual syntax. Compiler model types such as
+`ExpressionSyntax` and `IMacroTokenStream` remain visible by their real names.
 
 The declaration combines ordinary values with optional compile-time syntax
 roles:
 
-* `Expression` parameters capture parsed Raven expression syntax;
-* `TokenStream` captures the lossless invocation body through
-  `IMacroTokenStream`;
+* `ExpressionSyntax` parameters capture parsed Raven expression syntax;
+* `IMacroTokenStream` captures the lossless invocation body;
 * the return type describes the semantic value expected from the expansion at
   a value-producing call site; and
 * an optional `on` clause selects an attached macro and constrains its target.
@@ -187,7 +185,7 @@ The declaration model has four independent axes:
 
 | Axis | Examples | What it controls |
 | --- | --- | --- |
-| Input role | typed value, `Expression`, `TokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
+| Input role | typed value, `ExpressionSyntax`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
 | Attachment | absent or `on Type` / `on Property` | freestanding versus attached invocation and the allowed target category |
 | Call-site type | `int`, `TDelegate`, a user type | semantic type expected from the expanded value |
 | Contributions | `expand`, `replace`, `introduce` | syntax shape accumulated by reached body statements |
@@ -210,18 +208,19 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro func Foo(argument: Expression) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
-| `macro func Query(body: TokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
-| `macro func Query(dialect: string, body: TokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
+| `macro func Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
+| `macro func Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
+| `macro func Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
 | `macro func AddEquatable() on Type` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
 | `macro func Observable() on Property` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
 Typed parameter lists may lower through the existing generic macro interfaces
 and compiler-owned parameter objects. Syntax-role parameters such as
-`Expression` and `TokenStream` are context projections rather than ordinary
-runtime values. Reached contribution statements populate the appropriate
-expansion result. The synthesized class therefore needs no redundant
-macro-category property: its implemented interface is the category. A
+`ExpressionSyntax` and `IMacroTokenStream` retain their real types while using
+compiler-directed binding sources rather than constant-value conversion.
+Reached contribution statements populate the appropriate expansion result.
+The synthesized class therefore needs no redundant macro-category property:
+its implemented interface is the category. A
 definition implementing zero or multiple category interfaces is invalid.
 Compiler and tooling code use compiler-owned `MacroFacts`/registry metadata to
 query `MacroKind`; the implementation cannot override that discriminator.
@@ -252,7 +251,7 @@ symbolic type-argument value to the implementation.
 The intended direction can be illustrated by `compile!`:
 
 ```raven
-macro func compile<TDelegate>(body: syntax Expression) -> TDelegate
+macro func compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
     where TDelegate: Delegate
 {
     expand quote! {
@@ -311,6 +310,12 @@ other expansion-engine plumbing. Those mechanisms remain useful compiler and
 provider implementation choices, but they are not part of the macro author's
 or caller's conceptual model.
 
+Macro implementation code necessarily depends on `Raven.CodeAnalysis`.
+Function-oriented syntax removes provider plumbing, not the compiler object
+model itself. When a parameter expects syntax or a macro stream, declarations,
+symbols, descriptors, and language services retain the real types such as
+`ExpressionSyntax` and `IMacroTokenStream`.
+
 The semantic model should represent that abstraction with
 `IMacroFunctionSymbol : ISymbol` and `SymbolKind.MacroFunction`.
 `IMacroFunctionSymbol` deliberately does not extend `IMethodSymbol`: the
@@ -322,8 +327,10 @@ signature meaning, but generic ownership is
 
 Parameter binding follows the type-directed model familiar from ASP.NET Core
 minimal APIs. Ordinary parameter types have the `Value` role and bind from the
-macro invocation's argument list. The compiler-known `TokenStream` type has
-the `TokenStream` role and binds from the following raw token-tree body.
+macro invocation's argument list. An `ExpressionSyntax` parameter retains that
+real compiler API type while projecting the authored argument node. The
+`IMacroTokenStream` type has the `TokenStream` role and binds from the
+following raw token-tree body.
 `IParameterSymbol.MacroRole` exposes that distinction without adding a second
 parameter syntax.
 

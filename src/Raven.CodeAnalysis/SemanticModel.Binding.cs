@@ -318,36 +318,6 @@ public partial class SemanticModel
             }
         }
 
-        var tokenStreamParameters = declaration.ParameterList.Parameters
-            .Where(IsTokenStreamMacroParameter)
-            .ToArray();
-        if (tokenStreamParameters.Length > 0)
-        {
-            var tokenStreamParameter = tokenStreamParameters[0];
-
-            foreach (var defaultedParameter in tokenStreamParameters
-                .Where(static parameter => parameter.DefaultValue is not null))
-            {
-                _declarationDiagnostics.ReportTokenStreamMacroParameterCannotHaveDefault(
-                    defaultedParameter.Identifier.ValueText,
-                    defaultedParameter.DefaultValue!.GetLocation());
-            }
-
-            if (declaration.TargetClause is not null)
-            {
-                _declarationDiagnostics.ReportTokenStreamMacroCannotBeAttached(
-                    declaration.Identifier.ValueText,
-                    tokenStreamParameter.TypeAnnotation!.Type.GetLocation());
-            }
-
-            if (tokenStreamParameters.Length > 1)
-            {
-                _declarationDiagnostics.ReportMultipleTokenStreamMacroParameters(
-                    declaration.Identifier.ValueText,
-                    tokenStreamParameters[1].TypeAnnotation!.Type.GetLocation());
-            }
-        }
-
         TypeParameterInitializer.InitializeMacroFunctionTypeParameters(
             symbol,
             declaration.TypeParameterList,
@@ -369,29 +339,22 @@ public partial class SemanticModel
         var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
         foreach (var parameter in declaration.ParameterList.Parameters)
         {
-            var isTokenStream = IsTokenStreamMacroParameter(parameter);
-            var parameterTypeOverride = isTokenStream
-                ? Compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Macros.IMacroTokenStream")
-                    ?? new ErrorTypeSymbol(
-                        Compilation,
-                        "TokenStream",
-                        Compilation.GlobalNamespace,
-                        [parameter.TypeAnnotation!.Type.GetLocation()],
-                        [parameter.TypeAnnotation.Type.GetReference()])
-                : null;
+            var parameterType = ResolveMacroFunctionParameterType(
+                parameter,
+                symbol.TypeParameters);
+            var macroRole = MacroParameterRoleFacts.GetRole(parameterType);
             parameters.Add(MemberSignatureDeclarationPass.CreateSkeletonParameterSymbol(
                 this,
                 parameter,
                 symbol,
                 containingType: null,
                 symbol.TypeParameters,
-                parameterTypeOverride,
-                isTokenStream
-                    ? MacroParameterRole.TokenStream
-                    : MacroParameterRole.Value));
+                parameterType,
+                macroRole));
         }
 
         symbol.SetParameters(parameters.ToImmutable());
+        ValidateMacroFunctionParameters(declaration, symbol);
         ValidateMacroContributionStatements(declaration, symbol);
         RegisterMacroFunctionSymbol(declaration, symbol);
 
@@ -407,9 +370,75 @@ public partial class SemanticModel
         sourceNamespace.AddMember(symbol);
     }
 
-    private static bool IsTokenStreamMacroParameter(ParameterSyntax parameter)
-        => parameter.TypeAnnotation?.Type is IdentifierNameSyntax identifier &&
-           identifier.Identifier.ValueText == "TokenStream";
+    private ITypeSymbol ResolveMacroFunctionParameterType(
+        ParameterSyntax parameter,
+        ImmutableArray<ITypeParameterSymbol> typeParameters)
+    {
+        if (parameter.TypeAnnotation is not { } typeAnnotation)
+            return Compilation.ErrorTypeSymbol;
+
+        var parameterType = MemberSignatureDeclarationPass.ResolveSkeletonType(
+            this,
+            typeAnnotation.Type,
+            Compilation.ErrorTypeSymbol,
+            containingType: null,
+            typeParameters);
+        if (parameterType.TypeKind != TypeKind.Error)
+            return parameterType;
+
+        return MacroParameterRoleFacts.TryResolveKnownType(
+            Compilation,
+            typeAnnotation.Type,
+            out var knownType)
+                ? knownType
+                : parameterType;
+    }
+
+    private void ValidateMacroFunctionParameters(
+        MacroFunctionDeclarationSyntax declaration,
+        SourceMacroFunctionSymbol symbol)
+    {
+        var parameters = declaration.ParameterList.Parameters
+            .Select((syntax, index) => (Syntax: syntax, Symbol: symbol.Parameters[index]))
+            .ToArray();
+        var tokenStreamParameters = parameters
+            .Where(static parameter =>
+                parameter.Symbol.MacroRole == MacroParameterRole.TokenStream)
+            .ToArray();
+
+        foreach (var defaultedParameter in tokenStreamParameters
+            .Where(static parameter => parameter.Syntax.DefaultValue is not null))
+        {
+            _declarationDiagnostics.ReportMacroTokenStreamParameterCannotHaveDefault(
+                defaultedParameter.Symbol.Name,
+                defaultedParameter.Syntax.DefaultValue!.GetLocation());
+        }
+
+        if (declaration.TargetClause is not null &&
+            tokenStreamParameters.FirstOrDefault().Syntax is { } tokenStreamParameter)
+        {
+            _declarationDiagnostics.ReportMacroTokenStreamCannotBeAttached(
+                declaration.Identifier.ValueText,
+                tokenStreamParameter.TypeAnnotation!.Type.GetLocation());
+        }
+
+        if (tokenStreamParameters.Length > 1)
+        {
+            _declarationDiagnostics.ReportMultipleMacroTokenStreamParameters(
+                declaration.Identifier.ValueText,
+                tokenStreamParameters[1].Syntax.TypeAnnotation!.Type.GetLocation());
+        }
+
+        foreach (var expressionParameter in parameters
+            .Where(static parameter =>
+                parameter.Symbol.MacroRole == MacroParameterRole.ExpressionSyntax &&
+                parameter.Syntax.DefaultValue is not null))
+        {
+            _declarationDiagnostics.ReportExpressionSyntaxMacroParameterCannotHaveDefault(
+                expressionParameter.Symbol.Name,
+                expressionParameter.Syntax.DefaultValue!.GetLocation());
+        }
+    }
 
     private void ValidateMacroContributionStatements(
         MacroFunctionDeclarationSyntax declaration,

@@ -152,11 +152,15 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     [Fact]
     public void TokenStreamMacroFunction_ExposesTypeDirectedParameterRoles()
     {
-        var (compilation, tree) = CreateCompilation("""
-            macro func Query(dialect: string, tokens: TokenStream) {
+        var (baseCompilation, tree) = CreateCompilation("""
+            import Raven.CodeAnalysis.Macros.*
+
+            macro func Query(dialect: string, tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
                 expand ParseQuery(dialect, tokens)
             }
             """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
             .OfType<MacroFunctionDeclarationSyntax>()
@@ -168,32 +172,92 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
         Assert.Equal(MacroParameterRole.TokenStream, symbol.Parameters[1].MacroRole);
-        Assert.Equal("TokenStream", symbol.Parameters[1].Type.Name);
-        Assert.Contains("tokens: TokenStream", symbol.ToDisplayString());
+        Assert.Equal("IMacroTokenStream", symbol.Parameters[1].Type.Name);
+        Assert.Contains("tokens: IMacroTokenStream", symbol.ToDisplayString());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ExpressionMacroFunction_ExposesSyntaxProjectionRole()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Rewrite(value: Raven.CodeAnalysis.Syntax.ExpressionSyntax) {
+                expand value
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var parameter = Assert.Single(symbol.Parameters);
+
+        Assert.Equal(MacroParameterRole.ExpressionSyntax, parameter.MacroRole);
+        Assert.Equal("ExpressionSyntax", parameter.Type.Name);
+        Assert.Contains("value: ExpressionSyntax", symbol.ToDisplayString());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroParameterRole_UsesResolvedTypeIdentity()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class ExpressionSyntax {}
+
+            macro func Custom(value: ExpressionSyntax) {
+                expand value
+            }
+            """);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var parameter = Assert.Single(
+            Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+                compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration))
+            .Parameters);
+
+        Assert.Equal(MacroParameterRole.Value, parameter.MacroRole);
+        Assert.Equal("ExpressionSyntax", parameter.Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
     public void TokenStreamMacroParameter_ValidatesSpecialBindingRules()
     {
-        var (compilation, _) = CreateCompilation("""
-            macro func Defaulted(content: TokenStream = null) {
+        var (baseCompilation, _) = CreateCompilation("""
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Defaulted(content: Raven.CodeAnalysis.Macros.IMacroTokenStream = null) {
                 expand content
             }
 
-            macro func Duplicate(first: TokenStream, second: TokenStream) {
+            macro func Duplicate(first: Raven.CodeAnalysis.Macros.IMacroTokenStream, second: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
                 expand first
             }
 
-            macro func Attached(tokens: TokenStream) on Type {
+            macro func Attached(tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) on Type {
                 introduce tokens.ReadToken()
             }
+
+            macro func DefaultedExpression(value: Raven.CodeAnalysis.Syntax.ExpressionSyntax = 1) {
+                expand value
+            }
             """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
 
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0929");
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0930");
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0931");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0932");
     }
 }

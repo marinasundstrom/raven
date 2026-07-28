@@ -83,6 +83,33 @@ class Host {
         Assert.Equal(0, signature.ActiveParameter);
     }
 
+    [Fact]
+    public void GetMacroSignatureHelp_ExpressionProjection_UsesLanguageRoleName()
+    {
+        const string code = """
+class Host {
+    func Test() {
+        val value = #project(1 + 2)
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new ExpressionProjectionMacro()));
+
+        var signature = compilation.GetMacroSignatureHelp(
+            syntaxTree,
+            code.IndexOf("1 + 2", StringComparison.Ordinal) + 2);
+        var parameter = Assert.Single(signature!.Parameters);
+
+        Assert.Equal("expression", parameter.Name);
+        Assert.Equal("ExpressionSyntax", parameter.TypeDisplayName);
+        Assert.Equal(MacroParameterRole.ExpressionSyntax, parameter.Role);
+    }
+
     private sealed class TypedQueryParameters
     {
         public TypedQueryParameters(int count = 1)
@@ -118,5 +145,25 @@ class Host {
 
         public MacroExpansionResult Expand(AttachedMacroContext<TypedObservableParameters> context)
             => MacroExpansionResult.Empty;
+    }
+
+    private sealed class ExpressionProjectionParameters
+    {
+        public ExpressionProjectionParameters(ExpressionSyntax expression)
+        {
+            Expression = expression;
+        }
+
+        public ExpressionSyntax Expression { get; }
+    }
+
+    private sealed class ExpressionProjectionMacro :
+        IFreestandingExpressionMacro<ExpressionProjectionParameters>
+    {
+        public string Name => "project";
+
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<ExpressionProjectionParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 }

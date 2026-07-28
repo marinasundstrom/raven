@@ -117,6 +117,7 @@ public static class MacroFacts
                 parameter.Name ?? $"arg{ordinal}",
                 parameter.ParameterType,
                 MacroParameterKind.Positional,
+                MacroParameterRoleFacts.GetRole(parameter.ParameterType),
                 ordinal,
                 isRequired: !parameter.HasDefaultValue,
                 defaultValue: parameter.HasDefaultValue ? parameter.DefaultValue : null));
@@ -131,6 +132,7 @@ public static class MacroFacts
                 property.Name,
                 property.PropertyType,
                 MacroParameterKind.Named,
+                MacroParameterRoleFacts.GetRole(property.PropertyType),
                 ordinal: -1,
                 isRequired: false,
                 defaultValue: null));

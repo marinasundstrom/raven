@@ -198,7 +198,7 @@ Raven recognizes the initial function-oriented macro declaration syntax at
 compilation-unit and namespace-member scope:
 
 ```raven
-macro func Compile<TDelegate>(body: Expression) -> TDelegate
+macro func Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
     where TDelegate: Delegate
 {
     // Expansion implementation
@@ -210,6 +210,11 @@ by `func` where a member declaration may begin. The syntax tree represents the
 construct with a dedicated `MacroFunctionDeclarationSyntax`, retaining
 attributes, modifiers, generic parameters, ordinary parameters, a return
 clause, constraints, and either a block or expression body.
+
+Declaring a macro function necessarily places its compile-time partition in
+the `Raven.CodeAnalysis` programming model. The compiler supplies that assembly
+reference when it builds local macros; source signatures and semantic tooling
+therefore expose actual compiler API types rather than language-only facades.
 
 This establishes syntax, the semantic declaration signature, and executable
 lowering for same-compilation argument-style and attached macro functions.
@@ -236,24 +241,40 @@ The named form `on property: Property` binds the current declaration to
 target roles correspond to `MacroTarget`: `Type`, `Method`, `Property`,
 `Field`, `Event`, `Parameter`, `Accessor`, and `Constructor`. A declaration
 without `on` is an argument-style freestanding expression macro. Token-stream
-input uses the same parameter syntax:
+and syntax-projection inputs use the same parameter syntax:
 
 ```raven
-macro func Query(dialect: string, body: TokenStream) {
+macro func AddOffset(offset: int, value: ExpressionSyntax) {
+    expand ParseExpression(value.ToString() + " + " + offset.ToString())
+}
+```
+
+`ExpressionSyntax` is the real Raven.CodeAnalysis syntax type. It remains a
+caller-supplied argument, but the macro binder projects the authored argument
+node instead of requiring a constant value. Syntax projections can be freely
+combined with ordinary typed parameters and participate in the same positional
+and named argument ordering. They cannot declare default values.
+
+Raw token-stream input is expressed in the same way:
+
+```raven
+macro func Query(dialect: string, body: IMacroTokenStream) {
     let token = body.ReadToken()
     expand BuildQuery(dialect, token)
 }
 ```
 
-`TokenStream` is a contextual compiler-known parameter type within a macro
-function signature. It denotes the single raw `{ ... }` invocation body and is
-bound to `IMacroTokenStream`; it is not an argument supplied inside the
-invocation's argument list. Other parameters remain typed caller-supplied
+`IMacroTokenStream` is the real Raven.CodeAnalysis macro stream interface. In a
+macro function signature it denotes the single raw `{ ... }` invocation body;
+it is not an argument supplied inside the invocation's argument list. Other
+parameters remain typed caller-supplied
 values, so the example is invoked as `Query!("sql") { ... }`. A macro function
-may declare at most one `TokenStream` parameter. It cannot have a default value
+may declare at most one `IMacroTokenStream` parameter. It cannot have a default value
 or be combined with an attached `on` target. `IParameterSymbol.MacroRole`
-distinguishes caller-supplied `Value` parameters from the compiler-supplied
-`TokenStream` parameter for semantic tooling.
+distinguishes caller-supplied `Value` parameters, caller-supplied
+`ExpressionSyntax` projections, and the compiler-supplied `IMacroTokenStream`
+parameter for semantic tooling. Runtime macro parameter descriptors expose the
+same role through `MacroParameterDescriptor.Role`.
 
 Macro bodies are ordinary synchronous Raven blocks augmented by three
 contextual contribution statements:

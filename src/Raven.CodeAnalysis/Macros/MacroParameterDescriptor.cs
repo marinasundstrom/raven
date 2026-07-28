@@ -29,6 +29,7 @@ public sealed class MacroParameterDescriptor
         string name,
         Type parameterType,
         MacroParameterKind kind,
+        MacroParameterRole role,
         int ordinal,
         bool isRequired,
         object? defaultValue)
@@ -36,6 +37,7 @@ public sealed class MacroParameterDescriptor
         Name = name;
         ParameterType = parameterType;
         Kind = kind;
+        Role = role;
         Ordinal = ordinal;
         IsRequired = isRequired;
         DefaultValue = defaultValue;
@@ -60,6 +62,11 @@ public sealed class MacroParameterDescriptor
     /// Gets whether the parameter is positional or named.
     /// </summary>
     public MacroParameterKind Kind { get; }
+
+    /// <summary>
+    /// Gets how the macro invocation supplies the parameter.
+    /// </summary>
+    public MacroParameterRole Role { get; }
 
     /// <summary>
     /// Gets the zero-based constructor position, or <c>-1</c> for a named

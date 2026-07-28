@@ -692,11 +692,11 @@ semantic return type, an optional target clause, and body contributions to
 describe the macro:
 
 ```raven
-macro func Foo(argument: Expression) -> Expression {
+macro func Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
     // ...
 }
 
-macro func Query(body: TokenStream) -> Expression {
+macro func Query(body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
@@ -721,11 +721,13 @@ must cover attached, argument-style, and token-tree macros without
 reintroducing a separate `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).
 
-Token-tree macro functions use an ordinary-looking `body: TokenStream`
-parameter. Binding partitions the signature by `MacroParameterRole`: value
-parameters populate the generated typed parameter object, while the single
-token-stream parameter is supplied through
-`TokenTreeMacroContext.CreateTokenStream()`.
+Macro-function binding classifies ordinary-looking parameters by
+`MacroParameterRole`. Value parameters populate the generated typed parameter
+object normally. `ExpressionSyntax` parameters retain that real compiler API
+type and receive the caller's authored node. A single
+`body: IMacroTokenStream` parameter is
+instead supplied through `TokenTreeMacroContext.CreateTokenStream()` and
+selects token-tree invocation syntax.
 
 The future strongly typed layer also includes symbolic generic arguments.
 Explicit macro type arguments bind to `ITypeSymbol` values, participate in

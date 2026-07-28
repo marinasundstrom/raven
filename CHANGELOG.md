@@ -4,9 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Added native token-stream inputs to macro functions. A compiler-known
-  `body: TokenStream` parameter selects token-tree invocation syntax and binds
-  the raw body as `IMacroTokenStream`, while the remaining parameters continue
+- Added type-directed `ExpressionSyntax` parameters to macro functions. They project
+  authored invocation arguments as `ExpressionSyntax` and can be mixed with
+  ordinary typed values, while semantic symbols and runtime parameter
+  descriptors expose the shared `MacroParameterRole`.
+- Added native token-stream inputs to macro functions. An
+  `body: IMacroTokenStream` parameter selects token-tree invocation syntax and
+  binds the raw body, while the remaining parameters continue
   to use the typed caller-supplied argument model.
 - Made `macro func` declarations executable as same-compilation argument-style
   and attached macros. Attached declarations use contextual `on Property` or

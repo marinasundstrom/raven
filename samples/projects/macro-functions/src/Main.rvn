@@ -1,11 +1,18 @@
 import System.Console.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
 
 macro func Double(value: int) {
     let doubled = value * 2
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
 }
 
-macro func FirstTokenLength(offset: int, tokens: TokenStream) {
+macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+    let source = expression.ToString() + " + " + offset.ToString()
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
+}
+
+macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     let length = token.Text.Length + offset
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
@@ -13,7 +20,9 @@ macro func FirstTokenLength(offset: int, tokens: TokenStream) {
 
 func Main() {
     let answer = #Double(21)
+    let projectedExpression = #AddOffset(2, 40)
     let tokenLength = FirstTokenLength!(1) { raven }
     WriteLine(answer)
+    WriteLine(projectedExpression)
     WriteLine(tokenLength)
 }

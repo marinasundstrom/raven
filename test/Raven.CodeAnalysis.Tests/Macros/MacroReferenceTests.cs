@@ -359,6 +359,7 @@ public sealed class MacroReferenceTests
                 Assert.Equal("name", parameter.Name);
                 Assert.Equal(typeof(string), parameter.ParameterType);
                 Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
+                Assert.Equal(MacroParameterRole.Value, parameter.Role);
                 Assert.Equal(0, parameter.Ordinal);
                 Assert.True(parameter.IsRequired);
             },
@@ -367,6 +368,7 @@ public sealed class MacroReferenceTests
                 Assert.Equal("count", parameter.Name);
                 Assert.Equal(typeof(int), parameter.ParameterType);
                 Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
+                Assert.Equal(MacroParameterRole.Value, parameter.Role);
                 Assert.Equal(1, parameter.Ordinal);
                 Assert.False(parameter.IsRequired);
                 Assert.Equal(1, parameter.DefaultValue);
@@ -376,9 +378,21 @@ public sealed class MacroReferenceTests
                 Assert.Equal("Notify", parameter.Name);
                 Assert.Equal(typeof(bool), parameter.ParameterType);
                 Assert.Equal(MacroParameterKind.Named, parameter.Kind);
+                Assert.Equal(MacroParameterRole.Value, parameter.Role);
                 Assert.Equal(-1, parameter.Ordinal);
                 Assert.False(parameter.IsRequired);
             });
+    }
+
+    [Fact]
+    public void MacroFacts_DescribesExpressionSyntaxProjection()
+    {
+        var parameter = Assert.Single(
+            MacroFacts.GetParameters(new ExpressionParameterMacro()));
+
+        Assert.Equal(typeof(ExpressionSyntax), parameter.ParameterType);
+        Assert.Equal("ExpressionSyntax", parameter.TypeDisplayName);
+        Assert.Equal(MacroParameterRole.ExpressionSyntax, parameter.Role);
     }
 
     [Fact]
@@ -434,6 +448,25 @@ public sealed class MacroReferenceTests
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => MacroExpansionResult.Empty;
+    }
+
+    public sealed class ExpressionMacroParameters
+    {
+        public ExpressionMacroParameters(ExpressionSyntax expression)
+        {
+            Expression = expression;
+        }
+
+        public ExpressionSyntax Expression { get; }
+    }
+
+    public sealed class ExpressionParameterMacro : IFreestandingExpressionMacro<ExpressionMacroParameters>
+    {
+        public string Name => "expression";
+
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<ExpressionMacroParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     public sealed class UnclassifiedMacro : IMacroDefinition

@@ -7,7 +7,9 @@ namespace Raven.CodeAnalysis.Macros;
 
 internal static class MacroFunctionLowering
 {
-    public static SyntaxTree Lower(SyntaxTree syntaxTree)
+    public static SyntaxTree Lower(
+        SyntaxTree syntaxTree,
+        SemanticModel semanticModel)
     {
         var declarations = syntaxTree.GetRoot()
             .DescendantNodes()
@@ -24,7 +26,7 @@ internal static class MacroFunctionLowering
             lowered.Remove(declaration.Span.Start, declaration.Span.Length);
             lowered.Insert(
                 declaration.Span.Start,
-                LowerDeclaration(source, declaration));
+                LowerDeclaration(source, declaration, semanticModel));
         }
 
         return SyntaxTree.ParseText(
@@ -35,17 +37,26 @@ internal static class MacroFunctionLowering
 
     private static string LowerDeclaration(
         string source,
-        MacroFunctionDeclarationSyntax declaration)
+        MacroFunctionDeclarationSyntax declaration,
+        SemanticModel semanticModel)
     {
         var suffix = declaration.Span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var providerName = $"__RavenMacroFunction_{declaration.Identifier.ValueText}_{suffix}";
         var parametersName = $"{providerName}_Parameters";
         var isAttached = declaration.TargetClause is not null;
-        var tokenStreamParameters = declaration.ParameterList.Parameters
-            .Where(IsTokenStreamParameter)
+        var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroFunctionSymbol;
+        var parameters = declaration.ParameterList.Parameters
+            .Select((syntax, index) => (
+                Syntax: syntax,
+                Role: symbol?.Parameters[index].MacroRole ?? MacroParameterRole.Value))
             .ToArray();
-        var valueParameters = declaration.ParameterList.Parameters
-            .Where(static parameter => !IsTokenStreamParameter(parameter))
+        var tokenStreamParameters = parameters
+            .Where(static parameter =>
+                parameter.Role == MacroParameterRole.TokenStream)
+            .ToArray();
+        var valueParameters = parameters
+            .Where(static parameter =>
+                parameter.Role != MacroParameterRole.TokenStream)
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0;
         var hasParameters = valueParameters.Length > 0;
@@ -93,13 +104,14 @@ internal static class MacroFunctionLowering
         foreach (var parameter in valueParameters)
         {
             builder.AppendLine(
-                $"        let {parameter.Identifier.ValueText} = context.Parameters.{parameter.Identifier.ValueText}");
+                $"        let {parameter.Syntax.Identifier.ValueText} = context.Parameters.{parameter.Syntax.Identifier.ValueText}");
         }
 
-        if (tokenStreamParameters.FirstOrDefault() is { } tokenStreamParameter)
+        if (tokenStreamParameters.Length > 0)
         {
+            var tokenStreamParameter = tokenStreamParameters[0];
             builder.AppendLine(
-                $"        let {tokenStreamParameter.Identifier.ValueText}: Raven.CodeAnalysis.Macros.IMacroTokenStream = context.CreateTokenStream()");
+                $"        let {tokenStreamParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.IMacroTokenStream = context.CreateTokenStream()");
         }
         else if (declaration.TargetClause is { } targetClause)
             AppendTargetBinding(builder, targetClause, resultName);
@@ -113,14 +125,14 @@ internal static class MacroFunctionLowering
 
     private static void AppendParametersClass(
         StringBuilder builder,
-        IReadOnlyList<ParameterSyntax> parameters,
+        IReadOnlyList<(ParameterSyntax Syntax, MacroParameterRole Role)> parameters,
         string parametersName)
     {
         builder.AppendLine($"class {parametersName} {{");
         foreach (var parameter in parameters)
         {
             builder.AppendLine(
-                $"    var {parameter.Identifier.ValueText}: {GetParameterType(parameter)}");
+                $"    var {parameter.Syntax.Identifier.ValueText}: {GetParameterType(parameter)}");
         }
 
         builder.Append($"    init(");
@@ -128,27 +140,26 @@ internal static class MacroFunctionLowering
             ", ",
             parameters.Select(parameter =>
             {
-                var defaultValue = parameter.DefaultValue is null
+                var defaultValue = parameter.Syntax.DefaultValue is null
                     ? string.Empty
-                    : $" = {parameter.DefaultValue.Value}";
-                return $"{parameter.Identifier.ValueText}: {GetParameterType(parameter)}{defaultValue}";
+                    : $" = {parameter.Syntax.DefaultValue.Value}";
+                return $"{parameter.Syntax.Identifier.ValueText}: {GetParameterType(parameter)}{defaultValue}";
             })));
         builder.AppendLine(") {");
         foreach (var parameter in parameters)
         {
             builder.AppendLine(
-                $"        self.{parameter.Identifier.ValueText} = {parameter.Identifier.ValueText}");
+                $"        self.{parameter.Syntax.Identifier.ValueText} = {parameter.Syntax.Identifier.ValueText}");
         }
         builder.AppendLine("    }");
         builder.AppendLine("}");
     }
 
-    private static string GetParameterType(ParameterSyntax parameter)
-        => parameter.TypeAnnotation?.Type.ToString() ?? "object";
-
-    private static bool IsTokenStreamParameter(ParameterSyntax parameter)
-        => parameter.TypeAnnotation?.Type is IdentifierNameSyntax identifier &&
-           identifier.Identifier.ValueText == "TokenStream";
+    private static string GetParameterType(
+        (ParameterSyntax Syntax, MacroParameterRole Role) parameter)
+        => MacroParameterRoleFacts.GetLoweredTypeName(
+            parameter.Syntax,
+            parameter.Role);
 
     private static void AppendTargetBinding(
         StringBuilder builder,

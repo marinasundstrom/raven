@@ -5,9 +5,14 @@ compiler lowers `macro func Double` into the existing local provider contracts,
 binds its ordinary `int` parameter, and evaluates the reached `expand`
 statement while compiling the invocation.
 
+`AddOffset` shows the other syntax-projection role. Its `offset: int` parameter
+binds a typed value, while `expression: ExpressionSyntax` receives the caller's
+authored `ExpressionSyntax` rather than requiring a compile-time constant.
+
 `FirstTokenLength` demonstrates the token-tree form without introducing a
 separate declaration shape. Its ordinary `offset` parameter is supplied by the
-caller, while `tokens: TokenStream` is a compiler-known input role bound to the
+caller, while `tokens: IMacroTokenStream` uses the real Raven.CodeAnalysis
+interface and is bound to the
 raw `{ ... }` invocation body. The provider class, typed parameter object, and
 `TokenTreeMacroContext.CreateTokenStream()` call remain lowering details.
 
@@ -24,6 +29,7 @@ dotnet run --project MacroFunctions.rvnproj --property WarningLevel=0
 Expected output:
 
 ```text
+42
 42
 6
 ```

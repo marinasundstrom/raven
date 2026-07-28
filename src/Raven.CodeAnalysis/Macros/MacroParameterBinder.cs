@@ -282,7 +282,15 @@ internal static class MacroParameterBinder
     }
 
     private static bool TryConvertValue(MacroArgument argument, Type targetType, out object? converted)
-        => TryConvertValue(argument.Constant, targetType, out converted);
+    {
+        if (targetType.IsInstanceOfType(argument.Expression))
+        {
+            converted = argument.Expression;
+            return true;
+        }
+
+        return TryConvertValue(argument.Constant, targetType, out converted);
+    }
 
     private static bool TryConvertValue(TypedConstant constant, Type targetType, out object? converted)
     {

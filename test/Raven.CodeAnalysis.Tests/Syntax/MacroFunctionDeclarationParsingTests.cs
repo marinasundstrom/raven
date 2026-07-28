@@ -12,7 +12,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     public void MacroFunctionDeclaration_ParsesAsTopLevelMember()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func Compile<TDelegate>(body: Expression) -> TDelegate
+            macro func Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
                 where TDelegate: Delegate
             {
                 return body
@@ -40,7 +40,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     {
         var tree = SyntaxTree.ParseText("""
             namespace Tools {
-                macro func Quote(body: Expression) -> Expression => body
+                macro func Quote(body: ExpressionSyntax) -> ExpressionSyntax => body
             }
             """);
 
@@ -60,7 +60,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     {
         var tree = SyntaxTree.ParseText("""
             [Obsolete]
-            public macro func Legacy(body: Expression) -> Expression {
+            public macro func Legacy(body: ExpressionSyntax) -> ExpressionSyntax {
                 return body
             }
             """);
@@ -103,7 +103,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     public void MacroFunctionDeclaration_ClassifiesContextualKeywordAndName()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func Compile(body: Expression) -> Expression {
+            macro func Compile(body: ExpressionSyntax) -> ExpressionSyntax {
                 return body
             }
             """);
@@ -181,7 +181,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     public void MacroFunctionDeclaration_ParsesTokenStreamInputAsParameter()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func FirstTokenLength(offset: int, tokens: TokenStream) {
+            macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
                 let token = tokens.ReadToken()
                 expand ParseExpression((token.Text.Length + offset).ToString())
             }
@@ -193,7 +193,7 @@ public sealed class MacroFunctionDeclarationParsingTests
 
         var classifications = SemanticClassifier.Classify(declaration);
         Assert.Equal("tokens", parameter.Identifier.ValueText);
-        Assert.Equal("TokenStream", parameter.TypeAnnotation!.Type.ToString());
+        Assert.Equal("IMacroTokenStream", parameter.TypeAnnotation!.Type.ToString());
         Assert.Equal(SemanticClassification.Parameter, classifications.Tokens[parameter.Identifier]);
         Assert.Empty(tree.GetDiagnostics());
     }
