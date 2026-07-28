@@ -10,6 +10,9 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
     private ITypeSymbol _returnType;
     private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private MacroTarget _targets;
+    private string? _targetName;
+    private bool _isAttached;
 
     public SourceMacroFunctionSymbol(
         string name,
@@ -38,7 +41,14 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
 
     public override bool CanBeReferencedByName => true;
 
-    public MacroKind MacroKind => MacroKind.FreestandingExpression;
+    public MacroKind MacroKind =>
+        _isAttached
+            ? MacroKind.AttachedDeclaration
+            : MacroKind.FreestandingExpression;
+
+    public MacroTarget Targets => _targets;
+
+    public string? TargetName => _targetName;
 
     public ITypeSymbol ReturnType => _returnType;
 
@@ -60,5 +70,12 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
     internal void SetTypeParameters(ImmutableArray<ITypeParameterSymbol> typeParameters)
     {
         _typeParameters = typeParameters;
+    }
+
+    internal void SetTarget(MacroTarget targets, string? targetName)
+    {
+        _isAttached = true;
+        _targets = targets;
+        _targetName = targetName;
     }
 }

@@ -42,6 +42,10 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = ParseTypeDeclarationStatementSyntax();
         }
+        else if (IsInMacroFunction && IsMacroExpansionKeyword(token))
+        {
+            statement = ParseMacroExpansionStatementSyntax();
+        }
         else
         {
             switch (token.Kind)
@@ -131,6 +135,22 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return statement;
+    }
+
+    private static bool IsMacroExpansionKeyword(SyntaxToken token)
+        => token.IsKind(SyntaxKind.IdentifierToken) &&
+           token.GetValueText() is "expand" or "replace" or "introduce";
+
+    private MacroExpansionStatementSyntax ParseMacroExpansionStatementSyntax()
+    {
+        var keyword = ReadToken();
+
+        SetTreatNewlinesAsTokens(false);
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        SetTreatNewlinesAsTokens(true);
+
+        TryConsumeTerminator(out var terminatorToken);
+        return MacroExpansionStatement(keyword, expression, terminatorToken);
     }
 
     private bool IsFunctionDeclarationStart()

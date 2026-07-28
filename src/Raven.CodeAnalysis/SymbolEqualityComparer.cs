@@ -327,6 +327,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (x is IMacroFunctionSymbol macroX && y is IMacroFunctionSymbol macroY)
         {
             if (macroX.MacroKind != macroY.MacroKind ||
+                macroX.Targets != macroY.Targets ||
+                !string.Equals(macroX.TargetName, macroY.TargetName, StringComparison.Ordinal) ||
                 !EqualsCore(macroX.ReturnType, macroY.ReturnType, visited) ||
                 macroX.Parameters.Length != macroY.Parameters.Length ||
                 macroX.TypeParameters.Length != macroY.TypeParameters.Length)
@@ -523,6 +525,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (obj is IMacroFunctionSymbol macroFunction)
         {
             hash.Add(macroFunction.MacroKind);
+            hash.Add(macroFunction.Targets);
+            hash.Add(macroFunction.TargetName, StringComparer.Ordinal);
             hash.Add(macroFunction.Parameters.Length);
             hash.Add(GetHashCodeCore(macroFunction.ReturnType, visited));
 

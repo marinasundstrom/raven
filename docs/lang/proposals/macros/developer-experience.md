@@ -128,10 +128,10 @@ macro implementations.
 
 ### Candidate macro declaration syntax
 
-A compact declaration can encode the invocation input and expansion category
-in a function-like signature. `macro` is proposed as a contextual modifier on
-the existing `func` declaration rather than as the start of an unrelated
-declaration grammar:
+A compact declaration can encode invocation inputs, attachment, and the
+call-site semantic type in a function-like signature. `macro` is proposed as a
+contextual modifier on the existing `func` declaration rather than as the start
+of an unrelated declaration grammar:
 
 ```raven
 macro func Foo(argument: Expression) -> Expression {
@@ -146,8 +146,15 @@ macro func Query(dialect: string, body: TokenStream) -> Expression {
     // ...
 }
 
-macro func AddEquatable() on Type -> Members {
-    // ...
+macro func AddEquatable() on Type {
+    introduce CreateEqualityMembers(target)
+}
+
+macro func Observable(enabled: bool) on property: Property {
+    if enabled {
+        replace Rewrite(property)
+    }
+    introduce CreateBackingField(property)
 }
 ```
 
@@ -158,49 +165,66 @@ expressed clearly through contextual syntax. In particular, input-role names
 such as `Expression` and `TokenStream` can initially be contextual
 compiler-known types rather than keywords.
 
-The signature categories are compile-time syntax roles, not runtime Raven
-value types:
+The declaration combines ordinary values with optional compile-time syntax
+roles:
 
 * `Expression` parameters capture parsed Raven expression syntax;
 * `TokenStream` captures the lossless invocation body through
   `IMacroTokenStream`;
-* the result category selects the carrier and required expansion shape; and
+* the return type describes the semantic value expected from the expansion at
+  a value-producing call site; and
 * an optional `on` clause selects an attached macro and constrains its target.
 
 Thus `Foo` is an argument-style freestanding expression macro, either `Query`
 form is a raw token-stream expression macro, and `AddEquatable` is an attached
-type macro that introduces members. A token-stream macro may combine typed
-value parameters with one unrestricted body projection. Future input and result categories can cover
-statements, declarations, types, patterns, and retained DSL structure without
-changing the basic declaration shape.
+type macro whose reached contribution statements introduce members. A
+token-stream macro may combine typed value parameters with one unrestricted
+body projection. Future input and result categories can cover statements,
+declarations, types, patterns, and retained DSL structure without changing the
+basic declaration shape.
 
-The declaration model has three independent axes:
+The declaration model has four independent axes:
 
 | Axis | Examples | What it controls |
 | --- | --- | --- |
 | Input role | typed value, `Expression`, `TokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
 | Attachment | absent or `on Type` / `on Property` | freestanding versus attached invocation and the allowed target category |
-| Result role | `Expression`, `Members`, `Declaration` | the carrier position and the syntax shape accepted from expansion |
+| Call-site type | `int`, `TDelegate`, a user type | semantic type expected from the expanded value |
+| Contributions | `expand`, `replace`, `introduce` | syntax shape accumulated by reached body statements |
+
+The first executable slice makes expansion output explicit in the body rather
+than treating an ordinary return type as provider plumbing. `expand`,
+`replace`, and `introduce` are contextual contribution statements. Reaching
+one updates a compiler-provided result state and execution continues. The last
+reached `expand` or `replace` wins, while reached `introduce` statements append
+in order. Consequently normal control flow can conditionally select or combine
+parts of an expansion without constructing `MacroExpansionResult` manually.
+
+Attached targets support `on Property`, which provides the implicit name
+`target`, and `on property: Property`, which chooses an explicit source name.
+The binding denotes the current declaration in the attached-macro composition
+pipeline. The original target remains available through the lower-level
+`AttachedMacroContext` API when a class-authored provider needs it.
 
 Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro func Foo(argument: Expression) -> Expression` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
-| `macro func Query(body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
-| `macro func Query(dialect: string, body: TokenStream) -> Expression` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
-| `macro func AddEquatable() on Type -> Members` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
-| `macro func Observable() on Property -> Declaration` | `IAttachedDeclarationMacro` returning a replacement declaration |
+| `macro func Foo(argument: Expression) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
+| `macro func Query(body: TokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
+| `macro func Query(dialect: string, body: TokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
+| `macro func AddEquatable() on Type` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
+| `macro func Observable() on Property` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
 Typed parameter lists may lower through the existing generic macro interfaces
 and compiler-owned parameter objects. Syntax-role parameters such as
 `Expression` and `TokenStream` are context projections rather than ordinary
-runtime values. The result role selects the appropriate expansion-result
-factory. The synthesized class therefore needs no redundant macro-category
-property: its implemented interface is the category. A definition implementing
-zero or multiple category interfaces is invalid. Compiler and tooling code use
-compiler-owned `MacroFacts`/registry metadata to query `MacroKind`; the
-implementation cannot override that discriminator.
+runtime values. Reached contribution statements populate the appropriate
+expansion result. The synthesized class therefore needs no redundant
+macro-category property: its implemented interface is the category. A
+definition implementing zero or multiple category interfaces is invalid.
+Compiler and tooling code use compiler-owned `MacroFacts`/registry metadata to
+query `MacroKind`; the implementation cannot override that discriminator.
 
 The object-oriented API exposes its normalized typed-value schema through
 `MacroFacts.GetParameters`. Tooling consumes `MacroParameterDescriptor`

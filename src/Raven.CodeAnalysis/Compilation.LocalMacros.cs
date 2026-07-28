@@ -30,9 +30,12 @@ public partial class Compilation
             return null;
 
         var references = EnsureMacroContractsReference(_references);
+        var loweredMacroTrees = _macroSyntaxTrees
+            .Select(MacroFunctionLowering.Lower)
+            .ToArray();
         _macroPartitionCompilation = new Compilation(
             $"{AssemblyName}.Macros",
-            _macroSyntaxTrees,
+            loweredMacroTrees,
             [],
             references,
             _macroReferences,
@@ -59,7 +62,7 @@ public partial class Compilation
         _localMacroPartitionArtifact = new LocalMacroPartitionArtifact(
             reference,
             _macroPartitionDiagnostics,
-            _macroSyntaxTrees);
+            loweredMacroTrees);
         return reference;
     }
 

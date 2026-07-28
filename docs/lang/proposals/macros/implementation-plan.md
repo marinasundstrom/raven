@@ -687,8 +687,9 @@ boilerplate only by lowering to or interoperating with these same contracts.
 It may also synthesize the assembly export registration currently expressed
 through `RavenCompilerPlugin`.
 
-The current candidate is a function-like declaration whose parameter roles,
-result role, and optional target clause describe the macro category:
+The function-like declaration uses parameter roles, an optional call-site
+semantic return type, an optional target clause, and body contributions to
+describe the macro:
 
 ```raven
 macro func Foo(argument: Expression) -> Expression {
@@ -699,8 +700,8 @@ macro func Query(body: TokenStream) -> Expression {
     // ...
 }
 
-macro func AddEquatable() on Type -> Members {
-    // ...
+macro func AddEquatable() on Type {
+    introduce CreateEqualityMembers(target)
 }
 ```
 
@@ -714,10 +715,10 @@ constraint. Local declarations enter the compile-time partition without
 assembly export metadata. Only an explicitly exported declaration in a
 provider assembly synthesizes provider manifest metadata.
 
-The signature derives the category from three independent axes: input roles,
-an optional attachment target, and the result role. It must cover attached,
-argument-style, and token-tree macros without reintroducing a separate
-`MacroKind` annotation. The detailed lowering matrix lives in
+The model separates input roles, an optional attachment target, the call-site
+semantic type, and reached `expand`/`replace`/`introduce` contributions. It
+must cover attached, argument-style, and token-tree macros without
+reintroducing a separate `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).
 
 The future strongly typed layer also includes symbolic generic arguments.

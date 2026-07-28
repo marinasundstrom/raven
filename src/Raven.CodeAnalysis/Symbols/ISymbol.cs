@@ -319,6 +319,17 @@ public interface IMacroFunctionSymbol : ISymbol
     MacroKind MacroKind { get; }
 
     /// <summary>
+    /// Gets the declaration targets accepted by this macro, or
+    /// <see cref="Macros.MacroTarget.None"/> for a freestanding macro.
+    /// </summary>
+    MacroTarget Targets { get; }
+
+    /// <summary>
+    /// Gets the source name bound to the current attached target.
+    /// </summary>
+    string? TargetName { get; }
+
+    /// <summary>
     /// Gets the type produced at the macro invocation site.
     /// </summary>
     ITypeSymbol ReturnType { get; }

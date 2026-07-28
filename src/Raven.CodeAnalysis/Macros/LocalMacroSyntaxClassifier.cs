@@ -30,6 +30,7 @@ internal static class LocalMacroSyntaxClassifier
         var members = syntaxTree.GetRoot().Members;
         return members.Count > 0 &&
             members.All(member =>
+                member is MacroFunctionDeclarationSyntax ||
                 member is TypeDeclarationSyntax declaration &&
                 IsLocalMacroDeclaration(declaration));
     }
@@ -60,9 +61,7 @@ internal static class LocalMacroSyntaxClassifier
         if (IsLocalMacroTree(syntaxTree))
             return new LocalMacroSyntaxPartition(null, syntaxTree);
 
-        var declarations = GetTopLevelTypeDeclarations(syntaxTree)
-            .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
-            .Where(IsLocalMacroDeclaration)
+        var declarations = GetTopLevelMacroDeclarations(syntaxTree)
             .ToArray();
         if (declarations.Length == 0)
             return new LocalMacroSyntaxPartition(syntaxTree, null);
@@ -82,9 +81,7 @@ internal static class LocalMacroSyntaxClassifier
         if (IsCompilerPluginTree(syntaxTree))
             return false;
 
-        return GetTopLevelTypeDeclarations(syntaxTree)
-            .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
-            .Where(IsLocalMacroDeclaration)
+        return GetTopLevelMacroDeclarations(syntaxTree)
             .Any(declaration =>
                 position >= declaration.FullSpan.Start &&
                 position < declaration.FullSpan.End);
@@ -95,6 +92,24 @@ internal static class LocalMacroSyntaxClassifier
             .DescendantNodes()
             .OfType<TypeDeclarationSyntax>()
             .Where(static declaration => !declaration.Ancestors().OfType<TypeDeclarationSyntax>().Any());
+
+    private static IEnumerable<MemberDeclarationSyntax> GetTopLevelMacroDeclarations(SyntaxTree syntaxTree)
+    {
+        foreach (var declaration in GetTopLevelTypeDeclarations(syntaxTree)
+            .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
+            .Where(IsLocalMacroDeclaration))
+        {
+            yield return declaration;
+        }
+
+        foreach (var declaration in syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Where(static declaration => declaration.Parent is CompilationUnitSyntax))
+        {
+            yield return declaration;
+        }
+    }
 
     private static bool HasMarkerAttribute(
         TypeDeclarationSyntax declaration,
@@ -149,7 +164,7 @@ internal static class LocalMacroSyntaxClassifier
 
     private static SyntaxTree CreateConsumerProjection(
         SyntaxTree syntaxTree,
-        IReadOnlyList<TypeDeclarationSyntax> declarations)
+        IReadOnlyList<MemberDeclarationSyntax> declarations)
     {
         var text = syntaxTree.GetText()!.ToString().ToCharArray();
         foreach (var declaration in declarations)
@@ -160,7 +175,7 @@ internal static class LocalMacroSyntaxClassifier
 
     private static SyntaxTree CreateMacroProjection(
         SyntaxTree syntaxTree,
-        IReadOnlyList<TypeDeclarationSyntax> declarations)
+        IReadOnlyList<MemberDeclarationSyntax> declarations)
     {
         var source = syntaxTree.GetText()!.ToString();
         var text = source

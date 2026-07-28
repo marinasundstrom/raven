@@ -1194,4 +1194,12 @@
     Title="Macro functions do not support await"
     Message="'await' is not supported in a macro function; macro expansion is synchronous."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0927" Identifier="UnknownMacroTarget"
+    Title="Unknown macro target"
+    Message="'{target}' is not a supported macro target."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0928" Identifier="InvalidMacroContribution"
+    Title="Invalid macro contribution"
+    Message="'{instruction}' cannot be used in a {macroKind} macro function."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

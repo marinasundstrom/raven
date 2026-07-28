@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made `macro func` declarations executable as same-compilation argument-style
+  and attached macros. Attached declarations use contextual `on Property` or
+  `on property: Property` target clauses, and ordinary synchronous bodies can
+  conditionally combine `expand`, `replace`, and `introduce` contribution
+  statements. The compiler lowers them to isolated provider adapters and typed
+  parameter objects while preserving `IMacroFunctionSymbol` as their semantic
+  identity.
 - Made the Playground own and serve its theme stylesheet directly so local
   development and standalone subpath deployments use the same asset URL.
 - Reduced the Playground header to a compact Raven mark beside its title so the

@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -625,6 +626,17 @@ public static partial class SymbolExtensions
                     ", ",
                     macroFunctionSymbol.Parameters.Select(parameter => FormatParameter(parameter, format))));
                 result.Append(')');
+            }
+
+            if (macroFunctionSymbol.MacroKind == MacroKind.AttachedDeclaration)
+            {
+                result.Append(" on ");
+                if (!string.Equals(macroFunctionSymbol.TargetName, "target", StringComparison.Ordinal))
+                {
+                    result.Append(EscapeIdentifierIfNeeded(macroFunctionSymbol.TargetName ?? "target", format));
+                    result.Append(": ");
+                }
+                result.Append(macroFunctionSymbol.Targets);
             }
 
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))

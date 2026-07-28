@@ -31,6 +31,8 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
 
         Assert.Equal(SymbolKind.MacroFunction, symbol.Kind);
         Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
+        Assert.Equal(MacroTarget.None, symbol.Targets);
+        Assert.Null(symbol.TargetName);
         Assert.Equal("Identity", symbol.Name);
         Assert.True(symbol.IsStatic);
         Assert.True(symbol.CanBeReferencedByName);
@@ -104,5 +106,45 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
 
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0925");
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0926");
+    }
+
+    [Fact]
+    public void AttachedMacroFunction_ExposesTargetSemantics()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            macro func Observable() on property: Property {
+                replace property
+                introduce CreateBackingField(property)
+            }
+            """);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(MacroKind.AttachedDeclaration, symbol.MacroKind);
+        Assert.Equal(MacroTarget.Property, symbol.Targets);
+        Assert.Equal("property", symbol.TargetName);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroContribution_ValidatesAgainstAttachmentKind()
+    {
+        var (compilation, _) = CreateCompilation("""
+            macro func Freestanding() {
+                replace quote! { 1 }
+            }
+
+            macro func Attached() on Type {
+                expand quote! { 1 }
+            }
+            """);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
     }
 }

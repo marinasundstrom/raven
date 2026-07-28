@@ -12,6 +12,7 @@ using System.Threading;
 
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -292,6 +293,31 @@ public partial class SemanticModel
             [declaration.GetReference()],
             DetermineNamespaceMemberAccessibility(declaration.Modifiers));
 
+        if (declaration.TargetClause is { } targetClause)
+        {
+            var targetName = targetClause.Target.ToString();
+            if (Enum.TryParse<MacroTarget>(targetName, ignoreCase: true, out var target) &&
+                target != MacroTarget.None)
+            {
+                symbol.SetTarget(
+                    target,
+                    targetClause.Identifier.Kind == SyntaxKind.None
+                        ? "target"
+                        : targetClause.Identifier.ValueText);
+            }
+            else
+            {
+                symbol.SetTarget(
+                    MacroTarget.None,
+                    targetClause.Identifier.Kind == SyntaxKind.None
+                        ? "target"
+                        : targetClause.Identifier.ValueText);
+                _declarationDiagnostics.ReportUnknownMacroTarget(
+                    targetName,
+                    targetClause.Target.GetLocation());
+            }
+        }
+
         TypeParameterInitializer.InitializeMacroFunctionTypeParameters(
             symbol,
             declaration.TypeParameterList,
@@ -322,6 +348,7 @@ public partial class SemanticModel
         }
 
         symbol.SetParameters(parameters.ToImmutable());
+        ValidateMacroContributionStatements(declaration, symbol);
         RegisterMacroFunctionSymbol(declaration, symbol);
 
         if (sourceNamespace.GetMembers(symbol.Name)
@@ -334,6 +361,33 @@ public partial class SemanticModel
         }
 
         sourceNamespace.AddMember(symbol);
+    }
+
+    private void ValidateMacroContributionStatements(
+        MacroFunctionDeclarationSyntax declaration,
+        SourceMacroFunctionSymbol symbol)
+    {
+        foreach (var contribution in declaration.DescendantNodes()
+            .OfType<MacroExpansionStatementSyntax>())
+        {
+            var instruction = contribution.Keyword.ValueText;
+            var valid = symbol.MacroKind switch
+            {
+                MacroKind.FreestandingExpression => instruction == "expand",
+                MacroKind.AttachedDeclaration => instruction is "replace" or "introduce",
+                _ => false
+            };
+
+            if (!valid)
+            {
+                _declarationDiagnostics.ReportInvalidMacroContribution(
+                    instruction,
+                    symbol.MacroKind == MacroKind.FreestandingExpression
+                        ? "freestanding"
+                        : "attached",
+                    contribution.Keyword.GetLocation());
+            }
+        }
     }
 
     private void ReportUnsupportedMacroFunctionAsyncSyntax(MacroFunctionDeclarationSyntax declaration)

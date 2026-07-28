@@ -119,4 +119,76 @@ public sealed class MacroFunctionDeclarationParsingTests
             SemanticClassification.Method,
             classifications.Tokens[declaration.Identifier]);
     }
+
+    [Fact]
+    public void MacroFunctionDeclaration_ParsesNamedTargetClause()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro func Observable(enabled: bool) on property: Property {
+                replace property
+                if enabled {
+                    introduce CreateBackingField(property)
+                }
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members));
+        var target = Assert.IsType<MacroTargetClauseSyntax>(declaration.TargetClause);
+
+        Assert.Equal("on", target.OnKeyword.ValueText);
+        Assert.Equal("property", target.Identifier.ValueText);
+        Assert.Equal(SyntaxKind.ColonToken, target.ColonToken.Kind);
+        Assert.Equal("Property", target.Target.ToString());
+
+        var contributions = declaration.Body!
+            .DescendantNodes()
+            .OfType<MacroExpansionStatementSyntax>()
+            .ToArray();
+        Assert.Equal(["replace", "introduce"], contributions.Select(static x => x.Keyword.ValueText));
+
+        var classifications = SemanticClassifier.Classify(declaration);
+        Assert.Equal(SemanticClassification.Keyword, classifications.Tokens[target.OnKeyword]);
+        Assert.Equal(SemanticClassification.Parameter, classifications.Tokens[target.Identifier]);
+        Assert.All(
+            contributions,
+            contribution => Assert.Equal(
+                SemanticClassification.Keyword,
+                classifications.Tokens[contribution.Keyword]));
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroFunctionDeclaration_ParsesShorthandTargetClause()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro func AddEquatable() on Type {
+                introduce CreateMembers()
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members));
+        var target = Assert.IsType<MacroTargetClauseSyntax>(declaration.TargetClause);
+
+        Assert.Equal(SyntaxKind.None, target.Identifier.Kind);
+        Assert.Equal(SyntaxKind.None, target.ColonToken.Kind);
+        Assert.Equal("Type", target.Target.ToString());
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ExpansionWords_RemainIdentifiersOutsideMacroFunctions()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() {
+                expand(value)
+                replace(value)
+                introduce(value)
+            }
+            """);
+
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<MacroExpansionStatementSyntax>());
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

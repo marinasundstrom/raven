@@ -211,12 +211,58 @@ construct with a dedicated `MacroFunctionDeclarationSyntax`, retaining
 attributes, modifiers, generic parameters, ordinary parameters, a return
 clause, constraints, and either a block or expression body.
 
-This currently establishes syntax and the semantic declaration signature.
+This establishes syntax, the semantic declaration signature, and executable
+lowering for same-compilation argument-style and attached macro functions.
 `SemanticModel.GetDeclaredSymbol` returns an `IMacroFunctionSymbol` with
 `SymbolKind.MacroFunction`, its call-site return type, parameters, generic
 parameters, and constraints. A macro function is not an `IMethodSymbol`: it is
 compile-time language structure rather than a CLR method. Its body is therefore
-not bound as an ordinary runtime function body.
+not emitted into the consumer program as an ordinary runtime function body.
+
+An optional contextual `on` clause makes the macro attached and declares its
+allowed target:
+
+```raven
+macro func Observe(enabled: bool) on property: Property {
+    if enabled {
+        replace Rewrite(property)
+    }
+    introduce CreateBackingField(property)
+}
+```
+
+The named form `on property: Property` binds the current declaration to
+`property`. The shorthand `on Property` binds it to `target`. The supported
+target roles correspond to `MacroTarget`: `Type`, `Method`, `Property`,
+`Field`, `Event`, `Parameter`, `Accessor`, and `Constructor`. A declaration
+without `on` is an argument-style freestanding expression macro. Token-stream
+input remains a separate, future declaration role and is not inferred from an
+ordinary parameter type.
+
+Macro bodies are ordinary synchronous Raven blocks augmented by three
+contextual contribution statements:
+
+* `expand expression` sets the expression produced by a freestanding macro;
+* `replace declaration` sets the replacement of an attached macro; and
+* `introduce member-or-members` appends introduced members to an attached
+  macro.
+
+These statements do not return from the macro body. They update the
+invocation's expansion result when execution reaches them, so they may coexist
+with declarations, conditionals, loops, and other ordinary statements. A later
+`expand` or `replace` supersedes the earlier value; repeated `introduce`
+statements append in execution order. This permits one attached expansion to
+both replace its target and introduce members. Using `replace` or `introduce`
+in a freestanding macro, or `expand` in an attached macro, is a compile-time
+error.
+
+The compiler currently lowers an executable, non-generic compilation-unit
+declaration into an isolated provider adapter and, when needed, a parameter
+object implementing the existing typed macro contracts. `expand`, `replace`,
+and `introduce` lower to operations on a compiler-provided result builder,
+whose final value becomes `FreestandingMacroExpansionResult` or
+`MacroExpansionResult`. These synthesized types are implementation details and
+are not the semantic identity exposed to tools.
 
 Macro functions are synchronous. The `async` modifier and `await` expressions
 are not supported in a macro function. This describes the source expansion
@@ -224,12 +270,11 @@ contract; a compiler host or provider implementation may still use
 asynchronous APIs internally without exposing asynchronous expansion semantics
 to Raven code.
 
-Activation, lowering to the shared context/parameter-object infrastructure, and
-expansion execution remain future work. Existing class-authored dynamic and
-strongly typed macros continue to define and test the executable macro engine
-while this declaration model develops.
-Namespace-qualified macro lookup, imported short names, and naming conventions
-are likewise outside this parsing slice.
+Generic macro invocation, executable namespace-member declarations,
+syntax-role inputs, token-stream declarations, namespace-qualified macro
+lookup, imported short names, and naming conventions remain later layers.
+Existing class-authored dynamic and strongly typed macros remain supported and
+expose the underlying provider API directly.
 
 ### Expression quotes
 

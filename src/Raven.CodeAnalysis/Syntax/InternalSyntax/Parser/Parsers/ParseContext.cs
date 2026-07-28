@@ -92,6 +92,8 @@ internal abstract class ParseContext
 
     public virtual bool IsInBlock => BlockDepth > 0;
 
+    public virtual bool IsInMacroFunction => Parent?.IsInMacroFunction ?? false;
+
     public ParseContext? Parent { get; protected set; }
 
     public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No base or parent set");

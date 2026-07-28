@@ -12,6 +12,8 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
     {
     }
 
+    public override bool IsInMacroFunction => true;
+
     public bool IsDeclarationStart()
         => IsMacroKeyword(PeekToken()) &&
            PeekToken(1).IsKind(SyntaxKind.FuncKeyword);
@@ -47,6 +49,29 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
         }
 
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
+        MacroTargetClauseSyntax? targetClause = null;
+        if (IsContextualKeyword(PeekToken(), "on"))
+        {
+            var onKeyword = ReadToken();
+            var targetIdentifier = Token(SyntaxKind.None);
+            var colonToken = Token(SyntaxKind.None);
+            TypeSyntax target;
+
+            if (CanTokenBeIdentifier(PeekToken()) &&
+                PeekToken(1).IsKind(SyntaxKind.ColonToken))
+            {
+                targetIdentifier = ReadIdentifierToken();
+                colonToken = ReadToken();
+                target = new NameSyntaxParser(this).ParseTypeName();
+            }
+            else
+            {
+                target = new NameSyntaxParser(this).ParseTypeName();
+            }
+
+            targetClause = MacroTargetClause(onKeyword, targetIdentifier, colonToken, target);
+        }
+
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
         var isExtern = modifiers.GetChildren().Any(child => child.IsKind(SyntaxKind.ExternKeyword));
@@ -76,6 +101,7 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
             identifier,
             typeParameterList,
             parameterList,
+            targetClause,
             returnType,
             constraintClauses,
             body,
@@ -84,6 +110,9 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
     }
 
     internal static bool IsMacroKeyword(SyntaxToken token)
+        => IsContextualKeyword(token, "macro");
+
+    private static bool IsContextualKeyword(SyntaxToken token, string value)
         => token.IsKind(SyntaxKind.IdentifierToken) &&
-           string.Equals(token.GetValueText(), "macro", StringComparison.Ordinal);
+           string.Equals(token.GetValueText(), value, StringComparison.Ordinal);
 }

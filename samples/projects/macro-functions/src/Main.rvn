@@ -1,0 +1,11 @@
+import System.Console.*
+
+macro func Double(value: int) {
+    let doubled = value * 2
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
+}
+
+func Main() {
+    let answer = #Double(21)
+    WriteLine(answer)
+}

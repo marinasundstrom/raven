@@ -650,7 +650,7 @@
                 },
                 {
                     "name": "keyword.control.flow.raven",
-                    "match": "\\b(return|yield|throw|goto|break|continue)\\b"
+                    "match": "\\b(return|yield|throw|goto|break|continue|expand|replace|introduce)\\b"
                 },
                 {
                     "name": "keyword.control.async.raven",

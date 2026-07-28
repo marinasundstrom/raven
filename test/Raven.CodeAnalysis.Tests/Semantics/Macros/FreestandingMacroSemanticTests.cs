@@ -13,6 +13,80 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void MacroFunction_CompilesIntoLocalProviderAndExpands()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func Add(left: int, right: int = 1) {
+                let sum = left + right
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(sum.ToString())
+            }
+
+            func Main() -> int => #Add(20, right: 22)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void AttachedMacroFunction_CombinesReachedContributions()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func Compose(shouldReplace: bool) on property: Property {
+                if shouldReplace {
+                    replace property
+                }
+                introduce property
+                introduce property
+            }
+
+            class Widget {
+                #[Compose(true)]
+                var Value: int = 1
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "AttachedMacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var attribute = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(attribute);
+
+        Assert.NotNull(expansion);
+        Assert.IsType<PropertyDeclarationSyntax>(expansion!.ReplacementDeclaration);
+        Assert.Equal(2, expansion.IntroducedMembers.Length);
+        Assert.All(
+            expansion.IntroducedMembers,
+            static member => Assert.IsType<PropertyDeclarationSyntax>(member));
+    }
+
+    [Fact]
     public void MarkedLocalMacroDeclaration_CanShareTreeWithConsumer()
     {
         var sourceTree = SyntaxTree.ParseText(

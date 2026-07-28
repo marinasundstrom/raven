@@ -35,6 +35,18 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
+            else if (IsMacroTargetToken(descendant, static clause => clause.OnKeyword))
+            {
+                tokenMap[descendant] = SemanticClassification.Keyword;
+            }
+            else if (IsMacroTargetToken(descendant, static clause => clause.Identifier))
+            {
+                tokenMap[descendant] = SemanticClassification.Parameter;
+            }
+            else if (IsMacroContributionKeyword(descendant))
+            {
+                tokenMap[descendant] = SemanticClassification.Keyword;
+            }
             // Interpolated-string punctuation: color ${ and } as interpolation (but only when they belong to an Interpolation node).
             else if ((kind == SyntaxKind.DollarToken ||
                       kind == SyntaxKind.OpenBraceToken ||
@@ -96,6 +108,22 @@ public static class SemanticClassifier
         }
 
         return new SemanticClassificationResult(tokenMap, triviaMap);
+    }
+
+    private static bool IsMacroTargetToken(
+        SyntaxToken token,
+        Func<MacroTargetClauseSyntax, SyntaxToken> selector)
+    {
+        var clause = token.Parent as MacroTargetClauseSyntax ??
+            token.Parent?.Ancestors().OfType<MacroTargetClauseSyntax>().FirstOrDefault();
+        return clause is not null && token == selector(clause);
+    }
+
+    private static bool IsMacroContributionKeyword(SyntaxToken token)
+    {
+        var statement = token.Parent as MacroExpansionStatementSyntax ??
+            token.Parent?.Ancestors().OfType<MacroExpansionStatementSyntax>().FirstOrDefault();
+        return statement is not null && token == statement.Keyword;
     }
 
     private static ISymbol? ResolveSymbol(SyntaxNode node, SemanticModel? model, bool allowBinding)
