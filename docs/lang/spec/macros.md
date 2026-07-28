@@ -209,10 +209,12 @@ authored locations and type-checked through the ordinary generated expansion.
 No splice-specific token kind is introduced.
 
 The result is a runtime `ExpressionSyntax` value from
-`Raven.CodeAnalysis`. The consuming project must currently carry a compatible
-runtime reference to that assembly; the intrinsic itself does not require a
-macro reference. Statement, member, declaration, token, identifier,
-list, and repetition quote/splice forms are not part of the current language.
+`Raven.CodeAnalysis`. The Raven compiler and SDK project integration add the
+compiler-matched runtime assembly only when `quote!` or `compile!` is present.
+An explicit compatible project reference is respected instead. Hosts that use
+the `Compilation` API directly must provide the reference themselves.
+Statement, member, declaration, token, identifier, list, and repetition
+quote/splice forms are not part of the current language.
 
 `quote!`/`#quote` is syntax quotation, analogous in shape to the
 compiler-integrated
@@ -223,6 +225,47 @@ produces Raven syntax with its tokens and trivia. The resulting syntax object
 can be traversed and rewritten into a new immutable tree using
 `Raven.CodeAnalysis`; it is not semantically bound until inserted into a
 compilation.
+
+### Runtime expression compilation
+
+`compile<TDelegate>! { expression }` constructs an `ExpressionSyntax` using
+the same quotation and `#(expression)` hole rules as `quote!`, compiles that
+syntax at runtime, and returns `TDelegate`:
+
+```raven
+let increment = compile<System.Func<int, int>>! {
+    value => #(SyntaxFactory.IdentifierName("value")) + 1
+}
+```
+
+Exactly one explicit type argument is required, and it must resolve to a
+delegate type. The quoted expression must evaluate to that delegate type.
+The explicit type is part of the ordinary generated generic call, so normal
+Raven binding validates it; the current macro model does not separately model
+strongly typed generic macro parameters.
+
+The quote phase parses the authored body during macro expansion and rejects a
+structurally invalid or incomplete Raven expression. At runtime, after hole
+values have produced the final syntax tree, the compile phase parses the
+generated wrapper, binds names and types, and emits it. No delegate is returned
+unless both the structural and semantic checks succeed.
+
+Runtime compilation references the platform assemblies, assemblies already
+loaded by the process, and any additional metadata references passed to
+`RavenCompiler.Compile`. Compilation errors throw
+`RavenCompilationException`, whose `Diagnostics` property contains the Raven
+diagnostics. Each successful compilation loads a generated assembly into the
+default assembly load context. Callers should therefore cache delegates for
+repeated use and must treat syntax derived from untrusted input as executable
+code.
+
+The intrinsic expands into an ordinary call to
+`Raven.CodeAnalysis.RavenCompiler.Compile<TDelegate>`. SDK builds inject and
+copy the compiler-matched `Raven.CodeAnalysis` assembly and its runtime
+compiler dependencies only when needed. If the project already references
+`Raven.CodeAnalysis`, its reference and copy-local policy remain authoritative.
+Direct `Compilation` API hosts must provide the assembly reference and arrange
+runtime deployment themselves.
 
 The raw body is the source of truth. Any standard Raven token stream,
 macro-local keyword overlay, custom lexer token stream, or custom DSL syntax

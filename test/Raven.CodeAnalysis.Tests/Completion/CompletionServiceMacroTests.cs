@@ -185,6 +185,33 @@ class MacroHost {
     }
 
     [Fact]
+    public void GetCompletions_InBangMacroName_ReturnsIntrinsicCompile()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val increment = comp! { value => value + 1 }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        var position = code.IndexOf('!', code.IndexOf("comp!", StringComparison.Ordinal));
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        var compile = Assert.Single(items.Where(static item => item.DisplayText == "compile"));
+        Assert.Equal("compile", compile.InsertionText);
+        Assert.Null(compile.CursorOffset);
+    }
+
+    [Fact]
     public void GetCompletions_InMacroAttributeName_ReturnsAttachedMacros()
     {
         const string code = """

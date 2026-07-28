@@ -107,10 +107,196 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.docs", "manifest.json")),
                 "Expected default Markdown documentation beside the Raven library.");
+            Assert.False(
+                File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "Raven.CodeAnalysis.dll")),
+                "Ordinary Raven projects should not copy Raven.CodeAnalysis.");
             Assert.Contains(
                 "<returns>A greeting from the SDK build.</returns>",
                 File.ReadAllText(xmlDocumentationPath),
                 StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
+    public void RavenProject_CompileMacro_AddsCodeAnalysisRuntimeDependencyOnDemand()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>CompileMacroRuntimeDependency</AssemblyName>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="src/**/*.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                import System.*
+
+                func Main() {
+                    let increment = compile<System.Func<int, int>>! {
+                        value => #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("value")) + 1
+                    }
+
+                    Console.WriteLine(increment(41))
+                }
+                """);
+
+            var buildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(buildResult.StdOut);
+            output.WriteLine(buildResult.StdErr);
+
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
+
+            var outputDirectory = Path.Combine(projectRoot, "bin", "Debug", "net10.0");
+            var codeAnalysisPath = Path.Combine(outputDirectory, "Raven.CodeAnalysis.dll");
+            var depsPath = Path.Combine(outputDirectory, "CompileMacroRuntimeDependency.deps.json");
+            Assert.True(
+                File.Exists(codeAnalysisPath),
+                $"Expected the intrinsic runtime dependency at '{codeAnalysisPath}'.");
+            Assert.Contains("Raven.CodeAnalysis", File.ReadAllText(depsPath), StringComparison.Ordinal);
+
+            var runResult = RunProcess(
+                "dotnet",
+                $"run --project \"{projectPath}\" --no-build",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(runResult.StdOut);
+            output.WriteLine(runResult.StdErr);
+
+            Assert.True(
+                runResult.ExitCode == 0,
+                $"dotnet run failed.\nstdout:\n{runResult.StdOut}\nstderr:\n{runResult.StdErr}");
+            Assert.Contains("42", runResult.StdOut, StringComparison.Ordinal);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                import System.*
+
+                func Main() {
+                    Console.WriteLine(42)
+                }
+                """);
+
+            var rebuildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(rebuildResult.StdOut);
+            output.WriteLine(rebuildResult.StdErr);
+
+            Assert.True(
+                rebuildResult.ExitCode == 0,
+                $"dotnet rebuild failed.\nstdout:\n{rebuildResult.StdOut}\nstderr:\n{rebuildResult.StdErr}");
+            Assert.False(
+                File.Exists(Path.Combine(
+                    projectRoot,
+                    "obj",
+                    "Debug",
+                    "net10.0",
+                    ".raven-codeanalysis-runtime")));
+            Assert.DoesNotContain(
+                "Raven.CodeAnalysis",
+                File.ReadAllText(depsPath),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
+    public void RavenProject_QuoteMacro_RespectsExplicitCodeAnalysisReference()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var codeAnalysisPath = Path.Combine(
+            Path.GetDirectoryName(compilerDllPath)!,
+            "Raven.CodeAnalysis.dll");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>ExplicitCodeAnalysisReference</AssemblyName>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="src/**/*.rvn" />
+                    <Reference Include="Raven.CodeAnalysis">
+                      <HintPath>{{codeAnalysisPath}}</HintPath>
+                      <Private>true</Private>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                import System.*
+
+                func Main() {
+                    let syntax = quote! { 40 + 2 }
+                    Console.WriteLine(syntax.ToString())
+                }
+                """);
+
+            var buildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(buildResult.StdOut);
+            output.WriteLine(buildResult.StdErr);
+
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
+
+            var outputDirectory = Path.Combine(projectRoot, "bin", "Debug", "net10.0");
+            Assert.True(File.Exists(Path.Combine(outputDirectory, "Raven.CodeAnalysis.dll")));
+            Assert.False(
+                File.Exists(Path.Combine(
+                    projectRoot,
+                    "obj",
+                    "Debug",
+                    "net10.0",
+                    ".raven-codeanalysis-runtime")),
+                "An explicit Raven.CodeAnalysis reference should not be replaced by an injected runtime dependency.");
         }
         finally
         {

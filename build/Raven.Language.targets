@@ -139,4 +139,40 @@
       <FileWrites Include="@(_RavenMarkdownDocumentationFiles->'$(OutDir)$(TargetName).docs/%(RecursiveDir)%(Filename)%(Extension)')" />
     </ItemGroup>
   </Target>
+
+  <Target
+    Name="_ResolveRavenCodeAnalysisRuntimeDependencies"
+    AfterTargets="CoreCompile"
+    BeforeTargets="GenerateBuildDependencyFile;CopyFilesToOutputDirectory"
+    Condition="'$(IsCrossTargetingBuild)' != 'true'">
+    <PropertyGroup>
+      <_RavenRuntimeIntermediatePath Condition="$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$(IntermediateOutputPath)</_RavenRuntimeIntermediatePath>
+      <_RavenRuntimeIntermediatePath Condition="'$(_RavenRuntimeIntermediatePath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)'))</_RavenRuntimeIntermediatePath>
+      <_RavenRuntimeDependencyRemovedMarker>$(_RavenRuntimeIntermediatePath).raven-codeanalysis-runtime-removed</_RavenRuntimeDependencyRemovedMarker>
+      <_RavenProjectDepsFilePath Condition="'$(ProjectDepsFilePath)' != ''">$(ProjectDepsFilePath)</_RavenProjectDepsFilePath>
+      <_RavenProjectDepsFilePath Condition="'$(_RavenProjectDepsFilePath)' == ''">$(_RavenRuntimeIntermediatePath)$(AssemblyName).deps.json</_RavenProjectDepsFilePath>
+    </PropertyGroup>
+    <Delete
+      Files="$(_RavenProjectDepsFilePath)"
+      Condition="Exists('$(_RavenRuntimeDependencyRemovedMarker)') and Exists('$(_RavenProjectDepsFilePath)')" />
+    <Delete
+      Files="$(_RavenRuntimeDependencyRemovedMarker)"
+      Condition="Exists('$(_RavenRuntimeDependencyRemovedMarker)')" />
+    <ItemGroup Condition="Exists('$(_RavenRuntimeIntermediatePath).raven-codeanalysis-runtime')">
+      <_RavenCodeAnalysisRuntimeDependency Include="$(_RavenRuntimeIntermediatePath)Raven.CodeAnalysis.dll" Condition="Exists('$(_RavenRuntimeIntermediatePath)Raven.CodeAnalysis.dll')" />
+      <_RavenCodeAnalysisRuntimeDependency Include="$(_RavenRuntimeIntermediatePath)Mono.Cecil*.dll" />
+      <_RavenCodeAnalysisRuntimeDependency Include="$(_RavenRuntimeIntermediatePath)Microsoft.CodeAnalysis*.dll" />
+      <_RavenCodeAnalysisRuntimeDependency Include="$(_RavenRuntimeIntermediatePath)Microsoft.Build.Locator.dll" Condition="Exists('$(_RavenRuntimeIntermediatePath)Microsoft.Build.Locator.dll')" />
+      <_RavenCodeAnalysisRuntimeDependency Include="$(_RavenRuntimeIntermediatePath)System.Reflection.MetadataLoadContext.dll" Condition="Exists('$(_RavenRuntimeIntermediatePath)System.Reflection.MetadataLoadContext.dll')" />
+      <ReferenceCopyLocalPaths Include="@(_RavenCodeAnalysisRuntimeDependency)">
+        <CopyLocal>true</CopyLocal>
+        <ReferenceSourceTarget>RavenIntrinsicRuntime</ReferenceSourceTarget>
+      </ReferenceCopyLocalPaths>
+      <ReferencePath Include="@(_RavenCodeAnalysisRuntimeDependency)">
+        <CopyLocal>true</CopyLocal>
+        <IncludeRuntimeDependency>true</IncludeRuntimeDependency>
+        <ReferenceSourceTarget>RavenIntrinsicRuntime</ReferenceSourceTarget>
+      </ReferencePath>
+    </ItemGroup>
+  </Target>
 </Project>

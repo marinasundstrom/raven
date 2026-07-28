@@ -70,10 +70,10 @@ Current status:
   services remain future work.
 - `quote!` is the compiler-owned expression-only quote MVP. It needs no plugin
   registration, preserves the quoted expression's tokens and trivia, and
-  expands to ordinary fully qualified `SyntaxFactory` calls. The app project
-  explicitly references `Raven.CodeAnalysis` because the result is a runtime
-  syntax object. Its hole inserts an `ExpressionSyntax` constructed by an
-  ordinary caller-bound Raven expression.
+  expands to ordinary fully qualified `SyntaxFactory` calls. Because the result
+  is a runtime syntax object, the compiler adds the matching
+  `Raven.CodeAnalysis` runtime dependency on demand. Its hole inserts an
+  `ExpressionSyntax` constructed by an ordinary caller-bound Raven expression.
 
 Files:
 

@@ -91,6 +91,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   through the macro token stream without changing Raven lexing, accept ordinary
   Raven expressions that bind as `ExpressionSyntax`, preserve surrounding
   quote trivia, and retain native diagnostics at authored locations.
+- Added `compile<TDelegate>! { expression }`, which applies the `quote!` syntax
+  and hole model, compiles the resulting Raven expression at runtime, and
+  returns a strongly typed delegate. Compiler and SDK builds now add
+  `Raven.CodeAnalysis` and runtime compiler dependencies on demand for the
+  intrinsic while respecting an explicit project reference.
 - Migrated the Raven-authored sample `#add` procedural macro to construct its
   expansion with `#quote` and argument-expression holes, validating quote while
   compiling a macro plugin and loading that plugin in a consuming project.

@@ -409,6 +409,7 @@ which representation must be available and when it must be available:
 | .NET expression trees | Standardized, typed `System.Linq.Expressions` operations | Language conversion into a runtime API value | A library must inspect, rewrite, translate, or compile a supplied operation |
 | .NET reflection | Emitted types, members, attributes, and metadata | Runtime | Code must discover or invoke compiled program structure |
 | Raven macros | Authored syntax transformed through compiler expansion | Compile time | A reusable language abstraction must generate or reshape the program itself |
+| Raven `compile!` | Raven expression syntax compiled to a delegate | Macro expansion at compile time; syntax construction and compilation at runtime | A program must generate or alter Raven syntax and then execute it as a typed delegate |
 
 Raven's macro system is currently a work in progress. Use it for experimentation
 with compile-time transformations, but expect the model and APIs to evolve. See
@@ -468,6 +469,15 @@ translate the behavior. Use reflection when the problem is discovering or
 operating on compiled program structure. Use a macro when the program itself
 must be transformed during compilation.
 
+Reflection does not by itself make an untrusted assembly safe. When inspection
+is the goal, prefer metadata-only facilities such as `MetadataLoadContext` or
+`System.Reflection.Metadata`, which do not load the assembly for execution.
+Loading an assembly into the application's execution context, invoking a
+reflected member, or instantiating attributes crosses into executing its code
+inside the current process. Treat that boundary with the same care as runtime
+source compilation, and isolate or reject untrusted inputs according to the
+application's threat model.
+
 Raven's expression-tree support is currently incremental rather than complete.
 Consult the repository's [expression-tree support
 status](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/development/expression-trees.md)
@@ -520,6 +530,40 @@ code can inspect it and construct a transformed tree using the full compatible
 `Raven.CodeAnalysis` syntax API. Syntax quotation does not bind names or types;
 the generated syntax acquires semantic meaning only after insertion into a
 compilation and normal binding.
+
+### `compile!` reconnects Raven syntax to executable behavior
+
+`quote!` deliberately stops at Raven syntax. `compile<TDelegate>!` uses the
+same quotation and hole model, then asks the Raven runtime compiler to bind and
+emit that syntax as a strongly typed delegate:
+
+```raven
+let increment = compile<System.Func<int, int>>! {
+    value => #(SyntaxFactory.IdentifierName("value")) + 1
+}
+```
+
+This is useful when Raven syntax itself is the representation that must be
+generated or transformed. Unlike an expression tree, the intermediate value
+can retain Raven tokens and trivia and can represent Raven syntax outside
+`System.Linq.Expressions`' standardized operation vocabulary. Unlike a normal
+compile-time macro expansion, the final binding and emission occur while the
+program runs.
+
+The stages provide different assurances. Quotation parses the authored macro
+body immediately, so malformed or incomplete Raven structure is rejected
+during the containing compilation. `compile!` then takes the final syntax,
+including runtime hole values, through Raven parsing, binding, and emission.
+It returns the requested delegate only when that code is semantically
+consistent; otherwise it throws a `RavenCompilationException` containing the
+compiler diagnostics.
+
+That extra power has a cost. Runtime compilation produces and loads an
+assembly, so compile once and reuse the returned delegate. It is also a code
+execution boundary: do not compile syntax influenced by untrusted input
+without an application-specific security boundary. Prefer an ordinary
+delegate when only execution matters, and prefer an expression tree when a
+.NET API expects its portable operation model.
 
 ## Preserve ordinary .NET boundaries
 
