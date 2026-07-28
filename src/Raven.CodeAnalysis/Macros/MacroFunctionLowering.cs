@@ -95,7 +95,14 @@ internal static class MacroFunctionLowering
 
         builder.AppendLine($"class {providerName} : {interfaceName} {{");
         builder.AppendLine(
+            $"    val Namespace: string => \"{EscapeString(GetDeclaredNamespace(declaration))}\"");
+        builder.AppendLine(
             $"    val Name: string => \"{EscapeString(declaration.Identifier.ValueText)}\"");
+        if (GetMacroAlias(declaration) is { } alias)
+        {
+            builder.AppendLine(
+                $"    val Alias: string? => \"{EscapeString(alias)}\"");
+        }
         if (isAttached)
         {
             builder.AppendLine(
@@ -248,6 +255,40 @@ internal static class MacroFunctionLowering
 
         return candidate;
     }
+
+    private static string? GetMacroAlias(MacroFunctionDeclarationSyntax declaration)
+    {
+        foreach (var attribute in declaration.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            var attributeName = attribute.Name switch
+            {
+                IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                QualifiedNameSyntax { Right: IdentifierNameSyntax identifier } =>
+                    identifier.Identifier.ValueText,
+                _ => string.Empty
+            };
+            if (attributeName is not ("MacroAlias" or "MacroAliasAttribute") ||
+                attribute.ArgumentList?.Arguments.Count != 1 ||
+                attribute.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax literal ||
+                literal.Token.Kind != SyntaxKind.StringLiteralToken ||
+                string.IsNullOrWhiteSpace(literal.Token.ValueText))
+            {
+                continue;
+            }
+
+            return literal.Token.ValueText;
+        }
+
+        return null;
+    }
+
+    private static string GetDeclaredNamespace(MacroFunctionDeclarationSyntax declaration)
+        => string.Join(
+            ".",
+            declaration.Ancestors()
+                .OfType<BaseNamespaceDeclarationSyntax>()
+                .Reverse()
+                .Select(static namespaceDeclaration => namespaceDeclaration.Name.ToString()));
 
     private static string EscapeString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal)

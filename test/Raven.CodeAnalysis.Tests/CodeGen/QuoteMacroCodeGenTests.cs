@@ -16,6 +16,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> int {
@@ -36,6 +37,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> string {
@@ -56,6 +58,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> bool {
@@ -76,6 +79,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> string {
@@ -97,6 +101,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> string {
@@ -117,6 +122,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> string {
@@ -306,10 +312,15 @@ public sealed class QuoteMacroCodeGenTests
         SyntaxTree syntaxTree,
         bool includeCodeAnalysisReference)
     {
+        var imports = SyntaxTree.ParseText("""
+            global {
+                import Raven.Macros.*
+            }
+            """);
         var compilation = Compilation.Create(
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree)
+            .AddSyntaxTrees(imports, syntaxTree)
             .AddReferences(TestMetadataReferences.Default);
 
         return includeCodeAnalysisReference

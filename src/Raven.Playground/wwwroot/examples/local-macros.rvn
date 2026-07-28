@@ -2,6 +2,7 @@ import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.Macros.*
 
 macro func AddGreeting() on Type {
     let tree = ParseSyntaxTree(
@@ -34,7 +35,7 @@ macro func Unless(tokens: IMacroTokenStream) {
 #[AddGreeting]
 class Greeter {}
 
-let answer = #Twice(21)
+let answer = Twice!(21)
 let shouldContinue = Unless! {
     answer == 0
 }

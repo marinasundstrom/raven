@@ -24,7 +24,12 @@ internal static class MacroSignatureHelpService
             case AttributeSyntax attribute
                 when attribute.TryGetMacroName(out name) &&
                      semanticModel.Compilation.GetMacroRegistry()
-                         .TryResolveAttachedMacro(name, out var attached):
+                         .TryResolveAttachedMacro(
+                             semanticModel.Compilation,
+                             attribute,
+                             name,
+                             out var attached,
+                             out _):
                 macro = attached.Macro;
                 kind = MacroKind.AttachedDeclaration;
                 hasTokenTreeBody = false;
@@ -33,7 +38,12 @@ internal static class MacroSignatureHelpService
             case FreestandingMacroExpressionSyntax expression
                 when expression.TryGetMacroName(out name) &&
                      semanticModel.Compilation.GetMacroRegistry()
-                         .TryResolveFreestandingMacro(name, out var freestanding):
+                         .TryResolveFreestandingMacro(
+                             semanticModel.Compilation,
+                             expression,
+                             name,
+                             out var freestanding,
+                             out _):
                 macro = freestanding.Macro;
                 kind = MacroKind.FreestandingExpression;
                 hasTokenTreeBody = macro is ITokenTreeExpressionMacro;

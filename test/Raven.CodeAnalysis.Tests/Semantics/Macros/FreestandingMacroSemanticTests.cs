@@ -12,6 +12,23 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
 public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 {
+    private new (Compilation Compilation, SyntaxTree Tree) CreateCompilation(
+        string source,
+        CompilationOptions? options = null,
+        MetadataReference[]? references = null,
+        string assemblyName = "test")
+    {
+        var tree = SyntaxTree.ParseText(source);
+        var imports = SyntaxTree.ParseText("""
+            global {
+                import Raven.CodeAnalysis.Tests.Semantics.Macros.*
+            }
+            """);
+        return (
+            base.CreateCompilation([imports, tree], options, references, assemblyName),
+            tree);
+    }
+
     [Fact]
     public void MacroFunction_CompilesIntoLocalProviderAndExpands()
     {
@@ -43,6 +60,59 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
 
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void NamespacedMacroFunction_AliasIsImportedWithItsNamespace()
+    {
+        var macroTree = SyntaxTree.ParseText(
+            """
+            namespace Example.Macros {
+                [Raven.CodeAnalysis.Macros.MacroAlias("twiceAlias")]
+                macro func Double(value: int) {
+                    let doubled = value * 2
+                    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
+                }
+            }
+            """,
+            path: "macros.rvn");
+        var consumerTree = SyntaxTree.ParseText(
+            """
+            import Example.Macros.*
+
+            func Main() -> int => twiceAlias!(21)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "NamespacedMacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var registeredMacros = compilation.GetMacroRegistry()
+            .GetMacros(MacroKind.FreestandingExpression)
+            .Where(static macro => macro.Name == "Double")
+            .ToArray();
+        Assert.True(
+            registeredMacros.Length == 1,
+            $"Registered: {string.Join(", ", compilation.GetMacroRegistry().GetMacros(MacroKind.FreestandingExpression).Select(static macro => $"{macro.Namespace}.{macro.Name} alias={macro.Alias}"))}{Environment.NewLine}{string.Join(Environment.NewLine, diagnostics)}");
+        var registeredMacro = Assert.Single(
+            registeredMacros);
+        Assert.Equal("Example.Macros", registeredMacro.Namespace);
+        Assert.Equal("twiceAlias", registeredMacro.Alias);
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var projectedConsumerTree = compilation.SyntaxTrees.Single(
+            static tree => tree.FilePath == "main.rvn");
+        var invocation = projectedConsumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(projectedConsumerTree).GetMacroExpansion(invocation);
         Assert.Equal("42", expansion!.Expression!.ToString());
     }
 
@@ -127,6 +197,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             macro func FirstTokenLength(tokens: IMacroTokenStream, offset: int) {
                 let token = tokens.ReadToken()
@@ -204,6 +275,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             class AnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "answer"
@@ -467,9 +539,111 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Contains("answer", diagnostic.GetMessage());
     }
 
+    [Fact]
+    public void MacroAlias_RequiresItsNamespaceImport()
+    {
+        var (compilation, _) = CreateCompilation("""
+            func Main() -> int => answerAlias! { }
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(NamespacedAnswerMacro)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM010"));
+        Assert.Contains("answerAlias", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompilerProvidedMacroAlias_RequiresRavenMacrosImport()
+    {
+        var (compilation, _) = CreateCompilation("""
+            func Main() => quote! { 42 }
+            """);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM010"));
+        Assert.Contains("quote", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompilerProvidedMacro_CanUseCanonicalQualifiedNameWithoutImport()
+    {
+        var (compilation, _) = CreateCompilation("""
+            func Main() => Raven.Macros.Quote! { 42 }
+            """);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Id == "RAVM010");
+    }
+
+    [Fact]
+    public void MacroAlias_IsAvailableThroughNamespaceImport()
+    {
+        var tree = SyntaxTree.ParseText("""
+            import Example.Macros.*
+
+            func Main() -> int => answerAlias! { }
+            """);
+        var compilation = base.CreateCompilation(tree).AddMacroReferences(
+            new MacroReference(typeof(NamespacedAnswerMacro)));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(expression);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void Macro_CanBeInvokedByCanonicalQualifiedNameWithoutImport()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => Example.Macros.Answer! { }
+            """);
+        var compilation = base.CreateCompilation(tree).AddMacroReferences(
+            new MacroReference(typeof(NamespacedAnswerMacro)));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(expression);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void LocalValue_ShadowsImportedMacroAlias()
+    {
+        var (compilation, _) = CreateCompilation("""
+            import Example.Macros.*
+
+            func Main() -> int {
+                let answerAlias = 0
+                return answerAlias! { }
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(NamespacedAnswerMacro)));
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Id == CompilerDiagnostics.InvalidInvocation.Id);
+    }
+
     private static SyntaxTree CreateLocalAnswerMacroTree()
         => SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
@@ -920,6 +1094,17 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             {
                 Expression = context.ParseExpression()
             };
+    }
+
+    [MacroAlias("answerAlias")]
+    public sealed class NamespacedAnswerMacro : ITokenTreeExpressionMacro
+    {
+        public string Namespace => "Example.Macros";
+
+        public string Name => "Answer";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
     }
 
     public sealed class CapturingTokenTreeMacro : ITokenTreeExpressionMacro<RepeatMacroParameters>

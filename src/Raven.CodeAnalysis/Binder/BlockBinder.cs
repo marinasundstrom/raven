@@ -2403,6 +2403,13 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindFreestandingMacroExpression(FreestandingMacroExpressionSyntax syntax)
     {
+        if (syntax.Name is SimpleNameSyntax simpleName &&
+            LookupSymbol(simpleName.Identifier.ValueText) is ILocalSymbol or IParameterSymbol)
+        {
+            _diagnostics.ReportInvalidInvocation(syntax.Name.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
         var expansion = SemanticModel.GetMacroExpansion(syntax);
         if (expansion?.Expression is null)
             return ErrorExpression(reason: BoundExpressionReason.NotFound);

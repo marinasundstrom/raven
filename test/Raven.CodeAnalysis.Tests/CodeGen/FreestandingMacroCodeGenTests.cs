@@ -19,6 +19,7 @@ public sealed class FreestandingMacroCodeGenTests
     {
         var macroTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
@@ -60,6 +61,8 @@ public sealed class FreestandingMacroCodeGenTests
     public void FreestandingMacro_ExpandedExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
             class Harness {
                 public static func Run() -> int {
                     return #add(20, Right: 22)
@@ -92,6 +95,8 @@ public sealed class FreestandingMacroCodeGenTests
             const string expected = "embedded at compile time\nwith a second line";
             File.WriteAllText(path, expected);
             var syntaxTree = SyntaxTree.ParseText($$"""
+                import Raven.CodeAnalysis.Tests.*
+
                 class Harness {
                     public static func Run() -> string {
                         return #embedText("{{EscapeRavenString(path)}}")
@@ -126,6 +131,8 @@ public sealed class FreestandingMacroCodeGenTests
     {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
         var syntaxTree = SyntaxTree.ParseText($$"""
+            import Raven.CodeAnalysis.Tests.*
+
             func Main() -> string => #embedText("{{EscapeRavenString(path)}}")
             """);
 
@@ -147,6 +154,8 @@ public sealed class FreestandingMacroCodeGenTests
     public void TokenTreeMacro_ParsedRavenExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
             class Harness {
                 public static func Run() -> int {
                     return #raven {
@@ -177,6 +186,8 @@ public sealed class FreestandingMacroCodeGenTests
     public void TokenTreeMacro_KeywordDslWithEmbeddedRavenExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
             class Harness {
                 public static func Run(value: int) -> bool {
                     return #guard {
@@ -208,6 +219,8 @@ public sealed class FreestandingMacroCodeGenTests
     public void TokenTreeMacro_MultipleKeywordClausesAndRavenExpressions_AreEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
             class Harness {
                 public static func Run(value: int) -> string {
                     return #choose {
@@ -241,6 +254,8 @@ public sealed class FreestandingMacroCodeGenTests
     public void TokenTreeMacro_MissingClause_ReportsBodyDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
             func Main() -> string => #choose {
                 test true
                 then "yes"

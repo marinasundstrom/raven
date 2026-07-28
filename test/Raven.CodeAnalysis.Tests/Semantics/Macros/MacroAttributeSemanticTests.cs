@@ -12,6 +12,23 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
 public sealed class MacroAttributeSemanticTests : CompilationTestBase
 {
+    private new (Compilation Compilation, SyntaxTree Tree) CreateCompilation(
+        string source,
+        CompilationOptions? options = null,
+        MetadataReference[]? references = null,
+        string assemblyName = "test")
+    {
+        var tree = SyntaxTree.ParseText(source);
+        var imports = SyntaxTree.ParseText("""
+            global {
+                import Raven.CodeAnalysis.Tests.Semantics.Macros.*
+            }
+            """);
+        return (
+            base.CreateCompilation([imports, tree], options, references, assemblyName),
+            tree);
+    }
+
     [Fact]
     public void UnknownMacroAttribute_ReportsUnknownMacroDiagnostic_AndDoesNotBindAsClrAttribute()
     {

@@ -3,6 +3,7 @@ import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.CodeAnalysis.Text.*
+import Raven.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(AddMacro))]
 [assembly: RavenCompilerPlugin(typeof(GuardMacro))]

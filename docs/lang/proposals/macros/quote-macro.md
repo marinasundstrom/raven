@@ -5,6 +5,10 @@
 >
 > Statement, member, declaration, compilation-unit, contextual-category, and
 > token/identifier/repetition splice support remain proposed.
+>
+> Current spelling: import `Raven.Macros.*` and invoke `quote! { ... }`, or use
+> `Raven.Macros.Quote! { ... }` without an import. Earlier examples retain the
+> legacy hash-expression spelling as design history.
 
 ## Summary
 

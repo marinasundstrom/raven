@@ -8,7 +8,7 @@ The sample shape is:
 func Main() {
     val viewModel = CounterViewModel()
 
-    use subscription = #subscribe(viewModel.Count, (value) => {
+    use subscription = subscribe!(viewModel.Count, (value) => {
         WriteLine(value)
     })
 
@@ -29,13 +29,13 @@ Current status:
 - `#[Observable]` introduces a companion `CountChanged: IObservable<int>` member next to the property.
 - The attached observable macro transforms `context.CurrentDeclaration`, so it composes with earlier same-target macros while still leaving `context.TargetDeclaration` as the original syntax anchor.
 - The property replacement setter only pushes when the value actually changes.
-- `#subscribe(...)` expands structurally from a property access like `viewModel.Count` to `Subscribe(viewModel.CountChanged, ...)`.
+- `subscribe!(...)` expands structurally from a property access like `viewModel.Count` to `Subscribe(viewModel.CountChanged, ...)`.
 - The sample takes a dependency on `System.Reactive` and uses `Subject<T>` as the backing push mechanism.
 - For this sample, `#[Observable]` only supports mutable storage properties and reports a macro diagnostic for accessor-bodied or expression-bodied properties.
 
 Files:
 
-- `app/MacroReactive.rvnproj`: Raven application using `#[Observable]` and `#subscribe(...)`
+- `app/MacroReactive.rvnproj`: Raven application using `#[Observable]` and `subscribe!(...)`
 - `app/src/Program.rvn`: executable sample plus a tiny `Signal<T>` runtime
 - `macros/ReactiveMacros.rvnproj`: Raven macro plugin project
 - `macros/ReactiveMacros.rvn`: related exported `IAttachedDeclarationMacro` and `IFreestandingExpressionMacro` implementations

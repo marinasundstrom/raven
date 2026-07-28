@@ -19,8 +19,8 @@ macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
 }
 
 func Main() {
-    let answer = #Double(21)
-    let projectedExpression = #AddOffset(2, 40)
+    let answer = Double!(21)
+    let projectedExpression = AddOffset!(2, 40)
     let tokenLength = FirstTokenLength!(1) { raven }
     WriteLine(answer)
     WriteLine(projectedExpression)

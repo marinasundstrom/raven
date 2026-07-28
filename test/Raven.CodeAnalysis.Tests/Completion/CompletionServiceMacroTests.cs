@@ -100,6 +100,7 @@ class MacroHost {
 """;
         var macroTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
@@ -133,6 +134,8 @@ class MacroHost {
     public void GetCompletions_InFreestandingMacroName_ReturnsIntrinsicQuote()
     {
         const string code = """
+import Raven.Macros.*
+
 class MacroHost {
     func Test() {
         val syntax = #quo()
@@ -158,9 +161,36 @@ class MacroHost {
     }
 
     [Fact]
+    public void GetCompletions_WithoutMacroNamespaceImport_DoesNotReturnQuoteAlias()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val syntax = quo! { 42 }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        var position = code.IndexOf('!', code.IndexOf("quo!", StringComparison.Ordinal));
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        Assert.DoesNotContain(items, static item => item.DisplayText == "quote");
+    }
+
+    [Fact]
     public void GetCompletions_InBangMacroName_PreservesInvocationSuffix()
     {
         const string code = """
+import Raven.Macros.*
+
 class MacroHost {
     func Test() {
         val syntax = quo! { 42 }
@@ -188,6 +218,8 @@ class MacroHost {
     public void GetCompletions_InBangMacroName_ReturnsIntrinsicCompile()
     {
         const string code = """
+import Raven.Macros.*
+
 class MacroHost {
     func Test() {
         val increment = comp! { value => value + 1 }
@@ -452,6 +484,8 @@ class MacroHost {
 
     private sealed class ObservableMacro : IAttachedDeclarationMacro
     {
+        public string Namespace => string.Empty;
+
         public string Name => "Observable";
 
         public MacroTarget Targets => MacroTarget.Property;
@@ -462,6 +496,8 @@ class MacroHost {
 
     private sealed class SubscribeMacro : IFreestandingExpressionMacro
     {
+        public string Namespace => string.Empty;
+
         public string Name => "subscribe";
 
         public bool AcceptsArguments => true;
@@ -472,6 +508,8 @@ class MacroHost {
 
     private sealed class QueryMacro : ITokenTreeExpressionMacro
     {
+        public string Namespace => string.Empty;
+
         public string Name => "query";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
@@ -487,6 +525,8 @@ class MacroHost {
 
     private sealed class TypedQueryMacro : ITokenTreeExpressionMacro<TypedQueryParameters>
     {
+        public string Namespace => string.Empty;
+
         public string Name => "typedQuery";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
@@ -500,6 +540,8 @@ class MacroHost {
 
     private sealed class TypedObservableMacro : IAttachedDeclarationMacro<TypedObservableParameters>
     {
+        public string Namespace => string.Empty;
+
         public string Name => "TypedObservable";
 
         public MacroTarget Targets => MacroTarget.Property;
@@ -515,6 +557,8 @@ class MacroHost {
 
     private sealed class TypedCallMacro : IFreestandingExpressionMacro<TypedCallParameters>
     {
+        public string Namespace => string.Empty;
+
         public string Name => "typedCall";
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<TypedCallParameters> context)

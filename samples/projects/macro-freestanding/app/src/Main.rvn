@@ -1,7 +1,8 @@
 import System.Console.*
+import Raven.Macros.*
 
 func Main() -> unit {
-    let answer = #add(20, Right: 22)
+    let answer = add!(20, Right: 22)
     let shouldRetry = guard! {
         unless answer == 42
     }

@@ -2085,6 +2085,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         // diagnostic. By removing this check the parser treats the newline as
         // trivia and correctly parses the following expression token.
 
+        if (CanTokenBeIdentifier(token))
+        {
+            if (IsBangMacroExpressionStart())
+                return ParseBangMacroExpression();
+
+            return new NameSyntaxParser(this).ParseSimpleName();
+        }
+
         switch (token.Kind)
         {
             case SyntaxKind.StringKeyword:
@@ -2106,12 +2114,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.ObjectKeyword:
             case SyntaxKind.UnitKeyword:
                 return ParsePredefinedTypeSyntax();
-
-            case SyntaxKind.IdentifierToken:
-                if (IsBangMacroExpressionStart())
-                    return ParseBangMacroExpression();
-
-                return new NameSyntaxParser(this).ParseSimpleName();
 
             case SyntaxKind.HashToken:
                 return ParseHashMacroExpression();
@@ -2636,7 +2638,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private ExpressionSyntax ParseHashMacroExpression()
     {
         var hashToken = ReadToken();
-        var name = new NameSyntaxParser(this).ParseSimpleName();
+        var name = new NameSyntaxParser(this).ParseName();
         var argumentList = CreateMissingArgumentList();
         MacroTokenTreeSyntax? tokenTree = null;
 
@@ -2651,17 +2653,21 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private bool IsBangMacroExpressionStart()
     {
-        if (!PeekToken().IsKind(SyntaxKind.IdentifierToken))
+        if (!CanTokenBeIdentifier(PeekToken()))
             return false;
 
         var checkpoint = CreateCheckpoint("bang-macro-lookahead");
-        var name = new NameSyntaxParser(this).ParseSimpleName();
+        var name = new NameSyntaxParser(this).ParseName();
         var isStart = !name.IsMissing &&
             !HasLineBreakBeforePeekToken() &&
             ConsumeToken(SyntaxKind.ExclamationToken, out _);
 
         if (isStart && PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
             _ = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
+            checkpoint.Rewind();
+            return true;
+        }
 
         isStart = isStart &&
             !HasLineBreakBeforePeekToken() &&
@@ -2672,14 +2678,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax ParseBangMacroExpression()
     {
-        var name = new NameSyntaxParser(this).ParseSimpleName();
+        var name = new NameSyntaxParser(this).ParseName();
         var exclamationToken = ReadToken();
         var argumentList = CreateMissingArgumentList();
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
             argumentList = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
 
-        var tokenTree = ParseMacroTokenTree();
+        var tokenTree = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
+            ? ParseMacroTokenTree()
+            : null;
         return BangMacroExpression(name, exclamationToken, argumentList, tokenTree);
     }
 

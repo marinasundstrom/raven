@@ -3,6 +3,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
+[MacroAlias("compile")]
 internal sealed class IntrinsicCompileMacro : ITokenTreeExpressionMacro
 {
     private const string MissingDelegateTypeCode = "COMPILE001";
@@ -14,7 +15,9 @@ internal sealed class IntrinsicCompileMacro : ITokenTreeExpressionMacro
     {
     }
 
-    public string Name => "compile";
+    public string Namespace => "Raven.Macros";
+
+    public string Name => "Compile";
 
     public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
     {

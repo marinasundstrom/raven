@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added namespace-qualified macro invocation and import-scoped macro aliases.
+  Compiler-provided `Raven.Macros.Quote` and `Raven.Macros.Compile` expose the
+  `quote` and `compile` aliases through `import Raven.Macros.*`; local names can
+  shadow imported aliases, while qualified invocation remains an escape hatch.
+  Argument-style bang invocations such as `twice!(21)` no longer require an
+  empty token-tree body, and freestanding macro samples now use this preferred
+  form.
 - Fixed expanded-document commands for projects containing authored
   `macro func` declarations. `rvn dev syntax --syntax-view expanded` and
   `rvn dev macros` now resolve the workspace document's projected compilation
@@ -136,8 +143,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Migrated the Raven-authored sample `#add` procedural macro to construct its
   expansion with `#quote` and argument-expression holes, validating quote while
   compiling a macro plugin and loading that plugin in a consuming project.
-- Centralized automatically available macros in the compiler's default macro
-  environment and added `MacroReference.CreateFromImage`, allowing emitted
+- Centralized compiler-provided macro registration in the compiler's default
+  macro environment and added `MacroReference.CreateFromImage`, allowing emitted
   Raven macro plugins to be activated directly from memory as a foundation for
   same-project macros and the Playground.
 - Added an explicit compile-time-only macro source partition to `Compilation`.

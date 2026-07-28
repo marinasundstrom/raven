@@ -75,7 +75,7 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/syntax-quoter/README.md` (generate Raven SyntaxFactory code from Raven source)
 - `samples/projects/macro-functions/README.md` (author a same-project macro with `macro func`)
 - `samples/projects/macro-token-stream/README.md` (replace Raven's macro token stream with a custom lexer)
-- `samples/projects/macro-quote/README.md` (construct another macro's expansion with `#quote`)
+- `samples/projects/macro-quote/README.md` (construct another macro's expansion with `quote!`)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 
 ### Source file naming and organization

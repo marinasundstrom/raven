@@ -837,6 +837,8 @@ public partial class Compilation
         var localMacroReference = CompileLocalMacroPartition();
         _activeMacroReferences = GetActiveMacroReferences(localMacroReference);
         _macroRegistry = MacroRegistry.Create(_activeMacroReferences);
+        foreach (var macroNamespace in _macroRegistry.Namespaces)
+            GetOrCreateNamespaceSymbol(macroNamespace);
 
         InitializeTopLevelPrograms();
     }

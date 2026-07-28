@@ -1,5 +1,6 @@
 import System.Console.*
 import Raven.CodeAnalysis.Syntax.*
+import Raven.Macros.*
 
 let expression: ExpressionSyntax = quote! {
     20 + 22

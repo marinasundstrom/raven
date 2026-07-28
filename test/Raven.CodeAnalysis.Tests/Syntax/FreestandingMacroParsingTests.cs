@@ -162,6 +162,81 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
+    public void BangMacroExpression_ParsesArgumentStyleInvocationWithoutBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => twice!(21)
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BangMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal("twice", expression.Name.ToString());
+        Assert.Single(expression.ArgumentList.Arguments);
+        Assert.Null(expression.TokenTree);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void BangMacroExpression_ParsesContextualKeywordName()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => add!(20, Right: 22)
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BangMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal("add", expression.Name.ToString());
+        Assert.Equal(2, expression.ArgumentList.Arguments.Count);
+        Assert.Null(expression.TokenTree);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void BangMacroExpression_ParsesQualifiedGenericNameAndRawBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => Raven.Macros.Compile<Func<int>>! {
+                42
+            }
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BangMacroExpressionSyntax>()
+            .Single();
+
+        Assert.IsType<QualifiedNameSyntax>(expression.Name);
+        Assert.True(expression.TryGetMacroName(out var macroName));
+        Assert.Equal("Raven.Macros.Compile", macroName);
+        Assert.Contains("42", Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void HashMacroExpression_ParsesQualifiedName()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main() -> int => #Example.Macros.Answer()
+            """);
+
+        var expression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<HashMacroExpressionSyntax>()
+            .Single();
+
+        Assert.IsType<QualifiedNameSyntax>(expression.Name);
+        Assert.True(expression.TryGetMacroName(out var macroName));
+        Assert.Equal("Example.Macros.Answer", macroName);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void PostfixExclamationWithoutMacroBody_RemainsPostfixOperator()
     {
         var tree = SyntaxTree.ParseText("""

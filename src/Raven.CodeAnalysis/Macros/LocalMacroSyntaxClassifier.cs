@@ -96,7 +96,7 @@ internal static class LocalMacroSyntaxClassifier
     private static IEnumerable<MemberDeclarationSyntax> GetTopLevelMacroDeclarations(SyntaxTree syntaxTree)
     {
         foreach (var declaration in GetTopLevelTypeDeclarations(syntaxTree)
-            .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
+            .Where(static declaration => declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
             .Where(IsLocalMacroDeclaration))
         {
             yield return declaration;
@@ -105,7 +105,8 @@ internal static class LocalMacroSyntaxClassifier
         foreach (var declaration in syntaxTree.GetRoot()
             .DescendantNodes()
             .OfType<MacroFunctionDeclarationSyntax>()
-            .Where(static declaration => declaration.Parent is CompilationUnitSyntax))
+            .Where(static declaration =>
+                declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax))
         {
             yield return declaration;
         }
@@ -190,9 +191,42 @@ internal static class LocalMacroSyntaxClassifier
         foreach (var attributeList in root.AttributeLists)
             Copy(source, text, attributeList.FullSpan);
         foreach (var declaration in declarations)
+        {
+            foreach (var namespaceDeclaration in declaration.Ancestors()
+                         .OfType<BaseNamespaceDeclarationSyntax>()
+                         .Reverse())
+            {
+                CopyNamespaceEnvelope(source, text, namespaceDeclaration);
+            }
+
             Copy(source, text, declaration.FullSpan);
+        }
 
         return ParseProjection(syntaxTree, text);
+    }
+
+    private static void CopyNamespaceEnvelope(
+        string source,
+        char[] destination,
+        BaseNamespaceDeclarationSyntax declaration)
+    {
+        var firstMemberStart = declaration.Members.Count > 0
+            ? declaration.Members[0].FullSpan.Start
+            : declaration.FullSpan.End;
+        Copy(
+            source,
+            destination,
+            TextSpan.FromBounds(declaration.FullSpan.Start, firstMemberStart));
+
+        if (declaration is NamespaceDeclarationSyntax blockNamespace)
+        {
+            Copy(
+                source,
+                destination,
+                TextSpan.FromBounds(
+                    blockNamespace.CloseBraceToken.FullSpan.Start,
+                    blockNamespace.FullSpan.End));
+        }
     }
 
     private static void Mask(char[] text, TextSpan span)

@@ -810,9 +810,11 @@ Status: **implemented and validated**
 
 * [x] centralize compiler-provided macro registration in a default environment
 * [x] use the same default environment for binding and completion
-* [x] keep `#quote` automatically available without imports or project items
+* [x] register compiler-provided macros without project items while retaining
+  ordinary namespace/import lookup
 * [x] allow a macro assembly image to be activated without writing it to disk
-* [x] prove the image path with a Raven-authored macro that uses `#quote`
+* [x] prove the image path with a Raven-authored macro that imports
+  `Raven.Macros.*` and uses `quote!`
 
 The default environment is the common registration point for future
 compiler-intrinsic and SDK-bundled macros such as `#embedFile`. In-memory image
@@ -1134,8 +1136,10 @@ are stable.
 
 Status: **expression quote and expression-hole MVPs implemented**
 
-`#quote` is now a compiler-registered token-tree macro and needs no plugin
-reference. The first slice:
+`Raven.Macros.Quote` is now a compiler-registered token-tree macro and needs no
+plugin reference. Its `quote` alias requires `import Raven.Macros.*`; the
+canonical qualified name remains available without that import. The first
+slice:
 
 * [x] parses exactly one complete Raven expression
 * [x] preserves tokens and trivia

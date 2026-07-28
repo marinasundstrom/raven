@@ -7,7 +7,7 @@ The sample shape is:
 
 ```raven
 func Main() -> unit {
-    val answer = #add(20, Right: 22)
+    val answer = add!(20, Right: 22)
     val shouldRetry = guard! {
         unless answer == 42
     }
@@ -41,7 +41,7 @@ Current status:
   application consumes it through an ordinary `ProjectReference`. The SDK
   classifies the marked provider as a compiler plugin without a
   consumer-authored `RavenMacro` item or plugin container.
-- `#add` uses the compiler-owned `quote!` intrinsic inside the Raven-authored
+- `add!` uses the compiler-owned `quote!` macro inside the Raven-authored
   macro implementation. Its two argument expressions are inserted with
   `#(...)` holes, producing `left + right` without manually assembling the
   infix syntax tree.
@@ -68,7 +68,8 @@ Current status:
 - The query MVP generates no hidden temporary names and retains no custom DSL
   tree. Additional generators, repeated clauses, ordering, joins, and editor
   services remain future work.
-- `quote!` is the compiler-owned expression-only quote MVP. It needs no plugin
+- `quote!` is the compiler-owned expression-only quote MVP. Import
+  `Raven.Macros.*` to bring its alias into scope; it needs no plugin
   registration, preserves the quoted expression's tokens and trivia, and
   expands to ordinary fully qualified `SyntaxFactory` calls. Because the result
   is a runtime syntax object, the compiler adds the matching
@@ -77,7 +78,7 @@ Current status:
 
 Files:
 
-- `app/MacroFreestanding.rvnproj`: Raven application using `#add(...)`
+- `app/MacroFreestanding.rvnproj`: Raven application using `add!(...)`
 - `app/src/Main.rvn`: executable entry point
 - `macros/FreestandingMacros.rvnproj`: Raven macro plugin project
 - `macros/FreestandingMacros.rvn`: related implementations of the category-specific macro interfaces

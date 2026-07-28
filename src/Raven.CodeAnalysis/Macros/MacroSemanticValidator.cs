@@ -46,6 +46,16 @@ internal static class MacroSemanticValidator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor s_ambiguousMacro = DiagnosticDescriptor.Create(
+        "RAVM014",
+        "Ambiguous macro",
+        "",
+        "",
+        "Macro name '{0}' is ambiguous between multiple macros in scope. Qualify the macro name to select one.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     public static void ValidateAttribute(
         Compilation compilation,
         AttributeSyntax attribute,
@@ -75,9 +85,17 @@ internal static class MacroSemanticValidator
         }
 
         var registry = compilation.GetMacroRegistry();
-        if (!registry.TryResolveAttachedMacro(macroName, out loaded))
+        if (!registry.TryResolveAttachedMacro(
+                compilation,
+                attribute,
+                macroName,
+                out loaded,
+                out var isAmbiguous))
         {
-            diagnostics?.Report(Diagnostic.Create(s_unknownMacro, attribute.Name.GetLocation(), macroName));
+            diagnostics?.Report(Diagnostic.Create(
+                isAmbiguous ? s_ambiguousMacro : s_unknownMacro,
+                attribute.Name.GetLocation(),
+                macroName));
             return false;
         }
 
@@ -119,9 +137,17 @@ internal static class MacroSemanticValidator
         }
 
         var registry = compilation.GetMacroRegistry();
-        if (!registry.TryResolveFreestandingMacro(macroName, out loaded))
+        if (!registry.TryResolveFreestandingMacro(
+                compilation,
+                expression,
+                macroName,
+                out loaded,
+                out var isAmbiguous))
         {
-            diagnostics?.Report(Diagnostic.Create(s_unknownMacro, expression.Name.GetLocation(), macroName));
+            diagnostics?.Report(Diagnostic.Create(
+                isAmbiguous ? s_ambiguousMacro : s_unknownMacro,
+                expression.Name.GetLocation(),
+                macroName));
             return false;
         }
 

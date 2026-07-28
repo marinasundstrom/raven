@@ -227,12 +227,14 @@ Macros are implemented as compiled code:
 
 They may reside in:
 
-* The compiler/SDK's automatically registered default macro environment
+* The compiler/SDK's registered standard macro environment
 * A referenced macro assembly
 * The same project through a staged compile-time partition
 
-Default macros such as `#quote`, and a future tracked-resource `#embedFile`,
-require no source import or explicit dependency. Whether a default is a compiler
+Compiler-provided macros require no explicit dependency, but remain scoped like
+ordinary macros. For example, `import Raven.Macros.*` exposes the `quote` and
+`compile` aliases; callers can instead use canonical names such as
+`Raven.Macros.Quote!` without an import. Whether a standard macro is a compiler
 intrinsic or an SDK-bundled plugin is an implementation detail.
 
 Same-project declarations are a core development experience, not an optional

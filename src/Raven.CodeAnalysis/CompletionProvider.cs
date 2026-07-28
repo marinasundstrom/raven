@@ -25,7 +25,10 @@ public static class CompletionProvider
 
         if (TryGetMacroCompletionContext(token, sourceText, position, out var macroContext))
         {
-            var macroCompletions = GetMacroCompletions(model.Compilation, macroContext).ToArray();
+            var macroCompletions = GetMacroCompletions(
+                model.Compilation,
+                token.Parent ?? model.SyntaxTree.GetRoot(),
+                macroContext).ToArray();
             if (macroCompletions.Length > 0)
                 return macroCompletions;
         }
@@ -3016,11 +3019,21 @@ public static class CompletionProvider
         {
             AttributeSyntax attribute when
                 attribute.TryGetMacroName(out var name) &&
-                compilation.GetMacroRegistry().TryResolveAttachedMacro(name, out var loaded) =>
+                compilation.GetMacroRegistry().TryResolveAttachedMacro(
+                    compilation,
+                    attribute,
+                    name,
+                    out var loaded,
+                    out _) =>
                 loaded.Macro,
             FreestandingMacroExpressionSyntax expression when
                 expression.TryGetMacroName(out var name) &&
-                compilation.GetMacroRegistry().TryResolveFreestandingMacro(name, out var loaded) =>
+                compilation.GetMacroRegistry().TryResolveFreestandingMacro(
+                    compilation,
+                    expression,
+                    name,
+                    out var loaded,
+                    out _) =>
                 loaded.Macro,
             _ => null
         };
@@ -3103,39 +3116,40 @@ public static class CompletionProvider
 
     private static IEnumerable<CompletionItem> GetMacroCompletions(
         Compilation compilation,
+        SyntaxNode contextNode,
         MacroCompletionContext context)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var macro in EnumerateMacros(compilation, context.Kind))
+        foreach (var (name, macro) in EnumerateMacros(compilation, contextNode, context.Kind))
         {
-            if (!seen.Add(macro.Name) || !MacroNameMatchesPrefix(macro.Name, context.Prefix))
+            if (!seen.Add(name) || !MacroNameMatchesPrefix(name, context.Prefix))
                 continue;
 
             var insertionText = context.PreserveInvocationSuffix
-                ? macro.Name
+                ? name
                 : macro switch
                 {
-                    ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name + "() { }",
-                    ITokenTreeExpressionMacro => macro.Name + " { }",
-                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{macro.Name}()]",
-                    _ when context.WrapAttachedAttribute => $"[{macro.Name}]",
-                    _ when context.Kind == MacroKind.FreestandingExpression => macro.Name + "()",
-                    _ => macro.Name
+                    ITokenTreeExpressionMacro when macro.AcceptsArguments => name + "() { }",
+                    ITokenTreeExpressionMacro => name + " { }",
+                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{name}()]",
+                    _ when context.WrapAttachedAttribute => $"[{name}]",
+                    _ when context.Kind == MacroKind.FreestandingExpression => name + "()",
+                    _ => name
                 };
             var cursorOffset = context.PreserveInvocationSuffix
                 ? null
                 : macro switch
                 {
-                    ITokenTreeExpressionMacro when macro.AcceptsArguments => macro.Name.Length + 1,
+                    ITokenTreeExpressionMacro when macro.AcceptsArguments => name.Length + 1,
                     ITokenTreeExpressionMacro => insertionText.Length - 1,
-                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => macro.Name.Length + 2,
+                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => name.Length + 2,
                     _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
                     _ => (int?)null
                 };
 
             yield return new CompletionItem(
-                DisplayText: macro.Name,
+                DisplayText: name,
                 InsertionText: insertionText,
                 ReplacementSpan: context.ReplacementSpan,
                 CursorOffset: cursorOffset,
@@ -3143,8 +3157,11 @@ public static class CompletionProvider
         }
     }
 
-    private static IEnumerable<IMacroDefinition> EnumerateMacros(Compilation compilation, MacroKind kind)
-        => compilation.GetMacroRegistry().GetMacros(kind);
+    private static IEnumerable<(string Name, IMacroDefinition Macro)> EnumerateMacros(
+        Compilation compilation,
+        SyntaxNode context,
+        MacroKind kind)
+        => compilation.GetMacroRegistry().GetVisibleMacros(compilation, context, kind);
 
     private static string CreateMacroDescription(IMacroDefinition macro)
     {

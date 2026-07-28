@@ -13,6 +13,7 @@ public sealed class CompileMacroCodeGenTests
     {
         var result = InvokeRun("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> int {
@@ -32,6 +33,8 @@ public sealed class CompileMacroCodeGenTests
     public void CompileMacro_WithoutDelegateType_ReportsDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.Macros.*
+
             func Main() -> unit {
                 let increment = compile! {
                     value => value + 1
@@ -54,6 +57,7 @@ public sealed class CompileMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import System.*
+            import Raven.Macros.*
 
             class Harness {
                 public static func Run() -> System.Func<int, int> {

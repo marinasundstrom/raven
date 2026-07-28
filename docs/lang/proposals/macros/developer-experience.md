@@ -283,18 +283,21 @@ without requiring general overload resolution.
 
 ### Names and qualification
 
-Namespace-qualified macro identity is a later semantic layer and is outside the
-initial `macro func` parsing slice. The intended direction is nevertheless the
-same as for ordinary functions and members: a macro has one canonical qualified
-identity, imports make its short name available in scope, and qualification is
-the explicit escape hatch for collisions.
+Macros have one canonical namespace-qualified identity. Ordinary namespace
+imports make the declared short name and any names supplied by
+`MacroAliasAttribute` available in scope. Qualification is the explicit escape
+hatch for collisions; aliases cannot be used as qualified name segments.
 
 For a macro function, its namespace and declaration name naturally form that
-identity. A class-authored macro can use its implementation type as the
-qualified identity while retaining its declared macro name as the convenient
-imported spelling. The registry should eventually resolve symbols through
-namespace/import rules rather than treating one process-wide string as the
-complete identity.
+identity. A class-authored provider exposes the same two parts through
+`IMacroDefinition.Namespace` and `IMacroDefinition.Name`; its implementation
+type name is not part of the language-facing identity.
+
+For example, importing `Raven.Macros.*` brings both the canonical short names
+`Quote` and `Compile` and their conventional aliases `quote` and `compile` into
+scope. Without that import, callers use `Raven.Macros.Quote!` or
+`Raven.Macros.Compile!`. A local declaration can shadow an imported macro name
+or alias, while qualification continues to select the macro explicitly.
 
 Whether public macro names conventionally begin with an uppercase letter is
 also deferred. Capitalized forms such as `Macros.Compile! { ... }` align with
@@ -746,14 +749,17 @@ to avoid local partition attributes as well.
 
 ## Default macro environment
 
-The selected Raven compiler and SDK may provide a version-matched default macro
-set. Default macros are registered automatically in normal compilations and in
-the Playground, without a source import, package dependency, or project item.
+The selected Raven compiler and SDK may provide a version-matched macro set.
+These implementations are registered automatically in normal compilations and
+in the Playground without a package dependency or project item, but their names
+still obey ordinary namespace import rules.
 
-`#quote` is the first default macro and is currently implemented as a compiler
-intrinsic. A future tracked-resource macro such as `#embedFile` may instead be
-implemented as an SDK-bundled compiler plugin. That implementation distinction
-must not change invocation syntax, completion, diagnostics, or documentation.
+`Raven.Macros.Quote` and `Raven.Macros.Compile` are compiler-provided macros.
+`[MacroAlias("quote")]` and `[MacroAlias("compile")]` supply their conventional
+spellings after `import Raven.Macros.*`. A future tracked-resource macro such
+as `EmbedFile` may instead be implemented as an SDK-bundled compiler plugin.
+That implementation distinction must not create a special name-resolution
+category.
 
 Third-party macros still arrive through provider-marked project or package
 dependencies. Same-project macros arrive through the local compile-time

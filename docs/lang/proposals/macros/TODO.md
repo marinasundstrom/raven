@@ -70,7 +70,8 @@ In a macro you can put any content and parse it however you want.
     rename.
   * [x] Run workspace analyzers over both projections of mixed local-macro
     documents.
-* Grow the automatically registered default macro environment beyond `#quote`.
+* Grow the compiler-provided `Raven.Macros` namespace beyond `Quote` and
+  `Compile` while retaining ordinary import-scoped lookup.
   A future `#embedFile` must use compiler-owned resource resolution and
   dependency tracking rather than unrestricted direct file I/O.
 

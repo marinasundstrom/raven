@@ -1,4 +1,5 @@
 import Raven.CodeAnalysis.Macros.*
+import Raven.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(TwiceMacro))]
 

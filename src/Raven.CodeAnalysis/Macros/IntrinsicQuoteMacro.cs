@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
+[MacroAlias("quote")]
 internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
 {
     private const string IncompleteQuoteCode = "QUOTE001";
@@ -18,7 +19,9 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
     {
     }
 
-    public string Name => "quote";
+    public string Namespace => "Raven.Macros";
+
+    public string Name => "Quote";
 
     public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
     {
