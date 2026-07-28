@@ -30,6 +30,14 @@ This proposal is related to, but distinct from, `RavenQuoter`. `RavenQuoter` is
 a runtime/tooling API that accepts source text or an existing syntax node and
 prints factory-construction source. `#quote` is compile-time syntax capture.
 
+It is also analogous to .NET expression-tree conversion. In both cases, the
+programmer writes in the host language and the compiler produces an object
+representation instead of requiring text parsing or complete manual factory
+construction. Expression-tree conversion quotes a supported operation graph
+into `Expression<TDelegate>` and discards source syntax. `#quote` quotes Raven
+syntax into a `Raven.CodeAnalysis.Syntax` object and preserves tokens and
+trivia.
+
 ## Purpose and use cases
 
 `#quote` is Raven's syntax-literal facility: authors write a Raven fragment in
@@ -69,6 +77,13 @@ The quoted Raven supplies the fixed expansion structure, while holes supply
 the syntax computed by the enclosing macro. The result remains an ordinary
 syntax tree and continues through Raven's normal binding, diagnostics,
 tooling, and code-generation pipeline.
+
+The initial quoted fragment is only a convenient way to construct the starting
+tree. Afterward, macro code can traverse it and construct a modified immutable
+tree through visitors, replacement APIs, `SyntaxFactory`, or additional quoted
+fragments and holes. This gives programmatic transformations the same escape
+hatch that expression-tree users have after a compiler creates their initial
+operation graph.
 
 This also provides an incremental migration path for the macro library.
 Existing macros can continue returning trees assembled with `SyntaxFactory`,

@@ -184,6 +184,15 @@ runtime reference to that assembly; the intrinsic itself does not require a
 macro reference. Statement, member, declaration, token, identifier,
 list, and repetition quote/splice forms are not part of the current language.
 
+`#quote` is syntax quotation, analogous in shape to the compiler-integrated
+operation quotation that converts a target-typed lambda to
+`Expression<TDelegate>`. The representations are different: expression trees
+contain standardized .NET operations and no source syntax, while `#quote`
+produces Raven syntax with its tokens and trivia. The resulting syntax object
+can be traversed and rewritten into a new immutable tree using
+`Raven.CodeAnalysis`; it is not semantically bound until inserted into a
+compilation.
+
 The raw body is the source of truth. Any standard Raven token stream,
 macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
 tree is derived from that body and remains scoped to the macro invocation.

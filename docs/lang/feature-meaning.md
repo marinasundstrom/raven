@@ -469,6 +469,54 @@ Consult the repository's [expression-tree support
 status](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/development/expression-trees.md)
 before relying on a particular body shape or operator.
 
+### Expression trees and `#quote` quote different representations
+
+A target-typed expression-tree lambda is a form of compiler-integrated
+quotation. The programmer writes an ordinary lambda, and the compiler produces
+an object graph of its supported operations:
+
+```raven
+let predicate: Expression<Func<User, bool>> =
+    user => user.IsActive
+```
+
+Raven's `#quote` intrinsic applies the same broad idea to Raven syntax. The
+programmer writes a Raven fragment, and the compiler produces the
+`ExpressionSyntax` construction needed to recreate that fragment:
+
+```raven
+let syntax: ExpressionSyntax = #quote {
+    left + right
+}
+```
+
+Both mechanisms avoid starting with source text, invoking a parser, or manually
+assembling the entire initial object graph. Both produce ordinary objects that
+code can traverse and rewrite. Because the object models are immutable,
+“modifying” a quoted tree means constructing a new tree from the original,
+through visitors, replacement APIs, factories, or quote holes.
+
+The representations and destinations are different:
+
+| Quotation | Result | Retains | Primary destination |
+| --- | --- | --- | --- |
+| Expression-tree conversion | `Expression<TDelegate>` operation graph | Supported standardized .NET operations and types | Runtime libraries that translate, inspect, or compile operations |
+| Raven `#quote` | Raven `ExpressionSyntax` tree | Raven syntax, tokens, and trivia | Macros and tools that generate or transform Raven program structure |
+
+`#quote` is therefore more expressive for Raven program generation than
+expression trees: it is not limited to the shared
+`System.Linq.Expressions` operation vocabulary. That does not make expression
+trees obsolete. A .NET API expecting `Expression<TDelegate>` needs precisely
+that portable operation representation, while a Raven macro normally needs
+Raven syntax.
+
+The authored quote surface can support only the syntax categories and splice
+forms implemented by the compiler. Once a syntax object exists, however, macro
+code can inspect it and construct a transformed tree using the full compatible
+`Raven.CodeAnalysis` syntax API. Syntax quotation does not bind names or types;
+the generated syntax acquires semantic meaning only after insertion into a
+compilation and normal binding.
+
 ## Preserve ordinary .NET boundaries
 
 Raven code should remain native to the .NET ecosystem. Do not replace a
