@@ -334,6 +334,20 @@ internal sealed class DeclaredSymbolLookup
             return symbol is not null;
         }
 
+        if (parameterSyntax.Parent?.Parent is MacroFunctionDeclarationSyntax macroFunctionDeclaration)
+        {
+            var macroFunction = TryLookupKnownDeclaredSymbolFast(macroFunctionDeclaration, out var macroFunctionSymbol)
+                ? macroFunctionSymbol as IMacroFunctionSymbol
+                : _semanticModel.GetDeclaredSymbol(macroFunctionDeclaration) as IMacroFunctionSymbol;
+
+            if (macroFunction is null)
+                return false;
+
+            symbol = macroFunction.Parameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return symbol is not null;
+        }
+
         return false;
     }
 
@@ -370,6 +384,12 @@ internal sealed class DeclaredSymbolLookup
                 IsCurrentDeclarationSymbol(functionStatement, functionSymbol) &&
                 functionSymbol is not SourceMethodSymbol { IsSignatureSkeleton: true }:
                 symbol = functionSymbol;
+                return true;
+
+            case MacroFunctionDeclarationSyntax macroFunctionDeclaration when
+                _semanticModel.TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol) &&
+                IsCurrentDeclarationSymbol(macroFunctionDeclaration, macroFunctionSymbol):
+                symbol = macroFunctionSymbol;
                 return true;
 
             case PropertyDeclarationSyntax propertyDeclaration when

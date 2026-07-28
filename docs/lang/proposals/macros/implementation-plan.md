@@ -81,9 +81,12 @@ Macro activation has two origins but one result:
   the assembly marker and activated from their manifest.
 
 Both paths produce the same active `MacroReference` registry consumed by
-binding and expansion. The registry does not branch on origin. A future
-`IMacroSymbol` may represent that common semantic identity, but a new symbol
-kind is not required for the infrastructure MVP.
+binding and expansion. The registry does not branch on origin. The later
+function-oriented source layer represents `macro func` declarations with
+`IMacroFunctionSymbol` and `SymbolKind.MacroFunction`; this symbol is distinct
+from both `IMethodSymbol` and the object-oriented provider instance held by the
+registry. Projecting an active provider back to a common macro symbol remains a
+later tooling layer and was not required for the infrastructure MVP.
 
 Direct macro definitions are the primary activation unit. Same-compilation
 definitions are discovered in the local compile-time partition, while

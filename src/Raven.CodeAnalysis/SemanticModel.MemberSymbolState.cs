@@ -29,6 +29,12 @@ public partial class SemanticModel
     internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out IMethodSymbol symbol)
         => Compilation.TryGetMethodSymbol(node, out symbol!);
 
+    internal void RegisterMacroFunctionSymbol(MacroFunctionDeclarationSyntax node, IMacroFunctionSymbol symbol)
+        => Compilation.RegisterMacroFunctionSymbol(node, symbol);
+
+    internal bool TryGetMacroFunctionSymbol(MacroFunctionDeclarationSyntax node, out IMacroFunctionSymbol symbol)
+        => Compilation.TryGetMacroFunctionSymbol(node, out symbol!);
+
     internal SourceMethodSymbol GetOrCreateMethodSymbolForBinding(
         MethodDeclarationSyntax node,
         Func<SourceMethodSymbol> createSymbol)

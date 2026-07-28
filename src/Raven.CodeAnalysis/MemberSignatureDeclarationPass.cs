@@ -774,12 +774,25 @@ internal static class MemberSignatureDeclarationPass
         ParameterSyntax parameter,
         SourceMethodSymbol methodSymbol,
         INamedTypeSymbol containingType)
+        => CreateSkeletonParameterSymbol(
+            semanticModel,
+            parameter,
+            methodSymbol,
+            containingType,
+            methodSymbol.TypeParameters);
+
+    internal static SourceParameterSymbol CreateSkeletonParameterSymbol(
+        SemanticModel semanticModel,
+        ParameterSyntax parameter,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> typeParameters)
     {
         var compilation = semanticModel.Compilation;
         var typeSyntax = parameter.TypeAnnotation?.Type;
         var parameterType = typeSyntax is null
             ? compilation.ErrorTypeSymbol
-            : ResolveSkeletonType(semanticModel, typeSyntax, compilation.ErrorTypeSymbol, containingType, methodSymbol.TypeParameters);
+            : ResolveSkeletonType(semanticModel, typeSyntax, compilation.ErrorTypeSymbol, containingType, typeParameters);
         var defaultEvaluation = TypeMemberBinder.EvaluateParameterDefaultValue(parameter, parameterType);
         var hasExplicitDefaultValue = defaultEvaluation is { HasDefaultSyntax: true, Success: true };
         var refKind = ParameterSyntaxUtilities.GetRefKind(parameter);
@@ -795,9 +808,9 @@ internal static class MemberSignatureDeclarationPass
         return new SourceParameterSymbol(
             parameter.Identifier.ValueText,
             parameterType,
-            methodSymbol,
+            containingSymbol,
             containingType,
-            containingType.ContainingNamespace,
+            containingSymbol.ContainingNamespace,
             [parameter.Identifier.GetLocation()],
             [parameter.GetReference()],
             refKind,

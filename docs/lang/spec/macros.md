@@ -211,11 +211,23 @@ construct with a dedicated `MacroFunctionDeclarationSyntax`, retaining
 attributes, modifiers, generic parameters, ordinary parameters, a return
 clause, constraints, and either a block or expression body.
 
-This is currently a syntax-only feature boundary. Binding, macro symbol
-creation, activation, lowering to the shared context/parameter-object
-infrastructure, and expansion execution remain future work. Existing
-class-authored dynamic and strongly typed macros continue to define and test
-the executable macro engine while this declaration model develops.
+This currently establishes syntax and the semantic declaration signature.
+`SemanticModel.GetDeclaredSymbol` returns an `IMacroFunctionSymbol` with
+`SymbolKind.MacroFunction`, its call-site return type, parameters, generic
+parameters, and constraints. A macro function is not an `IMethodSymbol`: it is
+compile-time language structure rather than a CLR method. Its body is therefore
+not bound as an ordinary runtime function body.
+
+Macro functions are synchronous. The `async` modifier and `await` expressions
+are not supported in a macro function. This describes the source expansion
+contract; a compiler host or provider implementation may still use
+asynchronous APIs internally without exposing asynchronous expansion semantics
+to Raven code.
+
+Activation, lowering to the shared context/parameter-object infrastructure, and
+expansion execution remain future work. Existing class-authored dynamic and
+strongly typed macros continue to define and test the executable macro engine
+while this declaration model develops.
 Namespace-qualified macro lookup, imported short names, and naming conventions
 are likewise outside this parsing slice.
 

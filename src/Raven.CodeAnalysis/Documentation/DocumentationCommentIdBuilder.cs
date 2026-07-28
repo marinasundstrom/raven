@@ -260,9 +260,13 @@ internal static class DocumentationCommentIdBuilder
             return GetParameterTypeName(pointerType.PointedAtType) + "*";
 
         if (type is ITypeParameterSymbol typeParameter)
-            return typeParameter.OwnerKind == TypeParameterOwnerKind.Type
-                ? "`" + typeParameter.Ordinal
-                : "``" + typeParameter.Ordinal;
+            return typeParameter.OwnerKind switch
+            {
+                TypeParameterOwnerKind.Type => "`" + typeParameter.Ordinal,
+                TypeParameterOwnerKind.Method => "``" + typeParameter.Ordinal,
+                TypeParameterOwnerKind.MacroFunction => typeParameter.Name,
+                _ => typeParameter.Name,
+            };
 
         if (type is not INamedTypeSymbol namedType)
             return type.MetadataName;

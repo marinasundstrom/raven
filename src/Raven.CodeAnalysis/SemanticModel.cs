@@ -586,6 +586,14 @@ public partial class SemanticModel
                 }
             }
 
+            if (node is MacroFunctionDeclarationSyntax)
+            {
+                // The declaration signature is bound during source declaration.
+                // Its body is compile-time implementation code and must not be
+                // bound as an ordinary runtime statement body.
+                return;
+            }
+
             if (TryTraverseTypeMemberDeclaration(node, currentBinder))
                 return;
 
@@ -8799,6 +8807,7 @@ public partial class SemanticModel
             or ConstructorDeclarationSyntax
             or ParameterlessConstructorDeclarationSyntax
             or FunctionStatementSyntax
+            or MacroFunctionDeclarationSyntax
             or PropertyDeclarationSyntax
             or EventDeclarationSyntax
             or AccessorDeclarationSyntax
@@ -8828,6 +8837,11 @@ public partial class SemanticModel
 
             case MethodDeclarationSyntax methodDeclaration when TryGetMethodSymbol(methodDeclaration, out var methodSymbol):
                 symbol = methodSymbol;
+                return true;
+
+            case MacroFunctionDeclarationSyntax macroFunctionDeclaration
+                when TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol):
+                symbol = macroFunctionSymbol;
                 return true;
 
             case ConstructorDeclarationSyntax constructorDeclaration when TryGetMethodSymbol(constructorDeclaration, out var constructorSymbol):
@@ -11723,6 +11737,9 @@ public partial class SemanticModel
                     return typeSymbol;
                 case UnionDeclarationSyntax unionDeclaration when TryGetUnionSymbol(unionDeclaration, out var unionSymbol):
                     return unionSymbol;
+                case MacroFunctionDeclarationSyntax macroFunctionDeclaration
+                    when TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol):
+                    return macroFunctionSymbol;
                 case NamespaceDeclarationSyntax:
                     return GetDeclaredSymbol(ancestor);
             }
@@ -11766,6 +11783,14 @@ public partial class SemanticModel
             TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionSymbol))
         {
             parameterSymbol = functionSymbol.Parameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return parameterSymbol is not null;
+        }
+
+        if (parameterSyntax.Parent?.Parent is MacroFunctionDeclarationSyntax macroFunctionDeclaration &&
+            TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol))
+        {
+            parameterSymbol = macroFunctionSymbol.Parameters.FirstOrDefault(parameter =>
                 SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
             return parameterSymbol is not null;
         }

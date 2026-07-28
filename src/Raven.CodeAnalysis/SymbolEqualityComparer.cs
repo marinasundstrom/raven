@@ -105,6 +105,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 if (!EqualsCore(tpx.DeclaringMethodParameterOwner, tpy.DeclaringMethodParameterOwner, visited))
                     return false;
             }
+            else if (tpx.OwnerKind == TypeParameterOwnerKind.MacroFunction)
+            {
+                if (!EqualsCore(tpx.DeclaringMacroFunctionParameterOwner, tpy.DeclaringMacroFunctionParameterOwner, visited))
+                    return false;
+            }
             else
             {
                 if (!EqualsCore(tpx.DeclaringTypeParameterOwner, tpy.DeclaringTypeParameterOwner, visited))
@@ -319,6 +324,23 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
+        if (x is IMacroFunctionSymbol macroX && y is IMacroFunctionSymbol macroY)
+        {
+            if (macroX.MacroKind != macroY.MacroKind ||
+                !EqualsCore(macroX.ReturnType, macroY.ReturnType, visited) ||
+                macroX.Parameters.Length != macroY.Parameters.Length ||
+                macroX.TypeParameters.Length != macroY.TypeParameters.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < macroX.Parameters.Length; i++)
+            {
+                if (!EqualsCore(macroX.Parameters[i], macroY.Parameters[i], visited))
+                    return false;
+            }
+        }
+
         return true;
     }
 
@@ -342,6 +364,18 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (parameter.ContainingSymbol is IMethodSymbol method)
         {
             var parameters = method.Parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (ReferenceEquals(parameters[i], parameter))
+                {
+                    ordinal = i;
+                    return true;
+                }
+            }
+        }
+        else if (parameter.ContainingSymbol is IMacroFunctionSymbol macroFunction)
+        {
+            var parameters = macroFunction.Parameters;
             for (var i = 0; i < parameters.Length; i++)
             {
                 if (ReferenceEquals(parameters[i], parameter))
@@ -400,6 +434,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             {
                 if (tp.DeclaringMethodParameterOwner is { } methodOwner)
                     hash.Add(GetHashCodeCore(methodOwner, visited));
+            }
+            else if (tp.OwnerKind == TypeParameterOwnerKind.MacroFunction)
+            {
+                if (tp.DeclaringMacroFunctionParameterOwner is { } macroFunctionOwner)
+                    hash.Add(GetHashCodeCore(macroFunctionOwner, visited));
             }
             else
             {
@@ -479,6 +518,18 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             hash.Add(typeArguments.Length);
             for (var i = 0; i < typeArguments.Length; i++)
                 hash.Add(GetHashCodeCore(typeArguments[i], visited));
+        }
+
+        if (obj is IMacroFunctionSymbol macroFunction)
+        {
+            hash.Add(macroFunction.MacroKind);
+            hash.Add(macroFunction.Parameters.Length);
+            hash.Add(GetHashCodeCore(macroFunction.ReturnType, visited));
+
+            foreach (var parameter in macroFunction.Parameters)
+                hash.Add(GetHashCodeCore(parameter, visited));
+
+            hash.Add(macroFunction.TypeParameters.Length);
         }
 
         if (obj is INamedTypeSymbol namedType)

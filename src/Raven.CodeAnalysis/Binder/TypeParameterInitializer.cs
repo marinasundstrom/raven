@@ -172,6 +172,70 @@ internal static class TypeParameterInitializer
         methodSymbol.SetTypeParameters(builder);
     }
 
+    public static void InitializeMacroFunctionTypeParameters(
+        SourceMacroFunctionSymbol macroFunctionSymbol,
+        TypeParameterListSyntax? typeParameterList,
+        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
+        SyntaxTree syntaxTree)
+    {
+        if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
+            return;
+
+        Dictionary<string, List<TypeParameterConstraintClauseSyntax>>? clausesByName = null;
+        if (constraintClauses.Count > 0)
+        {
+            clausesByName = new(StringComparer.Ordinal);
+
+            foreach (var clause in constraintClauses)
+            {
+                var name = clause.TypeParameter.Identifier.ValueText;
+
+                if (!clausesByName.TryGetValue(name, out var list))
+                    clausesByName[name] = list = new List<TypeParameterConstraintClauseSyntax>();
+
+                list.Add(clause);
+            }
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var ordinal = 0;
+
+        foreach (var parameter in typeParameterList.Parameters)
+        {
+            var identifier = parameter.Identifier;
+            var location = syntaxTree.GetLocation(identifier.Span);
+            var reference = parameter.GetReference();
+            var (inlineKind, inlineRefs) = TypeParameterConstraintAnalyzer.AnalyzeInline(parameter);
+            var clauseKind = TypeParameterConstraintKind.None;
+            var clauseRefsBuilder = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+            if (clausesByName is not null &&
+                clausesByName.TryGetValue(identifier.ValueText, out var matchingClauses))
+            {
+                foreach (var clause in matchingClauses)
+                {
+                    var (kind, references) = TypeParameterConstraintAnalyzer.AnalyzeClause(clause);
+                    clauseKind |= kind;
+                    clauseRefsBuilder.AddRange(references);
+                }
+            }
+
+            builder.Add(new SourceTypeParameterSymbol(
+                identifier.ValueText,
+                macroFunctionSymbol,
+                containingType: null,
+                macroFunctionSymbol.ContainingNamespace,
+                [location],
+                [reference],
+                ordinal++,
+                inlineKind | clauseKind,
+                inlineRefs.AddRange(clauseRefsBuilder.ToImmutable()),
+                GetDeclaredVariance(parameter)));
+        }
+
+        macroFunctionSymbol.SetTypeParameters(builder.ToImmutable());
+    }
+
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
         => parameter.VarianceKeyword.Kind switch
         {

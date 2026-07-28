@@ -129,10 +129,13 @@ public static class SemanticClassifier
             DelegateDeclarationSyntax => true,
             BaseMethodDeclarationSyntax => true,
             FunctionStatementSyntax => true,
+            MacroFunctionDeclarationSyntax => true,
             PropertyDeclarationSyntax => true,
             EventDeclarationSyntax => true,
             AccessorDeclarationSyntax => true,
-            ParameterSyntax parameter => parameter.Parent?.Parent is TypeDeclarationSyntax or BaseMethodDeclarationSyntax,
+            ParameterSyntax parameter => parameter.Parent?.Parent is TypeDeclarationSyntax
+                or BaseMethodDeclarationSyntax
+                or MacroFunctionDeclarationSyntax,
             _ => false
         };
 
@@ -149,6 +152,7 @@ public static class SemanticClassifier
             INamespaceSymbol => SemanticClassification.Namespace,
             ITypeSymbol => SemanticClassification.Type,
             IMethodSymbol => SemanticClassification.Method,
+            IMacroFunctionSymbol => SemanticClassification.Method,
             IParameterSymbol => SemanticClassification.Parameter,
             ILocalSymbol => SemanticClassification.Local,
             ILabelSymbol => SemanticClassification.Label,

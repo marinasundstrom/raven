@@ -287,6 +287,21 @@ other expansion-engine plumbing. Those mechanisms remain useful compiler and
 provider implementation choices, but they are not part of the macro author's
 or caller's conceptual model.
 
+The semantic model should represent that abstraction with
+`IMacroFunctionSymbol : ISymbol` and `SymbolKind.MacroFunction`.
+`IMacroFunctionSymbol` deliberately does not extend `IMethodSymbol`: the
+function-shaped declaration is not a CLR method and must not enter ordinary
+method lookup, overload resolution, metadata emission, or runtime code
+generation. Its parameters and generic parameters retain their familiar
+signature meaning, but generic ownership is
+`TypeParameterOwnerKind.MacroFunction`, not `Method`.
+
+Macro functions are synchronous transformations. They do not support an
+`async` modifier or `await` expressions. Compiler scheduling and provider
+infrastructure may use asynchronous APIs internally, but that is an
+implementation concern and must not change the authored macro signature,
+expansion ordering, or call-site semantics.
+
 Likewise, target applicability belongs only to the attached-macro contract.
 `IAttachedDeclarationMacro.Targets` represents the optional `on` clause;
 freestanding and token-tree macro classes do not implement a meaningless

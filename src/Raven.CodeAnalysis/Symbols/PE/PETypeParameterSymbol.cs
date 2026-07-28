@@ -77,6 +77,8 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     public IMethodSymbol? DeclaringMethodParameterOwner =>
         OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as IMethodSymbol) : null;
 
+    public IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner => null;
+
     public TypeParameterConstraintKind ConstraintKind
     {
         get

@@ -1964,6 +1964,7 @@ internal sealed class SubstitutedMethodTypeParameterSymbol : ITypeParameterSymbo
     public TypeParameterOwnerKind OwnerKind => TypeParameterOwnerKind.Method;
     public INamedTypeSymbol? DeclaringTypeParameterOwner => null;
     public IMethodSymbol? DeclaringMethodParameterOwner => _containingMethod;
+    public IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner => null;
     public TypeParameterConstraintKind ConstraintKind => _original.ConstraintKind;
     public ImmutableArray<ITypeSymbol> ConstraintTypes
     {

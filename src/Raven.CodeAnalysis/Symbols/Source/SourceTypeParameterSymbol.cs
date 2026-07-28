@@ -30,14 +30,21 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
 
     public int Ordinal { get; }
 
-    public TypeParameterOwnerKind OwnerKind =>
-        ContainingSymbol is IMethodSymbol ? TypeParameterOwnerKind.Method : TypeParameterOwnerKind.Type;
+    public TypeParameterOwnerKind OwnerKind => ContainingSymbol switch
+    {
+        IMethodSymbol => TypeParameterOwnerKind.Method,
+        IMacroFunctionSymbol => TypeParameterOwnerKind.MacroFunction,
+        _ => TypeParameterOwnerKind.Type,
+    };
 
     public INamedTypeSymbol? DeclaringTypeParameterOwner =>
         OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as INamedTypeSymbol) : null;
 
     public IMethodSymbol? DeclaringMethodParameterOwner =>
         OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as IMethodSymbol) : null;
+
+    public IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.MacroFunction ? (ContainingSymbol as IMacroFunctionSymbol) : null;
 
     public TypeParameterConstraintKind ConstraintKind { get; }
 

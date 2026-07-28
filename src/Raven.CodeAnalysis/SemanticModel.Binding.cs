@@ -255,6 +255,12 @@ public partial class SemanticModel
                         break;
                     }
 
+                case MacroFunctionDeclarationSyntax macroFunction:
+                    {
+                        DeclareMacroFunctionSymbol(macroFunction, parentNamespace);
+                        break;
+                    }
+
                 case ConstDeclarationSyntax constDecl:
                     {
                         if (!Compilation.Options.AllowNamespaceMembers)
@@ -263,6 +269,133 @@ public partial class SemanticModel
                     }
             }
         }
+    }
+
+    private void DeclareMacroFunctionSymbol(
+        MacroFunctionDeclarationSyntax declaration,
+        INamespaceSymbol parentNamespace)
+    {
+        if (TryGetMacroFunctionSymbol(declaration, out _))
+            return;
+
+        ReportUnsupportedMacroFunctionAsyncSyntax(declaration);
+
+        var sourceNamespace = parentNamespace.AsSourceNamespace()
+            ?? throw new InvalidOperationException("Macro functions require a source namespace.");
+        ITypeSymbol returnType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var symbol = new SourceMacroFunctionSymbol(
+            declaration.Identifier.ValueText,
+            returnType,
+            sourceNamespace,
+            sourceNamespace,
+            [declaration.GetLocation()],
+            [declaration.GetReference()],
+            DetermineNamespaceMemberAccessibility(declaration.Modifiers));
+
+        TypeParameterInitializer.InitializeMacroFunctionTypeParameters(
+            symbol,
+            declaration.TypeParameterList,
+            declaration.ConstraintClauses,
+            declaration.SyntaxTree);
+        ResolveMacroFunctionConstraintTypes(symbol);
+
+        if (declaration.ReturnType is { } returnTypeSyntax)
+        {
+            returnType = MemberSignatureDeclarationPass.ResolveSkeletonType(
+                this,
+                returnTypeSyntax.Type,
+                returnType,
+                containingType: null,
+                symbol.TypeParameters);
+            symbol.SetReturnType(returnType);
+        }
+
+        var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
+        foreach (var parameter in declaration.ParameterList.Parameters)
+        {
+            parameters.Add(MemberSignatureDeclarationPass.CreateSkeletonParameterSymbol(
+                this,
+                parameter,
+                symbol,
+                containingType: null,
+                symbol.TypeParameters));
+        }
+
+        symbol.SetParameters(parameters.ToImmutable());
+        RegisterMacroFunctionSymbol(declaration, symbol);
+
+        if (sourceNamespace.GetMembers(symbol.Name)
+            .OfType<IMacroFunctionSymbol>()
+            .Any(existing => HaveSameMacroFunctionSignature(existing, symbol)))
+        {
+            _declarationDiagnostics.ReportFunctionAlreadyDefined(
+                symbol.Name,
+                declaration.Identifier.GetLocation());
+        }
+
+        sourceNamespace.AddMember(symbol);
+    }
+
+    private void ReportUnsupportedMacroFunctionAsyncSyntax(MacroFunctionDeclarationSyntax declaration)
+    {
+        foreach (var modifier in declaration.Modifiers)
+        {
+            if (modifier.Kind == SyntaxKind.AsyncKeyword)
+            {
+                _declarationDiagnostics.ReportMacroFunctionCannotBeAsync(
+                    declaration.Identifier.ValueText,
+                    modifier.GetLocation());
+            }
+        }
+
+        foreach (var awaitExpression in declaration.DescendantNodes()
+            .OfType<PrefixOperatorExpressionSyntax>()
+            .Where(static expression => expression.Kind == SyntaxKind.AwaitExpression))
+        {
+            _declarationDiagnostics.ReportAwaitNotSupportedInMacroFunction(
+                awaitExpression.OperatorToken.GetLocation());
+        }
+    }
+
+    private void ResolveMacroFunctionConstraintTypes(SourceMacroFunctionSymbol symbol)
+    {
+        foreach (var typeParameter in symbol.TypeParameters.OfType<SourceTypeParameterSymbol>())
+        {
+            var constraints = ImmutableArray.CreateBuilder<ITypeSymbol>();
+            foreach (var reference in typeParameter.ConstraintTypeReferences)
+            {
+                if (reference.GetSyntax() is not TypeConstraintSyntax typeConstraint)
+                    continue;
+
+                constraints.Add(MemberSignatureDeclarationPass.ResolveSkeletonType(
+                    this,
+                    typeConstraint.Type,
+                    Compilation.ErrorTypeSymbol,
+                    containingType: null,
+                    symbol.TypeParameters));
+            }
+
+            typeParameter.SetConstraintTypes(constraints.ToImmutable());
+        }
+    }
+
+    private static bool HaveSameMacroFunctionSignature(
+        IMacroFunctionSymbol first,
+        IMacroFunctionSymbol second)
+    {
+        if (first.Parameters.Length != second.Parameters.Length ||
+            first.TypeParameters.Length != second.TypeParameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < first.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(first.Parameters[i].Type, second.Parameters[i].Type))
+                return false;
+        }
+
+        return true;
     }
 
     private SourceNamedTypeSymbol GetOrCreateNamespaceMembersContainer(SyntaxNode declaration, INamespaceSymbol parentNamespace)

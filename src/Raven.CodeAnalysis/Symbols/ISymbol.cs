@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -24,7 +25,8 @@ public enum SymbolKind
     Field,
     Error,
     ErrorType,
-    TypeParameter
+    TypeParameter,
+    MacroFunction
 }
 
 /// <summary>
@@ -121,6 +123,7 @@ public interface ISymbol : IEquatable<ISymbol?>
     {
         INamespaceOrTypeSymbol => true,
         IMethodSymbol => true,
+        IMacroFunctionSymbol => true,
         IEventSymbol => true,
         IPropertySymbol => true,
         IFieldSymbol => true,
@@ -298,6 +301,47 @@ public interface IMethodSymbol : ISymbol
     IMethodSymbol Construct(params ITypeSymbol[] typeArguments);
 
     bool SetsRequiredMembers { get; }
+}
+
+/// <summary>
+/// Represents a Raven macro declared with <c>macro func</c>.
+/// </summary>
+/// <remarks>
+/// A macro function is a compile-time language construct. It has a
+/// function-shaped source signature, but it is not a CLR method and does not
+/// implement <see cref="IMethodSymbol"/>.
+/// </remarks>
+public interface IMacroFunctionSymbol : ISymbol
+{
+    /// <summary>
+    /// Gets the category of macro represented by this declaration.
+    /// </summary>
+    MacroKind MacroKind { get; }
+
+    /// <summary>
+    /// Gets the type produced at the macro invocation site.
+    /// </summary>
+    ITypeSymbol ReturnType { get; }
+
+    /// <summary>
+    /// Gets the macro function parameters.
+    /// </summary>
+    ImmutableArray<IParameterSymbol> Parameters { get; }
+
+    /// <summary>
+    /// Gets the macro function type parameters.
+    /// </summary>
+    ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+
+    /// <summary>
+    /// Gets the generic arity of the macro function.
+    /// </summary>
+    int Arity => TypeParameters.Length;
+
+    /// <summary>
+    /// Gets whether this macro function is generic.
+    /// </summary>
+    bool IsGenericMacroFunction => Arity > 0;
 }
 
 public enum MethodKind
@@ -566,7 +610,8 @@ public enum VarianceKind
 public enum TypeParameterOwnerKind
 {
     Type,
-    Method
+    Method,
+    MacroFunction
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
@@ -682,6 +727,8 @@ public interface ITypeParameterSymbol : ITypeSymbol
     INamedTypeSymbol? DeclaringTypeParameterOwner { get; }
 
     IMethodSymbol? DeclaringMethodParameterOwner { get; }
+
+    IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner { get; }
 
     TypeParameterConstraintKind ConstraintKind { get; }
 

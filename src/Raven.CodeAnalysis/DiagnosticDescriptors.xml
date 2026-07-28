@@ -1186,4 +1186,12 @@
     Title="'params' requires a collection type"
     Message="Parameter '{parameterName}' uses 'params' and must declare a collection type."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0925" Identifier="MacroFunctionCannotBeAsync"
+    Title="Macro functions are synchronous"
+    Message="Macro function '{macroName}' cannot be declared 'async'; macro expansion is synchronous."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0926" Identifier="AwaitNotSupportedInMacroFunction"
+    Title="Macro functions do not support await"
+    Message="'await' is not supported in a macro function; macro expansion is synchronous."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

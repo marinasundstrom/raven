@@ -127,6 +127,13 @@ public static partial class SymbolExtensions
             return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner);
         }
 
+        if (leftDefinition.OwnerKind == TypeParameterOwnerKind.MacroFunction)
+        {
+            return SymbolEqualityComparer.Default.Equals(
+                leftDefinition.DeclaringMacroFunctionParameterOwner,
+                rightDefinition.DeclaringMacroFunctionParameterOwner);
+        }
+
         var leftTypeOwner = (INamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner);
         var rightTypeOwner = (INamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner);
         return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner);
@@ -168,6 +175,9 @@ public static partial class SymbolExtensions
                                                       ?? definition.DeclaringMethodParameterOwner) is { } method
                         ? $"{(method.ContainingType?.OriginalDefinition as INamedTypeSymbol ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"}::{method.MetadataName}"
                         : "<method>",
+                    TypeParameterOwnerKind.MacroFunction => definition.DeclaringMacroFunctionParameterOwner is { } macroFunction
+                        ? $"{macroFunction.ContainingNamespace?.ToDisplayString() ?? "<global>"}::{macroFunction.Name}/{macroFunction.Arity}"
+                        : "<macro-function>",
                     _ => "<unknown>"
                 };
                 return $"!{definition.OwnerKind}:{ownerIdentity}:{definition.Ordinal}:{definition.Name}";
@@ -594,7 +604,40 @@ public static partial class SymbolExtensions
 
         }
 
-        if (symbol is IMethodSymbol methodSymbol)
+        if (symbol is IMacroFunctionSymbol macroFunctionSymbol)
+        {
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
+                !macroFunctionSymbol.TypeParameters.IsDefaultOrEmpty)
+            {
+                result.Append('<');
+                result.Append(string.Join(
+                    ", ",
+                    macroFunctionSymbol.TypeParameters.Select(parameter =>
+                        EscapeIdentifierIfNeeded(parameter.Name, format))));
+                result.Append('>');
+            }
+
+            if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature ||
+                format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
+            {
+                result.Append('(');
+                result.Append(string.Join(
+                    ", ",
+                    macroFunctionSymbol.Parameters.Select(parameter => FormatParameter(parameter, format))));
+                result.Append(')');
+            }
+
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var returnDisplay = FormatType(macroFunctionSymbol.ReturnType, format);
+                if (!string.IsNullOrEmpty(returnDisplay))
+                {
+                    result.Append(" -> ");
+                    result.Append(returnDisplay);
+                }
+            }
+        }
+        else if (symbol is IMethodSymbol methodSymbol)
         {
             // Prepend "func" for lambda methods
             if (methodSymbol.IsLambda)
@@ -1916,6 +1959,7 @@ public static partial class SymbolExtensions
             IMethodSymbol { IsConstructor: true } => null,
             IMethodSymbol { MethodKind: MethodKind.StaticConstructor } => null,
             IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null,
+            IMacroFunctionSymbol => "macro func",
             IMethodSymbol => "func",
             _ => null
         };

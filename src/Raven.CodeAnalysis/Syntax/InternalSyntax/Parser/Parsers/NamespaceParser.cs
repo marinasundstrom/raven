@@ -309,6 +309,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
+                 nextToken.IsKind(SyntaxKind.AsyncKeyword) ||
                  nextToken.IsKind(SyntaxKind.ExternKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken) ||
                  nextToken.IsKind(SyntaxKind.HashToken))
