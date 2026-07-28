@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added compiler symbols for loaded and intrinsic macros. `nameof` now accepts
+  macro names and preserves the resolved alias or canonical spelling, while
+  `typeof` reports a dedicated diagnostic when its operand resolves to a macro.
 - Added namespace-qualified macro invocation and import-scoped macro aliases.
   Compiler-provided `Raven.Macros.Quote` and `Raven.Macros.Compile` expose the
   `quote` and `compile` aliases through `import Raven.Macros.*`; local names can

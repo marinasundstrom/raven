@@ -26,6 +26,7 @@ public enum SymbolKind
     Error,
     ErrorType,
     TypeParameter,
+    Macro,
     MacroFunction
 }
 
@@ -304,17 +305,12 @@ public interface IMethodSymbol : ISymbol
 }
 
 /// <summary>
-/// Represents a Raven macro declared with <c>macro func</c>.
+/// Represents a Raven compile-time macro.
 /// </summary>
-/// <remarks>
-/// A macro function is a compile-time language construct. It has a
-/// function-shaped source signature, but it is not a CLR method and does not
-/// implement <see cref="IMethodSymbol"/>.
-/// </remarks>
-public interface IMacroFunctionSymbol : ISymbol
+public interface IMacroSymbol : ISymbol
 {
     /// <summary>
-    /// Gets the category of macro represented by this declaration.
+    /// Gets the category of macro represented by this symbol.
     /// </summary>
     MacroKind MacroKind { get; }
 
@@ -323,6 +319,29 @@ public interface IMacroFunctionSymbol : ISymbol
     /// <see cref="Macros.MacroTarget.None"/> for a freestanding macro.
     /// </summary>
     MacroTarget Targets { get; }
+
+    /// <summary>
+    /// Gets the namespace-qualified language-facing macro name.
+    /// </summary>
+    string CanonicalName => ContainingNamespace is { IsGlobalNamespace: false } containingNamespace
+        ? $"{containingNamespace.ToDisplayString()}.{Name}"
+        : Name;
+
+    /// <summary>
+    /// Gets the alternate unqualified invocation names exported by the macro.
+    /// </summary>
+    ImmutableArray<string> Aliases => [];
+}
+
+/// <summary>
+/// Represents a Raven macro declared with <c>macro func</c>.
+/// </summary>
+/// <remarks>
+/// A macro function has a function-shaped source signature, but it is not a
+/// CLR method and does not implement <see cref="IMethodSymbol"/>.
+/// </remarks>
+public interface IMacroFunctionSymbol : IMacroSymbol
+{
 
     /// <summary>
     /// Gets the source name bound to the current attached target.

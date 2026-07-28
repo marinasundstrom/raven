@@ -1875,6 +1875,27 @@ public partial class SemanticModel
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
+        var macroExpression = node as FreestandingMacroExpressionSyntax
+            ?? node.Ancestors()
+                .OfType<FreestandingMacroExpressionSyntax>()
+                .FirstOrDefault(expression =>
+                    ReferenceEquals(expression.Name, node) ||
+                    expression.Name.DescendantNodes().Any(descendant => ReferenceEquals(descendant, node)));
+        if (macroExpression is not null &&
+            macroExpression.TryGetMacroName(out var macroName) &&
+            Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+                Compilation,
+                macroExpression,
+                macroName,
+                out var macroSymbol,
+                out _))
+        {
+            var macroInfo = new SymbolInfo(macroSymbol);
+            StoreSymbolMapping(node, macroInfo);
+            StoreNodeInterestSymbolDescriptor(node, macroSymbol);
+            return macroInfo;
+        }
+
         if (node is IdentifierNameSyntax macroParameterReference &&
             TryGetMacroFunctionParameterReference(macroParameterReference, out var macroParameter))
         {

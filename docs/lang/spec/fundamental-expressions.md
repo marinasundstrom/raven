@@ -85,6 +85,11 @@ Using `nameof` with an invalid operand (such as a literal, invocation, or arbitr
 
 `nameof` is commonly used for diagnostics, argument validation, logging, and reflection-friendly APIs where symbol names must remain stable under refactoring.
 
+Macros are compile-time symbols rather than runtime types or values.
+`nameof(quote)` therefore produces `"quote"` when that imported alias resolves,
+while `nameof(Raven.Macros.Quote)` produces `"Quote"`. A macro cannot be used as
+the operand of `typeof`; doing so reports that the macro is not a type.
+
 ## Default expressions
 
 `default` produces the zero-initialized value for a type. Use the explicit form

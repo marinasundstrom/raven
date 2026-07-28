@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
@@ -207,6 +208,60 @@ internal sealed class MacroRegistry
             MacroKind.FreestandingExpression => _freestandingMacros.Values.Select(static loaded => loaded.Macro),
             _ => []
         };
+
+    public bool TryResolveMacroSymbol(
+        Compilation compilation,
+        SyntaxNode context,
+        string macroName,
+        out IMacroSymbol symbol,
+        out bool isAmbiguous)
+    {
+        var hasAttached = TryResolveAttachedMacro(
+            compilation,
+            context,
+            macroName,
+            out var attached,
+            out var attachedAmbiguous);
+        var hasFreestanding = TryResolveFreestandingMacro(
+            compilation,
+            context,
+            macroName,
+            out var freestanding,
+            out var freestandingAmbiguous);
+
+        isAmbiguous = attachedAmbiguous || freestandingAmbiguous || (hasAttached && hasFreestanding);
+        if (isAmbiguous || (!hasAttached && !hasFreestanding))
+        {
+            symbol = null!;
+            return false;
+        }
+
+        var canonicalName = hasAttached
+            ? attached.CanonicalName
+            : freestanding.CanonicalName;
+        var aliases = hasAttached
+            ? attached.Aliases
+            : freestanding.Aliases;
+        var definition = hasAttached
+            ? attached.Macro
+            : freestanding.Macro;
+        var resolvedName = IsQualifiedName(macroName)
+            ? GetSimpleName(canonicalName)
+            : macroName;
+        var macroNamespace = GetNamespace(canonicalName);
+        var containingNamespace = string.IsNullOrEmpty(macroNamespace)
+            ? compilation.GetSourceGlobalNamespace()
+            : compilation.GetOrCreateNamespaceSymbol(macroNamespace)
+                ?? compilation.GetSourceGlobalNamespace();
+
+        symbol = new SynthesizedMacroSymbol(
+            resolvedName,
+            canonicalName,
+            aliases,
+            definition,
+            containingNamespace);
+        return true;
+    }
 
     public IEnumerable<(string Name, IMacroDefinition Macro)> GetVisibleMacros(
         Compilation compilation,

@@ -16,6 +16,16 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder : Binder
 {
+    private static readonly DiagnosticDescriptor s_macroUsedLikeAType = DiagnosticDescriptor.Create(
+        "RAVM015",
+        "Macro used as a type",
+        "",
+        "",
+        "'{0}' is a macro, not a type.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     private sealed class ExpressionSyntaxStructuralComparer : IEqualityComparer<ExpressionSyntax>
     {
         public bool Equals(ExpressionSyntax? x, ExpressionSyntax? y)
@@ -3609,7 +3619,30 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
     {
-        var operandType = ResolveTypeSyntaxOrError(typeOfExpression.Type);
+        ITypeSymbol operandType;
+        using (Diagnostics.CreateNonReportingScope())
+            operandType = ResolveTypeSyntaxOrError(typeOfExpression.Type);
+
+        if (operandType.ContainsErrorType() &&
+            Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+                Compilation,
+                typeOfExpression.Type,
+                typeOfExpression.Type.ToString(),
+                out var macroSymbol,
+                out _))
+        {
+            _diagnostics.Report(Diagnostic.Create(
+                s_macroUsedLikeAType,
+                typeOfExpression.Type.GetLocation(),
+                macroSymbol.Name));
+            return ErrorExpression(
+                Compilation.ErrorTypeSymbol,
+                macroSymbol,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (operandType.ContainsErrorType())
+            operandType = ResolveTypeSyntaxOrError(typeOfExpression.Type);
 
         if (operandType.ContainsErrorType())
             return ErrorExpression(operandType, reason: BoundExpressionReason.NotFound);
@@ -3732,7 +3765,25 @@ partial class BlockBinder : Binder
                 return sym;
         }
 
-        // 3) Fall back to type resolution for pure type operands like `List<int>`.
+        // 3) Resolve compile-time macro symbols without treating their provider
+        // implementation type as the language-facing symbol.
+        if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+                Compilation,
+                operand,
+                operand.ToString(),
+                out var macroSymbol,
+                out _))
+        {
+            CacheBoundNode(
+                operand,
+                new BoundErrorExpression(
+                    Compilation.ErrorTypeSymbol,
+                    macroSymbol,
+                    BoundExpressionReason.None));
+            return macroSymbol;
+        }
+
+        // 4) Fall back to type resolution for pure type operands like `List<int>`.
         if (operand is TypeSyntax typeSyntax)
         {
             if (TryBindTypeSyntaxAsMemberAccessExpression(typeSyntax, out var resolvedExpression))
