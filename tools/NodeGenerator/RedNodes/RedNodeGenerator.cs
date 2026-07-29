@@ -10,7 +10,33 @@ namespace Raven.Generators;
 
 public static class RedNodeGenerator
 {
-    public static CompilationUnitSyntax GenerateRedNode(SyntaxNodeModel node)
+    public static CompilationUnitSyntax GenerateClosedHierarchyDeclaration(
+        string typeName,
+        IReadOnlyList<string> directSubtypes)
+    {
+        var permittedTypeArguments = directSubtypes.Select(type =>
+            AttributeArgument(TypeOfExpression(ParseTypeName(type))));
+        var classDeclaration = ClassDeclaration(typeName)
+            .AddModifiers(
+                Token(SyntaxKind.PublicKeyword),
+                Token(SyntaxKind.AbstractKeyword),
+                Token(SyntaxKind.PartialKeyword))
+            .AddAttributeLists(
+                AttributeList(SingletonSeparatedList(
+                    Attribute(ParseName("global::System.Runtime.CompilerServices.ClosedHierarchy"))
+                        .WithArgumentList(AttributeArgumentList(
+                            SeparatedList(permittedTypeArguments))))));
+
+        return CompilationUnit()
+            .WithMembers(SingletonList<MemberDeclarationSyntax>(
+                FileScopedNamespaceDeclaration(ParseName("Raven.CodeAnalysis.Syntax"))
+                    .AddMembers(classDeclaration)))
+            .NormalizeWhitespace();
+    }
+
+    public static CompilationUnitSyntax GenerateRedNode(
+        SyntaxNodeModel node,
+        IReadOnlyList<string> directSubtypes)
     {
         var className = node.Name + "Syntax";
         var baseType = IdentifierName(MapRedType(node.Inherits, false));
@@ -314,6 +340,17 @@ public static class RedNodeGenerator
             .AddModifiers(classModifiers.ToArray())
             .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(SimpleBaseType(baseType))))
             .AddMembers(members.ToArray());
+
+        if (node.IsAbstract && directSubtypes.Count > 0)
+        {
+            var permittedTypeArguments = directSubtypes.Select(type =>
+                AttributeArgument(TypeOfExpression(ParseTypeName(type))));
+            classDecl = classDecl.AddAttributeLists(
+                AttributeList(SingletonSeparatedList(
+                    Attribute(ParseName("global::System.Runtime.CompilerServices.ClosedHierarchy"))
+                        .WithArgumentList(AttributeArgumentList(
+                            SeparatedList(permittedTypeArguments))))));
+        }
 
         return CompilationUnit()
             .WithUsings(List(new[]

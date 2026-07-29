@@ -21,7 +21,16 @@ Represents a syntax node type.
 * **Inherits** - the node type which the current one inherits from. This is the *base node*.
 * **IsAbstract** - indicates whether the node is abstract, and not instantiable. They don't have their syntax kind.
 * **HasExplicitKind** - indicates whether the node requires you to set explicit kind. Which is useful for node types that might represent multiple syntaxes.
+* **PermittedType** - adds an out-of-model direct subtype to the generated closed-hierarchy metadata for an abstract node. Direct model subtypes are included automatically.
 * **Slots** - the slots containing tokens or nodes.
+
+### Hierarchy
+
+> Defined in Model.xml
+
+Adds closed-hierarchy metadata to a public abstract syntax type declared outside
+the generated node model. `ModelBase` includes direct model children and
+`PermittedType` lists handwritten direct children.
 
 
 ### Slot

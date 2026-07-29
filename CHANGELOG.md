@@ -15,6 +15,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   rather than its metadata assembly, restoring GitHub source links with line
   anchors. Workspace project loading also honors `RavenEmitCoreTypesOnly` by
   disabling framework projections while Raven.Core itself is analyzed.
+- Abstract syntax API families now carry generator-owned closed-hierarchy
+  metadata. Raven imports permitted subtype lists from referenced assemblies,
+  so matches over the `SyntaxNode` root, structured trivia, expressions,
+  statements, patterns, names, types, members, and other intermediate syntax
+  categories receive ordinary exhaustiveness diagnostics and missing-case
+  feedback, including recovery-only syntax nodes.
 
 - Unit-returning callables now report `RAV9034` when their final expression
   produces a non-unit value, including effectful invocations. This prevents a

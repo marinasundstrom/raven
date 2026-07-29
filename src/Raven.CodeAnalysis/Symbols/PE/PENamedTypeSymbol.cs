@@ -97,6 +97,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private bool _extensionMarkerMembersComputed;
     private bool _hasExtensionMarkerMembers;
     private ImmutableArray<INamedTypeSymbol>? _nestedTypes;
+    private ImmutableArray<INamedTypeSymbol>? _permittedDirectSubtypes;
+    private bool? _isSealedHierarchy;
     private Accessibility? _accessibility;
 
     internal static PENamedTypeSymbol Create(
@@ -712,12 +714,29 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     }
     public bool IsAbstract => _typeInfo.IsAbstract;
     public bool IsClosed => _typeInfo.IsSealed;
+    public bool IsSealedHierarchy
+    {
+        get
+        {
+            EnsureClosedHierarchyMetadata();
+            return _isSealedHierarchy.GetValueOrDefault();
+        }
+    }
+    public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes
+    {
+        get
+        {
+            EnsureClosedHierarchyMetadata();
+            return _permittedDirectSubtypes.GetValueOrDefault();
+        }
+    }
     public bool IsRefLikeType => _typeInfo.IsByRefLike;
     public bool IsReadOnly => _typeInfo.CustomAttributes.Any(attribute =>
         attribute.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute");
     public override bool IsStatic => TypeKind == TypeKind.Class && IsAbstract && IsClosed;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
+
     public ImmutableArray<INamedTypeSymbol> Interfaces
     {
         get

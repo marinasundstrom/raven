@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract partial class ExpressionSyntax : ExpressionOrPatternSyntax
 {
-    public class Missing : ExpressionSyntax
+    public sealed class Missing : ExpressionSyntax
     {
         internal Missing(SyntaxKind kind = SyntaxKind.None)
             : base(new InternalSyntax.ExpressionSyntax.Missing(kind), null, 0)

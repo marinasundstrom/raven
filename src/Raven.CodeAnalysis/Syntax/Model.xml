@@ -1,5 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Model>
+  <Hierarchy Name="SyntaxNode" ModelBase="Node">
+    <PermittedType Name="StructuredTriviaSyntax" />
+  </Hierarchy>
+  <Hierarchy Name="StructuredTriviaSyntax">
+    <PermittedType Name="SkippedTokensTrivia" />
+    <PermittedType Name="ConditionalDirectiveTriviaSyntax" />
+  </Hierarchy>
   <Node Name="AssignmentExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Left" Type="ExpressionOrPattern" />
     <Slot Name="OperatorToken" Type="Token" />
@@ -71,7 +78,9 @@
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
     <Slot Name="Constraints" Type="SeparatedList" ElementType="TypeParameterConstraint" />
   </Node>
-  <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true" />
+  <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true">
+    <PermittedType Name="ExpressionSyntax.Missing" />
+  </Node>
   <Node Name="VariableDesignation" Inherits="Node" IsAbstract="true" />
   <Node Name="SingleVariableDesignation" Inherits="VariableDesignation">
     <Slot Name="BindingKeyword" Type="Token" />

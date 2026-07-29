@@ -90,6 +90,49 @@ Aliases are only convenience names. They do not define a different syntax kind
 or shape, and the generated XML docs call out that the canonical factory name is
 still preferred unless the alias is clearer at the call site.
 
+## Closed syntax hierarchies
+
+The public syntax-node hierarchy is published as a set of closed families.
+This includes the `SyntaxNode` root, structured trivia, `StatementSyntax`,
+`ExpressionSyntax`, `PatternSyntax`, and intermediate categories such as types,
+names, members, methods, collection elements, and variable designations. Raven
+reconstructs their permitted direct subtypes from `ClosedHierarchyAttribute`
+metadata, so a `match` over the syntax API participates in ordinary
+exhaustiveness analysis:
+
+```raven
+func Describe(statement: StatementSyntax) -> string {
+    return match statement {
+        ReturnStatementSyntax => "return"
+        ExpressionStatementSyntax => "expression"
+        _ => "another statement"
+    }
+}
+```
+
+Until the platform supplies this well-known contract, each producing assembly
+may define its own `System.Runtime.CompilerServices.ClosedHierarchyAttribute`.
+Raven recognizes the metadata name and payload, so consumers do not require
+attribute type identity with `Raven.CodeAnalysis`.
+
+Remove the discard arm and Raven reports the unhandled syntax cases. Tooling can
+use the same missing-case information to offer the cases that may be added.
+Visitors remain preferable when a consumer intentionally wants new syntax kinds
+to follow default traversal behavior.
+
+The node generator derives each permitted subtype list from `Syntax/Model.xml`.
+Top-level `Hierarchy` entries describe public syntax families declared outside
+ordinary generated node entries, including the root and structured trivia.
+Recovery-only nodes are included explicitly; for example,
+`ExpressionSyntax.Missing` is a real expression shape that exhaustive consumers
+must handle or route through a discard arm.
+
+This contract intentionally makes exhaustive consumers sensitive to compiler API
+evolution. Adding a syntax node extends the generated closed hierarchy, so code
+compiled against the newer API must handle the new case or retain a catch-all.
+That feedback is useful for compiler and macro infrastructure that must make a
+deliberate decision about every syntax shape.
+
 ## Visitors and rewriters
 
 The compiler ships source-generated visitor bases that align with Roslyn's

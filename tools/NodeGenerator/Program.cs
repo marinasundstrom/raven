@@ -8,12 +8,14 @@ using NodesShared;
 using Raven.Generators;
 
 var model = LoadSyntaxNodesFromXml("Model.xml");
+var hierarchies = LoadSyntaxHierarchiesFromXml("Model.xml");
 var factories = LoadFactoriesFromXml("Factories.xml");
 var tokens = LoadTokenKindsFromXml("Tokens.xml");
 var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
 ValidateModel(model);
+ValidateSyntaxHierarchies(model, hierarchies);
 ValidateFactoryDefinitions(model, factories);
-string hash = await GetHashAsync(model, factories, tokens, nodeKinds);
+string hash = await GetHashAsync(model, hierarchies, factories, tokens, nodeKinds);
 
 var force = args.Contains("-f");
 
@@ -40,7 +42,7 @@ if (force)
     Console.WriteLine("Forcing generation");
 }
 
-var stats = await GenerateCode(model, factories, tokens, nodeKinds);
+var stats = await GenerateCode(model, hierarchies, factories, tokens, nodeKinds);
 
 // Write new hash to .stamp
 Directory.CreateDirectory(Path.GetDirectoryName(stampPath)!);
@@ -79,7 +81,12 @@ static async Task GenerateRedNode(
     SyntaxNodeModel node,
     GenerationStats stats)
 {
-    var source = RedNodeGenerator.GenerateRedNode(node);
+    var directSubtypes = nodesByName.Values
+        .Where(candidate => string.Equals(candidate.Inherits, node.Name, StringComparison.Ordinal))
+        .Select(candidate => candidate.Name + "Syntax")
+        .Concat(node.AdditionalPermittedTypes)
+        .ToArray();
+    var source = RedNodeGenerator.GenerateRedNode(node, directSubtypes);
 
     await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.g.cs", source.ToFullString());
     stats.RedNodes++;
@@ -95,6 +102,7 @@ static async Task GenerateRedNode(
 
 static async Task<string> GetHashAsync(
     List<SyntaxNodeModel> model,
+    List<SyntaxHierarchyModel> hierarchies,
     List<FactoryDefinitionModel> factories,
     List<TokenKindModel> tokens,
     List<NodeKindModel> nodeKinds)
@@ -103,7 +111,7 @@ static async Task<string> GetHashAsync(
 
     await using (var xmlWriter = XmlWriter.Create(memoryStream, new XmlWriterSettings { Async = true, Indent = true }))
     {
-        await Serialization.SerializeAsXml(model, xmlWriter);
+        await Serialization.SerializeAsXml(model, hierarchies, xmlWriter);
         await xmlWriter.FlushAsync();
     }
 
@@ -180,6 +188,7 @@ static async Task<string> GetHashAsync(
 
 static async Task<GenerationStats> GenerateCode(
     List<SyntaxNodeModel> model,
+    List<SyntaxHierarchyModel> hierarchies,
     List<FactoryDefinitionModel> factories,
     List<TokenKindModel> tokens,
     List<NodeKindModel> nodeKinds)
@@ -197,6 +206,21 @@ static async Task<GenerationStats> GenerateCode(
     {
         await GenerateGreenNode(nodesByName, node, stats);
         await GenerateRedNode(nodesByName, factoriesByNode, node, stats);
+    }
+
+    foreach (var hierarchy in hierarchies)
+    {
+        var directSubtypes = model
+            .Where(candidate => string.Equals(candidate.Inherits, hierarchy.ModelBase, StringComparison.Ordinal))
+            .Select(candidate => candidate.Name + "Syntax")
+            .Concat(hierarchy.AdditionalPermittedTypes)
+            .ToArray();
+        var hierarchySource = RedNodeGenerator.GenerateClosedHierarchyDeclaration(
+            hierarchy.Name,
+            directSubtypes);
+        await File.WriteAllTextAsync(
+            $"./generated/{hierarchy.Name}.ClosedHierarchy.g.cs",
+            hierarchySource.ToFullString());
     }
 
     var internalTokens = TokenGenerator.GenerateInternalFactory(tokens);
@@ -277,6 +301,10 @@ List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
             Inherits = nodeElement.Attribute("Inherits")?.Value ?? "",
             IsAbstract = ParseBool(nodeElement.Attribute("IsAbstract")),
             HasExplicitKind = ParseBool(nodeElement.Attribute("HasExplicitKind")),
+            AdditionalPermittedTypes = nodeElement.Elements("PermittedType")
+                .Select(element => element.Attribute("Name")?.Value ??
+                    throw new Exception("PermittedType missing Name"))
+                .ToList(),
             Slots = nodeElement.Elements("Slot").Select(slotEl => new SlotModel
             {
                 Name = slotEl.Attribute("Name")?.Value ?? throw new Exception("Slot missing Name"),
@@ -294,6 +322,24 @@ List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
     }
 
     return result;
+}
+
+List<SyntaxHierarchyModel> LoadSyntaxHierarchiesFromXml(string path)
+{
+    var doc = XDocument.Load(path);
+
+    return doc.Descendants("Hierarchy")
+        .Select(hierarchyElement => new SyntaxHierarchyModel
+        {
+            Name = hierarchyElement.Attribute("Name")?.Value ??
+                throw new Exception("Hierarchy missing Name"),
+            ModelBase = hierarchyElement.Attribute("ModelBase")?.Value,
+            AdditionalPermittedTypes = hierarchyElement.Elements("PermittedType")
+                .Select(element => element.Attribute("Name")?.Value ??
+                    throw new Exception("PermittedType missing Name"))
+                .ToList()
+        })
+        .ToList();
 }
 
 List<FactoryDefinitionModel> LoadFactoriesFromXml(string path)
@@ -419,6 +465,31 @@ void ValidateModel(List<SyntaxNodeModel> model)
             "Invalid syntax model configuration detected:\n" +
             string.Join(Environment.NewLine, errors.Select(e => $"  - {e}"));
         throw new InvalidOperationException(message);
+    }
+}
+
+void ValidateSyntaxHierarchies(
+    List<SyntaxNodeModel> model,
+    List<SyntaxHierarchyModel> hierarchies)
+{
+    var errors = new List<string>();
+
+    foreach (var duplicateGroup in hierarchies.GroupBy(h => h.Name).Where(g => g.Count() > 1))
+        errors.Add($"Syntax hierarchy '{duplicateGroup.Key}' must be unique.");
+
+    foreach (var hierarchy in hierarchies)
+    {
+        var modelTypes = model.Count(candidate =>
+            string.Equals(candidate.Inherits, hierarchy.ModelBase, StringComparison.Ordinal));
+        if (modelTypes == 0 && hierarchy.AdditionalPermittedTypes.Count == 0)
+            errors.Add($"Syntax hierarchy '{hierarchy.Name}' has no permitted types.");
+    }
+
+    if (errors.Count > 0)
+    {
+        throw new InvalidOperationException(
+            "Invalid syntax hierarchy configuration detected:\n" +
+            string.Join("\n", errors.Select(error => $" - {error}")));
     }
 }
 

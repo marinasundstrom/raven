@@ -5,29 +5,41 @@ namespace NodesShared;
 
 public static class Serialization
 {
-    public static async Task SerializeAsXml(List<SyntaxNodeModel> model, XmlWriter xmlWriter)
+    public static async Task SerializeAsXml(
+        List<SyntaxNodeModel> model,
+        List<SyntaxHierarchyModel> hierarchies,
+        XmlWriter xmlWriter)
     {
-        var doc = new XDocument(new XElement("Model", model.Select(n =>
-        {
-            return new XElement("Node",
-                new XAttribute("Name", n.Name),
-                OptionalAttributeStr("Inherits", n.Inherits),
-                OptionalAttribute<bool>("IsAbstract", n.IsAbstract, false),
-                OptionalAttribute<bool>("HasExplicitKind", n.HasExplicitKind, false),
-                n.Slots.Select(s =>
-                {
-                    return new XElement("Slot",
-                        new XAttribute("Name", s.Name),
-                        new XAttribute("Type", GetType(s.Type)),
-                        OptionalAttributeStr("ElementType", GetElementType(s.Type)),
-                        OptionalAttributeStr("DefaultToken", s.DefaultToken),
-                        OptionalAttribute<bool>("IsOptionalToken", s.IsOptionalToken, false),
-                        OptionalAttribute<bool>("IsNullable", s.IsNullable, false),
-                        OptionalAttribute<bool>("IsInherited", s.IsInherited, false),
-                        OptionalAttribute<bool>("IsAbstract", s.IsAbstract, false));
+        var doc = new XDocument(new XElement("Model",
+            hierarchies.Select(hierarchy =>
+                new XElement("Hierarchy",
+                    new XAttribute("Name", hierarchy.Name),
+                    OptionalAttributeStr("ModelBase", hierarchy.ModelBase),
+                    hierarchy.AdditionalPermittedTypes.Select(type =>
+                        new XElement("PermittedType", new XAttribute("Name", type))))),
+            model.Select(n =>
+            {
+                return new XElement("Node",
+                    new XAttribute("Name", n.Name),
+                    OptionalAttributeStr("Inherits", n.Inherits),
+                    OptionalAttribute<bool>("IsAbstract", n.IsAbstract, false),
+                    OptionalAttribute<bool>("HasExplicitKind", n.HasExplicitKind, false),
+                    n.AdditionalPermittedTypes.Select(type =>
+                        new XElement("PermittedType", new XAttribute("Name", type))),
+                    n.Slots.Select(s =>
+                    {
+                        return new XElement("Slot",
+                            new XAttribute("Name", s.Name),
+                            new XAttribute("Type", GetType(s.Type)),
+                            OptionalAttributeStr("ElementType", GetElementType(s.Type)),
+                            OptionalAttributeStr("DefaultToken", s.DefaultToken),
+                            OptionalAttribute<bool>("IsOptionalToken", s.IsOptionalToken, false),
+                            OptionalAttribute<bool>("IsNullable", s.IsNullable, false),
+                            OptionalAttribute<bool>("IsInherited", s.IsInherited, false),
+                            OptionalAttribute<bool>("IsAbstract", s.IsAbstract, false));
 
-                }));
-        })));
+                    }));
+            })));
 
         await doc.SaveAsync(xmlWriter, default);
     }

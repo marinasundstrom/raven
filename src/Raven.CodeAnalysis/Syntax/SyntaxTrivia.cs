@@ -128,7 +128,7 @@ public static partial class SyntaxFactory
     public static SyntaxTrivia Comment(string text) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.SingleLineComment(text);
 }
 
-public abstract class StructuredTriviaSyntax : SyntaxNode
+public abstract partial class StructuredTriviaSyntax : SyntaxNode
 {
     protected StructuredTriviaSyntax(GreenNode greenNode, SyntaxNode? parent, int position = 0) : base(greenNode, parent, position)
     {

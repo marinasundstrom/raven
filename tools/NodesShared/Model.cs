@@ -1,4 +1,4 @@
-﻿namespace NodesShared;
+namespace NodesShared;
 
 public class SyntaxNodeModel
 {
@@ -6,7 +6,15 @@ public class SyntaxNodeModel
     public string Inherits { get; set; } = string.Empty;
     public bool IsAbstract { get; set; }
     public bool HasExplicitKind { get; set; }
+    public List<string> AdditionalPermittedTypes { get; set; } = new();
     public List<SlotModel> Slots { get; set; } = new();
+}
+
+public class SyntaxHierarchyModel
+{
+    public string Name { get; set; } = string.Empty;
+    public string? ModelBase { get; set; }
+    public List<string> AdditionalPermittedTypes { get; set; } = new();
 }
 
 public class SlotModel

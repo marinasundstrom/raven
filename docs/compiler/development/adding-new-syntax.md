@@ -55,8 +55,20 @@ The rest will be dealt with by the [generator](source-generation.md), including:
 * Implementing `With*` methods for updating tokens and child nodes
 * Implementing `Accept` methods for the visitor pattern
 * Implementing `Visit*` methods for node in `SyntaxVisitor` and `SyntaxRewriter`.
+* Publishing closed-hierarchy metadata for abstract red syntax families. Direct
+  model subtypes are included automatically, so adding a node also updates
+  Raven exhaustiveness analysis for consumers of the syntax API.
 
 There are also things generated for the internal tree (Green tree).
+
+If an abstract red node has a direct subtype implemented outside `Model.xml`,
+add a `PermittedType` child to the abstract node entry. Recovery nodes such as
+`ExpressionSyntax.Missing` use this escape hatch.
+
+For a public abstract syntax family declared outside the ordinary node model,
+add or update a top-level `Hierarchy` entry. `ModelBase` includes direct model
+children and `PermittedType` lists handwritten direct children. The syntax root
+and structured-trivia family use this form.
 
 ### To think about
 

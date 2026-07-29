@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax;
 
-public class SkippedTokensTrivia : StructuredTriviaSyntax
+public sealed class SkippedTokensTrivia : StructuredTriviaSyntax
 {
     internal SkippedTokensTrivia(GreenNode greenNode, SyntaxNode parent, int position)
         : base(greenNode, parent, position)
