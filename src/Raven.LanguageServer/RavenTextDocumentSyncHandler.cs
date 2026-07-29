@@ -2043,7 +2043,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         string? Code,
         DiagnosticSeverity? Severity,
         string? Source,
-        string TagsKey) : IComparable<PublishedDiagnosticValue>
+        string TagsKey,
+        string DataKey) : IComparable<PublishedDiagnosticValue>
     {
         public static PublishedDiagnosticValue From(Diagnostic diagnostic)
             => new(
@@ -2057,7 +2058,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 diagnostic.Source,
                 diagnostic.Tags is null || !diagnostic.Tags.Any()
                     ? string.Empty
-                    : string.Join("|", diagnostic.Tags.OrderBy(static tag => (int)tag).Select(static tag => ((int)tag).ToString())));
+                    : string.Join("|", diagnostic.Tags.OrderBy(static tag => (int)tag).Select(static tag => ((int)tag).ToString())),
+                diagnostic.Data?.ToString(Newtonsoft.Json.Formatting.None) ?? string.Empty);
 
         public int CompareTo(PublishedDiagnosticValue other)
         {
@@ -2093,7 +2095,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             if (comparison != 0)
                 return comparison;
 
-            return string.Compare(TagsKey, other.TagsKey, StringComparison.Ordinal);
+            comparison = string.Compare(TagsKey, other.TagsKey, StringComparison.Ordinal);
+            if (comparison != 0)
+                return comparison;
+
+            return string.Compare(DataKey, other.DataKey, StringComparison.Ordinal);
         }
     }
 }

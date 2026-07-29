@@ -5,6 +5,8 @@ using System.Reflection;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Newtonsoft.Json.Linq;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -1497,6 +1499,34 @@ func Main() -> unit {
             .ShouldBeFalse();
     }
 
+    [Fact]
+    public void CreatePublishedDiagnosticValues_DetectsStructuredDataDifference()
+    {
+        var firstDiagnostic = CreateDiagnosticWithData(
+            "RAV9012",
+            "Use Option.",
+            1,
+            4,
+            1,
+            6,
+            DiagnosticSeverity.Information,
+            new JObject { ["suggestedType"] = "Option<string>" });
+
+        var secondDiagnostic = CreateDiagnosticWithData(
+            "RAV9012",
+            "Use Option.",
+            1,
+            4,
+            1,
+            6,
+            DiagnosticSeverity.Information,
+            new JObject { ["suggestedType"] = "Option<object>" });
+
+        RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues([firstDiagnostic])
+            .SequenceEqual(RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues([secondDiagnostic]))
+            .ShouldBeFalse();
+    }
+
     [Theory]
     [InlineData(true, 2, 2, false)]
     [InlineData(true, 1, 2, true)]
@@ -1805,6 +1835,27 @@ func Main() -> unit {
                 new Position(startLine, startCharacter),
                 new Position(endLine, endCharacter)),
             Tags = tags.Length == 0 ? null : new Container<DiagnosticTag>(tags)
+        };
+
+    private static Diagnostic CreateDiagnosticWithData(
+        string code,
+        string message,
+        int startLine,
+        int startCharacter,
+        int endLine,
+        int endCharacter,
+        DiagnosticSeverity severity,
+        JToken data)
+        => new()
+        {
+            Code = code,
+            Message = message,
+            Severity = severity,
+            Source = "raven",
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                new Position(startLine, startCharacter),
+                new Position(endLine, endCharacter)),
+            Data = data
         };
 
     private static ConcurrentDictionary<DocumentUri, int> GetDocumentVersions(RavenTextDocumentSyncHandler handler)

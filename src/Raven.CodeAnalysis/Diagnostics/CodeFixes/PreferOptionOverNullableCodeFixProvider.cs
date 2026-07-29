@@ -203,7 +203,7 @@ public sealed class PreferOptionOverNullableCodeFixProvider : CodeFixProvider
     {
         if (TryGetNullCheck(condition, localName))
         {
-            rewrite = new ConditionRewrite($"Some(val {localName})");
+            rewrite = new ConditionRewrite($"Some(let {localName})");
             return true;
         }
 

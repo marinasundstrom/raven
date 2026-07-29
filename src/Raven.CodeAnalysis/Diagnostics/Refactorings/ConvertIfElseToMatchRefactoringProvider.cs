@@ -33,7 +33,7 @@ public sealed class ConvertIfElseToMatchRefactoringProvider : CodeRefactoringPro
             patternText = ifPatternStatement.BindingKeyword.Kind == SyntaxKind.None
                 ? rawPatternText
                 : $"{ifPatternStatement.BindingKeyword.Text} {rawPatternText}";
-            fallbackPatternText = GetFallbackPatternText(ifPatternStatement.Pattern);
+            fallbackPatternText = "_";
             thenStatement = ifPatternStatement.ThenStatement;
             elseStatement = ifPatternStatement.ElseClause.Statement;
         }
@@ -48,7 +48,7 @@ public sealed class ConvertIfElseToMatchRefactoringProvider : CodeRefactoringPro
 
             expressionText = sourceText.GetSubText(isPattern.Expression.Span);
             patternText = sourceText.GetSubText(isPattern.Pattern.Span);
-            fallbackPatternText = GetFallbackPatternText(isPattern.Pattern);
+            fallbackPatternText = "_";
             thenStatement = ifStatement.ThenStatement;
             elseStatement = ifStatement.ElseClause.Statement;
         }
@@ -101,47 +101,4 @@ public sealed class ConvertIfElseToMatchRefactoringProvider : CodeRefactoringPro
         return statementText.Replace(newLine, $"{newLine}{indent}", StringComparison.Ordinal);
     }
 
-    private static string GetFallbackPatternText(PatternSyntax matchedPattern)
-    {
-        var matchedCaseName = TryGetMatchedCaseName(matchedPattern);
-        if (TryGetComplementaryCaseName(matchedCaseName) is { } fallbackCaseName)
-            return fallbackCaseName;
-
-        return "_";
-    }
-
-    private static string? TryGetComplementaryCaseName(string? matchedCaseName)
-    {
-        return matchedCaseName switch
-        {
-            "Some" => "None",
-            "None" => "Some",
-            "Ok" => "Error",
-            "Error" => "Ok",
-            _ => null,
-        };
-    }
-
-    private static string? TryGetMatchedCaseName(PatternSyntax pattern)
-    {
-        return pattern switch
-        {
-            MemberPatternSyntax memberPattern => memberPattern.Path.Identifier.ValueText,
-            NominalDeconstructionPatternSyntax nominalPattern => GetLastTypeIdentifier(nominalPattern.Type),
-            ConstantPatternSyntax { Expression: IdentifierNameSyntax identifierName } => identifierName.Identifier.ValueText,
-            ConstantPatternSyntax { Expression: GenericNameSyntax genericName } => genericName.Identifier.ValueText,
-            _ => null,
-        };
-    }
-
-    private static string? GetLastTypeIdentifier(TypeSyntax type)
-    {
-        return type switch
-        {
-            IdentifierNameSyntax identifierName => identifierName.Identifier.ValueText,
-            GenericNameSyntax genericName => genericName.Identifier.ValueText,
-            QualifiedNameSyntax qualifiedName => GetLastTypeIdentifier(qualifiedName.Right),
-            _ => null,
-        };
-    }
 }

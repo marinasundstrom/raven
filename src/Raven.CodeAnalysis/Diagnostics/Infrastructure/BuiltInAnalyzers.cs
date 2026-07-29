@@ -27,6 +27,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<DisposableObjectAnalyzer>(project);
         project = AddAnalyzerIfMissing<ImmutableCollectionOperationResultAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);
+        project = AddAnalyzerIfMissing<PreferIsNullOverEqualityAnalyzer>(project);
         project = AddAnalyzerIfMissing<ConstructorParameterNamingAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnnecessaryTrailingSeparatorAnalyzer>(project);
 

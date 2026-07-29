@@ -1459,7 +1459,8 @@ internal sealed class DocumentStore
             Severity = MapSeverity(diagnostic.Severity),
             Source = "raven",
             Range = range,
-            Tags = MapTags(diagnostic)
+            Tags = MapTags(diagnostic),
+            Data = RavenDiagnosticData.Create(diagnostic)
         };
     }
 

@@ -137,19 +137,21 @@ function formatRequestTarget(param: unknown): string {
 }
 
 function formatRequestResult(method: string, result: unknown): string {
-  if (method !== 'textDocument/completion') {
-    return '';
-  }
-
-  if (Array.isArray(result)) {
-    return ` items=${result.length}`;
-  }
-
-  if (result && typeof result === 'object') {
-    const candidate = result as { items?: unknown[] };
-    if (Array.isArray(candidate.items)) {
-      return ` items=${candidate.items.length}`;
+  if (method === 'textDocument/completion') {
+    if (Array.isArray(result)) {
+      return ` items=${result.length}`;
     }
+
+    if (result && typeof result === 'object') {
+      const candidate = result as { items?: unknown[] };
+      if (Array.isArray(candidate.items)) {
+        return ` items=${candidate.items.length}`;
+      }
+    }
+  }
+
+  if (method === 'textDocument/codeAction' && Array.isArray(result)) {
+    return ` actions=${result.length}`;
   }
 
   return '';
@@ -542,6 +544,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
           method === 'textDocument/semanticTokens/range' ||
           method === 'textDocument/documentSymbol' ||
           method === 'textDocument/documentDiagnostic' ||
+          method === 'textDocument/codeAction' ||
           method === 'workspace/diagnostic';
 
         const startedAt = Date.now();

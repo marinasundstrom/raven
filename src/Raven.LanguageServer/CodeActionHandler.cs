@@ -224,16 +224,26 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             if (end < start)
                 (start, end) = (end, start);
 
+            var hasRavenData = RavenDiagnosticData.TryRead(
+                diagnostic.Data,
+                out var messageFormat,
+                out var messageArguments,
+                out var properties);
             var descriptor = DiagnosticDescriptor.Create(
                 id,
                 title: diagnostic.Message,
                 description: null,
                 helpLinkUri: string.Empty,
-                messageFormat: "{0}",
+                messageFormat: hasRavenData ? messageFormat : "{0}",
                 category: "LanguageServer",
                 defaultSeverity: MapSeverity(diagnostic.Severity));
             var location = CodeLocation.Create(syntaxTree, new TextSpan(start, end - start));
-            builder.Add(CodeDiagnostic.Create(descriptor, location, diagnostic.Message));
+            builder.Add(new CodeDiagnostic(
+                descriptor,
+                location,
+                hasRavenData ? messageArguments : [diagnostic.Message],
+                severity: null,
+                properties: properties));
         }
 
         return builder.ToImmutable();
@@ -406,7 +416,8 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                             Message = diagnostic.GetMessage(),
                             Source = "raven",
                             Code = diagnostic.Id,
-                            Range = PositionHelper.ToRange(currentText, diagnostic.Location.SourceSpan)
+                            Range = PositionHelper.ToRange(currentText, diagnostic.Location.SourceSpan),
+                            Data = RavenDiagnosticData.Create(diagnostic)
                         })
                 };
 

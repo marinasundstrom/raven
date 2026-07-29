@@ -141,6 +141,7 @@ Built-in code fixes currently include:
 - `RAV9017` (`Make member static`)
 - `RAV9018` (`Remove unused property`)
 - `RAV9012` (`Use 'Option<T>'`, `Rewrite nullable flow to Option pattern matching`)
+- `RAV9015` (`Use strict null check`)
 
 Built-in refactorings currently include:
 - `Convert if/else to match`
@@ -155,6 +156,11 @@ The `RAV9012` split is intentional:
   `Option<T>` plus `if maybeValue is Some(...)` style flow
 - the separate `Convert if/else to match` refactoring owns control-flow reshaping and can
   be applied independently to pattern-based `if` statements, including non-`Option` code
+
+The `Convert if/else to match` action preserves the exact meaning of `else` by
+emitting a `_` fallback arm. It does not guess that names such as `Some` or
+`Ok` imply a particular complementary case; users can replace `_` with an
+explicit case when the domain makes that intent useful.
 
 `RAV9012` reports explicit nullable declaration annotations. It does not report inferred
 target declarations such as `let x = ...`, even when the initializer has a nullable type.

@@ -1043,6 +1043,21 @@ class C {
     }
 
     [Fact]
+    public void AddBuiltInAnalyzers_EnablesStrictNullCheckGuidance()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!
+            .AddBuiltInAnalyzers(enableSuggestions: true);
+
+        var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers());
+        analyzers.ShouldContain(static analyzer => analyzer is PreferIsNullOverEqualityAnalyzer);
+    }
+
+    [Fact]
     public void AddBuiltInAnalyzers_RespectsDisabledAnalyzerNames()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

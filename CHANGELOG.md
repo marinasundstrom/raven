@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Raven's existing nullability and control-flow actions are usable through the
+  language server again: structured diagnostic arguments now survive the LSP
+  round trip, strict-null guidance is registered by default, nullable-to-Option
+  rewrites generate canonical `let` bindings, and if/else-to-match refactorings
+  preserve exact fallback semantics with `_` instead of guessing complementary
+  cases from names. The VS Code lifecycle log now records code-action requests
+  and returned action counts for future editor-side diagnosis.
 - Match exhaustiveness quick fixes now add all missing arms in one
   deduplicated action for match statements and expressions, including matches
   authored inside macro functions. Generated patterns follow the scrutinee:

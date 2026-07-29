@@ -398,6 +398,171 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         delta.BoundNodeBindFallbacks.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task Handle_PublishedNullableGuidanceDiagnosticPreservesCodeFixArgumentsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+func GetName() -> string? => null
+
+func Test() {
+    let text: string? = GetName()
+    if text is not null {
+        Console.WriteLine(text)
+    }
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(uri, code);
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var diagnostic = diagnostics.Single(candidate =>
+            candidate.Code?.String == NonNullDeclarationsAnalyzer.DiagnosticId &&
+            candidate.Range.Start.Line == 3);
+        diagnostic.Data.ShouldNotBeNull();
+
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = diagnostic.Range,
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.QuickFix),
+                    Diagnostics = new Container<LspDiagnostic>(diagnostic)
+                }
+            },
+            CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        var titles = result!
+            .Where(action => action.CodeAction is not null)
+            .Select(action => action.CodeAction!.Title)
+            .ToArray();
+        titles.ShouldContain("Use 'Option<string>'");
+        titles.ShouldContain("Rewrite nullable flow to Option pattern matching");
+    }
+
+    [Fact]
+    public async Task Handle_PublishedStrictNullDiagnosticOffersQuickFixAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+func Test(value: string?) {
+    if value != null {
+        Console.WriteLine(value)
+    }
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(uri, code);
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var diagnostic = diagnostics.Single(candidate =>
+            candidate.Code?.String == PreferIsNullOverEqualityAnalyzer.DiagnosticId);
+
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = diagnostic.Range,
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.QuickFix),
+                    Diagnostics = new Container<LspDiagnostic>(diagnostic)
+                }
+            },
+            CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result!
+            .Where(action => action.CodeAction is not null)
+            .Select(action => action.CodeAction!.Title)
+            .ShouldContain("Use strict null check");
+    }
+
+    [Fact]
+    public async Task Handle_ConvertIfElseToMatchRefactoringIsAvailableFromIfHeaderAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+func Test(maybeText: Option<string>) {
+    if maybeText is Some(let text) {
+        Console.WriteLine(text)
+    } else {
+        Console.WriteLine("missing")
+    }
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var ifRange = PositionHelper.ToRange(
+            sourceText,
+            new TextSpan(code.IndexOf("if", StringComparison.Ordinal), 0));
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = ifRange,
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.RefactorRewrite)
+                }
+            },
+            CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result!
+            .Where(action => action.CodeAction is not null)
+            .Select(action => action.CodeAction!.Title)
+            .ShouldContain("Convert if/else to match");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

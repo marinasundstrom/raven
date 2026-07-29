@@ -42,12 +42,28 @@ Current built-in refactorings include:
 These are implemented as standard refactoring providers and no longer depend on the built-in analyzer
 diagnostics stream.
 
+In VS Code, context-driven refactorings appear when the caret or selection
+intersects an eligible construct and the user opens the refactor/code-action
+menu. They do not appear in the Problems list. `Convert if/else to match`
+requires an `else` branch and a pattern condition (`if value is pattern` or
+`if let pattern = value`); it is not offered for an arbitrary Boolean
+condition.
+
 The nullable-to-`Option<T>` migration is intentionally split across the two mechanisms:
 
 - the `RAV9012` code fixes keep the semantic migration on the diagnostic side
   (`Use 'Option<T>'` and `Rewrite nullable flow to Option pattern matching`)
 - the general `Convert if/else to match` action is a context-driven refactoring so it can
   be applied to pattern-based `if` statements broadly, not only to `Option<T>` flows
+
+`Convert if/else to match` preserves the original catch-all `else` semantics
+with a `_` arm. A refactoring must not infer a complementary union case from a
+case-like name alone.
+
+The scoped `RAV9012` nullable-flow rewrite is available for an explicitly
+annotated nullable local when its uses are contained by a following `if`
+pattern. It is deliberately not offered for inferred locals or when the
+nullable local escapes that guarded flow.
 
 ## Convention
 

@@ -131,17 +131,19 @@ function formatRequestTarget(param) {
     return ` ${uri}`;
 }
 function formatRequestResult(method, result) {
-    if (method !== 'textDocument/completion') {
-        return '';
-    }
-    if (Array.isArray(result)) {
-        return ` items=${result.length}`;
-    }
-    if (result && typeof result === 'object') {
-        const candidate = result;
-        if (Array.isArray(candidate.items)) {
-            return ` items=${candidate.items.length}`;
+    if (method === 'textDocument/completion') {
+        if (Array.isArray(result)) {
+            return ` items=${result.length}`;
         }
+        if (result && typeof result === 'object') {
+            const candidate = result;
+            if (Array.isArray(candidate.items)) {
+                return ` items=${candidate.items.length}`;
+            }
+        }
+    }
+    if (method === 'textDocument/codeAction' && Array.isArray(result)) {
+        return ` actions=${result.length}`;
     }
     return '';
 }
@@ -469,6 +471,7 @@ function createLanguageClient(context) {
                     method === 'textDocument/semanticTokens/range' ||
                     method === 'textDocument/documentSymbol' ||
                     method === 'textDocument/documentDiagnostic' ||
+                    method === 'textDocument/codeAction' ||
                     method === 'workspace/diagnostic';
                 const startedAt = Date.now();
                 const target = interesting ? formatRequestTarget(param) : '';

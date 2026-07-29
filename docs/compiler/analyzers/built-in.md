@@ -52,6 +52,7 @@ returned-value mode extends `RAV9034` to bare calls and member accesses.
 | `RAV9012` | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. |
 | `RAV9013` | Warning | Prefer `Result<T, E>` over `throw` for expected failure. |
 | `RAV9014` | Warning | Prefer Raven's `Option`/`Result` LINQ alternatives where applicable. |
+| `RAV9015` | Warning | Use `is null` or `is not null` when a strict null check and flow narrowing are intended. |
 | `RAV9016` | Info | Make an unexposed member private. |
 | `RAV9017` | Info | Make a method static when it does not use instance data. |
 | `RAV9018` | Warning | Remove or use a property that is never referenced. |

@@ -528,7 +528,7 @@ func Test(maybeText: Option<string>) {
         Some(let text) => {
             Console.WriteLine(text)
         }
-        None => {
+        _ => {
             Console.WriteLine("missing")
         }
     }
@@ -587,7 +587,7 @@ func Test(person: Person) {
     }
 
     [Fact]
-    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesIfPatternStatement_WithOptionToNoneFallback()
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesIfPatternStatement_WithCatchAllFallback()
     {
         var workspace = new AdhocWorkspace();
         var solution = workspace.CurrentSolution;
@@ -624,7 +624,7 @@ func Test(maybeText: Option<string>) {
         let Some(text) => {
             Console.WriteLine(text)
         }
-        None => {
+        _ => {
             Console.WriteLine("missing")
         }
     }
@@ -635,7 +635,7 @@ func Test(maybeText: Option<string>) {
     }
 
     [Fact]
-    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesResultPatternIfElse_WithErrorFallback()
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesResultPatternIfElse_WithCatchAllFallback()
     {
         var workspace = new AdhocWorkspace();
         var solution = workspace.CurrentSolution;
@@ -672,7 +672,7 @@ func Test(result: Result<string, string>) {
         Ok(let text) => {
             Console.WriteLine(text)
         }
-        Error => {
+        _ => {
             Console.WriteLine("missing")
         }
     }
@@ -683,7 +683,7 @@ func Test(result: Result<string, string>) {
     }
 
     [Fact]
-    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesResultIfPatternStatement_WithErrorFallback()
+    public async Task GetRefactorings_ConvertIfElseToMatchProvider_RewritesResultIfPatternStatement_WithCatchAllFallback()
     {
         var workspace = new AdhocWorkspace();
         var solution = workspace.CurrentSolution;
@@ -720,7 +720,7 @@ func Test(result: Result<string, string>) {
         let Ok(text) => {
             Console.WriteLine(text)
         }
-        Error => {
+        _ => {
             Console.WriteLine("missing")
         }
     }
