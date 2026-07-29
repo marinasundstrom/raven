@@ -1971,6 +1971,7 @@ public static partial class SymbolExtensions
             IMethodSymbol { IsConstructor: true } => null,
             IMethodSymbol { MethodKind: MethodKind.StaticConstructor } => null,
             IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null,
+            IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => null,
             IMacroFunctionSymbol => "macro func",
             IMethodSymbol => "func",
             _ => null

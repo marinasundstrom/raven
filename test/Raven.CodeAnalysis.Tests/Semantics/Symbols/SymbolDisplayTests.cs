@@ -146,6 +146,33 @@ class WebApplication {
     }
 
     [Fact]
+    public void Operators_ToDisplayString_DoNotRepeatFunctionKeyword()
+    {
+        const string source = """
+class Number {
+    static func implicit(value: Number) -> string { "" }
+    static func +(left: Number, right: Number) -> Number { left }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var symbols = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BaseMethodDeclarationSyntax>()
+            .Select(declaration =>
+                Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration)))
+            .ToArray();
+
+        symbols.Single(symbol => symbol.MethodKind == MethodKind.Conversion)
+            .ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("static func implicit(value: Number) -> string");
+        symbols.Single(symbol => symbol.MethodKind == MethodKind.UserDefinedOperator)
+            .ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("static func +(left: Number, right: Number) -> Number");
+    }
+
+    [Fact]
     public void Method_ToDisplayString_PreservesDefaultLiteralParameterValue()
     {
         const string source = """

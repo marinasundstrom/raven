@@ -202,9 +202,14 @@ that shapes RavenDoc's APIs.
 The current HTML renderer provides a Raven-specific, responsive API-reference
 presentation with light and dark color schemes. Page titles use a compact
 reference-heading scale, while editor-like Raven signatures carry the primary
-visual weight. Namespace and member kinds use distinct symbols, generic
-constraints remain visible in signatures, and generated pages include a
-responsive page outline. Fenced `raven`, `rvn`, and `rav` code blocks receive
+visual weight. Since RavenDoc presents the exported Raven API, signatures omit
+the redundant leading `public` modifier. Private and internal accessor details
+remain implementation details; restricted accessors are shown only when they
+contribute to the inheritable surface through protected accessibility.
+Compiler-emitted extension grouping and marker types are also excluded from
+the Raven-facing reference. Namespace and member kinds use distinct symbols,
+generic constraints remain visible in signatures, and generated pages include
+a responsive page outline. Fenced `raven`, `rvn`, and `rav` code blocks receive
 Raven syntax highlighting from a generated local asset, so published sites do
 not require a CDN.
 

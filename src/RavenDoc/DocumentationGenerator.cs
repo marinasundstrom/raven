@@ -15,8 +15,12 @@ public static class DocumentationGenerator
     private static string documentedAssemblyName = "Raven";
     private static IAssemblySymbol? documentedAssembly;
 
+    private const string ExtensionGroupingTypePrefix = "<>__RavenExtensionGrouping_For_";
+    private const string ExtensionMarkerTypePrefix = "<>__RavenExtensionMarker_";
+    private const string ExtensionMarkerMethodName = "<Extension>$";
+
     private static readonly Func<ISymbol, bool> GetMembersFilterPredicate =
-        x => x is INamespaceSymbol || x.DeclaredAccessibility == Accessibility.Public;
+        IsDocumentableSymbol;
 
     // ----------------------------
     // Cached display formats
@@ -921,9 +925,7 @@ public static class DocumentationGenerator
 
     private static bool CanRenderSymbol(ISymbol symbol)
     {
-        // Raven emits a CLR container for namespace functions. It is an
-        // implementation detail rather than part of the Raven-facing API.
-        if (symbol.Name == "<Extension>$")
+        if (IsCompilerGeneratedExtensionArtifact(symbol))
             return false;
 
         try
@@ -1713,7 +1715,9 @@ public static class DocumentationGenerator
 
     private static string FormatSignature(ISymbol symbol)
     {
-        var signature = symbol.ToDisplayString(MemberDisplayFormat);
+        var signature = symbol is IPropertySymbol property
+            ? FormatPropertySignature(property)
+            : OmitRedundantPublicModifier(symbol.ToDisplayString(MemberDisplayFormat));
         var typeParameters = symbol switch
         {
             INamedTypeSymbol type => type.TypeParameters,
@@ -1751,6 +1755,89 @@ public static class DocumentationGenerator
 
         return signature;
     }
+
+    private static string FormatPropertySignature(IPropertySymbol property)
+    {
+        var propertyFormat = MemberDisplayFormat
+            .WithKindOptions(
+                MemberDisplayFormat.KindOptions &
+                ~SymbolDisplayKindOptions.IncludeMemberKeyword)
+            .WithMemberOptions(
+                MemberDisplayFormat.MemberOptions &
+                ~SymbolDisplayMemberOptions.IncludeAccessibility &
+                ~SymbolDisplayMemberOptions.IncludeModifiers)
+            .WithPropertyStyle(SymbolDisplayPropertyStyle.NameOnly);
+        var coreSignature = property.ToDisplayString(propertyFormat);
+        const string implicitInitSuffix = " { init; }";
+        if (coreSignature.EndsWith(implicitInitSuffix, StringComparison.Ordinal))
+            coreSignature = coreSignature[..^implicitInitSuffix.Length];
+
+        var setter = property.SetMethod;
+        var propertyKeyword =
+            setter is { MethodKind: MethodKind.PropertySet, DeclaredAccessibility: Accessibility.Public }
+                ? "var"
+                : "val";
+        var prefix = property.IsStatic ? $"static {propertyKeyword}" : propertyKeyword;
+        var visibleAccessors = new List<string>();
+
+        AppendVisibleAccessor(visibleAccessors, property.GetMethod, "get");
+        AppendVisibleAccessor(
+            visibleAccessors,
+            setter,
+            setter?.MethodKind == MethodKind.InitOnly ? "init" : "set");
+
+        if (setter is { MethodKind: MethodKind.InitOnly, DeclaredAccessibility: Accessibility.Public })
+            visibleAccessors.Add("init;");
+
+        var accessorSuffix = visibleAccessors.Count == 0
+            ? string.Empty
+            : $" {{ {string.Join(" ", visibleAccessors)} }}";
+        return $"{prefix} {coreSignature}{accessorSuffix}";
+    }
+
+    private static void AppendVisibleAccessor(
+        List<string> accessors,
+        IMethodSymbol? accessor,
+        string keyword)
+    {
+        if (accessor is null || !IsProtectedAccessibility(accessor.DeclaredAccessibility))
+            return;
+
+        accessors.Add($"{GetAccessibilityDisplayText(accessor.DeclaredAccessibility)} {keyword};");
+    }
+
+    private static bool IsProtectedAccessibility(Accessibility accessibility)
+        => accessibility is Accessibility.ProtectedAndProtected
+            or Accessibility.ProtectedOrInternal
+            or Accessibility.ProtectedAndInternal;
+
+    private static string GetAccessibilityDisplayText(Accessibility accessibility)
+        => accessibility switch
+        {
+            Accessibility.ProtectedAndProtected => "protected",
+            Accessibility.ProtectedOrInternal => "protected internal",
+            Accessibility.ProtectedAndInternal => "private protected",
+            _ => string.Empty
+        };
+
+    private static string OmitRedundantPublicModifier(string signature)
+    {
+        const string publicPrefix = "public ";
+        return signature.StartsWith(publicPrefix, StringComparison.Ordinal)
+            ? signature[publicPrefix.Length..]
+            : signature;
+    }
+
+    private static bool IsDocumentableSymbol(ISymbol symbol)
+        => !IsCompilerGeneratedExtensionArtifact(symbol) &&
+           (symbol is INamespaceSymbol ||
+            symbol.DeclaredAccessibility == Accessibility.Public);
+
+    private static bool IsCompilerGeneratedExtensionArtifact(ISymbol symbol)
+        => symbol.Name == ExtensionMarkerMethodName ||
+           symbol is ITypeSymbol &&
+           (symbol.Name.StartsWith(ExtensionGroupingTypePrefix, StringComparison.Ordinal) ||
+            symbol.Name.StartsWith(ExtensionMarkerTypePrefix, StringComparison.Ordinal));
 
     private static IEnumerable<ISymbol> PreferDocumentableGenericDefinitions(
         IEnumerable<ISymbol> members)

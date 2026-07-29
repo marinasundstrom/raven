@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- RavenDoc now omits redundant `public` modifiers, hides compiler-emitted
+  extension grouping types and implementation-only accessors, preserves
+  protected accessor contracts, and renders operator signatures without a
+  duplicated `func` keyword.
+
 - Unit-returning callables now report `RAV9034` when their final expression
   produces a non-unit value, including effectful invocations. This prevents a
   discarded value from looking like a valid tail result; `_ = expression`

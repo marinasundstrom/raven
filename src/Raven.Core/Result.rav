@@ -27,17 +27,17 @@ import System.Text.Json.Serialization.*
 /// let result = Test(2)
 /// 
 /// let r = result match {
-///     Ok(val value) => "Ok: $value"
-///     Error(val message) => "Error: '$message'"
+///     Ok(let value) => "Ok: $value"
+///     Error(let message) => "Error: '$message'"
 /// }
 /// ```
 ///
 /// Simple pattern:
 ///
 /// ```raven
-/// if result is Ok(val value) {
+/// if result is Ok(let value) {
 ///     // Omitted
-/// } else if result is Error(val error) {
+/// } else if result is Error(let error) {
 ///     // Omitted
 /// }
 /// ```

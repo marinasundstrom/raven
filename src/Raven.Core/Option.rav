@@ -27,7 +27,7 @@ import System.Text.Json.Serialization.*
 /// let result = Test(2)
 /// 
 /// let r = result match {
-///     Some(val value) => "Some: $value"
+///     Some(let value) => "Some: $value"
 ///     None => "None"
 /// }
 /// ```
@@ -35,7 +35,7 @@ import System.Text.Json.Serialization.*
 /// Simple pattern:
 ///
 /// ```raven
-/// if result is Some(val value) {
+/// if result is Some(let value) {
 ///     // Omitted
 /// } else if result is None {
 ///     // Omitted
