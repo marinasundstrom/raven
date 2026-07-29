@@ -692,7 +692,7 @@ func Main() -> unit {
         result.WasSkipped.ShouldBeFalse();
         result.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.UnhandledMemberReturnValueAnalyzer.DiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.UnusedExpressionResultAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 

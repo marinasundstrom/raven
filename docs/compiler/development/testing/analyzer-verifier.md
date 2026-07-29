@@ -36,7 +36,8 @@ func foo() {
 For code-fix scenarios, use the [Code fix verifier](code-fix-verifier.md).
 
 Analyzer verifier state can also model compiler options that affect analyzer participation.
-For example, the returned-value analyzer is off by default, so tests that expect `RAV9029`
-must pass `returnedValueHandlingMode: ReturnedValueHandlingMode.Full` to
+For example, full returned-value handling is off by default, so tests that expect `RAV9034`
+for a bare call or member access must pass
+`returnedValueHandlingMode: ReturnedValueHandlingMode.Full` to
 `CreateAnalyzerVerifier`. Use `specificDiagnosticOptions` only for severity remapping or
 suppression; it should not be used to turn project-mode analyzers on.

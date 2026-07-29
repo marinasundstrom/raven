@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   be disabled through standard `.editorconfig` severity configuration.
   Consumed block-expression and value-returning lambda tails remain valid
   implicit results and are not reported.
+- Consolidated full returned-value handling into `RAV9034`, removing the
+  overlapping `RAV9029` diagnostic. Value-forming outer expressions such as
+  `2 + Compute()` are now reported even when a nested call may have effects,
+  while full mode extends the same diagnostic to bare calls and member access.
 - Added a user-facing built-in analyzer reference with default severities and
   `.editorconfig` override guidance to the main documentation navigation.
 - Added a Playground sample demonstrating Raven's support for functional

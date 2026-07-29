@@ -202,6 +202,63 @@ func A() -> () {
     }
 
     [Fact]
+    public void BinaryExpressionContainingInvocation_BeforeUnitCallableTail_ReportsDiagnostic()
+    {
+        const string code = """
+func Compute() -> int {
+    40
+}
+
+func Log() -> () { }
+
+func A() -> () {
+    2 + Compute()
+    Log()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(8, 5, 8, 18)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void InvocationExpressionStatement_InFullMode_ReportsSingleUnusedResultDiagnostic()
+    {
+        const string code = """
+func Compute() -> int {
+    42
+}
+
+func Log() -> () { }
+
+func A() -> () {
+    Compute()
+    Log()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(8, 5, 8, 14)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            returnedValueHandlingMode: ReturnedValueHandlingMode.Full);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void InvocationAssignedToDiscard_AsUnitCallableTail_DoesNotReport()
     {
         const string code = """

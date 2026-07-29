@@ -55,18 +55,15 @@ Raven currently provides analyzers for two different contexts:
   imported type, top-level namespace member, or nested namespace member. Nested namespaces
   are included in the declaring import scope.
 - **UnusedExpressionResultAnalyzer** (Raven, `RAV9034`) – reports standalone expressions
-  whose value is known to be unused when the expression is a conservative composition of
-  literals, variables, unary operators, binary operators, and tuples. Calls and other
-  potentially effectful expressions are normally excluded, but a non-`unit` expression
-  in the tail position of a `unit` callable is reported because it would otherwise look
-  like a returned value. Assign to `_` to make an intentional discard explicit. This is
-  analyzer guidance rather than a language restriction; set
+  whose value is unused when the outer expression exists only to form a value, including
+  literals, variables, unary operators, binary operators, and tuples. The classification
+  follows the outer operation, so `2 + Compute()` is reported even though evaluating
+  `Compute()` may have effects. Bare calls and member accesses are normally excluded, but
+  a non-`unit` expression in the tail position of a `unit` callable is reported because it
+  would otherwise look like a returned value. Full returned-value handling extends the same
+  diagnostic to bare calls and member accesses. Assign to `_` to make an intentional discard
+  explicit. This is analyzer guidance rather than a language restriction; set
   `dotnet_diagnostic.RAV9034.severity = none` in `.editorconfig` to disable it.
-- **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
-  invocations, property accesses, or field accesses whose returned value is not handled.
-  Assign the returned value to a target, assign it to `_`, return it, or pass it on. The
-  analyzer is disabled by default while it uses whole-analyzer mode; enable `full` mode in
-  the project file or with the CLI, then control `RAV9029` severity through `.editorconfig`.
 - **DisposableObjectAnalyzer** (Raven, `RAV9033`) – reports disposable objects produced
   by calls or object creation when they are assigned to an ordinary local or discarded
   without a matching `use` declaration or direct `Dispose()` call before scope exit. The
@@ -100,7 +97,7 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `UnusedPropertyAnalyzer`
 - `UnusedMethodAnalyzer`
 - `UnusedImportDirectiveAnalyzer`
-- `UnhandledMemberReturnValueAnalyzer`
+- `UnusedExpressionResultAnalyzer`
 - `DisposableObjectAnalyzer`
 - `PreferDuLinqExtensionsAnalyzer`
 - `PreferIsNullOverEqualityAnalyzer`
@@ -219,8 +216,9 @@ query has already materialized part of a binder-owned cache. Analyzer logic must
 what the symbol represents, not which object instance was returned first. This applies to
 candidate maps, used-symbol sets, de-duplication, and comparisons against well-known symbols.
 
-`RAV9029` is off by default. Project files control the analyzer mode, and `.editorconfig`
-controls severity. Deprecated `.ravenproj` files can use `ReturnedValueHandlingMode="full"` or
+Full returned-value handling for `RAV9034` is off by default. Project files control the
+analyzer mode, and `.editorconfig` controls severity. Deprecated `.ravenproj` files can use
+`ReturnedValueHandlingMode="full"` or
 `EnableReturnedValueAnalyzer="true|false"` while they remain supported. MSBuild-style `.rvnproj` files can use
 `<RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>` or
 `<RavenEnableReturnedValueAnalyzer>true|false</RavenEnableReturnedValueAnalyzer>`. The only

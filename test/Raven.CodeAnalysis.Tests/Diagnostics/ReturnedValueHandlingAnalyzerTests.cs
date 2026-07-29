@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
-public sealed class UnhandledMemberReturnValueAnalyzerTests : AnalyzerTestBase
+public sealed class ReturnedValueHandlingAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
     public void ReturningMethodCall_ReportsDiagnosticWhenReturnValueIgnored()
@@ -23,9 +23,8 @@ func Test() -> () {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(UnhandledMemberReturnValueAnalyzer.DiagnosticId)
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
                     .WithSpan(6, 5, 6, 14)
-                    .WithArguments("Compute")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -37,7 +36,7 @@ func Test() -> () {
     {
         var diagnostics = AnalyzeReturnedValueDiagnostics();
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == UnusedExpressionResultAnalyzer.DiagnosticId);
     }
 
     [Fact]
@@ -45,16 +44,16 @@ func Test() -> () {
     {
         var diagnostics = AnalyzeReturnedValueDiagnostics(option: ReportDiagnostic.Warn);
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == UnusedExpressionResultAnalyzer.DiagnosticId);
     }
 
     [Fact]
-    public void ReturningMethodCall_WarningSeverity_SaysReturnValueIsNotHandled()
+    public void ReturningMethodCall_WarningSeverity_UsesUnusedResultMessage()
     {
         var diagnostic = Assert.Single(AnalyzeReturnedValueDiagnostics(ReturnedValueHandlingMode.Full));
 
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
-        Assert.Equal("Returned value of 'Compute' is not handled.", diagnostic.GetMessage());
+        Assert.Equal("Expression result is not used; assign it to '_' to discard it explicitly.", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -65,7 +64,7 @@ func Test() -> () {
             ReportDiagnostic.Error));
 
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-        Assert.Equal("Returned value of 'Compute' is not handled.", diagnostic.GetMessage());
+        Assert.Equal("Expression result is not used; assign it to '_' to discard it explicitly.", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -193,27 +192,26 @@ func Test() -> () {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(UnhandledMemberReturnValueAnalyzer.DiagnosticId)
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
                     .WithSpan(7, 5, 7, 18)
-                    .WithArguments("Count")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
 
-    private AnalyzerVerifier<UnhandledMemberReturnValueAnalyzer> CreateReturnedValueAnalyzerVerifier(
+    private AnalyzerVerifier<UnusedExpressionResultAnalyzer> CreateReturnedValueAnalyzerVerifier(
         string code,
         IEnumerable<DiagnosticResult>? expectedDiagnostics = null,
         IEnumerable<string>? disabledDiagnostics = null)
-        => CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        => CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
             code,
             expectedDiagnostics,
             disabledDiagnostics,
             returnedValueHandlingMode: ReturnedValueHandlingMode.Full,
             specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>(StringComparer.OrdinalIgnoreCase)
             {
-                [UnhandledMemberReturnValueAnalyzer.DiagnosticId] = ReportDiagnostic.Warn
+                [UnusedExpressionResultAnalyzer.DiagnosticId] = ReportDiagnostic.Warn
             });
 
     private static Diagnostic[] AnalyzeReturnedValueDiagnostics(
@@ -225,8 +223,12 @@ func Compute() -> int {
     42
 }
 
+func Log() -> () {
+}
+
 func Test() -> () {
     Compute()
+    Log()
 }
 """;
 
@@ -238,7 +240,7 @@ func Test() -> () {
         if (option is { } diagnosticOption)
         {
             options = options.WithSpecificDiagnosticOption(
-                UnhandledMemberReturnValueAnalyzer.DiagnosticId,
+                UnusedExpressionResultAnalyzer.DiagnosticId,
                 diagnosticOption);
         }
 
@@ -247,14 +249,14 @@ func Test() -> () {
         workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(documentId, "test.rvn", SourceText.From(code)));
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new UnhandledMemberReturnValueAnalyzer()));
+        project = project.AddAnalyzerReference(new AnalyzerReference(new UnusedExpressionResultAnalyzer()));
         foreach (var reference in ReferenceAssemblies.Default)
             project = project.AddMetadataReference(reference);
 
         workspace.TryApplyChanges(project.Solution);
 
         return workspace.GetDiagnostics(projectId)
-            .Where(diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId)
+            .Where(diagnostic => diagnostic.Id == UnusedExpressionResultAnalyzer.DiagnosticId)
             .ToArray();
     }
 }

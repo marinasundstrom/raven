@@ -1232,7 +1232,7 @@ func Main() -> unit { }
 root = true
 
 [*.rvn]
-dotnet_diagnostic.RAV9029.severity = warning
+dotnet_diagnostic.RAV9034.severity = warning
 """);
 
         var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
@@ -1249,14 +1249,14 @@ dotnet_diagnostic.RAV9029.severity = warning
 
         projectSystem.OpenAttempts.ShouldBe(1);
         var projectId = manager.GetProjectsSnapshot().Single().Id;
-        manager.GetProjectsSnapshot().Single().CompilationOptions!.SpecificDiagnosticOptions[UnhandledMemberReturnValueAnalyzer.DiagnosticId]
+        manager.GetProjectsSnapshot().Single().CompilationOptions!.SpecificDiagnosticOptions[UnusedExpressionResultAnalyzer.DiagnosticId]
             .ShouldBe(ReportDiagnostic.Warn);
 
         File.WriteAllText(editorConfigPath, """
 root = true
 
 [*.rvn]
-dotnet_diagnostic.RAV9029.severity = error
+dotnet_diagnostic.RAV9034.severity = error
 """);
 
         _ = manager.ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges([
@@ -1270,7 +1270,7 @@ dotnet_diagnostic.RAV9029.severity = error
         projectSystem.OpenAttempts.ShouldBe(1);
         var project = manager.GetProjectsSnapshot().Single();
         project.Id.ShouldBe(projectId);
-        project.CompilationOptions!.SpecificDiagnosticOptions[UnhandledMemberReturnValueAnalyzer.DiagnosticId]
+        project.CompilationOptions!.SpecificDiagnosticOptions[UnusedExpressionResultAnalyzer.DiagnosticId]
             .ShouldBe(ReportDiagnostic.Error);
     }
 

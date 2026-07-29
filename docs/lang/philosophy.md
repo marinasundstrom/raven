@@ -107,6 +107,13 @@ accepted style. A project can keep the defaults, promote selected diagnostics
 to errors, lower their severity, or disable them through standard diagnostic
 configuration.
 
+This is where much of Raven's support for functional-style programming lives:
+semantic usefulness, visible intention, conciseness, and declarative code.
+Syntax makes values and composition easy to express; analysis points out code
+whose outer expression contributes no effect or whose result goes nowhere.
+Raven can guide code toward those qualities without requiring a constrained
+functional language model.
+
 For example, a non-`unit` tail expression in a `unit` callable is valid and its
 value is discarded. `RAV9034` warns by default because the expression can look
 like an implicit result. Code can make that intent explicit with `_ =`, use an

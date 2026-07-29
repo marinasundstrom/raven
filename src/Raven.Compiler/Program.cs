@@ -71,7 +71,7 @@ var isCompilerDriverInvocation =
 // --format          - normalize whitespace and indentation in source files
 // --highlight       - display diagnostics with highlighted source
 // --suggestions     - display instructional rewrite suggestions for diagnostics that provide them
-// --returned-value-handling <default|full|none|info|warning|error> - configure opt-in RAV9029 returned-value diagnostics
+// --returned-value-handling <default|full|none|info|warning|error> - configure full RAV9034 returned-value analysis
 // -h, --help        - display help
 // --run             - execute the produced assembly when compilation succeeds (console apps only)
 
@@ -1142,7 +1142,7 @@ if (!string.IsNullOrWhiteSpace(editorConfigAnchorPath))
 if (returnedValueHandlingDiagnostic is { } returnedValueHandlingOption)
 {
     options = options.WithSpecificDiagnosticOption(
-        UnhandledMemberReturnValueAnalyzer.DiagnosticId,
+        UnusedExpressionResultAnalyzer.DiagnosticId,
         returnedValueHandlingOption);
 }
 
@@ -2497,7 +2497,7 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
     Console.WriteLine("  --returned-value-handling <default|full|none|info|warning|error>");
-    Console.WriteLine("                    Configure opt-in RAV9029 diagnostics for returned values that are not handled");
+    Console.WriteLine("                    Configure full RAV9034 analysis for returned values that are not handled");
     Console.WriteLine("  --force-returned-value-handling");
     Console.WriteLine("                    Treat returned values that are not handled as errors");
     Console.WriteLine("  -q, --quote        Display AST as compilable C# code.");

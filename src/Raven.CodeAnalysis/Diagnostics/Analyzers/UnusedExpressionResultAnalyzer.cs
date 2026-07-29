@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Linq;
 
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
@@ -42,14 +41,22 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         if (!ReturnsValue(operation.Type))
             return;
 
-        if (!IsTrailingValueInUnitCallable(expressionStatement, context.SemanticModel) &&
-            !IsPureValueComposition(operation))
+        var isTrailingValueInUnitCallable =
+            IsTrailingValueInUnitCallable(expressionStatement, context.SemanticModel);
+        var isFullReturnedValueHandling =
+            context.Compilation.Options.ReturnedValueHandlingMode == ReturnedValueHandlingMode.Full;
+
+        if (!isTrailingValueInUnitCallable &&
+            !IsValueFormingExpression(operation) &&
+            !(isFullReturnedValueHandling && IsUnhandledMemberResult(operation)))
+        {
             return;
+        }
 
         context.ReportDiagnostic(Diagnostic.Create(Descriptor, operation.Syntax.GetLocation()));
     }
 
-    private static bool IsPureValueComposition(IOperation operation)
+    private static bool IsValueFormingExpression(IOperation operation)
     {
         operation = Unwrap(operation);
 
@@ -59,12 +66,27 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             ILocalReferenceOperation => true,
             IVariableReferenceOperation => true,
             IParameterReferenceOperation => true,
-            IUnaryOperation unary => unary.Operand is { } operand && IsPureValueComposition(operand),
-            IBinaryOperation binary => binary.Left is { } left &&
-                                       binary.Right is { } right &&
-                                       IsPureValueComposition(left) &&
-                                       IsPureValueComposition(right),
-            ITupleOperation tuple => tuple.Elements.All(IsPureValueComposition),
+            IUnaryOperation => true,
+            IBinaryOperation => true,
+            ITupleOperation => true,
+            _ => false,
+        };
+    }
+
+    private static bool IsUnhandledMemberResult(IOperation operation)
+    {
+        operation = Unwrap(operation);
+
+        return operation switch
+        {
+            IInvocationOperation => true,
+            IPropertyReferenceOperation => true,
+            IFieldReferenceOperation => true,
+            IMemberReferenceOperation => true,
+            IConditionalAccessOperation { WhenNotNull: { } whenNotNull } =>
+                IsUnhandledMemberResult(whenNotNull),
+            IAwaitOperation { Operation: { } awaitedOperation } =>
+                IsUnhandledMemberResult(awaitedOperation),
             _ => false,
         };
     }

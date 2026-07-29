@@ -49,7 +49,7 @@ Severity is configured by diagnostic ID in `.editorconfig`:
 
 ```ini
 [*.rvn]
-dotnet_diagnostic.RAV9029.severity = warning
+dotnet_diagnostic.RAV9034.severity = warning
 ```
 
 Accepted severity values follow the analyzer diagnostic options supported by Raven:
@@ -75,9 +75,9 @@ reload paths.
 Diagnostics can be suppressed in source with Raven pragma comments:
 
 ```rav
-#pragma warning disable RAV9029
+#pragma warning disable RAV9034
 Compute()
-#pragma warning restore RAV9029
+#pragma warning restore RAV9034
 ```
 
 See [Compiler diagnostics](../diagnostics.md) for the full pragma syntax.
@@ -92,5 +92,5 @@ rvnc main.rvn --returned-value-handling error
 rvnc main.rvn --force-returned-value-handling
 ```
 
-For `RAV9029`, non-off severity values enable `full` mode for that compiler invocation and
+For `RAV9034`, non-off severity values enable `full` mode for that compiler invocation and
 apply the requested severity override.

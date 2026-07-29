@@ -39,8 +39,8 @@ participation, source suppression, and the opt-in returned-value analyzer.
 ## Analyzer reference
 
 “Default” means the descriptor severity before any `.editorconfig`, project, or
-command-line override. All listed analyzers participate by default except
-`RAV9029`, whose full returned-value analysis must first be enabled.
+command-line override. All listed analyzers participate by default. The full
+returned-value mode extends `RAV9034` to bare calls and member accesses.
 
 | ID | Default | Rule |
 | --- | --- | --- |
@@ -60,12 +60,11 @@ command-line override. All listed analyzers participate by default except
 | `RAV9026` | Warning | Use the new value returned by an immutable collection operation. |
 | `RAV9027` | Warning | Remove or use an unused local value. |
 | `RAV9028` | Warning | Remove an unnecessary trailing separator. |
-| `RAV9029` | Warning, opt-in | Handle values returned by member calls and accesses. |
 | `RAV9030` | Warning | Remove or use an unused parameter. |
 | `RAV9031` | Hidden | Remove an unused import directive. |
 | `RAV9032` | Warning | Initialize a field in storage or a constructor. |
 | `RAV9033` | Warning | Dispose a disposable value before leaving its scope. |
-| `RAV9034` | Warning | Make a known unused expression result explicit, including a non-`unit` tail value in a `unit` callable. |
+| `RAV9034` | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
 
 ## Choosing a policy
 
@@ -76,8 +75,8 @@ style. For example, all of the following are legitimate project choices:
 - promote it to an error in a codebase that requires explicit value flow;
 - disable it in a codebase that primarily uses explicit returns or intentionally
   permits discarded expression results;
-- enable the broader `RAV9029` rule only where every returned member value must
-  be handled.
+- enable full returned-value handling only where every returned member value
+  must be handled.
 
 Prefer committing `.editorconfig` with the project so command-line builds and
 the Raven language server present the same policy to every contributor.

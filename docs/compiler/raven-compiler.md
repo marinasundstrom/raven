@@ -108,7 +108,7 @@ editors can discover the same SDK root.
 - `--namespace-member-imports` &ndash; enable namespace lookup/completion promotion from `[TopLevel]` containers (default)
 - `--no-namespace-member-imports` &ndash; disable namespace lookup/completion promotion from `[TopLevel]` containers
 - `--returned-value-handling <default|full|none|info|warning|error>` &ndash; configure the
-  built-in returned-value analyzer (`RAV9029`); project files control analyzer mode, while
+  full mode of the built-in unused-result analyzer (`RAV9034`); project files control analyzer mode, while
   `.editorconfig` controls severity
 - `--force-returned-value-handling` &ndash; shorthand for treating returned values that are not
   handled as errors
