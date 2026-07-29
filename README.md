@@ -3,14 +3,20 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/website-Raven-brightgreen.svg)](https://marinasundstrom.github.io/raven/)
 
-Raven is a pragmatic, typed application language for .NET that makes functional
-composition, algebraic modeling, and object-oriented design complementary parts
-of one toolset, with direct access to the .NET runtime and ecosystem.
+Raven is a pragmatic, typed, general-purpose programming language for .NET. It
+makes functional composition, algebraic modeling, procedural code, and
+object-oriented design complementary parts of one toolset, with direct access
+to the .NET runtime and ecosystem.
 
 Raven is under active development. Its language and compiler combine an
 expression-oriented surface, explicit mutability, structural pattern matching,
 `Option`/`Result`-based flow, and direct interoperability with existing .NET
 libraries.
+
+Raven is not defined by a single programming paradigm. It provides syntax,
+types, and libraries for functional programming patterns where transformations
+and data flow benefit from them, while retaining first-class procedural,
+object-oriented, and systems-oriented programming tools.
 
 The implementation is also a compiler-as-a-service playground. The compiler
 core follows a Roslyn-like shape with immutable syntax trees, semantic models,

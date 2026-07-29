@@ -6,6 +6,12 @@
     "category": "Basics"
   },
   {
+    "id": "expression-oriented",
+    "title": "Functional patterns with expression blocks",
+    "file": "expression-oriented.rvn",
+    "category": "Functional patterns"
+  },
+  {
     "id": "quote-macro",
     "title": "Build syntax with the quote macro",
     "file": "quote-macro.rvn",
@@ -171,12 +177,12 @@
     "id": "pipeline",
     "title": "Data flow with pipelines",
     "file": "pipeline.rvn",
-    "category": "Basics"
+    "category": "Functional patterns"
   },
   {
     "id": "higher-order",
     "title": "Functions as values",
     "file": "higher-order.rvn",
-    "category": "Basics"
+    "category": "Functional patterns"
   }
 ]

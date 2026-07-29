@@ -28,7 +28,20 @@ That means Raven generally chooses:
 
 ## Core stance
 
-Raven is not trying to be purely functional, purely object-oriented, or novel for its own sake. It favors a small set of consistent ideas:
+Raven is a pragmatic, general-purpose programming language. It is not trying
+to be a functional language, an object-oriented language, or novel for its own
+sake. Those categories describe useful techniques and modeling strengths, not
+exclusive identities that Raven programs must adopt.
+
+Different problems benefit from different vocabularies. Data transformations
+often read naturally through immutable values, functions, pipelines, and
+patterns. Identity, lifecycle, state, and open polymorphism often read naturally
+through objects. Sequential effects and systems work may be clearest as
+procedural code. Raven should support these approaches as complementary tools
+and make it natural to combine them at honest boundaries.
+
+Within that general-purpose stance, Raven favors a small set of consistent
+ideas:
 
 - expressions where values help composition
 - statements where effects and control flow are clearer
@@ -40,10 +53,11 @@ Raven is not trying to be purely functional, purely object-oriented, or novel fo
 - one reusable pattern system across branching, iteration, and deconstruction
 - direct, ergonomic interop with the .NET ecosystem
 
-Functional and object-oriented modeling are therefore not competing modes in
-Raven. The language should make it natural to use functions and algebraic data
-for rules and state transitions, objects for identity and lifecycle, and narrow
-function-shaped boundaries between them where that keeps dependencies explicit.
+Functional and object-oriented modeling are therefore not competing modes or
+language identities in Raven. The language should make it natural to use
+functions and algebraic data for rules and state transitions, objects for
+identity and lifecycle, and narrow function-shaped boundaries between them
+where that keeps dependencies explicit.
 Object-oriented programming is part of the language's intended toolset, not a
 compatibility feature kept only because Raven targets .NET. At the same time,
 Raven does not require an object merely to contain an entry point, a standalone

@@ -1,0 +1,51 @@
+import System.Console.*
+
+record Order(Id: string, Subtotal: decimal, Customer: CustomerKind)
+
+enum CustomerKind {
+    Guest
+    Member
+    Premium
+}
+
+// match is an expression: every case computes the rate.
+func DiscountRate(customer: CustomerKind) -> decimal =>
+    customer match {
+        .Guest => 0m
+        .Member => 0.10m
+        .Premium => 0.15m
+    }
+
+func Total(order: Order) -> decimal {
+    // A block is an expression. Its final expression becomes its value.
+    let discounted = {
+        let discount = order.Subtotal * DiscountRate(order.Customer)
+        order.Subtotal - discount
+    }
+
+    // if is an expression too, so both paths compute one immutable value.
+    let delivery = if discounted >= 75m {
+        0m
+    } else {
+        6m
+    }
+
+    // A function body returns its final expression.
+    discounted + delivery
+}
+
+func Receipt(order: Order) -> string {
+    let total = Total(order)
+    let delivery = if total >= 75m { "free delivery" } else { "delivery included" }
+    "${order.Id}: $total credits ($delivery)"
+}
+
+// Keep the calculations pure and isolate the output at the edge.
+let orders = [
+    Order("RAV-100", 100m, .Guest)
+    Order("RAV-101", 80m, .Premium)
+]
+
+for order in orders {
+    WriteLine(Receipt(order))
+}

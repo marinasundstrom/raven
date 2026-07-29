@@ -1,8 +1,9 @@
 # Raven
 
-Raven is a pragmatic, typed application language for .NET that makes functional
-composition, algebraic modeling, and object-oriented design complementary parts
-of one toolset, with direct access to the .NET runtime and ecosystem.
+Raven is a pragmatic, typed, general-purpose programming language for .NET. It
+makes functional composition, algebraic modeling, procedural code, and
+object-oriented design complementary parts of one toolset, with direct access
+to the .NET runtime and ecosystem.
 
 It is built around a few clear ideas: expression-oriented code where values
 help, statement forms where effects are clearer, explicit mutability, explicit
@@ -34,12 +35,14 @@ The same is true for reusable behavior: parsing, validation, formatting, and
 workflow functions can live directly in a namespace. They do not need to be
 wrapped in a static utility class just to give them somewhere to live.
 
-This low-ceremony starting point does not make Raven a purely functional
-language. Object-oriented programming is a first-class part of Raven's toolset,
-not merely a compatibility layer for .NET. Classes, interfaces, methods, and
-mutable state are available where identity, encapsulation, lifecycle, or
-polymorphism are part of the model. Records and unions cover other useful domain
-shapes without forcing everything into an object hierarchy.
+This low-ceremony starting point does not make Raven a functional programming
+language. Raven is general-purpose: functional patterns are one well-supported
+part of its toolset, alongside procedural and object-oriented styles.
+Object-oriented programming is not merely a compatibility layer for .NET.
+Classes, interfaces, methods, and mutable state are available where identity,
+encapsulation, lifecycle, or polymorphism are part of the model. Records and
+unions cover other useful domain shapes without forcing everything into an
+object hierarchy.
 
 ```raven
 record struct Temperature(Value: decimal)

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a Playground sample demonstrating Raven's support for functional
+  programming patterns within its pragmatic, general-purpose model: immutable
+  transformations, value-producing `match` and `if` expressions, block
+  expressions, final-expression returns, and an effectful output shell around
+  a pure calculation core.
 - RavenDoc now accepts repeatable `--value name=value` inputs and substitutes
   explicit `{{name}}` placeholders in Markdown, enabling publishing workflows
   to inject paths, versions, commit identifiers, and version stamps while
