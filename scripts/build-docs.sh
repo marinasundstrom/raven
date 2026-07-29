@@ -35,7 +35,7 @@ dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     --framework net10.0 \
     --no-build \
     -- \
-    "$repository_root/src/Raven.Core/bin/Debug/net10.0/Raven.Core.dll" \
+    "$repository_root/src/Raven.Core/Raven.Core.rvnproj" \
     --output "$core_api_output" \
     --framework net10.0 \
     --nav "Raven docs=https://marinasundstrom.github.io/raven/" \
@@ -68,6 +68,13 @@ for required_page in "${required_library_pages[@]}"; do
         exit 1
     fi
 done
+
+if ! grep -Fq \
+    "github.com/marinasundstrom/raven/blob/main/src/Raven.Core/Option.rav#L" \
+    "$core_api_output/System/Option\`1/index.html"; then
+    echo "RavenDoc did not preserve the Raven.Core source link." >&2
+    exit 1
+fi
 
 # API metadata is generated separately. Existing source-comment warnings remain
 # visible without weakening strict validation of the authored documentation.

@@ -121,6 +121,48 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void OpenProject_CoreTypesProject_DisablesFrameworkProjections()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(root, "Core.rav");
+            File.WriteAllText(sourcePath, "public class CoreType { }");
+
+            var projectPath = Path.Combine(root, "Core.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Library</OutputType>
+                    <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="Core.rav" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var evaluation = MsBuildProjectEvaluator.Evaluate(projectPath, RavenProjectConventions.Default);
+            Assert.Equal(
+                Path.Combine(root, "obj", "Debug", "net10.0", "raven", "generated"),
+                evaluation.GeneratedSourceDirectory);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var options = workspace.CurrentSolution.GetProject(projectId)!.CompilationOptions!;
+
+            Assert.True(options.EmbedCoreTypes);
+            Assert.Equal(FrameworkProjectionMode.None, options.FrameworkProjectionMode);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MsBuildProject_LoadsAnalyzerAndSourceGeneratorItems()
     {
         var root = CreateTempDirectory();

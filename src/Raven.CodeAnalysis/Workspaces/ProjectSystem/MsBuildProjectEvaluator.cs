@@ -148,9 +148,12 @@ internal static class MsBuildProjectEvaluator
         var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
             ?? true;
-        var frameworkProjectionMode = ParseFrameworkProjectionMode(
-            GetOptionalProperty(project, "FrameworkProjections") ??
-            GetOptionalProperty(project, "RavenFrameworkProjections"));
+        var emitCoreTypesOnly = GetBooleanProperty(project, "RavenEmitCoreTypesOnly") ?? false;
+        var frameworkProjectionMode = emitCoreTypesOnly
+            ? FrameworkProjectionMode.None
+            : ParseFrameworkProjectionMode(
+                GetOptionalProperty(project, "FrameworkProjections") ??
+                GetOptionalProperty(project, "RavenFrameworkProjections"));
         var parseOptions = new ParseOptions().WithPreprocessorSymbols(
             ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 
@@ -162,6 +165,9 @@ internal static class MsBuildProjectEvaluator
             .WithRunAnalyzers(runAnalyzers)
             .WithDisabledAnalyzers(disabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode);
+
+        if (emitCoreTypesOnly)
+            compilationOptions = compilationOptions.WithEmbedCoreTypes(true);
 
         if (returnedValueHandling is { } returnedValueHandlingMode)
             compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);
@@ -294,6 +300,7 @@ internal static class MsBuildProjectEvaluator
         if (string.IsNullOrWhiteSpace(intermediateOutputPath))
             return conventions.GetGeneratedSourceDirectory(projectDirectory, configuration);
 
+        intermediateOutputPath = NormalizePathSeparators(intermediateOutputPath);
         var fullIntermediateOutputPath = Path.IsPathRooted(intermediateOutputPath)
             ? intermediateOutputPath
             : Path.GetFullPath(Path.Combine(projectDirectory, intermediateOutputPath));
@@ -311,6 +318,7 @@ internal static class MsBuildProjectEvaluator
         var targetPath = GetOptionalProperty(project, "TargetPath");
         if (!string.IsNullOrWhiteSpace(targetPath))
         {
+            targetPath = NormalizePathSeparators(targetPath);
             return Path.IsPathRooted(targetPath)
                 ? Path.GetFullPath(targetPath)
                 : Path.GetFullPath(Path.Combine(projectDirectory, targetPath));
@@ -325,17 +333,21 @@ internal static class MsBuildProjectEvaluator
             if (!string.IsNullOrWhiteSpace(targetFramework))
                 outputDirectory = Path.Combine(outputDirectory, targetFramework);
         }
-        else if (!Path.IsPathRooted(outputDirectory))
-        {
-            outputDirectory = Path.GetFullPath(Path.Combine(projectDirectory, outputDirectory));
-        }
         else
         {
-            outputDirectory = Path.GetFullPath(outputDirectory);
+            outputDirectory = NormalizePathSeparators(outputDirectory);
+            outputDirectory = !Path.IsPathRooted(outputDirectory)
+                ? Path.GetFullPath(Path.Combine(projectDirectory, outputDirectory))
+                : Path.GetFullPath(outputDirectory);
         }
 
         return Path.Combine(outputDirectory, $"{assemblyName}.dll");
     }
+
+    private static string NormalizePathSeparators(string path)
+        => path
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
 
     private static string GetEffectiveTargetFramework(MSBuildProject project)
     {

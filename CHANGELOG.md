@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - RavenDoc now groups case-declared union cases under their declaring union
   using logical Raven names and signatures, while keeping parenthesized
   member-type unions distinct and suppressing separate emitted case-type pages.
+- Published Raven.Core API pages are now generated from the Raven project
+  rather than its metadata assembly, restoring GitHub source links with line
+  anchors. Workspace project loading also honors `RavenEmitCoreTypesOnly` by
+  disabling framework projections while Raven.Core itself is analyzed.
 
 - Unit-returning callables now report `RAV9034` when their final expression
   produces a non-unit value, including effectful invocations. This prevents a

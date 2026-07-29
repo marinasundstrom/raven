@@ -137,6 +137,12 @@ dotnet run --project src/RavenDoc -- \
   --output artifacts/markdown-docs-library-site
 ```
 
+Prefer project or source input when publishing APIs from the current
+repository. Source symbols retain their file paths and line spans, allowing
+RavenDoc to link declarations to the corresponding GitHub source lines.
+Assembly input remains useful for external libraries, but metadata symbols do
+not imply a local source mapping.
+
 Use `--framework <tfm>` when the input targets something other than `net10.0`.
 When `--output` is omitted, RavenDoc writes `_site` next to the input.
 Source-directory input can add assembly dependencies with repeatable
