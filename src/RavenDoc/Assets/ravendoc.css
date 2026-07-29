@@ -230,6 +230,14 @@ pre code { padding: 0; }
     text-decoration: none;
 }
 
+.member-card--static {
+    grid-template-columns: 2rem minmax(0, 1fr);
+}
+
+.member-card--static:hover {
+    background: transparent;
+}
+
 .member-card-content {
     display: grid;
     gap: 0.3rem;
@@ -281,6 +289,10 @@ pre code { padding: 0; }
 
 .symbol-icon--macro {
     color: var(--raven-syntax-keyword);
+}
+
+.symbol-icon--case {
+    color: var(--raven-syntax-type);
 }
 
 .page-outline {

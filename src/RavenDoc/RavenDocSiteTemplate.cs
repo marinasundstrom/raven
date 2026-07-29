@@ -125,6 +125,40 @@ internal sealed class RavenDocSiteTemplate
         """;
     }
 
+    public string RenderCaseSection(
+        IReadOnlyList<RavenDocCaseTemplateModel> cases)
+    {
+        var rows = new StringBuilder();
+        foreach (var @case in cases)
+        {
+            var summary = string.IsNullOrWhiteSpace(@case.Summary)
+                ? "<span class=\"member-summary member-summary--empty\">No summary available.</span>"
+                : $"<span class=\"member-summary\">{Escape(@case.Summary)}</span>";
+
+            rows.AppendLine($"""
+              <div class="member-card member-card--static">
+                {RenderIcon(RavenDocSymbolKind.Case)}
+                <span class="member-card-content">
+                  <span class="member-signature">{Escape(@case.Signature)}</span>
+                  {summary}
+                </span>
+              </div>
+            """);
+        }
+
+        return $"""
+        <section class="member-section" aria-labelledby="cases">
+          <div class="section-heading">
+            <h2 id="cases">Cases</h2>
+            <span>{cases.Count} {Pluralize(cases.Count, "case", "cases")}</span>
+          </div>
+          <div class="member-list">
+            {rows}
+          </div>
+        </section>
+        """;
+    }
+
     public string RenderSignature(string signature)
         => $"""
            <pre class="api-signature api-signature--variant"><code class="language-raven">{Escape(signature)}</code></pre>
@@ -149,6 +183,11 @@ internal sealed class RavenDocSiteTemplate
             RavenDocSymbolKind.Macro => ("Macro", """
                 <path d="m12 3 1.4 5.6L19 10l-5.6 1.4L12 17l-1.4-5.6L5 10l5.6-1.4z" />
                 <path d="m18 16 .6 2.4L21 19l-2.4.6L18 22l-.6-2.4L15 19l2.4-.6z" />
+                """),
+            RavenDocSymbolKind.Case => ("Case", """
+                <circle cx="7" cy="7" r="2" />
+                <circle cx="17" cy="17" r="2" />
+                <path d="M9 7h2a6 6 0 0 1 6 6v2" />
                 """),
             RavenDocSymbolKind.Property => ("Property", """
                 <path d="M6 5h12v14H6z" />
@@ -245,12 +284,17 @@ internal sealed record RavenDocMemberTemplateModel(
     string Href,
     string Summary);
 
+internal sealed record RavenDocCaseTemplateModel(
+    string Signature,
+    string Summary);
+
 internal enum RavenDocSymbolKind
 {
     Namespace,
     Type,
     Function,
     Macro,
+    Case,
     Property,
     Field,
     Event,

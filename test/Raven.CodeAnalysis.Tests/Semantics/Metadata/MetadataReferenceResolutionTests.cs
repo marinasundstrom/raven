@@ -430,6 +430,66 @@ public class Widget {
     }
 
     [Fact]
+    public void ExternalDocumentationEmitter_LoadsUnionCaseDocumentationByLogicalName()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+/// Represents a choice.
+public union Choice {
+    /// Carries an integer value.
+    case Value(value: int)
+
+    /// Represents no value.
+    case None
+}
+""",
+            new ParseOptions
+            {
+                DocumentationMode = true,
+                DocumentationFormat = DocumentationFormat.Markdown
+            });
+
+        var compilation = Compilation.Create(
+            "ChoiceLibrary",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream, pdbStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-emitted-union-docs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var assemblyPath = Path.Combine(directory, "ChoiceLibrary.dll");
+        File.WriteAllBytes(assemblyPath, peStream.ToArray());
+        ExternalDocumentationEmitter.WriteMarkdownDocumentation(compilation, Path.Combine(directory, "ChoiceLibrary.docs"));
+
+        try
+        {
+            var consumerCompilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var choice = Assert.IsAssignableFrom<IUnionSymbol>(
+                consumerCompilation.GetTypeByMetadataName("Choice"));
+            var cases = choice.DeclaredCaseTypes.ToDictionary(@case => @case.Name);
+
+            Assert.Contains("integer value", cases["Value"].GetDocumentationComment()!.Content, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("no value", cases["None"].GetDocumentationComment()!.Content, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ExternalDocumentationEmitter_EmitsMarkdownForMacroFunction()
     {
         var tree = SyntaxTree.ParseText(

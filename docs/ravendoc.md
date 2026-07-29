@@ -110,6 +110,14 @@ let rawText = comment?.RawText // Original text, with "///"
 
 RavenDoc uses the processed Markdown content (`Content`) for rendering.
 
+RavenDoc adapts compiler and CLR symbol data to Raven language conventions.
+Metadata ownership is not automatically presentation ownership: emitted
+containers, marker types, and helper members remain implementation details,
+while Raven declarations are projected using Raven names, signatures, and
+grouping. For example, namespace functions appear under their namespace and
+named union cases appear as cases on their declaring union rather than as
+separate emitted case types.
+
 ## Generating a site
 
 RavenDoc accepts a Raven project, one Raven source file, a directory containing
@@ -207,9 +215,12 @@ the redundant leading `public` modifier. Private and internal accessor details
 remain implementation details; restricted accessors are shown only when they
 contribute to the inheritable surface through protected accessibility.
 Compiler-emitted extension grouping and marker types are also excluded from
-the Raven-facing reference. Namespace and member kinds use distinct symbols,
-generic constraints remain visible in signatures, and generated pages include
-a responsive page outline. Fenced `raven`, `rvn`, and `rav` code blocks receive
+the Raven-facing reference. Case-declared unions receive a dedicated Cases
+section using their logical Raven case names and parameter signatures.
+Parenthesized unions of member types remain a distinct shape and do not receive
+a Cases section. Namespace and member kinds use distinct symbols, generic
+constraints remain visible in signatures, and generated pages include a
+responsive page outline. Fenced `raven`, `rvn`, and `rav` code blocks receive
 Raven syntax highlighting from a generated local asset, so published sites do
 not require a CDN.
 

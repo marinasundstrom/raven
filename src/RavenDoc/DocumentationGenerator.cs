@@ -896,6 +896,7 @@ public static class DocumentationGenerator
         return symbol switch
         {
             INamespaceSymbol ns => GetNamespaceIndexPath(ns),
+            IUnionCaseTypeSymbol @case => GetTypeIndexPath(@case.Union),
             ITypeSymbol ts => GetTypeIndexPath(ts),
             _ => GetMemberGroupPath(symbol),
         };
@@ -1112,6 +1113,12 @@ public static class DocumentationGenerator
                 return;
 
             AddSymbolToXrefIndex(s);
+
+            if (s is IUnionSymbol union)
+            {
+                foreach (var @case in union.DeclaredCaseTypes)
+                    AddSymbolToXrefIndex(@case);
+            }
 
             if (s is INamespaceOrTypeSymbol nts)
             {
@@ -1474,15 +1481,22 @@ public static class DocumentationGenerator
         var members = PreferDocumentableGenericDefinitions(typeSymbol.GetMembers())
             .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
+            .Where(member => !IsUnionCaseProjectionArtifact(typeSymbol, member))
             .Where(CanRenderSymbol)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
-        var memberSections = RenderGroupedMemberSections(
+        var memberSections = new List<string>();
+        if (typeSymbol is IUnionSymbol unionSymbol &&
+            !unionSymbol.DeclaredCaseTypes.IsDefaultOrEmpty)
+        {
+            memberSections.Add(RenderUnionCaseSection(unionSymbol));
+        }
+        memberSections.AddRange(RenderGroupedMemberSections(
             currentDir,
             members,
-            isNamespacePage: false);
+            isNamespacePage: false));
 
         foreach (var nestedType in members.OfType<ITypeSymbol>())
         {
@@ -1764,6 +1778,65 @@ public static class DocumentationGenerator
         return signature;
     }
 
+    private static string RenderUnionCaseSection(IUnionSymbol union)
+    {
+        var cases = union.DeclaredCaseTypes
+            .OrderBy(static @case => @case.Ordinal)
+            .Select(@case =>
+            {
+                var documentation = GetOrCreateDocInfo(@case);
+                return new RavenDocCaseTemplateModel(
+                    FormatUnionCaseSignature(@case),
+                    documentation.Summary);
+            })
+            .ToArray();
+        return SiteTemplate.RenderCaseSection(cases);
+    }
+
+    private static string FormatUnionCaseSignature(IUnionCaseTypeSymbol @case)
+    {
+        if (@case.ConstructorParameters.IsDefaultOrEmpty)
+            return $"case {@case.Name}";
+
+        var parameters = @case.ConstructorParameters.Select(parameter =>
+            $"{parameter.Name}: {parameter.Type.ToDisplayString(BaseTypeDisplayFormat)}");
+        return $"case {@case.Name}({string.Join(", ", parameters)})";
+    }
+
+    private static bool IsUnionCaseProjectionArtifact(
+        ITypeSymbol declaringType,
+        ISymbol member)
+    {
+        if (declaringType is not IUnionSymbol union ||
+            member is not IMethodSymbol method ||
+            method.MethodKind != MethodKind.Constructor &&
+            !string.Equals(method.Name, "TryGetValue", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return method.Parameters.Any(parameter =>
+            IsUnionCaseParameterType(parameter.Type, union));
+    }
+
+    private static bool IsUnionCaseParameterType(
+        ITypeSymbol type,
+        IUnionSymbol union)
+    {
+        if (type is IAddressTypeSymbol addressType)
+            type = addressType.ReferencedType;
+
+        if (type.IsUnionCase)
+            return true;
+
+        return union.DeclaredCaseTypes.Any(@case =>
+            SymbolEqualityComparer.Default.Equals(type, @case) ||
+            string.Equals(
+                type.MetadataName,
+                @case.MetadataName,
+                StringComparison.Ordinal));
+    }
+
     private static string FormatPropertySignature(IPropertySymbol property)
     {
         var propertyFormat = MemberDisplayFormat
@@ -1837,9 +1910,32 @@ public static class DocumentationGenerator
     }
 
     private static bool IsDocumentableSymbol(ISymbol symbol)
-        => !IsCompilerGeneratedExtensionArtifact(symbol) &&
+        => !IsProjectedUnionCaseType(symbol) &&
+           !IsCompilerGeneratedExtensionArtifact(symbol) &&
            (symbol is INamespaceSymbol ||
             symbol.DeclaredAccessibility == Accessibility.Public);
+
+    private static bool IsProjectedUnionCaseType(ISymbol symbol)
+    {
+        if (symbol is IUnionCaseTypeSymbol)
+            return true;
+
+        if (symbol is not ITypeSymbol type ||
+            symbol.ContainingNamespace is not { } containingNamespace)
+        {
+            return false;
+        }
+
+        return containingNamespace.GetMembers()
+            .OfType<IUnionSymbol>()
+            .SelectMany(static union => union.DeclaredCaseTypes)
+            .Any(@case =>
+                SymbolEqualityComparer.Default.Equals(type, @case) ||
+                string.Equals(
+                    type.MetadataName,
+                    @case.MetadataName,
+                    StringComparison.Ordinal));
+    }
 
     private static bool IsCompilerGeneratedExtensionArtifact(ISymbol symbol)
         => symbol.Name == ExtensionMarkerMethodName ||
@@ -1950,7 +2046,7 @@ public static class DocumentationGenerator
                 continue;
             }
 
-            if (member.DeclaredAccessibility == Accessibility.Public)
+            if (IsDocumentableSymbol(member))
                 return true;
         }
 

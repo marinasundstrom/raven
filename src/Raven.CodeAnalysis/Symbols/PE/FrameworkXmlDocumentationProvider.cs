@@ -61,6 +61,7 @@ internal static class ExternalDocumentationProvider
     {
         memberId = symbol switch
         {
+            PEUnionCaseSymbol type => DocumentationCommentIdBuilder.GetTypeMemberId(type),
             PENamedTypeSymbol type => DocumentationCommentIdBuilder.GetTypeMemberId(type.GetTypeInfo().AsType()),
             PEMethodSymbol method => DocumentationCommentIdBuilder.GetMethodMemberId(method.ReflectionMethodBase),
             PEPropertySymbol property => DocumentationCommentIdBuilder.GetPropertyMemberId(property.GetPropertyInfo()),

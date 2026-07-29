@@ -233,4 +233,131 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 Directory.Delete(outputPath, recursive: true);
         }
     }
+
+    [Fact]
+    public void CaseDeclaredUnion_GroupsProjectedCasesUnderUnion()
+    {
+        var (compilation, _) = CreateCompilation("""
+            namespace Samples.Unions
+
+            /// A result with named cases.
+            public union Outcome<T, E> {
+                /// Contains a successful value.
+                case Success(value: T)
+
+                /// Contains an error value.
+                case Failure(error: E)
+            }
+
+            /// A union of member types without named cases.
+            public union Scalar(int | string)
+            """, assemblyName: "RavenDoc.Unions");
+        var outputPath = Path.Combine(
+            Path.GetTempPath(),
+            "ravendoc-tests",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, outputPath);
+
+            var outcomePagePath = Path.Combine(
+                outputPath,
+                "Samples",
+                "Unions",
+                "Outcome`2",
+                "index.html");
+            var scalarPagePath = Path.Combine(
+                outputPath,
+                "Samples",
+                "Unions",
+                "Scalar",
+                "index.html");
+
+            var outcomePage = File.ReadAllText(outcomePagePath);
+            outcomePage.ShouldContain("id=\"cases\"");
+            outcomePage.ShouldContain("case Success(value: T)");
+            outcomePage.ShouldContain("Contains a successful value.");
+            outcomePage.ShouldContain("case Failure(error: E)");
+            outcomePage.ShouldContain("Contains an error value.");
+            outcomePage.ShouldNotContain("Outcome_Success");
+            outcomePage.ShouldNotContain("Outcome_Failure");
+
+            var scalarPage = File.ReadAllText(scalarPagePath);
+            scalarPage.ShouldNotContain("id=\"cases\"");
+            scalarPage.ShouldNotContain(">Cases<");
+
+            Directory.EnumerateFileSystemEntries(outputPath, "*", SearchOption.AllDirectories)
+                .ShouldNotContain(path =>
+                    path.Contains("Outcome_Success", StringComparison.Ordinal) ||
+                    path.Contains("Outcome_Failure", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath))
+                Directory.Delete(outputPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void MetadataUnion_ProjectsLogicalCaseNamesOnUnionPage()
+    {
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            """
+            namespace Samples.MetadataUnions
+
+            public union Outcome<T, E> {
+                case Success(value: T)
+                case Failure(error: E)
+            }
+            """,
+            assemblyName: $"RavenDoc.MetadataUnions.{Guid.NewGuid():N}");
+        var hostCompilation = Compilation.Create(
+                "RavenDoc.MetadataHost",
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(metadataReference);
+        _ = hostCompilation.GetDiagnostics();
+        var assembly = Assert.IsAssignableFrom<IAssemblySymbol>(
+            hostCompilation.GetAssemblyOrModuleSymbol(metadataReference));
+        var outputPath = Path.Combine(
+            Path.GetTempPath(),
+            "ravendoc-tests",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            DocumentationGenerator.ProcessAssembly(hostCompilation, assembly, outputPath);
+
+            var outcomePage = File.ReadAllText(Path.Combine(
+                outputPath,
+                "Samples",
+                "MetadataUnions",
+                "Outcome`2",
+                "index.html"));
+            outcomePage.ShouldContain("id=\"cases\"");
+            outcomePage.ShouldContain("case Success(value: T)");
+            outcomePage.ShouldContain("case Failure(error: E)");
+            outcomePage.ShouldNotContain("Outcome_Success");
+            outcomePage.ShouldNotContain("Outcome_Failure");
+
+            var namespacePage = File.ReadAllText(Path.Combine(
+                outputPath,
+                "Samples",
+                "MetadataUnions",
+                "index.html"));
+            namespacePage.ShouldNotContain("Outcome_Success");
+            namespacePage.ShouldNotContain("Outcome_Failure");
+
+            Directory.EnumerateFileSystemEntries(outputPath, "*", SearchOption.AllDirectories)
+                .ShouldNotContain(path =>
+                    path.Contains("Outcome_Success", StringComparison.Ordinal) ||
+                    path.Contains("Outcome_Failure", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath))
+                Directory.Delete(outputPath, recursive: true);
+        }
+    }
 }
