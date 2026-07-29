@@ -169,10 +169,27 @@ that shapes RavenDoc's APIs.
 ## Rendering direction
 
 The current HTML renderer provides a Raven-specific, responsive API-reference
-presentation with light and dark color schemes. Fenced `raven`, `rvn`, and
-`rav` code blocks receive Raven syntax highlighting from a generated local
-asset, so published sites do not require a CDN. Extraction, symbol routing,
-Markdown rendering, and page chrome should remain separate concerns.
+presentation with light and dark color schemes. Page titles use a compact
+reference-heading scale, while editor-like Raven signatures carry the primary
+visual weight. Namespace and member kinds use distinct symbols, generic
+constraints remain visible in signatures, and generated pages include a
+responsive page outline. Fenced `raven`, `rvn`, and `rav` code blocks receive
+Raven syntax highlighting from a generated local asset, so published sites do
+not require a CDN.
+
+The current rendering boundary is intentionally explicit:
+
+* `DocumentationGenerator` extracts documentation, builds symbol navigation,
+  and selects page content.
+* `RavenDocSiteTemplate` owns the HTML shell and reusable hero, signature, and
+  member-list components.
+* `Assets/ravendoc.css` and `Assets/ravendoc.js` own presentation and
+  progressive enhancement.
+
+This separation keeps extraction, symbol routing, Markdown rendering, and page
+chrome independent. A future templating engine can replace the template
+projection without teaching templates how to parse source, sidecars, XML
+documentation, or compiler symbols.
 
 RavenDoc and the browser Playground consume the same foundational Raven theme:
 color tokens, typography, surfaces, borders, radii, shadows, and the Raven
@@ -182,10 +199,9 @@ coding distinct while making movement between them feel continuous. RavenDoc
 follows the system color scheme; the Playground additionally offers a
 persistent System, Light, or Dark selector that also controls its editor.
 
-A future rendering layer should introduce templates and theme customization at
-the page-chrome boundary. Templates should receive the Raven documentation
-model and resolved symbol navigation; they should not need to parse source,
-sidecars, XML documentation, or compiler symbols themselves.
+A future rendering layer can introduce user-selectable templates and theme
+customization at the same page-chrome boundary. Templates should receive the
+Raven documentation model and resolved symbol navigation.
 
 Interactive, executable examples belong to the future documentation-site
 layer. That site can progressively enhance explicitly opted-in examples using

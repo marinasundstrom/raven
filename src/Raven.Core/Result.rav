@@ -7,10 +7,7 @@ import System.Result.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-/// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
-///
-/// @typeparam T The successful value type.
-/// @typeparam E The error value type.
+/// Represents either a result with a value, or an error. See also: [Result&lt;T, E&gt;](xref:T:System.Result`2).
 ///
 /// ## Usage
 /// Use `Result` like so:
@@ -27,9 +24,9 @@ import System.Text.Json.Serialization.*
 /// Matching result in `match` expression:
 /// 
 /// ```raven
-/// val result = Test(2)
+/// let result = Test(2)
 /// 
-/// val r = result match {
+/// let r = result match {
 ///     Ok(val value) => "Ok: $value"
 ///     Error(val message) => "Error: '$message'"
 /// }
@@ -44,6 +41,9 @@ import System.Text.Json.Serialization.*
 ///     // Omitted
 /// }
 /// ```
+///
+/// @typeparam T The successful value type.
+/// @typeparam E The error value type.
 [JsonConverter(typeof(ResultJsonConverterFactory))]
 public union Result<T, E> {
     /// Represents a successful result value.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- RavenDoc now separates its reusable page template and static assets from
+  symbol extraction, renders compact API headings, editor-like signatures with
+  generic constraints, distinct namespace/member icons, structured
+  documentation sections, and a responsive page outline.
 - Updated tests, samples, and language-facing documentation to use canonical
   `let` lexical bindings while retaining `val` for immutable properties and
   compatibility coverage. Compiler API, analyzer, source-generator, and macro

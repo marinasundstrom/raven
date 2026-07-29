@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 
 using Markdig;
@@ -7,6 +6,7 @@ using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
 
 public static class DocumentationGenerator
@@ -26,6 +26,7 @@ public static class DocumentationGenerator
     private static readonly SymbolDisplayFormat BaseTypeDisplayFormat;
     private static readonly SymbolDisplayFormat ContainingNamespaceDisplayFormat;
     private static readonly SymbolDisplayFormat ContainingTypeDisplayFormat;
+    private static readonly RavenDocSiteTemplate SiteTemplate = new();
 
     // ----------------------------
     // Markdown pipeline + layout
@@ -66,14 +67,16 @@ public static class DocumentationGenerator
         var miscOpt = SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions
             | SymbolDisplayMiscellaneousOptions.ExpandAliases;
 
-        var memberOpt = SymbolDisplayFormat.FullyQualifiedFormat.MemberOptions
-            & ~SymbolDisplayMemberOptions.IncludeAccessibility;
-
         MemberDisplayFormat =
-            SymbolDisplayFormat.FullyQualifiedFormat
+            SymbolDisplayFormat.RavenSignatureFormat
+                .WithGenericsOptions(
+                    SymbolDisplayGenericsOptions.IncludeTypeParameters |
+                    SymbolDisplayGenericsOptions.IncludeTypeConstraints)
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
                 .WithMiscellaneousOptions(miscOpt)
-                .WithMemberOptions(memberOpt);
+                .WithMemberOptions(
+                    SymbolDisplayFormat.RavenSignatureFormat.MemberOptions |
+                    SymbolDisplayMemberOptions.IncludeAccessibility);
 
         BaseTypeDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
@@ -87,7 +90,8 @@ public static class DocumentationGenerator
 
         ContainingNamespaceDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
-                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithTypeQualificationStyle(
+                    SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
                 .WithKindOptions(SymbolDisplayKindOptions.None);
     }
 
@@ -174,9 +178,7 @@ public static class DocumentationGenerator
             symbols.Add(symbol);
         }
 
-        WriteSharedTheme();
-        WriteStyleSheet();
-        WriteSyntaxHighlighter();
+        SiteTemplate.WriteAssets(outputDir);
 
         // PASS 1: Build xref index (so forward references resolve)
         BuildXrefIndex(globalNamespace);
@@ -227,279 +229,23 @@ public static class DocumentationGenerator
     // Layout + styling
     // ----------------------------
 
-    private static void WriteSharedTheme()
-    {
-        using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Raven.Theme.css")
-            ?? throw new InvalidOperationException("The shared Raven theme is missing.");
-        using var reader = new StreamReader(stream);
-        File.WriteAllText(Path.Combine(outputDir, "raven-theme.css"), reader.ReadToEnd());
-    }
-
-    private static void WriteStyleSheet()
-    {
-        var css = """
-:root {
-    --bg: var(--raven-bg);
-    --surface: var(--raven-surface);
-    --fg: var(--raven-ink);
-    --muted: var(--raven-muted);
-    --border: var(--raven-line);
-    --code-bg: var(--raven-code-bg);
-    --link: var(--raven-accent);
-    --accent: var(--raven-accent);
-    --accent-soft: var(--raven-accent-soft);
-    --header-bg: var(--raven-header-bg);
-    --th-bg: var(--raven-surface-raised);
-    --shadow: var(--raven-shadow);
-}
-
-* { box-sizing: border-box; }
-
-body {
-    margin: 0;
-    font-family: var(--raven-font-sans);
-    background:
-        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--raven-accent) 8%, transparent), transparent 32rem),
-        var(--bg);
-    color: var(--fg);
-    line-height: 1.6;
-}
-
-.site-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2rem;
-    min-height: 4.5rem;
-    padding: 0.75rem clamp(1rem, 4vw, 3rem);
-    border-bottom: 1px solid var(--border);
-    background: var(--header-bg);
-    backdrop-filter: blur(14px);
-}
-
-.page-context { color: var(--muted); font-size: 0.9rem; }
-
-.site-navigation {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    margin-left: auto;
-    font-size: 0.9rem;
-}
-
-.site-navigation a {
-    color: var(--muted);
-    white-space: nowrap;
-}
-
-.site-navigation a:hover {
-    color: var(--link);
-}
-
-.content-shell {
-    max-width: 1100px;
-    padding: clamp(1.25rem, 4vw, 3rem);
-    margin: 0 auto;
-}
-
-.api-content {
-    padding: clamp(1.5rem, 4vw, 3.5rem);
-    border: 1px solid var(--border);
-    border-radius: var(--raven-radius);
-    background: var(--surface);
-    box-shadow: var(--shadow);
-}
-
-h1, h2, h3, h4 {
-    line-height: 1.25;
-    margin-top: 2rem;
-    letter-spacing: -0.02em;
-}
-
-h1 { margin-top: 0; font-size: clamp(2rem, 5vw, 3.2rem); }
-h2 { padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
-
-a {
-    color: var(--link);
-    text-decoration: none;
-}
-
-a:hover { text-decoration: underline; }
-
-pre, code {
-    font-family: var(--raven-font-mono);
-    background: var(--code-bg);
-}
-
-pre {
-    padding: 1rem;
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 0.8rem;
-}
-
-code {
-    padding: 0.12rem 0.32rem;
-    border-radius: 0.35rem;
-}
-
-pre code { padding: 0; }
-
-.syntax-keyword { color: var(--raven-syntax-keyword); }
-.syntax-string { color: var(--raven-syntax-string); }
-.syntax-number { color: var(--raven-syntax-number); }
-.syntax-comment { color: var(--raven-syntax-comment); font-style: italic; }
-
-table {
-    border-collapse: collapse;
-    margin: 1rem 0;
-    width: 100%;
-}
-
-th, td {
-    border: 1px solid var(--border);
-    padding: 0.5rem 0.75rem;
-    text-align: left;
-    vertical-align: top;
-}
-
-th { background: var(--th-bg); }
-
-.muted { color: var(--muted); }
-
-footer {
-    padding: 0 1rem 2rem;
-    color: var(--muted);
-    text-align: center;
-    font-size: 0.8rem;
-}
-
-@media (max-width: 640px) {
-    .site-header { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
-    .site-navigation { justify-content: flex-start; margin-left: 0; overflow-x: auto; width: 100%; }
-    .page-context { display: none; }
-    .api-content { border-radius: 0.85rem; }
-}
-
-/* broken xrefs show as plain text-ish */
-a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none; }
-""";
-
-        File.WriteAllText(Path.Combine(outputDir, "style.css"), css);
-    }
-
-    private static void WriteSyntaxHighlighter()
-    {
-        var script = """
-(() => {
-    const ravenKeywords = new Set([
-        "abstract", "as", "async", "await", "base", "break", "case", "catch",
-        "class", "const", "continue", "default", "delegate", "do", "else",
-        "enum", "extension", "false", "field", "finally", "for", "foreach",
-        "from", "func", "get", "if", "implements", "import", "in", "init",
-        "interface", "internal", "is", "let", "match", "namespace", "new",
-        "null", "out", "override", "private", "protected", "public", "record",
-        "ref", "return", "sealed", "set", "static", "struct", "this", "throw",
-        "trait", "true", "try", "union", "val", "var", "virtual", "when",
-        "where", "while", "with", "yield"
-    ]);
-    const tokenPattern = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:0x[\da-fA-F]+|\d+(?:\.\d+)?)\b|\b[A-Za-z_][A-Za-z0-9_]*\b/g;
-    const escapeHtml = value => value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-
-    for (const code of document.querySelectorAll(
-        "pre code.language-raven, pre code.language-rvn, pre code.language-rav")) {
-        const source = code.textContent;
-        let cursor = 0;
-        let highlighted = "";
-
-        for (const match of source.matchAll(tokenPattern)) {
-            highlighted += escapeHtml(source.slice(cursor, match.index));
-            const token = match[0];
-            let kind = "";
-
-            if (token.startsWith("//") || token.startsWith("/*"))
-                kind = "comment";
-            else if (token.startsWith("\"") || token.startsWith("'"))
-                kind = "string";
-            else if (/^(?:0x[\da-fA-F]+|\d)/.test(token))
-                kind = "number";
-            else if (ravenKeywords.has(token))
-                kind = "keyword";
-
-            highlighted += kind
-                ? `<span class="syntax-${kind}">${escapeHtml(token)}</span>`
-                : escapeHtml(token);
-            cursor = match.index + token.length;
-        }
-
-        code.innerHTML = highlighted + escapeHtml(source.slice(cursor));
-        code.dataset.highlighted = "raven";
-    }
-})();
-""";
-
-        File.WriteAllText(Path.Combine(outputDir, "highlight.js"), script);
-    }
-
     private static string WrapHtml(string currentDir, string pageLabelOrTitle, string assemblyName, string bodyHtml)
     {
-        var title = $"{pageLabelOrTitle} · {assemblyName}";
         var themeHref = RelLink(currentDir, Path.Combine(outputDir, "raven-theme.css"));
         var styleHref = RelLink(currentDir, Path.Combine(outputDir, "style.css"));
-        var highlightScriptHref = RelLink(currentDir, Path.Combine(outputDir, "highlight.js"));
+        var scriptHref = RelLink(currentDir, Path.Combine(outputDir, "site.js"));
         var homeHref = RelLink(currentDir, Path.Combine(outputDir, "index.html"));
 
-        var siteNavigation = SiteLinks.Count == 0
-            ? string.Empty
-            : $"""
-              <nav class="site-navigation" aria-label="Related documentation">
-                {string.Join(
-                    Environment.NewLine,
-                    SiteLinks.Select(link =>
-                        $"<a href=\"{HtmlEscape(link.Url)}\">{HtmlEscape(link.Label)}</a>"))}
-              </nav>
-              """;
-
-        return $"""
-        <!doctype html>
-        <html lang="en">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>{HtmlEscape(title)}</title>
-          <link rel="stylesheet" href="{themeHref}" />
-          <link rel="stylesheet" href="{styleHref}" />
-          <script defer src="{highlightScriptHref}"></script>
-        </head>
-        <body>
-          <header class="site-header">
-            <a class="raven-brand" href="{homeHref}">
-              <span class="raven-brand-mark">R</span>
-              <span class="raven-brand-copy">
-                <strong>{HtmlEscape(assemblyName)}</strong>
-                <small>Raven API reference</small>
-              </span>
-            </a>
-            {siteNavigation}
-            <span class="page-context">{HtmlEscape(pageLabelOrTitle)}</span>
-          </header>
-          <main class="content-shell">
-            <article class="api-content">
-              {bodyHtml}
-            </article>
-          </main>
-          <footer>Generated by RavenDoc</footer>
-        </body>
-        </html>
-        """;
+        return SiteTemplate.RenderPage(new RavenDocPageTemplateModel(
+            pageLabelOrTitle,
+            pageLabelOrTitle,
+            assemblyName,
+            homeHref,
+            themeHref,
+            styleHref,
+            scriptHref,
+            bodyHtml,
+            SiteLinks));
     }
 
     private static string HtmlEscape(string s)
@@ -507,10 +253,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         if (string.IsNullOrEmpty(s))
             return string.Empty;
 
-        return s.Replace("&", "&amp;")
-                .Replace("<", "&lt;")
-                .Replace(">", "&gt;")
-                .Replace("\"", "&quot;");
+        return RavenDocSiteTemplate.Escape(s);
     }
 
     // ----------------------------
@@ -960,8 +703,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     {
         public required ISymbol Symbol { get; init; }
         public required string Signature { get; init; }
+        public required string Href { get; init; }
         public required string Summary { get; init; }
-        public required bool IsContainer { get; init; }
+        public required RavenDocSymbolKind Kind { get; init; }
     }
 
     private static SymbolDocInfo GetOrCreateDocInfo(ISymbol symbol)
@@ -969,26 +713,130 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         if (DocInfoCache.TryGetValue(symbol, out var cached))
             return cached;
 
-        string? raw;
+        DocumentationComment? comment;
         try
         {
-            raw = symbol.GetDocumentationComment()?.Content;
+            comment = symbol.GetDocumentationComment();
         }
         catch (BadImageFormatException exception)
         {
             Console.WriteLine(
                 $"Skipping unreadable documentation metadata for '{symbol.Name}': {exception.Message}");
-            raw = null;
+            comment = null;
         }
 
+        var documentation = RavenDocumentationLoader.Load(comment);
+        var markdown = BuildDocumentationMarkdown(documentation);
         var info = new SymbolDocInfo
         {
-            RawMarkdown = raw,
-            Summary = ExtractFirstParagraphSummary(raw)
+            RawMarkdown = markdown,
+            Summary = documentation.GetSection(DocumentationSectionKind.Summary) is { } summary
+                ? ToTableCellText(summary)
+                : ExtractFirstParagraphSummary(markdown)
         };
 
         DocInfoCache[symbol] = info;
         return info;
+    }
+
+    private static string BuildDocumentationMarkdown(RavenDocumentation documentation)
+    {
+        var builder = new StringBuilder();
+        var details = documentation.GetSection(DocumentationSectionKind.Details);
+        var remarks = documentation.GetSection(DocumentationSectionKind.Remarks);
+
+        AppendDocumentationSection(
+            builder,
+            documentation.GetSection(DocumentationSectionKind.Summary));
+        AppendDocumentationSection(builder, details);
+        AppendDocumentationAssociations(
+            builder,
+            "Type parameters",
+            "Name",
+            documentation.GetAssociations(DocumentationAssociationKind.TypeParameter));
+        AppendDocumentationAssociations(
+            builder,
+            "Parameters",
+            "Name",
+            documentation.GetAssociations(DocumentationAssociationKind.Parameter));
+        AppendNamedDocumentationSection(
+            builder,
+            "Returns",
+            documentation.GetSection(DocumentationSectionKind.Result));
+        AppendNamedDocumentationSection(
+            builder,
+            "Value",
+            documentation.GetSection(DocumentationSectionKind.Value));
+        AppendNamedDocumentationSection(
+            builder,
+            "Remarks",
+            string.Equals(details?.Trim(), remarks?.Trim(), StringComparison.Ordinal)
+                ? null
+                : remarks);
+        AppendNamedDocumentationSection(
+            builder,
+            "Example",
+            documentation.GetSection(DocumentationSectionKind.Example));
+        AppendDocumentationAssociations(
+            builder,
+            "Errors",
+            "Error",
+            documentation.GetAssociations(DocumentationAssociationKind.Error));
+        AppendDocumentationAssociations(
+            builder,
+            "See also",
+            "Reference",
+            documentation.GetAssociations(DocumentationAssociationKind.RelatedLink));
+
+        return builder.ToString().Trim();
+    }
+
+    private static void AppendDocumentationSection(StringBuilder builder, string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return;
+
+        if (builder.Length > 0)
+            builder.AppendLine().AppendLine();
+        builder.Append(content.Trim());
+    }
+
+    private static void AppendNamedDocumentationSection(
+        StringBuilder builder,
+        string title,
+        string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return;
+
+        if (builder.Length > 0)
+            builder.AppendLine().AppendLine();
+        builder.AppendLine($"## {title}");
+        builder.AppendLine();
+        builder.Append(content.Trim());
+    }
+
+    private static void AppendDocumentationAssociations(
+        StringBuilder builder,
+        string title,
+        string subjectHeader,
+        IReadOnlyList<DocumentationAssociation> associations)
+    {
+        if (associations.Count == 0)
+            return;
+
+        if (builder.Length > 0)
+            builder.AppendLine().AppendLine();
+        builder.AppendLine($"## {title}");
+        builder.AppendLine();
+        builder.AppendLine($"| {subjectHeader} | Description |");
+        builder.AppendLine("| --- | --- |");
+        foreach (var association in associations)
+        {
+            var subject = association.Name ?? association.Reference ?? "—";
+            builder.AppendLine(
+                $"| `{ToTableCellText(subject)}` | {ToTableCellText(association.Content)} |");
+        }
     }
 
     private static string ExtractFirstParagraphSummary(string? markdown)
@@ -1053,15 +901,14 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             var doc = GetOrCreateDocInfo(m);
             var summary = doc.Summary;
 
-            var sigText = FormatSignature(m.ToDisplayString(MemberDisplayFormat));
-            var signature = $"[{sigText}]({href})";
-
+            var sigText = FormatSignature(m);
             rows.Add(new MemberRow
             {
                 Symbol = m,
-                Signature = signature,
+                Signature = sigText,
+                Href = href,
                 Summary = string.IsNullOrWhiteSpace(summary) ? "" : summary,
-                IsContainer = m is INamespaceSymbol || m is ITypeSymbol
+                Kind = GetTemplateSymbolKind(m)
             });
         }
 
@@ -1070,6 +917,11 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
     private static bool CanRenderSymbol(ISymbol symbol)
     {
+        // Raven emits a CLR container for namespace functions. It is an
+        // implementation detail rather than part of the Raven-facing API.
+        if (symbol.Name == "<Extension>$")
+            return false;
+
         try
         {
             _ = symbol.ToDisplayString(MemberDisplayFormat);
@@ -1086,18 +938,49 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     private static void AppendMemberTable(StringBuilder sb, string title, string currentDir, IEnumerable<ISymbol> members)
     {
         var rows = BuildMemberRows(currentDir, members);
+        sb.AppendLine(SiteTemplate.RenderMemberSection(
+            title,
+            rows.Select(row => new RavenDocMemberTemplateModel(
+                row.Kind,
+                row.Signature,
+                row.Href,
+                row.Summary)).ToArray()));
+    }
 
-        sb.AppendLine($"## {title}");
-        sb.AppendLine();
-        sb.AppendLine("| Member | Summary |");
-        sb.AppendLine("| --- | --- |");
-
-        foreach (var r in rows)
+    private static RavenDocSymbolKind GetTemplateSymbolKind(ISymbol symbol)
+    {
+        return symbol switch
         {
-            sb.AppendLine($"| {EscapeName(r.Signature)} | {r.Summary} |");
-        }
+            INamespaceSymbol => RavenDocSymbolKind.Namespace,
+            ITypeSymbol => RavenDocSymbolKind.Type,
+            IMacroFunctionSymbol => RavenDocSymbolKind.Macro,
+            IMethodSymbol method when IsOperatorLike(method) => RavenDocSymbolKind.Operator,
+            IMethodSymbol => RavenDocSymbolKind.Function,
+            IPropertySymbol => RavenDocSymbolKind.Property,
+            IFieldSymbol => RavenDocSymbolKind.Field,
+            IEventSymbol => RavenDocSymbolKind.Event,
+            _ => RavenDocSymbolKind.Member
+        };
+    }
 
-        sb.AppendLine();
+    private static string GetSymbolKindLabel(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            INamespaceSymbol => "Namespace",
+            IMacroFunctionSymbol => "Macro",
+            IMethodSymbol method when IsOperatorLike(method) => "Operator",
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => "Constructor",
+            IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Namespace function",
+            IMethodSymbol => "Method",
+            IPropertySymbol { IsIndexer: true } => "Indexer",
+            IPropertySymbol => "Property",
+            IFieldSymbol { IsConst: true } => "Constant",
+            IFieldSymbol => "Field",
+            IEventSymbol => "Event",
+            ITypeSymbol type => type.TypeKind.ToString(),
+            _ => "Member"
+        };
     }
 
     // ----------------------------
@@ -1520,10 +1403,18 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
         var sb = new StringBuilder();
 
-        string name = typeSymbol.ToDisplayString(MemberDisplayFormat.WithKindOptions(SymbolDisplayKindOptions.None));
+        string name = typeSymbol.ToDisplayString(
+            MemberDisplayFormat
+                .WithKindOptions(SymbolDisplayKindOptions.None)
+                .WithMemberOptions(SymbolDisplayMemberOptions.None));
+        var signature = FormatSignature(typeSymbol);
 
-        sb.AppendLine($"**{EscapeName(typeSymbol.TypeKind.ToString())}**");
-        sb.AppendLine($"# {EscapeName(name)}");
+        sb.AppendLine(SiteTemplate.RenderHero(
+            RavenDocSymbolKind.Type,
+            GetSymbolKindLabel(typeSymbol),
+            name,
+            signature));
+        sb.AppendLine();
 
         if (typeSymbol.ContainingType is not null)
         {
@@ -1565,7 +1456,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         if (!string.IsNullOrWhiteSpace(commentInfo.RawMarkdown))
             sb.Append(commentInfo.RawMarkdown);
 
-        var members = typeSymbol.GetMembers()
+        var members = PreferDocumentableGenericDefinitions(typeSymbol.GetMembers())
             .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
             .Where(CanRenderSymbol)
@@ -1616,10 +1507,18 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         var sb = new StringBuilder();
 
         string name = members.Count == 1
-            ? FormatSignature(members[0].ToDisplayString(MemberDisplayFormat))
+            ? members[0].Name
             : groupName;
+        var signature = members.Count == 1
+            ? FormatSignature(members[0])
+            : null;
 
-        sb.AppendLine($"# {EscapeName(name)}");
+        sb.AppendLine(SiteTemplate.RenderHero(
+            GetTemplateSymbolKind(members[0]),
+            members.Count == 1 ? GetSymbolKindLabel(members[0]) : "Member group",
+            name,
+            signature));
+        sb.AppendLine();
         if (containingType is not null)
         {
             var target = GetTypeIndexPath(containingType);
@@ -1667,9 +1566,12 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat)))
         {
-            var memberName = EscapeName(FormatSignature(member.ToDisplayString(MemberDisplayFormat)));
+            var memberName = EscapeName(member.Name);
 
             sb.AppendLine($"### {memberName}");
+            sb.AppendLine();
+            sb.AppendLine(SiteTemplate.RenderSignature(
+                FormatSignature(member)));
             sb.AppendLine();
 
             AppendSourceFileLine(sb, member);
@@ -1701,11 +1603,18 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
         string name = namespaceSymbol.ToDisplayString(
             SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
+        var namespaceName = GetNamespaceFullName(namespaceSymbol);
 
         if (string.IsNullOrWhiteSpace(name))
             name = "Global namespace";
 
-        sb.AppendLine($"# {EscapeName(name)}");
+        sb.AppendLine(SiteTemplate.RenderHero(
+            RavenDocSymbolKind.Namespace,
+            "Namespace",
+            name,
+            string.IsNullOrWhiteSpace(namespaceName)
+                ? null
+                : $"namespace {name}"));
         sb.AppendLine();
 
         if (!string.IsNullOrWhiteSpace(docInfo.RawMarkdown))
@@ -1713,8 +1622,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
         sb.AppendLine();
 
-        var namespaceName = GetNamespaceFullName(namespaceSymbol);
-        var declaredNamespaceMembers = namespaceSymbol.GetMembers();
+        var declaredNamespaceMembers =
+            PreferDocumentableGenericDefinitions(namespaceSymbol.GetMembers())
+                .ToArray();
         var namespaceMemberContainers = declaredNamespaceMembers
             .OfType<INamedTypeSymbol>()
             .Where(IsNamespaceMemberContainer)
@@ -1795,8 +1705,92 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         return s.Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
-    private static string FormatSignature(string signature)
-        => signature.Replace("->", "→", StringComparison.Ordinal);
+    private static string FormatSignature(ISymbol symbol)
+    {
+        var signature = symbol.ToDisplayString(MemberDisplayFormat);
+        var typeParameters = symbol switch
+        {
+            INamedTypeSymbol type => type.TypeParameters,
+            IMethodSymbol method => method.TypeParameters,
+            IMacroFunctionSymbol macro => macro.TypeParameters,
+            _ => []
+        };
+
+        foreach (var parameter in typeParameters)
+        {
+            var marker = $"where {parameter.Name}:";
+            if (signature.Contains(marker, StringComparison.Ordinal))
+                continue;
+
+            var constraints = new List<string>();
+            var kind = parameter.ConstraintKind;
+            if (kind.HasFlag(TypeParameterConstraintKind.ReferenceType))
+                constraints.Add("class");
+            if (kind.HasFlag(TypeParameterConstraintKind.ValueType))
+                constraints.Add("struct");
+            if (kind.HasFlag(TypeParameterConstraintKind.NotNull))
+                constraints.Add("notnull");
+
+            constraints.AddRange(parameter.ConstraintTypes.Select(type =>
+                type.ToDisplayString(BaseTypeDisplayFormat)));
+
+            if (kind.HasFlag(TypeParameterConstraintKind.Constructor))
+                constraints.Add("new()");
+            if (kind.HasFlag(TypeParameterConstraintKind.AllowByRefLike))
+                constraints.Add("allows ref struct");
+
+            if (constraints.Count > 0)
+                signature += $" where {parameter.Name}: {string.Join(", ", constraints)}";
+        }
+
+        return signature;
+    }
+
+    private static IEnumerable<ISymbol> PreferDocumentableGenericDefinitions(
+        IEnumerable<ISymbol> members)
+    {
+        var selected = new List<ISymbol>();
+        var genericTypeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var member in members)
+        {
+            if (member is not INamedTypeSymbol { Arity: > 0 } type)
+            {
+                selected.Add(member);
+                continue;
+            }
+
+            var key = string.Join(
+                "|",
+                GetNamespaceFullName(type.ContainingNamespace),
+                type.ContainingType?.ToDisplayString(ContainingTypeDisplayFormat),
+                type.Name,
+                type.Arity);
+            if (!genericTypeIndexes.TryGetValue(key, out var existingIndex))
+            {
+                genericTypeIndexes.Add(key, selected.Count);
+                selected.Add(type);
+                continue;
+            }
+
+            if (GetGenericDefinitionQuality(type) >
+                GetGenericDefinitionQuality((INamedTypeSymbol)selected[existingIndex]))
+            {
+                selected[existingIndex] = type;
+            }
+        }
+
+        return selected;
+    }
+
+    private static int GetGenericDefinitionQuality(INamedTypeSymbol type)
+    {
+        var display = type.ToDisplayString(MemberDisplayFormat);
+        if (display.Contains("<>", StringComparison.Ordinal))
+            return 0;
+
+        return type.TypeParameters.IsDefaultOrEmpty ? 1 : 2;
+    }
 
     private static bool IsFromDocumentedAssembly(ISymbol symbol)
     {

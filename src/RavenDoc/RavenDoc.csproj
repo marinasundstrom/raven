@@ -20,6 +20,10 @@
   <ItemGroup>
     <EmbeddedResource Include="../../docs/template/public/raven-theme.css"
                       LogicalName="Raven.Theme.css" />
+    <EmbeddedResource Include="Assets/ravendoc.css"
+                      LogicalName="RavenDoc.Style.css" />
+    <EmbeddedResource Include="Assets/ravendoc.js"
+                      LogicalName="RavenDoc.Site.js" />
   </ItemGroup>
 
 </Project>

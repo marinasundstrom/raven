@@ -9,8 +9,6 @@ import System.Text.Json.Serialization.*
 
 /// Represents some value, or no value.
 ///
-/// @typeparam T The type of the optional value.
-///
 /// ## Usage
 /// Use `Option` like so:
 ///
@@ -26,9 +24,9 @@ import System.Text.Json.Serialization.*
 /// Matching result in `match` expression:
 /// 
 /// ```raven
-/// val result = Test(2)
+/// let result = Test(2)
 /// 
-/// val r = result match {
+/// let r = result match {
 ///     Some(val value) => "Some: $value"
 ///     None => "None"
 /// }
@@ -43,6 +41,8 @@ import System.Text.Json.Serialization.*
 ///     // Omitted
 /// }
 /// ```
+///
+/// @typeparam T The type of the optional value.
 [JsonConverter(typeof(OptionJsonConverterFactory))]
 public union Option<T> {
     /// Represents an available value.
