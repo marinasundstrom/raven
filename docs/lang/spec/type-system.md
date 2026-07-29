@@ -70,10 +70,10 @@ When a literal is assigned to a target whose type is inferred, the inferred type
 is its standard primitive type.
 
 ```raven
-val one = 1
-val two: int = one
-val d: double = one
-val inferred = 1
+let one = 1
+let two: int = one
+let d: double = one
+let inferred = 1
 ```
 
 ## Composite and derived types
@@ -94,8 +94,8 @@ type is written with an explicit length.
 #### Example
 
 ```raven
-val open: int[] = [1, 2, 3]
-val fixed: int[3] = [1, 2, 3]
+let open: int[] = [1, 2, 3]
+let fixed: int[3] = [1, 2, 3]
 ```
 
 #### Rules
@@ -133,9 +133,9 @@ Write parameter types, then `->`, then the return type. A single parameter may
 omit parentheses; zero parameters use `()`.
 
 ```raven
-val logger: string -> unit
-val reducer: (int, int) -> int
-val factory: () -> Task<string>
+let logger: string -> unit
+let reducer: (int, int) -> int
+let factory: () -> Task<string>
 ```
 
 In a function parameter:
@@ -173,8 +173,8 @@ nullable by default.
 #### Example
 
 ```raven
-val name: string? = null
-val count: int? = 1
+let name: string? = null
+let count: int? = 1
 ```
 
 #### Rules
@@ -224,8 +224,8 @@ emits regular CLR generic instantiations, so generic Raven code interops with
 existing .NET libraries.
 
 ```raven
-val box = Box<string>("hi")
-val copy = box.Value
+let box = Box<string>("hi")
+let copy = box.Value
 ```
 
 Generic methods use the same syntax. Call sites may provide explicit type
@@ -236,8 +236,8 @@ choice; otherwise, type arguments must be written explicitly.
 ```raven
 func identity<T>(value: T) -> T { value }
 
-val inferred = identity(42)      // infers T = int
-val explicit = identity<double>(42)
+let inferred = identity(42)      // infers T = int
+let explicit = identity<double>(42)
 ```
 
 Type parameters optionally declare constraints after a colon. The keywords
@@ -351,7 +351,7 @@ Raven synthesizes one whose parameters (including `ref`/`out` modifiers) and
 return type match the method being referenced. Subsequent method references with
 the same signature reuse the synthesized delegate.
 
-Method groups cannot flow into typeless contexts. Writing `val callback =
+Method groups cannot flow into typeless contexts. Writing `let callback =
 Logger.Log` produces diagnostic `RAV2201` because no delegate target is
 available. Likewise, when multiple overloads remain compatible with the target
 delegate (for example, `Action<int>` matching methods that accept `int` or
@@ -392,7 +392,7 @@ their declared delegate names in displays.
 Because Raven reuses .NET types, existing libraries can be consumed seamlessly:
 
 ```raven
-val ids: Guid[] = [Guid.NewGuid()]
+let ids: Guid[] = [Guid.NewGuid()]
 Console.WriteLine(ids[0])
 ```
 
@@ -422,9 +422,9 @@ the core compiler.
 Raven uses C#-style cast syntax for conversions that are not implicit, such as downcasting or numeric narrowing:
 
 ```raven
-val d = (double)1
-val n = (int)3.14
-val s = obj as string
+let d = (double)1
+let n = (int)3.14
+let s = obj as string
 ```
 
 `(T)expr` performs a runtime-checked cast and throws an `InvalidCastException` if `expr` cannot convert to `T`.
@@ -446,7 +446,7 @@ applies the normal conversion/specificity comparison. This applies to both
 source-declared methods and methods imported from referenced .NET assemblies.
 
 ```raven
-val parsed = int.Parse("42")
+let parsed = int.Parse("42")
 // Result<int, FormatException | OverflowException>
 ```
 

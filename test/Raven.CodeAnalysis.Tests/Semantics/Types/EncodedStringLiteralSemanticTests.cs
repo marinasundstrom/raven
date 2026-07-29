@@ -13,9 +13,9 @@ public class EncodedStringLiteralSemanticTests : CompilationTestBase
     public void EncodedStringLiterals_BindAsByteArrays()
     {
         const string source = """
-val utf8 = "Hi"u8
-val ascii = "!"ascii
-val combined: byte[] = [|...utf8, ...ascii|]
+let utf8 = "Hi"u8
+let ascii = "!"ascii
+let combined: byte[] = [|...utf8, ...ascii|]
 """;
 
         var (compilation, tree) = CreateCompilation(source);

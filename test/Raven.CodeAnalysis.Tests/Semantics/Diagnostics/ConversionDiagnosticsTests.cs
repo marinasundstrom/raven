@@ -30,7 +30,7 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     public void ExplicitCast_WithImplicitConversion_ReportsRedundantCastDiagnostic()
     {
         const string code = """
-        val x = (double)1
+        let x = (double)1
         """;
 
         var verifier = CreateVerifier(code, [
@@ -44,7 +44,7 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     public void ExplicitCast_Required_DoesNotReportRedundantCastDiagnostic()
     {
         const string code = """
-        val x = (int)1.5
+        let x = (int)1.5
         """;
 
         var verifier = CreateVerifier(code);
@@ -60,8 +60,8 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
         }
 
         func Main() -> () {
-            val foo = Foo()
-            val text: string = foo
+            let foo = Foo()
+            let text: string = foo
         }
         """;
 
@@ -77,8 +77,8 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     public void OpenArray_ToFixedSizeArray_ReportsSpecificDiagnostic()
     {
         const string code = """
-        val values: int[] = [1, 2, 3]
-        val fixedValues: int[3] = values
+        let values: int[] = [1, 2, 3]
+        let fixedValues: int[3] = values
         """;
 
         var verifier = CreateVerifier(code, [
@@ -94,8 +94,8 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     public void FixedSizeArray_ToDifferentFixedSizeArray_ReportsSpecificDiagnostic()
     {
         const string code = """
-        val values: int[2] = [1, 2]
-        val fixedValues: int[3] = values
+        let values: int[2] = [1, 2]
+        let fixedValues: int[3] = values
         """;
 
         var verifier = CreateVerifier(code, [
@@ -112,8 +112,8 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         unsafe func Main() -> unit {
-            val values: System.Span<int> = stackalloc int[1]
-            val boxed: object = values
+            let values: System.Span<int> = stackalloc int[1]
+            let boxed: object = values
         }
         """;
 

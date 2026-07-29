@@ -11,10 +11,10 @@ public sealed class LinqExtensionsTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Linq.*
 
-val arr = [1, 2, 3]
-val first = arr.FirstOrNone(x => x > 1)
-val last = arr.LastOrNone()
-val only = arr.Where(x => x == 2).SingleOrError(() => "none", () => "many")
+let arr = [1, 2, 3]
+let first = arr.FirstOrNone(x => x > 1)
+let last = arr.LastOrNone()
+let only = arr.Where(x => x == 2).SingleOrError(() => "none", () => "many")
 """;
 
         CreateVerifier(code).Verify();
@@ -27,16 +27,16 @@ val only = arr.Where(x => x == 2).SingleOrError(() => "none", () => "many")
 import System.*
 import System.Linq.*
 
-val arr = [1, 2, 3]
-val arrResult = arr.ToArrayOrException()
-val listResult = arr.ToListOrException()
-val setResult = arr.ToHashSetOrException()
-val dictResult = arr.ToDictionaryOrException((x: int) => x, (x: int) => x.ToString())
+let arr = [1, 2, 3]
+let arrResult = arr.ToArrayOrException()
+let listResult = arr.ToListOrException()
+let setResult = arr.ToHashSetOrException()
+let dictResult = arr.ToDictionaryOrException((x: int) => x, (x: int) => x.ToString())
 
-val total = arrResult.Match(ok => ok.Length, error => 0)
-val listCount = listResult.Match(ok => ok.Count, error => 0)
-val setCount = setResult.Match(ok => ok.Count, error => 0)
-val dictCount = dictResult.Match(ok => ok.Count, error => 0)
+let total = arrResult.Match(ok => ok.Length, error => 0)
+let listCount = listResult.Match(ok => ok.Count, error => 0)
+let setCount = setResult.Match(ok => ok.Count, error => 0)
+let dictCount = dictResult.Match(ok => ok.Count, error => 0)
 """;
 
         CreateVerifier(code).Verify();
@@ -49,16 +49,16 @@ val dictCount = dictResult.Match(ok => ok.Count, error => 0)
 import System.*
 import System.Linq.*
 
-val arr = [1, 2, 3]
-val arrResult = arr.ToArrayOrError(ex => ex.Message)
-val listResult = arr.ToListOrError(ex => ex.Message)
-val setResult = arr.ToHashSetOrError(ex => ex.Message)
-val dictResult = arr.ToDictionaryOrError((x: int) => x, (x: int) => x.ToString(), ex => ex.Message)
+let arr = [1, 2, 3]
+let arrResult = arr.ToArrayOrError(ex => ex.Message)
+let listResult = arr.ToListOrError(ex => ex.Message)
+let setResult = arr.ToHashSetOrError(ex => ex.Message)
+let dictResult = arr.ToDictionaryOrError((x: int) => x, (x: int) => x.ToString(), ex => ex.Message)
 
-val total = arrResult.Match(ok => ok.Length, error => 0)
-val listCount = listResult.Match(ok => ok.Count, error => 0)
-val setCount = setResult.Match(ok => ok.Count, error => 0)
-val dictCount = dictResult.Match(ok => ok.Count, error => 0)
+let total = arrResult.Match(ok => ok.Length, error => 0)
+let listCount = listResult.Match(ok => ok.Count, error => 0)
+let setCount = setResult.Match(ok => ok.Count, error => 0)
+let dictCount = dictResult.Match(ok => ok.Count, error => 0)
 """;
 
         CreateVerifier(code).Verify();
@@ -71,8 +71,8 @@ val dictCount = dictResult.Match(ok => ok.Count, error => 0)
 import System.*
 import System.Linq.*
 
-val arr = [1, 2, 3]
-val _ = arr.ToDictionaryOrError((x: int) => x, (ex: int) => ex)
+let arr = [1, 2, 3]
+let _ = arr.ToDictionaryOrError((x: int) => x, (ex: int) => ex)
 """;
 
         var verifier = CreateVerifier(
@@ -94,8 +94,8 @@ val _ = arr.ToDictionaryOrError((x: int) => x, (ex: int) => ex)
 import System.*
 import System.Linq.*
 
-val arr = [1, 2, 3]
-val _ = arr.DoesNotExist()
+let arr = [1, 2, 3]
+let _ = arr.DoesNotExist()
 """;
 
         var verifier = CreateVerifier(

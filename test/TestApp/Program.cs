@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 
@@ -261,7 +261,7 @@ class Program
     static void ReadType()
     {
         string sourceCode = """
-        val x : (int -> bool)[] = 42
+        let x : (int -> bool)[] = 42
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
@@ -327,7 +327,7 @@ class Program
         string sourceCode = """
         import System.*
 
-        val x = "Foo"
+        let x = "Foo"
         System.Console.WriteLine("Test: $x")
         """;
 

@@ -24,7 +24,7 @@ public sealed class StackAllocEscapeDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         func Create() -> System.Span<int> {
-            val values: System.Span<int> = stackalloc int[1]
+            let values: System.Span<int> = stackalloc int[1]
             return values
         }
         """;
@@ -40,8 +40,8 @@ public sealed class StackAllocEscapeDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         func Create() -> System.ReadOnlySpan<int> {
-            val values: System.Span<int> = stackalloc int[1]
-            val alias: System.ReadOnlySpan<int> = values
+            let values: System.Span<int> = stackalloc int[1]
+            let alias: System.ReadOnlySpan<int> = values
             return alias
         }
         """;
@@ -57,7 +57,7 @@ public sealed class StackAllocEscapeDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         func Create() -> System.Span<int> {
-            val values: System.Span<int> = stackalloc int[1]
+            let values: System.Span<int> = stackalloc int[1]
             values
         }
         """;
@@ -85,7 +85,7 @@ public sealed class StackAllocEscapeDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         func Create(array: int[]) -> System.Span<int> {
-            val values: System.Span<int> = array
+            let values: System.Span<int> = array
             return values
         }
         """;

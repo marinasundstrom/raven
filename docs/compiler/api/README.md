@@ -5,6 +5,11 @@ This document outlines the API of the Raven compiler, providing guidance on synt
 For analyzer, source-generator, refactoring, and language-server hot paths, see
 the [Compiler API performance guidance](performance.md).
 
+The examples are written in Raven and use `Raven.CodeAnalysis` directly. This
+is the preferred form for Raven tools and macros. A C# host can call the same
+.NET APIs; C# is shown only where a section specifically discusses that
+integration boundary.
+
 ---
 
 ## Syntax Analysis
@@ -15,44 +20,44 @@ This section covers the basics of syntax analysis, including parsing source code
 
 To parse source code into a syntax tree, use the following example:
 
-```csharp
-let x : int = 2;
+```raven
+let x: int = 2
 
 if (x > 2) {
-    return (6 + 2) * 2;
+    return (6 + 2) * 2
 } else {
     return foo.bar(2)
-        .GetId(1, z + 2, "Foo");
+        .GetId(1, z + 2, "Foo")
 }
 ```
 
 Here’s how to parse the code:
 
-```csharp
-var syntaxTree = SyntaxTree.ParseText("...");
+```raven
+import Raven.CodeAnalysis.Syntax.*
 
-// Retrieves the CompilationUnit (root syntax node)
-var root = syntaxTree.GetRoot();
+let syntaxTree = SyntaxTree.ParseText("...")
+let root = syntaxTree.GetRoot() // CompilationUnitSyntax
 ```
 
 ### Converting a Syntax Tree Back to Source Code
 
 To convert a syntax tree back to its source code:
 
-```csharp
-var sourceCode = root.ToFullString();
+```raven
+let sourceCode = root.ToFullString()
 ```
 
 The output will reproduce the original code:
 
-```csharp
-let x : int = 2;
+```raven
+let x: int = 2
 
 if (x > 2) {
-    return (6 + 2) * 2;
+    return (6 + 2) * 2
 } else {
     return foo.bar(2)
-        .GetId(1, z + 2, "Foo");
+        .GetId(1, z + 2, "Foo")
 }
 ```
 
@@ -60,15 +65,22 @@ if (x > 2) {
 
 You can print the syntax tree’s hierarchical structure to the console:
 
-```csharp
-root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true });
+```raven
+root.PrintSyntaxTree(PrinterOptions {
+    IncludeNames = true
+    IncludeTokens = true
+    IncludeTrivia = true
+    IncludeSpans = true
+    IncludeLocations = true
+    Colorize = true
+})
 ```
 
 #### Example Syntax Tree Output
 
 For the following code:
 
-```csharp
+```raven
 import System.*
 
 sayHello("Bob")
@@ -198,24 +210,29 @@ CompilationUnit [0..147] (1,1) - (9,2)
 
 Syntax trees are immutable, so updating a `SyntaxNode` creates a new, detached node:
 
-```csharp
-var sourceCode = 
+```raven
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+let sourceCode = """
+    let x: int = "foo"
     """
-    let x : int = "foo";
-    """;
 
-var syntaxTree = SyntaxTree.ParseText(sourceCode);
-var root = syntaxTree.GetRoot();
+let syntaxTree = SyntaxTree.ParseText(sourceCode)
+let root = syntaxTree.GetRoot()
+let oldNode = root.DescendantNodes()
+    .OfType<VariableDeclaratorSyntax>()
+    .First()
+let newIdentifier = Identifier("Foo") {
+    LeadingTrivia = oldNode.Identifier.LeadingTrivia
+    TrailingTrivia = oldNode.Identifier.TrailingTrivia
+}
+let newNode = oldNode with { Identifier = newIdentifier }
 
-// Modify a node
-var oldNode = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
-var newNode = oldNode.WithName(SyntaxFactory.IdentifierName("Foo"));
+let newCompilationUnit = root.ReplaceNode(oldNode, newNode)
 
-// Replace the node in the tree
-var newCompilationUnit = root.ReplaceNode(oldNode, newNode);
-
-// Create a new tree
-var newTree = SyntaxTree.Create(newCompilationUnit);
+let newTree = SyntaxTree.Create(newCompilationUnit)
 ```
 
 ### Formatting factory-built syntax
@@ -226,16 +243,16 @@ needs explicit trivia or a formatting pass before it is readable.
 
 For full normalization:
 
-```csharp
-var prettyNode = rawNode.NormalizeWhitespace();
+```raven
+let prettyNode = rawNode.NormalizeWhitespace()
 ```
 
 For targeted formatting, annotate the nodes you want formatted and use elastic
 trivia where spacing/newlines should be computed by the formatter:
 
-```csharp
-var updatedNode = rawNode.WithAdditionalAnnotations(Formatter.Annotation);
-var prettyNode = Formatter.Format(updatedNode);
+```raven
+let updatedNode = rawNode.WithAdditionalAnnotations(Formatter.Annotation)
+let prettyNode = Formatter.Format(updatedNode)
 ```
 
 Use `SyntaxFactory.ElasticSpace`, `SyntaxFactory.ElasticLineFeed`, and related
@@ -246,28 +263,30 @@ whitespace.
 
 You can update a tree directly from modified source text. The compiler efficiently reuses syntax nodes:
 
-```csharp
-var sourceText = SourceText.From(
-    """
+```raven
+import System.Console.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+let sourceText = SourceText.From("""
     if foo {
         return 0
     }
-    """);
+    """)
 
-var syntaxTree = SyntaxTree.ParseText(sourceText);
+let syntaxTree = SyntaxTree.ParseText(sourceText)
 
-var changedSourceText = SourceText.From(
-    """
+let changedSourceText = SourceText.From("""
     if foo {
         return 0
     } else if bar {
         return 1
     }
-    """);
+    """)
 
-var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-var newRoot = updatedTree.GetRoot();
-Console.WriteLine(newRoot.ToFullString());
+let updatedTree = syntaxTree.WithChangedText(changedSourceText)
+let newRoot = updatedTree.GetRoot()
+WriteLine(newRoot.ToFullString())
 ```
 
 ---
@@ -284,7 +303,7 @@ Retrieve symbol information using the `Compilation` and `SemanticModel` classes.
 
 For the code:
 
-```csharp
+```raven
 import System.*
 
 let x: int = 2
@@ -294,37 +313,40 @@ Console.WriteLine(x)
 
 Use the following example:
 
-```csharp
-var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
+```raven
+import System.Console.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
 
-var compilation = Compilation.Create("MyAssembly", new CompilationOptions(OutputKind.ConsoleApplication))
-    .AddSyntaxTrees(syntaxTree)
-    .AddReferences([
-        // The path to the reference assembly for System.Runtime. Will determine what version of .NET you compile against.
-        // On Windows the path is different.Despite pointing at a file in Mac. The app will run on other platforms.
-        MetadataReference.CreateFromFile("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net10.0/System.Runtime.dll"),
-        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
-    ]);
+let syntaxTree = SyntaxTree.ParseText(sourceText)
+let compilation = Compilation.Create(
+    "MyAssembly",
+    [syntaxTree],
+    references,
+    CompilationOptions(OutputKind.ConsoleApplication))
 
-syntaxTree = compilation.SyntaxTrees.First();
-
-var semanticModel = compilation.GetSemanticModel(syntaxTree);
-var variableDeclarator = syntaxTree.GetRoot()
+let semanticModel = compilation.GetSemanticModel(syntaxTree)
+let variableDeclarator = syntaxTree.GetRoot()
     .DescendantNodes()
     .OfType<VariableDeclaratorSyntax>()
-    .First();
+    .First()
 
-var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol;
-Console.WriteLine(symbol.Name);
+let symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol
+WriteLine(symbol.Name)
 ```
+
+Here `references` is the host's reference-assembly set for the selected target
+framework. Normal `.rvnproj` builds obtain it from MSBuild; a direct
+`Compilation` host supplies it explicitly.
 
 ### Completion API
 
 The completion surface is available on both `Compilation` and `SemanticModel`:
 
-```csharp
-var fromCompilation = compilation.GetCompletions(syntaxTree, position);
-var fromSemanticModel = semanticModel.GetCompletions(position);
+```raven
+let fromCompilation = compilation.GetCompletions(syntaxTree, position)
+let fromSemanticModel = semanticModel.GetCompletions(position)
 ```
 
 Each `CompletionItem` carries the display text, insertion text, and replacement span.
@@ -342,27 +364,29 @@ The operations API provides a stable, syntax-agnostic view of semantics that mir
 
 Once you have a valid compilation, you can emit code using the `Emit` method:
 
-```csharp
-var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
+```raven
+import System.Console.*
+import System.IO.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
 
-var compilation = Compilation.Create("MyAssembly", new CompilationOptions(OutputKind.ConsoleApplication))
-    .AddSyntaxTrees(syntaxTree)
-    .AddReferences([
-        MetadataReference.CreateFromFile(("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net10.0/System.Runtime.dll"),
-        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
-    ]);
+let syntaxTree = SyntaxTree.ParseText(sourceText)
+let compilation = Compilation.Create(
+    "MyAssembly",
+    [syntaxTree],
+    references,
+    CompilationOptions(OutputKind.ConsoleApplication))
 
-using var stream = File.OpenWrite("MyAssembly.exe");
-var result = compilation.Emit(stream);
+use stream = File.OpenWrite("MyAssembly.dll")
+let result = compilation.Emit(stream)
 
-if(result.Success) 
-{
-    Console.WriteLine("Build succeeded");
+if result.Success {
+    WriteLine("Build succeeded")
 }
 
-// Get diagnostics
-var diagnostics = result.Diagnostics;
-
+let diagnostics = result.Diagnostics
 ```
 
-This will generate an executable (`MyAssembly.exe`) from your source code.
+This emits the managed assembly to `MyAssembly.dll`. An application host also
+needs the matching runtime configuration and dependencies; prefer the Raven
+project system when producing a runnable application.

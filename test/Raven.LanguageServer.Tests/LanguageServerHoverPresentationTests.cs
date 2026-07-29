@@ -63,8 +63,8 @@ func Test(item: Foo) -> bool {
     {
         const string code = """
 func Main() {
-    val local = DescribePoint((5, 1))
-    val lambda = func(value: int) -> int {
+    let local = DescribePoint((5, 1))
+    let lambda = func(value: int) -> int {
         return value + 1
     }
 }
@@ -200,7 +200,7 @@ record Person(
         const string code = """
 class C {
     func Test() -> unit {
-        val names: string[] = null
+        let names: string[] = null
     }
 }
 """;
@@ -271,7 +271,7 @@ import System.Collections.Generic.*
 
 class C {
     func Test() -> unit {
-        val values: List<int> = null
+        let values: List<int> = null
     }
 }
 """;
@@ -328,7 +328,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
 class C {
     unsafe static func Test() -> unit {
         var value = 0
-        val pointer: *int = &value
+        let pointer: *int = &value
     }
 }
 """;
@@ -365,7 +365,7 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val maybe: int? = null
+        let maybe: int? = null
     }
 }
 """;
@@ -384,7 +384,7 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val pair: (int, string) = null
+        let pair: (int, string) = null
     }
 }
 """;
@@ -403,7 +403,7 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val callback: (int) -> string = null
+        let callback: (int) -> string = null
     }
 }
 """;
@@ -422,7 +422,7 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val either: int | string = null
+        let either: int | string = null
     }
 }
 """;
@@ -441,9 +441,9 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val either: int | string = null
-        val pair: (int, string) = null
-        val callback: (int) -> string = null
+        let either: int | string = null
+        let pair: (int, string) = null
+        let callback: (int) -> string = null
     }
 }
 """;
@@ -488,7 +488,7 @@ record Payload(val Value: int)
 
 class C {
     func Test() -> unit {
-        val item: Option<Payload> = null
+        let item: Option<Payload> = null
     }
 }
 """;
@@ -516,7 +516,7 @@ import System.*
 
 class C {
     func Test() -> unit {
-        val item: Option<string> = null
+        let item: Option<string> = null
     }
 }
 """;
@@ -545,7 +545,7 @@ record Right(val Value: bool)
 
 class C {
     func Test() -> unit {
-        val test: Left | Right = null
+        let test: Left | Right = null
     }
 }
 """;
@@ -586,7 +586,7 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val pair: (status: int, message: string) = null
+        let pair: (status: int, message: string) = null
     }
 }
 """;
@@ -629,8 +629,8 @@ class C {
         const string code = """
 class C {
     func Test() -> unit {
-        val named: (status: int, message: string) = null
-        val unnamed: (int, string) = null
+        let named: (status: int, message: string) = null
+        let unnamed: (int, string) = null
     }
 }
 """;
@@ -693,7 +693,7 @@ record Foo(
 
 class C {
     func Test() -> unit {
-        val foo = Foo(
+        let foo = Foo(
             Name: "Foo",
             Item: .Some("Foo")
         )
@@ -834,7 +834,7 @@ func Run() -> int {
     {
         const string code = """
 func GetConnectionString() -> string {
-    val trimmed = "value"
+    let trimmed = "value"
     return trimmed
 }
 """;
@@ -922,7 +922,7 @@ extension WidgetExtensions for Widget {
         string expectedContaining,
         string expectedSignature)
     {
-        var code = $"import System.*{Environment.NewLine}{Environment.NewLine}val parsed = {expression}";
+        var code = $"import System.*{Environment.NewLine}{Environment.NewLine}let parsed = {expression}";
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
         var references = LanguageServerTestReferences.Default
@@ -964,8 +964,8 @@ extension WidgetExtensions for Widget {
 import System.*
 import System.Collections.Generic.*
 
-val values = Dictionary<string, int>()
-val found = values.TryGetValue("answer")
+let values = Dictionary<string, int>()
+let found = values.TryGetValue("answer")
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
@@ -1139,7 +1139,7 @@ import System.Console.*
 
 class Runner {
     func Run() {
-        val x = System.Result<int, string>.Error("42")
+        let x = System.Result<int, string>.Error("42")
     }
 }
 """;
@@ -1191,7 +1191,7 @@ import System.Result.*
 
 class C {
     func Test() {
-        val ok: Result<int, string> = Ok(2)
+        let ok: Result<int, string> = Ok(2)
 
         match ok {
             Ok(_) => {}
@@ -1256,10 +1256,10 @@ class Ok {}
 
 class C {
     func Test() {
-        val result: Result<int, string> = .Ok(2)
+        let result: Result<int, string> = .Ok(2)
 
         match result {
-            Ok(val value) => {}
+            Ok(let value) => {}
             Error(_) => {}
         }
     }
@@ -1436,7 +1436,7 @@ class GET<T> : Endpoint {
     init(pattern: string, handler: T -> string) : base(handler) { }
 }
 
-val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
@@ -1494,7 +1494,7 @@ class VehicleAppServices {
     static func GetConnectionString() -> string => ""
 }
 
-val builder = Services.UseNpgsql(VehicleAppServices.GetConnectionString())
+let builder = Services.UseNpgsql(VehicleAppServices.GetConnectionString())
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
@@ -1583,7 +1583,7 @@ System.Console.WriteLine(true)
 import System.*
 
 func Main() -> unit {
-    val value = 42
+    let value = 42
     Console.WriteLine("value: ${value.ToString()}")
 }
 """;
@@ -1644,7 +1644,7 @@ class C {
     }
 
     static func Run() -> unit {
-        val value = Identity<string>("ok")
+        let value = Identity<string>("ok")
     }
 }
 """;
@@ -1705,12 +1705,12 @@ import System.Text.Json.*
 
 record Foo(val Name: string)
 
-val foo = Foo("Foo")
-val options = JsonSerializerOptions {
+let foo = Foo("Foo")
+let options = JsonSerializerOptions {
     WriteIndented = true
 }
 
-val str = JsonSerializer.Serialize(foo, options)
+let str = JsonSerializer.Serialize(foo, options)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
@@ -1907,7 +1907,7 @@ class Functions {
     }
 
     func Test() -> int {
-        val increment: (int) -> int = x => x + 1
+        let increment: (int) -> int = x => x + 1
         increment(1)
     }
 }
@@ -1957,7 +1957,7 @@ class Functions {
         const string code = """
 class Broken {
     func Test() -> unit {
-        val value: MissingType = 42
+        let value: MissingType = 42
     }
 }
 """;
@@ -2018,7 +2018,7 @@ class Broken {
     {
         const string code = """
 func Main() -> unit {
-    val invoiceTotal: Either<int, string> = 42
+    let invoiceTotal: Either<int, string> = 42
 }
 
 union Either<T1, T2>(T1 | T2)
@@ -2092,7 +2092,7 @@ class JsonValue {
 
 class Reader {
     func Read() -> unit {
-        val values = List<JsonValue>()
+        let values = List<JsonValue>()
     }
 }
 """;
@@ -2402,11 +2402,11 @@ class Computation(var Value: ContinuationContext) {
 
 class C {
     func Run(value: ContinuationContext) -> Payload {
-        val f = func (x: ContinuationContext) {
+        let f = func (x: ContinuationContext) {
             Computation(x)
         }
 
-        val x = f(value).ContinueWith(x => {
+        let x = f(value).ContinueWith(x => {
             return x.Result
         })
 
@@ -2456,11 +2456,11 @@ class Computation(var Value: ContinuationContext) {
 
 class C {
     func Run(value: ContinuationContext) -> Payload {
-        val f = func (x: ContinuationContext) {
+        let f = func (x: ContinuationContext) {
             Computation(x)
         }
 
-        val x = f(value).ContinueWith(x => {
+        let x = f(value).ContinueWith(x => {
             return x.Result
         })
 
@@ -2509,8 +2509,8 @@ class C {
         const string code = """
 class C {
     func Run() -> int {
-        val seed = 1
-        val compute = func Step(n: int) -> int {
+        let seed = 1
+        let compute = func Step(n: int) -> int {
             if n < 1
                 n
             else
@@ -2559,7 +2559,7 @@ class C {
         const string code = """
 class C {
     func Run() -> int {
-        val project: (int) -> int = (x: int) => x + 1
+        let project: (int) -> int = (x: int) => x + 1
         project(5)
     }
 }
@@ -2611,7 +2611,7 @@ class App {
     static func Log(value: string) -> unit { }
 
     static func Main() -> unit {
-        val handler: PropertyChangedHandler = (sender, args) => {
+        let handler: PropertyChangedHandler = (sender, args) => {
             Log(args.PropertyName ?? "")
         }
     }
@@ -2770,7 +2770,7 @@ class C {
         const string code = """
 class C {
     func Run() -> int {
-        val [a, b] = [1, 2]
+        let [a, b] = [1, 2]
         a + b
     }
 }
@@ -2814,8 +2814,8 @@ class C {
         const string code = """
 class C {
     func Run() -> int {
-        val obj = (3, "test")
-        val (id, name) = obj
+        let obj = (3, "test")
+        let (id, name) = obj
         id
     }
 }
@@ -2871,11 +2871,11 @@ import System.Linq.*
 
 class C {
     func Run() -> () {
-        val tuples = [(1, "x")]
-        val rows = [[1, 2, 3]]
+        let tuples = [(1, "x")]
+        let rows = [[1, 2, 3]]
 
-        val s = tuples.Select(((a, b)) => b)
-        val t = rows.Select(([head, ..rest]) => rest)
+        let s = tuples.Select(((a, b)) => b)
+        let t = rows.Select(([head, ..rest]) => rest)
 
         _ = [s, t]
     }
@@ -2916,8 +2916,8 @@ class C {
         const string code = """
 class C {
     func Run() -> int {
-        val ((a, b), c) = ((1, 2), 3)
-        val [head, [inner1, inner2]] = [1, [2, 3]]
+        let ((a, b), c) = ((1, 2), 3)
+        let [head, [inner1, inner2]] = [1, [2, 3]]
         a + b + c + head + inner1 + inner2
     }
 }
@@ -2958,7 +2958,7 @@ class C {
         const string code = """
 class C {
     func Run(value: (int, int)) -> int {
-        if value is (val x, 0) {
+        if value is (let x, 0) {
             return x
         }
 
@@ -2994,7 +2994,7 @@ class C {
 class C {
     func Run(values: int[]) -> int {
         return values match {
-            [val head, ..val rest] => head + rest.Length
+            [let head, ..let rest] => head + rest.Length
             _ => 0
         }
     }
@@ -3208,7 +3208,7 @@ class C {
 class C {
     func Run(points: (int, int)[]) -> int {
         var total = 0
-        for (val x, 0) in points {
+        for (let x, 0) in points {
             total += x
         }
 
@@ -3282,7 +3282,7 @@ class C {
         const string code = """
 class C {
     func Run() -> unit {
-        val points: int[][] = [[2, 3], [2, 0], [5, 1]]
+        let points: int[][] = [[2, 3], [2, 0], [5, 1]]
         for var [x, 0] in points {
             x
         }
@@ -3326,8 +3326,8 @@ record Person(val Name: string, val Age: int, val Items: string[])
 
 class C {
     func Run() -> unit {
-        val people = [Person("Ada", 42, ["tea", "cake"])]
-        for val (name, age when > 18, [item1, item2]) in people {
+        let people = [Person("Ada", 42, ["tea", "cake"])]
+        for let (name, age when > 18, [item1, item2]) in people {
             name.Length + age + item1.Length + item2.Length
         }
     }
@@ -3377,10 +3377,10 @@ import System.*
 
 class C {
     func Run() -> unit {
-        val arr1 = [1, 2, 3]
-        val arr2 = [1, ...arr1, 3]
+        let arr1 = [1, 2, 3]
+        let arr2 = [1, ...arr1, 3]
 
-        for val [..2, ..2 x, ...] in [[2, 1..4]] {
+        for let [..2, ..2 x, ...] in [[2, 1..4]] {
             x
         }
     }
@@ -3489,7 +3489,7 @@ class Counter {
 
 class C {
     func Run() -> int {
-        val counter = Counter()
+        let counter = Counter()
         counter.Value()
     }
 }
@@ -3524,7 +3524,7 @@ class C {
         const string code = """
 class C {
     func Run(person: (string, int)) -> string {
-        if val (name, >= 18) = person {
+        if let (name, >= 18) = person {
             return name
         }
 
@@ -3563,7 +3563,7 @@ class Person {
 
 class C {
     func Run() -> unit {
-        val person = Person {
+        let person = Person {
             Name = ""
         }
     }
@@ -3595,7 +3595,7 @@ record Options(val WriteIndented: bool)
 
 class C {
     func Run() -> unit {
-        val options = Options(false) with {
+        let options = Options(false) with {
             WriteIndented = true
         }
     }
@@ -3655,7 +3655,7 @@ record Foo(
 
 class C {
     func Run() -> unit {
-        val foo = Foo(
+        let foo = Foo(
             Name: "Foo",
             Item: .Some("Foo"),
             Test: true
@@ -3769,7 +3769,7 @@ class Bar {
 
 class C {
     func Run() -> unit {
-        val value: Bar = .Instance
+        let value: Bar = .Instance
     }
 }
 """;
@@ -3846,7 +3846,7 @@ class Counter {
     private var count: int = 0
 
     func Test() {
-        val current = self.count
+        let current = self.count
     }
 }
 """;
@@ -3891,7 +3891,7 @@ class Runner {
     }
 
     static func Main() -> unit {
-        val query = 5
+        let query = 5
             |> Where(x => x > 1)
 
         query
@@ -3926,7 +3926,7 @@ class Runner {
 
             var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(null, [resolution.Value, semanticModel, root, hoverOffset])!;
             signature.ShouldContain("Where");
-            signature.ShouldNotContain("val query");
+            signature.ShouldNotContain("let query");
             signature.ShouldNotContain("Error");
         }
     }

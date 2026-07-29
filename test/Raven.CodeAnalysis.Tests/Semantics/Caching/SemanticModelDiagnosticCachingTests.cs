@@ -42,7 +42,7 @@ class Box {
 
 class C {
     static func Main(box: Box) -> () {
-        val vehicle = box.Select(vehicle => vehicle)
+        let vehicle = box.Select(vehicle => vehicle)
         vehicle.ToString()
     }
 }
@@ -70,7 +70,7 @@ class Box {
 
 class C {
     static func Main(box: Box) -> () {
-        val vehicle = box.Select(vehicle => vehicle)
+        let vehicle = box.Select(vehicle => vehicle)
         vehicle.ToString()
     }
 }
@@ -105,7 +105,7 @@ namespace App
 import Utilities.*
 
 func Main() -> int {
-    val x = A(42)
+    let x = A(42)
     return x
 }
 """, path: "Main.rvn");
@@ -139,7 +139,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
 class JsonObjectConverter {
     private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
         if element.ValueKind is JsonValueKind.Array {
-            val values = List<JsonValue>()
+            let values = List<JsonValue>()
 
             for item in element.EnumerateArray() {
                 values.Add(ReadJsonValue(item, options))
@@ -149,7 +149,7 @@ class JsonObjectConverter {
         }
 
         if element.ValueKind is JsonValueKind.Object {
-            val properties = Dictionary<string, JsonValue>()
+            let properties = Dictionary<string, JsonValue>()
 
             for property in element.EnumerateObject() {
                 properties.Add(property.Name, ReadJsonValue(property.Value, options))
@@ -410,10 +410,10 @@ class C {
             OutputKind.DynamicallyLinkedLibrary,
             performanceInstrumentation: instrumentation);
         var tree = SyntaxTree.ParseText("""
-val result: Result<int, string> = .Ok(42)
+let result: Result<int, string> = .Ok(42)
 
-val text = match result {
-    .Ok(val value) => value.ToString()
+let text = match result {
+    .Ok(let value) => value.ToString()
 }
 
 union Result<T, E> {
@@ -447,8 +447,8 @@ union Result<T, E> {
         var tree = SyntaxTree.ParseText("""
 class C {
     static func Main() -> int {
-        val offset = 1
-        val read = func () -> int {
+        let offset = 1
+        let read = func () -> int {
             offset
         }
 
@@ -481,8 +481,8 @@ class C {
         var tree = SyntaxTree.ParseText("""
 class C {
     static func Main() -> int {
-        val offset = 1
-        val read = func () -> int {
+        let offset = 1
+        let read = func () -> int {
             offset
         }
 

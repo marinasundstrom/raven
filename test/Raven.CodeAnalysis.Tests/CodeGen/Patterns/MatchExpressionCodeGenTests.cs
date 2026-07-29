@@ -46,8 +46,8 @@ public class MatchExpressionCodeGenTests
     public void MatchExpression_WithValueTypeArm_EmitsAndRuns()
     {
         const string code = """
-val value: object = 42
-val result = match value {
+let value: object = 42
+let result = match value {
     int i => i.ToString()
     _ => "None"
 }
@@ -67,9 +67,9 @@ System.Console.WriteLine(result)
         const string code = """
 class Program {
     static func Main() {
-        val describer = Describer()
-        val zero = describer.Describe(0)
-        val two = describer.Describe(2)
+        let describer = Describer()
+        let zero = describer.Describe(0)
+        let two = describer.Describe(2)
         System.Console.WriteLine(zero + "," + two)
     }
 }
@@ -132,14 +132,14 @@ union State {
     public void MatchExpression_WithStringLiteralPattern_MatchesExactValue()
     {
         const string code = """
-val fooValue: string = "foo"
-val foo = match fooValue {
+let fooValue: string = "foo"
+let foo = match fooValue {
     "foo" => "str"
     _ => "None"
 }
 
-val emptyValue: string = ""
-val empty = match emptyValue {
+let emptyValue: string = ""
+let empty = match emptyValue {
     "foo" => "str"
     _ => "None"
 }
@@ -160,7 +160,7 @@ System.Console.WriteLine(foo + "," + empty)
 class Formatter {
     public func Describe(values: int[]) -> string {
         return match values {
-            [val first, val second] => (first + second).ToString()
+            [let first, let second] => (first + second).ToString()
             _ => "none"
         }
     }
@@ -168,7 +168,7 @@ class Formatter {
 
 class Program {
     static func Main() {
-        val formatter = Formatter()
+        let formatter = Formatter()
         System.Console.WriteLine(formatter.Describe([2, 3]))
     }
 }
@@ -188,7 +188,7 @@ class Program {
 class Formatter {
     public func Describe(values: int[]) -> string {
         return match values {
-            [val first, ..val middle, val last] => (first + middle[0] + last).ToString()
+            [let first, ..let middle, let last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
     }
@@ -196,7 +196,7 @@ class Formatter {
 
 class Program {
     static func Main() {
-        val formatter = Formatter()
+        let formatter = Formatter()
         System.Console.WriteLine(formatter.Describe([2, 3, 4]))
     }
 }
@@ -218,7 +218,7 @@ import System.Collections.Generic.*
 class Formatter {
     public func Describe(values: List<int>) -> string {
         return match values {
-            [val first, ..val middle, val last] => (first + middle[0] + last).ToString()
+            [let first, ..let middle, let last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
     }
@@ -226,7 +226,7 @@ class Formatter {
 
 class Program {
     static func Main() {
-        val formatter = Formatter()
+        let formatter = Formatter()
         System.Console.WriteLine(formatter.Describe([2, 3, 4]))
     }
 }
@@ -246,7 +246,7 @@ class Program {
 class Formatter {
     public func Describe(values: int[]) -> string {
         return match values {
-            [..2 val start, val end] => (start[0] + start[1] + end).ToString()
+            [..2 let start, let end] => (start[0] + start[1] + end).ToString()
             _ => "none"
         }
     }
@@ -254,7 +254,7 @@ class Formatter {
 
 class Program {
     static func Main() {
-        val formatter = Formatter()
+        let formatter = Formatter()
         System.Console.WriteLine(formatter.Describe([2, 3, 4]))
     }
 }
@@ -274,7 +274,7 @@ class Program {
 class Formatter {
     public func Describe(text: string) -> string {
         return match text {
-            [val first, ..2 val middle, val last] => first.ToString() + ":" + middle + ":" + last.ToString()
+            [let first, ..2 let middle, let last] => first.ToString() + ":" + middle + ":" + last.ToString()
             _ => "none"
         }
     }
@@ -282,7 +282,7 @@ class Formatter {
 
 class Program {
     static func Main() {
-        val formatter = Formatter()
+        let formatter = Formatter()
         System.Console.WriteLine(formatter.Describe("rune"))
     }
 }
@@ -307,8 +307,8 @@ union Result<T, TError> {
 class Formatter {
     public func Format(result: Result<int, string>) -> string {
         return match result {
-            .Ok(val value) => "ok ${value}"
-            .Error(val message) => "error ${message}"
+            .Ok(let value) => "ok ${value}"
+            .Error(let message) => "error ${message}"
         }
     }
 }
@@ -348,7 +348,7 @@ union Test {
 class Formatter {
     public func Describe(value: Test) -> string {
         return match value {
-            .Something(val text) => text
+            .Something(let text) => text
             .Nothing => "none"
         }
     }
@@ -356,9 +356,9 @@ class Formatter {
 
 class Program {
     static func Main() {
-        val formatter = Formatter()
-        val something = Test.Something("hello")
-        val nothing = Test.Nothing
+        let formatter = Formatter()
+        let something = Test.Something("hello")
+        let nothing = Test.Nothing
         System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describe(nothing))
     }
 }
@@ -377,16 +377,16 @@ class Program {
         const string code = """
 import System.*
 
-val ok: Result<int, string> = .Ok(99)
-val err = Result<int, string>.Error("boom")
+let ok: Result<int, string> = .Ok(99)
+let err = Result<int, string>.Error("boom")
 
 System.Console.WriteLine(format(ok))
 System.Console.WriteLine(format((Result<int, string>)err))
 
 func format<T>(result: Result<T, string>) -> string {
     return match result {
-        .Ok(val value) => "ok ${value}"
-        .Error(val message) => "error '${message}'"
+        .Ok(let value) => "ok ${value}"
+        .Error(let message) => "error '${message}'"
     }
 }
 
@@ -415,14 +415,14 @@ union Test {
 class Program {
     static func describe(value: Test) -> string {
         return match value {
-            .Something(val text) => text
+            .Something(let text) => text
             .Nothing => "none"
         }
     }
 
     static func Main() {
-        val a = Test.Something("foo")
-        val b = Test.Nothing
+        let a = Test.Something("foo")
+        let b = Test.Nothing
         System.Console.WriteLine(describe(a) + "," + describe(b))
     }
 }

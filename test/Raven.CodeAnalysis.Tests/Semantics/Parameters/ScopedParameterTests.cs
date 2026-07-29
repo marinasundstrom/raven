@@ -49,7 +49,7 @@ public sealed class ScopedParameterTests : CompilationTestBase
 
     [Theory]
     [InlineData("return value")]
-    [InlineData("val alias = value\nreturn alias")]
+    [InlineData("let alias = value\nreturn alias")]
     public void ScopedRefLikeParameter_CannotEscapeThroughReturn(string body)
     {
         var source = $$"""
@@ -99,7 +99,7 @@ public sealed class ScopedParameterTests : CompilationTestBase
     [Theory]
     [InlineData("func Invalid(scoped value: int) {}")]
     [InlineData("class C { func Invalid(scoped value: string) {} }")]
-    [InlineData("val invalid = (scoped value: int) => value")]
+    [InlineData("let invalid = (scoped value: int) => value")]
     [InlineData("func Invalid(scoped params values: int[]) {}")]
     public void ScopedOrdinaryValueParameter_IsRejected(string source)
     {
@@ -129,7 +129,7 @@ public sealed class ScopedParameterTests : CompilationTestBase
     {
         const string source = """
             func Outer(scoped ref value: int) {
-                val capture = () => value
+                let capture = () => value
             }
             """;
 

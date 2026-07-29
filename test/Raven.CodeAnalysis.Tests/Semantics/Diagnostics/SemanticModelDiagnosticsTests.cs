@@ -62,7 +62,7 @@ import System.*
 import System.Console.*
 
 func Main() -> () {
-    val x = 1
+    let x = 1
     match x {
         2 => WriteLine(("Yes")
         _ => WriteLine(("No")
@@ -89,8 +89,8 @@ func Main() -> () {
         const string source = """
 import System.Console.*
 
-val increment = (x: int, amount: int) -> int => x + amount
-val result = 5 |> increment(2)
+let increment = (x: int, amount: int) -> int => x + amount
+let result = 5 |> increment(2)
 
 WriteLine("Result: $result")
 """;

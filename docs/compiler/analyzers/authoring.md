@@ -6,46 +6,42 @@ reports diagnostics through the supplied analysis context.
 
 ## Minimal Analyzer Shape
 
-```csharp
-using System.Collections.Immutable;
+```raven
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Diagnostics.*
+import Raven.CodeAnalysis.Syntax.*
 
-using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Diagnostics;
-using Raven.CodeAnalysis.Syntax;
+class ExampleAnalyzer : DiagnosticAnalyzer {
+    static val Descriptor = DiagnosticDescriptor.Create(
+        "AN0001",
+        "Example diagnostic",
+        null,
+        "",
+        "Example diagnostic for '{0}'.",
+        "Usage",
+        DiagnosticSeverity.Warning)
 
-public sealed class ExampleAnalyzer : DiagnosticAnalyzer
-{
-    public const string DiagnosticId = "AN0001";
+    override val SupportedDiagnostics: ImmutableArray<DiagnosticDescriptor> =>
+        [Descriptor]
 
-    private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
-        id: DiagnosticId,
-        title: "Example diagnostic",
-        description: null,
-        helpLinkUri: string.Empty,
-        messageFormat: "Example diagnostic for '{0}'.",
-        category: "Usage",
-        defaultSeverity: DiagnosticSeverity.Warning);
-
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Descriptor];
-
-    public override void Initialize(AnalysisContext context)
-    {
-        context.EnableConcurrentExecution();
-
-        context.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+    override func Initialize(context: AnalysisContext) {
+        context.EnableConcurrentExecution()
+        context.RegisterSyntaxNodeAction(
+            AnalyzeIdentifier,
+            SyntaxKind.IdentifierName)
     }
 
-    private static void AnalyzeIdentifier(SyntaxNodeAnalysisContext context)
-    {
-        if (context.Node is not IdentifierNameSyntax identifier)
-            return;
+    static func AnalyzeIdentifier(context: SyntaxNodeAnalysisContext) {
+        let identifier: IdentifierNameSyntax = context.Node else {
+            return
+        }
 
-        if (identifier.Identifier.ValueText == "example")
-        {
+        if identifier.Identifier.ValueText == "example" {
             context.ReportDiagnostic(Diagnostic.Create(
                 Descriptor,
                 identifier.GetLocation(),
-                identifier.Identifier.ValueText));
+                [identifier.Identifier.ValueText]))
         }
     }
 }
@@ -206,17 +202,17 @@ that still represent the same source declaration or metadata member.
 Use comparer-backed collections whenever an analyzer records candidates and later matches
 references:
 
-```csharp
-var candidates = new Dictionary<ISymbol, Location>(SymbolEqualityComparer.Default);
-var used = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+```raven
+let candidates = Dictionary<ISymbol, Location>(SymbolEqualityComparer.Default)
+let used = HashSet<ISymbol>(SymbolEqualityComparer.Default)
 
-var declared = context.SemanticModel.GetDeclaredSymbol(declaration);
+let declared = context.SemanticModel.GetDeclaredSymbol(declaration)
 if (declared is not null)
-    candidates[declared] = declaration.GetLocation();
+    candidates[declared] = declaration.GetLocation()
 
-var referenced = context.SemanticModel.GetSymbolInfo(identifier).Symbol;
+let referenced = context.SemanticModel.GetSymbolInfo(identifier).Symbol
 if (referenced is not null)
-    used.Add(referenced);
+    used.Add(referenced)
 ```
 
 Do not write analyzer logic that depends on `object.ReferenceEquals`, default
@@ -275,11 +271,13 @@ Analyzer participation and diagnostic severity are separate concerns.
 If a built-in analyzer needs a project-file mode, implement
 `ICompilationOptionsAwareAnalyzer`:
 
-```csharp
-public sealed class ExampleAnalyzer : DiagnosticAnalyzer, ICompilationOptionsAwareAnalyzer
-{
-    public bool ShouldAnalyze(CompilationOptions options)
-        => options.SomeAnalyzerMode == SomeAnalyzerMode.Full;
+```raven
+class ExampleAnalyzer :
+    DiagnosticAnalyzer,
+    ICompilationOptionsAwareAnalyzer {
+
+    func ShouldAnalyze(options: CompilationOptions) -> bool =>
+        options.SomeAnalyzerMode == SomeAnalyzerMode.Full
 }
 ```
 

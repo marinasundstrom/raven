@@ -18,9 +18,9 @@ public class PropertyBindingTests : DiagnosticTestBase
                 var Count: int = 0
             }
 
-            val counter = Counter()
+            let counter = Counter()
             counter.Count = 1
-            val current = counter.Count
+            let current = counter.Count
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -74,7 +74,7 @@ public class PropertyBindingTests : DiagnosticTestBase
                     get => 0
                 }
             }
-            val f = Foo()
+            let f = Foo()
             f.Bar;
             """;
 
@@ -156,9 +156,9 @@ public class PropertyBindingTests : DiagnosticTestBase
                 }
             }
 
-            val box = Box()
+            let box = Box()
             box.Value = 42
-            val current = box.Value
+            let current = box.Value
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -258,7 +258,7 @@ public class PropertyBindingTests : DiagnosticTestBase
             """
             class Counter {
                 func Read() -> int {
-                    val value = field
+                    let value = field
                     return value
                 }
             }
@@ -301,8 +301,8 @@ public class PropertyBindingTests : DiagnosticTestBase
                     Count = count
                 }
             }
-            val e = Entity("x", 1)
-            val id = e.Id
+            let e = Entity("x", 1)
+            let id = e.Id
             e.Count = 2
             """;
 
@@ -324,8 +324,8 @@ public class PropertyBindingTests : DiagnosticTestBase
                     Y = y
                 }
             }
-            val p = Point(3, 7)
-            val x = p.X
+            let p = Point(3, 7)
+            let x = p.X
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -374,11 +374,11 @@ public class PropertyBindingTests : DiagnosticTestBase
     {
         const string testCode =
             """
-            val writable: Base = Writable()
+            let writable: Base = Writable()
             writable.P = 3
 
-            val readable: Base = ReadOnly()
-            val current = readable.P
+            let readable: Base = ReadOnly()
+            let current = readable.P
 
             open class Base {
                 virtual var P: int { get; set; } = 0

@@ -131,7 +131,7 @@ class Foo {
 class Foo {
     func Test(flag: bool) {
         return {
-            val x = if flag {
+            let x = if flag {
                 1
             } else {
                 2

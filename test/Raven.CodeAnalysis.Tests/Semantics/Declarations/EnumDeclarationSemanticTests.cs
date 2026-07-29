@@ -93,8 +93,8 @@ func Pick() -> DeviceType {
 }
 
 func Use() {
-    val annotated: DeviceType = .Monitor
-    val argument = Identity(.Harddrive)
+    let annotated: DeviceType = .Monitor
+    let argument = Identity(.Harddrive)
 }
 """;
 

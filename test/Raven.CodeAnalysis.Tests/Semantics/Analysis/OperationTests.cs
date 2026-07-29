@@ -48,7 +48,7 @@ var first = 1
     public void GetOperation_VariableDeclaration_WithMultipleDeclarators_ReturnsAllDeclarators()
     {
         const string source = """
-val first = 1, second = 2
+let first = 1, second = 2
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
@@ -100,8 +100,8 @@ class C {
         const string source = """
 class C {
     func Run() -> unit {
-        val items = [1, 2]
-        val combined = [0, ...items, 3]
+        let items = [1, 2]
+        let combined = [0, ...items, 3]
     }
 }
 """;
@@ -127,7 +127,7 @@ class C {
         const string source = """
 class C {
     func Run(person: (string, int)) -> string {
-        if val (name, >= 18) = person {
+        if let (name, >= 18) = person {
             return name
         }
 
@@ -442,7 +442,7 @@ var value = match 0 {
         const string source = """
 import System.Console.*
 
-val value = 1
+let value = 1
 
 match value {
     1 => WriteLine("one")
@@ -473,7 +473,7 @@ match value {
         const string source = """
 var tuple = (1, 2)
 var result = match tuple {
-    (val a, val b) => a
+    (let a, let b) => a
     _ => 0
 }
 """;
@@ -496,9 +496,9 @@ var result = match tuple {
     public void GetOperation_NominalDeconstructionPattern_ExposesRecursivePatternShape()
     {
         const string source = """
-val value: object = Person("Ada", 42)
-val result = match value {
-    Person(val name, val age) => name
+let value: object = Person("Ada", 42)
+let result = match value {
+    Person(let name, let age) => name
     _ => ""
 }
 
@@ -524,9 +524,9 @@ record class Person(Name: string, Age: int)
     public void GetOperation_NominalDeconstructionPattern_WithNamedArguments_ExposesRecursivePatternShape()
     {
         const string source = """
-val value: object = Person("Ada", 42, ["tea"])
-val result = match value {
-    Person(Items: val items, Name: val name, Age: 42) => name
+let value: object = Person("Ada", 42, ["tea"])
+let result = match value {
+    Person(Items: let items, Name: let name, Age: 42) => name
     _ => ""
 }
 
@@ -553,8 +553,8 @@ record class Person(Name: string, Age: int, Items: string[])
     public void GetOperation_RangePattern_ExposesBoundsAndExclusivity()
     {
         const string source = """
-val value: int = 9
-val result = match value {
+let value: int = 9
+let result = match value {
     2..<10 => 1
     _ => 0
 }
@@ -580,8 +580,8 @@ val result = match value {
     public void GetOperation_ComparisonPattern_ExposesOperatorAndValue()
     {
         const string source = """
-val value: int = 9
-val result = match value {
+let value: int = 9
+let result = match value {
     > 2 => 1
     _ => 0
 }
@@ -605,8 +605,8 @@ val result = match value {
     public void GetOperation_PropertyPattern_ExposesMembersAndSubpatterns()
     {
         const string source = """
-val value: object = Person("Ada", 42)
-val result = match value {
+let value: object = Person("Ada", 42)
+let result = match value {
     Person { Name: "Ada", Age: _ } => 1
     _ => 0
 }
@@ -638,8 +638,8 @@ record class Person(Name: string, Age: int)
 record class SizeInfo(Size: int)
 record class Foo(Item: SizeInfo)
 
-val value = Foo(SizeInfo(2))
-val result = value is Foo { Item.Size: 2 }
+let value = Foo(SizeInfo(2))
+let result = value is Foo { Item.Size: 2 }
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
@@ -664,7 +664,7 @@ val result = value is Foo { Item.Size: 2 }
 record class Person(Name: string, Age: int)
 
 func Test(value: object) -> int {
-    if val Person { Name: "Ada", Age: age } = value {
+    if let Person { Name: "Ada", Age: age } = value {
         return age
     }
 
@@ -698,9 +698,9 @@ func Test(value: object) -> int {
         const string source = """
 import System.Collections.Generic.*
 
-val value: Dictionary<string, int> = !["Ada": 42, "Grace": 43]
-val result = match value {
-    ["Ada": val age, "Grace": _] => 1
+let value: Dictionary<string, int> = !["Ada": 42, "Grace": 43]
+let result = match value {
+    ["Ada": let age, "Grace": _] => 1
     _ => 0
 }
 """;
@@ -733,7 +733,7 @@ val result = match value {
 var expected = 2
 var tuple = (1, 2)
 var result = match tuple {
-    (val a, == expected) => a
+    (let a, == expected) => a
     _ => 0
 }
 """;
@@ -888,7 +888,7 @@ func Message(name: string) -> string {
     public void GetOperation_NameOfExpression_ReturnsNameOfOperation()
     {
         const string source = """
-val memberName = nameof(System.Console.WriteLine)
+let memberName = nameof(System.Console.WriteLine)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -935,8 +935,8 @@ func M(name: string?) -> string {
         const string source = """
 record class Person(Name: string, Age: int)
 
-val bob = Person("Bob", 30)
-val updated = bob with {
+let bob = Person("Bob", 30)
+let updated = bob with {
     Age = 31
 }
 """;
@@ -966,7 +966,7 @@ union Error {
     case MissingName(message: string)
 }
 
-val error: Error = MissingName("x")
+let error: Error = MissingName("x")
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -990,7 +990,7 @@ val error: Error = MissingName("x")
     {
         const string source = """
 func M(name: string?) -> string {
-    val value = name ?? return "fallback"
+    let value = name ?? return "fallback"
     return value
 }
 """;
@@ -1044,7 +1044,7 @@ union Option<T> {
 }
 
 func test() -> Option<int> {
-    val r = test2()?
+    let r = test2()?
     return .Some(r)
 }
 
@@ -1074,7 +1074,7 @@ func test2() -> Option<int> {
 class Test {
     unsafe static func Run() -> int {
         var value = 41
-        val pointer: *int = &value
+        let pointer: *int = &value
         return *pointer
     }
 }
@@ -1100,7 +1100,7 @@ class Test {
         const string source = """
 class Test {
     unsafe static func Run(count: int) {
-        val pointer = stackalloc int[count + 1]
+        let pointer = stackalloc int[count + 1]
     }
 }
 """;
@@ -1131,7 +1131,7 @@ struct Holder {
 class Test {
     unsafe static func Run() -> int {
         var holder = Holder()
-        val pointer: *Holder = &holder
+        let pointer: *Holder = &holder
         return pointer->Value
     }
 }
@@ -1153,8 +1153,8 @@ class Test {
     public void GetOperation_CollectionComprehensionElement_ReturnsComprehensionOperation()
     {
         const string source = """
-val numbers = [1, 2, 3, 4]
-val result = [for n in numbers if n % 2 == 0 => n * n]
+let numbers = [1, 2, 3, 4]
+let result = [for n in numbers if n % 2 == 0 => n * n]
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1184,9 +1184,9 @@ val result = [for n in numbers if n % 2 == 0 => n * n]
         const string source = """
 import System.Collections.Generic.*
 
-val other: Dictionary<string, int> = !["b": 2]
-val xs = [1, 2, 3]
-val map = [
+let other: Dictionary<string, int> = !["b": 2]
+let xs = [1, 2, 3]
+let map = [
     "a": 1,
     ...other,
     for x in xs if x > 1 => x.ToString(): x * 10
@@ -1238,7 +1238,7 @@ class Foo {
     var Name: string = ""
 }
 
-val foo = Foo {
+let foo = Foo {
     Name = "updated"
 }
 """;
@@ -1270,7 +1270,7 @@ class Foo {
     var Name: string = ""
 }
 
-val foo = Foo {
+let foo = Foo {
     Name = "updated"
 }
 """;
@@ -1297,7 +1297,7 @@ class C {
     func M(value: string) -> unit {}
 
     func Test() -> unit {
-        val methodRef = M
+        let methodRef = M
     }
 }
 """;

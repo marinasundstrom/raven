@@ -13,7 +13,7 @@ public sealed class StaticTypeStorageDiagnosticsTests : DiagnosticTestBase
 import System.IO.*
 
 func Main() {
-    val file: File = null
+    let file: File = null
 }
 """;
 

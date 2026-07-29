@@ -16,12 +16,12 @@ import System.*
 
 class Runner {
     public func Equal() -> bool {
-        val value = String.Concat("Sta", "tus")
+        let value = String.Concat("Sta", "tus")
         return value == "Status"
     }
 
     public func NotEqual() -> bool {
-        val value = String.Concat("Sta", "tus")
+        let value = String.Concat("Sta", "tus")
         return value != "Status"
     }
 }

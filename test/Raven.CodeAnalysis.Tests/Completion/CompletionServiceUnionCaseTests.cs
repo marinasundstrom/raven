@@ -45,7 +45,7 @@ union ParseResult {
     case Ok
 }
 
-val value = O
+let value = O
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

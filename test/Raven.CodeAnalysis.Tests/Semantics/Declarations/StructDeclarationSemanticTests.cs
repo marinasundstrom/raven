@@ -92,7 +92,7 @@ record struct Year private (Value: int) {
     static func Create(value: int) -> Year => Year(value)
 }
 
-val invalid = Year(2026)
+let invalid = Year(2026)
 """;
 
         var (compilation, _) = CreateCompilation(source);

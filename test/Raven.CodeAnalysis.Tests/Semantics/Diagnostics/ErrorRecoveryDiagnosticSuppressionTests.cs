@@ -8,7 +8,7 @@ public class ErrorRecoveryDiagnosticSuppressionTests : DiagnosticTestBase
     public void CastWithMissingTargetType_DoesNotReportConversionDiagnostic()
     {
         const string code = """
-        val value = (MissingType)1
+        let value = (MissingType)1
         """;
 
         var verifier = CreateVerifier(code, [
@@ -22,7 +22,7 @@ public class ErrorRecoveryDiagnosticSuppressionTests : DiagnosticTestBase
     public void AsWithMissingTargetType_DoesNotReportConversionDiagnostic()
     {
         const string code = """
-        val value = 1 as MissingType
+        let value = 1 as MissingType
         """;
 
         var verifier = CreateVerifier(code, [
@@ -36,7 +36,7 @@ public class ErrorRecoveryDiagnosticSuppressionTests : DiagnosticTestBase
     public void IfConditionWithMissingName_DoesNotReportBoolConversionDiagnostic()
     {
         const string code = """
-        val value = if missing {
+        let value = if missing {
             1
         } else {
             0
@@ -54,7 +54,7 @@ public class ErrorRecoveryDiagnosticSuppressionTests : DiagnosticTestBase
     public void InvocationWithMissingReceiverType_DoesNotReportMemberDiagnostic()
     {
         const string code = """
-        val value = MissingType.Parse("")
+        let value = MissingType.Parse("")
         """;
 
         var verifier = CreateVerifier(code, [

@@ -13,7 +13,7 @@ public sealed class UnusedImportDirectiveAnalyzerTests : AnalyzerTestBase
 import System.Text.*
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         var verifier = CreateAnalyzerVerifier<UnusedImportDirectiveAnalyzer>(
@@ -33,7 +33,7 @@ val text: String = "ok"
         const string code = """
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         var verifier = CreateAnalyzerVerifier<UnusedImportDirectiveAnalyzer>(code);
@@ -47,7 +47,7 @@ val text: String = "ok"
         const string code = """
 import System.*
 
-val options: Text.Json.JsonSerializerOptions = Text.Json.JsonSerializerOptions()
+let options: Text.Json.JsonSerializerOptions = Text.Json.JsonSerializerOptions()
 """;
 
         var verifier = CreateAnalyzerVerifier<UnusedImportDirectiveAnalyzer>(code);
@@ -61,8 +61,8 @@ val options: Text.Json.JsonSerializerOptions = Text.Json.JsonSerializerOptions()
         const string code = """
 import System.Text.Json.*
 
-val options = JsonSerializerOptions()
-val json = JsonSerializer.Serialize(options)
+let options = JsonSerializerOptions()
+let json = JsonSerializer.Serialize(options)
 """;
 
         var verifier = CreateAnalyzerVerifier<UnusedImportDirectiveAnalyzer>(code);
@@ -86,7 +86,7 @@ import Utilities.*
 
 func Main() -> unit {
     Test()
-    val count = DefaultCount
+    let count = DefaultCount
 }
 """);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -110,7 +110,7 @@ namespace Sample {
     import System.*
 
     func Main() {
-        val text: String = "ok"
+        let text: String = "ok"
     }
 }
 """;
@@ -135,7 +135,7 @@ namespace Outer {
 
     namespace Inner {
         func Main() {
-            val text: String = "ok"
+            let text: String = "ok"
         }
     }
 }
@@ -152,7 +152,7 @@ namespace Outer {
         const string code = """
 import System.*
 
-val text: System.String = "ok"
+let text: System.String = "ok"
 """;
 
         var verifier = CreateAnalyzerVerifier<UnusedImportDirectiveAnalyzer>(

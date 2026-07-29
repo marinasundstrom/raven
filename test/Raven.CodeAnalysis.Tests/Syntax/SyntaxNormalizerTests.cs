@@ -33,12 +33,12 @@ func main(x: int, y: int) -> int {
     [Fact]
     public void NormalizeWhitespace_FormatsTypeSyntaxes()
     {
-        const string source = "val x:Result<int,string>?=Foo<int ,string >().Bar( a,b )";
+        const string source = "let x:Result<int,string>?=Foo<int ,string >().Bar( a,b )";
         var tree = SyntaxTree.ParseText(source);
 
         var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
 
-        Assert.Equal("val x: Result<int, string>? = Foo<int, string>().Bar(a, b)", normalized);
+        Assert.Equal("let x: Result<int, string>? = Foo<int, string>().Bar(a, b)", normalized);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ func main(x: int, y: int) -> int {
         var snippets = new[]
         {
             "import  System.Console.*\n\nfunc  Main( )->() {WriteLine(\"hi\")}",
-            "val res= value match{.Ok(val x)=>x,.Error(val e)=>0}",
+            "let res= value match{.Ok(let x)=>x,.Error(let e)=>0}",
             "class Foo<T>{public init(x:T){self.x=x} val x:T}",
             "union Result<T, E> { case Ok(value: T)\ncase Error(error: E) }",
             "func f(x:int)->int{if(x>0){return x}else{return -x}}"
@@ -77,12 +77,12 @@ func main(x: int, y: int) -> int {
         const string source = """
 import System.Console.*
 
-val foo = Foo()
+let foo = Foo()
 foo.Bar()
 
 class Foo {
   public func Bar() -> () {
-    val x = 2
+    let x = 2
     WriteLine(x)
   }
 }
@@ -93,11 +93,11 @@ class Foo {
 
         var expected = """
 import System.Console.*
-val foo = Foo()
+let foo = Foo()
 foo.Bar()
 class Foo {
     public func Bar() -> () {
-        val x = 2
+        let x = 2
         WriteLine(x)
     }
 }
@@ -110,12 +110,12 @@ class Foo {
     [Fact]
     public void NormalizeWhitespace_FormatsCollectionComprehension()
     {
-        const string source = "val odds=[for n in nums if n%2==1=>n*10]";
+        const string source = "let odds=[for n in nums if n%2==1=>n*10]";
         var tree = SyntaxTree.ParseText(source);
 
         var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
 
-        Assert.Equal("val odds = [for n in nums if n % 2 == 1 => n * 10]", normalized);
+        Assert.Equal("let odds = [for n in nums if n % 2 == 1 => n * 10]", normalized);
     }
 
     [Fact]
@@ -147,15 +147,15 @@ class CounterViewModel {
     {
         const string source = """
 func  main()->(){
-if val Person(1,name,_)=person{
+if let Person(1,name,_)=person{
 WriteLine(name)
 }
 for var (x,0) in points{
 WriteLine(x)
 }
 match value{
-val [first,second,...rest]=>first+second+rest.Length
-val Some((x,y))=>x+y
+let [first,second,...rest]=>first+second+rest.Length
+let Some((x,y))=>x+y
 }
 }
 """;
@@ -166,15 +166,15 @@ val Some((x,y))=>x+y
 
         var expected = """
 func main() -> () {
-    if val Person(1, name, _) = person {
+    if let Person(1, name, _) = person {
         WriteLine(name)
     }
     for var (x, 0) in points {
         WriteLine(x)
     }
     match value {
-        val [first, second, ...rest] => first + second + rest.Length
-        val Some((x, y)) => x + y
+        let [first, second, ...rest] => first + second + rest.Length
+        let Some((x, y)) => x + y
     }
 }
 """;
@@ -186,8 +186,8 @@ func main() -> () {
     public void Formatter_Format_FormatsOnlyAnnotatedNode()
     {
         const string source = """
-func  First( )->() {val x=1}
-func  Second( )->() {val y=2}
+func  First( )->() {let x=1}
+func  Second( )->() {let y=2}
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -199,9 +199,9 @@ func  Second( )->() {val y=2}
         var formatted = Formatter.Format(updatedRoot).ToFullString();
 
         var expected = """
-func  First( )->() {val x=1}
+func  First( )->() {let x=1}
 func Second() -> () {
-    val y = 2
+    let y = 2
 }
 """;
 
@@ -212,8 +212,8 @@ func Second() -> () {
     public void Formatter_Format_RewritesElasticTriviaOutsideAnnotatedNode()
     {
         const string source = """
-val  first=1
-val  second=2
+let  first=1
+let  second=2
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -232,8 +232,8 @@ val  second=2
 
         Assert.Equal(
             """
-val first = 1
-val second = 2
+let first = 1
+let second = 2
 """,
             formatted);
     }
@@ -242,8 +242,8 @@ val second = 2
     public void Formatter_Format_FormatsAnnotatedIfPatternStatement()
     {
         const string source = """
-func First() -> () { val keep = 1 }
-func  Second( )->() {if val Person(1,name,_)=person{WriteLine(name)}}
+func First() -> () { let keep = 1 }
+func  Second( )->() {if let Person(1,name,_)=person{WriteLine(name)}}
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -255,9 +255,9 @@ func  Second( )->() {if val Person(1,name,_)=person{WriteLine(name)}}
         var formatted = Formatter.Format(updatedRoot).ToFullString();
 
         var expected = """
-func First() -> () { val keep = 1 }
+func First() -> () { let keep = 1 }
 func Second() -> () {
-    if val Person(1, name, _) = person {
+    if let Person(1, name, _) = person {
         WriteLine(name)
     }
 }
@@ -344,7 +344,7 @@ class MyViewModel {
     var Title: string {
         get => _Title;
         set {
-            val oldValue = _Title
+            let oldValue = _Title
             _Title = value
             RaisePropertyChanged(nameof(Title), oldValue, value)
         }
@@ -376,7 +376,7 @@ class MyViewModel {
 var Title: string {
     get => _Title
     set {
-        val oldValue = _Title
+        let oldValue = _Title
         _Title = value
         RaisePropertyChanged(nameof(Title), oldValue, value)
     }

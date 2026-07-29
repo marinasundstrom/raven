@@ -12,7 +12,7 @@ public class IndexExpressionParserTests
     [Fact]
     public void IndexExpression_WithoutWhitespace_Parses()
     {
-        var tree = SyntaxTree.ParseText("val i = ^1");
+        var tree = SyntaxTree.ParseText("let i = ^1");
 
         Assert.Empty(tree.GetDiagnostics());
 
@@ -23,7 +23,7 @@ public class IndexExpressionParserTests
     [Fact]
     public void IndexExpression_WithWhitespaceAfterCaret_ReportsDiagnostic()
     {
-        var tree = SyntaxTree.ParseText("val i = ^ 1");
+        var tree = SyntaxTree.ParseText("let i = ^ 1");
         var diagnostics = tree.GetDiagnostics().ToArray();
 
         Assert.NotEmpty(diagnostics);

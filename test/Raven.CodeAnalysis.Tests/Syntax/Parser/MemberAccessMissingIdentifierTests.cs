@@ -10,8 +10,8 @@ public class MemberAccessMissingIdentifierTests : DiagnosticTestBase
         const string code = """
         class C {
             func Test() -> unit {
-                val a = 1
-                val b = a.
+                let a = 1
+                let b = a.
             }
         }
         """;

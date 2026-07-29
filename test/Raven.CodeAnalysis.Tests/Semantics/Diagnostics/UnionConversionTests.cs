@@ -43,7 +43,7 @@ class Bar {}
 
 class Baz {
     func Test(flag: bool) {
-        val value = if flag {
+        let value = if flag {
             Foo()
         } else {
             Bar()
@@ -75,7 +75,7 @@ class Cat : Animal {}
 
 class Zoo {
     func Test(flag: bool) {
-        val pet = if flag {
+        let pet = if flag {
             Dog()
         } else {
             Cat()
@@ -119,7 +119,7 @@ class Baz {
     {
         var code = """
 func test(flag: bool) {
-    val value: int = if flag {
+    let value: int = if flag {
         ()
     } else {
         1
@@ -192,7 +192,7 @@ union Result<T, E> {
 import System.Console.*
 
 func build() -> Result<(), AppError> {
-    val result = [1, 2, 3]
+    let result = [1, 2, 3]
 
     for no in result {
         WriteLine(no.)

@@ -6,7 +6,7 @@ are useful for local results and short-lived data shapes.
 Tuples can be **named** or **positional**. Both projections are available.
 
 ```raven
-val tuple = (a: 42, b: 2)
+let tuple = (a: 42, b: 2)
 Console.WriteLine(tuple.a)      // named
 Console.WriteLine(tuple.Item1)  // positional
 ```

@@ -181,7 +181,7 @@ class C
     func Run() -> int
     {
         var x = 1
-        val f = () -> int => x
+        let f = () -> int => x
         return f()
     }
 }

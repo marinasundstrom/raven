@@ -298,7 +298,7 @@ class C {
         var source = """
 class C {
     static func MakeRef() -> &int {
-        val x = 2
+        let x = 2
         return &x
     }
 }

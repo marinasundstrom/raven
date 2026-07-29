@@ -440,7 +440,7 @@ func Test2() -> IDisposable {
 import Utilities.*
 
 func Main() -> unit {
-    val test = Test2()
+    let test = Test2()
 }
 """;
         const string utilitiesCode = """

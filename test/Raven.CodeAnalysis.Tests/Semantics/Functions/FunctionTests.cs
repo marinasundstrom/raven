@@ -115,7 +115,7 @@ func outer() -> int {
 
     struct CounterBox(public val value: int) { }
 
-    val box = makeBox()
+    let box = makeBox()
     return box.value
 }
 """;
@@ -145,7 +145,7 @@ async func Test<T>(value: T) -> Task<T> {
 }
 
 async func Outer() -> Task<int> {
-    val result = await Test(42)
+    let result = await Test(42)
     return result
 }
 """;
@@ -218,10 +218,10 @@ func test() {}
     {
         const string source = """
 func Main() {
-    val x: int = 2
+    let x: int = 2
 
     func Foo() {
-        val v = x
+        let v = x
     }
 }
 """;
@@ -243,8 +243,8 @@ func Main() {
     {
         const string source = """
 func Main() {
-    val point = (5, 1)
-    val text = DescribePoint(point)
+    let point = (5, 1)
+    let text = DescribePoint(point)
 }
 
 func DescribePoint(point: (int, int)) -> string {
@@ -293,7 +293,7 @@ func DescribePoint(point: (int, int)) -> string {
     public void TopLevelFunctionStatement_WithTopLevelExecutableStatements_CanCaptureTopLevelLocal()
     {
         const string source = """
-val prefix = "point"
+let prefix = "point"
 
 func DescribePoint(point: (int, int)) -> string {
     return "$prefix $point"
@@ -319,7 +319,7 @@ func DescribePoint(point: (int, int)) -> string {
         const string source = """
 namespace App
 
-val prefix = "point"
+let prefix = "point"
 
 func DescribePoint(point: (int, int)) -> string {
     return "$prefix $point"
@@ -344,10 +344,10 @@ func DescribePoint(point: (int, int)) -> string {
     {
         const string source = """
 func Main() {
-    val x: int = 2
+    let x: int = 2
 
     static func Foo() {
-        val v = x
+        let v = x
     }
 }
 """;
@@ -417,7 +417,7 @@ class Program {
         const string source = """
 class Program {
     public static func Run() -> int {
-        val x: int = 2
+        let x: int = 2
 
         func Foo() -> int {
             return x
@@ -446,8 +446,8 @@ class Program {
         const string source = """
 class Program {
     static func Run() -> () {
-        val f = func Fib(n: int) -> int {
-            val x = if n < 2
+        let f = func Fib(n: int) -> int {
+            let x = if n < 2
                 n
             else
                 Fib(n - 1) + Fib(n - 2)
@@ -479,7 +479,7 @@ class Program {
         const string source = """
 class Program {
     public static func Run() -> int {
-        val x: int = 2
+        let x: int = 2
 
         func Foo() -> int {
             return x
@@ -507,7 +507,7 @@ class Program {
     {
         const string source = """
 func GetConnectionString() -> string {
-    val trimmed = "value"
+    let trimmed = "value"
     return trimmed
 }
 """;
@@ -544,10 +544,10 @@ func GetConnectionString() -> string {
     {
         const string source = """
 func Main() {
-    val x: int = 2
+    let x: int = 2
 
     func Foo() {
-        val v = x
+        let v = x
     }
 }
 """;

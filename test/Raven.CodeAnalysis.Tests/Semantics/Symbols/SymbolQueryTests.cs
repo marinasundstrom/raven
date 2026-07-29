@@ -35,7 +35,7 @@ public class SymbolQueryTests : DiagnosticTestBase
                 }
             }
 
-            val bar = Foo<int>.Bar();
+            let bar = Foo<int>.Bar();
             """;
 
         var verifier = CreateVerifier(testCode);

@@ -16,7 +16,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias SB = System.Text.StringBuilder
 
-            val sb: SB = SB()
+            let sb: SB = SB()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -44,7 +44,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias IntList = System.Collections.Generic.List<int>
 
-            val list: IntList = IntList()
+            let list: IntList = IntList()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -59,7 +59,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias StringList = System.Collections.Generic.List<string>
 
-            val list: StringList = StringList()
+            let list: StringList = StringList()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -74,7 +74,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Pair = (x: int, y: int)
 
-            val p: Pair = (1, 2)
+            let p: Pair = (1, 2)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -96,7 +96,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Pair = (x: int, y: int)
 
-            val p: Pair = (x: 1, y: 2)
+            let p: Pair = (x: 1, y: 2)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -111,7 +111,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Pair = (x: int, y: int)
 
-            val p: Pair = (1, "")
+            let p: Pair = (1, "")
             """;
 
         var verifier = CreateVerifier(
@@ -207,7 +207,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias ST = System.Text
 
-            val sb: ST.StringBuilder = ST.StringBuilder()
+            let sb: ST.StringBuilder = ST.StringBuilder()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -274,7 +274,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias MyInt = int
 
-            val x: MyInt = 0
+            let x: MyInt = 0
             """;
 
         var verifier = CreateVerifier(testCode);

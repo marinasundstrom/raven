@@ -80,17 +80,17 @@ In a macro you can put any content and parse it however you want.
 
 ```raven
 func xml (context: MacroContext<ExpressionSyntax>) -> () {
-    val token = context.ReadToken
-    val expr = context.ParseExpression()
+    let token = context.ReadToken
+    let expr = context.ParseExpression()
     
-    val newNode = SyntaxFactory.IdentifierName("foo")
+    let newNode = SyntaxFactory.IdentifierName("foo")
 
     context.Materialize(newNode)
 }
 ```
 
 ```raven
-val name = "Foo"
+let name = "Foo"
 
 var root = xml! {
     <root>

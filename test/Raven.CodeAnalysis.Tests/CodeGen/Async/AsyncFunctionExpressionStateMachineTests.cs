@@ -25,7 +25,7 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
             import System.Console.*
             import System.Threading.Tasks.*
 
-            val value = await Task.Run(async () => {
+            let value = await Task.Run(async () => {
                 await Task.Delay(1)
                 return 42
             })
@@ -45,8 +45,8 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
             import System.Console.*
             import System.Threading.Tasks.*
 
-            val offset = 2
-            val value = await Task.Run(async () => {
+            let offset = 2
+            let value = await Task.Run(async () => {
                 await Task.Delay(1)
                 return 40 + offset
             })
@@ -66,13 +66,13 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
             import System.Console.*
             import System.Threading.Tasks.*
 
-            val offset = 10
-            val handler = async func (value: int) -> Task<int> {
+            let offset = 10
+            let handler = async func (value: int) -> Task<int> {
                 await Task.Delay(1)
                 return value + offset
             }
 
-            val result = await handler(32)
+            let result = await handler(32)
             WriteLine(result)
             """;
 
@@ -93,9 +93,9 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
             import System.Console.*
             import System.Threading.Tasks.*
 
-            val offset = 2
-            val run = async () => {
-                val inner = async () => {
+            let offset = 2
+            let run = async () => {
+                let inner = async () => {
                     await Task.Delay(1)
                     return 40 + offset
                 }
@@ -103,7 +103,7 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
                 return await inner()
             }
 
-            val result = await Task.Run(run)
+            let result = await Task.Run(run)
             WriteLine(result)
             """
         );
@@ -148,7 +148,7 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
             func Register(handler: Func<CancellationToken, IAsyncEnumerable<int>>) {
             }
 
-            val offset = 5
+            let offset = 5
             Register(async func ([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
                 yield 1 + offset
                 if cancellationToken.IsCancellationRequested {

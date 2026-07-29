@@ -50,7 +50,7 @@ func evaluate(flag: bool) -> int {
     {
         const string code = """
 func evaluate(flag: bool) -> int {
-    val chooser = func (value: bool) -> int {
+    let chooser = func (value: bool) -> int {
         if value {
             1
         } else {

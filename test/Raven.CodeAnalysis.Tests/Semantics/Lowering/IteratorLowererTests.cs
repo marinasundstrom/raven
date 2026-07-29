@@ -373,7 +373,7 @@ class C {
         const string source = """
 class C {
     func Test() {
-        val value = 1
+        let value = 1
         value
     }
 }
@@ -411,7 +411,7 @@ class C {
             yield return 1
         }
 
-        val enumerator = nested()
+        let enumerator = nested()
         ()
     }
 }
@@ -446,7 +446,7 @@ import System.Collections.Generic.*
 
 class C {
     func Make() -> Func<IEnumerable<int>> {
-        val iterator: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
+        let iterator: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
             yield return 1
             yield return 2
         }
@@ -488,7 +488,7 @@ import System.Collections.Generic.*
 
 class C {
     func Make() -> Func<IAsyncEnumerable<int>> {
-        val iterator: Func<IAsyncEnumerable<int>> = async () -> IAsyncEnumerable<int> => {
+        let iterator: Func<IAsyncEnumerable<int>> = async () -> IAsyncEnumerable<int> => {
             yield return 1
             yield return 2
         }
@@ -609,7 +609,7 @@ class C {
         try {
             yield return count
         } finally {
-            val disposed = count
+            let disposed = count
         }
     }
 }
@@ -663,7 +663,7 @@ class C {
         try {
             yield return count
         } finally {
-            val disposed = count
+            let disposed = count
         }
     }
 }

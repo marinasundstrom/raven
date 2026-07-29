@@ -85,9 +85,9 @@ namespace Sample {
         static func +(left: Number, right: Number) -> Number { return left }
     }
 
-    val a = Number()
-    val b = Number()
-    val c = a + b
+    let a = Number()
+    let b = Number()
+    let c = a + b
 }
 """;
 
@@ -108,9 +108,9 @@ class Number
     static func +(left: Number, right: Number) -> Number { return left }
 }
 
-val a = Number()
-val b = Number()
-val c = a + b
+let a = Number()
+let b = Number()
+let c = a + b
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -133,8 +133,8 @@ class Number
     static func -(value: Number) -> Number { return value }
 }
 
-val a = Number()
-val b = -a
+let a = Number()
+let b = -a
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -187,10 +187,10 @@ class Number
     static func !=(left: Number, right: Number) -> bool { return false }
 }
 
-val a: Number? = null
-val b = Number()
-val eq = a == b
-val ne = a != b
+let a: Number? = null
+let b = Number()
+let eq = a == b
+let ne = a != b
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -244,7 +244,7 @@ class C
 {
     func Run() -> unit
     {
-        val x: Number? = null
+        let x: Number? = null
         if x != null {
             x.Ping()
         }

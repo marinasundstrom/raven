@@ -11,7 +11,7 @@ public class NullableSuppressionDiagnosticsTests : DiagnosticTestBase
     {
         var code = """
 func Foo(name: string?) -> int {
-    val required = name!
+    let required = name!
     return required.Length
 }
 """;
@@ -33,7 +33,7 @@ func Foo(name: string?) -> int {
     {
         var code = """
 func Foo(value: int?) -> int {
-    val required = value!
+    let required = value!
     return required + 1
 }
 """;
@@ -55,7 +55,7 @@ func Foo(value: int?) -> int {
     {
         var code = """
 func Foo(value: string) -> int {
-    val required = value!
+    let required = value!
     return required.Length
 }
 """;

@@ -48,7 +48,7 @@ public class MergedNamespaceSymbolTests
             import System.*
 
             func Main() -> () {
-                val value = 42
+                let value = 42
             }
             """,
             path: "/tmp/test.rav");

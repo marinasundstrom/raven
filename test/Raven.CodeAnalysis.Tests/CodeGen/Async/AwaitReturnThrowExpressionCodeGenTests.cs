@@ -17,7 +17,7 @@ import System.Threading.Tasks.*
 
 class Worker {
     public async func LenOrNegativeOne(task: Task<string?>) -> Task<int> {
-        val required = await task ?? return -1
+        let required = await task ?? return -1
         return required.Length
     }
 }
@@ -56,7 +56,7 @@ import System.Threading.Tasks.*
 
 class Worker {
     public async func LenOrThrow(task: Task<string?>) -> Task<int> {
-        val required = await task ?? throw System.InvalidOperationException("missing")
+        let required = await task ?? throw System.InvalidOperationException("missing")
         return required.Length
     }
 }
@@ -98,7 +98,7 @@ class Worker {
     }
 
     public async func LenOrFallback(task: Task<string?>, x: int) -> Task<int> {
-        val required = await task ?? return await Fallback(x)
+        let required = await task ?? return await Fallback(x)
         return required.Length
     }
 }

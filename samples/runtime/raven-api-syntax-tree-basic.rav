@@ -8,7 +8,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 let value = 42
 
 let code = """
-    val x = $value
+    let x = $value
     """
 
 let syntaxTree = SyntaxTree.ParseText(code)

@@ -67,12 +67,12 @@ class Foo {
         var code = """
 class Foo {
     public func HasLength() -> bool {
-        val values: int[]? = [1, 2]
+        let values: int[]? = [1, 2]
         return values?.Length == 2
     }
 
     public func MissingLengthIsZero() -> bool {
-        val values: int[]? = null
+        let values: int[]? = null
         return values?.Length == 0
     }
 }

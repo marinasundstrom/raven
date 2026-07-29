@@ -42,11 +42,11 @@ func Test(flag: Flag) -> () {
     public void RedundantCastHint_RemovesCast()
     {
         const string code = """
-val x = (double)1
+let x = (double)1
 """;
 
         const string fixedCode = """
-val x = 1
+let x = 1
 """;
 
         var verifier = CreateCodeFixVerifier<NoOpAnalyzer, ConversionCastCodeFixProvider>(

@@ -15,7 +15,7 @@ public class SemanticClassifierTests : CompilationTestBase
     {
         const string source = """
             func Consume(scoped value: System.Span<int>) {
-                val scoped = 1
+                let scoped = 1
             }
             """;
         var tree = SyntaxTree.ParseText(source);
@@ -113,7 +113,7 @@ label:
 
 	func Render(result: Result) -> int {
 	    return match result {
-	        .Case(val value) => value
+	        .Case(let value) => value
 	    }
 	}
 	""";
@@ -144,7 +144,7 @@ union Option<T> {
 func Render(input: Option<int>) -> int {
     return match input {
         None => 0
-        .Some(val value) => value
+        .Some(let value) => value
     }
 }
 """;
@@ -169,7 +169,7 @@ func Render(input: Option<int>) -> int {
     {
         var source = """
 func M(name: string?) -> string {
-    val value = name ?? return "fallback"
+    let value = name ?? return "fallback"
     return value
 }
 """;
@@ -226,7 +226,7 @@ class Box {
 }
 
 func Main() {
-    val box: Box = default
+    let box: Box = default
 }
 """;
 
@@ -262,7 +262,7 @@ func Main() {
     {
         var source = """
 func Main() {
-    val value = 1
+    let value = 1
     value
 }
 """;

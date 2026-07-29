@@ -44,7 +44,7 @@ import System.Text.Json.*
 class Program {
     public static func Run() -> int {
         use doc = JsonDocument.Parse("{ \"value\": 42 }")
-        val root = doc.RootElement
+        let root = doc.RootElement
 
         if !root.TryGetProperty("value", out var property) {
             return -1

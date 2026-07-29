@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Updated tests, samples, and language-facing documentation to use canonical
+  `let` lexical bindings while retaining `val` for immutable properties and
+  compatibility coverage. Compiler API, analyzer, source-generator, and macro
+  examples now prefer Raven where the API is being consumed from Raven, and
+  contributor guidance defines a gradual Raven-first infrastructure and
+  bootstrap boundary.
 - Added `Raven.Macros.Sha256Digest!` with the imported `sha256Digest!` alias.
   It hashes literal values during compilation and expands to a lowercase
   hexadecimal string, avoiding runtime hashing and naming collisions with

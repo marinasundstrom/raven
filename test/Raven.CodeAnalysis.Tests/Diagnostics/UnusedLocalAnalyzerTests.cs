@@ -40,7 +40,7 @@ public class UnusedLocalAnalyzerTests : AnalyzerTestBase
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
     }
 }
 """;
@@ -57,7 +57,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
         Print(count)
     }
 
@@ -75,7 +75,7 @@ class C {
 import Utilities.*
 
 func Main() {
-    val x = A(42)
+    let x = A(42)
     A(x)
 
     use test = Test2()
@@ -184,8 +184,8 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
-        val text = "Raven"
+        let count = 0
+        let text = "Raven"
         Print(1)
     }
 

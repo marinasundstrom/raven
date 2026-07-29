@@ -40,7 +40,7 @@ label:
     public void GetCompletions_ForEscapedIdentifier_UsesEscapedInsertion()
     {
         var code = """
-val @if = 0;
+let @if = 0;
 @i
 """;
 

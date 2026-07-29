@@ -265,7 +265,7 @@ public sealed class MsBuildProjectSystemServiceTests
             Directory.CreateDirectory(appDirectory);
 
             File.WriteAllText(Path.Combine(libDirectory, "lib.rvn"), "public func libValue() -> int => 42");
-            File.WriteAllText(Path.Combine(appDirectory, "app.rvn"), "val x = 42");
+            File.WriteAllText(Path.Combine(appDirectory, "app.rvn"), "let x = 42");
 
             var libProjectPath = Path.Combine(libDirectory, "Lib.rvnproj");
             var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
@@ -329,7 +329,7 @@ public class WidgetFactory {
             File.WriteAllText(Path.Combine(appDirectory, "app.rvn"), """
 import Samples.Docs.*
 
-val value = WidgetFactory.CreateDefault()
+let value = WidgetFactory.CreateDefault()
 """);
 
             var libProjectPath = Path.Combine(libDirectory, "Lib.rvnproj");
@@ -395,7 +395,7 @@ val value = WidgetFactory.CreateDefault()
             var csProjectPath = Path.Combine(csDirectory, "CsSupport.csproj");
 
             File.WriteAllText(Path.Combine(libDirectory, "lib.rvn"), "public func libValue() -> int => 42");
-            File.WriteAllText(Path.Combine(appDirectory, "main.rvn"), "val x = 1");
+            File.WriteAllText(Path.Combine(appDirectory, "main.rvn"), "let x = 1");
 
             File.WriteAllText(libProjectPath, """
                                              <Project Sdk="Microsoft.NET.Sdk">
@@ -516,12 +516,12 @@ val value = WidgetFactory.CreateDefault()
                     val Targets: MacroTarget => MacroTarget.Property
 
                     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-                        val property = context.TargetDeclaration as PropertyDeclarationSyntax
+                        let property = context.TargetDeclaration as PropertyDeclarationSyntax
                         if property is null {
                             return MacroExpansionResult.Empty
                         }
 
-                        val tree = SyntaxFactory.ParseSyntaxTree("""
+                        let tree = SyntaxFactory.ParseSyntaxTree("""
                             class __GeneratedContainer {
                                 private var _Title: string
 
@@ -534,13 +534,13 @@ val value = WidgetFactory.CreateDefault()
                             }
                             """)
 
-                        val container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
+                        let container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
                         if container is null {
                             return MacroExpansionResult.Empty
                         }
 
-                        val backingStorage = container.Members[0] as PropertyDeclarationSyntax
-                        val replacement = container.Members[1] as PropertyDeclarationSyntax
+                        let backingStorage = container.Members[0] as PropertyDeclarationSyntax
+                        let replacement = container.Members[1] as PropertyDeclarationSyntax
                         if backingStorage is null || replacement is null {
                             return MacroExpansionResult.Empty
                         }
@@ -738,23 +738,23 @@ val value = WidgetFactory.CreateDefault()
                     val Targets: MacroTarget => MacroTarget.Property
 
                     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-                        val property = context.TargetDeclaration as PropertyDeclarationSyntax
+                        let property = context.TargetDeclaration as PropertyDeclarationSyntax
                         if property is null {
                             return MacroExpansionResult.Empty
                         }
 
-                        val propertyName = property.Identifier.ValueText
-                        val propertyType = property.Type.Type.ToString()
-                        val backingFieldName = "_${propertyName}"
+                        let propertyName = property.Identifier.ValueText
+                        let propertyType = property.Type.Type.ToString()
+                        let backingFieldName = "_${propertyName}"
 
-                        val tree = SyntaxFactory.ParseSyntaxTree("""
+                        let tree = SyntaxFactory.ParseSyntaxTree("""
                             class __GeneratedContainer {
                                 private var ${backingFieldName}: ${propertyType}
 
                                 var ${propertyName}: ${propertyType} {
                                     get => ${backingFieldName}
                                     set {
-                                        val oldValue = ${backingFieldName}
+                                        let oldValue = ${backingFieldName}
                                         ${backingFieldName} = value
                                         RaisePropertyChanged(nameof(${propertyName}), oldValue, value)
                                     }
@@ -762,13 +762,13 @@ val value = WidgetFactory.CreateDefault()
                             }
                             """)
 
-                        val container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
+                        let container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
                         if container is null {
                             return MacroExpansionResult.Empty
                         }
 
-                        val backingStorage = container.Members[0] as PropertyDeclarationSyntax
-                        val replacement = container.Members[1] as PropertyDeclarationSyntax
+                        let backingStorage = container.Members[0] as PropertyDeclarationSyntax
+                        let replacement = container.Members[1] as PropertyDeclarationSyntax
                         if backingStorage is null || replacement is null {
                             return MacroExpansionResult.Empty
                         }
@@ -816,7 +816,7 @@ val value = WidgetFactory.CreateDefault()
 
                 class Harness {
                     static func Run() -> int {
-                        val model = MyViewModel()
+                        let model = MyViewModel()
                         model.Title = "Hello"
                         return model.Count
                     }
@@ -884,7 +884,7 @@ val value = WidgetFactory.CreateDefault()
                     val Targets: MacroTarget => MacroTarget.Property
 
                     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-                        val property = context.CurrentDeclaration as PropertyDeclarationSyntax
+                        let property = context.CurrentDeclaration as PropertyDeclarationSyntax
                         if property is null {
                             return MacroExpansionResult.Empty
                         }

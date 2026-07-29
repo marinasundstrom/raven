@@ -67,6 +67,25 @@ Raven follows conventions inspired by Roslyn and .NET:
 * Prefer **expression-bodied members** for simple methods.
 * Avoid unnecessary allocations — prefer immutable collections over `List<T>` where possible.
 
+### Raven-first infrastructure
+
+Use Raven for new language-facing libraries, tools, build utilities, samples,
+and documentation examples when the language and toolchain can express the
+requirement reliably. This deliberate dogfooding is part of compiler
+stabilization: it exercises the public compiler API, project system,
+incremental behavior, diagnostics, and runtime packaging through the same
+boundaries users encounter.
+
+C# remains appropriate for the current compiler implementation, bootstrap
+host, CLR interop layers, and infrastructure that Raven cannot yet implement
+without creating a dependency cycle. Keep those boundaries explicit instead
+of introducing a C# dependency merely for convenience. When a missing Raven
+capability blocks a Raven-first implementation, document the gap so it can
+inform language and compiler priorities.
+
+Compiler API documentation is Raven-first. Use C# examples only when the topic
+is specifically C#/.NET integration with Raven, and label that boundary.
+
 Check formatting before committing:
 
 ```bash

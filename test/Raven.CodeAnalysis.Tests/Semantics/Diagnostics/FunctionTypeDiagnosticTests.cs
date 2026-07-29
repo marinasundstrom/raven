@@ -10,7 +10,7 @@ public class FunctionTypeDiagnosticTests : CompilationTestBase
     public void FunctionType_WithoutFuncKeyword_Succeeds()
     {
         var source = """
-        val f: int -> int = x => x
+        let f: int -> int = x => x
         """;
 
         var (compilation, _) = CreateCompilation(source);

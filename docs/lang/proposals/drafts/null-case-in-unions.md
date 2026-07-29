@@ -137,7 +137,7 @@ union declaration member lists.
 Deferred example:
 
 ```raven
-val text: string | Expression<() -> object> | null = null // not implemented
+let text: string | Expression<() -> object> | null = null // not implemented
 ```
 
 If this form is ever enabled, the standard union member set should remain
@@ -211,8 +211,8 @@ case. Matching must distinguish:
 ```raven
 node match {
     Text(null) => "empty"
-    Text(val value) => value
-    Element(val name) => name
+    Text(let value) => value
+    Element(let name) => name
 }
 ```
 
@@ -317,7 +317,7 @@ value match {
 The `null` literal converts implicitly to any union whose contents are nullable:
 
 ```raven
-val value: Value = null
+let value: Value = null
 ```
 
 For class union carriers, assigning `null` to `U?` may mean a null carrier
@@ -461,7 +461,7 @@ Add focused tests in these areas:
 
 ## Open questions
 
-* Should Raven allow `val value: U = null` for `union struct U(string | null)`
+* Should Raven allow `let value: U = null` for `union struct U(string | null)`
   before the carrier can distinguish active null from default/inactive?
 * Should a future general standard-union type syntax allow `A | B | null`, or is
   that too easily confused with `T?`?

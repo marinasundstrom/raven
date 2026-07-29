@@ -47,7 +47,7 @@ public sealed class VisitorDispatchTests : CompilationTestBase
     [Fact]
     public void SyntaxVisitor_VisitExpression_DispatchesToBinaryHandler()
     {
-        var tree = SyntaxTree.ParseText("val x = 1 + 2;");
+        var tree = SyntaxTree.ParseText("let x = 1 + 2;");
         var expression = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
         var visitor = new RecordingSyntaxVisitor();
 

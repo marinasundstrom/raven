@@ -99,9 +99,9 @@ binding keyword supplies the capture mode for a bare guarded designation such as
 
 These accept the deconstruction subset:
 
-* `val ( ... ) = expr`
+* `let ( ... ) = expr`
 * `( ... ) = expr`
-* `val [ ... ] = expr`
+* `let [ ... ] = expr`
 * `[ ... ] = expr`
 * deconstruction parameter patterns in supported function/lambda positions
 

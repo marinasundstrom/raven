@@ -14,12 +14,12 @@ public sealed class TypeInfoConversionTests : CompilationTestBase
     public void GetTypeInfo_NumericLiteralSuffixesAndRadixPrefixes_ReportLiteralTypes()
     {
         const string source = """
-val defaultInt = 2
-val retryCount = 2b
-val basePrice = 19.95m
-val serviceFee = 1m
-val binaryMask = 0b1111_0000
-val colorMask = 0xFF
+let defaultInt = 2
+let retryCount = 2b
+let basePrice = 19.95m
+let serviceFee = 1m
+let binaryMask = 0b1111_0000
+let colorMask = 0xFF
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -55,9 +55,9 @@ val colorMask = 0xFF
     public void GetTypeInfo_InterpolatedStrings_ReportStringAndExpressionTypes()
     {
         const string source = """"
-val count = 3
-val message = "Next: ${count + 1}"
-val multiline = """
+let count = 3
+let message = "Next: ${count + 1}"
+let multiline = """
     Value $message
     """
 """";
@@ -93,7 +93,7 @@ val multiline = """
     public void GetTypeInfo_LiteralInTypedInitializer_ReportsImplicitNumericConversion()
     {
         const string source = """
-val x: double = 1
+let x: double = 1
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -114,7 +114,7 @@ val x: double = 1
     public void GetTypeInfo_ExplicitCast_ReportsNumericConversionAndResultType()
     {
         const string source = """
-val x = (double)1
+let x = (double)1
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -136,8 +136,8 @@ val x = (double)1
     public void GetTypeInfo_AsExpression_ReportsReferenceConversionAndNullableResultType()
     {
         const string source = """
-val obj: object = ""
-val s = obj as string
+let obj: object = ""
+let s = obj as string
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -158,7 +158,7 @@ val s = obj as string
     public void GetTypeInfo_UnconvertedLiteral_ReportsIdentityConversion()
     {
         const string source = """
-val x = 1
+let x = 1
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));

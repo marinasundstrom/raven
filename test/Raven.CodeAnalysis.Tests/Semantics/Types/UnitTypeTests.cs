@@ -15,7 +15,7 @@ public class UnitTypeTests : CompilationTestBase
     {
         var source = """
 func ping() { }
-val u = ping()
+let u = ping()
 """;
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
@@ -45,7 +45,7 @@ val u = ping()
             import Utilities.*
 
             func Main() {
-                val x = A(42)
+                let x = A(42)
             }
             """);
         var utilities = SyntaxTree.ParseText(
@@ -87,7 +87,7 @@ val u = ping()
     {
         var source = """
 func ping() -> () { }
-val x: () = ping()
+let x: () = ping()
 """;
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);

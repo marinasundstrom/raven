@@ -149,6 +149,6 @@ public class RavenQuoterTests
             "Raven.CodeAnalysis.Syntax.SyntaxKind.AddExpression",
             quoted);
         Assert.DoesNotContain("NormalizeWhitespace", quoted);
-        Assert.Empty(SyntaxTree.ParseText($"val quoted = {quoted}").GetDiagnostics());
+        Assert.Empty(SyntaxTree.ParseText($"let quoted = {quoted}").GetDiagnostics());
     }
 }

@@ -37,7 +37,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val text: string? = GetName()
+    let text: string? = GetName()
     if text != null {
         Console.WriteLine(text)
     }
@@ -57,7 +57,7 @@ func Test() {
 import System.*
 
 func Test() {
-    val text = Console.ReadLine()
+    let text = Console.ReadLine()
     if text != null {
         Console.WriteLine(text)
     }
@@ -75,7 +75,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val text: string? = GetName()
+    let text: string? = GetName()
     if text != null {
         Console.WriteLine(text)
     }
@@ -84,8 +84,8 @@ func Test() {
 
         var expected = """
 func Test() {
-    val maybeText: Option<string> = GetName()
-    if maybeText is Some(val text) {
+    let maybeText: Option<string> = GetName()
+    if maybeText is Some(let text) {
         Console.WriteLine(text)
     }
 }
@@ -107,7 +107,7 @@ func Test() {
 import System.*
 
 func Test() {
-    val text = Console.ReadLine()
+    let text = Console.ReadLine()
     if text != null {
         Console.WriteLine(text)
     }
@@ -128,7 +128,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val text: string? = GetName()
+    let text: string? = GetName()
     if text != null {
         Console.WriteLine(text)
     }
@@ -147,7 +147,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val text: string? = GetName()
+    let text: string? = GetName()
     if text != null {
         Console.WriteLine(text)
     } else {
@@ -158,8 +158,8 @@ func Test() {
 
         var expected = """
 func Test() {
-    val maybeText: Option<string> = GetName()
-    if maybeText is Some(val text) {
+    let maybeText: Option<string> = GetName()
+    if maybeText is Some(let text) {
         Console.WriteLine(text)
     } else {
         Console.WriteLine("missing")
@@ -181,7 +181,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val value: object? = GetValue()
+    let value: object? = GetValue()
     if value is string text {
         Console.WriteLine(text)
     }
@@ -190,7 +190,7 @@ func Test() {
 
         var expected = """
 func Test() {
-    val maybeValue: Option<object> = GetValue()
+    let maybeValue: Option<object> = GetValue()
     if maybeValue is Some(string text) {
         Console.WriteLine(text)
     }
@@ -211,7 +211,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val value: object? = GetValue()
+    let value: object? = GetValue()
     if value is string text {
         Console.WriteLine(text)
     } else {
@@ -222,7 +222,7 @@ func Test() {
 
         var expected = """
 func Test() {
-    val maybeValue: Option<object> = GetValue()
+    let maybeValue: Option<object> = GetValue()
     if maybeValue is Some(string text) {
         Console.WriteLine(text)
     } else {
@@ -245,7 +245,7 @@ func Test() {
     {
         var code = """
 func Test() -> string {
-    val text: string? = GetName()
+    let text: string? = GetName()
     if text != null {
         return text
     } else {
@@ -256,8 +256,8 @@ func Test() -> string {
 
         var expected = """
 func Test() -> string {
-    val maybeText: Option<string> = GetName()
-    if maybeText is Some(val text) {
+    let maybeText: Option<string> = GetName()
+    if maybeText is Some(let text) {
         return text
     } else {
         return "missing"
@@ -279,7 +279,7 @@ func Test() -> string {
     {
         var code = """
 func Test() -> string {
-    val text: string? = GetName()
+    let text: string? = GetName()
     var result = ""
     if text != null {
         result = text
@@ -293,9 +293,9 @@ func Test() -> string {
 
         var expected = """
 func Test() -> string {
-    val maybeText: Option<string> = GetName()
+    let maybeText: Option<string> = GetName()
     var result = ""
-    if maybeText is Some(val text) {
+    if maybeText is Some(let text) {
         result = text
     } else {
         result = "missing"
@@ -319,7 +319,7 @@ func Test() -> string {
     {
         var code = """
 func Test() {
-    val text: string? = GetName()
+    let text: string? = GetName()
     if text is not null {
         Console.WriteLine(text)
     }
@@ -328,8 +328,8 @@ func Test() {
 
         var expected = """
 func Test() {
-    val maybeText: Option<string> = GetName()
-    if maybeText is Some(val text) {
+    let maybeText: Option<string> = GetName()
+    if maybeText is Some(let text) {
         Console.WriteLine(text)
     }
 }

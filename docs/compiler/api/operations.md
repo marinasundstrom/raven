@@ -49,13 +49,16 @@ operation tree:
 Use `SemanticModel.GetOperation` to obtain the operation that corresponds to a
 syntax node:
 
-```csharp
-var model = compilation.GetSemanticModel(tree);
-var ifStatement = tree.GetRoot().DescendantNodes()
-    .OfType<IfStatementSyntax>()
-    .First();
+```raven
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
 
-var operation = model.GetOperation(ifStatement);
+let model = compilation.GetSemanticModel(tree)
+let ifStatement = tree.GetRoot().DescendantNodes()
+    .OfType<IfStatementSyntax>()
+    .First()
+
+let operation = model.GetOperation(ifStatement)
 ```
 
 `GetOperation` returns `null` when no operation exists for the supplied node.
@@ -73,20 +76,19 @@ and visitors can rely on reference equality.
 Operations expose their children through the `ChildOperations` property and can be
 traversed with the provided visitor base types:
 
-```csharp
-public sealed class ControlFlowCollector : OperationVisitor
-{
-    public override void DefaultVisit(IOperation operation)
-    {
-        if (operation.Kind is OperationKind.Conditional
-            or OperationKind.WhileLoop
-            or OperationKind.ForLoop
-            or OperationKind.Try)
-        {
+```raven
+import Raven.CodeAnalysis.Operations.*
+
+class ControlFlowCollector : OperationVisitor {
+    override func DefaultVisit(operation: IOperation) {
+        if operation.Kind == OperationKind.Conditional ||
+            operation.Kind == OperationKind.WhileLoop ||
+            operation.Kind == OperationKind.ForLoop ||
+            operation.Kind == OperationKind.Try {
             // Record the construct for later analysis.
         }
 
-        base.DefaultVisit(operation);
+        base.DefaultVisit(operation)
     }
 }
 ```

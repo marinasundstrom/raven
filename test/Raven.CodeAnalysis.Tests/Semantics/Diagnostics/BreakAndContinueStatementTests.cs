@@ -31,7 +31,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    val value = {
+    let value = {
         break;
         ()
     };
@@ -96,7 +96,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    val value = {
+    let value = {
         continue;
         ()
     };
@@ -185,7 +185,7 @@ func Main() {
 import System.Collections.Generic.*
 
 func Main() {
-    val values = List<int>()
+    let values = List<int>()
     for value in values {
         break;
     }
@@ -293,7 +293,7 @@ func Main() {
 import System.Collections.Generic.*
 
 func Main() {
-    val values = List<int>()
+    let values = List<int>()
     for value in values {
         continue;
     }

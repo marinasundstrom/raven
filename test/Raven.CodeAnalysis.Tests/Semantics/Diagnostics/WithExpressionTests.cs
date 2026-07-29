@@ -17,9 +17,9 @@ public class WithExpressionTests : DiagnosticTestBase
         const string source = """
 record class Person(Name: string, Age: int)
 
-val bob = Person("Bob", 30)
+let bob = Person("Bob", 30)
 
-val updated = bob with {
+let updated = bob with {
     Age = 31
     Unknown = 1
 }
@@ -42,9 +42,9 @@ val updated = bob with {
         const string source = """
 record class Person(Name: string, Age: int)
 
-val bob = Person("Bob", 30)
+let bob = Person("Bob", 30)
 
-val updated = bob with {
+let updated = bob with {
     Age = 31
     Age = 32
 }
@@ -69,8 +69,8 @@ class Person {
     var Name: string { get; set; }
 }
 
-val person = Person()
-val updated = person with { Name = "Bob" }
+let person = Person()
+let updated = person with { Name = "Bob" }
 """;
 
         var verifier = CreateVerifier(
@@ -144,13 +144,13 @@ class Person {
         const string source = """
 record class Person(Name: string, MiddleName: string?, LastName: string, YearOfBirth: int)
 
-val bob = Person("Bob", null, "Smith", 1978)
+let bob = Person("Bob", null, "Smith", 1978)
 
-val newBob = bob with {
+let newBob = bob with {
     MiddleName = "Leslie"
 }
 
-val renamed = newBob with {
+let renamed = newBob with {
     LastName = "Jones"
 }
 """;

@@ -6,7 +6,7 @@ The sample shape is:
 
 ```raven
 func Main() {
-    val viewModel = CounterViewModel()
+    let viewModel = CounterViewModel()
 
     use subscription = subscribe!(viewModel.Count, (value) => {
         WriteLine(value)

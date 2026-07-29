@@ -23,10 +23,10 @@ extension MyIntEnumerableExt for IEnumerable<int> {
 }
 
 func Main() {
-    val items = List<int>()
+    let items = List<int>()
     items.Add(3)
     items.Add(5)
-    val total = items.SumItems()
+    let total = items.SumItems()
 }
 """;
 
@@ -74,10 +74,10 @@ func Main() {
         const string source = """
 import System.Collections.Generic.*
 
-val items = List<int>()
+let items = List<int>()
 items.Add(1)
 items.Add(2)
-val count = items.CountItems()
+let count = items.CountItems()
 
 extension MyEnumerableExt<T> for IEnumerable<T> {
     func CountItems() -> int {
@@ -103,10 +103,10 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
         const string source = """
 import System.Collections.Generic.*
 
-val items = List<int>()
+let items = List<int>()
 items.Add(1)
 items.Add(2)
-val inferredOverload = items.CountItems(true)
+let inferredOverload = items.CountItems(true)
 
 extension MyEnumerableExt<T> for IEnumerable<T> {
     func CountItems<B>(arg: T) -> B {
@@ -143,7 +143,7 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
         const string source = """
 import System.Threading.Tasks.*
 
-val result = await 1.IncrementAsync()
+let result = await 1.IncrementAsync()
 
 extension IntExtensions for int {
     async func IncrementAsync() -> Task<int> {

@@ -40,7 +40,7 @@ public class UnusedVariableAnalyzerTests : AnalyzerTestBase
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
     }
 }
 """;
@@ -58,7 +58,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
         Print(count)
     }
 
@@ -221,7 +221,7 @@ class C {
         const string code = """
 class C {
     public func M(value: int) -> int {
-        val read = func () => value
+        let read = func () => value
         read()
     }
 }
@@ -256,7 +256,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val callback = func (value: int) -> unit {
+        let callback = func (value: int) -> unit {
         }
 
         callback(1)
@@ -276,7 +276,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val callback: (int, int) -> int = func (value, _) => value
+        let callback: (int, int) -> int = func (value, _) => value
 
         callback(1, 2)
     }
@@ -292,8 +292,8 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
-        val print = func () => count
+        let count = 0
+        let print = func () => count
         print()
     }
 }
@@ -308,7 +308,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val [first, second] = [1, 2]
+        let [first, second] = [1, 2]
         Print(first)
     }
 
@@ -328,7 +328,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        if val x = 1 {
+        if let x = 1 {
             Print(x)
         }
     }
@@ -372,7 +372,7 @@ class Button {
 
 class C {
     public func M(sender: object) -> unit {
-        val handler = func () -> unit {
+        let handler = func () -> unit {
             if sender is Button clickedButton {
                 clickedButton.Content = "Clicked"
             }
@@ -392,8 +392,8 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val values = [1, 2, 3]
-        val [first, second, ...rest] = values
+        let values = [1, 2, 3]
+        let [first, second, ...rest] = values
 
         Print(first)
         Print(second)
@@ -416,9 +416,9 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val points = [(1, 2), (3, 4)]
+        let points = [(1, 2), (3, 4)]
 
-        for val (x, > 0) in points {
+        for let (x, > 0) in points {
             Print(x)
         }
     }
@@ -436,9 +436,9 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val dict = ["a": 1, "b": 2]
+        let dict = ["a": 1, "b": 2]
 
-        for val (key, value) in dict {
+        for let (key, value) in dict {
             PrintPair(key, value)
         }
     }
@@ -456,8 +456,8 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val dict = ["a": 1, "b": 2, "c": 3]
-        val dict2 = ["e": 5, ...dict]
+        let dict = ["a": 1, "b": 2, "c": 3]
+        let dict2 = ["e": 5, ...dict]
     }
 }
 """;
@@ -474,10 +474,10 @@ class C {
         const string code = """
 class C {
     public func M() -> string {
-        val expected = 1
-        val actual = 1
+        let expected = 1
+        let actual = 1
 
-        val result = match actual {
+        let result = match actual {
             expected => "ok"
             _ => "no"
         }
@@ -496,9 +496,9 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val expected = 1
-        val actual = 1
-        val matches = actual is expected
+        let expected = 1
+        let actual = 1
+        let matches = actual is expected
 
         Print(matches)
     }
@@ -516,7 +516,7 @@ class C {
         const string code = """
 class C {
     public func M() -> string {
-        val content = "hello"
+        let content = "hello"
         return "submitted: $content"
     }
 }
@@ -531,7 +531,7 @@ class C {
         const string code = """
 class C {
     public func M() -> string {
-        val content = "hello"
+        let content = "hello"
         return "submitted: ${content}"
     }
 }
@@ -552,10 +552,10 @@ class RequestContext {
 
 class C {
     public func M() -> unit {
-        val app = 0
+        let app = 0
 
         MapPost(app, "/submit", async func (context: RequestContext) => {
-            val content = await context.ReadAsync()
+            let content = await context.ReadAsync()
             return "submitted: $content"
         })
     }
@@ -575,7 +575,7 @@ class C {
             """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
     }
 }
 """,
@@ -583,7 +583,7 @@ class C {
         var otherTree = SyntaxTree.ParseText(
             """
 func Broken() -> unit {
-    val value: MissingType = 0
+    let value: MissingType = 0
 }
 """,
             path: "/tmp/other.rav");
@@ -617,7 +617,7 @@ func Broken() -> unit {
             """
 class C {
     public func M() -> unit {
-        val count =
+        let count =
     }
 }
 """);
@@ -655,7 +655,7 @@ class User(var Name: string, var IsActive: bool)
 
 class C {
     public func Run(users: IQueryable<User>) -> unit {
-        val query = users
+        let query = users
             |> Where(user => user.IsActive)
             |> Select(user => user.Name)
 

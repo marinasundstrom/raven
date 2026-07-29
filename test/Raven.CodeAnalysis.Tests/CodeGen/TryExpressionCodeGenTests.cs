@@ -23,7 +23,7 @@ import System.*
 
 class Runner {
     static func Import(text: string) -> Result<int, Exception> {
-        val value = try? Convert.ToInt32(text)
+        let value = try? Convert.ToInt32(text)
         return .Ok(value)
     }
 
@@ -73,7 +73,7 @@ import System.Threading.Tasks.*
 
 class Runner {
     static async func Test(throwExc: bool) -> Task<Result<int, Exception>> {
-        val x = try? await Action2(throwExc)
+        let x = try? await Action2(throwExc)
         return .Ok(x + 2)
     }
 

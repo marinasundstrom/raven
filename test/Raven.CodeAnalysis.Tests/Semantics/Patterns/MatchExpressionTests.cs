@@ -14,8 +14,8 @@ public class MatchExpressionTests : DiagnosticTestBase
     public void MatchExpression_IncompleteSuffix_DiagnosticsDoNotThrow()
     {
         const string code = """
-val v = 1
-val r = v match
+let v = 1
+let r = v match
 """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -35,7 +35,7 @@ val r = v match
     public void MatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
     {
         const string code = """
-val result = match 1 {
+let result = match 1 {
     1 => 10
     _ => 0
 }
@@ -62,7 +62,7 @@ val result = match 1 {
     public void PostfixMatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
     {
         const string code = """
-val result = 1 match {
+let result = 1 match {
     1 => 10
     _ => 0
 }
@@ -89,9 +89,9 @@ val result = 1 match {
     public void MatchExpression_WithTypeArms_MissingDefaultReportsDiagnostic()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     string text => text
     object obj => obj.ToString()
 }
@@ -109,9 +109,9 @@ val result = match value {
         const string code = """
 class Box<T> {}
 
-val value: Box<int> = Box<int>()
+let value: Box<int> = Box<int>()
 
-val result = match value {
+let result = match value {
     Box box => 1
 }
 """;
@@ -141,9 +141,9 @@ val result = match value {
     public void MatchExpression_WithDefaultArm_AllowsAssignment()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     string text => text
     object => value.ToString()
 }
@@ -160,10 +160,10 @@ val result = match value {
         const string code = """
 import System.Collections.Generic.*
 
-val values: Dictionary<string, int> = !["a": 1, "b": 2]
+let values: Dictionary<string, int> = !["a": 1, "b": 2]
 
-val result = match values {
-    ["a": val first, "b": 2] => first
+let result = match values {
+    ["a": let first, "b": 2] => first
     _ => 0
 }
 """;
@@ -196,9 +196,9 @@ val result = match values {
     public void MatchExpression_WithDictionaryPatternOnNonDictionaryType_ReportsDictionaryDiagnostic()
     {
         const string code = """
-val value = 42
+let value = 42
 
-val result = match value {
+let result = match value {
     ["a": 1] => 1
     _ => 0
 }
@@ -219,10 +219,10 @@ val result = match value {
         const string code = """
 import System.Collections.Generic.*
 
-val values: Dictionary<string, int> = !["a": 1]
+let values: Dictionary<string, int> = !["a": 1]
 
-val result = match values {
-    ["a": val first, "a": 1] => first
+let result = match values {
+    ["a": let first, "a": 1] => first
     _ => 0
 }
 """;
@@ -244,10 +244,10 @@ class Box {
     val Value: int
 }
 
-val value = Box(Value: 1)
+let value = Box(Value: 1)
 
-val result = match value {
-    Box { Value: 1, Value: val other } => other
+let result = match value {
+    Box { Value: 1, Value: let other } => other
     _ => 0
 }
 """;
@@ -265,10 +265,10 @@ val result = match value {
     public void MatchExpression_WithUnknownNamedNominalDeconstructionMember_ReportsDiagnostic()
     {
         const string code = """
-val value: object = Person("Ada", 42)
+let value: object = Person("Ada", 42)
 
-val result = match value {
-    Person(Height: 170, Name: val name) => name
+let result = match value {
+    Person(Height: 170, Name: let name) => name
     _ => ""
 }
 
@@ -297,9 +297,9 @@ func GetUser() -> UserOrError {
     return .Ok(1)
 }
 
-val result = match GetUser() {
-    .Ok(User(val name, val isActive)) => 1
-    .Error(val error) => 0
+let result = match GetUser() {
+    .Ok(User(let name, let isActive)) => 1
+    .Error(let error) => 0
 }
 """;
 
@@ -330,9 +330,9 @@ func GetUser() -> UserOrError {
     return .Ok(1)
 }
 
-val result = match GetUser() {
-    .Ok(User(val name, val isActive)) => 1
-    .Error(val error) => 0
+let result = match GetUser() {
+    .Ok(User(let name, let isActive)) => 1
+    .Error(let error) => 0
 }
 
 record class User(Name: string, IsActive: bool);
@@ -359,9 +359,9 @@ record class User(Name: string, IsActive: bool);
     public void MatchExpression_WithBooleanLiteralArms_IsExhaustive()
     {
         const string code = """
-val value: bool = true
+let value: bool = true
 
-val result = match value {
+let result = match value {
     true => "true"
     false => "false"
 }
@@ -418,7 +418,7 @@ func Describe(value: unit) -> string {
     public void MatchExpression_WithNullLiteralPatternOnNullExpression_IsExhaustive()
     {
         const string code = """
-val description = match null {
+let description = match null {
     null => "Null"
 }
 """;
@@ -435,11 +435,11 @@ union class Value {
     case Pair(flag: bool, text: string)
 }
 
-val value: Value = .Flag(value: false)
+let value: Value = .Flag(value: false)
 
-val result = match value {
-    .Flag(val flag) => if flag { "true" } else { "false" }
-    .Pair(val flag, val text) => "tuple ${text}"
+let result = match value {
+    .Flag(let flag) => if flag { "true" } else { "false" }
+    .Pair(let flag, let text) => "tuple ${text}"
 }
 """;
 
@@ -469,9 +469,9 @@ func ping(name: string) -> string {
     public void MatchExpression_WithNegativeNumericPattern_AllowsConstantArm()
     {
         const string code = """
-val value: int = -1
+let value: int = -1
 
-val result = match value {
+let result = match value {
     -1 => "minus one"
     _ => "other"
 }
@@ -486,9 +486,9 @@ val result = match value {
     public void MatchExpression_WithDiscardArm_BindsDesignation()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     string text => text
     _ => ""
 }
@@ -503,7 +503,7 @@ val result = match value {
     public void MatchExpression_WithDiscardArmOnNewLine_DoesNotInsertEmptyArm()
     {
         const string code = """
-val result = match false {
+let result = match false {
     _ => "none"
 }
 """;
@@ -536,9 +536,9 @@ class Character(name: string, species: Species, age: int) {
     }
 }
 
-val character = Character("Rex", .Dog, 4)
+let character = Character("Rex", .Dog, 4)
 
-val result = match character {
+let result = match character {
     { Age: not > 34, Species: .Dog } => true
     _ => false
 }
@@ -563,8 +563,8 @@ func Main() {
 
 func Evaluate(expr: Expr<float>) -> int {
     match expr {
-        .NumericalExpr(val value) => 1
-        .AddExpr(val left, val right) => 2
+        .NumericalExpr(let value) => 1
+        .AddExpr(let left, let right) => 2
     }
 }
 """;
@@ -610,13 +610,13 @@ sealed interface Expr<T>
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
     return match expr {
-        .Literal(val value) => value
-        .Add(val left, val right) => Evaluate(left) + Evaluate(right)
+        .Literal(let value) => value
+        .Add(let left, let right) => Evaluate(left) + Evaluate(right)
     }
 }
 
 func Main() {
-    val expr = Expr.Add<int>(Expr.Literal<int>(40), Expr.Literal<int>(2))
+    let expr = Expr.Add<int>(Expr.Literal<int>(40), Expr.Literal<int>(2))
     Evaluate(expr)
 }
 """;
@@ -644,9 +644,9 @@ enum Color {
     Blue
 }
 
-val value: Color = .Red
+let value: Color = .Red
 
-val result = match value {
+let result = match value {
     .Red => 1
     .Green => 2
 }
@@ -724,9 +724,9 @@ enum Color {
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     string text => text
     object _ => value.ToString()
 }
@@ -767,11 +767,11 @@ union class Value {
     case Pair(a: int, b: string)
 }
 
-val x: Value = .Bool(flag: false)
+let x: Value = .Bool(flag: false)
 
-val result = match x {
-    .Bool(val flag) => "hej"
-    .Pair(val a, val b) => "tuple ${a} ${b}"
+let result = match x {
+    .Bool(let flag) => "hej"
+    .Pair(let a, let b) => "tuple ${a} ${b}"
 }
 """;
 
@@ -799,7 +799,7 @@ val result = match x {
 import System.*
 
 func Test(y: int) -> int {
-    val r = match y {
+    let r = match y {
         0 => return 0
         1 => 42
         _ => throw Exception("x")
@@ -817,10 +817,10 @@ func Test(y: int) -> int {
     public void MatchExpression_WithCollectionPatternOnArray_BindsElementDesignations()
     {
         const string code = """
-val items: int[] = [1, 2]
+let items: int[] = [1, 2]
 
-val result = match items {
-    [val first, val second] => first + second
+let result = match items {
+    [let first, let second] => first + second
     _ => 0
 }
 """;
@@ -861,10 +861,10 @@ val result = match items {
     public void MatchExpression_WithCollectionPatternRestOnArray_BindsRestDesignation()
     {
         const string code = """
-val items: int[] = [1, 2, 3, 4]
+let items: int[] = [1, 2, 3, 4]
 
-val result = match items {
-    [val first, ..val middle, val last] => first + middle[0] + last
+let result = match items {
+    [let first, ..let middle, let last] => first + middle[0] + last
     _ => 0
 }
 """;
@@ -897,10 +897,10 @@ val result = match items {
         const string code = """
 import System.Collections.Generic.*
 
-val items: List<int> = [1, 2, 3, 4]
+let items: List<int> = [1, 2, 3, 4]
 
-val result = match items {
-    [val first, ..val middle, val last] => first + middle[0] + last
+let result = match items {
+    [let first, ..let middle, let last] => first + middle[0] + last
     _ => 0
 }
 """;
@@ -933,10 +933,10 @@ val result = match items {
         const string code = """
 import System.Collections.Immutable.*
 
-val items: ImmutableList<int> = [1, 2, 3, 4]
+let items: ImmutableList<int> = [1, 2, 3, 4]
 
-val result = match items {
-    [val first, ..val middle, val last] => first + middle[0] + last
+let result = match items {
+    [let first, ..let middle, let last] => first + middle[0] + last
     _ => 0
 }
 """;
@@ -967,10 +967,10 @@ val result = match items {
     public void MatchExpression_WithCollectionPatternRestOnFixedArray_BindsFixedSizeRestDesignation()
     {
         const string code = """
-val items: int[4] = [1, 2, 3, 4]
+let items: int[4] = [1, 2, 3, 4]
 
-val result = match items {
-    [val first, val second, ...val rest] => first + second + rest.Length
+let result = match items {
+    [let first, let second, ...let rest] => first + second + rest.Length
     _ => 0
 }
 """;
@@ -1003,10 +1003,10 @@ val result = match items {
     public void MatchExpression_WithTrailingTripleDotCollectionPattern_BindsDiscardRest()
     {
         const string code = """
-val items: int[] = [1, 2, 3, 4]
+let items: int[] = [1, 2, 3, 4]
 
-val result = match items {
-    [val first, ...] => first
+let result = match items {
+    [let first, ...] => first
     _ => 0
 }
 """;
@@ -1068,7 +1068,7 @@ func Count(items: int[]) -> int {
         const string code = """
 func Describe(pair: (bool, bool)) -> string {
     return match pair {
-        (val left when true, _) => left.ToString()
+        (let left when true, _) => left.ToString()
     }
 }
 """;
@@ -1082,7 +1082,7 @@ func Describe(pair: (bool, bool)) -> string {
         const string code = """
 func Describe(pair: (bool, bool)) -> string {
     return match pair {
-        (val left when false, _) => left.ToString()
+        (let left when false, _) => left.ToString()
     }
 }
 """;
@@ -1094,10 +1094,10 @@ func Describe(pair: (bool, bool)) -> string {
     public void MatchExpression_WithMiddleTripleDotCollectionPattern_BindsDiscardRest()
     {
         const string code = """
-val items: int[] = [1, 2, 3, 4]
+let items: int[] = [1, 2, 3, 4]
 
-val result = match items {
-    [val first, ..., val last] => first + last
+let result = match items {
+    [let first, ..., let last] => first + last
     _ => 0
 }
 """;
@@ -1124,10 +1124,10 @@ val result = match items {
     public void MatchExpression_WithStringCollectionFixedSegment_BindsStringSliceDesignation()
     {
         const string code = """
-val text = "rune"
+let text = "rune"
 
-val result = match text {
-    [val first, ..2 val middle, val last] => middle
+let result = match text {
+    [let first, ..2 let middle, let last] => middle
     _ => ""
 }
 """;
@@ -1163,10 +1163,10 @@ val result = match text {
 import System.Collections.Generic.*
 import System.Linq.*
 
-val items: IEnumerable<int> = [1, 2, 3].Where(v => v > 0)
+let items: IEnumerable<int> = [1, 2, 3].Where(v => v > 0)
 
-val result = match items {
-    [val first, val second] => first + second
+let result = match items {
+    [let first, let second] => first + second
     _ => 0
 }
 """;
@@ -1186,9 +1186,9 @@ val result = match items {
     public void MatchExpression_WithDiscardArmNotLast_ReportsDiagnostic()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     _ => ""
     string text => text
 }
@@ -1205,9 +1205,9 @@ val result = match value {
     public void MatchExpression_WithTypedDiscardArmNotLast_ReportsDiagnostic()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     object _ => value.ToString()
     string text => text
 }
@@ -1231,13 +1231,13 @@ union class Result<T, E> {
     case Error(message: E)
 }
 
-val value: Result<int, string> = .Ok(2)
+let value: Result<int, string> = .Ok(2)
 
-val result = match value {
+let result = match value {
     .Ok(2) => "Lucky you!"
     .Ok(2) => "Still lucky!"
-    .Ok(val payload) => payload.ToString()
-    .Error(val err) => err
+    .Ok(let payload) => payload.ToString()
+    .Error(let err) => err
 }
 """;
 
@@ -1252,9 +1252,9 @@ val result = match value {
     public void MatchExpression_DiscardArm_BindsToDiscardPattern()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     string text => text
     object obj => obj.ToString()
     _ => "None"
@@ -1278,10 +1278,10 @@ val result = match value {
     public void MatchExpression_WithVariablePattern_BindsDesignation()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
-    val text => text
+let result = match value {
+    let text => text
 }
 """;
 
@@ -1309,9 +1309,9 @@ val result = match value {
     public void MatchExpression_WithVarPattern_BindsMutableDesignation()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
+let result = match value {
     var text => text
 }
 """;
@@ -1340,10 +1340,10 @@ val result = match value {
     public void MatchExpression_WithTypedVariablePattern_UsesAnnotation()
     {
         const string code = """
-val value: object = "hello"
+let value: object = "hello"
 
-val result = match value {
-    val text: string => text
+let result = match value {
+    let text: string => text
     _ => ""
 }
 """;
@@ -1372,9 +1372,9 @@ val result = match value {
     public void MatchExpression_WithArrayTypePattern_BindsArrayType()
     {
         const string code = """
-val value: object = [1, 2, 3]
+let value: object = [1, 2, 3]
 
-val result = match value {
+let result = match value {
     int[] numbers => numbers.Length
     _ => 0
 }
@@ -1428,9 +1428,9 @@ union class State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 0
 }
@@ -1450,9 +1450,9 @@ union State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 0
 }
@@ -1472,9 +1472,9 @@ union State {
     case Off
 }
 
-val state: State = default
+let state: State = default
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 0
 }
@@ -1494,9 +1494,9 @@ union State {
     case Off
 }
 
-val state: State = default
+let state: State = default
 
-val result = match state {
+let result = match state {
     .On => 1
 }
 """;
@@ -1517,9 +1517,9 @@ union State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -1539,9 +1539,9 @@ val result = match state {
         const string code = """
 union Value(int | string)
 
-val value: Value = 1
+let value: Value = 1
 
-val result = match value {
+let result = match value {
     int number => number
     string text => text.Length
 }
@@ -1624,9 +1624,9 @@ func Describe(value: string?) -> string {
         const string code = """
 union Value(int | string)
 
-val value: Value = default
+let value: Value = default
 
-val result = match value {
+let result = match value {
     int number => number
     string text => text.Length
 }
@@ -1643,9 +1643,9 @@ val result = match value {
         const string code = """
 union Value(int | string)
 
-val value: Value = default
+let value: Value = default
 
-val result = match value {
+let result = match value {
     int number => number
 }
 """;
@@ -1663,9 +1663,9 @@ val result = match value {
         const string code = """
 union Value(int | string)
 
-val value: Value = default
+let value: Value = default
 
-val result = match value {
+let result = match value {
     int number => number
     string text => text.Length
     _ => -1
@@ -1683,9 +1683,9 @@ val result = match value {
         const string code = """
 union Value(int | string)
 
-val value: Value = 1
+let value: Value = 1
 
-val result = match value {
+let result = match value {
     int number => number
     string text => text.Length
     _ => -1
@@ -1705,9 +1705,9 @@ val result = match value {
         const string code = """
 import System.*
 
-val value: Union<int, string> = 1
+let value: Union<int, string> = 1
 
-val result = match value {
+let result = match value {
     int number => number
     string text => text.Length
 }
@@ -1745,9 +1745,9 @@ public union Union<T1, T2>(T1 | T2)
         const string code = """
 import System.*
 
-val value: Union<int, string> = default
+let value: Union<int, string> = default
 
-val result = match value {
+let result = match value {
     int number => number
     string text => text.Length
 }
@@ -1783,9 +1783,9 @@ public union Union<T1, T2>(T1 | T2)
     public void MatchExpression_WithNullArm_BindsToConstantPattern()
     {
         const string code = """
-val value: string? = null
+let value: string? = null
 
-val result = match value {
+let result = match value {
     null => "empty"
     string text => text
 }
@@ -1812,8 +1812,8 @@ val result = match value {
         const string code = """
 func area(shape: Shape?) -> int {
     return match shape {
-        .Circle(val radius) => radius * radius * 3
-        .Rectangle(val width, val height) => width * height
+        .Circle(let radius) => radius * radius * 3
+        .Rectangle(let width, let height) => width * height
     }
 }
 
@@ -1851,8 +1851,8 @@ union Shape {
         const string code = """
 func area(shape: Shape?) -> int {
     return match shape {
-        .Circle(val radius) => radius * radius * 3
-        .Rectangle(val width, val height) => width * height
+        .Circle(let radius) => radius * radius * 3
+        .Rectangle(let width, let height) => width * height
         null => 0
     }
 }
@@ -1874,8 +1874,8 @@ union Shape {
         const string code = """
 func area(shape: Shape?) -> int {
     return match shape {
-        .Circle(val radius) => radius * radius * 3
-        .Rectangle(val width, val height) => width * height
+        .Circle(let radius) => radius * radius * 3
+        .Rectangle(let width, let height) => width * height
     }
 }
 
@@ -1898,8 +1898,8 @@ union class Shape {
         const string code = """
 func area(shape: Shape?) -> int {
     return match shape {
-        .Circle(val radius) => radius * radius * 3
-        .Rectangle(val width, val height) => width * height
+        .Circle(let radius) => radius * radius * 3
+        .Rectangle(let width, let height) => width * height
         null => 0
     }
 }
@@ -1945,9 +1945,9 @@ union class State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
 }
 """;
@@ -1963,10 +1963,10 @@ val result = match state {
     public void MatchExpression_WithDiscriminatedUnionScrutinee_MissingArmOmitsCaseGenericTypeArgumentsInDiagnostic()
     {
         const string code = """
-val value: Result<int, string> = .Ok(1)
+let value: Result<int, string> = .Ok(1)
 
-val result = match value {
-    .Ok(val payload) => payload
+let result = match value {
+    .Ok(let payload) => payload
 }
 
 union class Result<T, E> {
@@ -1990,7 +1990,7 @@ import System.*
 
 func Handle(result: ParseResult) -> int {
     return match result {
-        .Ok(val number) => number
+        .Ok(let number) => number
         .Error(ArgumentNullException error) => 0
         .Error(FormatException error) => 0
     }
@@ -2053,9 +2053,9 @@ union class State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
 }
 """;
@@ -2084,9 +2084,9 @@ union class State {
     case Unknown
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
 }
 """;
@@ -2112,9 +2112,9 @@ union class State {
     case Unknown
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
 }
 """;
@@ -2144,9 +2144,9 @@ union class State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -2169,9 +2169,9 @@ union class State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -2201,9 +2201,9 @@ union class State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off when false => 0
     _ => -1
@@ -2219,11 +2219,11 @@ val result = match state {
     public void MatchExpression_WithDiscriminatedUnionScrutinee_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """
-val result: Result<int> = .Ok(value: 1)
+let result: Result<int> = .Ok(value: 1)
 
-val value = match result {
-    .Ok(val payload) => payload
-    .Error(val message) => 0
+let value = match result {
+    .Ok(let payload) => payload
+    .Error(let message) => 0
     _ => -1
 }
 
@@ -2244,11 +2244,11 @@ union class Result<T> {
     public void MatchExpression_WithDiscriminatedUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
     {
         const string code = """
-val result: Result<int> = .Ok(value: 1)
+let result: Result<int> = .Ok(value: 1)
 
-val value = match result {
-    .Ok(val payload) => payload
-    .Error(val message) => 0
+let value = match result {
+    .Ok(let payload) => payload
+    .Error(let message) => 0
     _ => -1
 }
 
@@ -2283,8 +2283,8 @@ union class Response<T> {
 
 func Describe(result: Response<int>) -> string {
     return match result {
-        .Success(val value) => value.ToString()
-        .Failure(val message) => message
+        .Success(let value) => value.ToString()
+        .Failure(let message) => message
     }
 }
 """;
@@ -2951,11 +2951,11 @@ func Describe(value: int) -> string {
         const string code = """
 import System.*
 
-val result: Result<string, Exception> = .Ok(value: "ok")
+let result: Result<string, Exception> = .Ok(value: "ok")
 
-val value = match result {
-    .Ok(val text) => text
-    .Error((val message)) => message
+let value = match result {
+    .Ok(let text) => text
+    .Error((let message)) => message
     _ => ""
 }
 
@@ -2988,11 +2988,11 @@ union class Input {
     case Empty
 }
 
-val input: Input = .Text(value: "")
+let input: Input = .Text(value: "")
 
-val result = match input {
-    .Text(val text) when text.Length > 0 => "Saw \"${text}\""
-    .Number(val number) => "Counted ${number}"
+let result = match input {
+    .Text(let text) when text.Length > 0 => "Saw \"${text}\""
+    .Number(let number) => "Counted ${number}"
 }
 """;
 
@@ -3017,11 +3017,11 @@ union class Input {
     case Empty
 }
 
-val input: Input = .Text(value: "")
+let input: Input = .Text(value: "")
 
-val result = match input {
-    .Text(val text) when text.Length > 0 => "Saw \"${text}\""
-    .Number(val number) => "Counted ${number}"
+let result = match input {
+    .Text(let text) when text.Length > 0 => "Saw \"${text}\""
+    .Number(let number) => "Counted ${number}"
 }
 """;
 
@@ -3044,9 +3044,9 @@ val result = match input {
     public void MatchExpression_WithUnionScrutineeIncludingNull_DoesNotReportMissingNull()
     {
         const string code = """
-val input: string? = null
+let input: string? = null
 
-val result = match input {
+let result = match input {
     null => "Nothing to report."
     string text => text
 }
@@ -3061,10 +3061,10 @@ val result = match input {
     public void MatchExpression_WithPositionalPattern_BindsTupleElements()
     {
         const string code = """
-val pair: object = (1, "two")
+let pair: object = (1, "two")
 
-val result = match pair {
-    (val first: int, val second: string) => second
+let result = match pair {
+    (let first: int, let second: string) => second
     _ => ""
 }
 """;
@@ -3101,11 +3101,11 @@ val result = match pair {
     public void MatchExpression_WithPositionalPattern_ExplicitBindingAndEqualityPattern_BindsCorrectly()
     {
         const string code = """
-val existingValue = 2
-val pair: (int, int) = (1, 2)
+let existingValue = 2
+let pair: (int, int) = (1, 2)
 
-val result = match pair {
-    (val a, == existingValue) => a
+let result = match pair {
+    (let a, == existingValue) => a
     _ => 0
 }
 """;
@@ -3136,11 +3136,11 @@ val result = match pair {
     public void MatchExpression_WithPositionalPattern_WithoutBindingKeyword_TreatsIdentifierAsValuePattern()
     {
         const string code = """
-val a = 1
-val existingValue = 2
-val pair: (int, int) = (1, 2)
+let a = 1
+let existingValue = 2
+let pair: (int, int) = (1, 2)
 
-val result = match pair {
+let result = match pair {
     (a, == existingValue) => 1
     _ => 0
 }
@@ -3169,10 +3169,10 @@ val result = match pair {
     public void MatchExpression_WithOuterValSequencePattern_BindsImplicitCaptures()
     {
         const string code = """
-val input = [1, 2, 3, 4]
+let input = [1, 2, 3, 4]
 
-val result = match input {
-    val [first, second, ...rest] => first + second + rest.Count
+let result = match input {
+    let [first, second, ...rest] => first + second + rest.Count
     _ => 0
 }
 """;
@@ -3195,10 +3195,10 @@ union Option<T> {
     case None
 }
 
-val value: Option<(int, int)> = .Some((1, 2))
+let value: Option<(int, int)> = .Some((1, 2))
 
-val result = match value {
-    val Some((x, y)) => x + y
+let result = match value {
+    let Some((x, y)) => x + y
     _ => 0
 }
 """;
@@ -3216,10 +3216,10 @@ val result = match value {
         const string code = """
 record class Person(Name: string, Age: int)
 
-val person = Person("Ada", 42)
+let person = Person("Ada", 42)
 
-val result = match person {
-    val (Name: name, Age: age) => name.Length + age
+let result = match person {
+    let (Name: name, Age: age) => name.Length + age
     _ => 0
 }
 """;
@@ -3237,10 +3237,10 @@ val result = match person {
         const string code = """
 record class Person(Name: string, Age: int)
 
-val person = Person("Ada", 42)
+let person = Person("Ada", 42)
 
-val result = match person {
-    val (Name: name: string, Age: age: int) => name.Length + age
+let result = match person {
+    let (Name: name: string, Age: age: int) => name.Length + age
     _ => 0
 }
 """;
@@ -3263,10 +3263,10 @@ val result = match person {
     public void MatchExpression_WithOuterAndInlineBindingKeywords_ReportsConflict()
     {
         const string code = """
-val input = [1, 2, 3]
+let input = [1, 2, 3]
 
-val result = match input {
-    val [val first, second, ...rest] => first
+let result = match input {
+    let [let first, second, ...rest] => first
     _ => 0
 }
 """;
@@ -3283,9 +3283,9 @@ val result = match input {
     public void MatchExpression_WithComparisonPatternOfDifferentType_ReportsDiagnostic()
     {
         const string code = """
-val pair: (int, int) = (1, 2)
+let pair: (int, int) = (1, 2)
 
-val result = match pair {
+let result = match pair {
     (1, > 0.5) => 1
     _ => 0
 }
@@ -3306,9 +3306,9 @@ val result = match pair {
     public void MatchExpression_WithRangePatternOfDifferentType_ReportsDiagnostic()
     {
         const string code = """
-val value: int = 2
+let value: int = 2
 
-val result = match value {
+let result = match value {
     0..0.5 => 1
     _ => 0
 }
@@ -3368,7 +3368,7 @@ union Option<T> {
 class C {
     func Run(value: Option<(string, int)>) -> int {
         return match value {
-            val Some((first, >= 18)) whole => first.Length
+            let Some((first, >= 18)) whole => first.Length
             _ => 0
         }
     }
@@ -3395,9 +3395,9 @@ class C {
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """
-val pair: (int, int) = (1, 2)
+let pair: (int, int) = (1, 2)
 
-val result = match pair {
+let result = match pair {
     (int a, int b, int c) => c
 }
 """;
@@ -3416,9 +3416,9 @@ val result = match pair {
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsExhaustivenessAtMatchKeyword()
     {
         const string code = """
-val pair: (int, int) = (1, 2)
+let pair: (int, int) = (1, 2)
 
-val result = match pair {
+let result = match pair {
     (int a, int b, int c) => c
 }
 """;
@@ -3441,9 +3441,9 @@ val result = match pair {
     public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
-val value: int = 0
+let value: int = 0
 
-val result = match value {
+let result = match value {
     string text => text
     _ => ""
 }
@@ -3465,9 +3465,9 @@ union class State {
     case Off
 }
 
-val value: State = .On
+let value: State = .On
 
-val result = match value {
+let result = match value {
     bool flag => 1
     _ => 0
 }
@@ -3484,9 +3484,9 @@ val result = match value {
     public void MatchExpression_WithIncompatibleLiteralPattern_ReportsDiagnostic()
     {
         const string code = """
-val value: int = 0
+let value: int = 0
 
-val result = match value {
+let result = match value {
     "foo" => 1
     _ => 0
 }
@@ -3513,7 +3513,7 @@ record Add(Left: Expr, Right: Expr) : Expr
 
 func Evaluate(expr: Expr) -> int {
     return match expr {
-        Add(val left, val right) => 0
+        Add(let left, let right) => 0
         _ => 0
     }
 }
@@ -3547,9 +3547,9 @@ func Evaluate(expr: Expr) -> int {
     public void MatchExpression_WithExclusiveRangePattern_BindsExclusiveUpperBound()
     {
         const string code = """
-val value: int = 9
+let value: int = 9
 
-val result = match value {
+let result = match value {
     2..<10 => 1
     _ => 0
 }

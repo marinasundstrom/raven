@@ -7,14 +7,14 @@ Objects are created by **calling the type name** directly, just like any
 other method.
 
 ```raven
-val sb = StringBuilder()
+let sb = StringBuilder()
 sb.AppendLine("Foo")
 ```
 
 Generic types work the same way:
 
 ```raven
-val list = List<int>()
+let list = List<int>()
 list.Add(2)
 ```
 
@@ -32,7 +32,7 @@ class GET<T> : Endpoint {
     init(pattern: string, handler: T -> string) : base(handler) {}
 }
 
-val route = GET("/{id:int}", func (id: int) => id.ToString())
+let route = GET("/{id:int}", func (id: int) => id.ToString())
 // route : GET<int>
 ```
 
@@ -49,7 +49,7 @@ arguments or a different type name.
 An object initializer may be used for parameterless construction:
 
 ```raven
-val window = Window {
+let window = Window {
     Title = "Main"
 }
 ```

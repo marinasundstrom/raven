@@ -228,8 +228,8 @@ the parameter list, return type, and body just like any other type annotation.
 ```raven
 func identity<T>(value: T) -> T { value }
 
-val number = identity(42)         // inferred T = int
-val text = identity<string>("hi")
+let number = identity(42)         // inferred T = int
+let text = identity<string>("hi")
 ```
 
 Call sites may omit explicit type arguments when inference can determine a
@@ -272,8 +272,8 @@ When no instance receiver is available (for example inside `static` members or
 func outer() {
     func inner<T: struct>(value: T) -> T { value }
 
-    val y = inner(2)
-    val point = inner((x: 1, y: 2))
+    let y = inner(2)
+    let point = inner((x: 1, y: 2))
 }
 ```
 
@@ -302,11 +302,11 @@ bodies use `=>`; `func`-introduced block bodies may omit `=>` and use
 appear wherever a function value is expected.
 
 ```raven
-val addA = func (x: int) => x + 42
-val addB = func (x: int) {
+let addA = func (x: int) => x + 42
+let addB = func (x: int) {
     x + 42
 }
-val addC = x => x + 42
+let addC = x => x + 42
 ```
 
 Function expressions may optionally declare a local identifier:
@@ -349,14 +349,14 @@ non-targeted attributes are applied to the first parameter, while
 `[return: ...]` lists are applied to the function expression return type.
 
 ```raven
-val parse = [FromBody](content: string) => content
+let parse = [FromBody](content: string) => content
 ```
 
 Function-expression parameters may also declare default values using the same trailing
 optional-parameter rules as functions and methods.
 
 ```raven
-val format = (name: string, age: int = 1) => "$name:$age"
+let format = (name: string, age: int = 1) => "$name:$age"
 ```
 
 Function-expression parameter types are optional when the expression is converted to a known
@@ -376,8 +376,8 @@ type still comes from the delegate context, and destructuring is then applied
 inside the lambda body.
 
 ```raven
-val pickSecond: ((int, string)) -> string = ((a, b)) => b
-val sumTail: (int[]) -> int = ([head, ..tail]) => head + tail[0]
+let pickSecond: ((int, string)) -> string = ((a, b)) => b
+let sumTail: (int[]) -> int = ([head, ..tail]) => head + tail[0]
 ```
 
 Nested deconstruction is recursive in parameter patterns. Positional and
@@ -385,7 +385,7 @@ sequence forms may be freely nested as long as each nested segment is
 compatible with its inferred input type:
 
 ```raven
-val project: (((int, string), int[])) -> string =
+let project: (((int, string), int[])) -> string =
     (((id, name), [head, ..tail])) => "$id:$name:$head:${tail.Length}"
 ```
 
@@ -424,7 +424,7 @@ When no delegate context is available, diagnostic `RAV2201` is reported and the
 method must either be invoked directly or annotated with a delegate type.
 
 ```raven
-val writeLine: (string) -> () = Console.WriteLine
+let writeLine: (string) -> () = Console.WriteLine
 writeLine("Hello from Raven!")
 ```
 
@@ -438,8 +438,8 @@ delegate type explicitly or use another context with a well-defined target
 type.
 
 ```raven
-val writeLine = Console.WriteLine             // error: overloaded method group
-val writeLine: (string) -> () = Console.WriteLine // ok
+let writeLine = Console.WriteLine             // error: overloaded method group
+let writeLine: (string) -> () = Console.WriteLine // ok
 ```
 
 Passing `Console.WriteLine` as an argument to a parameter of function type `(string) -> ()`
@@ -472,7 +472,7 @@ class Counter {
     func Increment(delta: int) -> int { self.value + delta }
 
     func Run() -> int {
-        val increment = self.Increment
+        let increment = self.Increment
         increment(7) // returns 10
     }
 }
@@ -503,7 +503,7 @@ class Accumulator {
     }
 
     static func Execute(value: int) -> int {
-        val callback = Accumulator.TryAccumulate
+        let callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0
 

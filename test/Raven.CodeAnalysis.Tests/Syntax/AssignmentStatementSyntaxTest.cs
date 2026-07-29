@@ -69,7 +69,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesSequencePatternAssignmentStatement()
     {
-        var tree = SyntaxTree.ParseText("[val first, val second, _] = numbers");
+        var tree = SyntaxTree.ParseText("[let first, let second, _] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.SimpleAssignmentStatement, assignment.Kind);
@@ -82,7 +82,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesSequencePatternDeclarationShorthandAssignmentStatement()
     {
-        var tree = SyntaxTree.ParseText("val [first, second, _] = numbers");
+        var tree = SyntaxTree.ParseText("let [first, second, _] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
@@ -98,7 +98,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesSequencePatternDeclarationShorthand_WithImplicitTypedElements()
     {
-        var tree = SyntaxTree.ParseText("val [key: string, value: int] = entries");
+        var tree = SyntaxTree.ParseText("let [key: string, value: int] = entries");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
@@ -127,7 +127,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesSequencePatternDeclarationShorthand_WithImplicitTypedRestElement()
     {
-        var tree = SyntaxTree.ParseText("val [head: string, ..tail: int] = entries");
+        var tree = SyntaxTree.ParseText("let [head: string, ..tail: int] = entries");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
@@ -147,7 +147,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesSequencePatternDeclarationShorthand_WithMiddleRest()
     {
-        var tree = SyntaxTree.ParseText("val [first, ..middle, last] = numbers");
+        var tree = SyntaxTree.ParseText("let [first, ..middle, last] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
@@ -166,7 +166,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesSequencePatternDeclarationShorthand_WithFixedSegment()
     {
-        var tree = SyntaxTree.ParseText("val [..2 start, tail] = numbers");
+        var tree = SyntaxTree.ParseText("let [..2 start, tail] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
 
@@ -184,7 +184,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void ParsesDictionaryPatternDeclarationShorthandAssignmentStatement()
     {
-        var tree = SyntaxTree.ParseText("val [\"a\": first, \"b\": second] = values");
+        var tree = SyntaxTree.ParseText("let [\"a\": first, \"b\": second] = values");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
@@ -215,7 +215,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void PositionalPatternDeclarationShorthand_WithNamedImplicitBindings_PreservesElementNames()
     {
-        var tree = SyntaxTree.ParseText("val (Items: items, Name: name, Age: age) = person");
+        var tree = SyntaxTree.ParseText("let (Items: items, Name: name, Age: age) = person");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
@@ -248,7 +248,7 @@ public class AssignmentStatementSyntaxTest
     [Fact]
     public void PositionalPatternDeclarationShorthand_WithImplicitTypedElements_ParsesTypeAnnotations()
     {
-        var tree = SyntaxTree.ParseText("val (key: string, value: int) = pair");
+        var tree = SyntaxTree.ParseText("let (key: string, value: int) = pair");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
         var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);

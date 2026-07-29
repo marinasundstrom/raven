@@ -11,7 +11,7 @@ public sealed class ConstructorParameterNamingCodeFixTests : CodeFixTestBase
         const string code = """
 class Foo {
     init(Name: int) {
-        val doubled = Name + Name
+        let doubled = Name + Name
     }
 }
 """;
@@ -19,7 +19,7 @@ class Foo {
         const string fixedCode = """
 class Foo {
     init(name: int) {
-        val doubled = name + name
+        let doubled = name + name
     }
 }
 """;

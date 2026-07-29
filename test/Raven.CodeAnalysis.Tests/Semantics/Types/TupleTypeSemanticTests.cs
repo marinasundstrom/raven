@@ -15,7 +15,7 @@ public class TupleTypeSemanticTests
     public void TupleTypeSyntax_BindsToTupleTypeSymbol_WithNames()
     {
         var source = """
-        val t: (id: int, name: string) = (1, "")
+        let t: (id: int, name: string) = (1, "")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -36,7 +36,7 @@ public class TupleTypeSemanticTests
     public void TupleExpression_TargetTyped_UsesDeclaredType_IgnoringNames()
     {
         var source = """
-        val pair: (id: int, name: string) = (no: 42, identifier: "answer")
+        let pair: (id: int, name: string) = (no: 42, identifier: "answer")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -57,7 +57,7 @@ public class TupleTypeSemanticTests
     public void TupleExpression_TargetTyped_WithoutNames_Succeeds()
     {
         var source = """
-        val pair: (int, string) = (42, "Bar")
+        let pair: (int, string) = (42, "Bar")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -78,9 +78,9 @@ public class TupleTypeSemanticTests
     public void NamedTuple_ReturnedFromFunction_PreservesNamesForMemberAccess()
     {
         var source = """
-        val person = GetPerson("Bob", 40)
-        val name = person.name
-        val age = person.age
+        let person = GetPerson("Bob", 40)
+        let name = person.name
+        let age = person.age
 
         func GetPerson(name: string, age: int) -> (name: string, age: int) {
             return (name, age)
@@ -123,7 +123,7 @@ public class TupleTypeSemanticTests
     [Fact]
     public void TupleExpression_TargetTypedMismatch_ReportsDiagnostic()
     {
-        var source = "val t: (int, string) = (1, 2)";
+        var source = "let t: (int, string) = (1, 2)";
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);

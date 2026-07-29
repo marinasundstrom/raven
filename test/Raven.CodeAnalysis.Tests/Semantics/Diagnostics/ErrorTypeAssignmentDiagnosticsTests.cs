@@ -10,7 +10,7 @@ public class ErrorTypeAssignmentDiagnosticsTests : DiagnosticTestBase
         const string code = """
         class Foo {
             func Test() -> unit {
-                val x: string = y;
+                let x: string = y;
             }
         }
         """;

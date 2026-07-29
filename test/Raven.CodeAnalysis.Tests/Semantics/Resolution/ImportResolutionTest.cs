@@ -218,7 +218,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Math.*
 
-            val pi = PI
+            let pi = PI
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -233,7 +233,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Math.PI
 
-            val pi = PI
+            let pi = PI
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -248,7 +248,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import Constants.*
 
-            val value = Answer
+            let value = Answer
 
             public static class Constants {
                 public const Answer: int = 42
@@ -334,7 +334,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import MathHelpers.*
 
-            val value = Increment(1, 2)
+            let value = Increment(1, 2)
 
             public static class MathHelpers {
                 public static func Increment(x: int, amount: int) -> int {

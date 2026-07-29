@@ -15,7 +15,7 @@ public sealed class CommonTypeInferenceTests : DiagnosticTestBase
 import System.*
 
 func Test(y: int) -> int {
-    val r = match y {
+    let r = match y {
         0 => return 0
         1 => 42
         _ => throw Exception("x")
@@ -43,7 +43,7 @@ func Test(y: int) -> int {
 class A {}
 class B {}
 
-val value = if true { A() } else { B() }
+let value = if true { A() } else { B() }
 """;
 
         var verifier = CreateVerifier(code);
@@ -61,8 +61,8 @@ val value = if true { A() } else { B() }
     public void MatchExpression_WithHomogeneousValueArms_InfersConcreteType()
     {
         const string code = """
-val seed = 0
-val value = match 1 {
+let seed = 0
+let value = match 1 {
     1 => seed
     _ => 42
 }

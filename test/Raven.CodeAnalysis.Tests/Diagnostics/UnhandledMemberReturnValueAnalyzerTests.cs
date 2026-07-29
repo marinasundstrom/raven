@@ -97,7 +97,7 @@ func Compute() -> int {
 }
 
 func Test() -> () {
-    val value = Compute()
+    let value = Compute()
 }
 """;
 
@@ -184,7 +184,7 @@ class Counter {
 }
 
 func Test() -> () {
-    val counter = Counter()
+    let counter = Counter()
     counter.Count
 }
 """;

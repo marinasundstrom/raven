@@ -257,7 +257,7 @@ class GuardedText {
             return -1
         }
 
-        val suffix = text + "!"
+        let suffix = text + "!"
         return suffix.Length
     }
 }

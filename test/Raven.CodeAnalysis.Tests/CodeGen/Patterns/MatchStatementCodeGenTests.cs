@@ -21,7 +21,7 @@ public sealed class MatchStatementCodeGenTests
     public void MatchStatement_WithUnitArms_AtTopLevel_EmitsAndRuns()
     {
         const string code = """
-val condition = true
+let condition = true
 
 match condition {
     true => System.Console.WriteLine("ok")

@@ -26,8 +26,8 @@ lookup, and namespace-qualified member access can reference them:
 ```raven
 import Utilities.*
 
-val a = AddOne(Answer)
-val b = Utilities.AddOne(Utilities.Answer)
+let a = AddOne(Answer)
+let b = Utilities.AddOne(Utilities.Answer)
 ```
 
 The synthesized container is emitted with the metadata marker attribute

@@ -124,8 +124,8 @@ The current targetless default matrix is therefore:
       b
   ]` -> `List<T>`
 * `[|a, b|]` -> `T[N]` / `T[]`
-* `val span: System.Span<T> = [a, b]` -> array-backed `Span<T>`
-* `val span: System.ReadOnlySpan<T> = [a, b]` -> array-backed `ReadOnlySpan<T>`
+* `let span: System.Span<T> = [a, b]` -> array-backed `Span<T>`
+* `let span: System.ReadOnlySpan<T> = [a, b]` -> array-backed `ReadOnlySpan<T>`
 
 An empty collection expression `[]` must be used in a context that supplies a target type;
 otherwise its type cannot be inferred. When a target type is available, the compiler
@@ -136,42 +136,42 @@ scope.
 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3651】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1170-L1192】
 
 ```raven
-val numbers: int[] = [1, 2, 3]
-val combined = [0, ...numbers, 4]
-val squares = [for n in numbers => n * n]
-val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
-val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
-val selectedNames = [for let (2, name) in [(1, "Ada"), (2, "Bob")] => name]
+let numbers: int[] = [1, 2, 3]
+let combined = [0, ...numbers, 4]
+let squares = [for n in numbers => n * n]
+let evenSquares = [for n in numbers if n % 2 == 0 => n * n]
+let evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
+let selectedNames = [for let (2, name) in [(1, "Ada"), (2, "Bob")] => name]
 
-val names: List<string> = ["a", "b"]
-val inferred = [1, 2.0]      // inferred as ImmutableList<double>
-val inferredList = [1; 2; 3] // inferred as ImmutableList<int>
-val mutableList = ![1, 2, 3] // inferred as List<int>
-val mutableListAlt = ![1; 2; 3]  // inferred as List<int>
-val inferredArray = [|1, 2, 3|] // inferred as int[3]
-val expandedArray = [|...inferredArray, 4|] // inferred as int[4]
+let names: List<string> = ["a", "b"]
+let inferred = [1, 2.0]      // inferred as ImmutableList<double>
+let inferredList = [1; 2; 3] // inferred as ImmutableList<int>
+let mutableList = ![1, 2, 3] // inferred as List<int>
+let mutableListAlt = ![1; 2; 3]  // inferred as List<int>
+let inferredArray = [|1, 2, 3|] // inferred as int[3]
+let expandedArray = [|...inferredArray, 4|] // inferred as int[4]
 
-val byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
-val mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
-val merged = [..."a": 1, ...mutableByName, "c": 3]
-val lengths = [for key in [|"a", "bb"|] => key: key.Length]
-val doubled = [for let (key, value) in [("a", 1), ("b", 2)] => key: value * 2]
-val readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
+let byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
+let mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
+let merged = [..."a": 1, ...mutableByName, "c": 3]
+let lengths = [for key in [|"a", "bb"|] => key: key.Length]
+let doubled = [for let (key, value) in [("a", 1), ("b", 2)] => key: value * 2]
+let readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
 
-val baseList: ImmutableList<int> = [2; 3; 4]
-val preserved = [7, ...baseList, 5] // inferred as ImmutableList<int>
+let baseList: ImmutableList<int> = [2; 3; 4]
+let preserved = [7, ...baseList, 5] // inferred as ImmutableList<int>
 
-val a: ImmutableList<int> = [1]
-val b: List<int> = [2]
-val defaulted = [...a, ...b] // inferred as ImmutableList<int>
+let a: ImmutableList<int> = [1]
+let b: List<int> = [2]
+let defaulted = [...a, ...b] // inferred as ImmutableList<int>
 
-val forced: List<int> = [...a, ...b]
-val forcedObject: object[] = [1, true]
+let forced: List<int> = [...a, ...b]
+let forcedObject: object[] = [1, true]
 ```
 
 ### Element access
 
 ```raven
-val list = [1, 42, 3]
-val a = list[1]
+let list = [1, 42, 3]
+let a = list[1]
 ```

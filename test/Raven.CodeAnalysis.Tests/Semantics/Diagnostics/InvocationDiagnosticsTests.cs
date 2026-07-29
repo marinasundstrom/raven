@@ -64,7 +64,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    val x = 1
+    let x = 1
     x()
 }
 """;
@@ -101,7 +101,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    val box = Box()
+    let box = Box()
     box?.Value()
 }
 
@@ -127,7 +127,7 @@ class Box {
     {
         var code = """
 func Main() {
-    val box = Box()
+    let box = Box()
     box?.Value()
 }
 
@@ -154,7 +154,7 @@ class Box {
     {
         var code = """
 func Main() {
-    val box = Box()
+    let box = Box()
     box.Missing(2)
 }
 
@@ -179,7 +179,7 @@ class Box {
     {
         var code = """
 func Main() {
-    val box = Box()
+    let box = Box()
     box?.Missing(2)
 }
 

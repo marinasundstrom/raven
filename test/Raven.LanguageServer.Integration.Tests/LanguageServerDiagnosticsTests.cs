@@ -66,7 +66,7 @@ class Flag {
 }
 
 func Main() -> () {
-    val flag = Flag()
+    let flag = Flag()
     if flag {
     }
 }
@@ -113,7 +113,7 @@ class Flag {
 }
 
 func Main() -> () {
-    val flag = Flag()
+    let flag = Flag()
     if flag {
     }
 }
@@ -147,7 +147,7 @@ func Main() -> () {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
     }
 }
 """;
@@ -300,7 +300,7 @@ class UiWindow {
 import Utilities.*
 
 func Main() {
-    val x = A(42)
+    let x = A(42)
     A(x)
 }
 """;
@@ -308,7 +308,7 @@ func Main() {
 import Utilities.*
 
 func Main() {
-    val x = A(42)
+    let x = A(42)
     A()
 }
 """;
@@ -624,7 +624,7 @@ class C {
         var documentPath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
-val c = C()
+let c = C()
 c.M()
 
 class C {
@@ -1070,11 +1070,11 @@ import System.Linq.Expressions.*
 class User(var Name: string, var Age: int, var IsActive: bool)
 
 func Main(users: IQueryable<User>) {
-    val minAge = 21
-    val onlyActiveAdults: Expression<System.Func<User, bool>> =
+    let minAge = 21
+    let onlyActiveAdults: Expression<System.Func<User, bool>> =
         user => user.IsActive && user.Age >= minAge
 
-    val query = users
+    let query = users
         |> Where(onlyActiveAdults)
         |> OrderBy(user => user.Name)
         |> Select(user => user.Name)
@@ -1158,7 +1158,7 @@ class RequestContext {
 
 func Main() -> unit {
     Accept(async func (context: RequestContext) {
-        val content = await Task.FromResult(context.Text)
+        let content = await Task.FromResult(context.Text)
         return "submitted: $content"
     })
 }
@@ -1224,9 +1224,9 @@ func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
         const string code = """
 import System.Collections.Immutable.*
 
-val doubled: ImmutableDictionary<string, int> = ["two": 4]
+let doubled: ImmutableDictionary<string, int> = ["two": 4]
 
-for val (key: string, value: string) in doubled {
+for let (key: string, value: string) in doubled {
     _ = key
     _ = value
 }
@@ -1285,7 +1285,7 @@ import System.*
 import System.Console.*
 
 func Main() -> () {
-    val r = Parse<int>("42")
+    let r = Parse<int>("42")
     WriteLine(r)
 }
 
@@ -1415,7 +1415,7 @@ import Utilities.*
 
 func Main() {
     Test()
-    val x = A(42)
+    let x = A(42)
     Test()
     A(42)
 }
@@ -1934,7 +1934,7 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 func Main() {
-    val test = MyResult(List<string>())
+    let test = MyResult(List<string>())
 }
 
 union MyResult<T>(List<T> | int)
@@ -1980,7 +1980,7 @@ union MyResult<T>(List<T> | int)
         var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        var initialCode = code.Replace("use app = builder.Build()", "val app = builder.Build()", StringComparison.Ordinal);
+        var initialCode = code.Replace("use app = builder.Build()", "let app = builder.Build()", StringComparison.Ordinal);
         initialCode.ShouldNotBe(code);
 
         await store.UpsertDocumentAsync(uri, initialCode);
@@ -2209,10 +2209,10 @@ union MyResult<T>(List<T> | int)
         const string code = """
 import System.Text.Json.*
 
-val foo = Foo("Marina")
-val options = JsonSerializerOptions()
-val str = JsonSerializer.Serialize(foo, options)
-val obj = JsonSerializer.Deserialize<Foo>(str, options)
+let foo = Foo("Marina")
+let options = JsonSerializerOptions()
+let str = JsonSerializer.Serialize(foo, options)
+let obj = JsonSerializer.Deserialize<Foo>(str, options)
 
 record Foo(Name: string)
 """;
@@ -2274,10 +2274,10 @@ record Foo(Name: string)
         const string code = """
 import System.Text.Json.*
 
-val foo = Foo("Marina")
-val options = JsonSerializerOptions()
-val str = JsonSerializer.Serialize(foo, options)
-val obj = JsonSerializer.Deserialize<Foo>(options, str)
+let foo = Foo("Marina")
+let options = JsonSerializerOptions()
+let str = JsonSerializer.Serialize(foo, options)
+let obj = JsonSerializer.Deserialize<Foo>(options, str)
 
 record Foo(Name: string)
 """;
@@ -2333,7 +2333,7 @@ record Foo(Name: string)
         const string code = """
 import System.*
 
-val foo = Foo(
+let foo = Foo(
     Name: "Foo",
     Status: .OnMaintenance(.UtcNow, "Test"),
     Item: .Some("Foo")
@@ -2620,7 +2620,7 @@ record Person(
 )
 """;
 
-        var readOnlySource = mutableSource.Replace("var people", "val people", StringComparison.Ordinal);
+        var readOnlySource = mutableSource.Replace("var people", "let people", StringComparison.Ordinal);
         await store.UpsertDocumentAsync(uri, mutableSource);
         var mutableDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         mutableDiagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeFalse();
@@ -2668,7 +2668,7 @@ record Person(
         var uri = DocumentUri.FromFileSystemPath(documentPath);
 
         var invalidSource = """
-val flag = true and
+let flag = true and
 """;
         await store.UpsertDocumentAsync(uri, invalidSource);
         var invalidDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
@@ -2677,7 +2677,7 @@ val flag = true and
         var readOnlySource = """
 import System.Collections.Immutable.*
 
-val people = [
+let people = [
     Person("Alice", 25, [])
 ]
 

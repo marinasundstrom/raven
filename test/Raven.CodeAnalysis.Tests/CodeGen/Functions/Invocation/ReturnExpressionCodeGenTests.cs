@@ -17,7 +17,7 @@ public class ReturnExpressionCodeGenTests
 import System.*
 
 func Foo(name: string?) -> int {
-    val value = name ?? return -1
+    let value = name ?? return -1
     return value.Length
 }
 

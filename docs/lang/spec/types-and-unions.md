@@ -12,8 +12,8 @@ function-expression parameters can infer from a delegate target; ordinary
 function and method parameters still declare their parameter types explicitly:
 
 ```raven
-val a = 2
-val b: int = 2
+let a = 2
+let b: int = 2
 
 func add(a: int, b: int) -> int { a + b }
 ```
@@ -26,14 +26,14 @@ Tuple types use parentheses with comma-separated element types and map to
 `System.ValueTuple`:
 
 ```raven
-val pair: (int, string) = (42, "answer")
+let pair: (int, string) = (42, "answer")
 ```
 
 Elements may optionally be named with a `name: Type` pair. Names exist only for
 developer clarity and do not participate in type identity or assignment:
 
 ```raven
-val tuple2: (id: int, name: string) = (no: 42, identifier: "Bar")
+let tuple2: (id: int, name: string) = (no: 42, identifier: "Bar")
 ```
 
 When a tuple expression is assigned to an explicitly annotated tuple type, each
@@ -61,9 +61,9 @@ syntax mirrors a lambda signature: a comma-separated
 parameter list enclosed in parentheses followed by `->` and the return type.
 
 ```raven
-val applyTwice: ((int -> int), int) -> int
-val thunk: () -> unit
-val comparer: (string, string) -> bool
+let applyTwice: ((int -> int), int) -> int
+let thunk: () -> unit
+let comparer: (string, string) -> bool
 ```
 
 In declaration-oriented lists, a newline may stand in for the expected explicit
@@ -75,7 +75,7 @@ the expected kind and reports a diagnostic.
 Single-parameter functions may omit the surrounding parentheses:
 
 ```raven
-val increment: int -> int
+let increment: int -> int
 ```
 
 The return portion may itself be any Raven type. Nested arrows associate to the right, so `int -> string -> bool` is
@@ -127,14 +127,14 @@ the programmer has stronger knowledge than the exposed type.
 
 ```raven
 func ReadName(service: ExternalService) -> int {
-    val name = service.TryGetName()!
+    let name = service.TryGetName()!
     return name.Length
 }
 ```
 
 ```raven
 func Increment(value: int?) -> int {
-    val required = value!
+    let required = value!
     return required + 1
 }
 ```
@@ -180,8 +180,8 @@ record Card(last4: string)
 union Payment(Cash | Card)
 union OptionalPayment(Cash | Card?)
 
-val paidInCash: Payment = Cash(12.50m)
-val paidByCard: Payment = Card("4242")
+let paidInCash: Payment = Cash(12.50m)
+let paidByCard: Payment = Card("4242")
 ```
 
 ##### Rules
@@ -220,8 +220,8 @@ union LookupResult {
     }
 }
 
-val found: LookupResult = Found(42)
-val missing: LookupResult = Missing
+let found: LookupResult = Found(42)
+let missing: LookupResult = Missing
 ```
 
 ##### Rules
@@ -257,11 +257,11 @@ when the surrounding context requires the union type.
 ##### Example
 
 ```raven
-val ok: Result<int, string> = Ok(99)
-val err = Result<int, string>.Error("boom")
+let ok: Result<int, string> = Ok(99)
+let err = Result<int, string>.Error("boom")
 
-val outcome: Either<int, string> = 42
-val left = (int)outcome
+let outcome: Either<int, string> = 42
+let left = (int)outcome
 ```
 
 ##### Rules
@@ -315,7 +315,7 @@ Ok<int>(2)
 Result<int, MyError>.Ok(2)
 
 // Target-typed member-binding sugar
-val r: Result<int, MyError> = .Ok(2)
+let r: Result<int, MyError> = .Ok(2)
 ```
 
 Binding model:
@@ -390,7 +390,7 @@ Type argument behavior:
   constructor arguments (`Ok(2)`).
 * Union type arguments are taken from explicit receiver types
   (`Result<int, MyError>.Ok(2)`) or from target typing
-  (`val r: Result<int, MyError> = .Ok(2)`).
+  (`let r: Result<int, MyError> = .Ok(2)`).
 
 For every case `Case`, assigning, returning, or passing a case value
 automatically produces the union carrier through case-to-union conversion.
@@ -398,8 +398,8 @@ Member-qualified case construction still constructs the case first and then
 converts to the carrier when the surrounding context requires the union value:
 
 ```raven
-val ok: Result<int, string> = Ok(99)          // implicit case-to-union conversion
-val err = Result<int, string>.Error("boom")
+let ok: Result<int, string> = Ok(99)          // implicit case-to-union conversion
+let err = Result<int, string>.Error("boom")
 Console.WriteLine(ok)
 ```
 

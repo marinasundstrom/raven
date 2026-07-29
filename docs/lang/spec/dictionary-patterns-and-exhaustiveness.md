@@ -29,7 +29,7 @@ Dictionary deconstruction uses the same keyed syntax in declaration or
 assignment position:
 
 ```raven
-val values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
+let values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
 let ["a": first, "b": second] = values
 ```
 

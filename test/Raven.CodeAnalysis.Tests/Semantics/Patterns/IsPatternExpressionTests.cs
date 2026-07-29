@@ -116,9 +116,9 @@ func Test(x: object?) {
     public void IsPattern_UserDefinedUnionCasesRequireQualificationOrImport()
     {
         const string code = """
-val s = Status.Open("foo")
+let s = Status.Open("foo")
 
-if s is Open(val reason) {
+if s is Open(let reason) {
 }
 
 union Status {
@@ -142,9 +142,9 @@ union Status {
         const string code = """
 import Status.*
 
-val s = Status.Open("foo")
+let s = Status.Open("foo")
 
-if s is Open(val reason) {
+if s is Open(let reason) {
 }
 
 union Status {
@@ -164,10 +164,10 @@ union Status {
         const string code = """
 import Status.*
 
-val a = Status.Open("foo")
-val b = Status.Closed("done")
+let a = Status.Open("foo")
+let b = Status.Closed("done")
 
-if a is .Open(val reason) {
+if a is .Open(let reason) {
 }
 
 if b is Closed(_) {

@@ -12,21 +12,19 @@ Implement `ISourceGenerator` and register the instance, type, or containing
 assembly through a `GeneratorReference`. Generator references are project-level
 compilation inputs, separate from diagnostic analyzer references:
 
-```csharp
-public sealed class ModelGenerator : ISourceGenerator
-{
-    public void Initialize(GeneratorInitializationContext context)
-    {
-    }
+```raven
+import Raven.CodeAnalysis.*
 
-    public void Execute(GeneratorExecutionContext context)
-    {
-        context.AddSource("GeneratedModel", "class GeneratedModel {}");
+class ModelGenerator : ISourceGenerator {
+    func Initialize(context: GeneratorInitializationContext) {}
+
+    func Execute(context: GeneratorExecutionContext) {
+        context.AddSource("GeneratedModel", "class GeneratedModel {}")
     }
 }
 
-var project = project.AddGeneratorReference(
-    new GeneratorReference(new ModelGenerator()));
+let updatedProject = project.AddGeneratorReference(
+    GeneratorReference(ModelGenerator()))
 ```
 
 Raven projects can load a compiled generator assembly declaratively:

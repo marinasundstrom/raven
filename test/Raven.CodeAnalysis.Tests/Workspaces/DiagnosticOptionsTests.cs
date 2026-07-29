@@ -157,8 +157,8 @@ import System.Linq.*
 
 func Main() {
     var maybe: int? = null
-    val arr = [1, 2, 3]
-    val x = arr.FirstOrDefault()
+    let arr = [1, 2, 3]
+    let x = arr.FirstOrDefault()
     throw Exception("boom")
 }
 """);

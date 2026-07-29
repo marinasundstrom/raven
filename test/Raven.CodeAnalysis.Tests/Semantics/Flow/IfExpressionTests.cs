@@ -13,8 +13,8 @@ public class IfExpressionTests : DiagnosticTestBase
     public void IfExpression_WithElse_BindsToBoundIfExpression()
     {
         const string source = """
-val flag = true
-val value = if flag 1 else 2
+let flag = true
+let value = if flag 1 else 2
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -43,7 +43,7 @@ val value = if flag 1 else 2
     public void IfExpressionWithoutElse_ReportsDiagnostic()
     {
         const string code = """
-val value = if true {
+let value = if true {
     42
 }
 """;
@@ -58,7 +58,7 @@ val value = if true {
     public void IfExpressionWithElse_AllowsAssignment()
     {
         const string code = """
-val value = if true {
+let value = if true {
     42
 } else {
     0
@@ -184,7 +184,7 @@ let value = if let .Some(x) = option {
     public void IfExpressionWithoutBraces_AllowsAssignment()
     {
         const string code = """
-val value = if true
+let value = if true
     42
 else
     0
@@ -198,8 +198,8 @@ else
     public void IfExpressionWithoutTargetType_IncompatibleBranches_ReportsDiagnostic()
     {
         const string code = """
-val input = 2
-val result = if input == 2 { 2 } else { false }
+let input = 2
+let result = if input == 2 { 2 } else { false }
 """;
 
         var verifier = CreateVerifier(code,

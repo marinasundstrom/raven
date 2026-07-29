@@ -121,7 +121,7 @@ func ParseGuidProjected(text: string) -> Result<Guid, FormatException> {
 import System.*
 
 func ParseMain(text: string) -> Result<int, FormatException | OverflowException> {
-    val value = int.Parse(text)?
+    let value = int.Parse(text)?
     return .Ok(value)
 }
 """;

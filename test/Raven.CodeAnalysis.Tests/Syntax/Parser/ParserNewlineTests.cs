@@ -727,9 +727,9 @@ class Test {
         var syntaxTree = SyntaxTree.ParseText(
             """
             func Main() {
-                val b = 0
+                let b = 0
                 {
-                    val c = b
+                    let c = b
                 }
             }
             """);
@@ -885,8 +885,8 @@ class Test {
     }
 
     [Theory]
-    [InlineData("val x = + 3", "+")]
-    [InlineData("val x = - 2", "-")]
+    [InlineData("let x = + 3", "+")]
+    [InlineData("let x = - 2", "-")]
     public void UnaryPlusOrMinus_WithWhitespaceBeforeOperand_ReportsDiagnostic(string source, string operatorToken)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -896,8 +896,8 @@ class Test {
     }
 
     [Theory]
-    [InlineData("val x = +3")]
-    [InlineData("val x = -2")]
+    [InlineData("let x = +3")]
+    [InlineData("let x = -2")]
     public void UnaryPlusOrMinus_WithoutWhitespaceBeforeOperand_DoesNotReportDiagnostic(string source)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -905,8 +905,8 @@ class Test {
     }
 
     [Theory]
-    [InlineData("val x = 1 + - 2", "-")]
-    [InlineData("val x = 1 - + 2", "+")]
+    [InlineData("let x = 1 + - 2", "-")]
+    [InlineData("let x = 1 - + 2", "+")]
     public void UnaryPlusOrMinus_InInfixRhs_WithWhitespaceBeforeOperand_ReportsDiagnostic(string source, string operatorToken)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -916,8 +916,8 @@ class Test {
     }
 
     [Theory]
-    [InlineData("val x = 1 + -2")]
-    [InlineData("val x = 1 - +2")]
+    [InlineData("let x = 1 + -2")]
+    [InlineData("let x = 1 - +2")]
     public void UnaryPlusOrMinus_InInfixRhs_WithoutWhitespaceBeforeOperand_DoesNotReportDiagnostic(string source)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -1106,7 +1106,7 @@ class Test {
 
             import System.Console.*
 
-            val obj = 42
+            let obj = 42
             obj.ToString()
 
             class C {}

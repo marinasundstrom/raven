@@ -13,9 +13,11 @@ The entry point is `SyntaxTree.ParseText`, which accepts raw text or a
 `SourceText` instance. Parsing returns a `SyntaxTree` whose root is a
 `CompilationUnitSyntax` node:
 
-```csharp
-var tree = SyntaxTree.ParseText(source);
-var root = tree.GetRoot();
+```raven
+import Raven.CodeAnalysis.Syntax.*
+
+let tree = SyntaxTree.ParseText(source)
+let root = tree.GetRoot()
 ```
 
 `SyntaxTree.Create` performs the inverse: it wraps an existing red root (for
@@ -57,8 +59,8 @@ not intended to be human-formatted out of the box.
 Use `NormalizeWhitespace()` when you want a fully normalized presentation of a
 node or subtree:
 
-```csharp
-var formatted = rawNode.NormalizeWhitespace();
+```raven
+let formatted = rawNode.NormalizeWhitespace()
 ```
 
 For targeted formatting, Raven also exposes Roslyn-style formatting markers:

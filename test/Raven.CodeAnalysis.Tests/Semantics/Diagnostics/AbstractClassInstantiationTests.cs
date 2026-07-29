@@ -10,7 +10,7 @@ public sealed class AbstractClassInstantiationTests : DiagnosticTestBase
         const string source = """
 abstract class Foo {}
 
-val value = Foo();
+let value = Foo();
 """;
 
         var verifier = CreateVerifier(
@@ -27,7 +27,7 @@ val value = Foo();
 sealed class Expr {}
 class Lit : Expr {}
 
-val value = Expr();
+let value = Expr();
 """;
 
         var verifier = CreateVerifier(

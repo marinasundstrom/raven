@@ -1,6 +1,7 @@
 using System;
 
 using Raven.CodeAnalysis.Text;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -52,7 +53,7 @@ public class SyntaxFactoryEntryPointTests
     [Fact]
     public void ParseStatement_WithPosition_ParsesFromOffset()
     {
-        const string source = "val x = 0;\nreturn x;";
+        const string source = "let x = 0;\nreturn x;";
         var offset = source.IndexOf("return", StringComparison.Ordinal);
 
         var statement = SyntaxFactory.ParseStatement(SourceText.From(source), position: offset);

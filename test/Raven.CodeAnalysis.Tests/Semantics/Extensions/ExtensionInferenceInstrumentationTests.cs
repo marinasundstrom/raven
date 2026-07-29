@@ -70,8 +70,8 @@ union Result<T, E> {
 extension ResultExtensions<T, E> for Result<T, E> {
     func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            .Ok(val value) => .Ok(value)
-            .Error(val error) => .Error(mapper(error))
+            .Ok(let value) => .Ok(value)
+            .Error(let error) => .Error(mapper(error))
         }
     }
 }
@@ -130,8 +130,8 @@ union Result<T, E> {
 extension ResultExtensions<T, E> for Result<T, E> {
     func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            .Ok(val value) => .Ok(value)
-            .Error(val error) => .Error(mapper(error))
+            .Ok(let value) => .Ok(value)
+            .Error(let error) => .Error(mapper(error))
         }
     }
 }

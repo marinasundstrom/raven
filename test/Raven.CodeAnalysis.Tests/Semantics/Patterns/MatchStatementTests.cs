@@ -58,7 +58,7 @@ match 1 {
     public void MatchStatement_PrefixFormWithBlockArms_AfterPreviousStatement_BindsWithoutDiagnostics()
     {
         const string code = """
-val value: bool = true
+let value: bool = true
 
 match value {
     true => { 1 }
@@ -76,10 +76,10 @@ match value {
         const string code = """
 record class Person(Name: string, Age: int)
 
-val person = Person("Ada", 42)
+let person = Person("Ada", 42)
 
 match person {
-    val (Name: name: string, Age: age: int) => 1
+    let (Name: name: string, Age: age: int) => 1
     _ => 0
 }
 """;
@@ -155,7 +155,7 @@ union State {
     case Off
 }
 
-val state: State = default
+let state: State = default
 
 match state {
     .On => 1
@@ -183,7 +183,7 @@ match state {
     public void MatchStatement_WithFiniteTupleRows_IsExhaustiveInDiagnosticsAndSemanticModel()
     {
         const string code = """
-val pair: (bool, bool) = (true, false)
+let pair: (bool, bool) = (true, false)
 
 match pair {
     (true, _) => 1
@@ -218,7 +218,7 @@ match pair {
         const string code = """
 class Box<T> {}
 
-val value: Box<int> = Box<int>()
+let value: Box<int> = Box<int>()
 
 match value {
     Box box => 1
@@ -260,7 +260,7 @@ func Route(ticket: SupportTicket, target: object) -> unit {
     }
 
     match target {
-        SupportTicket(val id, val priority) => ()
+        SupportTicket(let id, let priority) => ()
         string teamCode => ()
         _ => ()
     }
@@ -315,7 +315,7 @@ union Option<T> {
 class C {
     func Run(value: Option<(string, int)>) {
         match value {
-            val Some((first, >= 18)) whole => {
+            let Some((first, >= 18)) whole => {
                 first.Length
                 whole
             }

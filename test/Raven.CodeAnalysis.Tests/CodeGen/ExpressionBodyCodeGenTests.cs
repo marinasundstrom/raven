@@ -77,9 +77,9 @@ class Program {
     public static func Run() -> string {
         func GetMessage() -> Option<string> => Some("Hello, World!")
 
-        val message = GetMessage()
+        let message = GetMessage()
         return match message {
-            Some(val value) => value
+            Some(let value) => value
             None => "<none>"
         }
     }
@@ -115,7 +115,7 @@ class Program {
         const string code = """
 class Program {
     public static func Run() -> int {
-        val baseValue = 40
+        let baseValue = 40
 
         func AddTwo() -> int {
             return baseValue + 2
@@ -166,10 +166,10 @@ class Holder {
 
 class Program {
     public static func Run() -> string {
-        val holder = Holder()
-        val message = holder.Message
+        let holder = Holder()
+        let message = holder.Message
         return match message {
-            Some(val value) => value
+            Some(let value) => value
             None => "<none>"
         }
     }
@@ -214,10 +214,10 @@ class Holder {
 
 class Program {
     public static func Run() -> string {
-        val holder = Holder()
-        val message = holder.Message
+        let holder = Holder()
+        let message = holder.Message
         return match message {
-            Some(val value) => value
+            Some(let value) => value
             None => "<none>"
         }
     }

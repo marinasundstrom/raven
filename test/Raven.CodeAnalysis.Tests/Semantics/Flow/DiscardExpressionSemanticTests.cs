@@ -15,7 +15,7 @@ public class DiscardExpressionSemanticTests : DiagnosticTestBase
     {
         const string source = """
 func Main() -> unit {
-    val _ = 1
+    let _ = 1
     _ = 2
 }
 """;

@@ -71,13 +71,12 @@ or for generators and analyzers that visit many nodes.
 
 Do a syntax pass first:
 
-```csharp
-foreach (var candidate in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
-{
+```raven
+for candidate in root.DescendantNodes().OfType<MethodDeclarationSyntax>() {
     if (candidate.Identifier.Text != "Configure")
-        continue;
+        continue
 
-    var symbol = semanticModel.GetDeclaredSymbol(candidate);
+    let symbol = semanticModel.GetDeclaredSymbol(candidate)
     // Inspect symbol only after the cheap name test passes.
 }
 ```
@@ -89,13 +88,14 @@ Avoid resolving every method symbol and then filtering by `symbol.Name`.
 Filter by invocation shape and textual name first, then ask for the invoked
 symbol:
 
-```csharp
-if (node is InvocationExpressionSyntax invocation &&
-    invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-    memberAccess.Name.Identifier.Text == "Add")
-{
-    var method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-    // Compare containing type and method identity here.
+```raven
+if let invocation: InvocationExpressionSyntax = node {
+    if let memberAccess: MemberAccessExpressionSyntax = invocation.Expression {
+        if memberAccess.Name.Identifier.Text == "Add" {
+            let method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol
+            // Compare containing type and method identity here.
+        }
+    }
 }
 ```
 
@@ -106,13 +106,12 @@ the semantic unit that owns overload resolution.
 
 Resolve the well-known target type once:
 
-```csharp
-var disposableType = compilation.GetTypeByMetadataName("System.IDisposable");
+```raven
+let disposableType = compilation.GetTypeByMetadataName("System.IDisposable")
 
 // Later, inside the filtered analysis path:
-if (disposableType is not null &&
-    SemanticFacts.ImplementsInterface(type, disposableType, SymbolEqualityComparer.Default))
-{
+if disposableType is not null &&
+    SemanticFacts.ImplementsInterface(type, disposableType, SymbolEqualityComparer.Default) {
     // Report or generate.
 }
 ```
@@ -124,11 +123,11 @@ Avoid repeated metadata lookups and string comparisons against
 
 Collect a compact model from syntax and symbols, then generate from that model:
 
-```csharp
-var declaration = new GeneratedMember(
+```raven
+let declaration = GeneratedMember(
     ContainingType: typeSymbol,
     Name: methodSymbol.Name,
-    ReturnType: methodSymbol.ReturnType);
+    ReturnType: methodSymbol.ReturnType)
 ```
 
 Avoid keeping syntax nodes, semantic models, or compilations in long-lived

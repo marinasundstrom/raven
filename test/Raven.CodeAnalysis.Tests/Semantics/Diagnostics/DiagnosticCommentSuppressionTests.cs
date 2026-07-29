@@ -11,9 +11,9 @@ public class DiagnosticCommentSuppressionTests : CompilationTestBase
     {
         var source = """
 func Main() {
-    val x = 1
+    let x = 1
     #pragma warning disable RAV0168
-    val x = 2
+    let x = 2
 }
 """;
 
@@ -28,11 +28,11 @@ func Main() {
     {
         var source = """
 func Main() {
-    val x = 1
+    let x = 1
     // pragma warning disable RAV0168
-    val x = 2
+    let x = 2
     #pragma warning restore RAV0168
-    val x = 3
+    let x = 3
 }
 """;
 
@@ -48,9 +48,9 @@ func Main() {
     {
         var source = """
 func Main() {
-    val x = 1
+    let x = 1
     // pragma warning disable RAV0168
-    val x = 2
+    let x = 2
 }
 """;
 
@@ -66,11 +66,11 @@ func Main() {
     {
         var source = """
 func Main() {
-    val x = 1
+    let x = 1
     // pragma warning disable
-    val x = 2
+    let x = 2
     // pragma warning restore
-    val x = 3
+    let x = 3
 }
 """;
 
@@ -86,10 +86,10 @@ func Main() {
     {
         var source = """
 func Main() {
-    val x = 1
+    let x = 1
     #pragma warning disable-next-line RAV0168
-    val x = 2
-    val x = 3
+    let x = 2
+    let x = 3
 }
 """;
 
@@ -106,7 +106,7 @@ func Main() {
         var source = """
 func Main() {
     #pragma warning disable RAV0168 RAV9019
-    val x = 1
+    let x = 1
     func unused() -> () {}
 }
 """;
@@ -123,10 +123,10 @@ func Main() {
     {
         var source = """
 func Main() {
-    val x = 1
+    let x = 1
     #pragma warning disable-next-line RAV0168 RAV9012
-    val x = 2
-    val x = 3
+    let x = 2
+    let x = 3
 }
 """;
 

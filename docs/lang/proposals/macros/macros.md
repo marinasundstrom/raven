@@ -133,15 +133,14 @@ For macro-authored validation errors, the expansion result can also carry `Macro
 
 The next contract direction is typed parameter objects, exposed through generic macro definitions:
 
-```csharp
-public sealed class ObservableMacroParameters
-{
-    public bool Notify { get; init; } = true;
-    public string? Name { get; init; }
+```raven
+class ObservableMacroParameters {
+    var Notify: bool = true
+    var Name: string?
 }
 
-public sealed class ObservableMacro : IAttachedDeclarationMacro<ObservableMacroParameters>
-{
+class ObservableMacro :
+    IAttachedDeclarationMacro<ObservableMacroParameters> {
     ...
 }
 ```

@@ -43,7 +43,7 @@ func describeNumber(text: string) -> string {
 }
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
-    val value = try? Convert.ToInt32(text)
+    let value = try? Convert.ToInt32(text)
     return Ok(value)
 }
 
@@ -98,13 +98,13 @@ case to the nearest enclosing carrier-returning function or lambda.
 
 ```raven
 func loadAndParse(path: string) -> Result<int, Exception> {
-    val text = ReadAllText(path)?
-    val value = ParseInt(text)?
+    let text = ReadAllText(path)?
+    let value = ParseInt(text)?
     return Ok(value)
 }
 
 func firstEven(values: int[]) -> Option<int> {
-    val value = FindFirstEven(values)?
+    let value = FindFirstEven(values)?
     return Some(value)
 }
 ```
@@ -149,12 +149,12 @@ func getUser() -> Result<User, LookupError> {
 }
 
 func userNameLength() -> Result<int, LookupError> {
-    val length = getUser()?.Name?.Length?
+    let length = getUser()?.Name?.Length?
     return Ok(length)
 }
 
 func selectedItemName() -> Result<string, LookupError> {
-    val maybeItem = getUser()?.Item?
+    let maybeItem = getUser()?.Item?
 
     match maybeItem {
         Some(let item) => Ok(item.Name)
@@ -204,7 +204,7 @@ func readNameLength(path: string) -> Result<int, LookupError> {
         Error(let ex) => Error(.Io(ex.Message))
     }?
 
-    val length = parseUser(text)?.Name?.Length?
+    let length = parseUser(text)?.Name?.Length?
     return Ok(length)
 }
 

@@ -11,7 +11,7 @@ public class PointerTypeSyntaxTests
     [Fact]
     public void PointerType_InVariableDeclaration_Parses()
     {
-        var code = "val ptr: *int = 0";
+        var code = "let ptr: *int = 0";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -22,7 +22,7 @@ public class PointerTypeSyntaxTests
     [Fact]
     public void PointerDereference_ParsesAsUnaryDereferenceExpression()
     {
-        var code = "val value = *ptr";
+        var code = "let value = *ptr";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -36,7 +36,7 @@ public class PointerTypeSyntaxTests
     [Fact]
     public void PointerArrowMemberAccess_ParsesOperatorToken()
     {
-        var code = "val value = ptr->Field";
+        var code = "let value = ptr->Field";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -54,7 +54,7 @@ public class PointerTypeSyntaxTests
 class Test {
     static func Run() {
         var value = 41
-        val pointer: *int = &value
+        let pointer: *int = &value
         *pointer = 42
     }
 }
@@ -76,7 +76,7 @@ class Test {
 class Test {
     static func Run() {
         var value = 41
-        val pointer: *int = &value
+        let pointer: *int = &value
         Consume(*pointer)
         *pointer = 42
     }
@@ -100,7 +100,7 @@ class Test {
 func test() -> int {
     var value = 0
     unsafe {
-        val pointer: *int = &value
+        let pointer: *int = &value
         *pointer = 1
     }
     return value
@@ -120,8 +120,8 @@ func test() -> int {
         var code = """
 func test() -> int {
     var value = 0
-    val result = unsafe {
-        val pointer: *int = &value
+    let result = unsafe {
+        let pointer: *int = &value
         *pointer = 1
         value
     }
@@ -173,7 +173,7 @@ func test() {
     {
         var code = """
 unsafe func test(count: int) {
-    val pointer = stackalloc int[count + 1]
+    let pointer = stackalloc int[count + 1]
 }
 """;
 
@@ -209,7 +209,7 @@ func test() {
     [Fact]
     public void SizeOfExpression_ParsesAsDedicatedSyntaxNode()
     {
-        var code = "val size = sizeof(int)";
+        var code = "let size = sizeof(int)";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

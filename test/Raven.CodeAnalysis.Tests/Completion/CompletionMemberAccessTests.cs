@@ -45,7 +45,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = Counter();
+let counter = Counter();
 counter.
 """;
 
@@ -98,7 +98,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counters = [Counter()]
+let counters = [Counter()]
 
 for counter in counters {
     counter.
@@ -125,7 +125,7 @@ for counter in counters {
 union JsonValue(bool | double | string) {
 }
 
-val value = JsonValue(true)
+let value = JsonValue(true)
 value.
 """;
 

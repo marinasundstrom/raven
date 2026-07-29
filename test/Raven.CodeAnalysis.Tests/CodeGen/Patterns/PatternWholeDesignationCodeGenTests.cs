@@ -17,8 +17,8 @@ public class PatternWholeDesignationCodeGenTests
 import System.Console.*
 
 func Main() {
-    val point: (int, double) = (2, 1.5)
-    if val (2, > 0.5) matched = point {
+    let point: (int, double) = (2, 1.5)
+    if let (2, > 0.5) matched = point {
         WriteLine(matched.Item1)
     }
 }
@@ -34,9 +34,9 @@ func Main() {
         var code = """
 import System.Console.*
 
-val points: (int, double)[] = [(2, 1.0), (2, 0.25), (2, 3.0)]
+let points: (int, double)[] = [(2, 1.0), (2, 0.25), (2, 3.0)]
 
-for val (2, > 0.5) point in points {
+for let (2, > 0.5) point in points {
     WriteLine(point.Item2)
 }
 """;
@@ -55,8 +55,8 @@ record class Person(Name: string, Age: int)
 
 class Program {
     static func Main() {
-        val value: object = Person("Ada", 42)
-        if val Person { Name: "Ada", Age: age } = value {
+        let value: object = Person("Ada", 42)
+        if let Person { Name: "Ada", Age: age } = value {
             WriteLine(age)
         }
     }
@@ -141,7 +141,7 @@ class Program {
 
     static func Main() {
         var total = 0
-        while val ("Ok", value) = Next() {
+        while let ("Ok", value) = Next() {
             total = total + value
         }
 
@@ -179,7 +179,7 @@ class Program {
 
     static func Main() {
         var total = 0
-        while val .Ok(value) = Next() {
+        while let .Ok(value) = Next() {
             total = total + value
         }
 

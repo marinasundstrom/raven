@@ -54,7 +54,7 @@ sealed interface Expr<T> {
 }
 
 func Main() {
-    val value: Expr = Expr.NumericalExpr(1)
+    let value: Expr = Expr.NumericalExpr(1)
 }
 """;
 
@@ -87,7 +87,7 @@ func Reject<T>() {}
     {
         const string source = """
 func Main() {
-    val type = typeof(System.Action<System.Span<int>>)
+    let type = typeof(System.Action<System.Span<int>>)
 }
 """;
 

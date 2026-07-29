@@ -15,7 +15,7 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
 
     [Theory]
     [InlineData("import Raven.Macros.*\n\nval syntax = quote!() { 42 }", "quote!() { ... }")]
-    [InlineData("val syntax = Raven.Macros.Quote!() { 42 }", "Raven.Macros.Quote!() { ... }")]
+    [InlineData("let syntax = Raven.Macros.Quote!() { 42 }", "Raven.Macros.Quote!() { ... }")]
     public async Task SignatureHelpHandler_TokenTreeMacro_ShowsCompilerOwnedSignatureAsync(
         string code,
         string expectedLabel)
@@ -76,7 +76,7 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
         const string code = """
 import System.*
 
-val parsed = int.TryParse("")
+let parsed = int.TryParse("")
 """;
         await store.UpsertDocumentAsync(uri, code);
         var project = workspace.CurrentSolution.Projects.Single();
@@ -178,7 +178,7 @@ class WebApplication {
 
 class Runner {
     static func Main() -> unit {
-        val app = WebApplication()
+        let app = WebApplication()
         app.Run()
     }
 }
@@ -222,7 +222,7 @@ class Runner {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    val x = Foo()
+    let x = Foo()
 }
 
 union Foo(int | string)
@@ -268,7 +268,7 @@ union Foo(int | string)
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    val x = Either<int, string>()
+    let x = Either<int, string>()
 }
 
 union Either<T1, T2>(T1 | T2)

@@ -18,7 +18,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
         const string source = """
 class Sample {
     func test() -> unit {
-        val number = 42;
+        let number = 42;
     }
 }
 """;
@@ -77,7 +77,7 @@ union class Option<T> {
 
 class Sample {
     func test() -> unit {
-        val item: Option<string> = null
+        let item: Option<string> = null
     }
 }
 """;
@@ -101,7 +101,7 @@ class JsonValue {
 
 class Reader {
     func Read() -> unit {
-        val values = List<JsonValue>()
+        let values = List<JsonValue>()
     }
 }
 """;
@@ -131,7 +131,7 @@ union class Option<T> {
 
 class Sample {
     func test() -> unit {
-        val item: Option<string> = null
+        let item: Option<string> = null
     }
 }
 """;
@@ -166,7 +166,7 @@ import System.*
 
 class Sample {
     func test() -> unit {
-        val item: Option<string> = null
+        let item: Option<string> = null
     }
 }
 """;
@@ -188,7 +188,7 @@ class Sample {
         const string source = """
 import System.*
 
-val foo = Foo(
+let foo = Foo(
     Name: "Foo",
     Item: Some("Foo")
 )
@@ -200,11 +200,11 @@ record Foo(
 
 class C {
     func Test() -> unit {
-        val localFoo = Foo(
+        let localFoo = Foo(
             Name: "Foo",
             Item: Some("Foo")
         )
-        val localFoo2 = Foo(
+        let localFoo2 = Foo(
             Name: "Foo",
             Item: .Some("Foo")
         )
@@ -245,7 +245,7 @@ class C {
         const string source = """
 import System.*
 
-val foo = Foo(
+let foo = Foo(
     Name: "Foo",
     Item: .Some("Foo")
 )
@@ -298,7 +298,7 @@ record Foo(
 
 class C {
     func Test() -> unit {
-        val localFoo = Foo(
+        let localFoo = Foo(
             Name: "Foo",
             Item: .Some("Foo")
         )
@@ -326,7 +326,7 @@ class C {
         const string source = """
 class Sample {
     func test() -> unit {
-        val groupedNullable: (() -> ())? = null
+        let groupedNullable: (() -> ())? = null
     }
 }
 """;
@@ -345,7 +345,7 @@ class Sample {
         const string source = """
 class Sample {
     func test() -> unit {
-        val nullableReturn: () -> ()? = () => ()
+        let nullableReturn: () -> ()? = () => ()
     }
 }
 """;
@@ -366,7 +366,7 @@ import System.ComponentModel.*
 
 class Sample {
     func test() -> unit {
-        val handler: PropertyChangedEventHandler = (sender, args) => ()
+        let handler: PropertyChangedEventHandler = (sender, args) => ()
     }
 }
 """;
@@ -409,7 +409,7 @@ import System.Threading.Tasks.*
 
 class Sample {
     func test() -> unit {
-        val value: Task<int> = Task.FromResult(1)
+        let value: Task<int> = Task.FromResult(1)
     }
 }
 """;
@@ -433,7 +433,7 @@ import System.Threading.Tasks.*
 
 class Sample {
     func test() -> unit {
-        val value: Task<Task<int>> = Task.FromResult(Task.FromResult(42))
+        let value: Task<Task<int>> = Task.FromResult(Task.FromResult(42))
     }
 }
 """;
@@ -497,7 +497,7 @@ class Person {
     public void TypeDisplay_TupleElementNames_AreShownWhenEnabled()
     {
         const string source = """
-val tuple: (id: int, name: string) = (1, "x")
+let tuple: (id: int, name: string) = (1, "x")
 """;
 
         var (compilation, tree) = CreateCompilation(source);

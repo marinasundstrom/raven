@@ -114,7 +114,7 @@ class Add : Expr {}
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
 match expr {
     Lit lit => WriteLine(lit)
@@ -312,7 +312,7 @@ record class Branch : Node
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
 match expr {
     Lit lit => WriteLine(lit)
@@ -366,9 +366,9 @@ func Evaluate(expr: Expr) -> int {
         var source = """
 import System.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
-val result = match expr {
+let result = match expr {
     Lit lit => 1
 }
 
@@ -389,9 +389,9 @@ class Lit : Node {}
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
-val result = match expr {
+let result = match expr {
     Lit lit => 1
 }
 
@@ -412,7 +412,7 @@ class Add : Expr {}
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
 match expr {
     Lit lit => WriteLine(lit)
@@ -435,9 +435,9 @@ class Add : Expr {}
         var source = """
 import System.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
-val result = match expr {
+let result = match expr {
     Lit lit => 1
     Add add => 2
     _ => 0
@@ -487,9 +487,9 @@ class Add : Expr {}
         var source = """
 import System.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
-val result = match expr {
+let result = match expr {
     Lit lit => 1
     Add add => 2
 }
@@ -514,9 +514,9 @@ class Add : Expr {}
         var source = """
 import System.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
-val result = match expr {
+let result = match expr {
     Lit _ => 1
 }
 
@@ -541,7 +541,7 @@ class Add : Expr {}
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
 match expr {
     Lit lit => WriteLine(lit)
@@ -565,7 +565,7 @@ class Add : Expr {}
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit()
+let expr: Expr = Lit()
 
 match expr {
     Lit lit => WriteLine(lit)
@@ -590,11 +590,11 @@ record class Add : Expr {}
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
-    Lit(val value) => value
-    Add(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    Add(let left, let right) => 0
 }
 
 sealed record Expr
@@ -613,10 +613,10 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
-    Lit(val value) => value
+let result = match expr {
+    Lit(let value) => value
 }
 
 sealed record Expr
@@ -635,11 +635,11 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
+let result = match expr {
     Lit(0) => 0
-    Add(val left, val right) => 1
+    Add(let left, let right) => 1
 }
 
 sealed record Expr
@@ -658,11 +658,11 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
+let result = match expr {
     Lit(0) => 0
-    Add(val left, val right) => 1
+    Add(let left, let right) => 1
     _ => -1
 }
 
@@ -684,10 +684,10 @@ record Add(Left: Expr, Right: Expr) : Expr
 import System.*
 import System.Console.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
 match expr {
-    Lit(val value) => WriteLine(value)
+    Lit(let value) => WriteLine(value)
     Add add => WriteLine(add)
 }
 
@@ -707,11 +707,11 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
-    Lit(val value) => value
-    Add(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    Add(let left, let right) => 0
 }
 
 sealed record Expr
@@ -733,10 +733,10 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
-    Add(val left, val right) => 0
+let result = match expr {
+    Add(let left, let right) => 0
 }
 
 sealed record Expr
@@ -759,11 +759,11 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Lit(42)
+let expr: Expr = Lit(42)
 
-val result = match expr {
-    Lit(val value) => value
-    Add(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    Add(let left, let right) => 0
 }
 
 sealed record Expr permits Lit, Add
@@ -782,12 +782,12 @@ record Add(Left: Expr, Right: Expr) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Add(Lit(1), Lit(2))
+let expr: Expr = Add(Lit(1), Lit(2))
 
-val result = match expr {
-    Lit(val value) => value
-    Add(val left, val right) => 0
-    Sub(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    Add(let left, let right) => 0
+    Sub(let left, let right) => 0
 }
 
 sealed record Expr
@@ -808,11 +808,11 @@ record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
         var source = """
 import System.*
 
-val expr: Expr = Add(Lit(1), Lit(2))
+let expr: Expr = Add(Lit(1), Lit(2))
 
-val result = match expr {
-    Lit(val value) => value
-    BinaryExpr(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    BinaryExpr(let left, let right) => 0
 }
 
 sealed record Expr
@@ -833,12 +833,12 @@ record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
         var source = """
 import System.*
 
-val expr: Expr = Add(Lit(1), Lit(2))
+let expr: Expr = Add(Lit(1), Lit(2))
 
-val result = match expr {
-    Lit(val value) => value
-    Add(val left, val right) => 0
-    Sub(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    Add(let left, let right) => 0
+    Sub(let left, let right) => 0
 }
 
 sealed record Expr
@@ -859,12 +859,12 @@ record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
         var source = """
 import System.*
 
-val expr: Expr = Add(Lit(1), Lit(2))
+let expr: Expr = Add(Lit(1), Lit(2))
 
-val result = match expr {
-    Lit(val value) => value
-    Add(val left, val right) => 0
-    Sub(val left, val right) => 0
+let result = match expr {
+    Lit(let value) => value
+    Add(let left, let right) => 0
+    Sub(let left, let right) => 0
 }
 
 sealed record Expr
@@ -932,13 +932,13 @@ record Lit(Value: int) : Expr
         var source = """
 import System.*
 
-val expr: Expr = Add(Lit(1), Lit(2))
+let expr: Expr = Add(Lit(1), Lit(2))
 
-val result = match expr {
-    Lit(val v) => v
-    Add(val left, val right) => 0
-    Sub(val left, val right) => 0
-    BinaryExpr(val left, val right) => 0
+let result = match expr {
+    Lit(let v) => v
+    Add(let left, let right) => 0
+    Sub(let left, let right) => 0
+    BinaryExpr(let left, let right) => 0
 }
 
 sealed record Expr

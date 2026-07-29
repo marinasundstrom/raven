@@ -7,7 +7,7 @@ individual bits of integer values and flags.
 Prefixing an expression with `^` produces a `System.Index` value that counts
 from the end of a sequence. The operand must be implicitly convertible to
 `int`, and the result keeps its `Index` type even when not target-typed, so
-`val offset = ^2` is valid without annotations. When indexing arrays, from-end
+`let offset = ^2` is valid without annotations. When indexing arrays, from-end
 indices are computed using the array's length and are evaluated exactly once
 alongside the receiver.
 
@@ -22,11 +22,11 @@ slicing receivers that understand .NET ranges. Both endpoints are optional, and
 either endpoint may be written as a **from-end** index by prefixing it with `^`.
 
 ```raven
-val r = 3..^5
-val halfOpen = 3..<10
-val head = ..3
-val tail = 3..
-val all  = ..
+let r = 3..^5
+let halfOpen = 3..<10
+let head = ..3
+let tail = 3..
+let all  = ..
 ```
 
 Forming a range evaluates each supplied boundary exactly once, left-to-right.
@@ -36,7 +36,7 @@ start. The resulting `Range` uses `Index.FromStart` for ordinary boundaries and
 `Index.FromEnd` for prefixed ones, and omitting a boundary produces
 `Range.StartAt`, `Range.EndAt`, or `Range.All` accordingly. A range expression
 retains its `Range` type even when no target type is provided, enabling
-declarations like `val r = 3..^5` without additional annotations.
+declarations like `let r = 3..^5` without additional annotations.
 
 Element access applies these types directly:
 - One-dimensional arrays accept a single `Range` argument (`array[range]`) and
@@ -59,7 +59,7 @@ Compound assignments `&=`, `|=`, and `^=` are available and apply the correspond
 Enum member accesses support **leading-dot** syntax when a target type is already known, including inside bitwise combinations and argument lists:
 
 ```raven
-val flags: BindingFlags = .NonPublic | .Static
+let flags: BindingFlags = .NonPublic | .Static
 
 func WithBinding(flags: BindingFlags) { /* ... */ }
 

@@ -18,9 +18,9 @@ public class MethodOverloadTests : CompilationTestBase
         const string source = """
         import System.*
 
-        val t = typeof(string)
-        val value: object? = "x"
-        val created = Activator.CreateInstance(t, [value])
+        let t = typeof(string)
+        let value: object? = "x"
+        let created = Activator.CreateInstance(t, [value])
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -46,7 +46,7 @@ public class MethodOverloadTests : CompilationTestBase
         const string source = """
         import System.Threading.Tasks.*
 
-        val combined = Task.WhenAll([
+        let combined = Task.WhenAll([
             Task.FromResult(1)
             Task.FromResult(2)
         ])
@@ -77,7 +77,7 @@ public class MethodOverloadTests : CompilationTestBase
             return color
         }
 
-        val result = Paint()
+        let result = Paint()
         """;
 
         var (compilation, _) = CreateCompilation(source);
@@ -89,7 +89,7 @@ public class MethodOverloadTests : CompilationTestBase
     public void FunctionExpression_ItIsNotImplicitParameterAlias()
     {
         const string source = """
-        val transform: int -> int = x => it + 1
+        let transform: int -> int = x => it + 1
         """;
 
         var (compilation, _) = CreateCompilation(source);
@@ -152,7 +152,7 @@ public class MethodOverloadTests : CompilationTestBase
             static func m(x: Base) -> int { 0 }
             static func m(x: object) -> int { 1 }
             func test(flag: bool) -> int {
-                val u = if flag { D1() } else { D2() }
+                let u = if flag { D1() } else { D2() }
                 return m(u);
             }
         }
@@ -206,7 +206,7 @@ public class MethodOverloadTests : CompilationTestBase
         record Person(val Name: string)
 
         func Test() -> ImmutableList<Person> {
-            val people = [Person("Alice")]
+            let people = [Person("Alice")]
             return people.Add(Person("Test"))
         }
         """;
@@ -237,7 +237,7 @@ public class MethodOverloadTests : CompilationTestBase
         record Person(val Name: string)
 
         func Test() -> ImmutableList<Person> {
-            val people = [Person("Alice")]
+            let people = [Person("Alice")]
             return people.Add([Person("Test")])
         }
         """;
@@ -268,8 +268,8 @@ public class MethodOverloadTests : CompilationTestBase
         record Person(val Name: string)
 
         func Test() -> int {
-            val people = [Person("Alice")]
-            val values: IList = people
+            let people = [Person("Alice")]
+            let values: IList = people
             return values.Add(Person("Test"))
         }
         """;
@@ -306,7 +306,7 @@ public class MethodOverloadTests : CompilationTestBase
         }
 
         func Test() -> string {
-            val logger = QuietLogger()
+            let logger = QuietLogger()
             return logger.Log("hi")
         }
         """;
@@ -464,7 +464,7 @@ public class MethodOverloadTests : CompilationTestBase
             static func Pick(source: IEnumerable<int>, selector: Expression<Func<int, string>>) -> int { 2 }
 
             func run() -> int {
-                val values: IEnumerable<int> = [1, 2, 3]
+                let values: IEnumerable<int> = [1, 2, 3]
                 return Pick(values, selector: x => x + 1)
             }
         }

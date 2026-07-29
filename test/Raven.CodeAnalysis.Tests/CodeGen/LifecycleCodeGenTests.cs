@@ -51,19 +51,19 @@ class UnsafeLifecycle {
 
     unsafe static init {
         var local = 7
-        val pointer: *int = &local;
+        let pointer: *int = &local;
         StaticValue = *pointer
     }
 
     unsafe init {
         var local = 11
-        val pointer: *int = &local;
+        let pointer: *int = &local;
         Value = *pointer
     }
 
     unsafe finally {
         var local = 13
-        val pointer: *int = &local;
+        let pointer: *int = &local;
         FinalValue = *pointer
     }
 }

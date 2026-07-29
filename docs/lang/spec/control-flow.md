@@ -19,7 +19,7 @@ context.
 ### Example
 
 ```raven
-val value = if flag { 1 } else { 2 }
+let value = if flag { 1 } else { 2 }
 
 if flag {
     Log("side effect")
@@ -67,21 +67,21 @@ treated as continuation trivia instead of as a statement terminator.
 ### Example
 
 ```raven
-val sum =
+let sum =
     1
     + offset
 
-val labelled = 42 // comment stays with the literal
-val next =
+let labelled = 42 // comment stays with the literal
+let next =
     labelled
 ```
 
 ```raven
-val chain = source
+let chain = source
     .Child
     .SubChild
 
-val first = source.Call()
+let first = source.Call()
 
 .Ok // starts a new target-typed expression (blank line breaks continuation)
 ```
@@ -103,8 +103,8 @@ x
 ```
 
 ```raven
-val a = 42
-val b = 1; b = 3
+let a = 42
+let b = 1; b = 3
 ```
 
 ### Rules

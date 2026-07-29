@@ -207,7 +207,7 @@ User-facing impact is minimal:
 Independent case types enable natural higher-order usage:
 
 ```raven
-val result: Result<int, DomainError> =
+let result: Result<int, DomainError> =
     if cond
         arr.FirstOrError(() => Result.NotFound)
     else
@@ -217,7 +217,7 @@ val result: Result<int, DomainError> =
 And with F#-style case injection:
 
 ```raven
-val result: Result<int, DomainError> =
+let result: Result<int, DomainError> =
     if cond
         arr.FirstOrError(() => NotFound)
     else

@@ -383,13 +383,13 @@ class Sample {{
 import System.Collections.Generic.*
 
 func Main() {
-    val values = List<int>()
+    let values = List<int>()
 
-    for val x in values {
+    for let x in values {
         System.Console.WriteLine(x)
     }
 
-    for val x in values {
+    for let x in values {
         System.Console.WriteLine(x)
     }
 }

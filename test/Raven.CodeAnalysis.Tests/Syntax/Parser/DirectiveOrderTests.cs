@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -39,7 +40,7 @@ public class DirectiveOrderTests
     {
         var code = """
         namespace NS;
-        val x = 0
+        let x = 0
         alias A = B;
         """;
 

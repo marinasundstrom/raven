@@ -18,7 +18,7 @@ public class PatternAssignmentSemanticTests : DiagnosticTestBase
     public void LetPositionalPatternAssignment_BindsLocals()
     {
         const string source = """
-val (first, second, _) = (1, 2, 3)
+let (first, second, _) = (1, 2, 3)
 first + second
 """;
 
@@ -65,8 +65,8 @@ first + second
         const string source = """
 record class Person(Name: string, Age: int, Items: string[])
 
-val person = Person("Ada", 42, ["tea"])
-val (Items: items, Name: name, Age: age) = person
+let person = Person("Ada", 42, ["tea"])
+let (Items: items, Name: name, Age: age) = person
 name.Length + age + items.Length
 """;
 
@@ -112,8 +112,8 @@ name.Length + age + items.Length
         const string source = """
 record class Person(Name: string, Age: int, Items: string[])
 
-val person = Person("Ada", 42, ["tea"])
-(Items: val items, Name: val name, Age: val age) = person
+let person = Person("Ada", 42, ["tea"])
+(Items: let items, Name: let name, Age: let age) = person
 name.Length + age + items.Length
 """;
 
@@ -157,7 +157,7 @@ name.Length + age + items.Length
         const string source = """
 record class Person(Name: string, Age: int, Items: string[])
 
-val person = Person("Ada", 42, ["tea"])
+let person = Person("Ada", 42, ["tea"])
 var items: string[] = []
 var name = ""
 var age = 0
@@ -210,8 +210,8 @@ name.Length + age + items.Length
         const string source = """
 record class Person(Name: string, Age: int)
 
-val person = Person("Ada", 42)
-val (Height: height, Name: name) = person
+let person = Person("Ada", 42)
+let (Height: height, Name: name) = person
 """;
 
         var verifier = CreateVerifier(source);
@@ -229,8 +229,8 @@ val (Height: height, Name: name) = person
         const string source = """
 record class Person(Name: string, Age: int)
 
-val person = Person("Ada", 42)
-val (Name: name: string, Age: age: int) = person
+let person = Person("Ada", 42)
+let (Name: name: string, Age: age: int) = person
 """;
 
         var verifier = CreateVerifier(
@@ -254,7 +254,7 @@ val (Name: name: string, Age: age: int) = person
 record class Person(Name: string, Age: int)
 
 func Test(person: Person) -> unit {
-    if val (Name: name: string, Age: age: int) = person {
+    if let (Name: name: string, Age: age: int) = person {
     }
 }
 """;
@@ -277,8 +277,8 @@ func Test(person: Person) -> unit {
     public void LetCollectionPatternAssignment_BindsLocals()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
-val [first, second, _] = values
+let values: int[] = [1, 2, 3]
+let [first, second, _] = values
 first + second
 """;
 
@@ -326,8 +326,8 @@ first + second
         const string source = """
 import System.Collections.Generic.*
 
-val values: List<int> = [1, 2, 3]
-val [first, second, _] = values
+let values: List<int> = [1, 2, 3]
+let [first, second, _] = values
 first + second
 """;
 
@@ -375,8 +375,8 @@ first + second
         const string source = """
 import System.Collections.Immutable.*
 
-val values: ImmutableDictionary<string, int> = ["a": 1, "b": 2]
-val ["a": first, "b": second] = values
+let values: ImmutableDictionary<string, int> = ["a": 1, "b": 2]
+let ["a": first, "b": second] = values
 first + second
 """;
 
@@ -417,8 +417,8 @@ first + second
     public void SequencePatternAssignment_OnNonSequenceType_ReportsSequenceDiagnostic()
     {
         const string source = """
-val value = 42
-val [first] = value
+let value = 42
+let [first] = value
 """;
 
         var verifier = CreateVerifier(source);
@@ -437,8 +437,8 @@ val [first] = value
     public void DictionaryPatternAssignment_OnNonDictionaryType_ReportsDictionaryDiagnostic()
     {
         const string source = """
-val value = 42
-val ["a": first] = value
+let value = 42
+let ["a": first] = value
 """;
 
         var verifier = CreateVerifier(source);
@@ -456,8 +456,8 @@ val ["a": first] = value
         const string source = """
 import System.Collections.Immutable.*
 
-val values: ImmutableDictionary<string, int> = ["a": 1]
-val ["a": first, "a": second] = values
+let values: ImmutableDictionary<string, int> = ["a": 1]
+let ["a": first, "a": second] = values
 """;
 
         var verifier = CreateVerifier(source);
@@ -473,8 +473,8 @@ val ["a": first, "a": second] = values
     public void CollectionPatternDeclarationShorthand_WithVal_BindsImmutableLocals()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
-val [first, second, _] = values
+let values: int[] = [1, 2, 3]
+let [first, second, _] = values
 first + second
 """;
 
@@ -511,7 +511,7 @@ first + second
     public void CollectionPatternDeclarationShorthand_WithVar_BindsMutableLocals()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
+let values: int[] = [1, 2, 3]
 var [first, second, _] = values
 first = 42
 second = 21
@@ -551,8 +551,8 @@ first + second
     public void CollectionPatternDeclarationShorthand_WithOuterAndInlineBinding_ReportsDiagnostic()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
-val [val first, val second, _] = values
+let values: int[] = [1, 2, 3]
+let [let first, let second, _] = values
 """;
 
         var verifier = CreateVerifier(
@@ -560,7 +560,7 @@ val [val first, val second, _] = values
             [
                 new DiagnosticResult(CompilerDiagnostics.PatternDeclarationBindingKeywordConflict.Id)
                     .WithAnySpan()
-                    .WithArguments("val", "val")
+                    .WithArguments("let", "let")
             ]);
 
         verifier.Verify();
@@ -570,8 +570,8 @@ val [val first, val second, _] = values
     public void PositionalPatternDeclarationShorthand_WithOuterAndInlineBinding_ReportsDiagnostic()
     {
         const string source = """
-val obj = (1, "x")
-val (val id, val name) = obj
+let obj = (1, "x")
+let (let id, let name) = obj
 """;
 
         var verifier = CreateVerifier(
@@ -579,7 +579,7 @@ val (val id, val name) = obj
             [
                 new DiagnosticResult(CompilerDiagnostics.PatternDeclarationBindingKeywordConflict.Id)
                     .WithAnySpan()
-                    .WithArguments("val", "val")
+                    .WithArguments("let", "let")
             ]);
 
         verifier.Verify();
@@ -589,8 +589,8 @@ val (val id, val name) = obj
     public void CollectionPatternDeclarationShorthand_WithMiddleRest_BindsArraySlice()
     {
         const string source = """
-val values: int[] = [1, 2, 3, 4]
-val [first, ..middle, last] = values
+let values: int[] = [1, 2, 3, 4]
+let [first, ..middle, last] = values
 first + middle[0] + last
 """;
 
@@ -627,8 +627,8 @@ first + middle[0] + last
         const string source = """
 import System.Collections.Generic.*
 
-val values: List<int> = [1, 2, 3, 4]
-val [first, ..middle, last] = values
+let values: List<int> = [1, 2, 3, 4]
+let [first, ..middle, last] = values
 first + middle[0] + last
 """;
 
@@ -663,8 +663,8 @@ first + middle[0] + last
     public void CollectionPatternDeclarationShorthand_WithTrailingTripleDot_DoesNotCapture()
     {
         const string source = """
-val values: int[] = [1, 2, 3, 4]
-val [first, ...] = values
+let values: int[] = [1, 2, 3, 4]
+let [first, ...] = values
 first
 """;
 
@@ -694,8 +694,8 @@ first
     public void CollectionPatternDeclarationShorthand_WithMiddleTripleDot_DoesNotCapture()
     {
         const string source = """
-val values: int[] = [1, 2, 3, 4, 5]
-val [first, ..., last] = values
+let values: int[] = [1, 2, 3, 4, 5]
+let [first, ..., last] = values
 last
 """;
 
@@ -727,8 +727,8 @@ last
         const string source = """
 import System.Collections.Immutable.*
 
-val values: ImmutableList<int> = [1, 2, 3]
-val [..2 start, tail] = values
+let values: ImmutableList<int> = [1, 2, 3]
+let [..2 start, tail] = values
 tail
 """;
 
@@ -770,8 +770,8 @@ tail
         const string source = """
 import System.Collections.Immutable.*
 
-val values: ImmutableArray<int> = [1, 2, 3, 4]
-val [first, ..middle, last] = values
+let values: ImmutableArray<int> = [1, 2, 3, 4]
+let [first, ..middle, last] = values
 first + middle[0] + last
 """;
 
@@ -805,8 +805,8 @@ first + middle[0] + last
     public void CollectionPatternDeclarationShorthand_WithFixedArrayRest_BindsFixedSizeArraySlice()
     {
         const string source = """
-val values: int[4] = [1, 2, 3, 4]
-val [first, second, ...rest] = values
+let values: int[4] = [1, 2, 3, 4]
+let [first, second, ...rest] = values
 rest
 """;
 
@@ -842,8 +842,8 @@ rest
     public void CollectionPatternDeclarationShorthand_WithFixedArrayFixedSegment_BindsFixedSizeArraySlice()
     {
         const string source = """
-val values: int[3] = [1, 2, 3]
-val [..2 start, tail] = values
+let values: int[3] = [1, 2, 3]
+let [..2 start, tail] = values
 start
 """;
 
@@ -879,8 +879,8 @@ start
     public void StringPatternDeclarationShorthand_WithFixedSegment_BindsCharAndStringLocals()
     {
         const string source = """
-val text = "rune"
-val [first, ..2 middle, last] = text
+let text = "rune"
+let [first, ..2 middle, last] = text
 middle
 """;
 
@@ -926,8 +926,8 @@ middle
 import System.Collections.Generic.*
 import System.Linq.*
 
-val values: IEnumerable<int> = [1, 2, 3, 4].Where(v => v > 0)
-val [first, second, _] = values
+let values: IEnumerable<int> = [1, 2, 3, 4].Where(v => v > 0)
+let [first, second, _] = values
 """;
 
         var verifier = CreateVerifier(
@@ -1032,8 +1032,8 @@ first + second + head + tail[0]
     public void NestedPatternDeclarationAssignment_WithNestedSequencePatterns_BindsLocals()
     {
         const string source = """
-val input = ([1, 2, 3, 4], "rune")
-val ([head, ..middle, last], [first, ..2 chunk, final]) = input
+let input = ([1, 2, 3, 4], "rune")
+let ([head, ..middle, last], [first, ..2 chunk, final]) = input
 head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToString().Length
 """;
 
@@ -1089,7 +1089,7 @@ head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToStrin
     public void NestedPatternAssignment_WithNestedSequencePatterns_ReusesExistingBindings()
     {
         const string source = """
-val input = ([1, 2, 3, 4], "rune")
+let input = ([1, 2, 3, 4], "rune")
 var head = 0
 var middle = [0]
 var last = 0
@@ -1207,7 +1207,7 @@ left + right
     public void NestedPatternAssignment_WithMissingNestedIdentifier_ReportsPreciseDiagnostic()
     {
         const string source = """
-val nested = ((1, 2), [3, 4, 5])
+let nested = ((1, 2), [3, 4, 5])
 var first = 0
 var second = 0
 var head = 0
@@ -1272,7 +1272,7 @@ first + second
     public void PositionalPatternAssignment_ToImmutableLocal_ReportsDiagnostic()
     {
         const string source = """
-val first = 0
+let first = 0
 var second = 0
 (first, second) = (1, 2)
 """;
@@ -1384,7 +1384,7 @@ var (first: double, second, _) = (1, 2, 3)
     public void MixedPositionalPatternAssignment_BindsNestedPatterns()
     {
         const string source = """
-(val first, var second: double, _) = (1, 2, 3)
+(let first, var second: double, _) = (1, 2, 3)
 second = 4.5
 """;
 
@@ -1428,7 +1428,7 @@ second = 4.5
     public void PositionalPatternAssignment_NonTupleRight_ReportsDiagnostic()
     {
         const string source = """
-val (first, second, _) = 1
+let (first, second, _) = 1
 """;
 
         var verifier = CreateVerifier(
@@ -1446,7 +1446,7 @@ val (first, second, _) = 1
     public void PositionalPatternAssignment_ArityMismatch_ReportsDiagnostic()
     {
         const string source = """
-val (first, second, third) = (1, 2)
+let (first, second, third) = (1, 2)
 """;
 
         var verifier = CreateVerifier(
@@ -1464,8 +1464,8 @@ val (first, second, third) = (1, 2)
     public void CollectionPatternAssignment_FixedArrayLengthMismatch_ReportsDiagnostic()
     {
         const string source = """
-val values: int[3] = [1, 2, 3]
-val [first, second] = values
+let values: int[3] = [1, 2, 3]
+let [first, second] = values
 """;
 
         var verifier = CreateVerifier(
@@ -1483,8 +1483,8 @@ val [first, second] = values
     public void FixedArrayCollectionExpression_WithFixedSpreadLengthMismatch_ReportsDiagnostic()
     {
         const string source = """
-val values: int[2] = [1, 2]
-val result: int[4] = [...values, 3]
+let values: int[2] = [1, 2]
+let result: int[4] = [...values, 3]
 """;
 
         var verifier = CreateVerifier(
@@ -1511,8 +1511,8 @@ extension WidgetExtensions for Widget {
     }
 }
 
-val widget = Widget()
-val (first, second) = widget
+let widget = Widget()
+let (first, second) = widget
 """;
 
         var verifier = CreateVerifier(source);
@@ -1544,7 +1544,7 @@ val (first, second) = widget
         var code = """
 class C {
     func Test() {
-        val (no, _) = Get()
+        let (no, _) = Get()
         no
     }
 

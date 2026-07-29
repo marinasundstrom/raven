@@ -79,7 +79,7 @@ class Dog : Animal {
 
 class Program {
     public func Run() -> string {
-        val animal: Animal = Dog()
+        let animal: Animal = Dog()
         return animal.Speak()
     }
 

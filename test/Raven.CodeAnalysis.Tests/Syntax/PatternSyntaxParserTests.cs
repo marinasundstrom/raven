@@ -230,11 +230,11 @@ public class PatternSyntaxParserTests
     [Fact]
     public void SequencePattern_WithRestElement_Parses()
     {
-        var (pattern, tree) = ParsePattern("[let first, ..val rest, _]");
+        var (pattern, tree) = ParsePattern("[let first, ..let rest, _]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
-        Assert.Equal("[let first, ..val rest, _]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal("[let first, ..let rest, _]", sourceText.ToString(collectionPattern.Span));
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
@@ -250,11 +250,11 @@ public class PatternSyntaxParserTests
     [Fact]
     public void SequencePattern_WithTripleDotRestElement_Parses()
     {
-        var (pattern, tree) = ParsePattern("[let first, ...val rest, _]");
+        var (pattern, tree) = ParsePattern("[let first, ...let rest, _]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
-        Assert.Equal("[let first, ...val rest, _]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal("[let first, ...let rest, _]", sourceText.ToString(collectionPattern.Span));
         Assert.Equal(3, collectionPattern.Elements.Count);
 
         var restElement = collectionPattern.Elements[1];
@@ -308,11 +308,11 @@ public class PatternSyntaxParserTests
     [Fact]
     public void SequencePattern_WithFixedSegmentElement_Parses()
     {
-        var (pattern, tree) = ParsePattern("[..2 val start, val end]");
+        var (pattern, tree) = ParsePattern("[..2 let start, let end]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
-        Assert.Equal("[..2 val start, val end]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal("[..2 let start, let end]", sourceText.ToString(collectionPattern.Span));
         Assert.Equal(2, collectionPattern.Elements.Count);
 
         var segmentElement = collectionPattern.Elements[0];
@@ -353,11 +353,11 @@ public class PatternSyntaxParserTests
     [Fact]
     public void SequencePattern_WithBareFixedSegmentElement_ParsesAsDiscard()
     {
-        var (pattern, tree) = ParsePattern("[..2, val end]");
+        var (pattern, tree) = ParsePattern("[..2, let end]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var collectionPattern = Assert.IsType<SequencePatternSyntax>(pattern);
-        Assert.Equal("[..2, val end]", sourceText.ToString(collectionPattern.Span));
+        Assert.Equal("[..2, let end]", sourceText.ToString(collectionPattern.Span));
         Assert.Equal(2, collectionPattern.Elements.Count);
 
         var segmentElement = collectionPattern.Elements[0];
@@ -373,14 +373,14 @@ public class PatternSyntaxParserTests
     [Fact]
     public void PositionalPattern_WithExplicitBindingAndEqualityPattern_Parses()
     {
-        var (pattern, tree) = ParsePattern("(val a, == existingValue)");
+        var (pattern, tree) = ParsePattern("(let a, == existingValue)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var positional = Assert.IsType<PositionalPatternSyntax>(pattern);
-        Assert.Equal("(val a, == existingValue)", sourceText.ToString(positional.Span));
+        Assert.Equal("(let a, == existingValue)", sourceText.ToString(positional.Span));
 
         var first = Assert.IsType<VariablePatternSyntax>(positional.Elements[0].Pattern);
-        Assert.Equal(SyntaxKind.ValKeyword, first.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, first.BindingKeyword.Kind);
         var firstDesignation = Assert.IsType<SingleVariableDesignationSyntax>(first.Designation);
         Assert.Equal("a", firstDesignation.Identifier.ValueText);
 
@@ -430,11 +430,11 @@ public class PatternSyntaxParserTests
     [Fact]
     public void SequencePattern_WithExplicitBindingAndEqualityPattern_Parses()
     {
-        var (pattern, tree) = ParsePattern("[val head, == sentinel, ..val tail]");
+        var (pattern, tree) = ParsePattern("[let head, == sentinel, ..let tail]");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
         var sequence = Assert.IsType<SequencePatternSyntax>(pattern);
-        Assert.Equal("[val head, == sentinel, ..val tail]", sourceText.ToString(sequence.Span));
+        Assert.Equal("[let head, == sentinel, ..let tail]", sourceText.ToString(sequence.Span));
 
         Assert.IsType<VariablePatternSyntax>(sequence.Elements[0].Pattern);
         var second = Assert.IsType<ComparisonPatternSyntax>(sequence.Elements[1].Pattern);
@@ -542,7 +542,7 @@ public class PatternSyntaxParserTests
     {
         var useIsPatternWrapper =
             patternText.StartsWith("let ", StringComparison.Ordinal) ||
-            patternText.StartsWith("val ", StringComparison.Ordinal) ||
+            patternText.StartsWith("let ", StringComparison.Ordinal) ||
             patternText.StartsWith("var ", StringComparison.Ordinal);
 
         var code = useIsPatternWrapper

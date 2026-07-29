@@ -57,7 +57,7 @@ delegate Test(a: int, b: int) -> int
 
 public class Program {
     public static func Run() -> int {
-        val d: Test = (a, b) => a + b
+        let d: Test = (a, b) => a + b
         return d(2, 3)
     }
 }

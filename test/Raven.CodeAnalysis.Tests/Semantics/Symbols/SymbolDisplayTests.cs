@@ -320,7 +320,7 @@ class C {
 union Either<T1, T2>(T1 | T2)
 
 func Test() {
-    val value: Either<int, string> = 42
+    let value: Either<int, string> = 42
 }
 """;
 

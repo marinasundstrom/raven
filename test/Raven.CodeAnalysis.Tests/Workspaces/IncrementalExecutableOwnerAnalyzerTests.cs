@@ -70,8 +70,8 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Stable(value: int) -> int {
-                    val before = value
-                    val changed = 1
+                    let before = value
+                    let changed = 1
                     return before + changed
                 }
             }
@@ -80,8 +80,8 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Stable(value: int) -> int {
-                    val before = value
-                    val changed = 10
+                    let before = value
+                    let changed = 10
                     return before + changed
                 }
             }
@@ -136,8 +136,8 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Stable(value: int) -> int {
-                    val before = value
-                    val changed = 1
+                    let before = value
+                    let changed = 1
                     return before + changed
                 }
             }
@@ -146,8 +146,8 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Stable(value: int) -> int {
-                    val before = value
-                    val changed = 1
+                    let before = value
+                    let changed = 1
                     return before - changed
                 }
             }
@@ -329,13 +329,13 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(
             """
-            val first = 1
-            val second = first + 1
+            let first = 1
+            let second = first + 1
             """));
         var currentTree = SyntaxTree.ParseText(SourceText.From(
             """
-            val first = 10
-            val second = first + 1
+            let first = 10
+            let second = first + 1
             """));
         var previousFirstGlobal = previousTree.GetRoot()
             .DescendantNodes()
@@ -364,13 +364,13 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
         var previousTree = SyntaxTree.ParseText(SourceText.From(
             """
             func Main() {
-                val value = 1
+                let value = 1
             }
             """));
         var currentTree = SyntaxTree.ParseText(SourceText.From(
             """
             func Main() {
-                val value = 2
+                let value = 2
             }
             """));
         var previousFunction = previousTree.GetRoot()
@@ -405,13 +405,13 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(
             """
-            val first = 1
+            let first = 1
             WriteLine(first)
             """));
         var currentTree = SyntaxTree.ParseText(SourceText.From(
             """
             func Main() {
-                val first = 1
+                let first = 1
                 WriteLine(first)
             }
             """));
@@ -440,8 +440,8 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Main() {
-                    val route = "/vehicles"
-                    val map = func (value: int) => value + 1
+                    let route = "/vehicles"
+                    let map = func (value: int) => value + 1
                 }
             }
             """));
@@ -449,8 +449,8 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Main() {
-                    val route = "/vehicles-test"
-                    val map = func (value: int) => value + 1
+                    let route = "/vehicles-test"
+                    let map = func (value: int) => value + 1
                 }
             }
             """));
@@ -484,7 +484,7 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Main(values: int[]) {
-                    val doubled = values.Select(value => value + 1)
+                    let doubled = values.Select(value => value + 1)
                 }
             }
             """));
@@ -492,7 +492,7 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
             """
             class Edited {
                 func Main(values: int[]) {
-                    val doubled = values.Select(value => value + 2)
+                    let doubled = values.Select(value => value + 2)
                 }
             }
             """));

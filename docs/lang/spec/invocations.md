@@ -43,12 +43,12 @@ func sum(items: int ...) -> int {
     return items.Length
 }
 
-val swapped = makePoint(y: 2, x: 1)
-val mixed = makePoint(3, label: "axis", y: 0)
-val invalid = makePoint(x: 1, 2) // error
-val total = sum(1, 2, 3)
-val values = [4, 5]
-val expanded = sum(...values)
+let swapped = makePoint(y: 2, x: 1)
+let mixed = makePoint(3, label: "axis", y: 0)
+let invalid = makePoint(x: 1, 2) // error
+let total = sum(1, 2, 3)
+let values = [4, 5]
+let expanded = sum(...values)
 ```
 
 Function values are passed using ordinary function-expression syntax:
@@ -58,5 +58,5 @@ func use(action: () -> int) -> int {
     return action()
 }
 
-val result = use(() => 42)
+let result = use(() => 42)
 ```

@@ -7,21 +7,21 @@ The sample shape is:
 
 ```raven
 func Main() -> unit {
-    val answer = add!(20, Right: 22)
-    val shouldRetry = guard! {
+    let answer = add!(20, Right: 22)
+    let shouldRetry = guard! {
         unless answer == 42
     }
-    val verdict = choose! {
+    let verdict = choose! {
         test answer == 42
         then "correct"
         otherwise "wrong"
     }
-    val queryResult = query! {
+    let queryResult = query! {
         from value in [1, 2, 3, 4]
         where value > 2
         select value * 10
     }
-    val quoted = quote! {
+    let quoted = quote! {
         #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("answer")) + 1
     }
 

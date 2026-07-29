@@ -1,5 +1,7 @@
 using System;
+
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -13,7 +15,7 @@ public class NullableTypeSyntaxTest
     [InlineData("Foo<int>", typeof(GenericNameSyntax))]
     public void NullableType_AllowsAnyElementType(string typeText, Type expectedSyntax)
     {
-        var code = $"val x: {typeText}? = null";
+        var code = $"let x: {typeText}? = null";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

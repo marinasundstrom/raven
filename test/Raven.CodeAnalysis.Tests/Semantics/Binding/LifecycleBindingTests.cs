@@ -141,7 +141,7 @@ class C {
         const string source = """
 class C(name: string) {
     {
-        val x = name
+        let x = name
     }
 }
 """;

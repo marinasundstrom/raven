@@ -21,7 +21,7 @@ span targets, `ReadOnlySpan<T>` is preferred.
 Collection expressions can directly target either span type:
 
 ```raven
-val values: System.ReadOnlySpan<int> = [1, 2, 3]
+let values: System.ReadOnlySpan<int> = [1, 2, 3]
 ```
 
 `stackalloc T[count]` reserves contiguous storage in the current stack frame.
@@ -29,8 +29,8 @@ It naturally produces `Span<T>` and can be explicitly targeted to
 `ReadOnlySpan<T>`:
 
 ```raven
-val buffer = stackalloc byte[256]
-val readOnly: System.ReadOnlySpan<byte> = stackalloc byte[16]
+let buffer = stackalloc byte[256]
+let readOnly: System.ReadOnlySpan<byte> = stackalloc byte[16]
 ```
 
 Stack-allocated storage cannot escape the declaring function. The restriction

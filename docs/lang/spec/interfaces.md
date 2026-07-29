@@ -45,7 +45,7 @@ class QuietLogger : ILogger {
 ```
 
 ```
-val logger = QuietLogger()
+let logger = QuietLogger()
 logger.Log("hi")              // error: member not found
 (logger :> ILogger).Log("hi") // ok
 ```

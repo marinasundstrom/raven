@@ -239,7 +239,7 @@ public class AttributeParsingTests : DiagnosticTestBase
     {
         const string code = """
             [Entry]
-            val value: int = 0
+            let value: int = 0
             """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -279,7 +279,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         const string code = """
             [MyNamespace]
             namespace Samples;
-            val value: int = 0
+            let value: int = 0
             """;
 
         var tree = SyntaxTree.ParseText(code);

@@ -63,8 +63,8 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
             ref struct Buffer {}
 
             func Run() {
-                val buffer = Buffer()
-                val capture = () => buffer
+                let buffer = Buffer()
+                let capture = () => buffer
             }
             """;
 
@@ -80,7 +80,7 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
             ref struct Buffer {}
 
             async func Run() -> Task {
-                val buffer = Buffer()
+                let buffer = Buffer()
                 await Task.CompletedTask
             }
             """;
@@ -159,7 +159,7 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
     {
         const string source = """
             func Run<T>(value: T) where T: allows ref struct {
-                val capture = () => value
+                let capture = () => value
             }
             """;
 

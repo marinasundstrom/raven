@@ -53,7 +53,7 @@ behaviour and ensuring metadata and semantic lookups use the identifier's logica
 class @int {}
 
 static func @match(@return: int) -> int {
-    val @and = @return;
+    let @and = @return;
     return @and;
 }
 ```
@@ -73,10 +73,10 @@ a name that can be referenced in the function body and it is excluded from
 unused-parameter diagnostics.
 
 ```raven
-val $ffiResult = call()
-val value_1 = value0
-val 数据 = call()
-val сумма = total1 + total2
+let $ffiResult = call()
+let value_1 = value0
+let 数据 = call()
+let сумма = total1 + total2
 ```
 
 ### Comments
@@ -119,8 +119,8 @@ terminator), so encodings such as UTF-8 or UTF-16 must supply valid code units
 for the desired characters.
 
 ```raven
-val answer = 42  // the ultimate answer
-val greeting = "hello"  // 😀 emoji and other symbols are fine
+let answer = 42  // the ultimate answer
+let greeting = "hello"  // 😀 emoji and other symbols are fine
 
 /*
  Multi-line comments can document larger blocks of code.

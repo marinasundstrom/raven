@@ -294,7 +294,7 @@ Status: **implemented and validated**
 Target syntax:
 
 ```raven
-val result = #query {
+let result = #query {
     from user in users
     where user.IsActive
     select user.Name

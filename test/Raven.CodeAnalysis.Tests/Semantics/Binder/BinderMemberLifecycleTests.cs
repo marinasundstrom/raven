@@ -51,7 +51,7 @@ class Customer {
     {
         var (compilation, _) = CreateCompilation(
             """
-val user = Person.WithName("Ada")
+let user = Person.WithName("Ada")
 
 class Person {
     static func WithName(name: string) -> Person {
@@ -88,8 +88,8 @@ record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
 import System.*
 import System.Threading.Tasks.*
 
-val foo = Foo(42)
-val result = await foo(true)
+let foo = Foo(42)
+let result = await foo(true)
 
 class Box<T>(Value: T)
 

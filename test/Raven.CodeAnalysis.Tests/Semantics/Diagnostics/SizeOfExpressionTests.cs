@@ -11,7 +11,7 @@ public class SizeOfExpressionTests : DiagnosticTestBase
     public void SizeOf_WithQualifiedFrameworkType_BindsSuccessfully()
     {
         const string testCode = """
-val size = sizeof(System.Int32)
+let size = sizeof(System.Int32)
 """;
 
         var verifier = CreateVerifier(testCode);
@@ -22,7 +22,7 @@ val size = sizeof(System.Int32)
     public void SizeOf_WithMissingType_ReportsSingleDiagnostic()
     {
         const string testCode = """
-val size = sizeof(System.DoesNotExist)
+let size = sizeof(System.DoesNotExist)
 """;
 
         var verifier = CreateVerifier(testCode, expectedDiagnostics: new[]

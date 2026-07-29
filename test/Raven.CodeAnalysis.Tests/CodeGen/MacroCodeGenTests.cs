@@ -52,7 +52,7 @@ public sealed class MacroCodeGenTests
 
             class Harness {
                 public static func Run() -> bool {
-                    val first: IEquatable<Widget> = Widget("Ada", 37)
+                    let first: IEquatable<Widget> = Widget("Ada", 37)
                     return first.Equals(Widget("Ada", 37))
                 }
             }
@@ -84,7 +84,7 @@ public sealed class MacroCodeGenTests
         var syntaxTree = SyntaxTree.ParseText("""
             class Harness {
                 public static func Run() -> string {
-                    val model = MyViewModel()
+                    let model = MyViewModel()
                     model.Title = "Hello from macro"
                     return model.Title
                 }
@@ -127,7 +127,7 @@ public sealed class MacroCodeGenTests
 
             class Harness {
                 static func Run() -> int {
-                    val model = MyViewModel()
+                    let model = MyViewModel()
                     model.Title = "Hello"
                     return model.GetTitleWriteCount()
                 }
@@ -173,7 +173,7 @@ public sealed class MacroCodeGenTests
 
             class Harness {
                 static func Run() -> int {
-                    val model = MyViewModel()
+                    let model = MyViewModel()
                     model.Title = "Hello"
                     return model.Count
                 }
@@ -262,7 +262,7 @@ public sealed class MacroCodeGenTests
 
             class Harness {
                 static func Run() -> int {
-                    val model = MyViewModel()
+                    let model = MyViewModel()
                     model.Title = "Hello"
                     return model.Count
                 }
@@ -298,7 +298,7 @@ public sealed class MacroCodeGenTests
 
             class Harness {
                 static func Run() -> string {
-                    val model = MyViewModel()
+                    let model = MyViewModel()
                     model.Title = "Hello"
                     return model.Title
                 }
@@ -468,7 +468,7 @@ public sealed class MacroCodeGenTests
                     var Title: string {
                         get => _Title
                         set {
-                            val oldValue = _Title
+                            let oldValue = _Title
                             _Title = value
                             RaisePropertyChanged(nameof(Title), oldValue, value)
                         }

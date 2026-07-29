@@ -20,13 +20,13 @@ public sealed class NameOfExpressionSemanticTests : CompilationTestBase
 import System.*
 import System.Collections.Generic.*
 
-val value = 2
-val localName = nameof(value)
-val genericTypeName = nameof(List<int>)
-val importedTypeName = nameof(Console)
-val importedMethodName = nameof(Console.WriteLine)
-val qualifiedMethodName = nameof(System.Console.WriteLine)
-val sourceFieldName = nameof(Test.Label)
+let value = 2
+let localName = nameof(value)
+let genericTypeName = nameof(List<int>)
+let importedTypeName = nameof(Console)
+let importedMethodName = nameof(Console.WriteLine)
+let qualifiedMethodName = nameof(System.Console.WriteLine)
+let sourceFieldName = nameof(Test.Label)
 
 class Test {
     static val Label = ""
@@ -63,8 +63,8 @@ class Test {
         var (compilation, tree) = CreateCompilation("""
             import Raven.Macros.*
 
-            val aliasName = nameof(quote)
-            val canonicalName = nameof(Raven.Macros.Quote)
+            let aliasName = nameof(quote)
+            let canonicalName = nameof(Raven.Macros.Quote)
             """);
 
         Assert.DoesNotContain(
@@ -97,7 +97,7 @@ class Test {
         var (compilation, _) = CreateCompilation("""
             import Raven.Macros.*
 
-            val macroType = typeof(quote)
+            let macroType = typeof(quote)
             """);
 
         var diagnostic = Assert.Single(

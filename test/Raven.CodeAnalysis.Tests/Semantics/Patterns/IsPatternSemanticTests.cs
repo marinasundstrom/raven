@@ -16,8 +16,8 @@ public class IsPatternSemanticTests : DiagnosticTestBase
     public void IsPattern_WithQualifiedMetadataType_BindsDeclaredType()
     {
         const string source = """
-val member: object = 0
-val result = member is System.Reflection.MethodInfo method
+let member: object = 0
+let result = member is System.Reflection.MethodInfo method
 """;
 
         var verifier = CreateVerifier(source);
@@ -240,7 +240,7 @@ class GuardedText {
             return "not text"
         }
 
-        val suffix = text + "!"
+        let suffix = text + "!"
         return suffix
     }
 }

@@ -219,7 +219,7 @@ class C {
         const string source = """
 class C {
     func Test(flag: bool) {
-        val lambda = () => {
+        let lambda = () => {
             while flag {
                 ()
             }

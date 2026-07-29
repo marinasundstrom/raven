@@ -237,7 +237,7 @@ public func A(x: int) -> int {
 import Utilities.*
 
 func Main() {
-    val x = A(42)
+    let x = A(42)
     A()
 }
 """);
@@ -777,7 +777,7 @@ func Run() -> int {
     public void TopLevelFunction_WithFileScopeExecutableStatement_CapturesFileScopeStatementLocal()
     {
         const string source = """
-val prefix = "point"
+let prefix = "point"
 
 func Describe() -> string {
     return prefix

@@ -273,7 +273,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                         get => _Count
                         set {
                             if value != _Count {
-                                val oldValue = _Count
+                                let oldValue = _Count
                                 _Count = value
                                 _CountChanged.OnNext(value)
                             }

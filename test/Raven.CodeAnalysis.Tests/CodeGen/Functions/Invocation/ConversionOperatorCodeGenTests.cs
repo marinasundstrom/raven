@@ -54,14 +54,14 @@ class NumberBox {
 
         class OptionConversionRunner {
             static func RunReference() -> string? {
-                val opt1 = Option<string>.Some("OK")
-                val opt12: string? = opt1
+                let opt1 = Option<string>.Some("OK")
+                let opt12: string? = opt1
                 return opt12
             }
 
             static func RunValue() -> int? {
-                val opt2 = Option<int>.Some(42)
-                val opt22: int? = opt2
+                let opt2 = Option<int>.Some(42)
+                let opt22: int? = opt2
                 return opt22
             }
         }
@@ -111,7 +111,7 @@ public union Option<T> {
 
 public extension OptionExtensions1<T : class> for Option<T> {
     static func implicit(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
+        if opt is .Some(let value) {
             return value
         }
         null
@@ -120,7 +120,7 @@ public extension OptionExtensions1<T : class> for Option<T> {
 
 public extension OptionExtensions2<T : struct> for Option<T> {
     static func implicit(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
+        if opt is .Some(let value) {
             return value
         }
         null

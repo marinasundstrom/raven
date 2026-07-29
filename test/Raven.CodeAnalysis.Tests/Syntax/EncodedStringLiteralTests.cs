@@ -9,7 +9,7 @@ public sealed class EncodedStringLiteralTests : DiagnosticTestBase
     public void EncodedStringLiteral_Utf8_WithPlainString_HasNoDiagnostics()
     {
         const string source = """
-val bytes = "Hello"u8
+let bytes = "Hello"u8
 """;
 
         var verifier = CreateVerifier(source);
@@ -20,7 +20,7 @@ val bytes = "Hello"u8
     public void EncodedStringLiteral_Ascii_WithNonAsciiCharacter_ReportsDiagnostic()
     {
         const string source = """
-val bytes = "Pågen"ascii
+let bytes = "Pågen"ascii
 """;
 
         var verifier = CreateVerifier(
@@ -38,8 +38,8 @@ val bytes = "Pågen"ascii
     public void EncodedStringLiteral_WithInterpolation_ReportsDiagnostic()
     {
         const string source = """
-val name = "World"
-val bytes = "Hello ${name}"u8
+let name = "World"
+let bytes = "Hello ${name}"u8
 """;
 
         var verifier = CreateVerifier(

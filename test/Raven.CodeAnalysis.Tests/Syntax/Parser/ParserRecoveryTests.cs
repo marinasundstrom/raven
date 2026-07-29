@@ -189,7 +189,7 @@ public class ParserRecoveryTests
     public void CompilationUnit_IncompleteKeywordLogicalOperator_DoesNotThrow()
     {
         var source = """
-            val flag = true and
+            let flag = true and
             """;
 
         var exception = Record.Exception(() => SyntaxTree.ParseText(source));
@@ -406,7 +406,7 @@ public class ParserRecoveryTests
     public void PositionalValAssignment_ParsesWithoutSyntaxDiagnostics()
     {
         var source = """
-            val (first, second, _) = (1, 2, 3)
+            let (first, second, _) = (1, 2, 3)
             first + second
             """;
 
@@ -473,7 +473,7 @@ public class ParserRecoveryTests
         var source = """
             extension OptionExtensions<T> for Option<T> {
                 public func UnwrapOr(defaultValue: T) -> T {
-                    if self is .Some(val value) {
+                    if self is .Some(let value) {
                         return value
                     return defaultValue
                 }

@@ -65,7 +65,7 @@ class Counter {
 
 class C {
     func Run() {
-        val counter = Counter()
+        let counter = Counter()
         counter.
     }
 }
@@ -101,7 +101,7 @@ class C {
 import Utilities.*
 
 func Main() {
-    val x = A(42)
+    let x = A(42)
     x.
 }
 """;
@@ -134,7 +134,7 @@ func A(value: int) -> int {
     {
         var code = """
 func Main() {
-    val x: string? = default
+    let x: string? = default
     x!.
 }
 """;
@@ -465,7 +465,7 @@ func Parse<T>(text: string) -> T
         var code = """
 import System.*;
 
-val text = "";
+let text = "";
 text.
 """;
 
@@ -508,7 +508,7 @@ extension CounterExtensions for Counter {
     }
 }
 
-val counter = Counter()
+let counter = Counter()
 counter.
 """;
 
@@ -540,7 +540,7 @@ extension TaggedExtensions<T: ITagged> for T {
     func Mark() -> int => 1
 }
 
-val sample = Sample()
+let sample = Sample()
 sample.
 """;
 
@@ -570,8 +570,8 @@ func GetResult() -> (string, int) {
 }
 
 func Main() -> unit {
-    val result = GetResult()
-    val [first, _] = result
+    let result = GetResult()
+    let [first, _] = result
     result.
 }
 """;
@@ -600,7 +600,7 @@ class User {
 }
 
 func Main() -> unit {
-    val user = User()
+    let user = User()
     user. += () => ()
 }
 """;
@@ -630,7 +630,7 @@ class User {
 }
 
 func Main() -> unit {
-    val user = User()
+    let user = User()
     user. = 2
 }
 """;
@@ -659,7 +659,7 @@ class User {
 }
 
 func Main() -> unit {
-    val user = User()
+    let user = User()
     user?. = 2
 }
 """;
@@ -683,7 +683,7 @@ func Main() -> unit {
         var code = """
 import System.*;
 
-val literal = "foo";
+let literal = "foo";
 literal.
 """;
 
@@ -751,7 +751,7 @@ class Person {
 
 func WriteLine(value: Person) -> unit { }
 
-val bob = Person()
+let bob = Person()
 WriteLine(bob.)
 """;
 
@@ -776,7 +776,7 @@ WriteLine(bob.)
 import System.Collections.Generic.*;
 import System.Linq.*;
 
-val numbers = List<int>();
+let numbers = List<int>();
 numbers.
 """;
 
@@ -868,7 +868,7 @@ Number.
         var code = """
 import System.*;
 
-val text = "";
+let text = "";
 text.
 """;
 
@@ -1094,7 +1094,7 @@ extension CounterExtensions for Counter {
 import System.Collections.Generic.*;
 import System.Linq.*;
 
-val numbers: int[] = [1, 2, 3]
+let numbers: int[] = [1, 2, 3]
 numbers.
 """;
 
@@ -1166,7 +1166,7 @@ func MakeUnit() -> unit {
     ()
 }
 
-val value = MakeUnit()
+let value = MakeUnit()
 value.
 """;
 
@@ -1214,7 +1214,7 @@ union Result {
     case Err(message: string)
 }
 
-val value = Result.Ok
+let value = Result.Ok
 value.
 """;
 
@@ -1240,7 +1240,7 @@ union Option<T> {
     case Some(value: T)
 }
 
-val x = Option<int>.Some(value: 2)
+let x = Option<int>.Some(value: 2)
 x.
 """;
 

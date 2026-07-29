@@ -21,7 +21,7 @@ import System.Linq.Expressions.*
 
 class C {
     func Build() -> Expression<System.Func<int, bool>> {
-        val tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
+        let tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
         return tree
     }
 }
@@ -69,7 +69,7 @@ import System.Linq.Expressions.*
 
 class C {
     func Build() -> Expression<System.Func<int, string>> {
-        val tree: Expression<System.Func<int, string>> = (value: int) => Helpers.ToText(value)
+        let tree: Expression<System.Func<int, string>> = (value: int) => Helpers.ToText(value)
         return tree
     }
 }

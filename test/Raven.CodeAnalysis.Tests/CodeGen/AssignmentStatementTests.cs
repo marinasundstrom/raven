@@ -84,7 +84,7 @@ class Foo {
         var code = """
 class Foo {
     func Run() -> unit {
-        val _ = System.Console.WriteLine("discard")
+        let _ = System.Console.WriteLine("discard")
         return ()
     }
 }
@@ -119,7 +119,7 @@ class Foo {
         var code = """
 class Foo {
     func Run() -> unit {
-        val _ = 42
+        let _ = 42
         return ()
     }
 }
@@ -147,8 +147,8 @@ class Foo {
         var code = """
 class Foo {
     func Run() -> int {
-        val values: int[] = [1, 2, 3, 4]
-        val [first, ..middle, last] = values
+        let values: int[] = [1, 2, 3, 4]
+        let [first, ..middle, last] = values
         return first + middle[0] + last
     }
 }
@@ -184,8 +184,8 @@ import System.Collections.Generic.*
 
 class Foo {
     func Run() -> int {
-        val values: List<int> = [1, 2, 3, 4]
-        val [first, ..middle, last] = values
+        let values: List<int> = [1, 2, 3, 4]
+        let [first, ..middle, last] = values
         return first + middle[0] + last
     }
 }
@@ -221,8 +221,8 @@ import System.Collections.Immutable.*
 
 class Foo {
     func Run() -> int {
-        val values: ImmutableArray<int> = [1, 2, 3, 4]
-        val [first, ..middle, last] = values
+        let values: ImmutableArray<int> = [1, 2, 3, 4]
+        let [first, ..middle, last] = values
         return first + middle[0] + last
     }
 }
@@ -256,8 +256,8 @@ class Foo {
         var code = """
 class Foo {
     func Run() -> int {
-        val values: int[] = [1, 2, 3]
-        val [..2 start, tail] = values
+        let values: int[] = [1, 2, 3]
+        let [..2 start, tail] = values
         return start[0] + start[1] + tail
     }
 }
@@ -291,8 +291,8 @@ class Foo {
         var code = """
 class Foo {
     func Run() -> string {
-        val text = "rune"
-        val [first, ..2 middle, last] = text
+        let text = "rune"
+        let [first, ..2 middle, last] = text
         return first.ToString() + ":" + middle + ":" + last.ToString()
     }
 }

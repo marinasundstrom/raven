@@ -35,8 +35,8 @@ public sealed class LanguageServerDocumentSymbolTests
             var handler = new DocumentSymbolHandler(store, NullLogger<DocumentSymbolHandler>.Instance);
             var uri = DocumentUri.FromFileSystemPath(Path.Combine(tempRoot, "main.rvn"));
             await store.UpsertDocumentAsync(uri, """
-val builder = WebApplication.CreateBuilder(args)
-val app = builder.Build()
+let builder = WebApplication.CreateBuilder(args)
+let app = builder.Build()
 
 app.MapGet("/", func () => "Hello")
 
@@ -62,7 +62,7 @@ record PingResult(val Message: string)
     public void Outline_IncludesSyntheticTopLevelCodeSymbol_ForExecutableGlobalStatements()
     {
         const string code = """
-val port = 8080
+let port = 8080
 print(port)
 """;
 
@@ -78,11 +78,11 @@ print(port)
     public void Outline_UsesSingleTopLevelCodeSymbol_WhenStatementsAreInterleavedWithDeclarations()
     {
         const string code = """
-val a = 1
+let a = 1
 
 func ping() -> int => a
 
-val b = 2
+let b = 2
 
 func ping1() -> int => b
 

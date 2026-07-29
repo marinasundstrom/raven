@@ -81,7 +81,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForInExpression()
     {
         var code = """
-                   val arr = [1, 2, 3];
+                   let arr = [1, 2, 3];
                    for x in arr {
                        x
                    }
@@ -100,7 +100,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForInExpression_WithIdentifierTarget()
     {
         var code = """
-                   val arr = [1, 2, 3];
+                   let arr = [1, 2, 3];
                    for x in arr {
                        x
                    }
@@ -119,8 +119,8 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForInExpression_WithExplicitBindingKeyword()
     {
         var code = """
-                   val arr = [1, 2, 3];
-                   for val x in arr {
+                   let arr = [1, 2, 3];
+                   for let x in arr {
                        x
                    }
                    """;
@@ -139,7 +139,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForWithDiscardTarget()
     {
         var code = """
-                   val arr = [1, 2, 3];
+                   let arr = [1, 2, 3];
                    for _ in arr {
                        0
                    }
@@ -157,8 +157,8 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForWithDiscardTarget_AndOuterBindingKeyword()
     {
         var code = """
-                   val arr = [1, 2, 3];
-                   for val _ in arr {
+                   let arr = [1, 2, 3];
+                   for let _ in arr {
                        0
                    }
                    """;
@@ -176,7 +176,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForWithoutTarget()
     {
         var code = """
-                   val arr = [1, 2, 3];
+                   let arr = [1, 2, 3];
                    for in arr {
                        0
                    }
@@ -278,8 +278,8 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForPatternTarget()
     {
         var code = """
-                   val points = [(0, 0), (1, 0)];
-                   for (val x, 0) in points {
+                   let points = [(0, 0), (1, 0)];
+                   for (let x, 0) in points {
                        x
                    }
                    """;
@@ -296,8 +296,8 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForPatternTarget_WithOuterBindingKeyword()
     {
         var code = """
-                   val persons = [Person(1, "Ada", 20)];
-                   for val Person(1, name, _) in persons {
+                   let persons = [Person(1, "Ada", 20)];
+                   for let Person(1, name, _) in persons {
                        name
                    }
                    """;
@@ -315,8 +315,8 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForPatternTarget_WithTrailingWholePatternDesignation()
     {
         var code = """
-                   val points = [(2, 1.0)];
-                   for val (2, > 0.5) point in points {
+                   let points = [(2, 1.0)];
+                   for let (2, > 0.5) point in points {
                        point
                    }
                    """;
@@ -335,8 +335,8 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForPatternTarget_WithGuardedBinding()
     {
         var code = """
-                   val orders = [(1001, 120)];
-                   for val (id, amount when > 100) in orders {
+                   let orders = [(1001, 120)];
+                   for let (id, amount when > 100) in orders {
                        amount
                    }
                    """;

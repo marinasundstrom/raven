@@ -402,7 +402,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var source = """
             class C(name: string) {
                 {
-                    val x = name
+                    let x = name
                 }
             }
             """;

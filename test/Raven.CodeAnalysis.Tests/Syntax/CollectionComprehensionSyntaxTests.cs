@@ -9,7 +9,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionComprehension_ParsesWithoutFilter()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for n in numbers => n * n]");
+        var tree = SyntaxTree.ParseText("let xs = [for n in numbers => n * n]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
@@ -24,7 +24,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionComprehension_ParsesWithFilter()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for n in numbers if n % 2 == 0 => n]");
+        var tree = SyntaxTree.ParseText("let xs = [for n in numbers if n % 2 == 0 => n]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
@@ -36,7 +36,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_Spread_DotDotDot_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [...items]");
+        var tree = SyntaxTree.ParseText("let xs = [...items]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var spread = Assert.IsType<SpreadElementSyntax>(collection.Elements[0]);
@@ -46,7 +46,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void MutableCollectionExpression_ParsesLeadingExclamationToken()
     {
-        var tree = SyntaxTree.ParseText("val xs = ![1; 2; 3]");
+        var tree = SyntaxTree.ParseText("let xs = ![1; 2; 3]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         Assert.Equal(SyntaxKind.ExclamationToken, collection.ExclamationToken.Kind);
@@ -57,7 +57,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void ArrayExpression_ParsesPipeDelimitedLiteral()
     {
-        var tree = SyntaxTree.ParseText("val xs = [|1, 2, 3|]");
+        var tree = SyntaxTree.ParseText("let xs = [|1, 2, 3|]");
         var array = tree.GetRoot().DescendantNodes().OfType<ArrayExpressionSyntax>().Single();
 
         Assert.Equal(SyntaxKind.OpenArrayToken, array.OpenArrayToken.Kind);
@@ -69,7 +69,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_RangeElement_ParsesAsRangeExpression()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1..10, 42]");
+        var tree = SyntaxTree.ParseText("let xs = [1..10, 42]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var element = Assert.IsType<ExpressionElementSyntax>(collection.Elements[0]);
@@ -81,7 +81,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_DictionaryElement_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [\"a\": 1, \"b\": 2]");
+        var tree = SyntaxTree.ParseText("let xs = [\"a\": 1, \"b\": 2]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var first = Assert.IsType<DictionaryElementSyntax>(collection.Elements[0]);
@@ -98,7 +98,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_DictionarySpreadElement_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [...\"a\": 1, ...otherMap]");
+        var tree = SyntaxTree.ParseText("let xs = [...\"a\": 1, ...otherMap]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var first = Assert.IsType<DictionarySpreadElementSyntax>(collection.Elements[0]);
@@ -112,7 +112,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_DictionaryComprehension_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for n in numbers if n > 0 => n: n * n]");
+        var tree = SyntaxTree.ParseText("let xs = [for n in numbers if n > 0 => n: n * n]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
@@ -125,7 +125,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionComprehension_WithDeconstructionTarget_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for val (id, name) in people => name]");
+        var tree = SyntaxTree.ParseText("let xs = [for let (id, name) in people => name]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
@@ -137,7 +137,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionComprehension_WithImplicitTypedDeconstructionTarget_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for val (key: string, value: int) in pairs => key]");
+        var tree = SyntaxTree.ParseText("let xs = [for let (key: string, value: int) in pairs => key]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
@@ -165,7 +165,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_DictionaryComprehension_WithDeconstructionTarget_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for val (key, value) in pairs => key: value]");
+        var tree = SyntaxTree.ParseText("let xs = [for let (key, value) in pairs => key: value]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
@@ -177,7 +177,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void DictionaryComprehension_WithImplicitTypedDeconstructionTarget_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for val (key: string, value: int) in pairs => key: value]");
+        var tree = SyntaxTree.ParseText("let xs = [for let (key: string, value: int) in pairs => key: value]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
@@ -205,7 +205,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionComprehension_WithGuardedBindingTarget_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [for val (id, amount when 100..300) in orders => amount]");
+        var tree = SyntaxTree.ParseText("let xs = [for let (id, amount when 100..300) in orders => amount]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
@@ -219,7 +219,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_CommaSeparated_Parses()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1, 2, 3]");
+        var tree = SyntaxTree.ParseText("let xs = [1, 2, 3]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         Assert.Equal(3, collection.Elements.Count);
@@ -231,7 +231,7 @@ public class CollectionComprehensionSyntaxTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            val xs = [
+            let xs = [
                 1
                 2
                 3
@@ -251,7 +251,7 @@ public class CollectionComprehensionSyntaxTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            val xs = [|
+            let xs = [|
                 1
                 2
                 3
@@ -268,7 +268,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_SemicolonSeparated_ProducesDiagnostic()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1; 2; 3]");
+        var tree = SyntaxTree.ParseText("let xs = [1; 2; 3]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
@@ -280,7 +280,7 @@ public class CollectionComprehensionSyntaxTests
     [Fact]
     public void CollectionExpression_SameLineWithoutComma_ProducesDiagnostic()
     {
-        var tree = SyntaxTree.ParseText("val xs = [1 2 3]");
+        var tree = SyntaxTree.ParseText("let xs = [1 2 3]");
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);

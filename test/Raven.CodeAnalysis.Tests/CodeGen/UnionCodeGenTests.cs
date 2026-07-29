@@ -134,9 +134,9 @@ public union Result<T> {
         const string code = """
 class Runner {
     public static func Run(flag: bool) -> Option<int> {
-        val input: Option<int> = Some(42)
+        let input: Option<int> = Some(42)
         return match input {
-            Some(val value) => Option<int>.Some(value)
+            Some(let value) => Option<int>.Some(value)
             None => None
         }
     }
@@ -190,10 +190,10 @@ import System.*
 
 class Runner {
     public static func Run() -> string {
-        val result: Result<string, Exception> = Error(InvalidOperationException("x"))
+        let result: Result<string, Exception> = Error(InvalidOperationException("x"))
         return match result {
-            Error(val e) => e.GetType().Name
-            Ok(val value) => value
+            Error(let e) => e.GetType().Name
+            Ok(let value) => value
         }
     }
 }
@@ -473,7 +473,7 @@ union Option<T> {
 
 class Harness {
     public static func Check() -> bool {
-        val option: Option<int> = .Some(42)
+        let option: Option<int> = .Some(42)
         return option.HasSome
     }
 }
@@ -754,7 +754,7 @@ union struct Maybe<T>(T)
         var code = """
 class Runner {
     public static func NullCase() -> int {
-        val v: Foo = null
+        let v: Foo = null
         return match v {
             3 => 30
             int i => i
@@ -763,7 +763,7 @@ class Runner {
     }
 
     public static func ConstantCase() -> int {
-        val v: Foo = 3
+        let v: Foo = 3
         return match v {
             3 => 30
             int i => i
@@ -772,7 +772,7 @@ class Runner {
     }
 
     public static func IntCase() -> int {
-        val v: Foo = 42
+        let v: Foo = 42
         return match v {
             3 => 30
             int i => i
@@ -815,17 +815,17 @@ union class Foo(int?)
         var code = """
 class Runner {
     public static func NullValueIsNull() -> bool {
-        val v: Foo = null
+        let v: Foo = null
         return v.Value is null
     }
 
     public static func NullHasValue() -> bool {
-        val v: Foo = null
+        let v: Foo = null
         return v.HasValue
     }
 
     public static func ExpressionNullCase() -> int {
-        val v: Foo = null
+        let v: Foo = null
         return match v {
             int i => i
             null => -1
@@ -833,7 +833,7 @@ class Runner {
     }
 
     public static func ExpressionValueCase() -> int {
-        val v: Foo = 42
+        let v: Foo = 42
         return match v {
             int i => i
             null => -1
@@ -841,7 +841,7 @@ class Runner {
     }
 
     public static func StatementNullCase() -> int {
-        val v: Foo = null
+        let v: Foo = null
         match v {
             int i => i
             null => -1
@@ -849,7 +849,7 @@ class Runner {
     }
 
     public static func StatementValueCase() -> int {
-        val v: Foo = 42
+        let v: Foo = 42
         match v {
             int i => i
             null => -1
@@ -894,7 +894,7 @@ union class Foo(int?)
         var code = """
 class Runner {
     public static func IntCase() -> int {
-        val v: Foo = 42
+        let v: Foo = 42
         if v is int i {
             return i
         }
@@ -903,7 +903,7 @@ class Runner {
     }
 
     public static func NullCase() -> int {
-        val v: Foo = null
+        let v: Foo = null
         if v is int i {
             return i
         }
@@ -945,18 +945,18 @@ union class Foo(int?)
         var code = """
 class Runner {
     public static func DescribeDefault() -> string {
-        val value: Maybe<int> = default
+        let value: Maybe<int> = default
         return match value {
-            .Some(val payload) => payload.ToString()
+            .Some(let payload) => payload.ToString()
             .None => "none"
             _ => "inactive"
         }
     }
 
     public static func DescribeSome() -> string {
-        val value: Maybe<int> = .Some(42)
+        let value: Maybe<int> = .Some(42)
         return match value {
-            .Some(val payload) => payload.ToString()
+            .Some(let payload) => payload.ToString()
             .None => "none"
             _ => "inactive"
         }
@@ -1002,7 +1002,7 @@ union struct Maybe<T> {
 class Runner {
     public static func Describe(value: Maybe<int>) -> string {
         return match value {
-            .Some(val payload) => payload.ToString()
+            .Some(let payload) => payload.ToString()
             .None => "none"
             _ => "inactive"
         }
@@ -1204,12 +1204,12 @@ import System.*
 
 class Runner {
     public static func Left() -> int {
-        val value: Either<int, string> = 42
+        let value: Either<int, string> = 42
         return (int)value
     }
 
     public static func Invalid() -> string {
-        val value: Either<int, string> = 42
+        let value: Either<int, string> = 42
         return (string)value
     }
 }
@@ -1252,7 +1252,7 @@ union Either<T1, T2>(T1 | T2)
         const string code = """
 class Runner {
     public static func DescribeLeft() -> string {
-        val value: Either<int, string> = 42
+        let value: Either<int, string> = 42
         return match value {
             int amount => "cash $amount"
             string reference => "card $reference"
@@ -1260,7 +1260,7 @@ class Runner {
     }
 
     public static func DescribeRight() -> string {
-        val value: Either<int, string> = "invoice"
+        let value: Either<int, string> = "invoice"
         return match value {
             int amount => "cash $amount"
             string reference => "card $reference"
@@ -1337,18 +1337,18 @@ union MyResult3(List<int> | string)
         const string code = """
 class Runner {
     public static func DescribeCash() -> string {
-        val value = Payment(Cash(42.0m))
+        let value = Payment(Cash(42.0m))
         return match value {
-            Cash(val amount) => "cash $amount"
-            Card(val reference) => "card $reference"
+            Cash(let amount) => "cash $amount"
+            Card(let reference) => "card $reference"
         }
     }
 
     public static func DescribeCard() -> string {
-        val value = Payment(Card("invoice"))
+        let value = Payment(Card("invoice"))
         return match value {
-            Cash(val amount) => "cash $amount"
-            Card(val reference) => "card $reference"
+            Cash(let amount) => "cash $amount"
+            Card(let reference) => "card $reference"
         }
     }
 }
@@ -1699,9 +1699,9 @@ union Option {
 
 class Container {
     public static func Measure() -> long {
-        val before = GC.GetAllocatedBytesForCurrentThread()
-        val opt: Option = .Some(123)
-        val after = GC.GetAllocatedBytesForCurrentThread()
+        let before = GC.GetAllocatedBytesForCurrentThread()
+        let opt: Option = .Some(123)
+        let after = GC.GetAllocatedBytesForCurrentThread()
         return after - before
     }
 }
@@ -2195,7 +2195,7 @@ union Result<T, E> {
 
 class Container {
     public static func Build() -> Result<int, string> {
-        val factory: Func<int, Result<int, string>> = x => Result.Ok(x)
+        let factory: Func<int, Result<int, string>> = x => Result.Ok(x)
         return factory(42)
     }
 }
@@ -2250,7 +2250,7 @@ class Container {
     }
 
     public static func CarrierTargetTyped() -> Result<int, string> {
-        val value: Result<int, string> = .Ok(2)
+        let value: Result<int, string> = .Ok(2)
         return value
     }
 }
@@ -2308,23 +2308,23 @@ record Theme(PrimaryColor: Option<string>)
 
 class Container {
     public static func DescribeMissing() -> string {
-        val value = Some(User(Some(Profile(Some(Settings(Some(Theme(None))))))))
+        let value = Some(User(Some(Profile(Some(Settings(Some(Theme(None))))))))
         return describe(value)
     }
 
     public static func DescribeTargetTypedMissing() -> string {
-        val value = Some(User(Some(Profile(Some(Settings(Some(Theme(.None))))))))
+        let value = Some(User(Some(Profile(Some(Settings(Some(Theme(.None))))))))
         return describe(value)
     }
 
     public static func DescribePresent() -> string {
-        val value = Some(User(Some(Profile(Some(Settings(Some(Theme(Some("blue")))))))))
+        let value = Some(User(Some(Profile(Some(Settings(Some(Theme(Some("blue")))))))))
         return describe(value)
     }
 
     static func describe(user: Option<User>) -> string {
         return match user {
-            Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(val color)))))))) => "Primary color: $color"
+            Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(let color)))))))) => "Primary color: $color"
             _ => "Could not access primary color"
         }
     }
@@ -2696,7 +2696,7 @@ union Result<T, E> {
 
 class Container {
     public static func Create(items: IEnumerable<int>) -> Result<int, string> {
-        val values = items.Take(1).ToList()
+        let values = items.Take(1).ToList()
         if values.Count == 1 {
             return .Ok(values[0])
         }

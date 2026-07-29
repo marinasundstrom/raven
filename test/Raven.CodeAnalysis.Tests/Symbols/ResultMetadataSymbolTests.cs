@@ -291,7 +291,7 @@ import System.Option.*
 extension ResultExt<T, E> for Result<T, E> {
     val Probe: Option<T> {
         get {
-            if self is Ok(val value) {
+            if self is Ok(let value) {
                 return Some(value)
             }
 
@@ -302,7 +302,7 @@ extension ResultExt<T, E> for Result<T, E> {
 
 class Container {
     static func ProbeValue<T, E>(value: T) -> Option<T> {
-        val result: Result<T, E> = Ok(value)
+        let result: Result<T, E> = Ok(value)
         return result.Probe
     }
 }

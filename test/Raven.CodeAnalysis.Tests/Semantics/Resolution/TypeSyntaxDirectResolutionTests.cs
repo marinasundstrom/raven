@@ -14,7 +14,7 @@ public class TypeSyntaxResolutionTests : CompilationTestBase
     [Fact]
     public void BindTypeSyntaxAndReport_ResolvesPredefinedType()
     {
-        const string source = "val value: int = 0";
+        const string source = "let value: int = 0";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -33,7 +33,7 @@ public class TypeSyntaxResolutionTests : CompilationTestBase
     [Fact]
     public void BindTypeSyntaxAndReport_ResolvesDecimalPredefinedType()
     {
-        const string source = "val value: decimal = 1m";
+        const string source = "let value: decimal = 1m";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -53,7 +53,7 @@ public class TypeSyntaxResolutionTests : CompilationTestBase
     public void BindTypeSyntaxAndReport_BindsTupleType()
     {
         const string source = """
-val pair: (int, string) = (1, "x")
+let pair: (int, string) = (1, "x")
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -77,7 +77,7 @@ val pair: (int, string) = (1, "x")
     public void BindTypeSyntax_BindsTupleType()
     {
         const string source = """
-val pair: (left: int, right: string) = (1, "x")
+let pair: (left: int, right: string) = (1, "x")
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -103,7 +103,7 @@ val pair: (left: int, right: string) = (1, "x")
     [Fact]
     public void BindTypeSyntax_BindsFunctionType()
     {
-        const string source = "val callback: (int, string) -> bool = null";
+        const string source = "let callback: (int, string) -> bool = null";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -130,7 +130,7 @@ val pair: (left: int, right: string) = (1, "x")
     [Fact]
     public void BindTypeSyntax_BindsUnitType()
     {
-        const string source = "val value: () = ()";
+        const string source = "let value: () = ()";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -208,7 +208,7 @@ interface Child : Parent<int> {}
     [Fact]
     public void SemanticModel_GetTypeInfo_BindsFunctionTypeSyntax()
     {
-        const string source = "val callback: (int, string) -> bool = null";
+        const string source = "let callback: (int, string) -> bool = null";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -233,7 +233,7 @@ interface Child : Parent<int> {}
     {
         const string source = """
 import System.Collections.Generic.*
-val values: List<int> = null
+let values: List<int> = null
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -253,7 +253,7 @@ val values: List<int> = null
     [Fact]
     public void TryResolveNamedTypeFromTypeSyntax_ReturnsFalseForNonNamedResolvedType()
     {
-        const string source = "val values: int[] = []";
+        const string source = "let values: int[] = []";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -273,7 +273,7 @@ val values: List<int> = null
     [Fact]
     public void BindTypeSyntaxAndReport_WithOptions_AppliesTypeParameterSubstitution()
     {
-        const string source = "val value: T = 0";
+        const string source = "let value: T = 0";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -300,7 +300,7 @@ val values: List<int> = null
     [Fact]
     public void TryBindNamedTypeFromTypeSyntax_WithOptions_AppliesTypeParameterSubstitution()
     {
-        const string source = "val value: T = 0";
+        const string source = "let value: T = 0";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -329,7 +329,7 @@ val values: List<int> = null
     [Fact]
     public void TryBindNamedTypeFromTypeSyntax_ReportDiagnosticsFalse_DoesNotAddDiagnosticsOnFailure()
     {
-        const string source = "val value: MissingType = 0";
+        const string source = "let value: MissingType = 0";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -352,7 +352,7 @@ val values: List<int> = null
     [Fact]
     public void TryBindNamedTypeFromTypeSyntax_ReportDiagnosticsTrue_AddsDiagnosticsOnFailure()
     {
-        const string source = "val value: MissingType = 0";
+        const string source = "let value: MissingType = 0";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -375,7 +375,7 @@ val values: List<int> = null
     [Fact]
     public void BindTypeSyntaxAndReport_MissingType_ProjectsDiagnostics()
     {
-        const string source = "val value: MissingType = 0";
+        const string source = "let value: MissingType = 0";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -399,7 +399,7 @@ val values: List<int> = null
     {
         const string source = """
 import System.Collections.Generic.*
-val value: List = null
+let value: List = null
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -421,7 +421,7 @@ val value: List = null
     [Fact]
     public void BindTypeSyntaxAndReport_BindsTupleTypeViaBindType()
     {
-        const string source = "val pair: (int, string) = (1, \"x\")";
+        const string source = "let pair: (int, string) = (1, \"x\")";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -445,7 +445,7 @@ val value: List = null
     {
         const string source = """
 import System.Collections.Generic.*
-val value: List<MissingType> = null
+let value: List<MissingType> = null
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -467,7 +467,7 @@ val value: List<MissingType> = null
     [Fact]
     public void MapResolveResultToDiagnostics_ArrayElementFailure_ReportsSinglePrimaryDiagnostic()
     {
-        const string source = "val values: MissingType[] = []";
+        const string source = "let values: MissingType[] = []";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -491,7 +491,7 @@ val value: List<MissingType> = null
         const string source = """
 class C {
     func M<T>(value: T) -> () {
-        val local: T = value
+        let local: T = value
     }
 }
 """;
@@ -518,7 +518,7 @@ class C {
         const string source = """
 class Box<T> {
     func M(value: T) -> () {
-        val local: T = value
+        let local: T = value
     }
 }
 """;
@@ -544,7 +544,7 @@ class Box<T> {
     {
         const string source = """
 class Box<T> {
-    val item: T
+    let item: T
 }
 """;
 
@@ -567,7 +567,7 @@ class Box<T> {
     [Fact]
     public void BindTypeSyntax_BindsQualifiedGenericType()
     {
-        const string source = "val values: System.Collections.Generic.List<int> = null";
+        const string source = "let values: System.Collections.Generic.List<int> = null";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -595,7 +595,7 @@ class Outer<T> {
     class Inner<U> { }
 }
 
-val value: Outer<int>.Inner<string> = null
+let value: Outer<int>.Inner<string> = null
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -628,7 +628,7 @@ class Outer<T> {
     public class Inner<U> { }
 }
 
-val value: Outer.Inner<string> = null
+let value: Outer.Inner<string> = null
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -649,7 +649,7 @@ val value: Outer.Inner<string> = null
     [Fact]
     public void BindTypeSyntax_BindsArrayOfQualifiedGenericType()
     {
-        const string source = "val values: System.Collections.Generic.List<int>[] = []";
+        const string source = "let values: System.Collections.Generic.List<int>[] = []";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -673,7 +673,7 @@ val value: Outer.Inner<string> = null
     [Fact]
     public void BindTypeSyntax_BindsNullablePredefinedType()
     {
-        const string source = "val value: int? = null";
+        const string source = "let value: int? = null";
 
         var (compilation, tree) = CreateCompilation(
             source,
@@ -699,7 +699,7 @@ val value: Outer.Inner<string> = null
         const string source = """
 class C {
     func M<T>(value: T) -> () {
-        val local: T = value
+        let local: T = value
     }
 }
 """;
@@ -735,7 +735,7 @@ class C {
         const string source = """
 class C {
     func M<T>(value: T) -> () {
-        val local: T = value
+        let local: T = value
     }
 }
 """;
@@ -769,7 +769,7 @@ class C {
     {
         const string source = """
 import System.Collections.Generic.*
-val value: List<int> = null
+let value: List<int> = null
 """;
 
         var (compilation, tree) = CreateCompilation(

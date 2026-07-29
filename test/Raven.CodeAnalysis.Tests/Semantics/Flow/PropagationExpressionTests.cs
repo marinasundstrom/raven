@@ -21,7 +21,7 @@ union Option<T> {
 }
 
 func test() -> Option<int> {
-    val r = test2()?
+    let r = test2()?
     return .Some(r)
 }
 
@@ -55,7 +55,7 @@ union Option<T> {
 }
 
 func test() -> Result<int, string> {
-    val r = test2()?
+    let r = test2()?
     return .Ok(r)
 }
 
@@ -79,8 +79,8 @@ func test2() -> Option<int> {
     {
         var code = """
 async func test() {
-    val greeting = await BuildGreeting()
-    val value = greeting?
+    let greeting = await BuildGreeting()
+    let value = greeting?
 }
 
 func BuildGreeting() -> Task<Result<int, string>> {
@@ -110,9 +110,9 @@ record Input(Text: string)
 record Output(Length: int)
 
 async func Run() -> Task<Result<Output, string>> {
-    val firstResult = await LoadInput()
-    val input = firstResult?
-    val output = Transform(input)?
+    let firstResult = await LoadInput()
+    let input = firstResult?
+    let output = Transform(input)?
     return .Ok(output)
 }
 

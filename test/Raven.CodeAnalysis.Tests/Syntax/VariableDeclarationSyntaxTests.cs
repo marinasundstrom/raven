@@ -29,7 +29,7 @@ var a = 1, b = 2
     public void LocalDeclaration_WithMultipleDeclaratorsAndTypeAnnotation_Parses()
     {
         const string source = """
-val a: int = 1, b: int = 2
+let a: int = 1, b: int = 2
 """;
 
         var tree = SyntaxTree.ParseText(source);

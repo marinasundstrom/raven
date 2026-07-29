@@ -266,16 +266,16 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             mainText: """
                 import System.Console.*
 
-                val topValue = 1
-                val answer = topValue + 1
+                let topValue = 1
+                let answer = topValue + 1
                 WriteLine(answer)
                 """);
         var updatedText = SourceText.From("""
             import System.Console.*
 
             func Main() {
-                val topValue = 1
-                val answer = topValue + 1
+                let topValue = 1
+                let answer = topValue + 1
                 WriteLine(answer)
             }
             """);
@@ -388,8 +388,8 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
 
     private const string TopLevelText =
         """
-        val topValue = 1
-        val answer = topValue + 1
+        let topValue = 1
+        let answer = topValue + 1
         answer
         """;
 
@@ -397,7 +397,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         """
         class Runner {
             func Compute() -> int {
-                val context = VehicleDbContext()
+                let context = VehicleDbContext()
                 context.Vehicles.Add(VehicleEntity())
                 return context.SaveChanges() + 1
             }
@@ -699,8 +699,8 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             """
             class Runner {
                 func Compute(value: int) -> int {
-                    val unusedValue = value
-                    val answer = value + 1
+                    let unusedValue = value
+                    let answer = value + 1
                     return answer
                 }
             }

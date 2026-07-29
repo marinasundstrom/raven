@@ -254,7 +254,7 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Stable {
                     func Ping(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -406,7 +406,7 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Stable {
                     func Ping(value: int) -> int {
-                        val projection = func item: int -> int => item + value
+                        let projection = func item: int -> int => item + value
                         return projection(value)
                     }
                 }
@@ -482,7 +482,7 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Stable {
                     func Ping(value: int) -> int {
-                        val projection = func item: int -> int => item + value
+                        let projection = func item: int -> int => item + value
                         return projection(value)
                     }
                 }
@@ -1619,7 +1619,7 @@ public sealed class IncrementalCompilationReuseTests
 
                 class Use {
                     func Read() -> string {
-                        val foo = Foo()
+                        let foo = Foo()
                         return foo.Test
                     }
                 }
@@ -1647,7 +1647,7 @@ public sealed class IncrementalCompilationReuseTests
 
                 class Use {
                     func Read() -> string {
-                        val foo = Foo()
+                        let foo = Foo()
                         return foo.Test
                     }
                 }
@@ -1667,7 +1667,7 @@ public sealed class IncrementalCompilationReuseTests
 
                 class Use {
                     func Read() -> string {
-                        val foo = Foo()
+                        let foo = Foo()
                         return foo.Test
                     }
                 }
@@ -1918,11 +1918,11 @@ public sealed class IncrementalCompilationReuseTests
             class User(var Name: string, var Age: int, var IsActive: bool)
 
             func Main(users: IQueryable<User>) {
-                val minAge = 21
-                val onlyActiveAdults: Expression<System.Func<User, bool>> =
+                let minAge = 21
+                let onlyActiveAdults: Expression<System.Func<User, bool>> =
                     user => user.IsActive && user.Age >= minAge
 
-                val query = users
+                let query = users
                     |> Where(onlyActiveAdults)
                     |> OrderBy(user => user.Name)
                     |> Select(user => user.Name)
@@ -1944,7 +1944,7 @@ public sealed class IncrementalCompilationReuseTests
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
         var updatedSolution = workspace.CurrentSolution.WithDocumentText(
             editedDocument.Id,
-            SourceText.From(initialSource.Replace("val minAge = 21", "val minAge = 22", StringComparison.Ordinal)));
+            SourceText.From(initialSource.Replace("let minAge = 21", "let minAge = 22", StringComparison.Ordinal)));
 
         workspace.TryApplyChanges(updatedSolution);
 
@@ -2010,7 +2010,7 @@ public sealed class IncrementalCompilationReuseTests
 
             class Edited {
                 func Main(values: int[]) {
-                    val doubled = values.Select(value => value + 1)
+                    let doubled = values.Select(value => value + 1)
                 }
             }
             """;
@@ -2071,7 +2071,7 @@ public sealed class IncrementalCompilationReuseTests
                 val Duplicate: int => 2
 
                 func Main(values: int[]) {
-                    val doubled = values.Select(value => value + 1)
+                    let doubled = values.Select(value => value + 1)
                 }
             }
             """;
@@ -2178,7 +2178,7 @@ public sealed class IncrementalCompilationReuseTests
             import Utilities.*
 
             func Main() {
-                val x = A(42)
+                let x = A(42)
                 A(x)
             }
             """;
@@ -2187,7 +2187,7 @@ public sealed class IncrementalCompilationReuseTests
             import Utilities.*
 
             func Main() {
-                val x = A(42)
+                let x = A(42)
                 A()
             }
             """;
@@ -2585,7 +2585,7 @@ public sealed class IncrementalCompilationReuseTests
                     }
 
                     func Stable(value: int) -> int {
-                        val projection = func item: int -> int => item + value
+                        let projection = func item: int -> int => item + value
                         return projection(value)
                     }
                 }
@@ -2617,7 +2617,7 @@ public sealed class IncrementalCompilationReuseTests
                     }
 
                     func Stable(value: int) -> int {
-                        val projection = func item: int -> int => item + value
+                        let projection = func item: int -> int => item + value
                         return projection(value)
                     }
                 }
@@ -2661,8 +2661,8 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Main() -> int {
-                        val minAge = 22
-                        val predicate = func user: int -> bool => user > minAge
+                        let minAge = 22
+                        let predicate = func user: int -> bool => user > minAge
                         if predicate(30) {
                             return 1
                         }
@@ -2691,8 +2691,8 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Main() -> int {
-                        val minAge = 24
-                        val predicate = func user: int -> bool => user > minAge
+                        let minAge = 24
+                        let predicate = func user: int -> bool => user > minAge
                         if predicate(30) {
                             return 1
                         }
@@ -2746,8 +2746,8 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val projection = func item: int -> int => item + value
-                        val changed = 1
+                        let projection = func item: int -> int => item + value
+                        let changed = 1
                         return projection(changed)
                     }
                 }
@@ -2773,8 +2773,8 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val projection = func item: int -> int => item + value
-                        val changed = 10
+                        let projection = func item: int -> int => item + value
+                        let changed = 10
                         return projection(changed)
                     }
                 }
@@ -2817,7 +2817,7 @@ public sealed class IncrementalCompilationReuseTests
                     }
 
                     func Stable(value: int) -> int {
-                        val projection = func item: int -> int => item + value
+                        let projection = func item: int -> int => item + value
                         return projection(value)
                     }
                 }
@@ -2858,7 +2858,7 @@ public sealed class IncrementalCompilationReuseTests
                     }
 
                     func Stable(value: int) -> int {
-                        val projection = func item: int -> int => item + value
+                        let projection = func item: int -> int => item + value
                         return projection(value)
                     }
                 }
@@ -2905,9 +2905,9 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val before = value
-                        val first = 1
-                        val second = value
+                        let before = value
+                        let first = 1
+                        let second = value
                         return before + second
                     }
                 }
@@ -2943,9 +2943,9 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val before = value
-                        val first = 10
-                        val second = value
+                        let before = value
+                        let first = 10
+                        let second = value
                         return before + second
                     }
                 }
@@ -2994,7 +2994,7 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -3026,7 +3026,7 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(item: int) -> int {
-                        val copy = item
+                        let copy = item
                         return copy
                     }
                 }
@@ -3076,8 +3076,8 @@ public sealed class IncrementalCompilationReuseTests
                     }
 
                     func Stable(value: int) -> int {
-                        val first = value
-                        val second = value
+                        let first = value
+                        let second = value
                         return second
                     }
                 }
@@ -3109,8 +3109,8 @@ public sealed class IncrementalCompilationReuseTests
                     }
 
                     func Stable(value: int) -> int {
-                        val first = value
-                        val second = value
+                        let first = value
+                        let second = value
                         return second
                     }
                 }
@@ -3148,8 +3148,8 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val first = value
-                        val second = value
+                        let first = value
+                        let second = value
                         return second
                     }
                 }
@@ -3183,8 +3183,8 @@ public sealed class IncrementalCompilationReuseTests
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val first = value
-                        val renamed = value
+                        let first = value
+                        let renamed = value
                         return renamed
                     }
                 }
@@ -3232,8 +3232,8 @@ public sealed class IncrementalCompilationReuseTests
                 import System.Linq.*
 
                 func Main() -> () {
-                    val minAge = 22
-                    val query = [1, 2, 3]
+                    let minAge = 22
+                    let query = [1, 2, 3]
                         .AsQueryable()
                         |> Where(value => value > minAge)
                         |> Select(value => value.ToString())
@@ -3255,8 +3255,8 @@ public sealed class IncrementalCompilationReuseTests
                 import System.Linq.*
 
                 func Main() -> () {
-                    val minAge = 24
-                    val query = [1, 2, 3]
+                    let minAge = 24
+                    let query = [1, 2, 3]
                         .AsQueryable()
                         |> Where(value => value > minAge)
                         |> Select(value => value.ToString())
@@ -3310,8 +3310,8 @@ public sealed class IncrementalCompilationReuseTests
                 import System.Linq.*
 
                 func Main() -> () {
-                    val minAge = 22
-                    val query = [1, 2, 3]
+                    let minAge = 22
+                    let query = [1, 2, 3]
                         .AsQueryable()
                         .Where(value => value > minAge)
                         .Select(value => value.ToString())
@@ -3333,8 +3333,8 @@ public sealed class IncrementalCompilationReuseTests
                 import System.Linq.*
 
                 func Main() -> () {
-                    val minAge = 24
-                    val query = [1, 2, 3]
+                    let minAge = 24
+                    let query = [1, 2, 3]
                         .AsQueryable()
                         .Where(value => value > minAge)
                         .Select(value => value.ToString())
@@ -3382,7 +3382,7 @@ public sealed class IncrementalCompilationReuseTests
                 }
 
                 func Stable(value: int) -> int {
-                    val changed = 1
+                    let changed = 1
                     return value + changed
                 }
             }
@@ -3558,7 +3558,7 @@ public sealed class IncrementalCompilationReuseTests
         var initialSource = """
             class Runner {
                 func Compute(value: int) -> int {
-                    val answer = value + 1
+                    let answer = value + 1
                     return answer
                 }
             }
@@ -3700,7 +3700,7 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val foo = Foo(
+            let foo = Foo(
                 Name: "Foo",
                 Test: true
             )
@@ -3749,7 +3749,7 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val foo = Foo(
+            let foo = Foo(
                 Name: "Foo",
                 Test: true
             )
@@ -3798,7 +3798,7 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val foo = Foo(
+            let foo = Foo(
                 Name: "Foo",
                 Test: true
             )
@@ -3856,9 +3856,9 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
-            val text = second.ToString()
+            let first = 1
+            let second = first + 1
+            let text = second.ToString()
             """;
 
         project = project.AddDocument(
@@ -3882,7 +3882,7 @@ public sealed class IncrementalCompilationReuseTests
         var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
         var updatedSolution = workspace.CurrentSolution.WithDocumentText(
             document.Id,
-            SourceText.From(initialSource.Replace("val first = 1", "val first = 10", StringComparison.Ordinal)));
+            SourceText.From(initialSource.Replace("let first = 1", "let first = 10", StringComparison.Ordinal)));
 
         workspace.TryApplyChanges(updatedSolution);
 
@@ -3913,9 +3913,9 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
-            val text = second.ToString()
+            let first = 1
+            let second = first + 1
+            let text = second.ToString()
             """;
 
         project = project.AddDocument(
@@ -3939,7 +3939,7 @@ public sealed class IncrementalCompilationReuseTests
         var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
         var updatedSolution = workspace.CurrentSolution.WithDocumentText(
             document.Id,
-            SourceText.From(initialSource.Replace("val first = 1", "val first = 10", StringComparison.Ordinal)));
+            SourceText.From(initialSource.Replace("let first = 1", "let first = 10", StringComparison.Ordinal)));
 
         workspace.TryApplyChanges(updatedSolution);
 
@@ -3973,8 +3973,8 @@ public sealed class IncrementalCompilationReuseTests
             "edited.rav",
             SourceText.From(
                 """
-                val first = 1
-                val second = first + 1
+                let first = 1
+                let second = first + 1
                 """),
             "/tmp/edited.rav").Project;
 
@@ -4008,8 +4008,8 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
+            let first = 1
+            let second = first + 1
             """;
 
         project = project.AddDocument(
@@ -4063,8 +4063,8 @@ public sealed class IncrementalCompilationReuseTests
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
+            let first = 1
+            let second = first + 1
             """;
 
         project = project.AddDocument(
@@ -4126,7 +4126,7 @@ public sealed class IncrementalCompilationReuseTests
             "edited.rav",
             SourceText.From(
                 """
-                val value = compute()
+                let value = compute()
 
                 func compute() -> int {
                     return 1

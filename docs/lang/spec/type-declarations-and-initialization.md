@@ -100,8 +100,8 @@ class Box<T> {
     init(value: T) { Value = value }
 }
 
-val ints = Box<int>(1)
-val words = Box<string>("ok")
+let ints = Box<int>(1)
+let words = Box<string>("ok")
 ```
 
 Instantiating a generic type supplies concrete type arguments between `<` and
@@ -137,7 +137,7 @@ class Route<T> : Endpoint {
     init(pattern: string, handler: T -> string) : base(handler) {}
 }
 
-val route = Route("/{id:int}", func (id: int) => id.ToString())
+let route = Route("/{id:int}", func (id: int) => id.ToString())
 // route : Route<int>
 ```
 
@@ -264,8 +264,8 @@ class Person(val name: string, var age: int) {
     func GetAge() -> int => age
 }
 
-val person = Person("Ada", 42)
-val years = person.GetAge()
+let person = Person("Ada", 42)
+let years = person.GetAge()
 ```
 
 ### `init(...)` declarations
@@ -313,8 +313,8 @@ functions, methods, operator declarations, and indexer parameter lists.
 ```raven
 record class Person(name: string, age: int);
 
-val a = Person("Ada", 42)
-val b = Person("Ada", 42)
+let a = Person("Ada", 42)
+let b = Person("Ada", 42)
 
-val same = a == b
+let same = a == b
 ```

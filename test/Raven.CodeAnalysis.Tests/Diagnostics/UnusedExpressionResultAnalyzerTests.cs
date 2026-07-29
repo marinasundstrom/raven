@@ -187,7 +187,7 @@ func A(x: int) -> int {
     {
         const string code = """
 func A(totalDistance: decimal) -> decimal {
-    val averageLitersPer100Km =
+    let averageLitersPer100Km =
         if totalDistance == 0m {
             0m
         } else {
@@ -211,7 +211,7 @@ func A(totalDistance: decimal) -> decimal {
     {
         const string code = """
 func A(value: int) -> int {
-    val result = match value {
+    let result = match value {
         0 => {
             0
         }

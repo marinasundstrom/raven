@@ -43,7 +43,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
     }
 }
 """;
@@ -272,7 +272,7 @@ class UiNode {
 
 class UiBuilder {
     static func BuildBlock(items: UiNode[]) -> UiNode {
-        val result = UiNode()
+        let result = UiNode()
 
         for item in items {
             result.AddRange(item)
@@ -302,7 +302,7 @@ class UiNode {
 
 class UiBuilder {
     static func BuildBlock(items: UiNode[]) -> UiNode {
-        val result = UiNode()
+        let result = UiNode()
 
         for item in items {
             result.AddRange(item)

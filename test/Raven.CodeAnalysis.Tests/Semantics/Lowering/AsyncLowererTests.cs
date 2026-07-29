@@ -183,7 +183,7 @@ async func Test(value: int) -> Task<Int32> {
     return value
 }
 
-val result = await Test(42)
+let result = await Test(42)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -218,7 +218,7 @@ async func Test(value: int) -> Task<Int32> {
     return value
 }
 
-val result = await Test(42)
+let result = await Test(42)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -415,11 +415,11 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-val res = await fetch("http://www.contoso.com/")
+let res = await fetch("http://www.contoso.com/")
 
-val str = match res {
-    .Ok(val str) => "Response is: ${str}"
-    .Error(val message) => "Error is: ${message}"
+let str = match res {
+    .Ok(let str) => "Response is: ${str}"
+    .Error(let message) => "Error is: ${message}"
 }
 
 WriteLine(str)
@@ -430,7 +430,7 @@ async func fetch(url: string) -> Task<Result<string, string>> {
     try {
         use response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
-        val responseBody = await response.Content.ReadAsStringAsync()
+        let responseBody = await response.Content.ReadAsStringAsync()
         return .Ok(responseBody)
     } catch (HttpRequestException e) {
         return .Error(e.Message)
@@ -657,9 +657,9 @@ import System.Threading.Tasks.*
 
 class C {
     async func Work() -> Task {
-        val first = await Task.FromResult(1)
-        val second = await Task.FromResult(first + 2)
-        val third = await Task.FromResult(second + 3)
+        let first = await Task.FromResult(1)
+        let second = await Task.FromResult(first + 2)
+        let third = await Task.FromResult(second + 3)
         backing = third
     }
 

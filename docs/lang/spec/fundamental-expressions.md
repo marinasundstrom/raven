@@ -6,9 +6,9 @@ a type or name, providing a fallback, and building a string.
 Explicit casts request a conversion to a specific type and use C# syntax.
 
 ```raven
-val d = (double)1
-val i = (int)3.14  // numeric narrowing
-val s = obj as string
+let d = (double)1
+let i = (int)3.14  // numeric narrowing
+let s = obj as string
 ```
 
 `(T)expr` performs a runtime check and throws an `InvalidCastException` when the value cannot convert to `T`. Use this form for downcasts, numeric narrowing, or unboxing scenarios.
@@ -18,8 +18,8 @@ For unions, an explicit cast from the carrier to a member/case type is also
 permitted as an assertion-style extraction:
 
 ```raven
-val value: Either<int, string> = 42
-val left = (int)value
+let value: Either<int, string> = 42
+let left = (int)value
 ```
 
 This conversion succeeds only when the carrier currently holds the requested
@@ -35,8 +35,8 @@ tuple, nullable, or union—and is not evaluated. The expression always has type
 diagnostic.
 
 ```raven
-val textType = typeof(string)
-val listType = typeof(System.Collections.Generic.List<int>)
+let textType = typeof(string)
+let listType = typeof(System.Collections.Generic.List<int>)
 ```
 
 `typeof` is useful when reflecting over metadata or when passing type objects to
@@ -49,8 +49,8 @@ operand must be a type syntax and is not evaluated. The expression always has
 type `int`.
 
 ```raven
-val intSize = sizeof(int)       // 4
-val charSize = sizeof(char)     // 2
+let intSize = sizeof(int)       // 4
+let charSize = sizeof(char)     // 2
 ```
 
 ## `nameof` expressions
@@ -68,10 +68,10 @@ The operand may refer to:
 The result of a `nameof` expression is always of type `string` and is a compile-time constant.
 
 ```raven
-val x = 42
-val name = nameof(x)          // "x"
+let x = 42
+let name = nameof(x)          // "x"
 
-val text = nameof(System.Console.WriteLine)
+let text = nameof(System.Console.WriteLine)
 ```
 
 When applied to a member access, only the **final identifier** is returned:
@@ -104,15 +104,15 @@ produces `null`. That value can flow to nullable targets, but a non-nullable
 target requires an explicit nullable suppression (`!`) and reports `RAV0403`.
 
 ```raven
-val zero = default(int)
-val emptyText: string? = default
-val requiredText: string = default!
+let zero = default(int)
+let emptyText: string? = default
+let requiredText: string = default!
 ```
 
 ## String literals
 
 ```raven
-val hello = "Hello, "
+let hello = "Hello, "
 Console.WriteLine(hello + "World!")
 Console.WriteLine("Hello, " + 2)
 ```
@@ -143,7 +143,7 @@ emoji.
 A multiline string literal is written using triple double quotes `"""` and spans zero or more lines.
 
 ```raven
-val text = """
+let text = """
     Line one
     Line two
 """
@@ -165,10 +165,10 @@ Embed expressions directly into strings using `${...}` without requiring a prefi
 For simple identifiers, a shorthand `$identifier` form avoids the braces.
 
 ```raven
-val name = "Alice"
-val age = 30
-val greeting = "Hello $name!"
-val msg = "Name: ${name}, Age: ${age}"
+let name = "Alice"
+let age = 30
+let greeting = "Hello $name!"
+let msg = "Name: ${name}, Age: ${age}"
 Console.WriteLine(msg)
 ```
 
@@ -185,9 +185,9 @@ text such as Japanese kana or Arabic phrases stay intact around the embedded
 expressions.
 
 ```raven
-val name = "ليلى"
-val city = "دبي"
-val welcome = "\u200Fمرحبا ${name}! أهلا بك في ${city}"
+let name = "ليلى"
+let city = "دبي"
+let welcome = "\u200Fمرحبا ${name}! أهلا بك في ${city}"
 ```
 
 The `\u200F` right-to-left mark keeps the greeting flowing correctly even when
@@ -199,8 +199,8 @@ An encoded string literal applies an encoding suffix directly to a string or
 multiline string literal and produces bytes instead of a `string`.
 
 ```raven
-val utf8 = "Hello"u8
-val ascii = "Hello"ascii
+let utf8 = "Hello"u8
+let ascii = "Hello"ascii
 ```
 
 The suffix must appear immediately after the closing delimiter with no
@@ -236,22 +236,22 @@ Supported encodings:
   (`> 0x7F`), the compiler reports an error.
 
 ```raven
-val data = "Pågen"u8
-val ok = "Hello"ascii
-val error = "Pågen"ascii // compile-time error
+let data = "Pågen"u8
+let ok = "Hello"ascii
+let error = "Pågen"ascii // compile-time error
 ```
 
 Raw/multiline non-interpolated string forms can also be encoded. Interpolated
 string literals are not valid with encoding suffixes.
 
 ```raven
-val ok = """
+let ok = """
 Hello
 World
 """u8
 
-val name = "World"
-val error = "Hello ${name}"u8 // compile-time error
+let name = "World"
+let error = "Hello ${name}"u8 // compile-time error
 ```
 
 The resulting `byte[]` contains exactly the encoded bytes of the literal text.

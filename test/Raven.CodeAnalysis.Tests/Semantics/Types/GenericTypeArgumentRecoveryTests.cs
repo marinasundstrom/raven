@@ -10,7 +10,7 @@ public class GenericTypeArgumentRecoveryTests : CompilationTestBase
     public void MalformedGenericTypeArgumentList_DoesNotThrowDuringBinding()
     {
         var source = """
-            val test: Result<int, [string> = .Ok(42)
+            let test: Result<int, [string> = .Ok(42)
             """;
 
         var (compilation, _) = CreateCompilation(source);

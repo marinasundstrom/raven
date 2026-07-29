@@ -22,7 +22,7 @@ import System.Linq.*
 
 class Program {
     static func Run() -> () {
-        val o = ["a", "bb"].ToDictionary(x => x, y => y.Length)
+        let o = ["a", "bb"].ToDictionary(x => x, y => y.Length)
         ForEach(o, item => ())
     }
 
@@ -74,7 +74,7 @@ import System.Linq.*
 
 class Program {
     static func Run() -> () {
-        val o = ["a", "bb"].ToDictionary(x => x, y => y.Length)
+        let o = ["a", "bb"].ToDictionary(x => x, y => y.Length)
         ForEach(o, item => ())
     }
 
@@ -125,7 +125,7 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 func Main() -> () {
-    val o = ["1", "2", "3"].ToDictionary(x => x, y => int.Parse(y))
+    let o = ["1", "2", "3"].ToDictionary(x => x, y => int.Parse(y))
     ForEach(o, WriteLine)
 }
 

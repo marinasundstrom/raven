@@ -8,7 +8,7 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_Numeric_ReportsRedundantCastDiagnostic()
     {
         string code = """
-        val x = (double)1
+        let x = (double)1
         """;
 
         var verifier = CreateVerifier(code, [
@@ -21,7 +21,7 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_Invalid_ProducesDiagnostic()
     {
         string code = """
-        val s = (string)1
+        let s = (string)1
         """;
 
         var verifier = CreateVerifier(code, [
@@ -36,10 +36,10 @@ public class CastExpressionTests : DiagnosticTestBase
         string code = """
         import System.Reflection.*
 
-        val type = typeof(System.String)
-        val members = type.GetMembers()
-        val first = members[0]
-        val method = (MethodInfo)first
+        let type = typeof(System.String)
+        let members = type.GetMembers()
+        let first = members[0]
+        let method = (MethodInfo)first
         """;
 
         var verifier = CreateVerifier(code);
@@ -50,10 +50,10 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_DowncastReferenceType_FullyQualified_NoDiagnostic()
     {
         string code = """
-        val type = typeof(System.String)
-        val members = type.GetMembers()
-        val first = members[0]
-        val method = (System.Reflection.MethodInfo)first
+        let type = typeof(System.String)
+        let members = type.GetMembers()
+        let first = members[0]
+        let method = (System.Reflection.MethodInfo)first
         """;
 
         var verifier = CreateVerifier(code);
@@ -64,8 +64,8 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_UnionToMemberType_NoDiagnostic()
     {
         const string code = """
-        val value: Either<int, string> = 42
-        val left = (int)value
+        let value: Either<int, string> = 42
+        let left = (int)value
 
         union Either<T1, T2>(T1 | T2)
         """;
@@ -78,7 +78,7 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_WithAdditionalParentheses_ReportsRedundantCastDiagnostic()
     {
         string code = """
-        val value = ((double)1)
+        let value = ((double)1)
         """;
 
         var verifier = CreateVerifier(code, [

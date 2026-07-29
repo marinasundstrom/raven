@@ -13,7 +13,7 @@ public class FunctionExpressionCapturedVariablesTests
         var code = """
 class Calculator {
     func Apply(base: int) -> int {
-        val lambda = (offset: int) -> int => base + offset
+        let lambda = (offset: int) -> int => base + offset
         return lambda(2)
     }
 }
@@ -41,8 +41,8 @@ class Calculator {
         var code = """
 class Calculator {
     func Apply() -> int {
-        val factor = 3
-        val lambda = (value: int) -> int => factor * value
+        let factor = 3
+        let lambda = (value: int) -> int => factor * value
         return lambda(4)
     }
 }
@@ -70,8 +70,8 @@ class Calculator {
         var code = """
 class Calculator {
     func Run() -> int {
-        val offset = 2
-        val transform = func Step(value: int) -> int {
+        let offset = 2
+        let transform = func Step(value: int) -> int {
             value + offset
         }
 
@@ -101,8 +101,8 @@ class Calculator {
         var code = """
 class Calculator {
     func Run() -> int {
-        val offset = 2
-        val transform = func Step(value: int) -> int {
+        let offset = 2
+        let transform = func Step(value: int) -> int {
             if value < 1
                 offset
             else
@@ -137,7 +137,7 @@ class Calculator {
 class CounterFactory {
     func Make(start: int) -> (int) -> int {
         var current = start
-        val increment = (delta: int) -> int => {
+        let increment = (delta: int) -> int => {
             current = current + delta
             current
         }

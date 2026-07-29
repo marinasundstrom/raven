@@ -10,7 +10,7 @@ public class TupleTypeSyntaxTest
     [Fact]
     public void TupleType_WithNamedElements_Parses()
     {
-        var code = "val x: (id: string, age: int) = (\"a\", 1)";
+        var code = "let x: (id: string, age: int) = (\"a\", 1)";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -25,7 +25,7 @@ public class TupleTypeSyntaxTest
     [Fact]
     public void TupleType_SingleElementNamed_ReportsDiagnostic()
     {
-        var code = "val x: (id: string) = (\"a\")";
+        var code = "let x: (id: string) = (\"a\")";
         var tree = SyntaxTree.ParseText(code);
 
         Assert.Contains(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.SingleElementTupleTypeNotAllowed);
@@ -34,7 +34,7 @@ public class TupleTypeSyntaxTest
     [Fact]
     public void TupleType_SingleElementWithTrailingComma_ReportsDiagnostic()
     {
-        var code = "val x: (string,) = (\"a\",)";
+        var code = "let x: (string,) = (\"a\",)";
         var tree = SyntaxTree.ParseText(code);
 
         Assert.Contains(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.SingleElementTupleTypeNotAllowed);
@@ -43,7 +43,7 @@ public class TupleTypeSyntaxTest
     [Fact]
     public void ParenthesizedSingleType_IsGroupingNotTuple()
     {
-        var code = "val x: (string) = \"a\"";
+        var code = "let x: (string) = \"a\"";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

@@ -9,7 +9,7 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         unsafe func Main() -> unit {
-            val values: System.Span<int> = stackalloc int[1]
+            let values: System.Span<int> = stackalloc int[1]
         }
         """;
 
@@ -73,8 +73,8 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         unsafe func Main() -> unit {
-            val values: System.Span<int> = stackalloc int[1]
-            val getLength = () -> int => values.Length
+            let values: System.Span<int> = stackalloc int[1]
+            let getLength = () -> int => values.Length
         }
         """;
 
@@ -92,7 +92,7 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         unsafe func Main() -> unit {
-            val values: System.Span<int> = stackalloc int[1]
+            let values: System.Span<int> = stackalloc int[1]
 
             func GetLength() -> int {
                 values.Length
@@ -116,7 +116,7 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
         import System.Threading.Tasks.*
 
         unsafe async func Run() -> Task {
-            val values: System.Span<int> = stackalloc int[1]
+            let values: System.Span<int> = stackalloc int[1]
             await Task.CompletedTask
         }
         """;
@@ -138,8 +138,8 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
 
         unsafe async func Run() -> Task {
             {
-                val values: System.Span<int> = stackalloc int[1]
-                val length = values.Length
+                let values: System.Span<int> = stackalloc int[1]
+                let length = values.Length
             }
 
             await Task.CompletedTask
@@ -176,7 +176,7 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
         import System.Collections.Generic.*
 
         unsafe func Values() -> IEnumerable<int> {
-            val values: System.Span<int> = stackalloc int[1]
+            let values: System.Span<int> = stackalloc int[1]
             yield return values[0]
         }
         """;

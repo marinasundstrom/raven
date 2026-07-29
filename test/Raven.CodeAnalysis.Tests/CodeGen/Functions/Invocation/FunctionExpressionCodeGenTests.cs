@@ -17,7 +17,7 @@ public class FunctionExpressionCodeGenTests
         var code = """
 class Calculator {
     func Add() -> int {
-        val add = (x: int, y: int) -> int => x + y
+        let add = (x: int, y: int) -> int => x + y
         return add(2, 3)
     }
 }
@@ -86,7 +86,7 @@ class Calculator {
         var code = """
 class Checker {
     func AreEqual(left: int, right: int) -> bool {
-        val equals = (x: int, y: int) -> bool => x == y
+        let equals = (x: int, y: int) -> bool => x == y
         return equals(left, right)
     }
 }
@@ -122,8 +122,8 @@ class Checker {
         var code = """
 class Calculator {
     func Sum() -> int {
-        val make = (x: int, y: int) -> int => {
-            val total = x + y
+        let make = (x: int, y: int) -> int => {
+            let total = x + y
             total
         }
 
@@ -159,7 +159,7 @@ class Calculator {
         var code = """
 class Calculator {
     func Sum() -> int {
-        val make = (x: int, y: int) -> int => {
+        let make = (x: int, y: int) -> int => {
             return x + y;
         }
 
@@ -195,7 +195,7 @@ class Calculator {
         var code = """
 class Calculator {
     func Combine(x: int) -> int {
-        val add = (y: int) -> int => x + y
+        let add = (y: int) -> int => x + y
         return add(4)
     }
 }
@@ -228,8 +228,8 @@ class Calculator {
         var code = """
 class Counter {
     func Multiply() -> int {
-        val factor = 5
-        val multiply = (value: int) -> int => factor * value
+        let factor = 5
+        let multiply = (value: int) -> int => factor * value
         return multiply(3)
     }
 }
@@ -305,7 +305,7 @@ class Holder {
 
     func Compute() -> int {
         self.value = 8
-        val add = (offset: int) -> int => self.value + offset
+        let add = (offset: int) -> int => self.value + offset
         return add(7)
     }
 }
@@ -397,7 +397,7 @@ class Probe<T> {
     }
 
     func CountAssignable() -> int {
-        val valueProperty = _valueProperty!
+        let valueProperty = _valueProperty!
         typeof(T)
             .GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
             .Where(t => valueProperty.PropertyType.IsAssignableFrom(t))
@@ -440,8 +440,8 @@ class Runner {
         var code = """
 class Handler {
     func Compute(input: string?) -> int {
-        val lengthOrNegativeOne = (text: string?) -> int => {
-            val required = text ?? return -1
+        let lengthOrNegativeOne = (text: string?) -> int => {
+            let required = text ?? return -1
             return required.Length
         }
 
@@ -480,8 +480,8 @@ class Handler {
         var code = """
 class Handler {
     func Compute(input: string?) -> int {
-        val lengthOrThrow = (text: string?) -> int => {
-            val required = text ?? throw System.InvalidOperationException("missing")
+        let lengthOrThrow = (text: string?) -> int => {
+            let required = text ?? throw System.InvalidOperationException("missing")
             return required.Length
         }
 
@@ -522,7 +522,7 @@ class Handler {
         var code = """
 class Pure {
     func Run() -> int {
-        val add = (x: int, y: int) -> int => x + y
+        let add = (x: int, y: int) -> int => x + y
         return add(3, 4)
     }
 }
@@ -570,8 +570,8 @@ class Pure {
 class Pair {
     func Run() -> int {
         var shared = 0
-        val inc = () -> unit => { shared = shared + 10 }
-        val dec = () -> unit => { shared = shared - 3 }
+        let inc = () -> unit => { shared = shared + 10 }
+        let dec = () -> unit => { shared = shared - 3 }
         inc()
         dec()
         inc()
@@ -627,7 +627,7 @@ class Multi {
         var a = 1
         var b = 10
         var c = 100
-        val sum = () -> int => a + b + c
+        let sum = () -> int => a + b + c
         a = 2
         b = 20
         c = 200
@@ -672,7 +672,7 @@ class Multi {
 class Counter {
     func CountItems() -> int {
         var count = 0
-        val increment = () -> unit => { count = count + 1 }
+        let increment = () -> unit => { count = count + 1 }
         increment()
         increment()
         increment()
@@ -708,7 +708,7 @@ class Counter {
 class Spy {
     func Run() -> int {
         var value = 0
-        val read = () -> int => value
+        let read = () -> int => value
         value = 42
         return read()
     }
@@ -742,8 +742,8 @@ class Spy {
 class Pair {
     func Run() -> int {
         var shared = 0
-        val inc = () -> unit => { shared = shared + 10 }
-        val dec = () -> unit => { shared = shared - 3 }
+        let inc = () -> unit => { shared = shared + 10 }
+        let dec = () -> unit => { shared = shared - 3 }
         inc()
         dec()
         inc()
@@ -817,8 +817,8 @@ class Runner {
 class Runner {
     func Run() -> int {
         var value = 1
-        val outer = () -> int => {
-            val inner = () -> int => value
+        let outer = () -> int => {
+            let inner = () -> int => value
             value = 2
             return inner()
         }
@@ -863,7 +863,7 @@ class Counter {
             count = count + 1
         }
 
-        val read = () -> int => count
+        let read = () -> int => count
 
         Increment()
         Increment()
@@ -950,7 +950,7 @@ class Counter {
     {
         var code = """
 func Main() -> int {
-    val f = func Fib(n: int) -> int {
+    let f = func Fib(n: int) -> int {
         if n < 2 {
             return n
         }
@@ -989,14 +989,14 @@ import System.Collections.Generic.*
 
 class Counter {
     func Sum() -> int {
-        val values: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
+        let values: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
             yield return 1
             yield return 2
             yield return 3
         }
 
         var sum = 0
-        for val value in values() {
+        for let value in values() {
             sum = sum + value
         }
 
@@ -1035,7 +1035,7 @@ import System.Collections.Generic.*
 
 class Counter {
     func MakeValues() -> Func<IAsyncEnumerable<int>> {
-        val values: Func<IAsyncEnumerable<int>> = async () => {
+        let values: Func<IAsyncEnumerable<int>> = async () => {
             yield return 1
             yield return 2
             yield return 3

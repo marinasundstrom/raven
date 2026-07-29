@@ -9,7 +9,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithQualifiedElementType_Parses()
     {
-        const string code = "val names: System.String[] = []";
+        const string code = "let names: System.String[] = []";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -24,7 +24,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithMultiDimensionalRank_Parses()
     {
-        const string code = "val matrix: int[,]";
+        const string code = "let matrix: int[,]";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -39,7 +39,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithFixedSize_Parses()
     {
-        const string code = "val values: int[4]";
+        const string code = "let values: int[4]";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -54,7 +54,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithJaggedAndMultiDimensionalRanks_Parses()
     {
-        const string code = "val values: int[][,]";
+        const string code = "let values: int[][,]";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -74,7 +74,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithJaggedFixedAndOpenRanks_Parses()
     {
-        const string code = "val values: int[4][]";
+        const string code = "let values: int[4][]";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

@@ -84,7 +84,7 @@ func log(msg: string) {
 }
 
 func firstCharOrFail(name: string?) -> Result<int, string> {
-    val required = name ?? return Error("Missing name")
+    let required = name ?? return Error("Missing name")
     return Ok(required.Length)
 }
 ```

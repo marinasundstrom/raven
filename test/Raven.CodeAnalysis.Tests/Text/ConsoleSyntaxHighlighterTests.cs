@@ -145,7 +145,7 @@ WriteLine(greet("Raven"))
 import System.Console.*
 import System.Threading.Tasks.*
 
-val result = await Task.Run(async () => 42)
+let result = await Task.Run(async () => 42)
 WriteLine($"Result: {result}")
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -163,7 +163,7 @@ WriteLine($"Result: {result}")
         var source = """
 static class AppSettings {
     static func GetConnectionString() -> string {
-        val environment = "ConnectionStrings__VehicleCosts"
+        let environment = "ConnectionStrings__VehicleCosts"
         if environment is string when environment.Trim().Length > 0 {
             return environment
         }
@@ -196,11 +196,11 @@ union VehicleStatus {
 static class VehicleStatusJson {
     static func EncodeStatus(status: VehicleStatus) -> string {
         return match status {
-            .Operational(val driverName, val sinceUtc, val currentOdometerKm) =>
+            .Operational(let driverName, let sinceUtc, let currentOdometerKm) =>
                 JsonSerializer.Serialize(VehicleStatusDto("operational", driverName, sinceUtc, currentOdometerKm, null, null, null, null))
-            .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) =>
+            .Maintenance(let workshop, let startedUtc, let expectedReadyUtc, let reason) =>
                 JsonSerializer.Serialize(VehicleStatusDto("maintenance", null, startedUtc, null, workshop, expectedReadyUtc, reason, null))
-            .Decommissioned(val retiredUtc, val reason) =>
+            .Decommissioned(let retiredUtc, let reason) =>
                 JsonSerializer.Serialize(VehicleStatusDto("decommissioned", null, null, null, null, null, reason, retiredUtc))
         }
     }
@@ -324,7 +324,7 @@ class Box {
 }
 
 func Main() {
-    val box: Box = default
+    let box: Box = default
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -462,7 +462,7 @@ let value = 1
 
         var properties = SuggestionsDiagnosticProperties.CreateRewriteSuggestion(
             originalCode: "let value = 1",
-            rewrittenCode: "val value = 1");
+            rewrittenCode: "let value = 1");
         var diagnostic = Diagnostic.Create(descriptor, location, DiagnosticSeverity.Warning, properties);
 
         var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
@@ -483,9 +483,9 @@ let value = 1
             Assert.Contains("You wrote:", plain);
             Assert.Contains("Write this instead:", plain);
             Assert.Contains("let value = 1", plain);
-            Assert.Contains("val value = 1", plain);
+            Assert.Contains("let value = 1", plain);
             Assert.Contains($"{keywordAnsi}let", text);
-            Assert.Contains($"{keywordAnsi}val", text);
+            Assert.Contains($"{keywordAnsi}let", text);
         }
         finally
         {
@@ -537,7 +537,7 @@ union Result {
 
 func Render(result: Result) -> int {
     return match result {
-        .Case(val value) => value
+        .Case(let value) => value
     }
 }
 """;
@@ -568,7 +568,7 @@ union Option<T> {
 func Render(input: Option<int>) -> int {
     return match input {
         None => 0
-        .Some(val value) => value
+        .Some(let value) => value
     }
 }
 """;

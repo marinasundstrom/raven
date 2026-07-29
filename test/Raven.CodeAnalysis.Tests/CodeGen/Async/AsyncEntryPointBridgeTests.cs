@@ -208,7 +208,7 @@ public union Result<T, E> {
 
 class Program {
     static async func Main(args: string[]) -> Task<Result<(), string>> {
-        val first = args[0]
+        let first = args[0]
         await Task.Yield()
 
         if first.Length == 0 {

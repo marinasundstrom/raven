@@ -80,7 +80,7 @@ func Main() -> unit {
         var filePath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(filePath);
         const string code = """
-val x = 1
+let x = 1
 """;
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -140,7 +140,7 @@ val x = 1
         var filePath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(filePath);
         const string code = """
-val x = 1
+let x = 1
 """;
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");

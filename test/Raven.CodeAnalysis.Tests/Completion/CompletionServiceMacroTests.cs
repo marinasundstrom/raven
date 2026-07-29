@@ -16,7 +16,7 @@ public sealed class CompletionServiceMacroTests
         const string code = """
 class MacroHost {
     func Test() {
-        val answer = #
+        let answer = #
     }
 }
 """;
@@ -94,7 +94,7 @@ class CounterViewModel {
         const string code = """
 class MacroHost {
     func Test() {
-        val answer = #local()
+        let answer = #local()
     }
 }
 """;
@@ -138,7 +138,7 @@ import Raven.Macros.*
 
 class MacroHost {
     func Test() {
-        val syntax = #quo()
+        let syntax = #quo()
     }
 }
 """;
@@ -170,7 +170,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        val syntax = quo! { 42 }
+        let syntax = quo! { 42 }
     }
 }
 """;
@@ -198,7 +198,7 @@ import Raven.Macros.*
 
 class MacroHost {
     func Test() {
-        val syntax = quo! { 42 }
+        let syntax = quo! { 42 }
     }
 }
 """;
@@ -228,7 +228,7 @@ import Raven.Macros.*
 
 class MacroHost {
     func Test() {
-        val increment = comp! { value => value + 1 }
+        let increment = comp! { value => value + 1 }
     }
 }
 """;
@@ -283,7 +283,7 @@ class CounterViewModel {
         const string code = """
 class MacroHost {
     func Test() {
-        val subscription = #sub()
+        let subscription = #sub()
     }
 }
 """;
@@ -317,7 +317,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        val query = #que()
+        let query = #que()
     }
 }
 """;
@@ -345,7 +345,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        val query = #typed()
+        let query = #typed()
     }
 }
 """;
@@ -370,7 +370,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        val query = #typedQuery(Di) {
+        let query = #typedQuery(Di) {
             query content
         }
     }
@@ -397,7 +397,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        val query = #typedQuery(Dialect: "sql", ) {
+        let query = #typedQuery(Dialect: "sql", ) {
             query content
         }
     }
@@ -424,7 +424,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        val query = #typedQuery(Dialect: "sql") {
+        let query = #typedQuery(Dialect: "sql") {
             query content
         }
     }
@@ -471,7 +471,7 @@ class ViewModel {
         const string code = """
 class MacroHost {
     func Test() {
-        val answer = #typedCall(Mo)
+        let answer = #typedCall(Mo)
     }
 }
 """;

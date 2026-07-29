@@ -182,7 +182,7 @@ import System.Threading.*
 import System.Threading.Tasks.*
 
 async func Compute() -> Task<Dictionary<string, int>> {
-    val values: Task<Dictionary<string, int>> = Task.FromResult(Dictionary<string, int>())
+    let values: Task<Dictionary<string, int>> = Task.FromResult(Dictionary<string, int>())
     return await values
 }
 """;
@@ -215,7 +215,7 @@ async func Compute() -> Task<Dictionary<string, int>> {
 import System.Text.Json.*
 
 func Test(element: JsonElement, writer: Utf8JsonWriter, options: JsonSerializerOptions) -> unit {
-    val value = JsonSerializer.Deserialize<int>(element, options)
+    let value = JsonSerializer.Deserialize<int>(element, options)
     JsonSerializer.Serialize<int>(writer, value, options)
 }
 """;

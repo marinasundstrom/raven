@@ -15,11 +15,11 @@ public class SpanTypeSemanticTests : CompilationTestBase
         const string source = """
 class Test {
     static func Run() {
-        val array: int[] = [1, 2, 3]
-        val mutable: System.Span<int> = array
-        val readOnlyFromArray: System.ReadOnlySpan<int> = array
-        val readOnlyFromSpan: System.ReadOnlySpan<int> = mutable
-        val readOnlyFromString: System.ReadOnlySpan<char> = "hello"
+        let array: int[] = [1, 2, 3]
+        let mutable: System.Span<int> = array
+        let readOnlyFromArray: System.ReadOnlySpan<int> = array
+        let readOnlyFromSpan: System.ReadOnlySpan<int> = mutable
+        let readOnlyFromString: System.ReadOnlySpan<char> = "hello"
     }
 }
 """;
@@ -38,12 +38,12 @@ class Test {
         const string source = """
 class Test {
     static func Run() {
-        val strings: string[] = ["a", "b"]
-        val mutable: System.Span<string> = strings
-        val objectsFromArray: System.ReadOnlySpan<object> = strings
-        val objectsFromSpan: System.ReadOnlySpan<object> = mutable
-        val stringsReadOnly: System.ReadOnlySpan<string> = strings
-        val objectsFromReadOnly: System.ReadOnlySpan<object> = stringsReadOnly
+        let strings: string[] = ["a", "b"]
+        let mutable: System.Span<string> = strings
+        let objectsFromArray: System.ReadOnlySpan<object> = strings
+        let objectsFromSpan: System.ReadOnlySpan<object> = mutable
+        let stringsReadOnly: System.ReadOnlySpan<string> = strings
+        let objectsFromReadOnly: System.ReadOnlySpan<object> = stringsReadOnly
     }
 }
 """;
@@ -70,15 +70,15 @@ class Test {
     }
 
     static func Run() {
-        val array: int[] = [1, 2, 3]
-        val mutable: System.Span<int> = array
-        val readOnly: System.ReadOnlySpan<int> = array
-        val fromArray = Length(array)
-        val fromSpan = Length(mutable)
-        val fromReadOnlySpan = Length(readOnly)
-        val fromString = Length("hello")
-        val mutableFromArray = MutableLength(array)
-        val mutableFromSpan = MutableLength(mutable)
+        let array: int[] = [1, 2, 3]
+        let mutable: System.Span<int> = array
+        let readOnly: System.ReadOnlySpan<int> = array
+        let fromArray = Length(array)
+        let fromSpan = Length(mutable)
+        let fromReadOnlySpan = Length(readOnly)
+        let fromString = Length("hello")
+        let mutableFromArray = MutableLength(array)
+        let mutableFromSpan = MutableLength(mutable)
     }
 }
 """;
@@ -125,9 +125,9 @@ class Test {
     static func ChooseSequence(value: System.ReadOnlySpan<int>) -> int { 2 }
 
     static func Run() {
-        val values: int[] = [1, 2, 3]
-        val spanChoice = Choose(values)
-        val sequenceChoice = ChooseSequence(values)
+        let values: int[] = [1, 2, 3]
+        let spanChoice = Choose(values)
+        let sequenceChoice = ChooseSequence(values)
     }
 }
 """;
@@ -146,8 +146,8 @@ class Test {
         const string source = """
 class Test {
     static func Run() {
-        val array: int[] = [1, 2, 3]
-        val values: System.ReadOnlySpan<int> = array
+        let array: int[] = [1, 2, 3]
+        let values: System.ReadOnlySpan<int> = array
         values[0] = 42
     }
 }

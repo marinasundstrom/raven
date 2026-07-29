@@ -24,8 +24,8 @@ class Helper {
         var tree2 = SyntaxTree.ParseText("""
 class Program {
     static func Main() -> unit {
-        val helper = Helper();
-        val value = helper.GetValue();
+        let helper = Helper();
+        let value = helper.GetValue();
         return;
     }
 }
@@ -58,7 +58,7 @@ union Option<T> {
 
 extension OptionExtensions<T> for Option<T> {
     func IsOkOr<E>(error: E) -> Result<T, E> {
-        if self is .Some(val value) {
+        if self is .Some(let value) {
             return .Ok(value)
         }
 
@@ -130,8 +130,8 @@ union Result<T, E> {
 extension ResultExtensions<T, E> for Result<T, E> {
     func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            .Ok(val value) => .Ok(value)
-            .Error(val error) => .Error(mapper(error))
+            .Ok(let value) => .Ok(value)
+            .Error(let error) => .Error(mapper(error))
         }
     }
 }

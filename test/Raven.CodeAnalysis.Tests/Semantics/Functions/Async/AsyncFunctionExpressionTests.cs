@@ -20,7 +20,7 @@ import System.Threading.Tasks.*
 
 class C {
     func M() -> () {
-        val projector: Func<Task<int>> = async () => await G()
+        let projector: Func<Task<int>> = async () => await G()
     }
 
     func G() -> Task<int> {
@@ -58,7 +58,7 @@ class C {
         const string source = """
 import System.Threading.Tasks.*
 
-val projector = async () => 42
+let projector = async () => 42
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -90,7 +90,7 @@ import System.Threading.Tasks.*
 
 class C {
     func M() -> () {
-        val handler = async () => {
+        let handler = async () => {
             await G()
         }
     }
@@ -129,7 +129,7 @@ import System.Threading.Tasks.*
 
 class C {
     func M() -> () {
-        val projector: Func<int> = async () -> int => 42
+        let projector: Func<int> = async () -> int => 42
     }
 }
 """;
@@ -148,7 +148,7 @@ class C {
 import System.*
 import System.Threading.Tasks.*
 
-val projector = async () -> int => {
+let projector = async () -> int => {
     return 1
 }
 """;
@@ -196,8 +196,8 @@ class C {
 import System.*
 import System.Threading.Tasks.*
 
-val handler = async () => await Task.FromResult(2)
-val result = await handler()
+let handler = async () => await Task.FromResult(2)
+let result = await handler()
 """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -228,8 +228,8 @@ val result = await handler()
 import System.*
 import System.Threading.Tasks.*
 
-val value = 42
-val result = await Task.Run(async () => {
+let value = 42
+let result = await Task.Run(async () => {
     await Task.Delay(1)
     return value
 })
@@ -282,7 +282,7 @@ import System.Threading.Tasks.*
 
 class C {
     func M() -> () {
-        val handler = async func (a: int, b: int) {
+        let handler = async func (a: int, b: int) {
             await Task.Delay(1)
             return a + b
         }

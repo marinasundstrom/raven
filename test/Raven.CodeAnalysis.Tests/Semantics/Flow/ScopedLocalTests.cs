@@ -9,7 +9,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
     {
         const string source = """
             func UseBuffer() {
-                scoped val buffer: System.Span<int> = stackalloc int[4]
+                scoped let buffer: System.Span<int> = stackalloc int[4]
             }
             """;
 
@@ -31,8 +31,8 @@ public sealed class ScopedLocalTests : CompilationTestBase
     {
         const string source = """
             func UseReference() {
-                val value = 1
-                scoped val reference = &value
+                let value = 1
+                scoped let reference = &value
             }
             """;
 
@@ -50,7 +50,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("scoped val value = 1")]
+    [InlineData("scoped let value = 1")]
     [InlineData("scoped var value: string = \"text\"")]
     [InlineData("scoped const value = 1")]
     public void ScopedOrdinaryValueLocal_IsRejected(string declaration)
@@ -70,12 +70,12 @@ public sealed class ScopedLocalTests : CompilationTestBase
 
     [Theory]
     [InlineData("return local")]
-    [InlineData("val alias = local\nreturn alias")]
+    [InlineData("let alias = local\nreturn alias")]
     public void ScopedRefLikeLocal_CannotEscapeThroughReturn(string returnStatements)
     {
         var source = $$"""
             func Leak(value: System.Span<int>) -> System.Span<int> {
-                scoped val local = value
+                scoped let local = value
                 {{returnStatements}}
             }
             """;
@@ -96,7 +96,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
             }
 
             func Leak(value: System.Span<int>) -> SpanHolder {
-                scoped val local = value
+                scoped let local = value
                 var holder = SpanHolder()
                 holder.Value = local
                 return holder
@@ -119,7 +119,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
             }
 
             func Leak(value: System.Span<int>) -> System.Span<int> {
-                scoped val local = value
+                scoped let local = value
                 return Identity(local)
             }
             """;
@@ -146,7 +146,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
                 value: System.Span<int>,
                 other: System.Span<int>
             ) -> System.Span<int> {
-                scoped val local = value
+                scoped let local = value
                 return SelectOther(local, other)
             }
             """;
@@ -163,8 +163,8 @@ public sealed class ScopedLocalTests : CompilationTestBase
     {
         const string source = """
             func Outer(value: System.Span<int>) {
-                scoped val local = value
-                val capture = () => local
+                scoped let local = value
+                let capture = () => local
             }
             """;
 
@@ -182,8 +182,8 @@ public sealed class ScopedLocalTests : CompilationTestBase
             import System.Threading.Tasks.*
 
             async func Run() -> Task {
-                val value = 1
-                scoped val reference = &value
+                let value = 1
+                scoped let reference = &value
                 await Task.CompletedTask
                 Console.WriteLine(*reference)
             }
@@ -203,8 +203,8 @@ public sealed class ScopedLocalTests : CompilationTestBase
             import System.Collections.Generic.*
 
             func Values() -> IEnumerable<int> {
-                val value = 1
-                scoped val reference = &value
+                let value = 1
+                scoped let reference = &value
                 yield return 0
                 yield return *reference
             }

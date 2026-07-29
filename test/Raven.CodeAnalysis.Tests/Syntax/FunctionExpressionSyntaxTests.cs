@@ -128,7 +128,7 @@ public class FunctionExpressionSyntaxTests
     [Fact]
     public void SimpleLambda_WithFuncKeyword_Parses()
     {
-        var tree = SyntaxTree.ParseText("val f = func x => x");
+        var tree = SyntaxTree.ParseText("let f = func x => x");
         var root = tree.GetRoot();
         var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(declarator.Initializer!.Value);
@@ -393,7 +393,7 @@ public class FunctionExpressionSyntaxTests
 
     private static ExpressionSyntax ParseLambdaInitializerExpression(string initializer)
     {
-        var tree = SyntaxTree.ParseText($"val f = {initializer}");
+        var tree = SyntaxTree.ParseText($"let f = {initializer}");
         var root = tree.GetRoot();
 
         Assert.Single(root.Members);

@@ -531,15 +531,14 @@ This raw-argument model remains available for unrestricted macro implementations
 
 Example direction:
 
-```csharp
-public sealed class ObservableMacroParameters
-{
-    public bool Notify { get; init; } = true;
-    public string? Name { get; init; }
+```raven
+class ObservableMacroParameters {
+    var Notify: bool = true
+    var Name: string?
 }
 
-public sealed class ObservableMacro : IAttachedDeclarationMacro<ObservableMacroParameters>
-{
+class ObservableMacro :
+    IAttachedDeclarationMacro<ObservableMacroParameters> {
     ...
 }
 ```
@@ -592,9 +591,8 @@ The target experience is that macro arguments bind like attribute arguments:
 
 Example macro-side validation:
 
-```csharp
-return new MacroExpansionResult
-{
+```raven
+return MacroExpansionResult {
     MacroDiagnostics =
     [
         context.CreateArgumentDiagnostic(
@@ -602,7 +600,7 @@ return new MacroExpansionResult
             "name cannot be empty",
             code: "VAL001")
     ]
-};
+}
 ```
 
 ## Expansion model

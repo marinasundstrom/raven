@@ -31,7 +31,7 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
         var source = $$"""
 import System.*
 
-val parsed = {{typeName}}.TryParse("42")
+let parsed = {{typeName}}.TryParse("42")
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -58,7 +58,7 @@ val parsed = {{typeName}}.TryParse("42")
     public void FrameworkTryParseProjection_CanBeDisabled()
     {
         const string source = """
-val parsed = int.TryParse("42", out var value)
+let parsed = int.TryParse("42", out var value)
 """;
         var options = new CompilationOptions(OutputKind.ConsoleApplication)
             .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
@@ -82,7 +82,7 @@ val parsed = int.TryParse("42", out var value)
         const string source = """
 import System.*
 
-val parsed = int.TryParse("42")
+let parsed = int.TryParse("42")
 """;
         var options = new CompilationOptions(OutputKind.ConsoleApplication)
             .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
@@ -98,7 +98,7 @@ val parsed = int.TryParse("42")
     public void FrameworkProjection_ReportsMissingBridgeWithProjectionId()
     {
         const string source = """
-val parsed = int.TryParse("42")
+let parsed = int.TryParse("42")
 """;
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.Default);
         compilation.EnsureSetup();
@@ -120,7 +120,7 @@ val parsed = int.TryParse("42")
 import System.*
 import System.Globalization.*
 
-val parsed = int.TryParse("42", NumberStyles.Integer, CultureInfo.InvariantCulture)
+let parsed = int.TryParse("42", NumberStyles.Integer, CultureInfo.InvariantCulture)
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -143,7 +143,7 @@ val parsed = int.TryParse("42", NumberStyles.Integer, CultureInfo.InvariantCultu
 import System.*
 import System.Globalization.*
 
-val parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateTimeStyles.None)
+let parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateTimeStyles.None)
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -170,8 +170,8 @@ val parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateT
 import System.*
 import System.Collections.Generic.*
 
-val values = Dictionary<string, int>()
-val found = values.TryGetValue("answer")
+let values = Dictionary<string, int>()
+let found = values.TryGetValue("answer")
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -199,8 +199,8 @@ val found = values.TryGetValue("answer")
         const string source = """
 import System.Collections.Generic.*
 
-val values = Dictionary<string, int>()
-val found = values.TryGetValue("answer", out var value)
+let values = Dictionary<string, int>()
+let found = values.TryGetValue("answer", out var value)
 """;
         var options = new CompilationOptions(OutputKind.ConsoleApplication)
             .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
@@ -223,8 +223,8 @@ val found = values.TryGetValue("answer", out var value)
 import System.*
 import System.Collections.Generic.*
 
-val values = Dictionary<string, string?>()
-val found = values.TryGetValue("answer")
+let values = Dictionary<string, string?>()
+let found = values.TryGetValue("answer")
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -244,7 +244,7 @@ val found = values.TryGetValue("answer")
         const string source = """
 import System.*
 
-val parsed = int.Parse("42")
+let parsed = int.Parse("42")
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -268,7 +268,7 @@ val parsed = int.Parse("42")
         const string source = """
 import System.*
 
-val parsed = Guid.Parse("d2719b1e-88c5-4a06-aeba-69d19e70b9f7")
+let parsed = Guid.Parse("d2719b1e-88c5-4a06-aeba-69d19e70b9f7")
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
@@ -289,7 +289,7 @@ val parsed = Guid.Parse("d2719b1e-88c5-4a06-aeba-69d19e70b9f7")
     public void FrameworkParseProjection_CanBeDisabled()
     {
         const string source = """
-val parsed = int.Parse("42")
+let parsed = int.Parse("42")
 """;
         var options = new CompilationOptions(OutputKind.ConsoleApplication)
             .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
@@ -312,7 +312,7 @@ val parsed = int.Parse("42")
         const string source = """
 import Raven.MetadataFixtures.StaticExtensions.*
 
-val created = WidgetExtensions.Create(42)
+let created = WidgetExtensions.Create(42)
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithExtensionMethods);
@@ -375,12 +375,12 @@ val created = WidgetExtensions.Create(42)
             """
 import System.*
 
-val value = Option<int>.Some(42)
-val result: int? = value
+let value = Option<int>.Some(42)
+let result: int? = value
 AcceptNumber(value)
 
-val textValue = Option<string>.Some("OK")
-val textResult: string? = textValue
+let textValue = Option<string>.Some("OK")
+let textResult: string? = textValue
 AcceptText(textValue)
 
 func AcceptNumber(value: int?) -> unit {
@@ -423,19 +423,19 @@ func AcceptText(value: string?) -> unit {
         const string source = """
 import System.*
 
-val option: Option<int> = .Some(2)
-val optionHasSome = option.HasSome
-val optionHasNone = option.HasNone
-val optionCarrierHasValue = option.HasValue
-val optionCarrierValue = option.Value
-val converted = option.IsOkOr(CustomError("Bang!"))
+let option: Option<int> = .Some(2)
+let optionHasSome = option.HasSome
+let optionHasNone = option.HasNone
+let optionCarrierHasValue = option.HasValue
+let optionCarrierValue = option.Value
+let converted = option.IsOkOr(CustomError("Bang!"))
 
-val result: Result<int, CustomError> = .Ok(2)
-val resultHasOk = result.HasOk
-val resultHasError = result.HasError
-val resultCarrierHasValue = result.HasValue
-val resultCarrierValue = result.Value
-val resultIsOk = result.IsOk
+let result: Result<int, CustomError> = .Ok(2)
+let resultHasOk = result.HasOk
+let resultHasError = result.HasError
+let resultCarrierHasValue = result.HasValue
+let resultCarrierValue = result.Value
+let resultIsOk = result.IsOk
 
 record class CustomError(message: string)
 """;
@@ -479,8 +479,8 @@ func GetUser() -> Result<User, Err> {
 }
 
 func Test() -> Result<int, Err> {
-    val wrapped = GetUser()?.Name
-    val name = wrapped.UnwrapOrDefault()
+    let wrapped = GetUser()?.Name
+    let name = wrapped.UnwrapOrDefault()
 
     return .Ok(name.Length + 1)
 }
@@ -530,10 +530,10 @@ func GetUser() -> Result<User, Err> {
 }
 
 func GetItem() -> Result<string, Err> {
-    val maybeItem = GetUser()?.Item?
+    let maybeItem = GetUser()?.Item?
 
     return match maybeItem {
-        .Some(val item) => .Ok(item.Name)
+        .Some(let item) => .Ok(item.Name)
         .None => .Error(Err.MissingName)
     }
 }

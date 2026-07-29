@@ -13,7 +13,7 @@ public sealed class NodeInterestBindingTests
         const string source = """
 class C {
     func Run() -> int {
-        val count = 42
+        let count = 42
         return count
     }
 }
@@ -43,7 +43,7 @@ class C {
         const string source = """
 class C {
     func Run() -> int {
-        val count = 42
+        let count = 42
         return count
     }
 }
@@ -106,7 +106,7 @@ class C {
         const string source = """
 class C {
     func Run() -> () {
-        val project = (x: int) => x
+        let project = (x: int) => x
     }
 }
 """;
@@ -134,7 +134,7 @@ class C {
         const string source = """
 class C {
     func Run() -> () {
-        val project: (int) -> int = (x) => x
+        let project: (int) -> int = (x) => x
     }
 }
 """;
@@ -165,7 +165,7 @@ class C {
         const string source = """
 class C {
     func Run() -> () {
-        val project = func Step(n: int) -> int => n
+        let project = func Step(n: int) -> int => n
     }
 }
 """;
@@ -195,7 +195,7 @@ class C {
         const string source = """
 class C {
     func Run() -> int {
-        val compute = func Step(n: int) -> int {
+        let compute = func Step(n: int) -> int {
             if n < 1
                 0
             else
@@ -234,7 +234,7 @@ class User(var Name: string)
 
 class C {
     func Run() -> unit {
-        val project: (User) -> string = user => user.Name
+        let project: (User) -> string = user => user.Name
     }
 }
 """;
@@ -280,11 +280,11 @@ class Computation(var Value: ContinuationContext) {
 
 class C {
     func Run(value: ContinuationContext) -> Payload {
-        val f = func (x: ContinuationContext) {
+        let f = func (x: ContinuationContext) {
             Computation(x)
         }
 
-        val x = f(value).ContinueWith(x => {
+        let x = f(value).ContinueWith(x => {
             return x.Result
         })
 
@@ -332,7 +332,7 @@ class App {
 class C {
     func Run(app: App) -> unit {
         app.MapPost("/", func (request: Request) {
-            val entry = Entry()
+            let entry = Entry()
         })
     }
 }
@@ -369,8 +369,8 @@ class User(var Name: string, var IsActive: bool)
 
 class C {
     func Run(users: IQueryable<User>) -> unit {
-        val onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
-        val query = users
+        let onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
+        let query = users
             |> Where(onlyActiveAdults)
             |> OrderBy(user => user.Name)
             |> Select(user => user.Name)
@@ -421,7 +421,7 @@ class User(var Name: string, var IsActive: bool)
 
 class C {
     func Run(users: IQueryable<User>) -> unit {
-        val query = users
+        let query = users
             |> OrderBy(user => user.Name)
             |> Select(user => user.Name)
     }
@@ -466,8 +466,8 @@ class User(var Name: string, var IsActive: bool)
 
 class C {
     func Run(users: IQueryable<User>) -> unit {
-        val onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
-        val query = users
+        let onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
+        let query = users
             |> Where(onlyActiveAdults)
             |> OrderBy(user => user.Name)
             |> Select(user => user.Name)

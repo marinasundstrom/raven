@@ -12,7 +12,7 @@ public class InterpolatedStringTests
     [Fact]
     public void InterpolatedStringText_DecodesUnicodeEscapes()
     {
-        var source = "val s = \"Start \\u{1F600} ${name} End\";";
+        var source = "let s = \"Start \\u{1F600} ${name} End\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -24,7 +24,7 @@ public class InterpolatedStringTests
     [Fact]
     public void InterpolatedStringText_AllowsIdentifierShorthand()
     {
-        var source = "val s = \"Hello $name!\";";
+        var source = "let s = \"Hello $name!\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -76,7 +76,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsEscapedIdentifierShorthand()
     {
-        var source = @"val s = ""Cost \$value"";";
+        var source = @"let s = ""Cost \$value"";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -89,7 +89,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsEscapedDollarBeforeInterpolation()
     {
-        var source = @"val s = ""Cost \$${value}!"";";
+        var source = @"let s = ""Cost \$${value}!"";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -116,7 +116,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_TrailingSegmentDecodesUnicode()
     {
-        var source = "val s = \"${value} \\u0041\";";
+        var source = "let s = \"${value} \\u0041\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -128,7 +128,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_PreservesLeftToRightUnicodeSegments()
     {
-        var source = "val s = \"こんにちは ${name} 世界\";";
+        var source = "let s = \"こんにちは ${name} 世界\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -143,7 +143,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_PreservesRightToLeftUnicodeSegments()
     {
-        var source = "val s = \"\u200Fمرحبا ${name} بالعالم\";";
+        var source = "let s = \"\u200Fمرحبا ${name} بالعالم\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -158,7 +158,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsEscapedQuotes()
     {
-        var source = "val s = \"Saw \\\"${text}\\\"\";";
+        var source = "let s = \"Saw \\\"${text}\\\"\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -181,7 +181,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsQuotesInsideExpressions()
     {
-        var source = "val s = \"Foo: ${\"Hej\"}\";";
+        var source = "let s = \"Foo: ${\"Hej\"}\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -204,7 +204,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsQuotesInsideExpressionsWithOperators()
     {
-        var source = "val s = \"Foo: ${\"Hej\" + \" Bob\"}\";";
+        var source = "let s = \"Foo: ${\"Hej\" + \" Bob\"}\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -232,7 +232,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsNestedInterpolatedStringsInsideExpressions()
     {
-        var source = "val s = \"Foo: ${\"Hej\" + \" ${firstName} ${lastName}\"}\";";
+        var source = "let s = \"Foo: ${\"Hej\" + \" ${firstName} ${lastName}\"}\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root
@@ -284,7 +284,7 @@ union VehicleStatus {
     [Fact]
     public void InterpolatedStringText_AllowsEscapedSingleQuotesAndTabs()
     {
-        var source = "val s = \"It\\'s ${text}\\'\\t\";";
+        var source = "let s = \"It\\'s ${text}\\'\\t\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
@@ -308,9 +308,9 @@ union VehicleStatus {
     public void InterpolatedStringText_SpansAccountForEscapes()
     {
         var source = """
-val text = "value"
-val message = "Saw \"${text}\""
-val result = describe(null)
+let text = "value"
+let message = "Saw \"${text}\""
+let result = describe(null)
 """;
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
@@ -324,7 +324,7 @@ val result = describe(null)
     [Fact]
     public void InterpolatedStringText_EscapedDollarBeforeBracedInterpolation_IsLiteral()
     {
-        var source = "val s = \"Cost \\${value}\";";
+        var source = "let s = \"Cost \\${value}\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -337,7 +337,7 @@ val result = describe(null)
     [Fact]
     public void InterpolatedMultiLineString_AllowsIdentifierAndBracedForms()
     {
-        var source = "val s = \"\"\"Hello $name\nCount: ${count + 1}\n\"\"\";";
+        var source = "let s = \"\"\"Hello $name\nCount: ${count + 1}\n\"\"\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -379,7 +379,7 @@ val result = describe(null)
     [Fact]
     public void InterpolatedMultiLineString_EscapedDollar_PreventsInterpolation()
     {
-        var source = "val s = \"\"\"Cost \\${value}\n\"\"\";";
+        var source = "let s = \"\"\"Cost \\${value}\n\"\"\";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 

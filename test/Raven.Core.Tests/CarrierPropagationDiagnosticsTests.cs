@@ -13,7 +13,7 @@ public sealed class CarrierPropagationDiagnosticsTests : RavenCoreDiagnosticTest
 import System.*
 
 func test() -> Result<int, string> {
-    val r = test2()?
+    let r = test2()?
     return .Ok(r)
 }
 
@@ -44,7 +44,7 @@ func test2() -> Option<int> {
 import System.*
 
 func test() -> Result<int, int> {
-    val r = test2()?
+    let r = test2()?
     return .Ok(r)
 }
 
@@ -119,7 +119,7 @@ func map(res: Result<Box, string>) -> Result<int, int> {
 import System.*
 
 func test() -> Result<int, object> {
-    val r = test2()?
+    let r = test2()?
     return .Ok(r)
 }
 
@@ -140,7 +140,7 @@ import System.Threading.Tasks.*
 
 async func test() -> Task<Result<int, int>> {
     await Task.FromResult(0)
-    val r = test2()?
+    let r = test2()?
     return .Ok(r)
 }
 
@@ -170,7 +170,7 @@ import System.Threading.Tasks.*
 
 async func test() -> Task<Option<int>> {
     await Task.FromResult(0)
-    val r = test2()?
+    let r = test2()?
     return .Some(r)
 }
 

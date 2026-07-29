@@ -12,7 +12,7 @@ public class UnusedMethodAnalyzerTests : AnalyzerTestBase
     public void ConsoleApplication_UnusedMethod_ReportsDiagnostic()
     {
         const string code = """
-val c = C()
+let c = C()
 c.Used()
 
 class C {
@@ -161,7 +161,7 @@ class Foo : IFoo {
     public void OverrideMethod_IsNotReported()
     {
         const string code = """
-val derived = Derived()
+let derived = Derived()
 
 open class Base {
     public virtual func RaiseEvent(x: int) -> int {
@@ -188,7 +188,7 @@ class Derived : Base {
     public void LocalFunction_NotInvoked_ReportsDiagnostic()
     {
         const string code = """
-val c = C()
+let c = C()
 c.M()
 
 class C {
@@ -218,7 +218,7 @@ class C {
     public void LocalFunction_Invoked_DoesNotReportDiagnostic()
     {
         const string code = """
-val c = C()
+let c = C()
 c.M()
 
 class C {

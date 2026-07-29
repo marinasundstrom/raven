@@ -131,7 +131,7 @@ class C {
 class C {
     public func M() -> unit {
         var count = 0
-        val read = func () -> int {
+        let read = func () -> int {
             return count
         }
 
@@ -237,7 +237,7 @@ class C {
         const string code = """
 class C {
     public func M() -> unit {
-        val count = 0
+        let count = 0
         Print(count)
     }
 

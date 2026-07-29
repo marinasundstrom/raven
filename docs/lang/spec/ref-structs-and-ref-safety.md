@@ -57,8 +57,8 @@ its permitted lifetime. It precedes a by-reference modifier:
 func Consume(scoped value: System.Span<int>) {}
 func Mutate(scoped ref value: int) {}
 
-scoped val buffer: System.Span<int> = stackalloc int[4]
-scoped val reference = &value
+scoped let buffer: System.Span<int> = stackalloc int[4]
+scoped let reference = &value
 ```
 
 `scoped value: Span<int>` and a scoped ref-like local are classified as

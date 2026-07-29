@@ -59,53 +59,53 @@ An analyzer derives from `DiagnosticAnalyzer`. It declares the diagnostics it
 can report and registers focused callbacks for the syntax, symbols, or
 operations it needs to inspect.
 
-```csharp
-using System.Collections.Immutable;
+```raven
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Diagnostics.*
+import Raven.CodeAnalysis.Syntax.*
 
-using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Diagnostics;
-using Raven.CodeAnalysis.Syntax;
+class AvoidLegacyApiAnalyzer : DiagnosticAnalyzer {
+    static val Rule = DiagnosticDescriptor.Create(
+        "APP001",
+        "Avoid the legacy API",
+        null,
+        "https://example.test/rules/APP001",
+        "Use the current API instead of '{0}'.",
+        "Usage",
+        DiagnosticSeverity.Warning)
 
-public sealed class AvoidLegacyApiAnalyzer : DiagnosticAnalyzer
-{
-    private static readonly DiagnosticDescriptor Rule = DiagnosticDescriptor.Create(
-        id: "APP001",
-        title: "Avoid the legacy API",
-        description: null,
-        helpLinkUri: "https://example.test/rules/APP001",
-        messageFormat: "Use the current API instead of '{0}'.",
-        category: "Usage",
-        defaultSeverity: DiagnosticSeverity.Warning);
+    override val SupportedDiagnostics: ImmutableArray<DiagnosticDescriptor> =>
+        [Rule]
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
-
-    public override void Initialize(AnalysisContext context)
-    {
-        context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(AnalyzeName, SyntaxKind.IdentifierName);
+    override func Initialize(context: AnalysisContext) {
+        context.EnableConcurrentExecution()
+        context.RegisterSyntaxNodeAction(
+            AnalyzeName,
+            SyntaxKind.IdentifierName)
     }
 
-    private static void AnalyzeName(SyntaxNodeAnalysisContext context)
-    {
-        if (context.Node is not IdentifierNameSyntax name ||
-            name.Identifier.ValueText != "LegacyApi")
-        {
-            return;
+    static func AnalyzeName(context: SyntaxNodeAnalysisContext) {
+        let name: IdentifierNameSyntax = context.Node else {
+            return
+        }
+        if name.Identifier.ValueText != "LegacyApi" {
+            return
         }
 
         context.ReportDiagnostic(Diagnostic.Create(
             Rule,
             name.GetLocation(),
-            name.Identifier.ValueText));
+            [name.Identifier.ValueText]))
     }
 }
 ```
 
 Attach the analyzer through an analyzer reference:
 
-```csharp
-project = project.AddAnalyzerReference(
-    new AnalyzerReference(new AvoidLegacyApiAnalyzer()));
+```raven
+let updatedProject = project.AddAnalyzerReference(
+    AnalyzerReference(AvoidLegacyApiAnalyzer()))
 ```
 
 In an `.rvnproj`, reference the compiled analyzer assembly with an `Analyzer`
@@ -130,17 +130,13 @@ A source generator implements `ISourceGenerator`. Its execution context
 provides the current compilation and accepts one or more generated Raven
 sources.
 
-```csharp
-using Raven.CodeAnalysis;
+```raven
+import Raven.CodeAnalysis.*
 
-public sealed class RouteTableGenerator : ISourceGenerator
-{
-    public void Initialize(GeneratorInitializationContext context)
-    {
-    }
+class RouteTableGenerator : ISourceGenerator {
+    func Initialize(context: GeneratorInitializationContext) {}
 
-    public void Execute(GeneratorExecutionContext context)
-    {
+    func Execute(context: GeneratorExecutionContext) {
         context.AddSource(
             "RouteTable",
             """
@@ -149,16 +145,16 @@ public sealed class RouteTableGenerator : ISourceGenerator
             class RouteTable {
                 public static val Count: int = 3
             }
-            """);
+            """)
     }
 }
 ```
 
 Attach it through a generator reference:
 
-```csharp
-project = project.AddGeneratorReference(
-    new GeneratorReference(new RouteTableGenerator()));
+```raven
+let updatedProject = project.AddGeneratorReference(
+    GeneratorReference(RouteTableGenerator()))
 ```
 
 In an `.rvnproj`, use the separate `SourceGenerator` item:
@@ -193,12 +189,12 @@ its source.
 An assembly may contain both extension types, but a host registers it
 separately for each role:
 
-```csharp
-var extensionAssembly = typeof(RouteTableGenerator).Assembly;
+```raven
+let extensionAssembly = typeof(RouteTableGenerator).Assembly
 
-project = project
-    .AddGeneratorReference(new GeneratorReference(extensionAssembly))
-    .AddAnalyzerReference(new AnalyzerReference(extensionAssembly));
+let updatedProject = project
+    .AddGeneratorReference(GeneratorReference(extensionAssembly))
+    .AddAnalyzerReference(AnalyzerReference(extensionAssembly))
 ```
 
 ## Keep extensions predictable

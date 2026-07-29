@@ -67,8 +67,8 @@ import System.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-val numbers = List<int>()
-val anyNumbers = numbers.Any()
+let numbers = List<int>()
+let anyNumbers = numbers.Any()
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.Default);
@@ -134,8 +134,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val projection = numbers.Select(value => value)
+let numbers = List<int>()
+let projection = numbers.Select(value => value)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -186,8 +186,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val projection = numbers.Select(value => value)
+let numbers = List<int>()
+let projection = numbers.Select(value => value)
 """;
 
         var instrumentation = new PerformanceInstrumentation();
@@ -224,8 +224,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val projection = numbers.NotAnExtension()
+let numbers = List<int>()
+let projection = numbers.NotAnExtension()
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -276,8 +276,8 @@ namespace Lib {
         const string source = """
 import Lib.*
 
-val value = 1
-val echoed = value.Echo()
+let value = 1
+let echoed = value.Echo()
 """;
 
         var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
@@ -322,8 +322,8 @@ namespace Lib {
         const string source = """
 import Lib.*
 
-val value = 1
-val echoed = value.Echo()
+let value = 1
+let echoed = value.Echo()
 """;
 
         var instrumentation = new PerformanceInstrumentation();
@@ -360,8 +360,8 @@ val echoed = value.Echo()
         const string source = """
 import Raven.MetadataFixtures.Linq.*
 
-val values: int[] = [1, 2, 3]
-val enumerable = values.AsEnumerable()
+let values: int[] = [1, 2, 3]
+let enumerable = values.AsEnumerable()
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -405,8 +405,8 @@ val enumerable = values.AsEnumerable()
         const string source = """
 import Raven.MetadataFixtures.Linq.*
 
-val value: int? = 5
-val isPresent = value.IsPresent()
+let value: int? = 5
+let isPresent = value.IsPresent()
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -452,8 +452,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val anyPositive = numbers.Any((value: int) => value > 0)
+let numbers = List<int>()
+let anyPositive = numbers.Any((value: int) => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -517,8 +517,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val anyItems = numbers.Any()
+let numbers = List<int>()
+let anyItems = numbers.Any()
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -560,8 +560,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val projection = numbers.Select(value => value.ToString())
+let numbers = List<int>()
+let projection = numbers.Select(value => value.ToString())
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -617,8 +617,8 @@ import Raven.MetadataFixtures.Linq.*
 
 alias Entry = (label: string, value: int)
 
-val entries = List<Entry>()
-val total = entries.Aggregate(0, (acc, entry) => acc + entry.value)
+let entries = List<Entry>()
+let total = entries.Aggregate(0, (acc, entry) => acc + entry.value)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -668,7 +668,7 @@ import Raven.MetadataFixtures.DependencyInjection.*
 class VehicleDbContext {
 }
 
-val services = ServiceCollection()
+let services = ServiceCollection()
 services.AddDbContext<VehicleDbContext>(options => options.UseProvider("Host=localhost"))
 """;
 
@@ -717,8 +717,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val positives = numbers.Where(value => value > 0)
+let numbers = List<int>()
+let positives = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -764,8 +764,8 @@ val positives = numbers.Where(value => value > 0)
 import System.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers: int[] = [1, 2, 3]
-val result = numbers.Where(value => value == 2)
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(value => value == 2)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -813,7 +813,7 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 func Pick(items: IEnumerable<Person>) -> Result<Person, AppError> {
-    val current = items.FirstOrError(
+    let current = items.FirstOrError(
         person => person.YearOfBirth is 1950..1960,
         () => DomainError("No match"))?
 
@@ -887,8 +887,8 @@ extension ErrorConverters for AppError {
 import System.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers: int[] = [1, 2, 3]
-val result = numbers.Where(value => value > 0)
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -934,8 +934,8 @@ val result = numbers.Where(value => value > 0)
 import System.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers: int[] = [1, 2, 3]
-val result = numbers.Where(value => value > 0)
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -956,8 +956,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val positives = numbers.Where(value => value > 0)
+let numbers = List<int>()
+let positives = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1007,8 +1007,8 @@ import System.*
 import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
-val numbers = List<int>()
-val positives = numbers.Where((value: int, index: int) => value > index)
+let numbers = List<int>()
+let positives = numbers.Where((value: int, index: int) => value > index)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1058,9 +1058,9 @@ import Raven.MetadataFixtures.Linq.*
 import System.Text.*
 import System.Reflection.*
 
-val builder = StringBuilder()
-val properties = builder.GetType().GetProperties()
-val result = properties.Where(pi => !pi.GetMethod.IsStatic)
+let builder = StringBuilder()
+let properties = builder.GetType().GetProperties()
+let result = properties.Where(pi => !pi.GetMethod.IsStatic)
 """;
 
         var (compilation, tree) = CreateCompilation(

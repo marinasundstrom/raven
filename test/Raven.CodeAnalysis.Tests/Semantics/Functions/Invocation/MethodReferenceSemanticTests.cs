@@ -97,7 +97,7 @@ class Logger {
 }
 
 func Main() -> () {
-    val callback: System.Action<string> = Logger.Log
+    let callback: System.Action<string> = Logger.Log
 }
 """;
 
@@ -127,7 +127,7 @@ class Calculator {
 }
 
 func Main() -> () {
-    val add = Calculator.Add
+    let add = Calculator.Add
 }
 """;
 
@@ -156,8 +156,8 @@ func Main() -> () {
     public void TopLevelFunctionReference_WithSingleCandidate_InferredDelegateCanBeInvoked()
     {
         const string source = """
-val project = Project
-val result = project(2)
+let project = Project
+let result = project(2)
 
 func Project(value: int) -> int {
     value + 1

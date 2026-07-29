@@ -6,7 +6,7 @@ async func Test(value: int) -> Task<int> {
     return value
 }
 
-val value = await Test(42)
+let value = await Test(42)
 
 WriteLine(value)
 return value

@@ -101,11 +101,11 @@ Documentation comments can be retrieved from symbols, both for:
 * source-defined symbols
 * metadata symbols (when available)
 
-```csharp
-var comment = symbol.GetDocumentationComment();
+```raven
+let comment = symbol.GetDocumentationComment()
 
-var content = comment?.Content;  // Markdown, without "///"
-var rawText = comment?.RawText;  // Original text, with "///"
+let content = comment?.Content // Markdown, without "///"
+let rawText = comment?.RawText // Original text, with "///"
 ```
 
 RavenDoc uses the processed Markdown content (`Content`) for rendering.

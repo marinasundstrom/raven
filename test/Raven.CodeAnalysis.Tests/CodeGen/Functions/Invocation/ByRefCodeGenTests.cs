@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -16,7 +17,7 @@ public class ByRefCodeGenTests
 class C {
     static func WriteThrough() -> int {
         var value = 1
-        val handle: &int = &value
+        let handle: &int = &value
         handle = 5
         value
     }

@@ -146,8 +146,8 @@ To visualize the bound tree.
 
 Simply invoke `PrintBoundTree` on the `SemanticModel`.
 
-```csharp
-semanticModel.PrintBoundTree();
+```raven
+semanticModel.PrintBoundTree()
 ```
 
 > **Tip:**
@@ -155,17 +155,17 @@ This is also printed by adding `-bt` as an argument to the `rvn` command.
 
 ```
 BlockStatement [Syntax=CompilationUnit]
-├── LocalDeclarationStatement [Syntax=LocalDeclarationStatement, Symbol=val no: int, IsUsing=false]
-│   └── VariableDeclarator [Syntax=VariableDeclarator, Local=val no: int]
+├── LocalDeclarationStatement [Syntax=LocalDeclarationStatement, Symbol=let no: int, IsUsing=false]
+│   └── VariableDeclarator [Syntax=VariableDeclarator, Local=let no: int]
 │       └── LiteralExpression [Syntax=NumericLiteralExpression, Type=int, Value=2, Kind=NumericLiteral]
 └── IfStatement [Syntax=IfStatement]
     ├── BinaryExpression [Type=bool]
-    │   ├── LocalAccess [Type=int, Symbol=val no: int, Local=val no: int]
+    │   ├── LocalAccess [Type=int, Symbol=let no: int, Local=let no: int]
     │   └── LiteralExpression [Type=int, Value=42, Kind=NumericLiteral]
     └── BlockStatement [Syntax=BlockStatement]
         └── ExpressionStatement [Syntax=ExpressionStatement, Symbol=static Console.WriteLine(value: int) → ()]
             └── InvocationExpression [Type=(), Symbol=static Console.WriteLine(value: int) → (), Method=static Console.WriteLine(value: int) → (), RequiresReceiverAddress=false]
-                ├── LocalAccess [Type=int, Symbol=val no: int, Local=val no: int]
+                ├── LocalAccess [Type=int, Symbol=let no: int, Local=let no: int]
                 └── TypeExpression [Type=Console, Symbol=Console, TypeSymbol=Console]
 ```
 

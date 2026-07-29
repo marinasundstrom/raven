@@ -13,7 +13,7 @@ public class MatchLoweringTests
     public void MatchExpression_LoweredView_ContainsNoBoundMatchNodes()
     {
         const string code = """
-val result = match 1 {
+let result = match 1 {
     1 => 10
     _ => 0
 }
@@ -83,7 +83,7 @@ func next() -> int {
     return 1
 }
 
-val result = match next() {
+let result = match next() {
     1 => 10
     _ => 0
 }

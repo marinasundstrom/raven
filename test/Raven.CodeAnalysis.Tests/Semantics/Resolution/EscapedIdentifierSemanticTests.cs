@@ -35,7 +35,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
             {
                 static func @int(@return: int) -> int
                 {
-                    val @class = @return
+                    let @class = @return
                     return @class
                 }
             }
@@ -64,7 +64,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
         const string source = """
 class C {
     func @match(@return: int) -> int {
-        val @and = @return
+        let @and = @return
         return @and
     }
 }
@@ -100,8 +100,8 @@ class C {
         const string source = """
 class C {
     func Test() -> int {
-        val $ffiResult = 1
-        val 数据 = $ffiResult + 1
+        let $ffiResult = 1
+        let 数据 = $ffiResult + 1
         return 数据
     }
 }

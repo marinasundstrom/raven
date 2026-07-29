@@ -13,8 +13,8 @@ public class RangeAndIndexCodeGenTests
         var code = """
 class SliceHarness {
     public static func Run() -> int {
-        val values = [|10, 20, 30, 40|]
-        val slice = values[1..3]
+        let values = [|10, 20, 30, 40|]
+        let slice = values[1..3]
         return slice.Length + slice[0] + slice[1]
     }
 }
@@ -47,8 +47,8 @@ import System.*
 
 class IndexHarness {
     public static func Run() -> int {
-        val values = [|1, 2, 3, 4|]
-        val i: Index = ^1
+        let values = [|1, 2, 3, 4|]
+        let i: Index = ^1
         return values[i]
     }
 }
@@ -97,9 +97,9 @@ class LocalBuffer {
 
 class StringHarness {
     public static func Run() -> int {
-        val buffer = LocalBuffer()
-        val tail = buffer[1..3]
-        val i: Index = ^1
+        let buffer = LocalBuffer()
+        let tail = buffer[1..3]
+        let i: Index = ^1
         return tail[0] + tail[1] + buffer[i]
     }
 }
@@ -130,7 +130,7 @@ class StringHarness {
         var code = """
 class JaggedHarness {
     public static func Run() -> int {
-        val values: int[][] = [[|1, 2|], [|3, 4|]]
+        let values: int[][] = [[|1, 2|], [|3, 4|]]
         return values[1][0] + values[0].Length
     }
 }
@@ -163,7 +163,7 @@ import System.*
 
 class MatrixHarness {
     public static func Run() -> int {
-        val matrix = (Array.CreateInstance(typeof(int), 2, 2) as int[,])!
+        let matrix = (Array.CreateInstance(typeof(int), 2, 2) as int[,])!
         matrix[0, 0] = 10
         matrix[0, 1] = 20
         matrix[1, 0] = 30

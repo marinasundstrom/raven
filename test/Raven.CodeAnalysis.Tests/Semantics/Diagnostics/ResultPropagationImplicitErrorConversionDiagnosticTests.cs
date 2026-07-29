@@ -37,7 +37,7 @@ public class Pipeline {
     }
 
     static func Execute(text: string) -> Result<int, DomainError> {
-        val value = Pipeline.Parse(text)?
+        let value = Pipeline.Parse(text)?
         return .Ok(value)
     }
 }
@@ -77,7 +77,7 @@ public class Pipeline {
     }
 
     static func Execute(text: string) -> Result<int, ParserError> {
-        val value = Pipeline.Parse(text)?
+        let value = Pipeline.Parse(text)?
         return .Ok(value)
     }
 }

@@ -23,8 +23,8 @@ public class PointerTypeSemanticTests : CompilationTestBase
         const string source = """
 class C {
     unsafe static func Test() {
-        val value = 0
-        val pointer: *int = &value
+        let value = 0
+        let pointer: *int = &value
     }
 }
 """;
@@ -44,7 +44,7 @@ class C {
 class C {
     static func Test() {
         var value = 0
-        val alias = &value
+        let alias = &value
     }
 }
 """;
@@ -67,7 +67,7 @@ class C {
 class C {
     unsafe static func Test() {
         var value = 0
-        val alias: *int = &value
+        let alias: *int = &value
     }
 }
 """;
@@ -159,8 +159,8 @@ class Data {
     public void PointerTypeSyntax_WithoutUnsafe_ReportsDiagnostic()
     {
         const string source = """
-val value = 0
-val pointer: *int = &value
+let value = 0
+let pointer: *int = &value
 """;
 
         var options = new CompilationOptions(OutputKind.ConsoleApplication).WithAllowUnsafe(false);
@@ -174,7 +174,7 @@ val pointer: *int = &value
     [Fact]
     public void GlobalUnsafeMode_ReportsWarningDiagnostic()
     {
-        const string source = "val value = 0";
+        const string source = "let value = 0";
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(true);
         var (compilation, _) = CreateCompilation(source, options);
@@ -192,7 +192,7 @@ val pointer: *int = &value
 class Test {
     unsafe static func Run() -> int {
         var value = 41
-        val pointer: *int = &value
+        let pointer: *int = &value
         *pointer = 42
         return *pointer
     }
@@ -221,8 +221,8 @@ import System.*
 import System.Console.*
 
 unsafe {
-    val x = 13
-    val ptr: *int = &x
+    let x = 13
+    let ptr: *int = &x
     WriteLine(ptr)
     WriteLine(*ptr)
     *ptr = 42
@@ -266,7 +266,7 @@ class Test {
         const string source = """
 class Test {
     unsafe static func Run(count: int) {
-        val pointer: *int = stackalloc int[count]
+        let pointer: *int = stackalloc int[count]
         *pointer = 42
     }
 }
@@ -289,7 +289,7 @@ class Test {
         const string source = """
 class Test {
     static func Run(count: int) {
-        val values = stackalloc int[count]
+        let values = stackalloc int[count]
     }
 }
 """;
@@ -314,7 +314,7 @@ class Test {
         const string source = """
 class Test {
     static func Run(count: int) {
-        val values: System.ReadOnlySpan<int> = stackalloc int[count]
+        let values: System.ReadOnlySpan<int> = stackalloc int[count]
     }
 }
 """;
@@ -337,7 +337,7 @@ class Test {
         const string source = """
 class Test {
     static func Run() {
-        val pointer: *int = stackalloc int[4]
+        let pointer: *int = stackalloc int[4]
     }
 }
 """;
@@ -354,7 +354,7 @@ class Test {
         const string source = """
 class Test {
     unsafe static func Run() {
-        val pointer = stackalloc string[4]
+        let pointer = stackalloc string[4]
     }
 }
 """;
@@ -370,7 +370,7 @@ class Test {
         const string source = """
 class Test {
     unsafe static func Run() {
-        val pointer = stackalloc int["four"]
+        let pointer = stackalloc int["four"]
     }
 }
 """;
@@ -386,7 +386,7 @@ class Test {
         const string source = """
 class Test {
     unsafe static func Run() {
-        val pointer = stackalloc int[-1]
+        let pointer = stackalloc int[-1]
     }
 }
 """;
@@ -407,7 +407,7 @@ struct Holder {
 class Test {
     unsafe static func Run() -> int {
         var holder = Holder()
-        val pointer: *Holder = &holder
+        let pointer: *Holder = &holder
         return pointer->Value
     }
 }
@@ -429,7 +429,7 @@ struct Holder {
 class Test {
     unsafe static func Run() -> int {
         var holder = Holder()
-        val pointer: *Holder = &holder
+        let pointer: *Holder = &holder
         return pointer->Value
     }
 }
@@ -458,7 +458,7 @@ class Test {
 class Test {
     static func Run() -> int {
         var value = 0
-        val pointer: *int = &value
+        let pointer: *int = &value
         return *pointer
     }
 }
@@ -503,7 +503,7 @@ class Test {
     static func Run() -> int {
         var value = 0
         unsafe {
-            val pointer: *int = &value
+            let pointer: *int = &value
             *pointer = 7
         }
         return value
@@ -525,7 +525,7 @@ class Test {
     static func Run() -> int {
         var value = 0
         return unsafe {
-            val pointer: *int = &value
+            let pointer: *int = &value
             *pointer = 11
             value
         }
@@ -546,7 +546,7 @@ class Test {
 class Test {
     unsafe static func Run() -> int {
         var value = 0
-        val pointer: *int = &value
+        let pointer: *int = &value
         *pointer = 9
         return value
     }
@@ -566,10 +566,10 @@ class Test {
 class Test {
     unsafe static func Run() -> nint {
         var value = 0
-        val pointer: *int = &value;
-        val p1 = pointer + 1
-        val p2 = 2 + pointer
-        val p3 = p1 - 1
+        let pointer: *int = &value;
+        let p1 = pointer + 1
+        let p2 = 2 + pointer
+        let p3 = p1 - 1
         p3 - pointer
     }
 }
@@ -606,7 +606,7 @@ class Test {
 class Test {
     static func Run() -> *int {
         var value = 0
-        val pointer: *int = &value
+        let pointer: *int = &value
         pointer + 1
     }
 }

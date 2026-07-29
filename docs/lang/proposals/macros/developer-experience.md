@@ -401,7 +401,7 @@ positions. Expression carriers share the abstract
 spelling uses `BangMacroExpressionSyntax`:
 
 ```raven
-val result = query! {
+let result = query! {
     from user in users
     select user.Name
 }
@@ -560,7 +560,7 @@ For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
 
 ```raven
-val result = #query {
+let result = #query {
     from user in users
     where {{ user.IsActive && user.Age >= 21 }}
     select {{ user.Name }}
@@ -828,11 +828,11 @@ Playground and same-project staging.
 
 The compiler-only MVP now also accepts an explicit local source partition:
 
-```csharp
-var compilation = Compilation.Create("App", options)
+```raven
+let compilation = Compilation.Create("App", options)
     .AddReferences(references)
     .AddMacroSyntaxTrees(macroTree)
-    .AddSyntaxTrees(consumerTree);
+    .AddSyntaxTrees(consumerTree)
 ```
 
 `AddMacroSyntaxTrees` keeps those trees out of the runtime source assembly,

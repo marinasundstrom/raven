@@ -34,7 +34,7 @@ class Program {
         string testCode = """
 class Program {
     static func Run() -> unit {
-        val number: int = .Parse("42")
+        let number: int = .Parse("42")
     }
 }
 """;
@@ -68,7 +68,7 @@ import System.Reflection.*
 
 class Program {
     static func Run() -> unit {
-        val members = typeof(System.Object).GetMembers(.NonPublic)
+        let members = typeof(System.Object).GetMembers(.NonPublic)
     }
 }
 """;
@@ -86,7 +86,7 @@ class Program {
     static func Use(flags: BindingFlags) -> unit {}
 
     static func Run() -> unit {
-        val flags: BindingFlags = .NonPublic | .Static
+        let flags: BindingFlags = .NonPublic | .Static
         Use(.Public & .Static)
     }
 }
@@ -107,7 +107,7 @@ class Item {
 
 class Program {
     static func Run() -> unit {
-        val item = Item(.A)
+        let item = Item(.A)
     }
 }
 """;
@@ -125,7 +125,7 @@ class Point {
 
 class Program {
     static func Run() -> unit {
-        val point: Point = .(2, -1)
+        let point: Point = .(2, -1)
     }
 }
 """;
@@ -147,7 +147,7 @@ class Segment {
 
 class Program {
     static func Run() -> unit {
-        val segment = Segment(.(0, 0), .(2, -1))
+        let segment = Segment(.(0, 0), .(2, -1))
     }
 }
 """;
@@ -172,7 +172,7 @@ class User {
 
 class Program {
     static func Run() -> unit {
-        val users: List<User> = [
+        let users: List<User> = [
             .(1, "Ada", "compiler engineer", .Active),
             .(2, "Bo", "member", .Suspended("email bounced"))
         ]

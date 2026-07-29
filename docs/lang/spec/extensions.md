@@ -30,7 +30,7 @@ extension StringExt for string {
 }
 
 import MyApp.StringExt.*
-val slug = " Hello World ".ToSlug()
+let slug = " Hello World ".ToSlug()
 ```
 
 ```raven
@@ -38,7 +38,7 @@ extension for string {
     func IsNullOrWhiteSpace() -> bool => self.Trim().Length == 0
 }
 
-val empty = "   ".IsNullOrWhiteSpace()
+let empty = "   ".IsNullOrWhiteSpace()
 ```
 
 ```raven
@@ -63,10 +63,10 @@ extension ListIntExt for System.Collections.Generic.List<int> {
 import System.Collections.Generic.*
 import MyApp.ListIntExt.*
 
-val items = List<int>()
+let items = List<int>()
 items.Add(1)
 
-val c = items.CountPlusOne      // invokes getter
+let c = items.CountPlusOne      // invokes getter
 items.CountPlusOne = 5          // invokes setter
 ```
 
@@ -80,8 +80,8 @@ extension ListStatics for System.Collections.Generic.List<int> {
 import System.Collections.Generic.*
 import MyApp.ListStatics.*
 
-val empty = List<int>.Empty()
-val cap = List<int>.DefaultCapacity
+let empty = List<int>.Empty()
+let cap = List<int>.DefaultCapacity
 ```
 
 Each member inside the body is implicitly an extension member for the receiver
@@ -130,7 +130,7 @@ This mirrors the common C# ergonomics for extension calls where the receiver typ
 import System.Console.*
 import System.Collections.Generic.*
 
-val items = List<int>()
+let items = List<int>()
 items.Add(1)
 items.Add(2)
 
@@ -141,11 +141,11 @@ extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
 }
 
 // T is inferred from the receiver (`IEnumerable<int>`), while B is specified explicitly.
-val count2 = items.CountItems<double>(2)
+let count2 = items.CountItems<double>(2)
 WriteLine(count2)
 
 // The fully specified form is still valid.
-val count3 = items.CountItems<int, double>(2)
+let count3 = items.CountItems<int, double>(2)
 WriteLine(count3)
 ```
 

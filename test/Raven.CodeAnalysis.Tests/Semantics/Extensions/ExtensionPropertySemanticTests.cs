@@ -20,8 +20,8 @@ extension IntExtensions for int {
     }
 }
 
-val value = 0
-val isZero = value.IsZero
+let value = 0
+let isZero = value.IsZero
 """;
 
         var (compilation, tree) = CreateCompilation(source);

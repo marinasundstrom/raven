@@ -20,7 +20,7 @@ union MyResult {
 }
 
 func Foo(name: string?) -> MyResult {
-    val required = name ?? return .Error("Missing name")
+    let required = name ?? return .Error("Missing name")
     return .Ok(required.Length)
 }
 """;
@@ -51,7 +51,7 @@ union MyResult {
 }
 
 func Foo(name: string?) -> MyResult {
-    val required = name ?? {
+    let required = name ?? {
         return .Error("Missing name")
     }
 
@@ -80,7 +80,7 @@ func Foo(name: string?) -> MyResult {
     {
         var code = """
 func Foo(name: string?) -> int {
-    val required = name!
+    let required = name!
     return required.Length
 }
 """;
@@ -107,7 +107,7 @@ func Foo(name: string?) -> int {
     {
         var code = """
 func Foo(value: int?) -> int {
-    val required = value!
+    let required = value!
     return required + 1
 }
 """;

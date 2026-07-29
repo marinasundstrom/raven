@@ -9,6 +9,35 @@ For the current live-editing architecture direction, see
 guide for binder-owned semantic state, incremental snapshots, analyzer
 diagnostic lanes, and language-server scheduling.
 
+## Raven-first development and bootstrap boundaries
+
+Raven increasingly builds its own language-facing infrastructure. New
+libraries, macros, tools, samples, and compiler API examples should be authored
+in Raven when the current language and toolchain can support them reliably.
+This is both a product direction and a stabilization practice: real Raven
+infrastructure continuously exercises public APIs and incremental build/editor
+paths.
+
+The dependency layers should remain explicit:
+
+1. `Raven.CodeAnalysis` is the current C# compiler and public compiler API.
+2. `Raven.Compiler` and the bootstrap host load the compiler and establish the
+   CLR/MSBuild boundary.
+3. `Raven.Core` contains foundational Raven-authored runtime APIs without a
+   direct application dependency on compiler services.
+4. `Raven.Macros` is a version-matched Raven-authored compiler-plugin library;
+   authoring and executing macros legitimately crosses into
+   `Raven.CodeAnalysis`.
+5. Higher-level tools and infrastructure should consume those public layers
+   from Raven rather than reaching into compiler internals.
+
+C# remains intentional where it breaks bootstrap cycles, implements the
+compiler core, or demonstrates a C# host integrating Raven. It should not be
+the automatic choice for new infrastructure. Missing Raven capabilities found
+while dogfooding should be treated as design and stabilization input. This
+layered approach permits gradual self-hosting without requiring an all-at-once
+compiler rewrite.
+
 ## Abstract Syntax Tree (AST)
 
 The syntax tree is Immutable. Modification of one node creates a new node, and potentially a new syntax tree. This allows for maximum re-use of nodes. Other than guaranteeing that the current syntax tree is not tampered with, this also allows for versioning of syntax trees. It further enables things like incremental compilation.

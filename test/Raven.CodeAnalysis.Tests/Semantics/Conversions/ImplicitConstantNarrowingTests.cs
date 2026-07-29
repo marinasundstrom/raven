@@ -11,70 +11,70 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     [Fact]
     public void Val_ByteFromInRangeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: byte = 255");
+        var verifier = CreateVerifier("let x: byte = 255");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_ByteFromZeroLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: byte = 0");
+        var verifier = CreateVerifier("let x: byte = 0");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_SByteFromPositiveLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: sbyte = 127");
+        var verifier = CreateVerifier("let x: sbyte = 127");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_SByteFromNegativeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: sbyte = -128");
+        var verifier = CreateVerifier("let x: sbyte = -128");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_ShortFromInRangeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: short = 32767");
+        var verifier = CreateVerifier("let x: short = 32767");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_ShortFromNegativeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: short = -32768");
+        var verifier = CreateVerifier("let x: short = -32768");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_UShortFromInRangeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: ushort = 65535");
+        var verifier = CreateVerifier("let x: ushort = 65535");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_UIntFromInRangeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: uint = 42");
+        var verifier = CreateVerifier("let x: uint = 42");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_ULongFromInRangeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: ulong = 42");
+        var verifier = CreateVerifier("let x: ulong = 42");
         verifier.Verify();
     }
 
     [Fact]
     public void Val_CharFromInRangeLiteral_Succeeds()
     {
-        var verifier = CreateVerifier("val x: char = 65");
+        var verifier = CreateVerifier("let x: char = 65");
         verifier.Verify();
     }
 
@@ -84,7 +84,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     public void Val_ByteFromOverflowLiteral_ReportsError()
     {
         var verifier = CreateVerifier(
-            "val x: byte = 256",
+            "let x: byte = 256",
             [
                 new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "byte"),
                 new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id).WithAnySpan().WithArguments("int", "byte")
@@ -96,7 +96,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     public void Val_ByteFromNegativeLiteral_ReportsError()
     {
         var verifier = CreateVerifier(
-            "val x: byte = -1",
+            "let x: byte = -1",
             [
                 new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "byte"),
                 new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id).WithAnySpan().WithArguments("int", "byte")
@@ -105,13 +105,13 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
     }
 
     [Theory]
-    [InlineData("val x: sbyte = 128")]
-    [InlineData("val x: sbyte = -129")]
-    [InlineData("val x: short = 32768")]
-    [InlineData("val x: ushort = -1")]
-    [InlineData("val x: ushort = 65536")]
-    [InlineData("val x: uint = -1")]
-    [InlineData("val x: ulong = -1")]
+    [InlineData("let x: sbyte = 128")]
+    [InlineData("let x: sbyte = -129")]
+    [InlineData("let x: short = 32768")]
+    [InlineData("let x: ushort = -1")]
+    [InlineData("let x: ushort = 65536")]
+    [InlineData("let x: uint = -1")]
+    [InlineData("let x: ulong = -1")]
     public void Val_OutOfRangeLiteral_ReportsAssignmentOrExplicitConversionDiagnostic(string source)
     {
         var diagnostics = CreateVerifier(source)

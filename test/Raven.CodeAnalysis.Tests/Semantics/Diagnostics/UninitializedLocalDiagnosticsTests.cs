@@ -27,7 +27,7 @@ public class UninitializedLocalDiagnosticsTests : DiagnosticTestBase
         const string code = """
         class Foo {
             func Test() -> unit {
-                val x: int;
+                let x: int;
             }
         }
         """;

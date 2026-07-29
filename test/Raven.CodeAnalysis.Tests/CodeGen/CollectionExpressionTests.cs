@@ -22,7 +22,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
 
 class Foo {
     public static func GetCount() -> int {
-        val value = JsonObject([
+        let value = JsonObject([
             "name": 42
         ])
         return value.Properties.Count
@@ -60,7 +60,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
 
 class Foo {
     public static func GetCount() -> int {
-        val value = JsonObject([
+        let value = JsonObject([
             "name": 42,
             "items": [ "true", 42 ]
         ])
@@ -110,13 +110,13 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         options: JsonSerializerOptions
     ) -> JsonObject {
         use doc = JsonDocument.ParseValue(reader)
-        val root = doc.RootElement
+        let root = doc.RootElement
 
         if root.ValueKind != JsonValueKind.Object {
             throw JsonException("JsonObject must be a JSON object.")
         }
 
-        val properties = Dictionary<string, JsonValue>()
+        let properties = Dictionary<string, JsonValue>()
 
         for property in root.EnumerateObject() {
             properties.Add(property.Name, ReadJsonValue(property.Value, options))
@@ -158,7 +158,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         }
 
         if element.ValueKind == JsonValueKind.Array {
-            val values = List<JsonValue>()
+            let values = List<JsonValue>()
 
             for item in element.EnumerateArray() {
                 values.Add(ReadJsonValue(item, options))
@@ -168,7 +168,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         }
 
         if element.ValueKind == JsonValueKind.Object {
-            val properties = Dictionary<string, JsonValue>()
+            let properties = Dictionary<string, JsonValue>()
 
             for property in element.EnumerateObject() {
                 properties.Add(property.Name, ReadJsonValue(property.Value, options))
@@ -183,11 +183,11 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
 
 class Foo {
     public static func Serialize() -> string {
-        val options = JsonSerializerOptions {
+        let options = JsonSerializerOptions {
             PropertyNamingPolicy = .CamelCase
         }
 
-        val value = JsonObject([
+        let value = JsonObject([
             "name": 32,
             "items": [ "true", 42 ]
         ])
@@ -196,11 +196,11 @@ class Foo {
     }
 
     public static func RoundTripCount() -> int {
-        val options = JsonSerializerOptions {
+        let options = JsonSerializerOptions {
             PropertyNamingPolicy = .CamelCase
         }
 
-        val value = JsonSerializer.Deserialize<JsonObject>(Serialize(), options)
+        let value = JsonSerializer.Deserialize<JsonObject>(Serialize(), options)
         return value.Properties.Count
     }
 }
@@ -292,9 +292,9 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val marvel = ["Tony Stark", "Spiderman", "Thor"]
-        val dc = ["Superman", "Batman", "Flash"]
-        val characters = [...marvel, "Black Widow", ...dc]
+        let marvel = ["Tony Stark", "Spiderman", "Thor"]
+        let dc = ["Superman", "Batman", "Flash"]
+        let characters = [...marvel, "Black Widow", ...dc]
         return characters.Count
     }
 }
@@ -328,8 +328,8 @@ class Item() { }
 
 class Foo {
     static func GetCount() -> int {
-        val items: Item[] = [Item()]
-        val more: Item[] = [...items]
+        let items: Item[] = [Item()]
+        let more: Item[] = [...items]
         return more.Length
     }
 }
@@ -361,7 +361,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values = [1, 2, 3]
+        let values = [1, 2, 3]
         return values.Count
     }
 }
@@ -396,7 +396,7 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetCount() -> int {
-        val values = ["a": 1, "bb": 2]
+        let values = ["a": 1, "bb": 2]
         return values.Count + values["bb"]
     }
 }
@@ -430,7 +430,7 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetCount() -> int {
-        val values = !["a": 1, "bb": 2]
+        let values = !["a": 1, "bb": 2]
         return values.Count + values["bb"]
     }
 }
@@ -465,8 +465,8 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetCount() -> int {
-        val other: Dictionary<string, int> = !["bb": 2]
-        val values = [..."a": 1, ...other, "ccc": 3]
+        let other: Dictionary<string, int> = !["bb": 2]
+        let values = [..."a": 1, ...other, "ccc": 3]
         return values.Count + values["bb"]
     }
 }
@@ -500,7 +500,7 @@ import System.Collections.Immutable.*
 
 class Foo {
     static func GetCount() -> int {
-        val values = [for key in [|"a", "bb"|] => key: key.Length]
+        let values = [for key in [|"a", "bb"|] => key: key.Length]
         return values.Count + values["bb"]
     }
 }
@@ -534,7 +534,7 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetCount() -> int {
-        val values: IReadOnlyDictionary<string, int> = ["a": 1, "bb": 2]
+        let values: IReadOnlyDictionary<string, int> = ["a": 1, "bb": 2]
         return values.Count + values["bb"]
     }
 }
@@ -566,7 +566,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values = [Person("Jane"), Person("Bob")]
+        let values = [Person("Jane"), Person("Bob")]
         return values.Count
     }
 }
@@ -604,7 +604,7 @@ record Person(Name: string)
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values = ![1, 2, 3]
+        let values = ![1, 2, 3]
         return values.Count
     }
 }
@@ -636,7 +636,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values = [|1, 2, 3|]
+        let values = [|1, 2, 3|]
         return values.Length
     }
 }
@@ -668,8 +668,8 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val prefix = [|1, 2|]
-        val values = [|...prefix, 3|]
+        let prefix = [|1, 2|]
+        let values = [|...prefix, 3|]
         return values.Length
     }
 }
@@ -734,9 +734,9 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val left: int[] = [1, 2]
-        val right: int[] = [3, 4]
-        val values: int[] = [...left, 9, ...right]
+        let left: int[] = [1, 2]
+        let right: int[] = [3, 4]
+        let values: int[] = [...left, 9, ...right]
         return values.Length
     }
 }
@@ -774,8 +774,8 @@ import System.Collections.Immutable.*
 
 class Foo {
     static func GetNames() -> string {
-        val people = [(1, "Ada"), (2, "Bob"), (1, "Ignored")]
-        val names = [for val (2, name) in people => name]
+        let people = [(1, "Ada"), (2, "Bob"), (1, "Ignored")]
+        let names = [for let (2, name) in people => name]
         return names[0]
     }
 }
@@ -809,9 +809,9 @@ import System.Linq.*
 
 class Foo {
     static func GetCount() -> int {
-        val left: int[] = [1, 2]
-        val right: int[] = [3]
-        val values: IEnumerable<int> = [...left, 9, ...right]
+        let left: int[] = [1, 2]
+        let right: int[] = [3]
+        let values: IEnumerable<int> = [...left, 9, ...right]
         return values.Count()
     }
 }
@@ -847,8 +847,8 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val source: int[] = [1, 2, 3]
-        val values: int[] = [...source]
+        let source: int[] = [1, 2, 3]
+        let values: int[] = [...source]
         return values.Length
     }
 }
@@ -887,8 +887,8 @@ import System.Linq.*
 
 class Foo {
     static func GetCount() -> int {
-        val source: int[] = [1, 2, 3]
-        val values: IEnumerable<int> = [...source]
+        let source: int[] = [1, 2, 3]
+        let values: IEnumerable<int> = [...source]
         return values.Count()
     }
 }
@@ -926,7 +926,7 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetCount() -> int {
-        val merged: char[] = ['x', ..."ab", 'y']
+        let merged: char[] = ['x', ..."ab", 'y']
         return merged.Length
     }
 }
@@ -964,7 +964,7 @@ import System.Collections.Immutable.*
 
 class Foo {
     static func GetCount() -> int {
-        val values: ImmutableList<int> = [2, 3, 4]
+        let values: ImmutableList<int> = [2, 3, 4]
         return values.Count
     }
 }
@@ -1004,8 +1004,8 @@ import System.Collections.Immutable.*
 
 class Foo {
     static func GetFirstPairSum() -> int {
-        val values: ImmutableList<int> = [2, 3, 4]
-        val [first, second] = values
+        let values: ImmutableList<int> = [2, 3, 4]
+        let [first, second] = values
         return first + second
     }
 }
@@ -1045,8 +1045,8 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetPairSum() -> int {
-        val values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
-        val ["a": first, "b": second] = values
+        let values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
+        let ["a": first, "b": second] = values
         return first + second
     }
 }
@@ -1085,9 +1085,9 @@ import System.Collections.Generic.*
 
 class Foo {
     static func GetValue() -> int {
-        val values: Dictionary<string, int> = !["a": 5, "b": 2]
+        let values: Dictionary<string, int> = !["a": 5, "b": 2]
         return match values {
-            ["a": val first, "b": 2] => first
+            ["a": let first, "b": 2] => first
             _ => 0
         }
     }
@@ -1125,11 +1125,11 @@ import System.Collections.Generic.*
 
 class Foo {
     static func Route() -> string {
-        val headers: IReadOnlyDictionary<string, string> = ["event": "scan"]
-        val segments: string[] = ["parcels", "P-1"]
+        let headers: IReadOnlyDictionary<string, string> = ["event": "scan"]
+        let segments: string[] = ["parcels", "P-1"]
 
         return (headers, segments) match {
-            (["event": "scan"], ["parcels", val id]) => id
+            (["event": "scan"], ["parcels", let id]) => id
             _ => "no match"
         }
     }
@@ -1167,8 +1167,8 @@ class Foo {
     }
 
     static func GetCount() -> int {
-        val list: ImmutableList<int> = [2, 3, 4]
-        val newList = [7, ...list, 5]
+        let list: ImmutableList<int> = [2, 3, 4]
+        let newList = [7, ...list, 5]
         return Accept(newList)
     }
 }
@@ -1204,7 +1204,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values: int[] = [1..3]
+        let values: int[] = [1..3]
         return values.Length + values[0] + values[2]
     }
 }
@@ -1235,7 +1235,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values: int[] = [1, 3..4, 9]
+        let values: int[] = [1, 3..4, 9]
         return values.Length + values[1] + values[2]
     }
 }
@@ -1266,7 +1266,7 @@ class Foo {
         var code = """
 class Foo {
     static func GetCount() -> int {
-        val values: int[] = [1..<4]
+        let values: int[] = [1..<4]
         return values.Length + values[0] + values[2]
     }
 }
@@ -1308,7 +1308,7 @@ public class CollectionExpressionDiagnosticTests : DiagnosticTestBase
     public void EmptyCollectionLiteral_WithoutTargetType_ReportsDiagnostic()
     {
         const string code = """
-        val arr = []
+        let arr = []
         """;
 
         var verifier = CreateVerifier(code, [
@@ -1322,7 +1322,7 @@ public class CollectionExpressionDiagnosticTests : DiagnosticTestBase
     public void EmptyCollectionLiteral_WithTargetType_NoDiagnostic()
     {
         const string code = """
-        val arr: int[] = []
+        let arr: int[] = []
         """;
 
         var verifier = CreateVerifier(code);

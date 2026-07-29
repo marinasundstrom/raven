@@ -553,7 +553,7 @@ RangeLower               ::= RangePatternOperand? ;
 RangeUpper               ::= RangePatternOperand? ;
 RangePatternOperand      ::= Expression ; (* binder should enforce “constant-ish” rules; parser stops at `..` when parsing the lower bound *)
 
-VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* Whole-pattern designations may omit the BindingKeyword when an outer construct (for example `if val`, `while val`, `for val`, or a match-arm binding keyword) supplies the binding mode. Without an outer binding keyword, omitted binding defaults to an immutable capture. *)
+VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* Whole-pattern designations may omit the BindingKeyword when an outer construct (for example `if let`, `while let`, `for let`, or a match-arm binding keyword) supplies the binding mode. Without an outer binding keyword, omitted binding defaults to an immutable capture. *)
 VariableDesignationCore  ::= SingleVariableDesignation | ParenthesizedVariableDesignation ;
 SingleVariableDesignation ::= [BindingKeyword] Identifier ;
 

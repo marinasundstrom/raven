@@ -25,9 +25,9 @@ sealed interface Expr<T> {
 
 class Program {
     public static func Run() -> string {
-        val left = Expr.NumericalExpr(40)
-        val right = Expr.NumericalExpr(2)
-        val result = Expr.AddExpr(left, right)
+        let left = Expr.NumericalExpr(40)
+        let right = Expr.NumericalExpr(2)
+        let result = Expr.AddExpr(left, right)
         return result.ToString()
     }
 }

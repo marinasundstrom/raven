@@ -181,15 +181,15 @@ namespace System {
         const string source = """
 import System.*
 
-val first : Result<int, string> = .Success(1)
-val second : Result<int, string> = .Error(2, "Bang!")
+let first : Result<int, string> = .Success(1)
+let second : Result<int, string> = .Error(2, "Bang!")
 
 func describe(result: Result<int, string>) -> string {
     return match result {
         Success(42) => "Yay!"
-        Success(val value) => "Result: '$value'"
-        Error(2, val error) => "$error (!!!)"
-        Error(val code, val error) => "$error ($code)"
+        Success(let value) => "Result: '$value'"
+        Error(2, let error) => "$error (!!!)"
+        Error(let code, let error) => "$error ($code)"
     }
 }
 

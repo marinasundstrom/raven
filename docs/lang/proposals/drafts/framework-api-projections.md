@@ -12,11 +12,11 @@ The initial feature projects selected `TryParse` methods on known framework
 types and proves the exception-based model with `Int32.Parse(string)`:
 
 ```raven
-val port = int.TryParse(text)
+let port = int.TryParse(text)
 // Option<int>
 
 match port {
-    Some(val value) => Console.WriteLine($"Port: {value}")
+    Some(let value) => Console.WriteLine($"Port: {value}")
     None => Console.WriteLine("Not a valid port")
 }
 ```
@@ -167,7 +167,7 @@ In the standard view, each cataloged source signature is replaced by its
 projected signature for Raven member lookup:
 
 ```raven
-val projected = int.TryParse(text) // Option<int>
+let projected = int.TryParse(text) // Option<int>
 ```
 
 With projections set to `None`, the projected member is absent and the ordinary
@@ -326,7 +326,7 @@ The initial catalog also preserves the common style- and provider-aware inputs
 while removing only the projected result parameter:
 
 ```raven
-val value = decimal.TryParse(text, NumberStyles.Currency, culture)
+let value = decimal.TryParse(text, NumberStyles.Currency, culture)
 // Option<decimal>
 ```
 
@@ -338,7 +338,7 @@ not assume all overloads in a projected family have equivalent semantics.
 Enum parsing is useful but should be a separate implementation slice:
 
 ```raven
-val color = Color.TryParse(text)
+let color = Color.TryParse(text)
 // Option<Color>
 ```
 
@@ -350,7 +350,7 @@ method. It is more than another closed metadata-signature entry.
 The case-sensitivity overload could become:
 
 ```raven
-val color = Color.TryParse(text, ignoreCase: true)
+let color = Color.TryParse(text, ignoreCase: true)
 // Option<Color>
 ```
 

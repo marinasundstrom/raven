@@ -323,10 +323,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void NominalDeconstructionPattern_BindsPrimaryConstructorProperties()
     {
         var source = """
-            val value: object = Person("Ada", 42);
+            let value: object = Person("Ada", 42);
 
-            val result = match value {
-                Person(val name, val age) => name
+            let result = match value {
+                Person(let name, let age) => name
                 _ => ""
             };
 
@@ -351,7 +351,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     {
         var source = """
             func Test(value: object?) {
-                if value is Person(val name, val age) {
+                if value is Person(let name, let age) {
                 }
             }
 
@@ -400,10 +400,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void PositionalPattern_UsesDeconstructWhenAvailable()
     {
         var source = """
-            val value: Pair = Pair(1, 2);
+            let value: Pair = Pair(1, 2);
 
-            val result = match value {
-                (val left, val right) => left
+            let result = match value {
+                (let left, let right) => left
                 _ => 0
             };
 
@@ -427,10 +427,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void PositionalPattern_WithNamedElements_BindsDeconstructArgumentsByName()
     {
         var source = """
-            val value: Person = Person("Ada", 42, ["tea"]);
+            let value: Person = Person("Ada", 42, ["tea"]);
 
-            val result = match value {
-                (Age: 42, Items: val items, Name: val name) => name + items[0]
+            let result = match value {
+                (Age: 42, Items: let items, Name: let name) => name + items[0]
                 _ => ""
             };
 
@@ -455,10 +455,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void NominalDeconstructionPattern_WithNamedArguments_BindsDeconstructArgumentsByName()
     {
         var source = """
-            val value: object = Person("Ada", 42, ["tea"]);
+            let value: object = Person("Ada", 42, ["tea"]);
 
-            val result = match value {
-                Person(Items: val items, Name: val name, Age: 42) => name + items[0]
+            let result = match value {
+                Person(Items: let items, Name: let name, Age: 42) => name + items[0]
                 _ => ""
             };
 
@@ -625,9 +625,9 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         // record members must still bind Left/Right to the record's own data members.
         var source = """
             func Inspect(pair: Pair) -> int {
-                val text = pair.ToString()
-                val hash = pair.GetHashCode()
-                val (left, right) = pair
+                let text = pair.ToString()
+                let hash = pair.GetHashCode()
+                let (left, right) = pair
                 return left + right + text.Length + hash
             }
 

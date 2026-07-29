@@ -56,7 +56,7 @@ union Result<T, E> {
 extension ResultExtensions<T, E> for Result<T, E> {
     val IsOk: Option<T> {
         get {
-            if self is .Ok(val value) {
+            if self is .Ok(let value) {
                 return .Some(value)
             }
             .None
@@ -66,7 +66,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 
 class Program {
     public static func Get() -> string {
-        val r: Result<int, string> = .Ok(42)
+        let r: Result<int, string> = .Ok(42)
         r.IsOk.ToString()
     }
 }
@@ -101,14 +101,14 @@ import System.Collections.Generic.*
 
 extension TypeProbe<T> for T {
     func TypeNameLength() -> int {
-        val type = self.GetType()
+        let type = self.GetType()
         return type.Name.Length
     }
 }
 
 class Program {
     public static func Run() -> int {
-        val obj = List<int>()
+        let obj = List<int>()
         return obj.TypeNameLength()
     }
 }
@@ -144,7 +144,7 @@ import System.Collections.Generic.*
 
 extension TypeProbe<T> for T {
     func CountReadableInstanceProperties() -> int {
-        val type = self.GetType()
+        let type = self.GetType()
         return type
             .GetProperties()
             .Where(pi => !(pi.GetMethod?.IsStatic ?? false) && pi.GetMethod?.GetParameters()?.Length == 0)
@@ -154,7 +154,7 @@ extension TypeProbe<T> for T {
 
 class Program {
     public static func Run() -> int {
-        val obj = List<int>()
+        let obj = List<int>()
         return obj.CountReadableInstanceProperties()
     }
 }
@@ -211,8 +211,8 @@ extension ErrorExtensions<TError: IError> for TError {
 extension ResultExtensions<T, E> for Result<T, E> {
     func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            Ok(val value) => Ok(value)
-            Error(val error) => Error(mapper(error))
+            Ok(let value) => Ok(value)
+            Error(let error) => Error(mapper(error))
         }
     }
 }
@@ -225,12 +225,12 @@ extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
 
 class Program {
     public static func Run() -> string {
-        val result: Result<int, ParseError> = Error(ParseError("invalid"))
-        val wrapped = result.WithMessage("context")
+        let result: Result<int, ParseError> = Error(ParseError("invalid"))
+        let wrapped = result.WithMessage("context")
 
         return match wrapped {
-            case Ok(val value) => value.ToString()
-            Error(val error) => error.Message + ":" + error.Cause.Message
+            case Ok(let value) => value.ToString()
+            Error(let error) => error.Message + ":" + error.Cause.Message
         }
     }
 }

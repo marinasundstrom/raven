@@ -417,7 +417,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -431,7 +431,7 @@ public class AnalyzerInfrastructureTests
 
         Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
 
-        var updated = workspace.CurrentSolution.WithDocumentText(docId, SourceText.From("val x = 2"));
+        var updated = workspace.CurrentSolution.WithDocumentText(docId, SourceText.From("let x = 2"));
         workspace.TryApplyChanges(updated);
         _ = workspace.GetDiagnostics(projectId);
 
@@ -449,7 +449,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -463,7 +463,7 @@ public class AnalyzerInfrastructureTests
 
         Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
 
-        var updated = workspace.CurrentSolution.WithDocumentText(docId, SourceText.From("val x = 2"));
+        var updated = workspace.CurrentSolution.WithDocumentText(docId, SourceText.From("let x = 2"));
         workspace.TryApplyChanges(updated);
         _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
 
@@ -481,7 +481,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -510,7 +510,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -536,7 +536,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -563,7 +563,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -894,7 +894,7 @@ class C {
         var code = """
 class C {
     public func M() -> unit {
-        val value = 42
+        let value = 42
         _ = value
     }
 }
@@ -936,7 +936,7 @@ class C {
         workspace.TryApplyChanges(solutionWithProject);
 
         var docId = DocumentId.CreateNew(projectId);
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(solution);
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;

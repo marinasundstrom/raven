@@ -26,7 +26,7 @@ class Customer(name: string, age: int? = null) {
 
     static func Print(customer: Customer) {
         if customer is Customer {
-            val same = customer as Customer
+            let same = customer as Customer
         }
         WriteLine($"{customer.Name} age: ${customer.Age ?? "n/a"}")
     }
@@ -243,7 +243,7 @@ func Main(value) -> unit {
     {
         const string code = """
 func Main() -> unit {
-    val number = 42
+    let number = 42
     number
 }
 """;
@@ -300,7 +300,7 @@ func Main() -> unit {
     {
         const string code = """
 func Main() -> unit {
-    val number = 42
+    let number = 42
     number
 }
 """;
@@ -434,9 +434,9 @@ func Main() -> unit {
     {
         const string initialCode = """
 func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
-    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+    let dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
 
-    if dtoResult is Ok(val value) {
+    if dtoResult is Ok(let value) {
         if value is not null {
             return ValidateBatch(value)
         }
@@ -452,10 +452,10 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
 
         const string updatedCode = """
 func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
-    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+    let dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
 
     // inserted comment to shift later token positions
-    if dtoResult is Ok(val value) {
+    if dtoResult is Ok(let value) {
         if value is not null {
             return ValidateBatch(value)
         }
@@ -555,7 +555,7 @@ var people: ImmutableList<Person> = [
 
 people = people.Add(.("Test", 30, ["A", "B"]))
 
-for val (name, age when > 15, [ item1, item2 ]) in people {
+for let (name, age when > 15, [ item1, item2 ]) in people {
     WriteLine("$name ($age) has $item1 and $item2")
 }
 
@@ -580,7 +580,7 @@ var people: ImmutableList<Person> = [
 
 people = people.Add(.("Test", 30, ["A", "B"]))
 
-for val (name, age when > 15, [ item1, item2 ]) in people {
+for let (name, age when > 15, [ item1, item2 ]) in people {
     WriteLine("$name ($age) has $item1 and $item2")
 }
 
@@ -590,7 +590,7 @@ record Person(
     val Items: string[]
 )
 
-val (no, _) = Get()
+let (no, _) = Get()
 
 WriteLine(no)
 
@@ -671,9 +671,9 @@ func Get() -> (int, string) {
     {
         const string code = """
 func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
-    val dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
+    let dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
 
-    if dtoResult is Ok(val value) {
+    if dtoResult is Ok(let value) {
         if value is not null {
             return ValidateBatch(value)
         }
@@ -687,7 +687,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
 }
 
 func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError> {
-    val problem: FulfillmentError = .InvalidFeed(message)
+    let problem: FulfillmentError = .InvalidFeed(message)
     return Error(problem)
 }
 """;
@@ -768,10 +768,10 @@ func Route(prefix: string, body: () -> string) -> string {
 }
 
 func Main() -> string {
-    val store = Store()
+    let store = Store()
     return Route("", () => {
         GET("/{id:int}", (id) => {
-            val value = store.Find(id)
+            let value = store.Find(id)
             value
         })
     })

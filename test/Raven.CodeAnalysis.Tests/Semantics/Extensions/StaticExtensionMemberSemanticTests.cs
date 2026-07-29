@@ -15,7 +15,7 @@ public sealed class StaticExtensionMemberSemanticTests : CompilationTestBase
     public void StaticExtensionMethod_QualifiedLookup_BindsToExtensionContainer()
     {
         const string source = """
-val created = Widget.Build(1)
+let created = Widget.Build(1)
 
 class Widget { }
 
@@ -53,7 +53,7 @@ extension WidgetExtensions for Widget {
     {
         const string source = """
 import Widget.*
-val created = Build(1)
+let created = Build(1)
 
 class Widget { }
 
@@ -87,7 +87,7 @@ extension WidgetExtensions for Widget {
     public void StaticExtensionMethod_PrefersRealStaticMembers()
     {
         const string source = """
-val created = Widget.Build(1)
+let created = Widget.Build(1)
 
 class Widget {
     static func Build(value: int) -> Widget {
@@ -122,7 +122,7 @@ extension WidgetExtensions for Widget {
     public void StaticExtensionMethod_InfersExtensionContainerTypeArguments()
     {
         const string source = """
-val boxed = Box<int>.Wrap(1)
+let boxed = Box<int>.Wrap(1)
 
 class Box<T> { }
 
@@ -157,7 +157,7 @@ extension BoxExtensions<T> for Box<T> {
     public void StaticExtensionProperty_QualifiedLookup_BindsToExtensionContainer()
     {
         const string source = """
-val total = Counter.Total
+let total = Counter.Total
 
 class Counter { }
 

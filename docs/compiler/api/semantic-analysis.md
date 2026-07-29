@@ -10,9 +10,12 @@ and expose higher-level views such as operations.
 
 Create a `Compilation` by supplying syntax trees (and optional references):
 
-```csharp
-var tree = SyntaxTree.ParseText(source);
-var compilation = Compilation.Create("App", [tree]);
+```raven
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+
+let tree = SyntaxTree.ParseText(source)
+let compilation = Compilation.Create("App", [tree])
 ```
 
 Compilations are immutable—`AddSyntaxTrees`, `AddReferences`, and

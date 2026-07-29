@@ -105,7 +105,7 @@ else if y
     public void IfPatternStatement_ParsesAsDedicatedNode()
     {
         const string testCode = """
-if val (id, name) = person {
+if let (id, name) = person {
 }
 """;
 
@@ -147,7 +147,7 @@ let value = if let Some(x) = option {
     public void IfPatternStatement_WithRecursivePattern_ParsesNestedImplicitBindings()
     {
         const string testCode = """
-if val Person(1, let name, _) = person {
+if let Person(1, let name, _) = person {
 }
 """;
 
@@ -165,7 +165,7 @@ if val Person(1, let name, _) = person {
     public void IfPatternStatement_WithNestedTypedRecursivePattern_ParsesNestedNominalDeconstruction()
     {
         const string testCode = """
-if val Error(ParseIntError(let kind, _)) = value {
+if let Error(ParseIntError(let kind, _)) = value {
 }
 """;
 
@@ -187,7 +187,7 @@ if val Error(ParseIntError(let kind, _)) = value {
     public void IfPatternStatement_WithTypedImplicitBinding_ParsesVariablePattern()
     {
         const string testCode = """
-if val x: int = input {
+if let x: int = input {
 }
 """;
 
@@ -208,7 +208,7 @@ if val x: int = input {
     public void IfPatternStatement_WithImplicitTypedPositionalElements_ParsesVariablePatterns()
     {
         const string testCode = """
-if val (key: string, value: int) = input {
+if let (key: string, value: int) = input {
 }
 """;
 
@@ -243,7 +243,7 @@ if val (key: string, value: int) = input {
     public void IfPatternStatement_WithImplicitTypedNominalDeconstructionArguments_ParsesVariablePatterns()
     {
         const string testCode = """
-if val Entry(key: string, value: int) = input {
+if let Entry(key: string, value: int) = input {
 }
 """;
 
@@ -278,7 +278,7 @@ if val Entry(key: string, value: int) = input {
     public void IfPatternStatement_WithNamedNominalSubpatterns_PreservesNameColonWhenSubpatternIsNotTypeAnnotation()
     {
         const string testCode = """
-if val Person(Name: val name, Age: > 18) = person {
+if let Person(Name: let name, Age: > 18) = person {
 }
 """;
 
@@ -307,7 +307,7 @@ if val Person(Name: val name, Age: > 18) = person {
     public void IfPatternStatement_WithTrailingWholePatternDesignation_Parses()
     {
         const string testCode = """
-if val (2, > 0.5) point = value {
+if let (2, > 0.5) point = value {
 }
 """;
 
@@ -325,7 +325,7 @@ if val (2, > 0.5) point = value {
     public void IfPatternStatement_WithPropertyPattern_Parses()
     {
         const string testCode = """
-if val Person { Name: "Ada", Age: age } = person {
+if let Person { Name: "Ada", Age: age } = person {
 }
 """;
 
@@ -370,7 +370,7 @@ if item is Foo { Item.Size: 2 } {
     public void IfPatternStatement_WithGuardedBinding_Parses()
     {
         const string testCode = """
-if val (id, amount when > 100) = order {
+if let (id, amount when > 100) = order {
 }
 """;
 

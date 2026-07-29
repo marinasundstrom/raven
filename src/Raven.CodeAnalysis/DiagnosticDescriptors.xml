@@ -1084,11 +1084,11 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1607" Identifier="PatternTypedBindingRequiresKeyword"
     Title="Pattern binding requires a binding keyword"
-    Message="Pattern binding '{name}: {typeName}' requires an explicit binding keyword ('val', 'var', or 'let')."
+    Message="Pattern binding '{name}: {typeName}' requires an explicit binding keyword ('let', 'var', or 'val')."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1608" Identifier="UndeclaredConstantPatternHint"
-    Title="Bind a new value using 'val' or 'var'"
-    Message="If you meant to bind a new value in this pattern, use 'val {name}' (or 'var {name}')."
+    Title="Bind a new value using 'let' or 'var'"
+    Message="If you meant to bind a new value in this pattern, use 'let {name}' (or 'var {name}')."
     Category="compiler" Severity="Info" EnabledByDefault="true"
     Description="Hint shown when a bare identifier is used in a constant pattern position; use a binding keyword to introduce a new pattern variable."
     HelpLinkUri="" />

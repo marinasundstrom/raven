@@ -24,11 +24,11 @@ class Widget {
 
 class Runner {
     static func Run() -> int {
-        val type = typeof(Widget)
-        val value: object = 42
-        val created = Activator.CreateInstance(type, [value])
-        val property = type.GetProperty("Value") ?? throw InvalidOperationException("missing property")
-        val result = property.GetValue(created)
+        let type = typeof(Widget)
+        let value: object = 42
+        let created = Activator.CreateInstance(type, [value])
+        let property = type.GetProperty("Value") ?? throw InvalidOperationException("missing property")
+        let result = property.GetValue(created)
         Convert.ToInt32(result)
     }
 }

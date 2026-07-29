@@ -462,12 +462,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             languageServer: default!,
             NullLogger<RavenTextDocumentSyncHandler>.Instance);
         var savedCode = await File.ReadAllTextAsync(documentPath);
-        var initialCode = savedCode.Replace("use app = builder.Build()", "val app = builder.Build()", StringComparison.Ordinal);
+        var initialCode = savedCode.Replace("use app = builder.Build()", "let app = builder.Build()", StringComparison.Ordinal);
         initialCode.ShouldNotBe(savedCode);
-        var declarationOffset = initialCode.IndexOf("val app", StringComparison.Ordinal);
+        var declarationOffset = initialCode.IndexOf("let app", StringComparison.Ordinal);
         var declarationRange = PositionHelper.ToRange(
             SourceText.From(initialCode),
-            new TextSpan(declarationOffset, "val".Length));
+            new TextSpan(declarationOffset, "let".Length));
 
         _ = await store.UpsertDocumentWithResultAsync(uri, SourceText.From(initialCode));
         GetDocumentSessions(handler)[uri] = 1;
@@ -593,7 +593,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             uri,
             SourceText.From("""
                 func Main() -> unit {
-                    val value =
+                    let value =
                 }
                 """),
             version: 2);
@@ -605,7 +605,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             uri,
             SourceText.From("""
                 func Main() -> unit {
-                    val value = 1
+                    let value = 1
                 }
                 """),
             version: 3);
@@ -677,7 +677,7 @@ func Main() -> unit {
     {
         var oldText = SourceText.From("""
 func Main() -> unit {
-    val app = Create()
+    let app = Create()
     app.Run()
 }
 """);
@@ -818,12 +818,12 @@ func Test2() -> IDisposable {
     {
         var oldText = SourceText.From("""
 func Main() -> unit {
-    val value =
+    let value =
 }
 """);
         var newText = SourceText.From("""
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """);
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
@@ -875,13 +875,13 @@ func Main() -> unit {
     {
         var oldText = SourceText.From("""
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """);
         var newText = SourceText.From("""
 // typing
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """);
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
@@ -936,7 +936,7 @@ func Main() -> unit {
     {
         var oldText = SourceText.From("""
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """);
         var newText = SourceText.From(oldText.ToString().Replace("value", "answer", StringComparison.Ordinal));
@@ -1330,7 +1330,7 @@ func Main() -> unit {}
     {
         var previousText = SourceText.From("""
 func Main() -> unit {
-    val number = 1
+    let number = 1
 }
 """);
 

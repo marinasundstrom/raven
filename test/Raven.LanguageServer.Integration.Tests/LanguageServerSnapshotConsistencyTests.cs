@@ -19,7 +19,7 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
     [Fact]
     public async Task HoverHandler_ClearedDocument_DoesNotReuseStaleStateAsync()
     {
-        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        var (store, _, uri) = await CreateWorkspaceAsync("let number = 42");
         await store.UpsertDocumentAsync(uri, string.Empty);
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
@@ -321,7 +321,7 @@ func Main() -> int => 0
 import System.Console.*
 
 func Main() -> unit {
-    val number = 42
+    let number = 42
     WriteLine(number)
 }
 """);
@@ -339,7 +339,7 @@ func Main() -> unit {
 import System.Console.*
 
 func Main() -> unit {
-    val value = 42
+    let value = 42
     WriteLine(value)
 }
 """);
@@ -439,7 +439,7 @@ func Test() -> int {
 
         var (store, manager, mainUri) = await CreateWorkspaceAsync("""
 func Main() -> unit {
-    val value = Test()
+    let value = Test()
 }
 """);
         await File.WriteAllTextAsync(testPath, """
@@ -486,7 +486,7 @@ func Test() -> int {
 
         var (store, manager, mainUri) = await CreateWorkspaceAsync("""
 func Main() -> unit {
-    val value = Test()
+    let value = Test()
 }
 """);
         var testUri = DocumentUri.FromFileSystemPath(testPath);
@@ -537,8 +537,8 @@ func Main() -> unit {
     {
         const string text = """
 func Main() -> unit {
-    val name = "Raven"
-    val message = "Hello $name"
+    let name = "Raven"
+    let message = "Hello $name"
 }
 """;
         var (store, _, uri) = await CreateWorkspaceAsync(text);
@@ -563,8 +563,8 @@ func Main() -> unit {
     {
         const string text = """
 func Main() -> unit {
-    val name = "Raven"
-    val message = "Hello $name"
+    let name = "Raven"
+    let message = "Hello $name"
 }
 """;
         var (store, _, uri) = await CreateWorkspaceAsync(text);
@@ -595,8 +595,8 @@ func Main() -> unit {
 import System.*
 
 func Main() -> unit {
-    val resource: IDisposable? = default
-    val value: int = default
+    let resource: IDisposable? = default
+    let value: int = default
 }
 """;
         var (store, _, uri) = await CreateWorkspaceAsync(text);
@@ -641,7 +641,7 @@ func Main() -> unit {
 import System.Console.*
 
 func Main() -> unit {
-    val number = 42
+    let number = 42
     WriteLine(number)
 }
 """);
@@ -665,8 +665,8 @@ func Main() -> unit {
 import System.Console.*
 
 func Main() -> unit {
-    val number = 42
-    val broken =
+    let number = 42
+    let broken =
     WriteLine(number)
 }
 """);
@@ -701,7 +701,7 @@ record Foo(
 union JsonValue(string | double | bool | JsonObject)
 record JsonObject(Properties: IDictionary<string, JsonValue>)
 
-val x = JsonObject([
+let x = JsonObject([
     "name": 42
 ])
 
@@ -727,7 +727,7 @@ x.Properties["name"].HasValue
 import System.*
 import System.Console.*
 
-val foo = Foo(
+let foo = Foo(
     Name: "Foo",
     Status: .OnMaintenance(.UtcNow, "Test"),
 )
@@ -804,7 +804,7 @@ class Runner {
     }
 
     static func Main() -> unit {
-        val query = 5
+        let query = 5
             |> Where(x => x > 1)
 
         query
@@ -853,7 +853,7 @@ class Counter {
 }
 
 func Main() -> unit {
-    val counter = Counter()
+    let counter = Counter()
     WriteLine(counter.Next())
 }
 """;
@@ -869,8 +869,8 @@ class Counter {
 }
 
 func Main() -> unit {
-    val padding = 0
-    val counter = Counter()
+    let padding = 0
+    let counter = Counter()
     WriteLine(counter.Next())
 }
 """;
@@ -893,7 +893,7 @@ class Foo {
 }
 
 func Main() -> unit {
-    val foo = Foo()
+    let foo = Foo()
     foo.Test
 }
 """;
@@ -902,7 +902,7 @@ class Foo {
 }
 
 func Main() -> unit {
-    val foo = Foo()
+    let foo = Foo()
     foo.Test
 }
 """;
@@ -926,7 +926,7 @@ func Main() -> unit {
         var initialText = """
 class Runner {
     func Main(value: int) -> int {
-        val result = value
+        let result = value
         return result
     }
 }
@@ -934,7 +934,7 @@ class Runner {
         var updatedText = """
 class Runner {
     func Main(value: int) -> int {
-        val renamed = value
+        let renamed = value
         return renamed
     }
 }
@@ -1004,7 +1004,7 @@ class Runner {
     }
 
     static func Main() -> unit {
-        val query = 5
+        let query = 5
             |> Where(x => x > 1)
 
         query
@@ -1020,8 +1020,8 @@ class Runner {
     }
 
     static func Main() -> unit {
-        val padding = 0
-        val query = 5
+        let padding = 0
+        let query = 5
             |> Where(x => x > 1)
 
         query
@@ -1041,7 +1041,7 @@ class Runner {
     [Fact]
     public async Task CompletionHandler_ClearedDocument_ReturnsWithoutOutOfBoundsFailureAsync()
     {
-        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        var (store, _, uri) = await CreateWorkspaceAsync("let number = 42");
         await store.UpsertDocumentAsync(uri, string.Empty);
 
         var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
@@ -1159,7 +1159,7 @@ import System.Console.*
 import System.Text.Json.*
 import System.
 
-val foo = 1
+let foo = 1
 """;
         var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
@@ -1382,7 +1382,7 @@ import Utilities.*
 
 func Main() {
     Test()
-    val x = A(42)
+    let x = A(42)
     x.
 }
 """;
@@ -1422,7 +1422,7 @@ public func A(value: int) -> int {
     [Fact]
     public async Task GetAnalysisContextAsync_ClearedDocument_ReturnsCompilationOwnedSyntaxTreeAsync()
     {
-        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        var (store, _, uri) = await CreateWorkspaceAsync("let number = 42");
         await store.UpsertDocumentAsync(uri, string.Empty);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
@@ -1436,12 +1436,12 @@ public func A(value: int) -> int {
     [Fact]
     public async Task GetAnalysisContextAsync_RapidSuccessiveUpdates_StaysSnapshotConsistentAsync()
     {
-        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
-        await store.UpsertDocumentAsync(uri, "val number = 100");
+        var (store, _, uri) = await CreateWorkspaceAsync("let number = 42");
+        await store.UpsertDocumentAsync(uri, "let number = 100");
         await store.UpsertDocumentAsync(uri, """
 record Payment(amount: int)
 
-val payment = Payment(42)
+let payment = Payment(42)
 """);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
@@ -1457,7 +1457,7 @@ val payment = Payment(42)
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1475,7 +1475,7 @@ func Main() -> () {
         Should.NotThrow(() => secondModel.GetDiagnostics());
         await store.UpsertDocumentAsync(uri, """
 func Main() -> () {
-    val value = 100
+    let value = 100
 }
 """);
 
@@ -1496,7 +1496,7 @@ func Main() -> () {
 import System.*
 
 func Main() -> () {
-    val value = 42
+    let value = 42
     Console.WriteLine(value)
 }
 """);
@@ -1505,7 +1505,7 @@ import System.*
 import System.Console.*
 
 func Main() -> () {
-    val r = Parse<int>("42")
+    let r = Parse<int>("42")
     WriteLine(r)
 }
 
@@ -1546,7 +1546,7 @@ func Parse<T>(str: string) -> T
 import System.*
 
 func Main() -> () {
-    val value = 42
+    let value = 42
     Console.WriteLine(value)
 }
 """);
@@ -1636,7 +1636,7 @@ func Helper() -> () { }
         firstModel.ShouldNotBeNull();
         await store.UpsertDocumentAsync(helperUri, """
 func Helper() -> () {
-    val answer = 42
+    let answer = 42
 }
 """);
 
@@ -1656,7 +1656,7 @@ func Helper() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1677,7 +1677,7 @@ func Main() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1699,7 +1699,7 @@ func Main() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1718,7 +1718,7 @@ func Main() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1728,7 +1728,7 @@ func Main() -> () {
 
         await store.UpsertDocumentAsync(uri, """
 func Main() -> () {
-    val value = 100
+    let value = 100
 }
 """);
 
@@ -1748,7 +1748,7 @@ func Main() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1767,7 +1767,7 @@ func Main() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1785,7 +1785,7 @@ func Main() -> () {
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
-    val number = 42
+    let number = 42
 }
 """);
 
@@ -1803,7 +1803,7 @@ func Main() -> () {
 import System.Console.*
 
 func Main() -> unit {
-    val number = 42
+    let number = 42
     WriteLine(number)
 }
 """);
@@ -1835,7 +1835,7 @@ func Main() -> unit {
 import System.Console.*
 
 func Main() -> unit {
-    val number = 42
+    let number = 42
     WriteLine(number)
 }
 """);
@@ -1870,7 +1870,7 @@ func Main() -> unit {
 import System.Console.*
 
 func Main() -> unit {
-    val number = 42
+    let number = 42
     WriteLine(number)
 }
 """);
@@ -2103,9 +2103,9 @@ func Test(foo: Foo, options: Options) -> string {
     "ok"
 }
 
-val foo = Foo("Foo")
-val options = Options()
-val str = Test(foo, options)
+let foo = Foo("Foo")
+let options = Options()
+let str = Test(foo, options)
 WriteLine(str)
 """;
         var (store, _, uri) = await CreateWorkspaceAsync(text);
@@ -2241,7 +2241,7 @@ class Runner {
         var text = """
 class Runner {
     static func Main() -> unit {
-        val value = 1
+        let value = 1
     }
 }
 """;
@@ -2883,7 +2883,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
             hover.ShouldNotBeNull();
             hover.Contents.MarkupContent.ShouldNotBeNull();
             hover.Contents.MarkupContent!.Value.ShouldContain("Where");
-            hover.Contents.MarkupContent!.Value.ShouldNotContain("let query: Error");
+            hover.Contents.MarkupContent!.Value.ShouldNotContain("val query: Error");
         }
     }
 
@@ -2893,8 +2893,8 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         const string text = """
 class C {
     func Run() -> int {
-        val seed = 1
-        val compute = func Step(n: int) -> int {
+        let seed = 1
+        let compute = func Step(n: int) -> int {
             if n < 1
                 seed
             else
@@ -2979,7 +2979,7 @@ class C {
         targetHover.ShouldNotBeNull();
         targetHover!.Contents.MarkupContent.ShouldNotBeNull();
         targetHover.Contents.MarkupContent!.Value.ShouldContain("Next");
-        targetHover.Contents.MarkupContent!.Value.ShouldNotContain("val counter");
+        targetHover.Contents.MarkupContent!.Value.ShouldNotContain("let counter");
         targetHover.Range.ShouldNotBeNull();
         targetHover.Range.Start.Line.ShouldBe(expectedLine);
     }
@@ -3042,7 +3042,7 @@ class C {
         hover.ShouldNotBeNull();
         hover!.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("Where");
-        hover.Contents.MarkupContent!.Value.ShouldNotContain("val query");
+        hover.Contents.MarkupContent!.Value.ShouldNotContain("let query");
         hover.Range.ShouldNotBeNull();
         hover.Range.Start.Line.ShouldBe(expectedLine);
     }

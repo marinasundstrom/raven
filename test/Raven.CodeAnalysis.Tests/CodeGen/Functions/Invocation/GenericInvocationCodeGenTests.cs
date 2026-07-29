@@ -60,7 +60,7 @@ class Formatter {
     }
 
     func Run() -> int {
-        val arr: int[] = [1, 2, 3]
+        let arr: int[] = [1, 2, 3]
         Collect(arr)
         return 1
     }
@@ -98,7 +98,7 @@ class Formatter {
     }
 
     func Run() -> int {
-        val arr: ImmutableList<int> = [1, 2, 3]
+        let arr: ImmutableList<int> = [1, 2, 3]
         Collect(...arr)
         return arr.Count
     }

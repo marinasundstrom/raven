@@ -13,7 +13,7 @@ public sealed class LiteralHoverPreviewFormatterTests
     [Fact]
     public void TryCreatePreview_BinaryLiteral_ShowsEvaluatedValue()
     {
-        var (semanticModel, token) = CreateModelAndSingleLiteralToken("val x = 0b101");
+        var (semanticModel, token) = CreateModelAndSingleLiteralToken("let x = 0b101");
 
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
@@ -24,7 +24,7 @@ public sealed class LiteralHoverPreviewFormatterTests
     [Fact]
     public void TryCreatePreview_HexLiteral_ShowsEvaluatedValue()
     {
-        var (semanticModel, token) = CreateModelAndSingleLiteralToken("val x = 0x1F");
+        var (semanticModel, token) = CreateModelAndSingleLiteralToken("let x = 0x1F");
 
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
@@ -35,7 +35,7 @@ public sealed class LiteralHoverPreviewFormatterTests
     [Fact]
     public void TryCreatePreview_StringLiteral_ShowsEscapedDecodedPreview()
     {
-        var (semanticModel, token) = CreateModelAndSingleLiteralToken("val text = \"A\\nB\"");
+        var (semanticModel, token) = CreateModelAndSingleLiteralToken("let text = \"A\\nB\"");
 
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
@@ -46,7 +46,7 @@ public sealed class LiteralHoverPreviewFormatterTests
     [Fact]
     public void TryCreatePreview_EncodedStringLiteral_ShowsEncodingSuffix()
     {
-        var (semanticModel, token) = CreateModelAndSingleLiteralToken("val text = \"Hej\"u8");
+        var (semanticModel, token) = CreateModelAndSingleLiteralToken("let text = \"Hej\"u8");
 
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
@@ -119,7 +119,7 @@ func Do(no: int = default) -> unit { }
     public void TryCreatePreview_BooleanDefault_ShowsFalseValue()
     {
         const string code = """
-val flag: bool = default
+let flag: bool = default
 """;
 
         var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
@@ -139,7 +139,7 @@ val flag: bool = default
     public void TryCreatePreview_DoubleDefault_ShowsZeroValue()
     {
         const string code = """
-val amount: double = default
+let amount: double = default
 """;
 
         var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
@@ -163,7 +163,7 @@ struct Point {
     val X: int
 }
 
-val point: Point = default
+let point: Point = default
 """;
 
         var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
@@ -185,7 +185,7 @@ val point: Point = default
         const string code = """
 import System.*
 
-val resource: IDisposable? = default
+let resource: IDisposable? = default
 """;
 
         var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
@@ -205,7 +205,7 @@ val resource: IDisposable? = default
     public void TryCreatePreview_NullableValueTypeDefault_ShowsNullValue()
     {
         const string code = """
-val maybe: int? = default
+let maybe: int? = default
 """;
 
         var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);

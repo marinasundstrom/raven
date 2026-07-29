@@ -17,8 +17,8 @@ public class PointerCodeGenTests
 class PointerMath {
     unsafe static func Distance() -> nint {
         var value = 0
-        val pointer: *int = &value;
-        val advanced = pointer + 3
+        let pointer: *int = &value;
+        let advanced = pointer + 3
         advanced - pointer
     }
 
@@ -67,7 +67,7 @@ struct Counter {
 class PointerMethods {
     unsafe static func Run() -> int {
         var counter = Counter()
-        val pointer: *Counter = &counter
+        let pointer: *Counter = &counter
         pointer->Increment()
         pointer->Increment()
         counter.Value
@@ -105,7 +105,7 @@ struct Holder {
 class PointerAssignment {
     unsafe static func Run() -> int {
         var holder = Holder()
-        val pointer: *Holder = &holder
+        let pointer: *Holder = &holder
         pointer->Foo = 2
         holder.Foo
     }
@@ -172,7 +172,7 @@ class FixedPointer {
         const string code = """
 class StackAllocation {
     unsafe static func Run(count: int) -> int {
-        val pointer: *int = stackalloc int[count]
+        let pointer: *int = stackalloc int[count]
         var index = 0
         while index < count {
             *(pointer + index) = (index + 1) * 10
@@ -209,12 +209,12 @@ class StackAllocation {
         const string code = """
 class StackSpanAllocation {
     static func SpanLength(count: int) -> int {
-        val values = stackalloc int[count]
+        let values = stackalloc int[count]
         values.Length
     }
 
     static func ReadOnlySpanLength(count: int) -> int {
-        val values: System.ReadOnlySpan<int> = stackalloc int[count]
+        let values: System.ReadOnlySpan<int> = stackalloc int[count]
         values.Length
     }
 }

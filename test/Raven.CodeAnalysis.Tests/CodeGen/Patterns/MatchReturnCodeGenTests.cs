@@ -73,17 +73,17 @@ class Program {
 import System.*
 import System.Console.*
 
-val okResult = GetOk()
-val errResult = GetErr()
+let okResult = GetOk()
+let errResult = GetErr()
 
 WriteLine(okResult match {
-    .Ok(val v) => "ok:${v}"
-    .Err(val e) => "error:${e}"
+    .Ok(let v) => "ok:${v}"
+    .Err(let e) => "error:${e}"
 })
 
 WriteLine(errResult match {
-    .Ok(val v) => "ok:${v}"
-    .Err(val e) => "error:${e}"
+    .Ok(let v) => "ok:${v}"
+    .Err(let e) => "error:${e}"
 })
 
 func GetOk() -> Outcome<int, string> {
@@ -113,17 +113,17 @@ union Outcome<T, E> {
 import System.*
 import System.Console.*
 
-val okResult = Compute(true)
-val errResult = Compute(false)
+let okResult = Compute(true)
+let errResult = Compute(false)
 
 WriteLine(okResult match {
-    .Ok(val v) => "ok:${v}"
-    .Err(val e) => "error:${e}"
+    .Ok(let v) => "ok:${v}"
+    .Err(let e) => "error:${e}"
 })
 
 WriteLine(errResult match {
-    .Ok(val v) => "ok:${v}"
-    .Err(val e) => "error:${e}"
+    .Ok(let v) => "ok:${v}"
+    .Err(let e) => "error:${e}"
 })
 
 func Compute(flag: bool) -> Outcome<int, string> {
@@ -153,17 +153,17 @@ import System.*
 import System.Console.*
 import System.Threading.Tasks.*
 
-val okResult = await Compute(true)
-val errResult = await Compute(false)
+let okResult = await Compute(true)
+let errResult = await Compute(false)
 
 WriteLine(okResult match {
-    .Ok(val v) => "ok:${v}"
-    .Err(val e) => "error:${e}"
+    .Ok(let v) => "ok:${v}"
+    .Err(let e) => "error:${e}"
 })
 
 WriteLine(errResult match {
-    .Ok(val v) => "ok:${v}"
-    .Err(val e) => "error:${e}"
+    .Ok(let v) => "ok:${v}"
+    .Err(let e) => "error:${e}"
 })
 
 async func Compute(flag: bool) -> Task<Outcome<int, string>> {

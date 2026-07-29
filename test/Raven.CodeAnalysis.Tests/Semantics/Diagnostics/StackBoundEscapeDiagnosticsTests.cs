@@ -38,7 +38,7 @@ public sealed class StackBoundEscapeDiagnosticsTests : DiagnosticTestBase
                 var value = 0
                 var reference = IntReference()
                 reference.Value = &value
-                val alias = reference
+                let alias = reference
                 alias
             }
             """;

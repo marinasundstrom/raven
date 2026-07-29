@@ -9,15 +9,15 @@ associates left-to-right, so a chain such as `source |> First() |> Second()`
 evaluates `source`, passes it to `First`, then pipes the result into `Second`.
 
 ```raven
-val result = 5 |> Square() |> AddOne()
+let result = 5 |> Square() |> AddOne()
 
-val result = AddOne(Square(5))
+let result = AddOne(Square(5))
 ```
 
 When the pipeline targets an invocation, the syntax mirrors a regular call:
 
 ```raven
-val result = 5 |> MathHelpers.Increment(2)
+let result = 5 |> MathHelpers.Increment(2)
 
 static class MathHelpers {
     static func Increment(x: int, amount: int) -> int {
@@ -35,9 +35,9 @@ func Inc(x: int, n: int = 1) -> int {
     return x + n
 }
 
-val a = 5 |> Inc
-val b = 5 |> Inc()
-val c = 5 |> Inc(2)
+let a = 5 |> Inc
+let b = 5 |> Inc()
+let c = 5 |> Inc(2)
 ```
 
 All three bindings above call `Inc`; `a` and `b` use the default value for `n`,
@@ -48,7 +48,7 @@ the compiler infers `x` from the piped value type and invokes the lambda with
 the left-hand result:
 
 ```raven
-val length =
+let length =
     5
         |> x => x.ToString()
         |> text => text.Length
@@ -57,14 +57,14 @@ val length =
 Parenthesized inline lambdas are also valid pipeline targets:
 
 ```raven
-val name = user |> (u => u.Name)
+let name = user |> (u => u.Name)
 ```
 
 When combining lambda targets with additional pipeline stages, parentheses make
 the stage boundaries explicit:
 
 ```raven
-val normalized =
+let normalized =
     userOrError
         |> EnsureActive()
         |> (x => match x {
@@ -83,9 +83,9 @@ property through its setter before producing the property's type as the result
 of the pipe expression. Both instance and static properties are supported:
 
 ```raven
-val container = Container()
-val _ = 42 |> container.Value
-val _ = 42 |> Container.Count
+let container = Container()
+let _ = 42 |> container.Value
+let _ = 42 |> Container.Count
 
 class Container {
     var Value: int { get; set; }

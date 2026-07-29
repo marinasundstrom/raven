@@ -20,10 +20,10 @@ public sealed class ForStatementSemanticTests : CompilationTestBase
         const string source = """
 import System.Collections.Generic.*
 
-val numbers = List<System.Int32>()
+let numbers = List<System.Int32>()
 
 for _ in numbers {
-    val value = 0
+    let value = 0
 }
 """;
 
@@ -47,10 +47,10 @@ for _ in numbers {
         const string source = """
 import System.Collections.Generic.*
 
-val numbers = List<System.Int32>()
+let numbers = List<System.Int32>()
 
-for val _ in numbers {
-    val value = 0
+for let _ in numbers {
+    let value = 0
 }
 """;
 
@@ -76,10 +76,10 @@ for val _ in numbers {
         const string source = """
 import System.Collections.Generic.*
 
-val numbers = List<System.Int32>()
+let numbers = List<System.Int32>()
 
 for in numbers {
-    val value = 0
+    let value = 0
 }
 """;
 
@@ -103,10 +103,10 @@ for in numbers {
         const string source = """
 import System.Collections.Generic.*
 
-val numbers = List<System.Int32>()
+let numbers = List<System.Int32>()
 
-for val number in numbers {
-    val copy = number
+for let number in numbers {
+    let copy = number
 }
 """;
 
@@ -130,10 +130,10 @@ for val number in numbers {
     public void For_WithTypedIdentifierTarget_UsesAnnotatedLocalType()
     {
         const string source = """
-val numbers = [|1, 2, 3|]
+let numbers = [|1, 2, 3|]
 
 for number: long in numbers {
-    val copy = number
+    let copy = number
 }
 """;
 
@@ -162,10 +162,10 @@ for number: long in numbers {
     public void For_WithOuterValTypedIdentifierTarget_UsesAnnotatedLocalType()
     {
         const string source = """
-val numbers = [|1, 2, 3|]
+let numbers = [|1, 2, 3|]
 
-for val number: long in numbers {
-    val copy = number
+for let number: long in numbers {
+    let copy = number
 }
 """;
 
@@ -189,7 +189,7 @@ for val number: long in numbers {
     public void For_WithIncompatibleTypedIdentifierTarget_ReportsDiagnostic()
     {
         const string source = """
-val numbers = [|1, 2, 3|]
+let numbers = [|1, 2, 3|]
 
 for number: string in numbers {
     number
@@ -207,9 +207,9 @@ for number: string in numbers {
     public void For_WithOuterValPatternTarget_BindsImplicitPatternCaptures()
     {
         const string source = """
-val persons = [(1, "Ada", 20)]
+let persons = [(1, "Ada", 20)]
 
-for val (1, name, _) in persons {
+for let (1, name, _) in persons {
     name.Length
 }
 """;
@@ -234,7 +234,7 @@ for val (1, name, _) in persons {
     public void For_WithOuterVarPatternTarget_BindsMutableImplicitCaptures()
     {
         const string source = """
-val persons = [(1, "Ada", 20)]
+let persons = [(1, "Ada", 20)]
 
 for var (1, name, _) in persons {
     name = name + "!"
@@ -262,9 +262,9 @@ for var (1, name, _) in persons {
     public void For_WithTrailingWholePatternDesignation_BindsIterationElement()
     {
         const string source = """
-val points: (int, double)[] = [(2, 1.0), (2, 0.25)]
+let points: (int, double)[] = [(2, 1.0), (2, 0.25)]
 
-for val (2, > 0.5) point in points {
+for let (2, > 0.5) point in points {
     point.Item1
 }
 """;
@@ -299,7 +299,7 @@ union Option<T> {
 
 class C {
     func Test(inputs: Option<(string, int)>[]) {
-        for val Some((first, >= 18)) whole in inputs {
+        for let Some((first, >= 18)) whole in inputs {
             first.Length
             whole
         }
@@ -328,9 +328,9 @@ class C {
         const string source = """
 record class Person(Name: string, Age: int)
 
-val people = [Person("Ada", 42)]
+let people = [Person("Ada", 42)]
 
-for val (Name: name: string, Age: age: int) in people {
+for let (Name: name: string, Age: age: int) in people {
     _ = name
     _ = age
 }
@@ -356,7 +356,7 @@ for val (Name: name: string, Age: age: int) in people {
         const string source = """
 import System.Collections.Generic.*
 
-val numbers = List<System.Int32>()
+let numbers = List<System.Int32>()
 
 for var number in numbers {
     number
@@ -484,8 +484,8 @@ for c in 'a'..'z' {
     public void ForRange_WithDecimalBounds_UsesDecimalIterationType()
     {
         const string source = """
-val start: decimal = 1
-val end: decimal = 3
+let start: decimal = 1
+let end: decimal = 3
 
 for value in start..end {
 }
@@ -563,7 +563,7 @@ for x in 0..10 by 0 {
         const string source = """
 import System.Collections.Generic.*
 
-val items = List<int>()
+let items = List<int>()
 for x in items by 2 {
 }
 """;
@@ -628,12 +628,12 @@ class Counter {
 
 class Runner {
     func Run() {
-        val counter = Counter()
+        let counter = Counter()
         counter.Add(1)
         counter.Add(2)
 
         for item in counter {
-            val value = item
+            let value = item
         }
     }
 }
@@ -681,12 +681,12 @@ extension CounterExt for Counter {
 
 class Runner {
     func Run() {
-        val counter = Counter()
+        let counter = Counter()
         counter.Add(1)
         counter.Add(2)
 
         for item in counter {
-            val value = item
+            let value = item
         }
     }
 }
@@ -711,7 +711,7 @@ class Runner {
     public void For_WithNonEnumerableCollection_ReportsDiagnostic()
     {
         const string source = """
-val number = 42
+let number = 42
 
 for item in number {
 }
@@ -728,9 +728,9 @@ for item in number {
     public void For_WithPatternTarget_LowersBodyToPatternGuard()
     {
         const string source = """
-val points = [(0, 0), (1, 0), (1, 1)]
+let points = [(0, 0), (1, 0), (1, 1)]
 
-for (val x, 0) in points {
+for (let x, 0) in points {
     _ = x
 }
 """;
@@ -757,9 +757,9 @@ for (val x, 0) in points {
     public void For_WithGuardedPatternTarget_BindsGuardedPatternAndCaptures()
     {
         const string source = """
-val orders = [Order(1001, 120), Order(1002, 80)]
+let orders = [Order(1001, 120), Order(1002, 80)]
 
-for val (id, amount when > 100) in orders {
+for let (id, amount when > 100) in orders {
     _ = id
     _ = amount
 }
@@ -801,10 +801,10 @@ record Order(Id: int, Amount: int)
     public void For_WithImplicitTypedPatternTargetMismatch_ReportsDiagnosticOnTypeAnnotation()
     {
         const string source = """
-val pairs = [("one", 1), ("two", 2), ("three", 3)]
-val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+let pairs = [("one", 1), ("two", 2), ("three", 3)]
+let doubled = [for let (key, value) in pairs if value >= 2 => key: value * 2]
 
-for val (key: string, value: string) in doubled {
+for let (key: string, value: string) in doubled {
     _ = key
     _ = value
 }
@@ -827,9 +827,9 @@ for val (key: string, value: string) in doubled {
         const string source = """
 import System.Collections.Immutable.*
 
-val doubled: ImmutableDictionary<string, int> = ["two": 4]
+let doubled: ImmutableDictionary<string, int> = ["two": 4]
 
-for val (key: string, value: string) in doubled {
+for let (key: string, value: string) in doubled {
     _ = key
     _ = value
 }

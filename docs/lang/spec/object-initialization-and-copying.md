@@ -15,7 +15,7 @@ an explicit constructor call may supply arguments. The compiler constructs the
 instance and then applies initializer entries in source order.
 
 ```raven
-val window = Window {
+let window = Window {
     Title = "Main"
     Width = 800
     Height = 600
@@ -30,7 +30,7 @@ class Settings {
     val FontSize: int { init; }
 }
 
-val settings = Settings {
+let settings = Settings {
     Theme = "Dark"
     FontSize = 14
 }
@@ -45,7 +45,7 @@ Initializer bodies consist of a sequence of **member entries** and **content ent
 Event subscription is valid in object initializers:
 
 ```raven
-val button = Button {
+let button = Button {
     Clicked += () => WriteLine("clicked")
 }
 ```
@@ -55,7 +55,7 @@ Property entries are applied to the newly created instance in source order.
 Initializers may follow constructor arguments:
 
 ```raven
-val person = Person("Ada") {
+let person = Person("Ada") {
     Age = 36
 }
 ```
@@ -74,8 +74,8 @@ class Person {
     required val Age: int { init; }
 }
 
-val p = Person { Name = "Ada", Age = 36 }   // ok
-val q = Person { Name = "Ada" }             // error: Age must be set
+let p = Person { Name = "Ada", Age = 36 }   // ok
+let q = Person { Name = "Ada" }             // error: Age must be set
 ```
 
 ### Declaration rules
@@ -92,7 +92,7 @@ A constructor may satisfy required members directly. Such constructors are annot
 record Person(Name: string, Age: int)
 // primary record constructor is treated as [SetsRequiredMembers]
 
-val p = Person("Ada", 36)   // ok
+let p = Person("Ada", 36)   // ok
 ```
 
 `record Name(...)` is shorthand for `record class Name(...)`. Use
@@ -131,7 +131,7 @@ Required members declared on base types are inherited by derived types and must 
 `with` expressions operate in initializer context. Required members may be assigned within a `with` initializer just as in object initializers:
 
 ```raven
-val p2 = p with { Age = 37 }
+let p2 = p with { Age = 37 }
 ```
 
 ## With expressions
@@ -139,7 +139,7 @@ val p2 = p with { Age = 37 }
 A **with expression** creates a copy of a value and applies a list of member assignments without mutating the original instance. The syntax is:
 
 ```raven
-val updated = point with {
+let updated = point with {
     X = 10
     Y = 20
 }
@@ -155,8 +155,8 @@ preserving the original:
 ```raven
 record Point(X: int, Y: int)
 
-val origin = Point { X = 0, Y = 0 }
-val moved = origin with { X = 10 }
+let origin = Point { X = 0, Y = 0 }
+let moved = origin with { X = 10 }
 ```
 
 For records, synthesized copy/clone behavior follows the record value shape and therefore includes only public promoted properties; non-public promoted properties are not copied by synthesized record copy semantics.

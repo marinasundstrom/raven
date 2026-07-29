@@ -76,7 +76,7 @@ import System.ComponentModel.*
 
 class Program {
     static func Run() -> unit {
-        val handler: PropertyChangedEventHandler = (sender, args) => {
+        let handler: PropertyChangedEventHandler = (sender, args) => {
             Console.WriteLine(args.PropertyName ?? "")
         }
     }
@@ -124,7 +124,7 @@ class MyViewModel : ObservableBase {
 
 class Program {
     static func Main() -> unit {
-        val viewModel = MyViewModel()
+        let viewModel = MyViewModel()
         viewModel.PropertyChanged += (sender, args) => {
             Console.WriteLine(args.PropertyName ?? "")
         }
@@ -184,7 +184,7 @@ class MyViewModel : ObservableBase {
 
 class Program {
     static func Main() -> unit {
-        val viewModel = MyViewModel()
+        let viewModel = MyViewModel()
         viewModel.PropertyChanged += (sender, args) => {
             Console.WriteLine(args.PropertyName ?? "")
         }
@@ -297,7 +297,7 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val lambda = (value: int) => value + 1
+        let lambda = (value: int) => value + 1
         lambda(1)
     }
 }
@@ -328,7 +328,7 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val f = func (a: int, b: int) => a + b
+        let f = func (a: int, b: int) => a + b
         f(1, 2)
     }
 }
@@ -353,7 +353,7 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val f = func (a: int, b: int) => {
+        let f = func (a: int, b: int) => {
             a + b
         }
         f(1, 2)
@@ -382,7 +382,7 @@ import System.Collections.Generic.*
 
 class Container {
     func Provide() -> unit {
-        val values = func () => {
+        let values = func () => {
             yield return 1
             yield return 2
         }
@@ -414,7 +414,7 @@ import System.Collections.Generic.*
 
 class Container {
     func Provide() -> unit {
-        val values = async func () => {
+        let values = async func () => {
             yield return 1
             yield return 2
         }
@@ -444,8 +444,8 @@ class Container {
 import System.*
 class Container {
     func Provide() -> int {
-        val offset = 2
-        val f = func (value: int) {
+        let offset = 2
+        let f = func (value: int) {
             value + offset
         }
         f(3)
@@ -469,7 +469,7 @@ class Container {
         const string code = """
 class Container {
     func Provide() -> int {
-        val f = func Fib(n: int) -> int {
+        let f = func Fib(n: int) -> int {
             if n < 2 {
                 n
             } else {
@@ -500,7 +500,7 @@ class Container {
         const string code = """
 class Container {
     func Provide() -> int {
-        val f = func Fib(n: int) -> int {
+        let f = func Fib(n: int) -> int {
             if n < 2
                 n
             else
@@ -531,7 +531,7 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val f: (int, int) -> int = func (a: int, b: int) => a + b
+        let f: (int, int) -> int = func (a: int, b: int) => a + b
         f(1, 2)
     }
 }
@@ -555,7 +555,7 @@ import System.Numerics.*
 
 class Container {
     func Provide() -> int {
-        val f = func<T>(a: T, b: T) where T: INumber<T> {
+        let f = func<T>(a: T, b: T) where T: INumber<T> {
             a
         }
 
@@ -584,7 +584,7 @@ class Container {
         const string code = """
 class Container {
     func Provide() -> unit {
-        val f: (int) -> int = func Fib(n: int) => Fib(n)
+        let f: (int) -> int = func Fib(n: int) => Fib(n)
     }
 }
 """;
@@ -609,7 +609,7 @@ class Container {
         const string code = """
 class Container {
     func Provide() -> int {
-        val f: (int) -> int = func Fib(n: int) -> int {
+        let f: (int) -> int = func Fib(n: int) -> int {
             if n < 2
                 n
             else
@@ -637,7 +637,7 @@ class Container {
         const string code = """
 class Container {
     func Provide() -> unit {
-        val f: (int) -> int = func Fib(n: int) => Fib(n)
+        let f: (int) -> int = func Fib(n: int) => Fib(n)
         Fib(1)
     }
 }
@@ -657,10 +657,10 @@ class Container {
     delegate MyHandler(value: int) -> unit
 
     func Provide() -> unit {
-        val action: Action<int> = func (x: int) {
+        let action: Action<int> = func (x: int) {
         }
 
-        val handler: Container.MyHandler = func (x: int) {
+        let handler: Container.MyHandler = func (x: int) {
         }
     }
 }
@@ -688,7 +688,7 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val f = (name: string, age: int = 1) => age
+        let f = (name: string, age: int = 1) => age
     }
 }
 """;
@@ -719,7 +719,7 @@ import System.*
 
 class Container {
     func Provide() -> unit {
-        val f = [Obsolete](content: string) => content
+        let f = [Obsolete](content: string) => content
     }
 }
 """;
@@ -749,8 +749,8 @@ import System.Linq.*
 
 class Container {
     func Run() -> unit {
-        val arr = [1, -1, 3]
-        val result = arr.Select(n => if n < 0 { 0 } else { n * 2 })
+        let arr = [1, -1, 3]
+        let result = arr.Select(n => if n < 0 { 0 } else { n * 2 })
     }
 }
 """;
@@ -768,11 +768,11 @@ import System.Linq.*
 
 class Container {
     func Run() -> unit {
-        val pairs = [(2, "foo"), (3, "bar")]
-        val words = pairs.Select(((number, text)) => text)
+        let pairs = [(2, "foo"), (3, "bar")]
+        let words = pairs.Select(((number, text)) => text)
 
-        val rows = [[1, 2, 3], [4, 5, 6]]
-        val tails = rows.Select(([head, ..tail]) => tail)
+        let rows = [[1, 2, 3], [4, 5, 6]]
+        let tails = rows.Select(([head, ..tail]) => tail)
     }
 }
 """;
@@ -821,8 +821,8 @@ public union Option<T> {
 
 class Container {
     func Run() -> unit {
-        val arr = [1, -1, 3]
-        val result = arr.Select(n => if n < 0 {
+        let arr = [1, -1, 3]
+        let result = arr.Select(n => if n < 0 {
             Option<int>.None
         } else {
             Option<int>.Some(n * 2)
@@ -850,8 +850,8 @@ union Result<T, E> {
 
 class Container {
     func Run() -> unit {
-        val arr = [1, -1, 3]
-        val result = arr.Select(n => if n < 0 {
+        let arr = [1, -1, 3]
+        let result = arr.Select(n => if n < 0 {
             Result<int, string>.Error("neg")
         } else {
             Result<int, string>.Ok(n * 2)
@@ -901,8 +901,8 @@ union Response<T, E> {
 
 class Container {
     func Run() -> unit {
-        val arr = [1, -1, 3]
-        val result = arr.Select(n => if n < 0 {
+        let arr = [1, -1, 3]
+        let result = arr.Select(n => if n < 0 {
             Response<int, string>.Failure("neg")
         } else {
             Response<int, string>.Success(n * 2)
@@ -947,8 +947,8 @@ import System.Linq.*
 
 class Container {
     func Run() -> unit {
-        val arr = [1, -1, 3]
-        val result = arr.Select(n => if n < 0 {
+        let arr = [1, -1, 3]
+        let result = arr.Select(n => if n < 0 {
             InvalidOperationException()
         } else {
             ApplicationException()
@@ -995,8 +995,8 @@ class B {
 
 class Container {
     func Run() -> unit {
-        val arr = [1, -1, 3]
-        val result = arr.Select(n => if n < 0 { A() } else { B() })
+        let arr = [1, -1, 3]
+        let result = arr.Select(n => if n < 0 { A() } else { B() })
     }
 }
 """;
@@ -1028,8 +1028,8 @@ record class RatePlan(Carrier: string)
 
 class Container {
     func HasCarrier(carrier: string) -> bool {
-        val plans: List<RatePlan> = [RatePlan("NorthStar")]
-        val selected = plans.Where(p => p.Carrier == carrier)
+        let plans: List<RatePlan> = [RatePlan("NorthStar")]
+        let selected = plans.Where(p => p.Carrier == carrier)
         return selected.Any()
     }
 }
@@ -1047,8 +1047,8 @@ class Container {
 import System.*
 class Container {
     func Provide() -> unit {
-        val projector = (value: int) => value + 2
-        val result = projector(1)
+        let projector = (value: int) => value + 2
+        let result = projector(1)
     }
 }
 """;
@@ -1099,8 +1099,8 @@ class Container {
         const string code = """
 import System.*
 
-val projector = (value: int) => value + 2
-val result = projector(1)
+let projector = (value: int) => value + 2
+let result = projector(1)
 """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -1198,7 +1198,7 @@ class Container {
 import System.*
 class Calculator {
     func Compute() -> int {
-        val add = (left: int, right: int) -> int => left + right
+        let add = (left: int, right: int) -> int => left + right
         return add(2, 3)
     }
 }
@@ -1230,7 +1230,7 @@ class Calculator {
         const string code = """
 import System.*
 
-val makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
+let makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
 """;
 
         var (compilation, _) = CreateCompilation(code, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -1314,7 +1314,7 @@ import System.*
 import System.Console.*
 import System.Collections.Generic.*
 
-val items: List<int> = [1, 2, 3]
+let items: List<int> = [1, 2, 3]
 ForEach(items, WriteLine)
 
 func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
@@ -1350,7 +1350,7 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
         const string source = """
 import System.Collections.Generic.*
 
-val items: IEnumerable<int> = [1, 2, 3]
+let items: IEnumerable<int> = [1, 2, 3]
 ForEach(items, x => {})
 
 func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
@@ -1421,7 +1421,7 @@ class PropertyBuilder<TModel> {
 
 class Program {
     static func Main() -> unit {
-        val builder = PropertyBuilder<VehicleStatus>()
+        let builder = PropertyBuilder<VehicleStatus>()
         builder.HasConversion<string>(
             status => VehicleStatus.Serialize(status),
             json => VehicleStatus.Deserialize(json))
@@ -1471,7 +1471,7 @@ class GET<T> : Endpoint {
     init(pattern: string, handler: T -> string) : base(handler) { }
 }
 
-val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1515,7 +1515,7 @@ class GET<T> : Endpoint {
     init(pattern: string, handler: T -> string) : base(handler) { }
 }
 
-val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1553,7 +1553,7 @@ class GET<T> : Endpoint {
     init(pattern: string, handler: T -> string) : base(handler) { }
 }
 
-val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1638,7 +1638,7 @@ class EntityBuilder<TEntity> {
 
 class Program {
     static func Main() -> unit {
-        val builder = EntityBuilder<Vehicle>()
+        let builder = EntityBuilder<Vehicle>()
         builder.ComplexProperty(vehicle => vehicle.Status, property => property.ToJson())
     }
 }
@@ -1676,7 +1676,7 @@ import System.*
 import System.Linq.*
 
 func Main() {
-    val o = [1, 2, 3].ToDictionary(x => x, y => y)
+    let o = [1, 2, 3].ToDictionary(x => x, y => y)
 }
 """;
         var options = new CompilationOptions(OutputKind.ConsoleApplication);
@@ -1744,8 +1744,8 @@ class Container {
         const string code = """
 class C {
     func M() -> int {
-        val offset = 2
-        val f = static func (x: int) {
+        let offset = 2
+        let f = static func (x: int) {
             x + offset
         }
 
@@ -1772,11 +1772,11 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 async func Main() -> Task {
-    val f = async func (a: int, b: int) {
+    let f = async func (a: int, b: int) {
         await Task.FromResult(a + b)
     }
 
-    val x = f(2, 3).ContinueWith(x => {
+    let x = f(2, 3).ContinueWith(x => {
         x.Result
     })
 
@@ -1935,9 +1935,9 @@ func apply(value: int, transform: int -> int) -> int {
     transform(value)
 }
 
-val doubled = x => x * 2
+let doubled = x => x * 2
 
-val result = apply(5, doubled)
+let result = apply(5, doubled)
 """;
 
         var verifier = CreateVerifier(
@@ -1982,8 +1982,8 @@ import System.Linq.*
 
 class Container {
     func Test() -> unit {
-        val x2: int[][] = [[1, 2], [2, 3, 4]]
-        val r2 = x2.Select(([a, ..rest]) => b)
+        let x2: int[][] = [[1, 2], [2, 3, 4]]
+        let r2 = x2.Select(([a, ..rest]) => b)
     }
 }
 """;

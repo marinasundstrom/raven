@@ -117,11 +117,11 @@ public class RecordDeclarationParserTests : DiagnosticTestBase
             import System.Threading.Tasks.*
 
             async func Main() -> Task {
-                val f = async func (a: int, b: int) {
+                let f = async func (a: int, b: int) {
                     await Task.FromResult(a + b)
                 }
 
-                val f1 = f(2, 3).ContinueWith(x => {
+                let f1 = f(2, 3).ContinueWith(x => {
                     //x.Result
                     2
                 })

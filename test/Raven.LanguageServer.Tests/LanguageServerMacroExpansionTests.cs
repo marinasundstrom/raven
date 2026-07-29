@@ -284,7 +284,7 @@ import Raven.LanguageServer.Tests.*
 
 class Harness {
     func Run(viewModel: CounterViewModel) {
-        val subscription = subscribe!(viewModel.Count, (value) => {
+        let subscription = subscribe!(viewModel.Count, (value) => {
             WriteLine(value)
         })
     }
@@ -361,7 +361,7 @@ class Harness {
     func WriteLine(value: int) -> unit { }
 
     func Run(viewModel: CounterViewModel) -> unit {
-        val subscription = subscribe!(viewModel.Count, (value) => {
+        let subscription = subscribe!(viewModel.Count, (value) => {
             WriteLine(value)
         })
     }
@@ -405,7 +405,7 @@ class MyViewModel {
 
 class Program {
     static func Main() -> unit {
-        val viewModel = MyViewModel()
+        let viewModel = MyViewModel()
         viewModel.Title = "Hello from Raven"
     }
 }

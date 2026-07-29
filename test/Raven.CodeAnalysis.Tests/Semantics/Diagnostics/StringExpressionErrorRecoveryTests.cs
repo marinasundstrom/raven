@@ -10,7 +10,7 @@ public class StringExpressionErrorRecoveryTests : DiagnosticTestBase
         const string code = """
         class Foo {
             func Test() -> unit {
-                val value = "Value: ${missing}"
+                let value = "Value: ${missing}"
             }
         }
         """;
@@ -28,7 +28,7 @@ public class StringExpressionErrorRecoveryTests : DiagnosticTestBase
         const string code = """
         class Foo {
             func Test() -> unit {
-                val value = "Value: " + missing
+                let value = "Value: " + missing
             }
         }
         """;

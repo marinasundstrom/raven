@@ -13,8 +13,8 @@ public sealed class IncompleteExtensionInvocationTests : CompilationTestBase
 import System.Collections.Generic.*
 import System.Linq.*
 
-val numbers = List<int>()
-val any = numbers.Any(
+let numbers = List<int>()
+let any = numbers.Any(
 """;
 
         var (compilation, tree) = CreateCompilation(source);

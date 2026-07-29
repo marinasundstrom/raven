@@ -9,7 +9,7 @@ public class SemanticModelMappingTests : CompilationTestBase
     [Fact]
     public void GetSyntax_ReturnsSyntaxForBoundExpression()
     {
-        var (compilation, tree) = CreateCompilation("func Main() { val x = 1 + 2; }");
+        var (compilation, tree) = CreateCompilation("func Main() { let x = 1 + 2; }");
         var model = compilation.GetSemanticModel(tree);
 
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
@@ -25,7 +25,7 @@ public class SemanticModelMappingTests : CompilationTestBase
     [Fact]
     public void GetSyntax_ReturnsSyntaxForBoundStatement()
     {
-        var (compilation, tree) = CreateCompilation("func Main() { if true { val x = 0; } }");
+        var (compilation, tree) = CreateCompilation("func Main() { if true { let x = 0; } }");
         var model = compilation.GetSemanticModel(tree);
 
         var ifStatement = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().Single();
@@ -101,7 +101,7 @@ class C {
 class C {
     func Run(values: int[]) -> int {
         return match values {
-            [val head, ..val rest] => rest.Length + head
+            [let head, ..let rest] => rest.Length + head
             _ => 0
         }
     }
@@ -130,7 +130,7 @@ class Person(val Id: int, val Name: string)
 
 class C {
     func Run(person: Person) -> int {
-        if val Person(id, name) = person {
+        if let Person(id, name) = person {
             return name.Length + id
         }
 
@@ -160,7 +160,7 @@ class Person(val Id: int, val Name: string, val Age: int)
 
 class C {
     func Run(person: Person) -> int {
-        if val Person(1, name, _) = person {
+        if let Person(1, name, _) = person {
             return name.Length
         }
 
@@ -193,7 +193,7 @@ class Person(val Id: int, val Name: string)
 
 class C {
     func Run(persons: Person[]) {
-        for val Person(1, _) person in persons {
+        for let Person(1, _) person in persons {
             person.Name
         }
     }
@@ -221,8 +221,8 @@ record Person(val Name: string, val Age: int, val Items: string[])
 
 class C {
     func Run() {
-        val people = [Person("Ada", 42, ["tea", "cake"])]
-        for val (name, age when > 18, [item1, item2]) in people {
+        let people = [Person("Ada", 42, ["tea", "cake"])]
+        for let (name, age when > 18, [item1, item2]) in people {
             name.Length + age + item1.Length + item2.Length
         }
     }
@@ -286,11 +286,11 @@ class C {
         const string code = """
 class C {
     func Run() {
-        val people = [(1, "Ada"), (2, "Bob")]
-        val names = [for val (2, name) in people => name]
+        let people = [(1, "Ada"), (2, "Bob")]
+        let names = [for let (2, name) in people => name]
 
-        val pairs = [("one", 1), ("two", 2)]
-        val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+        let pairs = [("one", 1), ("two", 2)]
+        let doubled = [for let (key, value) in pairs if value >= 2 => key: value * 2]
     }
 }
 """;
@@ -325,7 +325,7 @@ union Option<T> {
 class C {
     func Run(value: Option<int>) -> int {
         return match value {
-            val Some(inner) whole => inner
+            let Some(inner) whole => inner
             _ => 0
         }
     }

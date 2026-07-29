@@ -25,8 +25,8 @@ class Outer<A> {
     }
 }
 
-val a = Foo<int>.Bar()
-val b = Outer<int>.Inner<string>()
+let a = Foo<int>.Bar()
+let b = Outer<int>.Inner<string>()
 """;
 
     [Fact]

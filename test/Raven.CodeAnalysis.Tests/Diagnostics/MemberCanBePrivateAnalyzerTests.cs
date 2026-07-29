@@ -9,7 +9,7 @@ public class MemberCanBePrivateAnalyzerTests : AnalyzerTestBase
     public void PublicMethod_OnlyUsedInsideType_ReportsDiagnostic()
     {
         const string code = """
-val x = 0
+let x = 0
 
 class Counter {
     public func Increment() -> () { }
@@ -38,7 +38,7 @@ class Counter {
     public void PublicMethod_UsedOutsideType_DoesNotReport()
     {
         const string code = """
-val counter = Counter()
+let counter = Counter()
 counter.Increment()
 
 class Counter {

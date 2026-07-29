@@ -378,7 +378,7 @@ class MacroPlugin { }
 """);
         var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
         WriteRavenFile(filePath, """
-val x = 1
+let x = 1
 """);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -957,7 +957,7 @@ func Main() -> unit { }
 """);
         var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
         WriteRavenFile(sourcePath, """
-val value = 1
+let value = 1
 """);
 
         var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
@@ -977,11 +977,11 @@ val value = 1
         manager.TryGetDocument(uri, out var initialDocument).ShouldBeTrue();
         var initialText = await initialDocument!.GetTextAsync();
         initialText.ToString().ShouldBe("""
-val value = 1
+let value = 1
 """);
 
         WriteRavenFile(sourcePath, """
-val value = 2
+let value = 2
 """);
 
         await manager.ReloadForWatchedFilesAsync([
@@ -996,7 +996,7 @@ val value = 2
         manager.TryGetDocument(uri, out var document).ShouldBeTrue();
         var text = await document!.GetTextAsync();
         text.ToString().ShouldBe("""
-val value = 2
+let value = 2
 """);
     }
 
@@ -1016,7 +1016,7 @@ val value = 2
 """);
         var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
         WriteRavenFile(sourcePath, """
-val value = 1
+let value = 1
 """);
 
         var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
@@ -1072,7 +1072,7 @@ val value = 1
 """);
         var mainPath = Path.Combine(_tempRoot, "src", "main.rvn");
         WriteRavenFile(mainPath, """
-val value = 1
+let value = 1
 """);
 
         var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
@@ -1128,7 +1128,7 @@ func Created() -> int => 2
 </Project>
 """);
         WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
-val value = 1
+let value = 1
 """);
 
         var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
@@ -1179,7 +1179,7 @@ func Created() -> int => 2
 </Project>
 """);
         WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
-val value = 1
+let value = 1
 """);
 
         var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
@@ -1602,8 +1602,8 @@ func Main() -> string => embedFileContent!("message.txt")
 """);
         var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
         WriteRavenFile(filePath, """
-val first = args.Length
-val second = first + 1
+let first = args.Length
+let second = first + 1
 
 record Data(val Value: int)
 """);
@@ -1683,7 +1683,7 @@ func Main() -> int {
         _ = await store.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
 
         var transitionedText = """
-val first = args.Length
+let first = args.Length
 
 if first >= 0 {
     func Parse() -> int => first
@@ -1743,7 +1743,7 @@ record Data(val Value: int)
         var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
         WriteRavenFile(filePath, """
 func Main() -> unit {
-    val text: string? = null
+    let text: string? = null
 }
 """);
 

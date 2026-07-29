@@ -42,8 +42,8 @@ Console.WriteLine("Hello")
         const string source = """
 import Utility.*
 
-val built = Build()
-val tapped = Tap()
+let built = Build()
+let tapped = Tap()
 
 class Utility {
     static func Build() -> int {

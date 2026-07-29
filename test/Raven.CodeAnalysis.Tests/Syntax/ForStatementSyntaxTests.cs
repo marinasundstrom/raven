@@ -31,7 +31,7 @@ for x: int in items {
     public void For_WithOuterValTypedIdentifierTarget_ParsesTargetAnnotation()
     {
         const string source = """
-for val x: int in items {
+for let x: int in items {
 }
 """;
 
@@ -52,7 +52,7 @@ for val x: int in items {
     public void For_WithOuterValImplicitTypedPositionalTarget_ParsesTargetAnnotations()
     {
         const string source = """
-for val (key: string, value: int) in items {
+for let (key: string, value: int) in items {
 }
 """;
 
@@ -87,7 +87,7 @@ for val (key: string, value: int) in items {
     public void For_WithOuterValImplicitTypedSequenceTarget_ParsesTargetAnnotations()
     {
         const string source = """
-for val [head: string, ..tail: string[]] in items {
+for let [head: string, ..tail: string[]] in items {
 }
 """;
 

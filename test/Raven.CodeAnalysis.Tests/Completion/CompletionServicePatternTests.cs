@@ -70,7 +70,7 @@ func Test(value: Foo) -> bool {
         const string code = """
 class C {
     func Run(points: (int, int)[]) -> int {
-        for (val x, 0) in points {
+        for (let x, 0) in points {
             x.
         }
 
@@ -124,7 +124,7 @@ class C {
         const string code = """
 class C {
     func Run() -> int {
-        val point = (2, 3)
+        let point = (2, 3)
         point.
 
         return 0
@@ -236,7 +236,7 @@ class Person(val Id: int, val Name: string)
 
 class C {
     func Run(person: Person) -> int {
-        if val Person(id, name) = person {
+        if let Person(id, name) = person {
             name.
         }
 
@@ -264,7 +264,7 @@ class C {
 class C {
     func Run(values: int[]) -> int {
         return match values {
-            [val head, ..val rest] => rest.
+            [let head, ..let rest] => rest.
             _ => 0
         }
     }
@@ -290,7 +290,7 @@ class C {
 class C {
     func Run(values: int[4]) -> int {
         return match values {
-            [val first, val second, ...val rest] => rest.
+            [let first, let second, ...let rest] => rest.
             _ => 0
         }
     }

@@ -19,7 +19,7 @@ class Container {
     private init() {}
 }
 
-val instance = Container();
+let instance = Container();
 """;
 
         var verifier = CreateVerifier(
@@ -42,8 +42,8 @@ class Container {
     }
 }
 
-val instance = Container();
-val value = instance.secret;
+let instance = Container();
+let value = instance.secret;
 """;
 
         var verifier = CreateVerifier(
@@ -151,7 +151,7 @@ internal class Hidden {}
         const string source = """
 import Lib.*
 
-val value: Hidden = default(Hidden)
+let value: Hidden = default(Hidden)
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -191,8 +191,8 @@ public class Exported {}
         const string source = """
 import Lib.*
 
-val hidden: Hidden = default(Hidden)
-val exported: Exported = Exported()
+let hidden: Hidden = default(Hidden)
+let exported: Exported = Exported()
 """;
 
         var tree = SyntaxTree.ParseText(source);

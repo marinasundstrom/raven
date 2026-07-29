@@ -16,7 +16,7 @@ public class BlockExpressionEarlyExitTests : DiagnosticTestBase
         const string code = """
 class Foo {
     func Test(flag: bool) {
-        val x = if flag {
+        let x = if flag {
             return 42
         } else {
             return ()
@@ -48,7 +48,7 @@ class Foo {
     public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndLeavesErrorType()
     {
         const string code = """
-val x = if true {
+let x = if true {
     return 42
 } else {
     return ()
@@ -86,7 +86,7 @@ val x = if true {
         const string code = """
 class C {
     func M(f: bool) -> bool {
-        val x = {
+        let x = {
             if f {
                 return true
             }
@@ -109,7 +109,7 @@ class C {
         const string code = """
 class C {
     func M(obj: string?) -> () {
-        val foo = obj ?? {
+        let foo = obj ?? {
             return ()
         }
 
@@ -147,7 +147,7 @@ class Foo {
         const string code = """
 class C {
     func M(value: int) -> int {
-        val x = match value {
+        let x = match value {
             0 => {
                 return 1
             }

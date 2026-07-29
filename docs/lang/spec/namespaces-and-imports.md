@@ -29,7 +29,7 @@ and nested types into scope:
 ```raven
 import System.Math.*
 
-val pi = PI
+let pi = PI
 ```
 
 Enum members are constants and participate in type-member imports. A wildcard
@@ -47,10 +47,10 @@ enables consuming .NET helpers such as `System.Linq.Enumerable.Where` or
 import System.Collections.Generic.*
 import System.Linq.*
 
-val odds = List<int>()
+let odds = List<int>()
 odds.Add(1)
 odds.Add(3)
-val filtered = odds.Where(value => value % 2 == 1)
+let filtered = odds.Where(value => value % 2 == 1)
 ```
 
 The compiler treats `Where` as an instance-style invocation even though it is
@@ -138,9 +138,9 @@ alias Pair = (x: int, y: int)
 alias Flag = bool
 alias Text = string
 
-val sb = SB()
+let sb = SB()
 PrintLine("Hi")
-val tmp = IO.Path.GetTempPath()
+let tmp = IO.Path.GetTempPath()
 ```
 
 Aliasing a method binds a specific overload. Multiple directives using the

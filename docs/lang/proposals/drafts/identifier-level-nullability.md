@@ -8,14 +8,14 @@ Nullability is instead expressed through:
 1. **Binding-level syntax**
 
    ```raven
-   val x? : int
+   let x? : int
    Title? : string { get; set; }
    ```
 
 2. **Union types**
 
    ```raven
-   val y : int | null = null
+   let y : int | null = null
    func getUser() -> User | null
    ```
 
@@ -77,7 +77,7 @@ Raven corrects this by:
 Binding-level nullable syntax:
 
 ```raven
-val count? : int
+let count? : int
 var payload? : Payload
 func tryFind(key : string, result? : string) -> bool
 Title? : string { get; set; }
@@ -115,7 +115,7 @@ name? : T
 Raven treats `null` as just another union case:
 
 ```raven
-val x : int | null
+let x : int | null
 func h() -> User | null
 ```
 
@@ -130,8 +130,8 @@ This is the **canonical type form** for nullability.
 ### Relation to binding sugar
 
 ```raven
-val a? : int        // sugar
-val b  : int | null // explicit union
+let a? : int        // sugar
+let b  : int | null // explicit union
 ```
 
 These two are identical to the compiler.
@@ -167,17 +167,17 @@ The Raven developer never writes `T?`, but interop still works seamlessly.
 ## 4. Updated Inference Rules
 
 ```raven
-val x? = GetNullable()        // OK: binding explicitly nullable
-val x  = GetNonNullable()     // OK: inferred non-nullable
+let x? = GetNullable()        // OK: binding explicitly nullable
+let x  = GetNonNullable()     // OK: inferred non-nullable
 
-val x? : int = GetNullable()  // OK
-val x? : int = 5              // OK: sugar for int | null
+let x? : int = GetNullable()  // OK
+let x? : int = 5              // OK: sugar for int | null
 var x : int | null = 5        // OK: same as above
 
 var x? : int | null = 5       // ERROR: nullable on already-nullable type
 
-val x = GetNullable()         // ERROR: nullable initializer requires `?` or `| null`
-val x : int = GetNullable()   // ERROR: nullable → non-nullable
+let x = GetNullable()         // ERROR: nullable initializer requires `?` or `| null`
+let x : int = GetNullable()   // ERROR: nullable → non-nullable
 ```
 
 ### Rule
@@ -202,8 +202,8 @@ Symbol type is always the “base” shape (`T` or a union) — never `T?`.
 In practice:
 
 ```raven
-val n? : int   // symbol type: int | null, IsNullable = true
-val u? : User  // symbol type: User | null, IsNullable = true
+let n? : int   // symbol type: int | null, IsNullable = true
+let u? : User  // symbol type: User | null, IsNullable = true
 ```
 
 At the CLR level:
@@ -227,7 +227,7 @@ Raven’s display rules reflect that.
 For locals, parameters, fields, and properties, the **default symbol display** uses the binding sugar form:
 
 ```raven
-val name? : string
+let name? : string
 func f(user? : User) -> string?
 ```
 
@@ -236,13 +236,13 @@ Examples:
 Declaration:
 
 ```raven
-val name? : string
+let name? : string
 ```
 
 Signature display (default):
 
 ```raven
-val name? : string
+let name? : string
 ```
 
 Declaration:
@@ -273,10 +273,10 @@ T | null
 So for the same declaration:
 
 ```raven
-val name? : string
+let name? : string
 ```
 
-* Signature view: `val name? : string`
+* Signature view: `let name? : string`
 * TypeInfo view: `string | null`
 
 This makes the ergonomics binding-first for humans, but keeps the type system and tools anchored on the union form.
@@ -340,22 +340,22 @@ This is implemented *in Raven*, not hard-coded into the compiler, since `Option<
 Pointer/reference modifiers remain type-level:
 
 ```raven
-val p : *int
-val r : &User
+let p : *int
+let r : &User
 ```
 
 Declaration-level forms are rejected:
 
 ```raven
-val p* = ...
-val r& = ...
+let p* = ...
+let r& = ...
 ```
 
 Nullability combines with them through the same union model:
 
 ```raven
-val r? = &x        // r : &int | null
-val p  : *int | null
+let r? = &x        // r : &int | null
+let p  : *int | null
 ```
 
 ---

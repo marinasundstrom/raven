@@ -89,7 +89,7 @@ class C {
         const string code = """
 class C {
     func Run() -> int? {
-        val value: int? = null
+        let value: int? = null
         return value
     }
 }
@@ -130,7 +130,7 @@ import System.*
 
 class C {
     func Run() -> Action<int>? {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         return f
     }
 }
@@ -168,17 +168,17 @@ class C {
         const string code = """
 class C {
     func EqNull() -> bool {
-        val x: int? = null
+        let x: int? = null
         return x == 1
     }
 
     func EqValue() -> bool {
-        val x: int? = 1
+        let x: int? = 1
         return x == 1
     }
 
     func NeqNull() -> bool {
-        val x: int? = null
+        let x: int? = null
         return x != 1
     }
 }

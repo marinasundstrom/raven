@@ -12,8 +12,8 @@ public class PreferDuLinqExtensionsAnalyzerTests : AnalyzerTestBase
 import System.Linq.*
 
 func Test() {
-    val arr: int[] = [1, 2, 3]
-    val first = arr.First()
+    let arr: int[] = [1, 2, 3]
+    let first = arr.First()
 }
 """;
 
@@ -37,8 +37,8 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr: int[] = [1, 2, 3]
-    val maybeFirst = arr.FirstOrDefault()
+    let arr: int[] = [1, 2, 3]
+    let maybeFirst = arr.FirstOrDefault()
 }
 """;
 
@@ -62,9 +62,9 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr: int[] = [1, 2, 3]
-    val first = arr.FirstOrError(() => "no items")
-    val maybe = arr.FirstOrNone()
+    let arr: int[] = [1, 2, 3]
+    let first = arr.FirstOrError(() => "no items")
+    let maybe = arr.FirstOrNone()
 }
 """;
 

@@ -21,7 +21,7 @@ func CreateResource() -> Resource {
 }
 
 func Test() -> () {
-    val resource = CreateResource()
+    let resource = CreateResource()
 }
 """;
 
@@ -81,7 +81,7 @@ func CreateResource() -> Resource {
 }
 
 func Test() -> () {
-    val resource = CreateResource()
+    let resource = CreateResource()
     resource.Dispose()
 }
 """;
@@ -198,7 +198,7 @@ class Resource : IDisposable {
 }
 
 func Test() -> () {
-    val resource = Resource()
+    let resource = Resource()
 }
 """;
 

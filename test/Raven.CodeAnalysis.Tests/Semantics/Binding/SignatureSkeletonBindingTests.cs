@@ -20,8 +20,8 @@ union Option<T> {
     case None
 }
 
-val foo = Foo(42)
-val result = await foo(true)
+let foo = Foo(42)
+let result = await foo(true)
 
 class Foo(value: int) {
     async func Test(flag: bool) -> Task<Option<int>> {

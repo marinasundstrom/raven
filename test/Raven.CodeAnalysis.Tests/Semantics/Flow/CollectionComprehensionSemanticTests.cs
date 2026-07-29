@@ -20,8 +20,8 @@ public class CollectionComprehensionSemanticTests : DiagnosticTestBase
 import System.*
 import System.Linq.*
 
-val numbers = [1, 2, 3, 4]
-val result = [for n in numbers if n % 2 == 0 => n * n]
+let numbers = [1, 2, 3, 4]
+let result = [for n in numbers if n % 2 == 0 => n * n]
 """;
 
         var verifier = CreateVerifier(source);
@@ -51,8 +51,8 @@ val result = [for n in numbers if n % 2 == 0 => n * n]
 import System.*
 import System.Linq.*
 
-val numbers = [1, 2, 3, 4]
-val result = [for n in numbers => n * n]
+let numbers = [1, 2, 3, 4]
+let result = [for n in numbers => n * n]
 """;
 
         var verifier = CreateVerifier(source);
@@ -82,7 +82,7 @@ val result = [for n in numbers => n * n]
 import System.*
 import System.Linq.*
 
-val result = [for n in 4..250 if n % 2 == 0 => n * n]
+let result = [for n in 4..250 if n % 2 == 0 => n * n]
 """;
 
         var verifier = CreateVerifier(source);
@@ -111,8 +111,8 @@ val result = [for n in 4..250 if n % 2 == 0 => n * n]
     public void CollectionComprehension_WithDeconstructionTarget_BindsPatternLocals()
     {
         const string source = """
-val people = [(1, "Ada"), (2, "Bob")]
-val names = [for val (id, name) in people if id > 1 => name]
+let people = [(1, "Ada"), (2, "Bob")]
+let names = [for let (id, name) in people if id > 1 => name]
 """;
 
         var verifier = CreateVerifier(source);
@@ -137,8 +137,8 @@ val names = [for val (id, name) in people if id > 1 => name]
     public void CollectionComprehension_WithGuardedBindingTarget_BindsPatternLocals()
     {
         const string source = """
-val people = [(1, "Ada"), (2, "Beatrice"), (3, "Cecil")]
-val names = [for val (id, name when name.Length > id) in people => name]
+let people = [(1, "Ada"), (2, "Beatrice"), (3, "Cecil")]
+let names = [for let (id, name when name.Length > id) in people => name]
 """;
 
         var verifier = CreateVerifier(source);
@@ -165,8 +165,8 @@ val names = [for val (id, name when name.Length > id) in people => name]
         const string source = """
 record class Person(Name: string, Age: int)
 
-val people = [Person("Ada", 42)]
-val names = [for val (Name: name: string, Age: age: int) in people => name]
+let people = [Person("Ada", 42)]
+let names = [for let (Name: name: string, Age: age: int) in people => name]
 """;
 
         var verifier = CreateVerifier(
@@ -187,8 +187,8 @@ val names = [for val (Name: name: string, Age: age: int) in people => name]
     public void DictionaryComprehension_WithDeconstructionTarget_InfersDictionaryShape()
     {
         const string source = """
-val pairs = [("a", 1), ("bb", 2)]
-val lengths = [for val (key, value) in pairs => key: value]
+let pairs = [("a", 1), ("bb", 2)]
+let lengths = [for let (key, value) in pairs => key: value]
 """;
 
         var verifier = CreateVerifier(source);
@@ -217,7 +217,7 @@ val lengths = [for val (key, value) in pairs => key: value]
         const string source = """
 import System.Collections.Immutable.*
 
-val lengths: ImmutableDictionary<string, int> = [for text in [|"a", "bb", "ccc"|] => text: text.Length]
+let lengths: ImmutableDictionary<string, int> = [for text in [|"a", "bb", "ccc"|] => text: text.Length]
 """;
 
         var verifier = CreateVerifier(source);
@@ -244,7 +244,7 @@ val lengths: ImmutableDictionary<string, int> = [for text in [|"a", "bb", "ccc"|
         const string source = """
 import System.Collections.Immutable.*
 
-val lengths: ImmutableList<int> = [for text in [|"a", "bb", "ccc"|] => text.Length]
+let lengths: ImmutableList<int> = [for text in [|"a", "bb", "ccc"|] => text.Length]
 """;
 
         var verifier = CreateVerifier(source);
@@ -272,8 +272,8 @@ val lengths: ImmutableList<int> = [for text in [|"a", "bb", "ccc"|] => text.Leng
         const string source = """
 record class Person(Name: string, Age: int)
 
-val people = [Person("Ada", 42)]
-val map = [for val (Name: name: string, Age: age: int) in people => name: age]
+let people = [Person("Ada", 42)]
+let map = [for let (Name: name: string, Age: age: int) in people => name: age]
 """;
 
         var verifier = CreateVerifier(

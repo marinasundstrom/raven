@@ -15,7 +15,7 @@ class Logger {
     static func Log(value: int) -> unit {}
 }
 
-val callback = Logger.Log
+let callback = Logger.Log
 """;
 
         var verifier = CreateVerifier(
@@ -36,7 +36,7 @@ class Logger {
     static func Log(value: double) -> unit {}
 }
 
-val callback: System.Action<int> = Logger.Log
+let callback: System.Action<int> = Logger.Log
 """;
 
         var verifier = CreateVerifier(source, []);
@@ -55,7 +55,7 @@ class Logger {
     static func Log(value: double) -> unit {}
 }
 
-val callback: int -> () = Logger.Log
+let callback: int -> () = Logger.Log
 """;
 
         var verifier = CreateVerifier(source, []);
@@ -73,7 +73,7 @@ class Logger {
     static func Log(value: int) -> unit {}
 }
 
-val callback: System.Action<string> = Logger.Log
+let callback: System.Action<string> = Logger.Log
 """;
 
         var verifier = CreateVerifier(

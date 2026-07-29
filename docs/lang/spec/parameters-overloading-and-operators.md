@@ -128,8 +128,8 @@ class Adder {
     func self(x: int, y: int) -> int => x + y
 }
 
-val add = Adder()
-val sum = add(1, 2) // calls self(1, 2)
+let add = Adder()
+let sum = add(1, 2) // calls self(1, 2)
 ```
 
 Invocation operators can themselves be overloaded by providing multiple `self`

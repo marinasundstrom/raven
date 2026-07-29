@@ -1,4 +1,5 @@
 using System.IO;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -14,7 +15,7 @@ import System.*
 
 class Program {
     static func Main() -> unit {
-        val input: string? = null
+        let input: string? = null
         let value: string = input else {
             Console.WriteLine("missing")
             return
@@ -43,7 +44,7 @@ import System.*
 
 class Program {
     static func Main() -> unit {
-        val v = if true { 1; } else { 2; }
+        let v = if true { 1; } else { 2; }
         if v is int a {
             Console.WriteLine(a)
         }

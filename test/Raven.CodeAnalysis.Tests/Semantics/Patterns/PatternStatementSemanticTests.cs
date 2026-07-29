@@ -22,7 +22,7 @@ class Person(val Id: int, val Name: string)
 
 class C {
     func Test(person: Person) {
-        if val Person(id, name) = person {
+        if let Person(id, name) = person {
             ()
         }
     }
@@ -47,8 +47,8 @@ class Person(val Id: int, val Name: string)
 
 class C {
     func Test(person: Person) {
-        val name = ""
-        if val Person(_, name) = person {
+        let name = ""
+        if let Person(_, name) = person {
             ()
         }
     }
@@ -68,7 +68,7 @@ class C {
         var code = """
 class C {
     func Test(input: int?) {
-        if val x: int = input {
+        if let x: int = input {
             ()
         }
     }
@@ -105,7 +105,7 @@ union Option<T> {
 
 class C {
     func Test(input: Option<string>) {
-        if val Option<string>.Some(value) = input {
+        if let Option<string>.Some(value) = input {
             ()
         }
     }
@@ -139,7 +139,7 @@ class Dog : Animal {}
 
 class C {
     func Test(animal: Animal) {
-        if val dog: Dog = animal {
+        if let dog: Dog = animal {
             ()
         }
     }
@@ -171,7 +171,7 @@ class C {
         var code = """
 class C {
     func Test(point: (int, double)) {
-        if val (2, > 0.5) matched = point {
+        if let (2, > 0.5) matched = point {
             matched.Item1
         }
     }
@@ -201,7 +201,7 @@ class C {
         var code = """
 class C {
     func Test(order: (int, int)) {
-        if val (id, amount when amount > 100) = order {
+        if let (id, amount when amount > 100) = order {
             amount
         }
     }
@@ -234,7 +234,7 @@ class C {
         var code = """
 class C {
     func Test(point: (int, int)) {
-        if val (2, > 0.5) matched = point {
+        if let (2, > 0.5) matched = point {
             matched.Item1
         }
     }
@@ -261,7 +261,7 @@ union Option<T> {
 
 class C {
     func Test(input: Option<(string, int)>) {
-        if val Some((first, >= 18)) whole = input {
+        if let Some((first, >= 18)) whole = input {
             first.Length
             whole
         }
@@ -292,7 +292,7 @@ record class Person(Name: string, Age: int)
 
 class C {
     func Test(value: object) {
-        if val Person { Name: "Ada", Age: age } = value {
+        if let Person { Name: "Ada", Age: age } = value {
             age
         }
     }
@@ -328,7 +328,7 @@ record class Person(Name: string, Age: int)
 
 class C {
     func Test(person: Person) {
-        while val (Name: name: string, Age: age: int) = person {
+        while let (Name: name: string, Age: age: int) = person {
             ()
         }
     }
@@ -354,7 +354,7 @@ class C {
         var code = """
 class C {
     func Test(input: (string, int)) {
-        while val ("Ok", value) = input {
+        while let ("Ok", value) = input {
             value
         }
     }
@@ -387,7 +387,7 @@ class C {
         var code = """
 class C {
     func Test(input: int?) {
-        while val x: int = input {
+        while let x: int = input {
             x
         }
     }
@@ -419,7 +419,7 @@ class C {
         var code = """
 class C {
     func Test(order: (int, int)) {
-        while val (id, amount when amount > 100) = order {
+        while let (id, amount when amount > 100) = order {
             amount
         }
     }
@@ -457,7 +457,7 @@ union Result<T> {
 
 class C {
     func Test(input: Result<int>) {
-        while val .Ok(value) = input {
+        while let .Ok(value) = input {
             value
         }
     }
@@ -494,7 +494,7 @@ class Box {
 
 class C {
     func Test(value: object) {
-        if val Box { Value: 1, Value: other } = value {
+        if let Box { Value: 1, Value: other } = value {
             other
         }
     }

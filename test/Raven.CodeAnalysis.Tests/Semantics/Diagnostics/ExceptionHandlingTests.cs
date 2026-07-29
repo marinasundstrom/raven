@@ -52,7 +52,7 @@ import System.*
 try {
 }
 catch FormatException ex {
-    val message = ex.Message
+    let message = ex.Message
 }
 """;
 
@@ -108,7 +108,7 @@ import System.Net.Http.*
 try {
 }
 catch HttpRequestException ex when ex.Message != "" {
-    val status = ex.StatusCode
+    let status = ex.StatusCode
 }
 """;
 
@@ -140,7 +140,7 @@ catch > 0 {
     public void TryExpression_InferredType_IsCurrentlyErrorType()
     {
         var code = """
-val value = try int.Parse("foo")
+let value = try int.Parse("foo")
 """;
 
         var verifier = CreateVerifier(code);
@@ -156,7 +156,7 @@ val value = try int.Parse("foo")
     [Fact]
     public void TryExpression_NestedTryReportsDiagnostic()
     {
-        var code = "val value = try try 1";
+        var code = "let value = try try 1";
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
@@ -171,7 +171,7 @@ val value = try int.Parse("foo")
     {
         var code = """
 func ParseFlag(text: string) -> Result<bool, string> {
-    val flag = try? bool.Parse(text)
+    let flag = try? bool.Parse(text)
     return .Ok(flag)
 }
 """;
@@ -195,7 +195,7 @@ func ParseFlag(text: string) -> Result<bool, string> {
     {
         var code = """
 func ParseFlag(text: string) -> Result<bool, string> {
-    val flag = try? bool.Parse(text) match {
+    let flag = try? bool.Parse(text) match {
         true => true
         false => false
     }
@@ -223,7 +223,7 @@ import System.Threading.Tasks.*
 
 class C {
     async func Work() {
-        val attempt = try await Task.FromResult(1)
+        let attempt = try await Task.FromResult(1)
     }
 }
 """;
@@ -290,7 +290,7 @@ import System.Threading.Tasks.*
 
 class C {
     async func Work() -> Task<Result<int, Exception>> {
-        val value = try? await Task.FromResult(1)
+        let value = try? await Task.FromResult(1)
         return .Ok(value)
     }
 }

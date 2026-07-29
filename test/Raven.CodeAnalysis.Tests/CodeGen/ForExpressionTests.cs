@@ -59,8 +59,8 @@ for x in 2..6 {
     WriteLine(x)
 }
 
-val bottom = -3
-val top = 7
+let bottom = -3
+let top = 7
 
 for x in bottom..top {
     WriteLine(x)
@@ -86,14 +86,14 @@ class Box {
 
 extension BoxEnumerable for Box {
     func GetEnumerator() -> IEnumerator<int> {
-        val values: IEnumerable<int> = self.Items
+        let values: IEnumerable<int> = self.Items
         return values.GetEnumerator()
     }
 }
 
 class Program {
     static func Main() {
-        val box = Box()
+        let box = Box()
         for value in box {
             WriteLine(value)
         }
@@ -115,8 +115,8 @@ for c in 'a'..'c' {
     WriteLine(c)
 }
 
-val start: decimal = 1
-val end: decimal = 3
+let start: decimal = 1
+let end: decimal = 3
 
 for n in start..end {
     WriteLine(n)
@@ -187,7 +187,7 @@ for x in 6..<2 by -2 {
         var code = """
 import System.Console.*
 
-for val [..2, x, ...] in [[2, 1..2, 5]] {
+for let [..2, x, ...] in [[2, 1..2, 5]] {
     WriteLine(x)
 }
 """;
@@ -206,7 +206,7 @@ for x in [2, 1..2] {
     WriteLine(x)
 }
 
-for val [..2, ..2 x, ...] in [[2, 1..3]] {
+for let [..2, ..2 x, ...] in [[2, 1..3]] {
     WriteLine(x.Count)
     WriteLine(x[0])
     WriteLine(x[1])
@@ -227,13 +227,13 @@ record Order(val Id: int, val Amount: int)
 
 class Program {
     static func Main() {
-        val orders = [
+        let orders = [
             Order(1001, 120)
             Order(1002, 80)
             Order(1003, 210)
         ]
 
-        for val (id, amount when > 100) in orders {
+        for let (id, amount when > 100) in orders {
             WriteLine("${id}:${amount}")
         }
     }
@@ -250,7 +250,7 @@ class Program {
         var code = """
 import System.Console.*
 
-for val [..2, ..2 x, ...] in [[|2, 1..4|]] {
+for let [..2, ..2 x, ...] in [[|2, 1..4|]] {
     WriteLine(x[1])
 }
 """;
@@ -521,7 +521,7 @@ import System.Collections.Generic.*
 
 class C {
     static func Values() -> IEnumerable<int> {
-        val items: IEnumerable<int> = [1, 2, 3]
+        let items: IEnumerable<int> = [1, 2, 3]
         for i in items {
             yield return i
         }
@@ -621,7 +621,7 @@ class C {
     }
 
     static func Run() -> int {
-        val items: IEnumerable<int> = [1, 2, 3]
+        let items: IEnumerable<int> = [1, 2, 3]
         return Sum(items)
     }
 }
@@ -658,7 +658,7 @@ import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-val dict = ["a", "bb", "ccc"].ToDictionary(x => x, y => y.Length)
+let dict = ["a", "bb", "ccc"].ToDictionary(x => x, y => y.Length)
 ForEach(dict, item => WriteLine("tick"))
 
 func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
@@ -684,7 +684,7 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 func Main() -> () {
-    val dict = ["a", "bb"].ToDictionary(x => x, y => y.Length)
+    let dict = ["a", "bb"].ToDictionary(x => x, y => y.Length)
     ForEach(dict, PrintEntry)
 }
 
@@ -712,9 +712,9 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
         var code = """
 import System.Console.*
 
-val points = [(0, 0), (1, 0), (1, 1), (2, 0)]
+let points = [(0, 0), (1, 0), (1, 1), (2, 0)]
 
-for (val x, 0) in points {
+for (let x, 0) in points {
     WriteLine(x)
 }
 """;

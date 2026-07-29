@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -50,7 +51,7 @@ class Test {
         var code = """
 class Test {
     func Format(name: string) -> string {
-        val city = "東京";
+        let city = "東京";
         return "こんにちは、${name}さん。${city}へようこそ";
     }
 }
@@ -86,7 +87,7 @@ class Test {
         var code = """
 class Test {
     func Format(name: string, city: string) -> string {
-        val greeting = "\u200Fمرحبا ${name}! أهلا بك في ${city}";
+        let greeting = "\u200Fمرحبا ${name}! أهلا بك في ${city}";
         return greeting;
     }
 }

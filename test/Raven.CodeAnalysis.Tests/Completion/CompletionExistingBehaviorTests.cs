@@ -24,7 +24,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = Counter();
+let counter = Counter();
 counter.Inc
 """;
 
@@ -51,7 +51,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = Counter();
+let counter = Counter();
 counter.Inc
 """;
 
@@ -100,7 +100,7 @@ class Logger {
     public func WriteLine(text: string) -> unit { }
 }
 
-val logger = Logger();
+let logger = Logger();
 logger.WriteLine("Hello").
 """;
 
@@ -129,7 +129,7 @@ class Factory {
     }
 }
 
-val factory = Factory();
+let factory = Factory();
 factory.Create().
 """;
 
@@ -157,7 +157,7 @@ class Factory {
     }
 }
 
-val factory = Factory();
+let factory = Factory();
 factory.Create().
 """;
 
@@ -182,7 +182,7 @@ factory.Create().
 import System.*
 import System.Collections.Generic.*
 
-val numbers = List<int>();
+let numbers = List<int>();
 numbers.
 """;
 
@@ -214,7 +214,7 @@ class Counter {
     public func Increment() -> unit { }
 }
 
-val counter = Counter();
+let counter = Counter();
 counter.Inc
 """;
 
@@ -243,7 +243,7 @@ class Factory {
     }
 }
 
-val factory = Factory();
+let factory = Factory();
 factory.Create().Len
 """;
 
@@ -273,7 +273,7 @@ class DbLike {
     val Database: string = ""
 }
 
-val db = DbLike();
+let db = DbLike();
 db.Databas
 """;
 
@@ -303,7 +303,7 @@ class DbLike {
     val Database: string = ""
 }
 
-val db = DbLike();
+let db = DbLike();
 db.
 """;
 
@@ -334,7 +334,7 @@ class Counter {
     val @if: int = 0
 }
 
-val counter = Counter();
+let counter = Counter();
 counter.i
 """;
 
@@ -361,7 +361,7 @@ counter.i
         var code = """
 import Raven.MetadataFixtures.StaticExtensions.*;
 
-val widget = Widget(21);
+let widget = Widget(21);
 widget.Dou
 """;
 
@@ -392,7 +392,7 @@ widget.Dou
         var code = """
 import Raven.MetadataFixtures.StaticExtensions.*;
 
-val widget = Widget(21);
+let widget = Widget(21);
 widget.
 """;
 
@@ -419,7 +419,7 @@ widget.
         var code = """
 func WriteLine(value: int) -> unit { }
 
-val x = 2
+let x = 2
 WriteLine(x.)
 """;
 
@@ -445,7 +445,7 @@ WriteLine(x.)
     public void GetCompletions_AfterConditionalAccessWithoutPrefix_UsesEmptyReplacementSpanAfterDot()
     {
         var code = """
-val text = ""
+let text = ""
 text?.
 """;
 
@@ -470,7 +470,7 @@ text?.
     public void GetCompletions_OnConditionalAccessPrefix_UsesMemberNameSpanAsReplacement()
     {
         var code = """
-val text = ""
+let text = ""
 text?.Len
 """;
 
@@ -501,7 +501,7 @@ union Result<T, E> {
     case Error(data: E)
 }
 
-val result: Result<string, string> = .Ok("hello")
+let result: Result<string, string> = .Ok("hello")
 result?.
 """;
 
@@ -528,7 +528,7 @@ union Option<T> {
     case None
 }
 
-val option: Option<string> = .Some("hello")
+let option: Option<string> = .Some("hello")
 option?.
 """;
 
@@ -552,7 +552,7 @@ option?.
         var code = """
 func consume(value: int) -> unit { }
 
-val x = 1
+let x = 1
 consume(
 """;
 
@@ -577,8 +577,8 @@ consume(
     public void GetCompletions_AfterInvocationStart_OnLambdaVariable_InsertsAtCaret()
     {
         var code = """
-val foo = (x: int) => x
-val text = 1
+let foo = (x: int) => x
+let text = 1
 foo(
 """;
 
@@ -606,8 +606,8 @@ foo(
     public void GetCompletions_AfterElementAccessStart_InsertsAtCaret()
     {
         var code = """
-val obj = "abc"
-val x = 1
+let obj = "abc"
+let x = 1
 obj[
 """;
 
@@ -632,8 +632,8 @@ obj[
     public void GetCompletions_AfterConditionalInvocationStart_InsertsAtCaret()
     {
         var code = """
-val x = 1
-val text = ""
+let x = 1
+let text = ""
 text?(
 """;
 
@@ -658,8 +658,8 @@ text?(
     public void GetCompletions_AfterConditionalElementAccessStart_InsertsAtCaret()
     {
         var code = """
-val x = 1
-val text = ""
+let x = 1
+let text = ""
 text?[
 """;
 

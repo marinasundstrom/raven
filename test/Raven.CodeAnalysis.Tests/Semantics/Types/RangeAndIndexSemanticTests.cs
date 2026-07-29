@@ -17,7 +17,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     [Fact]
     public void IndexExpression_HasIndexTypeAndFromEndFlag()
     {
-        const string source = "val value = ^2";
+        const string source = "let value = ^2";
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -37,7 +37,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     [Fact]
     public void RangeExpression_TracksEndpoints()
     {
-        const string source = "val range = ^2..^0";
+        const string source = "let range = ^2..^0";
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -63,7 +63,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     [Fact]
     public void RangeExpression_WithExclusiveUpperBound_MarksExclusiveFlag()
     {
-        const string source = "val range = 2..<10";
+        const string source = "let range = 2..<10";
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -83,8 +83,8 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     public void ArrayAccess_UsesIndexExpression()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
-val last = values[^1]
+let values: int[] = [1, 2, 3]
+let last = values[^1]
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -106,8 +106,8 @@ val last = values[^1]
     public void ArrayAccess_WithRange_BindsToSubArrayInvocation()
     {
         const string source = """
-val values: int[] = [1, 2, 3, 4]
-val middle = values[1..3]
+let values: int[] = [1, 2, 3, 4]
+let middle = values[1..3]
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -133,10 +133,10 @@ val middle = values[1..3]
         const string source = """
 import System.*
 
-val buffer = LocalBuffer()
-val tail = buffer[1..]
-val i = ^1
-val last = buffer[i]
+let buffer = LocalBuffer()
+let tail = buffer[1..]
+let i = ^1
+let last = buffer[i]
 
 class LocalBuffer {
     val self[i: Index]: int {

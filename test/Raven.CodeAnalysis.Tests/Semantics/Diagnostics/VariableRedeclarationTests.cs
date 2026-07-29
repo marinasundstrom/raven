@@ -11,8 +11,8 @@ public class VariableRedeclarationTests : DiagnosticTestBase
     public void DuplicateGlobalVariable_ReportsWarning()
     {
         var code = """
-val x: int = 1
-val x: int = 2
+let x: int = 1
+let x: int = 2
 """;
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
@@ -26,8 +26,8 @@ val x: int = 2
     {
         var code = """
 func Main() {
-    val x: int = 1
-    val x: int = 2
+    let x: int = 1
+    let x: int = 2
 }
 """;
         var verifier = CreateVerifier(code,
@@ -41,9 +41,9 @@ func Main() {
     public void ShadowingInInnerBlock_Warns()
     {
         var code = """
-val x: int = 1
+let x: int = 1
 if true {
-    val x: int = 2
+    let x: int = 2
 }
 """;
         var verifier = CreateVerifier(code,
@@ -58,7 +58,7 @@ if true {
     {
         var code = """
 func demo(x: int) {
-    val x = x + 1
+    let x = x + 1
 }
 """;
         var verifier = CreateVerifier(code,
@@ -74,7 +74,7 @@ func demo(x: int) {
         var code = """
 func Main() {
     x
-    val x = 1
+    let x = 1
 }
 """;
         var verifier = CreateVerifier(code,
@@ -89,10 +89,10 @@ func Main() {
     {
         var code = """
 func Main() {
-    val b = 0
+    let b = 0
     {
         b
-        val b = 1
+        let b = 1
     }
 }
 """;

@@ -19,7 +19,7 @@ import System.*
 
 class C {
     func Test() -> Result<int, string> {
-        val value = Parse()?
+        let value = Parse()?
         return .Ok(value)
     }
 

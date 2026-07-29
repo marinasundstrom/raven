@@ -92,7 +92,7 @@ union State {
     case Off
 }
 
-val state: State = default
+let state: State = default
 
 match state {
     .On => 1
@@ -114,7 +114,7 @@ union State {
     case Off
 }
 
-val state: State = default
+let state: State = default
 
 match state {
     .On => 1
@@ -137,7 +137,7 @@ union State {
     case Off
 }
 
-val state: State = .On
+let state: State = .On
 
 match state {
     .On => 1
@@ -162,7 +162,7 @@ union State {
     case Off
 }
 
-val state: State = default
+let state: State = default
 
 match state {
     .On => 1
@@ -252,11 +252,11 @@ union State {
     public void MatchStatement_WithDiscriminatedUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
     {
         const string code = """
-val result: Result<int> = .Ok(value: 1)
+let result: Result<int> = .Ok(value: 1)
 
 match result {
-    .Ok(val payload) => payload
-    .Error(val message) => 0
+    .Ok(let payload) => payload
+    .Error(let message) => 0
     _ => -1
 }
 
@@ -284,7 +284,7 @@ union Result<T> {
     public void MatchStatement_UserDefinedUnionCasesRequireQualificationOrImport()
     {
         const string code = """
-val s = Status.Open("foo")
+let s = Status.Open("foo")
 
 match s {
     Open(_) => ""
@@ -318,10 +318,10 @@ union Status {
         const string code = """
 import Status.*
 
-val s = Status.Open("foo")
+let s = Status.Open("foo")
 
 match s {
-    Open(val reason) => reason
+    Open(let reason) => reason
     Closed(_) => ""
 }
 
@@ -342,16 +342,16 @@ union Status {
         const string code = """
 import Status.*
 
-val a = Status.Open("foo")
-val b = Status.Closed("done")
+let a = Status.Open("foo")
+let b = Status.Closed("done")
 
-val textA = match a {
-    .Open(val reason) => reason
+let textA = match a {
+    .Open(let reason) => reason
     .Closed(_) => ""
 }
 
-val textB = match b {
-    Open(val reason) => reason
+let textB = match b {
+    Open(let reason) => reason
     Closed(_) => ""
 }
 

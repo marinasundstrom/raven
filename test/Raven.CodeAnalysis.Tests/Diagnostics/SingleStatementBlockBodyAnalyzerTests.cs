@@ -55,7 +55,7 @@ func Get() -> int {
         const string code = """
 class C {
     func Get() -> int {
-        val x = 41
+        let x = 41
         return x + 1
     }
 }

@@ -151,8 +151,8 @@ public sealed class HeadlessEditSimulationTests : IDisposable
         """
         class Runner {
             func Compute(value: int) -> int {
-                val baseValue = value + 1
-                val answer = baseValue * 2
+                let baseValue = value + 1
+                let answer = baseValue * 2
                 return answer
             }
 

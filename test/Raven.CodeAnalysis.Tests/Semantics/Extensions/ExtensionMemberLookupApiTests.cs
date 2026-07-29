@@ -73,8 +73,8 @@ namespace Sample.Extensions {
         const string mainSource = """
 import Sample.Extensions.*
 
-val value = 5
-val doubled = value.Double()
+let value = 5
+let doubled = value.Double()
 """;
 
         var extensionTree = SyntaxTree.ParseText(extensionSource);

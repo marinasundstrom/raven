@@ -84,7 +84,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     {
         const string source = """
             func Main() -> unit {
-                val value = missing
+                let value = missing
             }
             """;
 
@@ -131,8 +131,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             class User(var Name: string, var Age: int, var IsActive: bool)
 
             func Main() -> unit {
-                val minAge = 21
-                val predicate: Expression<System.Func<User, bool>> =
+                let minAge = 21
+                let predicate: Expression<System.Func<User, bool>> =
                     user => user.IsActive && user.Age >= minAge
             }
             """;
@@ -334,9 +334,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         const string source = """
             import System.Linq.*
 
-            val values = [1, 2, 3]
-            val selected = values.Where(value => value > 1)
-            val callback = AddOne
+            let values = [1, 2, 3]
+            let selected = values.Where(value => value > 1)
+            let callback = AddOne
 
             func AddOne(value: int) -> int => value + 1
             """;
@@ -378,10 +378,10 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             import System.Console.*
 
             func Main() {
-                val pairs = [("one", 1), ("two", 2), ("three", 3)]
-                val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+                let pairs = [("one", 1), ("two", 2), ("three", 3)]
+                let doubled = [for let (key, value) in pairs if value >= 2 => key: value * 2]
 
-                for val (key, value) in doubled {
+                for let (key, value) in doubled {
                     WriteLine("$key: $value")
                 }
             }
@@ -440,8 +440,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
+            let first = 1
+            let second = first + 1
             """;
 
         project = project.AddDocument(
@@ -517,7 +517,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             """
             class Edited {
                 func Stable(value: int) -> int {
-                    val copy = value
+                    let copy = value
                     return copy
                 }
             }
@@ -565,7 +565,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             workspace,
             projectId,
             SourceText.From(source.ToString()
-                .Replace("val copy = value", "val copy = value\n        val final = copy", StringComparison.Ordinal)
+                .Replace("let copy = value", "let copy = value\n        let final = copy", StringComparison.Ordinal)
                 .Replace("return copy", "return final", StringComparison.Ordinal)),
             stepLabel: "edit 3",
             referenceName: "final",
@@ -587,9 +587,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
-            val third = second + 1
+            let first = 1
+            let second = first + 1
+            let third = second + 1
             """;
 
         project = project.AddDocument(
@@ -667,9 +667,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             project = project.AddMetadataReference(reference);
 
         var initialSource = """
-            val first = 1
-            val second = first + 1
-            val third = second + 1
+            let first = 1
+            let second = first + 1
+            let third = second + 1
             """;
 
         project = project.AddDocument(
@@ -714,13 +714,13 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     public void DocumentDiagnostics_ForTopLevelReferenceAfterFunctionMember_SeedsEarlierLocals()
     {
         const string source = """
-            val app = 1
+            let app = 1
 
             func ping() -> int {
                 return 2
             }
 
-            val after = app + ping()
+            let after = app + ping()
             """;
 
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -839,8 +839,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
             record Person(val Name: string, val Age: int)
 
-            val person = Person("Ada", 42)
-            val app = person.Name
+            let person = Person("Ada", 42)
+            let app = person.Name
 
             func ping(name: string) -> string {
                 return "pong $name"
@@ -850,15 +850,15 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 return projector(value)
             }
 
-            val message = ping(app)
+            let message = ping(app)
 
-            if val (name, age when >= 18) = person {
-                val routed = ping(name)
+            if let (name, age when >= 18) = person {
+                let routed = ping(name)
             }
 
-            val projected = apply(1, value => value + app.Length)
-            val after = app.Length + projected
-            val unresolved = missingValue
+            let projected = apply(1, value => value + app.Length)
+            let after = app.Length + projected
+            let unresolved = missingValue
             """;
 
         var expected = GetDocumentDiagnosticSignaturesAfterQueries(source, query: null);
@@ -932,11 +932,11 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
                 class QueryOwner {
                     func Build(users: IQueryable<User>) -> unit {
-                        val minAge = 21
-                        val onlyActiveAdults: Expression<System.Func<User, bool>> =
+                        let minAge = 21
+                        let onlyActiveAdults: Expression<System.Func<User, bool>> =
                             user => user.IsActive && user.Age >= minAge
 
-                        val query = users
+                        let query = users
                             |> Where(onlyActiveAdults)
                             |> OrderBy(user => user.Name)
                             |> Select(user => user.Name)
@@ -954,7 +954,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 class App {
                     func Configure() -> unit {
                         Accept(async func (context: RequestContext) {
-                            val content = await Task.FromResult(context.Text)
+                            let content = await Task.FromResult(context.Text)
                             return "submitted: $content"
                         })
                     }
@@ -1009,8 +1009,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
                 import Utilities.*
 
-                val greeting = Format("Ada")
-                val length = greeting.Length
+                let greeting = Format("Ada")
+                let length = greeting.Length
 
                 namespace Utilities
 
@@ -1026,12 +1026,12 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
                 class QueryOwner {
                     func Build(users: IQueryable<User>) -> unit {
-                        val query = users
+                        let query = users
                             |> Where(user => user.Age >= 18)
                             |> Select(user => user.Name)
 
-                        val firstName = query.First()
-                        val length = firstName.Length
+                        let firstName = query.First()
+                        let length = firstName.Length
                     }
                 }
                 """),
@@ -1046,7 +1046,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 class App {
                     func Configure() -> unit {
                         Accept(async func (context: RequestContext) {
-                            val content = await Task.FromResult(context.Text)
+                            let content = await Task.FromResult(context.Text)
                             return "submitted: $content"
                         })
                     }
@@ -1109,8 +1109,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 class User(var Name: string, var Age: int)
 
                 func Main() -> unit {
-                    val users = List<User>()
-                    val query = users.Where(user => user.Age >= 18)
+                    let users = List<User>()
+                    let query = users.Where(user => user.Age >= 18)
                     query.
                 }
                 """,
@@ -1122,16 +1122,16 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 class User(var Name: string, var Age: int)
 
                 func Main() -> unit {
-                    val users = List<User>()
-                    val adults = users |> Wh
+                    let users = List<User>()
+                    let adults = users |> Wh
                 }
                 """,
                 source => [source.LastIndexOf("Wh", StringComparison.Ordinal) + "Wh".Length]),
             ("local and namespace prefix", """
                 import Utilities.*
 
-                val greeting = Format("Ada")
-                val length = greeting.Len
+                let greeting = Format("Ada")
+                let length = greeting.Len
 
                 namespace Utilities
 
@@ -1172,10 +1172,10 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var cases = new (string Name, string Source)[]
         {
             ("top level generic invocation", """
-                val foo = Foo("Marina")
-                val options = Options()
-                val str = Serializer.Serialize(foo, options)
-                val obj = Serializer.Deserialize<Foo>(str, options)
+                let foo = Foo("Marina")
+                let options = Options()
+                let str = Serializer.Serialize(foo, options)
+                let obj = Serializer.Deserialize<Foo>(str, options)
 
                 record Foo(Name: string)
 
@@ -1194,7 +1194,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             ("target typed union case", """
                 import System.*
 
-                val foo = Foo(
+                let foo = Foo(
                     Name: "Foo",
                     Status: .OnMaintenance(.UtcNow, "Test"),
                     Item: "Foo"
@@ -1219,12 +1219,12 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
                 class QueryOwner {
                     func Build(users: IQueryable<User>) -> unit {
-                        val query = users
+                        let query = users
                             |> Where(user => user.Age >= 18)
                             |> Select(user => user.Name)
 
-                        val firstName = query.First()
-                        val length = firstName.Length
+                        let firstName = query.First()
+                        let length = firstName.Length
                     }
                 }
                 """)
@@ -1268,7 +1268,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             project = project.AddMetadataReference(reference);
 
         const string initialSource = """
-            val text: string? = null
+            let text: string? = null
             System.Console.WriteLine(text)
             """;
 
@@ -1385,7 +1385,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -1443,7 +1443,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable() -> unit {
-                        val broken = missingValue
+                        let broken = missingValue
                     }
                 }
                 """),
@@ -1491,7 +1491,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable() -> unit {
-                        val identity = func<T>(value: T) -> T {
+                        let identity = func<T>(value: T) -> T {
                             value
                         }
                     }
@@ -1537,8 +1537,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(input: (string, int)) -> unit {
-                        if val (key, value) = input {
-                            val copy = value
+                        if let (key, value) = input {
+                            let copy = value
                         }
                     }
                 }
@@ -1607,8 +1607,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(input: (string, int)) -> unit {
-                        val (key, value) = input
-                        val copy = value
+                        let (key, value) = input
+                        let copy = value
                     }
                 }
                 """),
@@ -1671,11 +1671,11 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
                 class QueryOwner {
                     func Build(users: IQueryable<User>) {
-                        val minAge = 21
-                        val onlyActiveAdults: Expression<System.Func<User, bool>> =
+                        let minAge = 21
+                        let onlyActiveAdults: Expression<System.Func<User, bool>> =
                             user => user.IsActive && user.Age >= minAge
 
-                        val query = users
+                        let query = users
                             |> Where(onlyActiveAdults)
                             |> OrderBy(user => user.Name)
                             |> Select(user => user.Name)
@@ -1744,9 +1744,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class QueryOwner {
                     func Build() {
-                        val first = 1
-                        val second = first + 1
-                        val third = second + 1
+                        let first = 1
+                        let second = first + 1
+                        let third = second + 1
                     }
                 }
                 """),
@@ -1803,7 +1803,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialSource = """
             class Edited {
                 func Stable(value: int) -> int {
-                    val copy = value
+                    let copy = value
                     return copy
                 }
             }
@@ -1819,7 +1819,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
         var updatedSolution = workspace.CurrentSolution.WithDocumentText(
             editedDocument.Id,
-            SourceText.From(initialSource.Replace("val copy = value", "val copy = value + 1", StringComparison.Ordinal)));
+            SourceText.From(initialSource.Replace("let copy = value", "let copy = value + 1", StringComparison.Ordinal)));
 
         workspace.TryApplyChanges(updatedSolution);
 
@@ -1878,7 +1878,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 class App {
                     func Configure() -> unit {
                         Accept(async func (context: RequestContext) {
-                            val content = await Task.FromResult(context.Text)
+                            let content = await Task.FromResult(context.Text)
                             return "submitted: $content"
                         })
                     }
@@ -1943,7 +1943,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 func Accept(handler: (RequestContext) -> Task<string>) -> unit { }
 
                 Accept(async func (context: RequestContext) {
-                    val content = await Task.FromResult(context.Text)
+                    let content = await Task.FromResult(context.Text)
                     return "submitted: $content"
                 })
                 """),
@@ -2003,7 +2003,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -2045,7 +2045,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val copy = value + 1
+                        let copy = value + 1
                         return copy
                     }
                 }
@@ -2145,7 +2145,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                     }
 
                     func Stable(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -2182,7 +2182,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                     }
 
                     func Stable(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -2257,7 +2257,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(value: int) -> int {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }
@@ -2294,7 +2294,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 """
                 class Edited {
                     func Stable(value: string) -> string {
-                        val copy = value
+                        let copy = value
                         return copy
                     }
                 }

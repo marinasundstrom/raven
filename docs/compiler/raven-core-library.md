@@ -46,8 +46,8 @@ default. The catalog projects `TryParse(string, out T)` overloads for `int`,
 `DateTime` provider/style forms:
 
 ```raven
-val number = int.TryParse(text) // Option<int>
-val currency = decimal.TryParse(text, NumberStyles.Currency, culture)
+let number = int.TryParse(text) // Option<int>
+let currency = decimal.TryParse(text, NumberStyles.Currency, culture)
 // Option<decimal>
 ```
 
@@ -55,16 +55,16 @@ It also replaces `int.Parse(string)` and `Guid.Parse(string)` with
 result-returning Raven signatures:
 
 ```raven
-val number = int.Parse(text)
+let number = int.Parse(text)
 // Result<int, FormatException | OverflowException>
-val id = Guid.Parse(text)
+let id = Guid.Parse(text)
 // Result<Guid, FormatException>
 ```
 
 Dictionary lookup is projected with the same explicit approach:
 
 ```raven
-val value = dictionary.TryGetValue(key) // Option<TValue>
+let value = dictionary.TryGetValue(key) // Option<TValue>
 ```
 
 `None` means that the key is absent. A nullable declared value remains nullable

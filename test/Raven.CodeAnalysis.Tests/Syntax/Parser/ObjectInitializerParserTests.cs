@@ -13,7 +13,7 @@ public class ObjectInitializerParserTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            val foo = Foo {
+            let foo = Foo {
                 Name = "Foo"
             }
             """);
@@ -34,7 +34,7 @@ public class ObjectInitializerParserTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            val bar = Bar("Foo") {
+            let bar = Bar("Foo") {
                 Age = 42
             }
             """);
@@ -55,7 +55,7 @@ public class ObjectInitializerParserTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            val button = Button() {
+            let button = Button() {
                 Clicked += handler
             }
             """);
@@ -75,7 +75,7 @@ public class ObjectInitializerParserTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            val button = Button with {
+            let button = Button with {
                 Clicked += handler
             }
             """);

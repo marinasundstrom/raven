@@ -12,7 +12,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
     [Fact]
     public void SingleDimensionalArrayTypeSyntax_BindsToArrayTypeSymbol()
     {
-        const string source = "val values: System.String[] = []";
+        const string source = "let values: System.String[] = []";
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
@@ -28,7 +28,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
     [Fact]
     public void FixedSizeArrayTypeSyntax_BindsToArrayTypeSymbol()
     {
-        const string source = "val values: int[4] = [1, 2, 3, 4]";
+        const string source = "let values: int[4] = [1, 2, 3, 4]";
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
@@ -44,8 +44,8 @@ public class ArrayTypeSemanticTests : CompilationTestBase
     public void FixedSizeArrayTarget_WithFixedSpreadOfMatchingLength_Binds()
     {
         const string source = """
-val values: int[2] = [1, 2]
-val result: int[3] = [...values, 3]
+let values: int[2] = [1, 2]
+let result: int[3] = [...values, 3]
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -60,7 +60,7 @@ val result: int[3] = [...values, 3]
     [Fact]
     public void MultidimensionalArrayCollectionLiteral_IsRejected()
     {
-        const string source = "val matrix: int[,] = [1, 2, 3, 4]";
+        const string source = "let matrix: int[,] = [1, 2, 3, 4]";
         var (compilation, _) = CreateCompilation(source);
 
         var diagnostics = compilation.GetDiagnostics();

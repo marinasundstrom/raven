@@ -87,7 +87,7 @@ public class DocumentTests
     [Fact]
     public async Task GetSemanticModelAsync_ShouldReturnModel()
     {
-        var source = SourceText.From("val x = 1");
+        var source = SourceText.From("let x = 1");
         var solution = new Solution(HostServices.Default);
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, "P");
@@ -225,8 +225,8 @@ public class DocumentTests
     {
         var source = SourceText.From(
             """
-            val x = 1
-            val y = 2
+            let x = 1
+            let y = 2
             """);
         var solution = new Solution(HostServices.Default);
         var projectId = ProjectId.CreateNew(solution.Id);
@@ -240,8 +240,8 @@ public class DocumentTests
 
         var updatedText = SourceText.From(
             """
-            val x = 3
-            val y = 2
+            let x = 3
+            let y = 2
             """);
         var updatedDocument = document.WithText(updatedText);
 
@@ -274,13 +274,13 @@ public class DocumentTests
         var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
         var projectId = workspace.AddProject("App");
         var project = workspace.CurrentSolution.GetProject(projectId)!;
-        var document = project.AddDocument("test.rvn", SourceText.From("val x = 1"));
+        var document = project.AddDocument("test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(document.Project.Solution);
 
         var staleDocument = workspace.CurrentSolution.GetDocument(document.Id)!;
         _ = await staleDocument.GetSyntaxTreeAsync();
 
-        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From("val y = 2"));
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From("let y = 2"));
         workspace.TryApplyChanges(updatedSolution);
 
         var model = await staleDocument.GetSemanticModelAsync();
@@ -293,13 +293,13 @@ public class DocumentTests
         var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
         var projectId = workspace.AddProject("App");
         var project = workspace.CurrentSolution.GetProject(projectId)!;
-        var document = project.AddDocument("test.rvn", SourceText.From("val x = 1"));
+        var document = project.AddDocument("test.rvn", SourceText.From("let x = 1"));
         workspace.TryApplyChanges(document.Project.Solution);
 
         var staleDocument = workspace.CurrentSolution.GetDocument(document.Id)!;
         _ = await staleDocument.GetSyntaxTreeAsync();
 
-        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From("val y = 2"));
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From("let y = 2"));
         workspace.TryApplyChanges(updatedSolution);
 
         var root = await staleDocument.GetExpandedSyntaxRootAsync();

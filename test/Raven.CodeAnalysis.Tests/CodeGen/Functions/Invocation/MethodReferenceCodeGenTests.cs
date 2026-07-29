@@ -17,7 +17,7 @@ class Calculator {
     public static func Add(x: int, y: int) -> int { x + y }
 
     public static func Compute() -> int {
-        val add = Calculator.Add
+        let add = Calculator.Add
         add(2, 3)
     }
 }
@@ -53,7 +53,7 @@ class Counter {
     public func Increment(delta: int) -> int { self.value + delta }
 
     public func Run() -> int {
-        val increment = self.Increment
+        let increment = self.Increment
         increment(7)
     }
 }
@@ -92,11 +92,11 @@ class Accumulator {
     }
 
     static func Execute(value: int) -> int {
-        val callback = Accumulator.TryAccumulate
+        let callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0
 
-        val result = callback(&current, &doubled)
+        let result = callback(&current, &doubled)
         if !result {
             return -1
         }
@@ -182,7 +182,7 @@ class Program {
     }
 
     static func Run() -> int {
-        val o = ["1", "22", "333"].ToDictionary(x => x, y => y.Length)
+        let o = ["1", "22", "333"].ToDictionary(x => x, y => y.Length)
         ForEach(o, Capture)
         count
     }

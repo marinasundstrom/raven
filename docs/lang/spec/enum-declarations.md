@@ -74,8 +74,8 @@ Enum members may be referenced with their qualified name or with target-typed
 member syntax when an expected enum type is available:
 
 ```raven
-val target: AttributeTargets = AttributeTargets.Delegate
-val shorthand: AttributeTargets = .Delegate
+let target: AttributeTargets = AttributeTargets.Delegate
+let shorthand: AttributeTargets = .Delegate
 
 if target is AttributeTargets.Delegate {
 }
@@ -126,7 +126,7 @@ that cannot be represented in the underlying type are compile-time errors.
 An explicit conversion exists from an enum type to its underlying type:
 
 ```raven
-val code: int = (int)ErrorCode.NotFound
+let code: int = (int)ErrorCode.NotFound
 ```
 
 The reverse conversion—from the underlying type to the enum type—requires an

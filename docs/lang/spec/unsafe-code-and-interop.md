@@ -25,8 +25,8 @@ expression. It only enables unsafe operations while binding that block; code
 before and after the expression remains in the surrounding unsafe context.
 
 ```raven
-val value = 42
-val pointer: *int = &value
+let value = 42
+let pointer: *int = &value
 ```
 
 ## Pointer operations
@@ -50,7 +50,7 @@ var value = 41
 let pointer: *int = &value
 
 *pointer = 42
-val result = *pointer // 42
+let result = *pointer // 42
 ```
 
 ```raven
@@ -75,7 +75,7 @@ explicit `*T` target selects native-pointer behavior.
 
 ```raven
 func sumFour() -> int {
-    val values = stackalloc int[4]
+    let values = stackalloc int[4]
     values[0] = 10
     values[1] = 20
     values[2] = 30
@@ -84,7 +84,7 @@ func sumFour() -> int {
 }
 
 unsafe func pointerForm() -> int {
-    val values: *int = stackalloc int[1]
+    let values: *int = stackalloc int[1]
     *values = 42
     *values
 }
@@ -187,9 +187,9 @@ var numbers: int[] = [10, 20, 30]
 var slot = headSlot(numbers)
 slot = 42 // numbers[0] is now 42
 
-val value = 0
-val alias = &value      // alias : &int
-val raw: *int = &value  // raw : *int
+let value = 0
+let alias = &value      // alias : &int
+let raw: *int = &value  // raw : *int
 ```
 
 By-reference returns must point to storage that outlives the callee. Returning

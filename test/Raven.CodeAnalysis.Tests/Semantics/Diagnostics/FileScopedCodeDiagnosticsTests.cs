@@ -31,7 +31,7 @@ public class FileScopedCodeDiagnosticsTests
     public void FileScopedCode_CanAppearAfterTypeDeclaration()
     {
         var code = """
-val x = S()
+let x = S()
 
 struct S {}
 

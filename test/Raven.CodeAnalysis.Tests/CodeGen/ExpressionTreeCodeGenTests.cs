@@ -17,8 +17,8 @@ import System.Linq.Expressions.*
 
 class Checker {
     func Eval(value: int) -> bool {
-        val tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
-        val compiled = tree.Compile()
+        let tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
+        let compiled = tree.Compile()
         return compiled(value)
     }
 }
@@ -53,7 +53,7 @@ import System.Linq.Expressions.*
 
 class Checker {
     func Build() -> Expression<System.Func<int, bool>> {
-        val tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
+        let tree: Expression<System.Func<int, bool>> = (x: int) => x > 0
         return tree
     }
 }
@@ -87,14 +87,14 @@ import System.Linq.Expressions.*
 
 class QueryHost {
     static func Use(selector: Expression<System.Func<int, int>>) -> int {
-        val compiled = selector.Compile()
+        let compiled = selector.Compile()
         return compiled(41)
     }
 }
 
 class Demo {
     async func Run() -> Task<int> {
-        val seed = await Task.FromResult(1)
+        let seed = await Task.FromResult(1)
         return QueryHost.Use(x => x + seed)
     }
 }
@@ -130,7 +130,7 @@ import System.Linq.Expressions.*
 
 class QueryHost {
     static async func Use(id: Guid, predicate: Expression<System.Func<Guid, bool>>) -> Task<int> {
-        val compiled = predicate.Compile()
+        let compiled = predicate.Compile()
         if compiled(id) {
             return await Task.FromResult(1)
         }
@@ -145,7 +145,7 @@ class Demo {
     }
 
     static async func Run(id: Guid) -> Task<int> {
-        val handler = Register(async func (captured: Guid) -> Task<int> {
+        let handler = Register(async func (captured: Guid) -> Task<int> {
             return await QueryHost.Use(captured, candidate => candidate == captured)
         })
 

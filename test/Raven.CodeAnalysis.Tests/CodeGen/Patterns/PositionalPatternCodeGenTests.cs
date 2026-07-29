@@ -20,13 +20,13 @@ import System.*
 
 func describe(value: object) -> string {
     value match {
-        (val first: int, val second: int) => "${first + second}"
+        (let first: int, let second: int) => "${first + second}"
         _ => "no match"
     }
 }
 
 func Main() {
-    val value: object = (1, 2)
+    let value: object = (1, 2)
     Console.WriteLine(describe(value))
 }
 """;
@@ -50,7 +50,7 @@ func Main() {
 import System.*
 
 func Main() {
-    val (first, second) = (1, 2)
+    let (first, second) = (1, 2)
     Console.WriteLine(first)
     Console.WriteLine(second)
 }
@@ -125,7 +125,7 @@ func Main() {
 import System.*
 
 func Main() {
-    val (first, ignoredFirst) = (1, 2)
+    let (first, ignoredFirst) = (1, 2)
     var (second, ignoredSecond) = (3, 4)
     Console.WriteLine(first)
     Console.WriteLine(second)

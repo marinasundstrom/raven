@@ -21,12 +21,12 @@ import System.Threading.Tasks.*
 
 class Program {
     static async func Fetch() -> Task<Result<int, Exception>> {
-        val value = try? await Task.FromResult(42)
+        let value = try? await Task.FromResult(42)
         return .Ok(value)
     }
 
     static async func Main() -> Task {
-        val result = await Program.Fetch()
+        let result = await Program.Fetch()
         Console.WriteLine(result)
     }
 }
@@ -58,26 +58,26 @@ class Program {
         use stream = MemoryStream()
 
         if shouldThrow {
-            val value = try? await Program.ThrowingAsync()
+            let value = try? await Program.ThrowingAsync()
             return .Ok(value)
         }
 
-        val okValue = try? await Task.FromResult(7)
+        let okValue = try? await Task.FromResult(7)
         return .Ok(okValue)
     }
 
     static async func Main() -> Task {
-        val success = await Program.Fetch(false)
-        val failure = await Program.Fetch(true)
+        let success = await Program.Fetch(false)
+        let failure = await Program.Fetch(true)
 
-        val successText = match success {
-            .Ok(val v) => "ok:" + v.ToString()
-            .Error(val e) => "err:" + e.Message
+        let successText = match success {
+            .Ok(let v) => "ok:" + v.ToString()
+            .Error(let e) => "err:" + e.Message
         }
 
-        val failureText = match failure {
-            .Ok(val v) => "ok:" + v.ToString()
-            .Error(val e) => "err:" + e.Message
+        let failureText = match failure {
+            .Ok(let v) => "ok:" + v.ToString()
+            .Error(let e) => "err:" + e.Message
         }
 
         Console.WriteLine(successText)
@@ -108,7 +108,7 @@ class Program {
     }
 
     static async func Test(throwExc: bool) -> Task<Result<int, Exception>> {
-        val x = try? await Program.Action(throwExc)
+        let x = try? await Program.Action(throwExc)
         return .Ok(x + 2)
     }
 
@@ -138,8 +138,8 @@ class Program {
     }
 
     static async func Main() -> Task {
-        val text = try await Program.Fetch() match {
-            .Ok(val value) => value.ToString()
+        let text = try await Program.Fetch() match {
+            .Ok(let value) => value.ToString()
             .Error(Exception ex) => ex.Message
         }
 
@@ -169,13 +169,13 @@ class Program {
         use stream = MemoryStream()
 
         return try await Task.FromResult("ok") match {
-            .Ok(val text) => .Ok(text)
+            .Ok(let text) => .Ok(text)
             .Error(Exception ex) => .Error(ApiError.Network(ex))
         }
     }
 
     static async func Main() -> Task {
-        val result = await Program.DownloadText()
+        let result = await Program.DownloadText()
         Console.WriteLine(result)
     }
 }
@@ -200,7 +200,7 @@ class Program {
     }
 
     static async func FetchTextLength() -> Task<Result<int, Exception>> {
-        val payload = try? await Program.FetchPayload()
+        let payload = try? await Program.FetchPayload()
         await Task.Delay(1)
         return .Ok(payload.Text.Length)
     }
@@ -232,9 +232,9 @@ class Program {
     static async func Run() -> Task<int> {
         await Task.Delay(1)
 
-        val result = try JsonSerializer.Deserialize<int>("1")
+        let result = try JsonSerializer.Deserialize<int>("1")
 
-        if result is .Ok(val value) {
+        if result is .Ok(let value) {
             return value
         }
 
@@ -331,11 +331,11 @@ class Program {
     }
 
     static async func GetItem() -> Task<Result<string, Err>> {
-        val maybeItem = GetUser()?.Item?
+        let maybeItem = GetUser()?.Item?
         await Task.Delay(1)
 
         return match maybeItem {
-            .Some(val item) => .Ok(item.Name)
+            .Some(let item) => .Ok(item.Name)
             .None => .Error(Err.MissingName)
         }
     }
@@ -379,7 +379,7 @@ class Program {
         use probe = Probe()
 
         try {
-            val value = await probe.ReadAsync()
+            let value = await probe.ReadAsync()
             return .Ok(value)
         } catch (Exception e) {
             return .Error(e.Message)
@@ -387,7 +387,7 @@ class Program {
     }
 
     static async func Main() -> Task {
-        val result = await Program.Run()
+        let result = await Program.Run()
         Console.WriteLine(result)
     }
 }
@@ -451,7 +451,7 @@ class Program {
     }
 
     static async func Main() -> Task {
-        val state = await Program.AwaitState(Task.FromResult(42))
+        let state = await Program.AwaitState(Task.FromResult(42))
         _ = state
     }
 }

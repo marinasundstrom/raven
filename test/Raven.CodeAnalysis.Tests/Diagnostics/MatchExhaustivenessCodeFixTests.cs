@@ -10,13 +10,13 @@ public sealed class MatchExhaustivenessCodeFixTests : CodeFixTestBase
     public void MatchExpressionNotExhaustive_AddsMissingBooleanArm()
     {
         const string code = """
-val result = match true {
+let result = match true {
     true => 1
 }
 """;
 
         const string fixedCode = """
-val result = match true {
+let result = match true {
     true => 1
     false => throw System.NotImplementedException()
 }
@@ -34,10 +34,10 @@ val result = match true {
     public void MatchExpressionNotExhaustive_AddsTargetTypedUnionCaseArmWithPayloadPlaceholders()
     {
         const string code = """
-val value: Result<int, string> = .Ok(1)
+let value: Result<int, string> = .Ok(1)
 
-val result = match value {
-    .Ok(val payload) => payload
+let result = match value {
+    .Ok(let payload) => payload
 }
 
 union Result<T, E> {
@@ -47,10 +47,10 @@ union Result<T, E> {
 """;
 
         const string fixedCode = """
-val value: Result<int, string> = .Ok(1)
+let value: Result<int, string> = .Ok(1)
 
-val result = match value {
-    .Ok(val payload) => payload
+let result = match value {
+    .Ok(let payload) => payload
     .Error(_) => throw System.NotImplementedException()
 }
 
@@ -72,9 +72,9 @@ union Result<T, E> {
     public void MatchExpressionCatchAllRedundant_RemovesRedundantCatchAllArm()
     {
         const string code = """
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 2
     .Done => 3
@@ -89,9 +89,9 @@ union State {
 """;
 
         const string fixedCode = """
-val state: State = .On
+let state: State = .On
 
-val result = match state {
+let result = match state {
     .On => 1
     .Off => 2
     .Done => 3

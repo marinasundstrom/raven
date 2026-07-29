@@ -19,7 +19,7 @@ import System.Console.*
 import System.Reactive.*
 
 func Main() -> unit {
-    val observer = Observer.Create<int>((value: int) => {
+    let observer = Observer.Create<int>((value: int) => {
         WriteLine(value)
     })
 
@@ -73,7 +73,7 @@ func AcceptInteractive(value: Interactive) -> unit {
 }
 
 func Use(button: Button) -> unit {
-    val interactive: Interactive = button
+    let interactive: Interactive = button
     AcceptInteractive(button)
     button.RaiseEvent(RoutedEventArgs(Button.ClickEvent))
 }
@@ -123,7 +123,7 @@ import System.Console.*
 import System.Reactive.*
 
 func Main() -> unit {
-    val observer = Observer.Create<int>(value => {
+    let observer = Observer.Create<int>(value => {
         WriteLine(value)
     })
 
@@ -163,7 +163,7 @@ import System.Console.*
 import System.Reactive.*
 
 func Main() -> unit {
-    val observer = Observer.Create<int>(value => {
+    let observer = Observer.Create<int>(value => {
         WriteLine(value)
     })
 
@@ -220,11 +220,11 @@ func Seed(db: AppDbContext) {
 }
 
 func Main() -> unit {
-    val db = AppDbContext()
+    let db = AppDbContext()
     Seed(db)
-    val minAge = 21
-    val isActive: Expression<System.Func<User, bool>> = user => user.IsActive && user.Age >= minAge
-    val query = db.Users
+    let minAge = 21
+    let isActive: Expression<System.Func<User, bool>> = user => user.IsActive && user.Age >= minAge
+    let query = db.Users
         |> Where(isActive)
         |> OrderBy(user => user.Name)
         |> Select(user => user.Name)

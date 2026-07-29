@@ -82,7 +82,7 @@ public class Greeter {
         var appPath = Path.Combine(fixture.Root, "app", "src", "main.rvn");
         fixture.WriteRavenFile(appPath, """
 func Main() -> () {
-    val greeter = Greeter()
+    let greeter = Greeter()
     greeter.Say()
 }
 """);

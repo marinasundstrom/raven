@@ -18,7 +18,7 @@ union HttpResult<T> {
 }
 
 class WebAppBuilder {
-    val routes = List<string>()
+    let routes = List<string>()
 
     func MapPost(path: string, d: Delegate) -> () {
         routes.Add(path)

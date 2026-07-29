@@ -21,7 +21,7 @@ public sealed class OptionalParameterSemanticTests : CompilationTestBase
     public void Invocation_OmitsOptionalArgument_UsesDefaultValue()
     {
         const string source = """
-val result = Calculator.Add()
+let result = Calculator.Add()
 
 class Calculator {
     static func Add(value: int = 42) -> int {
@@ -58,7 +58,7 @@ class Calculator {
     public void Invocation_OmitsOptionalArgument_UsesDefaultLiteralValue()
     {
         const string source = """
-val result = Calculator.Add()
+let result = Calculator.Add()
 
 class Calculator {
     static func Add(value: int = default) -> int {
@@ -93,7 +93,7 @@ class Calculator {
     public void Invocation_OmitsOptionalArgument_UsesTargetTypedEnumDefault()
     {
         const string source = """
-val result = Calculator.GetLifetime()
+let result = Calculator.GetLifetime()
 
 enum ServiceLifetime {
     Singleton,

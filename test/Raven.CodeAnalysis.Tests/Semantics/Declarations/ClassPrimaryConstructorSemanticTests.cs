@@ -301,10 +301,10 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
     public void NominalDeconstructionPattern_BindsAgainstPrimaryConstructorClassDeconstruct()
     {
         var source = """
-            val value: object = Person(1, "Ada");
+            let value: object = Person(1, "Ada");
 
-            val result = match value {
-                Person(1, val name) => name
+            let result = match value {
+                Person(1, let name) => name
                 _ => ""
             };
 

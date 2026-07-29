@@ -13,14 +13,14 @@ public sealed class DocumentScopedDiagnosticsTests
         var treeA = SyntaxTree.ParseText(
             """
             func Main() -> () {
-                val value: MissingType = 42
+                let value: MissingType = 42
             }
             """,
             path: "/tmp/a.rav");
         var treeB = SyntaxTree.ParseText(
             """
             func Helper() -> () {
-                val value: OtherMissingType = 42
+                let value: OtherMissingType = 42
             }
             """,
             path: "/tmp/b.rav");
@@ -58,7 +58,7 @@ public sealed class DocumentScopedDiagnosticsTests
             SourceText.From(
                 """
                 func Main() -> () {
-                    val value: MissingType = 42
+                    let value: MissingType = 42
                 }
                 """),
             "/tmp/a.rav").Project;
@@ -68,7 +68,7 @@ public sealed class DocumentScopedDiagnosticsTests
             SourceText.From(
                 """
                 func Helper() -> () {
-                    val value: OtherMissingType = 42
+                    let value: OtherMissingType = 42
                 }
                 """),
             "/tmp/b.rav").Project;
@@ -103,7 +103,7 @@ public sealed class DocumentScopedDiagnosticsTests
             SourceText.From(
                 """
                 func Main() -> () {
-                    val value: MissingType = 42
+                    let value: MissingType = 42
                 }
                 """),
             "/tmp/a.rav").Project;
@@ -121,7 +121,7 @@ public sealed class DocumentScopedDiagnosticsTests
             SourceText.From(
                 """
                 func Main() -> () {
-                    val value: MissingType = 43
+                    let value: MissingType = 43
                 }
                 """));
 
@@ -140,7 +140,7 @@ public sealed class DocumentScopedDiagnosticsTests
         var tree = SyntaxTree.ParseText(
             """
             func Main() -> () {
-                val value: MissingType = 42
+                let value: MissingType = 42
             }
             """,
             path: "/tmp/a.rav");
@@ -174,7 +174,7 @@ public sealed class DocumentScopedDiagnosticsTests
             SourceText.From(
                 """
                 func Main() -> () {
-                    val value: MissingType = 42
+                    let value: MissingType = 42
                 }
                 """),
             "/tmp/a.rav").Project;

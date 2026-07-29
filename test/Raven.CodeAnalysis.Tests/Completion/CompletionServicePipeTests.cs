@@ -27,8 +27,8 @@ public func NoInput() -> string {
 }
 
 func Main() {
-    val source: int = 1
-    val result = source |> W
+    let source: int = 1
+    let result = source |> W
 }
 """;
 
@@ -59,8 +59,8 @@ public func NoInput() -> string {
 }
 
 func Main() {
-    val source: int = 1
-    val result = source |> 
+    let source: int = 1
+    let result = source |>
 }
 """;
 
@@ -70,7 +70,7 @@ func Main() {
             .AddReferences(TestMetadataReferences.Default);
 
         var service = new CompletionService();
-        var position = code.LastIndexOf("|> ", StringComparison.Ordinal) + "|> ".Length;
+        var position = code.LastIndexOf("|>", StringComparison.Ordinal) + "|>".Length;
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Contains(items, static item => item.DisplayText == "Wrap");
@@ -85,8 +85,8 @@ func Main() {
 import System.Collections.Generic.*
 import System.Linq.*
 
-val numbers = List<int>()
-val query = numbers |> Wh
+let numbers = List<int>()
+let query = numbers |> Wh
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -124,8 +124,8 @@ class Db {
 }
 
 func Main() {
-    val db = Db()
-    val query = db.Users |> 
+    let db = Db()
+    let query = db.Users |>
 }
 """;
 
@@ -143,7 +143,7 @@ func Main() {
         compilation.EnsureSetup();
 
         var service = new CompletionService();
-        var position = code.LastIndexOf("|> ", StringComparison.Ordinal) + "|> ".Length;
+        var position = code.LastIndexOf("|>", StringComparison.Ordinal) + "|>".Length;
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Contains(items, static item => item.DisplayText == "Where");

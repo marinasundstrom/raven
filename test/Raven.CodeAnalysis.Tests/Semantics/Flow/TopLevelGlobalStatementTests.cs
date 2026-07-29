@@ -15,9 +15,9 @@ public sealed class TopLevelGlobalStatementTests : CompilationTestBase
     public void GlobalStatements_CanReferenceTopLevelTypes()
     {
         const string source = """
-val greeter: IGreeter = Greeter();
+let greeter: IGreeter = Greeter();
 greeter.Greet();
-val shade = Shade.Green;
+let shade = Shade.Green;
 
 interface IGreeter {
     public func Greet() -> unit;
@@ -92,7 +92,7 @@ enum Shade {
     public void GetBoundNode_GlobalStatement_BindsContainedStatement()
     {
         const string source = """
-val value = 1
+let value = 1
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -109,7 +109,7 @@ val value = 1
     public void GlobalStatements_CanBeDisabledByCompilationOptions()
     {
         const string source = """
-val x = 1
+let x = 1
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -174,7 +174,7 @@ namespace Utility
     public void GlobalStatements_CanReferenceTopLevelFunctionsDeclaredLaterWithCollectionArgument()
     {
         const string source = """
-val result = test([])
+let result = test([])
 
 func test(items: int[]) -> int {
     return items.Length
@@ -198,7 +198,7 @@ func test(items: int[]) -> int {
         const string source = """
 import System.Console.*
 
-val x = 2
+let x = 2
 
 func Main() -> unit {
     WriteLine("Hello World");
@@ -218,11 +218,11 @@ func Main() -> unit {
     public void GlobalStatements_CanBeInterleavedWithTopLevelTypeDeclarations()
     {
         const string source = """
-            val widget = Widget(Name: "inline")
+            let widget = Widget(Name: "inline")
 
             record Widget(Name: string)
 
-            val name = widget.Name
+            let name = widget.Name
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -242,7 +242,7 @@ func Main() -> unit {
         const string source = """
 namespace App;
 
-val x = 1
+let x = 1
 
 class Widget { }
 """;
@@ -260,11 +260,11 @@ class Widget { }
         const string source = """
             namespace App;
 
-            val widget = Widget(Name: "inline")
+            let widget = Widget(Name: "inline")
 
             record Widget(Name: string)
 
-            val name = widget.Name
+            let name = widget.Name
             """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -282,7 +282,7 @@ class Widget { }
     public void GlobalStatements_CanReferenceMembersDeclaredInOtherFiles()
     {
         var mainTree = SyntaxTree.ParseText("""
-            val vehicle = Vehicle()
+            let vehicle = Vehicle()
             vehicle.RegistrationNumber = "RAV-1"
             vehicle.SetStatus()
             """, path: "main.rav");

@@ -66,7 +66,7 @@ namespace Outer.Inner {
             """
 import Outer.Inner.*
 
-val value = Observer.Ping()
+let value = Observer.Ping()
 """);
 
         var compilation = Compilation.Create(
@@ -86,7 +86,7 @@ val value = Observer.Ping()
             """
 import System.Console.*
 
-val message = $"Hello"
+let message = $"Hello"
 WriteLine(message)
 """);
 

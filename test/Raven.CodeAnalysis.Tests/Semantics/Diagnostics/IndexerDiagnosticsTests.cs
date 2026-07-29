@@ -15,8 +15,8 @@ import System.Collections.Generic.*
 record JsonObject(Properties: IDictionary<string, int>)
 
 func Main() {
-    val x = JsonObject(["name": 1])
-    val y = x.Properties[0]
+    let x = JsonObject(["name": 1])
+    let y = x.Properties[0]
 }
 """;
 

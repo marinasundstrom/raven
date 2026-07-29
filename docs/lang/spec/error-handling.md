@@ -147,7 +147,7 @@ func describeNumber(text: string) -> string {
 }
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
-    val value = try? Convert.ToInt32(text)
+    let value = try? Convert.ToInt32(text)
     return Ok(value)
 }
 ```

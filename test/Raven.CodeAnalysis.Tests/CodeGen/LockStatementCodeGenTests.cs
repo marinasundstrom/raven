@@ -16,7 +16,7 @@ import System.*
 import System.Threading.*
 
 func Main() {
-    val gate = Object()
+    let gate = Object()
 
     try {
         lock gate {

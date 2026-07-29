@@ -9,7 +9,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val foo = Foo();
+            let foo = Foo();
 
             class Foo {
                 init () {}
@@ -26,7 +26,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val i = Foo(3);
+            let i = Foo(3);
 
             class Foo {
                 init () {}
@@ -47,7 +47,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val i = Foo(1);
+            let i = Foo(1);
 
             func Foo() -> unit {}
 
@@ -68,8 +68,8 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val p = Person.WithName("John");
-            val n = p.GetName();
+            let p = Person.WithName("John");
+            let n = p.GetName();
 
             class Person {
                 var name: string;
@@ -96,14 +96,14 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val p = Person.WithName("John");
-            val n = p.GetName();
+            let p = Person.WithName("John");
+            let n = p.GetName();
 
             class Person {
                 var name: string;
 
                 static func WithName(name: string) -> Person {
-                    val temp = name;
+                    let temp = name;
                     return Person(temp);
                 }
 
@@ -125,7 +125,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val f = Foo();
+            let f = Foo();
 
             class Foo {
                 var x: int;
@@ -144,7 +144,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             """
             import System.Collections.Generic.List<>
 
-            val list = List<int>()
+            let list = List<int>()
             list.Add(1)
             """;
 
@@ -160,7 +160,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             """
             import System.Collections.Generic.*
 
-            val list = List<int>()
+            let list = List<int>()
             list.Add(1)
             """;
 
@@ -175,7 +175,7 @@ public class ObjectCreationTests : DiagnosticTestBase
         string testCode =
             """
             func Main() -> () {
-                val box: Box<int> = Box()
+                let box: Box<int> = Box()
             }
 
             class Box<T> {
@@ -194,7 +194,7 @@ public class ObjectCreationTests : DiagnosticTestBase
         string testCode =
             """
             func Main() -> () {
-                val box: Box<int> = new Box()
+                let box: Box<int> = new Box()
             }
 
             class Box<T> {
@@ -218,7 +218,7 @@ public class ObjectCreationTests : DiagnosticTestBase
         string testCode =
             """
             func Main() -> () {
-                val box = Create()
+                let box = Create()
             }
 
             func Create() -> Box<int> {
@@ -241,8 +241,8 @@ public class ObjectCreationTests : DiagnosticTestBase
         string testCode =
             """
             func Main() -> () {
-                val concrete = Test()
-                val generic: Test<int> = Test()
+                let concrete = Test()
+                let generic: Test<int> = Test()
             }
 
             class Test {
@@ -273,7 +273,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             import System.Collections.Generic.*
 
             func Main() {
-                val test = MyResult(42)
+                let test = MyResult(42)
             }
 
             union MyResult<T>(List<T> | int)
@@ -293,8 +293,8 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val person = Person("John")
-            val name = person.GetName()
+            let person = Person("John")
+            let name = person.GetName()
 
             class Person(val name: string)
             {
@@ -312,9 +312,9 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val counter = Counter(1)
+            let counter = Counter(1)
             counter.Increment()
-            val value = counter.GetValue()
+            let value = counter.GetValue()
 
             class Counter(var value: int)
             {
@@ -336,7 +336,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val foo = Foo
+            let foo = Foo
 
             class Foo {
                 init() {}
@@ -357,7 +357,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val foo = Foo
+            let foo = Foo
 
             class Foo(var Name: string)
             """;
@@ -376,7 +376,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            val foo = Foo {
+            let foo = Foo {
                 Name = "Foo"
             }
 
@@ -397,7 +397,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         const string testCode =
             """
-            val bar = Bar("Foo") {
+            let bar = Bar("Foo") {
                 Age = 42
             }
 
@@ -422,7 +422,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 val Name: string { init; }
             }
 
-            val foo = Foo {
+            let foo = Foo {
                 Name = "updated"
             }
             """;
@@ -443,7 +443,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 var Count: int = 1
             }
 
-            val foo = Foo {
+            let foo = Foo {
                 Count += 41
             }
             """;
@@ -465,7 +465,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 required val Age: int { init; }
             }
 
-            val person = Person {
+            let person = Person {
                 Name = "Anna"
                 Age = 42
             }
@@ -488,7 +488,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 required val Age: int { init; }
             }
 
-            val person = Person {
+            let person = Person {
                 Name = "Anna"
             }
             """;
@@ -529,7 +529,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 Fill
             }
 
-            val panel = StackPanel {
+            let panel = StackPanel {
                 Button {
                     HorizontalAlignment = .Fill
                 }

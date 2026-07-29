@@ -13,7 +13,7 @@ public class MemberResolutionTests : DiagnosticTestBase
             """
             import System.*
 
-            val a = DateTime.Parse("2015-03-21").Day;
+            let a = DateTime.Parse("2015-03-21").Day;
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -28,7 +28,7 @@ public class MemberResolutionTests : DiagnosticTestBase
             """
             import System.*
 
-            val a = DateTime.Now.ToString();
+            let a = DateTime.Now.ToString();
             """;
 
         var verifier = CreateVerifier(testCode);

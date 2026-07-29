@@ -56,7 +56,7 @@ class C {
 import System.*
 
 func Test() {
-    val value = Console.ReadLine()
+    let value = Console.ReadLine()
 }
 """;
 
@@ -88,7 +88,7 @@ class C {
         const string code = """
 import System.*
 
-val handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello")
+let handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello")
 """;
 
         var verifier = CreateAnalyzerVerifier<NonNullDeclarationsAnalyzer>(

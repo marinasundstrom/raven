@@ -189,7 +189,7 @@ func test() {
 class Test {
     unsafe static func Run() {
         var value = 0
-        val pointer: *int = fixed &value
+        let pointer: *int = fixed &value
     }
 }
 """;

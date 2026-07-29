@@ -21,7 +21,7 @@ public class ResultExtensionPropertyTests : DiagnosticTestBase
                 val HasError: bool => self is Error(_)
             }
 
-            val res: Result<int, string> = Error("Bang")
+            let res: Result<int, string> = Error("Bang")
 
             Console.WriteLine("Is error: ${res.HasError}")
             """;

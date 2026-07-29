@@ -104,7 +104,7 @@ namespace Samples
 import System.Console.*
 import System.Collections.Generic.List<>
 
-val p = Person(42)
+let p = Person(42)
 WriteLine(p.Name)
 
 open class Base {
@@ -404,8 +404,8 @@ import System.Console.*
 
 WriteLine("Test")
 _ = WriteLine("Test")
-val _ = WriteLine("Test")
-val result = WriteLine("Test")
+let _ = WriteLine("Test")
+let result = WriteLine("Test")
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -868,7 +868,7 @@ class Person {
 
     public init(name: string) {
         storedName = name;
-        val snapshot = storedName;
+        let snapshot = storedName;
         Normalize();
     }
 

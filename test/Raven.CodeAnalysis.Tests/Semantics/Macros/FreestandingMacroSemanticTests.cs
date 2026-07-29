@@ -458,7 +458,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 val Kind: MacroKind => MacroKind.FreestandingExpression
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    val answer = ConsumerConfiguration.Answer
+                    let answer = ConsumerConfiguration.Answer
                     FreestandingMacroExpansionResult {
                         Expression = #quote { 42 }
                     }
@@ -499,7 +499,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 val Kind: MacroKind => MacroKind.FreestandingExpression
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    val answer = ConsumerConfiguration.Answer
+                    let answer = ConsumerConfiguration.Answer
                     FreestandingMacroExpansionResult {
                         Expression = #quote { 42 }
                     }
@@ -816,7 +816,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 func WriteLine(value: int) -> unit { }
 
                 func Run(viewModel: CounterViewModel) -> unit {
-                    val subscription = #subscribe(viewModel.Count, (value) => {
+                    let subscription = #subscribe(viewModel.Count, (value) => {
                         WriteLine(value)
                     })
                 }

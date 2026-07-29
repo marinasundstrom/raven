@@ -12,7 +12,7 @@ public sealed class ImmutableCollectionOperationResultAnalyzerTests : AnalyzerTe
 import System.Collections.Immutable.*
 
 func Test() -> () {
-    val list = [1, 2, 3]
+    let list = [1, 2, 3]
     list.Add(4)
 }
 """;
@@ -37,7 +37,7 @@ func Test() -> () {
 import System.Collections.Immutable.*
 
 func Test() -> () {
-    val values: ImmutableArray<int> = [1, 2, 3]
+    let values: ImmutableArray<int> = [1, 2, 3]
     values.Add(4)
 }
 """;
@@ -60,8 +60,8 @@ func Test() -> () {
     {
         const string code = """
 func Test() -> () {
-    val list = [1, 2, 3]
-    val newList = list.Add(4)
+    let list = [1, 2, 3]
+    let newList = list.Add(4)
 }
 """;
 
@@ -78,7 +78,7 @@ func Test() -> () {
     {
         const string code = """
 func Test() -> () {
-    val list = [1, 2, 3]
+    let list = [1, 2, 3]
     list.Contains(2)
 }
 """;
@@ -96,7 +96,7 @@ func Test() -> () {
     {
         const string code = """
 func Test() -> System.Collections.Immutable.ImmutableList<int> {
-    val list = [1, 2, 3]
+    let list = [1, 2, 3]
     list.Add(4)
 }
 """;

@@ -19,8 +19,8 @@ class Test {
         return no + 1;
     }
 }
-val t = Test()
-val x = t(2)
+let t = Test()
+let x = t(2)
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -45,8 +45,8 @@ class Callable : ICallable {
     }
 }
 
-val callable: ICallable = Callable()
-val result = callable(2)
+let callable: ICallable = Callable()
+let result = callable(2)
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -208,7 +208,7 @@ class Foo(value: int) {
 
 async func Run(foo: Foo?) -> Task<Option<int>> {
     if foo is not null {
-        val result = await foo(true)
+        let result = await foo(true)
         return result
     }
 

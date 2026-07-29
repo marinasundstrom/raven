@@ -12,7 +12,7 @@ public class UnusedPropertyAnalyzerTests : AnalyzerTestBase
     public void ConsoleApplication_UnusedProperty_ReportsDiagnostic()
     {
         const string code = """
-val x = 0
+let x = 0
 
 class C {
     val Name: string = "Raven"
@@ -39,8 +39,8 @@ class C {
     public void ConsoleApplication_UsedProperty_DoesNotReportDiagnostic()
     {
         const string code = """
-val c = C()
-val x = c.Name
+let c = C()
+let x = c.Name
 
 class C {
     val Name: string = "Raven"
@@ -86,7 +86,7 @@ class C {
     {
         // Regression: private stored property syntax should resolve as property usage in symbol info.
         const string code = """
-val x = 0
+let x = 0
 
 class Counter {
     private var count: int = 0
@@ -115,7 +115,7 @@ class Counter {
     {
         // Regression: member access to stored properties should resolve directly as property usage.
         const string code = """
-val x = 0
+let x = 0
 
 class Person {
     private var age: int = 0
@@ -194,7 +194,7 @@ class Person : IHasName {
     public void OverrideProperty_IsNotReported()
     {
         const string code = """
-val dog = Dog()
+let dog = Dog()
 
 open class Animal {
     public virtual val Name: string {

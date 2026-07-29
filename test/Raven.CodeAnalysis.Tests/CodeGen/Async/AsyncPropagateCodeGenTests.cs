@@ -20,14 +20,14 @@ import System.Collections.Generic.*
 
 class Program {
     static func Main() -> Result<(), string> {
-        val xs: Item[] = [Item("A")]
-        val names = Collect(xs)?
+        let xs: Item[] = [Item("A")]
+        let names = Collect(xs)?
         Console.WriteLine(names.Length)
         return Ok
     }
 
     static func Collect(items: Item[]) -> Result<string[], string> {
-        val values = List<string>()
+        let values = List<string>()
         values.Add(GetName(items[0])?)
         return Ok(values.ToArray())
     }
@@ -79,13 +79,13 @@ class C {
 
     public async func RunFail() -> Task<Result<int, string>> {
         use d = Disposable()
-        val value = try? await Task.FromResult(Fail())
+        let value = try? await Task.FromResult(Fail())
         return .Ok(value)
     }
 
     public async func RunSuccess() -> Task<Result<int, string>> {
         use d = Disposable()
-        val value = try? await Task.FromResult(Succeed())
+        let value = try? await Task.FromResult(Succeed())
         return .Ok(value)
     }
 }

@@ -9,7 +9,7 @@ public class UnusedPropertyCodeFixTests : CodeFixTestBase
     public void AppliesCodeFix_RemovesUnusedProperty()
     {
         const string code = """
-val x = 0
+let x = 0
 
 class C {
     val Name: string = "Raven"
@@ -17,7 +17,7 @@ class C {
 """;
 
         const string fixedCode = """
-val x = 0
+let x = 0
 
 class C {}
 """;

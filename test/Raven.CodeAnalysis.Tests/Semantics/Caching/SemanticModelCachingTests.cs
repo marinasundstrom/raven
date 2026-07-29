@@ -127,7 +127,7 @@ class Factory {
 
 class C {
     func Test() {
-        val item = Factory.Make(1)
+        let item = Factory.Make(1)
     }
 }
 """;
@@ -168,7 +168,7 @@ class Factory {
 
 class C {
     func Test() {
-        val item = Factory.Make(1)
+        let item = Factory.Make(1)
     }
 }
 """;
@@ -197,7 +197,7 @@ class C {
         var tree = SyntaxTree.ParseText("""
 class C {
     func Test() {
-        val value = 1
+        let value = 1
         value
     }
 }
@@ -253,7 +253,7 @@ class VehicleEntity {
 
 class C {
     func Test() {
-        val vehicle = VehicleEntity()
+        let vehicle = VehicleEntity()
         vehicle.SetStatus("operational")
     }
 }
@@ -319,7 +319,7 @@ class C {
     }
 
     func Test() {
-        val vehicle = VehicleEntity()
+        let vehicle = VehicleEntity()
         vehicle.SetStatus(ToStatus())
     }
 }
@@ -387,7 +387,7 @@ class RouteBuilder {
 class C {
     func Test(app: RouteBuilder) {
         app.MapPost("/vehicles", func (request: CreateVehicleRequest) {
-            val vehicle = VehicleEntity()
+            let vehicle = VehicleEntity()
             vehicle.SetStatus(request.ToStatus())
         })
     }
@@ -498,7 +498,7 @@ union class Result<T, E> {
 
 class C {
     func Test() -> Result<int, string> {
-        val result: Result<int, string> = Result<int, string>.Ok(1)
+        let result: Result<int, string> = Result<int, string>.Ok(1)
         var value = result?
         return Result<int, string>.Ok(value)
     }
@@ -561,7 +561,7 @@ class Parser {
 
 class C {
     func Test(dto: Dto) -> Result<int, string> {
-        val priority = Parser.ParsePriority(dto.Priority)?
+        let priority = Parser.ParsePriority(dto.Priority)?
         return Result<int, string>.Ok(priority)
     }
 }
@@ -621,8 +621,8 @@ record class FulfillmentPlan(val Name: string)
 
 class C {
     func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<string, FulfillmentError> {
-        val plan = planResult?
-        val nameResult = planResult?.Name
+        let plan = planResult?
+        let nameResult = planResult?.Name
         return Result<string, FulfillmentError>.Ok(plan.Name)
     }
 }
@@ -677,8 +677,8 @@ union class Result<T, E> {
 }
 
 async func Main() -> Task<Result<(), string>> {
-    val result = await Load()
-    val value = result?
+    let result = await Load()
+    let value = result?
     return Result<(), string>.Ok(())
 }
 
@@ -733,7 +733,7 @@ class C {
     }
 
     func Test() {
-        val value = C.Take("bad")
+        let value = C.Take("bad")
     }
 }
 """;
@@ -771,8 +771,8 @@ union class Result<T, E> {
 
 class C {
     func Test(rawJson: string) {
-        val parsed: string = rawJson
-        val dtoResult = try parsed
+        let parsed: string = rawJson
+        let dtoResult = try parsed
     }
 }
 """;
@@ -820,8 +820,8 @@ class C {
 import System.Collections.Generic.*
 
 func Test() {
-    val order = Order("ORD-1", [OrderLine("SKU-1", 1)])
-    val picks: List<PickLine> = List<PickLine>()
+    let order = Order("ORD-1", [OrderLine("SKU-1", 1)])
+    let picks: List<PickLine> = List<PickLine>()
     for line in order.Lines {
         picks.Add(PickLine(order.Id, line.Sku, line.Quantity))
     }
@@ -905,7 +905,7 @@ func Test() {
     {
         var code = """
 func Test() {
-    val values = [|"a", "b"|]
+    let values = [|"a", "b"|]
     for value in values {
         value
     }
@@ -980,7 +980,7 @@ class DomainError(Message: string)
 
 class C {
     func Test(items: ItemExtensions) {
-        val first = items.FirstOrError(() => DomainError("Wow"))
+        let first = items.FirstOrError(() => DomainError("Wow"))
     }
 }
 """;
@@ -1127,8 +1127,8 @@ func Main() -> int {
 import System.Linq.*
 
 func Main() {
-    val values = [1, 2, 3]
-    val projected = values.Select(value => value + 1)
+    let values = [1, 2, 3]
+    let projected = values.Select(value => value + 1)
 }
 """;
 
@@ -1197,7 +1197,7 @@ class C {
         var code = """
 class C {
     func Test() {
-        val scope: string = ""
+        let scope: string = ""
     }
 }
 """;
@@ -1235,8 +1235,8 @@ class C {
     public void TryGetAvailableLocalDeclarationSymbol_WithoutBindingFallback_DoesNotCompleteSourceDeclarationsOrBind()
     {
         var code = """
-val first = 1
-val target = 42
+let first = 1
+let target = 42
 """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -1280,7 +1280,7 @@ class C {
     func CreateScope() -> string => ""
 
     func Test() {
-        val scope = CreateScope()
+        let scope = CreateScope()
     }
 }
 """;
@@ -1358,9 +1358,9 @@ class C {
 import System.Text.Json.*
 
 func Main() -> () {
-    val str = "{}"
-    val options = JsonSerializerOptions()
-    val obj = JsonSerializer.Deserialize<Foo>(str, options)
+    let str = "{}"
+    let options = JsonSerializerOptions()
+    let obj = JsonSerializer.Deserialize<Foo>(str, options)
 }
 
 record Foo(Name: string)
@@ -1391,10 +1391,10 @@ record Foo(Name: string)
         var body = """
 import System.Text.Json.*
 
-val foo = Foo("Marina")
-val options = JsonSerializerOptions()
-val str = JsonSerializer.Serialize(foo, options)
-val obj = JsonSerializer.Deserialize<Foo>(str, options)
+let foo = Foo("Marina")
+let options = JsonSerializerOptions()
+let str = JsonSerializer.Serialize(foo, options)
+let obj = JsonSerializer.Deserialize<Foo>(str, options)
 
 record Foo(Name: string)
 """;
@@ -1402,17 +1402,17 @@ record Foo(Name: string)
             ? body
             : body.Replace(
                 """
-val foo = Foo("Marina")
-val options = JsonSerializerOptions()
-val str = JsonSerializer.Serialize(foo, options)
-val obj = JsonSerializer.Deserialize<Foo>(str, options)
+let foo = Foo("Marina")
+let options = JsonSerializerOptions()
+let str = JsonSerializer.Serialize(foo, options)
+let obj = JsonSerializer.Deserialize<Foo>(str, options)
 """,
                 """
 func Main() -> () {
-    val foo = Foo("Marina")
-    val options = JsonSerializerOptions()
-    val str = JsonSerializer.Serialize(foo, options)
-    val obj = JsonSerializer.Deserialize<Foo>(str, options)
+    let foo = Foo("Marina")
+    let options = JsonSerializerOptions()
+    let str = JsonSerializer.Serialize(foo, options)
+    let obj = JsonSerializer.Deserialize<Foo>(str, options)
 }
 """);
 
@@ -1443,10 +1443,10 @@ func Main() -> () {
         var code = """
 import System.Text.Json.*
 
-val foo = Foo("Marina")
-val options = JsonSerializerOptions()
-val str = JsonSerializer.Serialize(foo, options)
-val obj = JsonSerializer.Deserialize<Foo>(str, options)
+let foo = Foo("Marina")
+let options = JsonSerializerOptions()
+let str = JsonSerializer.Serialize(foo, options)
+let obj = JsonSerializer.Deserialize<Foo>(str, options)
 
 record Foo(Name: string)
 """;
@@ -1485,12 +1485,12 @@ record Foo(Name: string)
 import System.Text.Json.*
 
 func Main() -> () {
-    val foo = Foo("Marina")
-    val options = JsonSerializerOptions {
+    let foo = Foo("Marina")
+    let options = JsonSerializerOptions {
         WriteIndented = true
     }
-    val str = JsonSerializer.Serialize(foo, options)
-    val obj = JsonSerializer.Deserialize<Foo>(str, options)
+    let str = JsonSerializer.Serialize(foo, options)
+    let obj = JsonSerializer.Deserialize<Foo>(str, options)
 }
 
 record Foo(Name: string)
@@ -1555,22 +1555,22 @@ import System.Console.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-val foo = Foo(
+let foo = Foo(
     Name: "Foo",
     Status: .OnMaintenance(.UtcNow, "Test"),
     Item: .Some("Foo"),
     Test: true
 )
 
-val options = JsonSerializerOptions {
+let options = JsonSerializerOptions {
     WriteIndented = true,
     PropertyNamingPolicy = .CamelCase
 }
 
-val str = JsonSerializer.Serialize(foo, options)
+let str = JsonSerializer.Serialize(foo, options)
 WriteLine(str)
 
-val obj = JsonSerializer.Deserialize<Foo>(str, options)
+let obj = JsonSerializer.Deserialize<Foo>(str, options)
 WriteLine(obj)
 
 match foo.Test {
@@ -1616,9 +1616,9 @@ func Test(foo: Foo, options: Options) -> string {
     "ok"
 }
 
-val foo = Foo("Foo")
-val options = Options()
-val str = Test(foo, options)
+let foo = Foo("Foo")
+let options = Options()
+let str = Test(foo, options)
 """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -1649,8 +1649,8 @@ val str = Test(foo, options)
     public void GetDeclaredSymbol_TopLevelLocal_InLibraryOutputStillBindsForSemanticQueries()
     {
         var code = """
-val foo = 1
-val bar = foo
+let foo = 1
+let bar = foo
 """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -1709,10 +1709,10 @@ func Print(value: string) -> () {
         var code = """
 import System.Text.Json.*
 
-val foo = Foo("Marina")
-val options = JsonSerializerOptions()
-val str = JsonSerializer.Serialize(foo, options)
-val obj = JsonSerializer.Deserialize<Foo>(options, str)
+let foo = Foo("Marina")
+let options = JsonSerializerOptions()
+let str = JsonSerializer.Serialize(foo, options)
+let obj = JsonSerializer.Deserialize<Foo>(options, str)
 
 record Foo(Name: string)
 """;
@@ -1739,7 +1739,7 @@ record Foo(Name: string)
     {
         var code = """
 func Normalize(kind: string) -> string {
-    val normalized = kind.Trim().ToLowerInvariant()
+    let normalized = kind.Trim().ToLowerInvariant()
     return normalized
 }
 """;
@@ -1846,7 +1846,7 @@ import System.Linq.*
 
 class C {
     func Test() {
-        val projection = missing.Where(value => true)
+        let projection = missing.Where(value => true)
     }
 }
 """;
@@ -1881,7 +1881,7 @@ class C {
     {
         var code = """
 func Main() -> () {
-    val x = Foo()
+    let x = Foo()
 }
 
 union Foo(int | string)
@@ -1914,7 +1914,7 @@ union Foo(int | string)
     {
         var code = """
 func Main() -> () {
-    val x = Either<int, string>()
+    let x = Either<int, string>()
 }
 
 union Either<T1, T2>(T1 | T2)
@@ -1956,7 +1956,7 @@ class Item {
 
 class C {
     func Test(entry: Item) {
-        val distance = entry.DistanceDrivenKm
+        let distance = entry.DistanceDrivenKm
     }
 }
 """;
@@ -1991,7 +1991,7 @@ class Counter {
     private var count: int = 0
 
     func Test() {
-        val current = self.count
+        let current = self.count
     }
 }
 """;
@@ -2026,7 +2026,7 @@ class Counter {
 import System.*
 
 func Main() -> unit {
-    val value = 42
+    let value = 42
     Console.WriteLine("value: ${value.ToString()}")
 }
 """;

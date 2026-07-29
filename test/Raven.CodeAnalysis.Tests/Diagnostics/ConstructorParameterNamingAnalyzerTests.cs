@@ -76,7 +76,7 @@ class Foo(Name: string) {
         const string code = """
 class Foo(value: int, var Name: string) {
     init(seed: int) {
-        val x = value + seed
+        let x = value + seed
     }
 }
 """;

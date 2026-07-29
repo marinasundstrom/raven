@@ -19,8 +19,8 @@ func Collect(items: int[] ...) -> int {
     return 0
 }
 
-val xs = [1, 2, 3]
-val count = Collect(...xs)
+let xs = [1, 2, 3]
+let count = Collect(...xs)
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -68,7 +68,7 @@ func Collect(items: int ...) -> int {
     return 0
 }
 
-val count = Collect(1, 2, 3)
+let count = Collect(1, 2, 3)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -102,8 +102,8 @@ func Collect(items: int ...) -> int {
     return 0
 }
 
-val xs = [1, 2, 3]
-val count = Collect(...xs)
+let xs = [1, 2, 3]
+let count = Collect(...xs)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -202,7 +202,7 @@ func Collect(params items: int[] ...) -> int {
     {
         const string source = """
 func Collect(params items: int[]) -> int {
-    val count = items.Length
+    let count = items.Length
     return count
 }
 
@@ -262,8 +262,8 @@ func Collect(items: int[] ...) -> int {
     return 0
 }
 
-val xs: int[] = [1, 2, 3]
-val count = Collect(xs)
+let xs: int[] = [1, 2, 3]
+let count = Collect(xs)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -288,8 +288,8 @@ func Collect<T>(items: T ...) -> int {
     return 0
 }
 
-val xs: int[] = [1, 2, 3]
-val count = Collect(xs)
+let xs: int[] = [1, 2, 3]
+let count = Collect(xs)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -314,7 +314,7 @@ func Collect<T>(items: T ...) -> int {
     return 0
 }
 
-val count = Collect(1, 2, 3)
+let count = Collect(1, 2, 3)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -339,8 +339,8 @@ func Collect<T>(items: T ...) where T: class {
     return 0
 }
 
-val xs: int[] = [1, 2, 3]
-val count = Collect(xs)
+let xs: int[] = [1, 2, 3]
+let count = Collect(xs)
 """;
 
         var (compilation, _) = CreateCompilation(source);

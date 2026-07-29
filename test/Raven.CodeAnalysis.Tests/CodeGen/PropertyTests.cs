@@ -504,7 +504,7 @@ class Counter {
         var code = """
 import System.Console.*
 
-val service = ShipmentOrderService()
+let service = ShipmentOrderService()
 service.RecordPending(2)
 service.RecordPending(3)
 WriteLine(service.PendingCount)

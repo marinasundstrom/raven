@@ -12,8 +12,8 @@ public class PreferDuLinqExtensionsCodeFixTests : CodeFixTestBase
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
-    val first = arr.First()
+    let arr = [1, 2, 3]
+    let first = arr.First()
 }
 """;
 
@@ -21,8 +21,8 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
-    val first = arr.FirstOrError(() => "TODO: provide error")
+    let arr = [1, 2, 3]
+    let first = arr.FirstOrError(() => "TODO: provide error")
 }
 """;
 
@@ -41,8 +41,8 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
-    val first = arr.FirstOrDefault()
+    let arr = [1, 2, 3]
+    let first = arr.FirstOrDefault()
 }
 """;
 
@@ -50,8 +50,8 @@ func Test() {
 import System.Linq.*
 
 func Test() {
-    val arr = [1, 2, 3]
-    val first = arr.FirstOrNone()
+    let arr = [1, 2, 3]
+    let first = arr.FirstOrNone()
 }
 """;
 

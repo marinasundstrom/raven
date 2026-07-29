@@ -10,7 +10,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_SingleParameter_OmitsParentheses()
     {
-        var code = "val f: string -> int = s => 0";
+        var code = "let f: string -> int = s => 0";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -25,7 +25,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_WithParameterList_ParsesAllParameters()
     {
-        var code = "val f: (int, string) -> bool = (i, s) => true";
+        var code = "let f: (int, string) -> bool = (i, s) => true";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -42,7 +42,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_Parameterless_Parses()
     {
-        var code = "val f: () -> unit = () => ()";
+        var code = "let f: () -> unit = () => ()";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -57,7 +57,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_Parameterless_WithNullableReturn_Parses()
     {
-        var code = "val f: () -> ()? = () => ()";
+        var code = "let f: () -> ()? = () => ()";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -72,7 +72,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void NullableFunctionType_WithGroupedFunctionType_Parses()
     {
-        var code = "val f: (() -> ())? = null";
+        var code = "let f: (() -> ())? = null";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -90,7 +90,7 @@ public class FunctionTypeSyntaxTests
     [Fact]
     public void FunctionType_WithFuncPrefix_NoLongerParsesAsFunctionType()
     {
-        var code = "val f: func () -> int = () => 0";
+        var code = "let f: func () -> int = () => 0";
         var tree = SyntaxTree.ParseText(code);
         var diagnostics = tree.GetDiagnostics();
         Assert.NotEmpty(diagnostics);

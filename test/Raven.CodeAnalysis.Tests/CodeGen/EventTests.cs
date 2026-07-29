@@ -88,8 +88,8 @@ class Counter {
 class Program {
     static func Run() -> int {
         Counter.Hits = 0
-        val actual = ConsoleLogger()
-        val logger: ConsoleLogger? = actual
+        let actual = ConsoleLogger()
+        let logger: ConsoleLogger? = actual
 
         logger?.Logged += (msg: string) => {
             Counter.Increment()
@@ -144,7 +144,7 @@ class Program {
 
     static func Run() -> int {
         Hits = 0
-        val f = Foo<int>()
+        let f = Foo<int>()
         f.Bar += (s, args) => Inc()
         f.Raise()
         return Hits
@@ -201,7 +201,7 @@ open class ObservableBase : INotifyPropertyChanged {
 
 class Program {
     static func Main() -> int {
-        val viewModel = MyViewModel()
+        let viewModel = MyViewModel()
         viewModel.PropertyChanged += (sender, args) => {
             System.Console.WriteLine(args.PropertyName ?? "")
         }
@@ -268,7 +268,7 @@ class Counter {
 class Program {
     static func Run() -> int {
         Counter.Hits = 0
-        val button = Button {
+        let button = Button {
             Clicked += () => Counter.Inc()
         }
 
@@ -308,7 +308,7 @@ class Counter {
 
 class Program {
     static func Run() -> int {
-        val counter = Counter {
+        let counter = Counter {
             Value += 2
             Value *= 3
         }

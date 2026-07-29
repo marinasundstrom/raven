@@ -50,10 +50,10 @@ func StatusMatches(status: VehicleStatus) -> bool {
         const string source = """
 import Outcome.*
 
-val result: Outcome<int, string> = Ok(2)
+let result: Outcome<int, string> = Ok(2)
 
 match result {
-    Ok(val value) => value
+    Ok(let value) => value
     Error(_) => 0
 }
 
@@ -103,16 +103,16 @@ union Outcome<T, E> {
 import System.Result.*
 import System.*
 
-val ok: Result<int, string> = Ok(2)
+let ok: Result<int, string> = Ok(2)
 
 match ok {
-    Ok(val value) => {}
+    Ok(let value) => {}
     Error(_) => {}
 }
 
 class C {
     func Test() {
-        val localOk: Result<int, string> = Ok(2)
+        let localOk: Result<int, string> = Ok(2)
 
         match localOk {
             Ok(_) => {}
@@ -166,7 +166,7 @@ import System.*
 
 class C {
     func Test() {
-        val ok: Result<int, string> = Ok(2)
+        let ok: Result<int, string> = Ok(2)
 
         match ok {
             Error(_) => {}
@@ -206,7 +206,7 @@ class C {
     public void GetSymbolInfo_OpenGenericTypePattern_ProjectsFromScrutineeType()
     {
         const string source = """
-val value: Box<int> = Box<int>()
+let value: Box<int> = Box<int>()
 
 if value is Box box {
 }

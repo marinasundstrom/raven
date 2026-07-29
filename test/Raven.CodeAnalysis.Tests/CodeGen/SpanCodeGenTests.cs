@@ -16,22 +16,22 @@ public class SpanCodeGenTests
         const string code = """
 class SpanConversions {
     static func FromArray() -> int {
-        val strings: string[] = ["a", "b"]
-        val objects: System.ReadOnlySpan<object> = strings
+        let strings: string[] = ["a", "b"]
+        let objects: System.ReadOnlySpan<object> = strings
         objects.Length
     }
 
     static func FromSpan() -> int {
-        val strings: string[] = ["a", "b", "c"]
-        val mutable: System.Span<string> = strings
-        val objects: System.ReadOnlySpan<object> = mutable
+        let strings: string[] = ["a", "b", "c"]
+        let mutable: System.Span<string> = strings
+        let objects: System.ReadOnlySpan<object> = mutable
         objects.Length
     }
 
     static func FromReadOnlySpan() -> int {
-        val strings: string[] = ["a", "b", "c", "d"]
-        val readOnly: System.ReadOnlySpan<string> = strings
-        val objects: System.ReadOnlySpan<object> = readOnly
+        let strings: string[] = ["a", "b", "c", "d"]
+        let readOnly: System.ReadOnlySpan<string> = strings
+        let objects: System.ReadOnlySpan<object> = readOnly
         objects.Length
     }
 }
@@ -75,7 +75,7 @@ class SpanCalls {
     static func ChooseSequence(value: System.ReadOnlySpan<int>) -> int { 2 }
 
     static func InferredLength() -> int {
-        val values: int[] = [1, 2, 3]
+        let values: int[] = [1, 2, 3]
         Length(values)
     }
 
@@ -84,12 +84,12 @@ class SpanCalls {
     }
 
     static func PreferredSpanOverload() -> int {
-        val values: int[] = [1, 2, 3]
+        let values: int[] = [1, 2, 3]
         ChooseSpan(values)
     }
 
     static func PreferredSequenceOverload() -> int {
-        val values: int[] = [1, 2, 3]
+        let values: int[] = [1, 2, 3]
         ChooseSequence(values)
     }
 }
@@ -121,33 +121,33 @@ class SpanCalls {
         const string code = """
 class SpanOperations {
     static func ReadAndWrite() -> int {
-        val array: int[] = [10, 20, 30]
+        let array: int[] = [10, 20, 30]
         var values: System.Span<int> = array
         values[1] = 42
         values[1]
     }
 
     static func ReadOnlyIndex() -> int {
-        val array: int[] = [10, 20, 30]
-        val values: System.ReadOnlySpan<int> = array
+        let array: int[] = [10, 20, 30]
+        let values: System.ReadOnlySpan<int> = array
         values[2]
     }
 
     static func ReadOnlyAt(index: int) -> int {
-        val array: int[] = [10, 20, 30]
-        val values: System.ReadOnlySpan<int> = array
+        let array: int[] = [10, 20, 30]
+        let values: System.ReadOnlySpan<int> = array
         values[index]
     }
 
     static func SliceLength() -> int {
-        val array: int[] = [10, 20, 30, 40]
-        val values: System.ReadOnlySpan<int> = array
+        let array: int[] = [10, 20, 30, 40]
+        let values: System.ReadOnlySpan<int> = array
         values.Slice(1, 2).Length
     }
 
     static func Sum() -> int {
-        val array: int[] = [1, 2, 3, 4]
-        val values: System.ReadOnlySpan<int> = array
+        let array: int[] = [1, 2, 3, 4]
+        let values: System.ReadOnlySpan<int> = array
         var sum = 0
         for value in values {
             sum += value
@@ -156,8 +156,8 @@ class SpanOperations {
     }
 
     static func SumMutable() -> int {
-        val array: int[] = [2, 4, 6]
-        val values: System.Span<int> = array
+        let array: int[] = [2, 4, 6]
+        let values: System.Span<int> = array
         var sum = 0
         for value in values {
             sum += value
@@ -202,23 +202,23 @@ class SpanOperations {
         const string code = """
 class SpanCollections {
     static func Mutable() -> int {
-        val values: System.Span<int> = [10, 20, 30]
+        let values: System.Span<int> = [10, 20, 30]
         values[1]
     }
 
     static func ReadOnly() -> int {
-        val values: System.ReadOnlySpan<int> = [10, 20, 30, 40]
+        let values: System.ReadOnlySpan<int> = [10, 20, 30, 40]
         values[3]
     }
 
     static func Spread() -> int {
-        val middle: int[] = [20, 30]
-        val values: System.ReadOnlySpan<int> = [10, ...middle, 40]
+        let middle: int[] = [20, 30]
+        let values: System.ReadOnlySpan<int> = [10, ...middle, 40]
         values.Length
     }
 
     static func Empty() -> int {
-        val values: System.Span<int> = []
+        let values: System.Span<int> = []
         values.Length
     }
 }
@@ -250,10 +250,10 @@ class SpanCollections {
         const string code = """
 class MemoryOperations {
     static func Run() -> int {
-        val array: int[] = [10, 20, 30]
-        val memory: System.Memory<int> = array
-        val readOnlyFromArray: System.ReadOnlyMemory<int> = array
-        val readOnlyFromMemory: System.ReadOnlyMemory<int> = memory
+        let array: int[] = [10, 20, 30]
+        let memory: System.Memory<int> = array
+        let readOnlyFromArray: System.ReadOnlyMemory<int> = array
+        let readOnlyFromMemory: System.ReadOnlyMemory<int> = memory
 
         var mutableSpan = memory.Span
         mutableSpan[1] = 40

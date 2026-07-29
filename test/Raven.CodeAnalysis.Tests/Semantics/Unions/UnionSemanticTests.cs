@@ -136,7 +136,7 @@ union Either(Left | Right)
     {
         const string source = """
 func Test() -> int {
-    val value: Either = "text"
+    let value: Either = "text"
 
     return match value {
         string text => text.Length
@@ -167,7 +167,7 @@ union Either(int | string)
     {
         const string source = """
 func Test() -> int {
-    val value: Either = 1
+    let value: Either = 1
 
     return match value {
         int number => number
@@ -241,7 +241,7 @@ union Foo(int | double)
     {
         const string source = """
 func Test() -> int {
-    val value: Foo = 1
+    let value: Foo = 1
 
     return match value {
         int number => number
@@ -274,7 +274,7 @@ union Foo(int | double?)
 union Foo(int | double?)
 
 func Test() -> () {
-    val value: Foo = null
+    let value: Foo = null
 }
 """;
 
@@ -319,7 +319,7 @@ func Test(value: int | null) -> () {
     {
         const string source = """
 func Test(x2: Test2) -> int {
-    val r = match x2 {
+    let r = match x2 {
         42 => 3
         null => 2
     }
@@ -347,9 +347,9 @@ union Test2(int?)
     {
         const string source = """
 func Test() -> int {
-    val x2: Test2 = 1
+    let x2: Test2 = 1
 
-    val r = match x2 {
+    let r = match x2 {
         null => 2
     }
 
@@ -381,7 +381,7 @@ union Test2(int?)
     {
         const string source = """
 func Test() -> int {
-    val x2: Test2 = 1
+    let x2: Test2 = 1
 
     return match x2 {
         int value => value
@@ -527,7 +527,7 @@ union MyResult<T>(List<T> | int)
     {
         const string source = """
 func create() {
-    val option = Option.Some(value: 42)
+    let option = Option.Some(value: 42)
 }
 
 union Option {
@@ -550,7 +550,7 @@ union Option {
     {
         const string source = """
 func build() {
-    val option : Option = .Some(value: 42)
+    let option : Option = .Some(value: 42)
 }
 
 union Option {
@@ -573,7 +573,7 @@ union Option {
     {
         const string source = """
 func build<T>(payload: T) -> Option<T> {
-    val option: Option<T> = .Some(payload)
+    let option: Option<T> = .Some(payload)
     return option
 }
 
@@ -608,8 +608,8 @@ union Payment(Cash | Card)
 
 func Describe(value: Payment) -> string {
     return match value {
-        Cash(val amount) => "cash $amount"
-        Card(val reference) => "card $reference"
+        Cash(let amount) => "cash $amount"
+        Card(let reference) => "card $reference"
     }
 }
 """;
@@ -637,7 +637,7 @@ union struct Option<T> {
 
 class C<T> {
     func M(payload: T) -> Option<T> {
-        val option: Option<T> = Some(payload)
+        let option: Option<T> = Some(payload)
         return option
     }
 }
@@ -668,10 +668,10 @@ union class Option<T> {
     case None
 
     func Normalize(fallback: T) -> Option<T> {
-        val current: Option<T> = Some(fallback)
+        let current: Option<T> = Some(fallback)
 
         return match self {
-            Some(val value) => Some(value)
+            Some(let value) => Some(value)
             None => current
         }
     }
@@ -690,7 +690,7 @@ union class Option<T> {
     {
         const string source = """
 func build() {
-    val result = TempTooLow(12)
+    let result = TempTooLow(12)
 }
 
 union class HeaterResult {
@@ -798,7 +798,7 @@ union class HeaterResult {
         const string source = """
 func describe(result: HeaterResult) -> int {
     return match result {
-        TempTooLow(val temp) => temp
+        TempTooLow(let temp) => temp
     }
 }
 
@@ -824,7 +824,7 @@ import HeaterResult.*
 
 func describe(result: HeaterResult) -> int {
     return match result {
-        TempTooLow(val temp) => temp
+        TempTooLow(let temp) => temp
     }
 }
 
@@ -845,7 +845,7 @@ union class HeaterResult {
     {
         const string source = """
 func build() {
-    val result: Result<int, string> = Result.Ok(42)
+    let result: Result<int, string> = Result.Ok(42)
 }
 
 union Result<T, E> {
@@ -875,8 +875,8 @@ union Result<T, E> {
 import System.*
 
 func build() {
-    val factory: Func<int, Result<int, string>> = x => Result.Ok(x)
-    val result: Result<int, string> = factory(42)
+    let factory: Func<int, Result<int, string>> = x => Result.Ok(x)
+    let result: Result<int, string> = factory(42)
 }
 
 union Result<T, E> {
@@ -907,7 +907,7 @@ union Result<T, E> {
 import System.*
 
 func build<T>(value: T) -> Result<T, string> {
-    val factory: Func<T, Result<T, string>> = x => Result.Ok(x)
+    let factory: Func<T, Result<T, string>> = x => Result.Ok(x)
     return factory(value)
 }
 
@@ -937,10 +937,10 @@ union Result<T, E> {
     {
         const string source = """
 func build() {
-    val resultA: Result<int, string> = .Ok(2)
-    val resultB: Result<int, string> = .Ok<int>(2)
-    val resultC: Result<int, string> = Result<int, string>.Ok(2)
-    val resultD: Result<int, string> = .Ok(2)
+    let resultA: Result<int, string> = .Ok(2)
+    let resultB: Result<int, string> = .Ok<int>(2)
+    let resultC: Result<int, string> = Result<int, string>.Ok(2)
+    let resultD: Result<int, string> = .Ok(2)
 }
 
 union Result<T, E> {
@@ -963,7 +963,7 @@ union Result<T, E> {
 import Result.*
 
 func build() {
-    val result = Ok(2)
+    let result = Ok(2)
 }
 
 union Result<T, E> {
@@ -986,7 +986,7 @@ union Result<T, E> {
     {
         const string source = """
 func build() {
-    val result: Result<int, string> = Ok(2)
+    let result: Result<int, string> = Ok(2)
 }
 
 union Result<T, E> {
@@ -1007,7 +1007,7 @@ union Result<T, E> {
     {
         const string source = """
 func build() {
-    val caseValue = Result.Ok(2)
+    let caseValue = Result.Ok(2)
 }
 
 union Result<T, E> {
@@ -1029,7 +1029,7 @@ union Result<T, E> {
         const string source = """
 func format(option: Option<int>) -> string {
     return match option {
-        .Some(val value) => "some ${value}"
+        .Some(let value) => "some ${value}"
         .None => "none"
     }
 }
@@ -1053,8 +1053,8 @@ union class Option<T> {
     {
         const string source = """
 func build() {
-    val caseValue = Result.Ok<int>(2)
-    val resultValue: Result<int, string> = Result.Ok<int>(2)
+    let caseValue = Result.Ok<int>(2)
+    let resultValue: Result<int, string> = Result.Ok<int>(2)
 }
 
 union Result<T, E> {
@@ -1075,8 +1075,8 @@ union Result<T, E> {
     {
         const string source = """
 func build() {
-    val err = Result<int, string>.Error("boom")
-    val result: Result<int, string> = err
+    let err = Result<int, string>.Error("boom")
+    let result: Result<int, string> = err
 }
 
 union Result<T, E> {
@@ -1097,11 +1097,11 @@ union Result<T, E> {
     {
         const string source = """
 func build() -> Result<int, Err> {
-    val value: int? = null
+    let value: int? = null
 
     return match value {
         null => .Error(.MissingName)
-        val v => .Ok(v ?? 0)
+        let v => .Ok(v ?? 0)
     }
 }
 
@@ -1267,13 +1267,13 @@ union Response<T, E> {
     {
         const string source = """
 func build() {
-    val s1: Option<int> = .Some(1)
-    val s2: Option<int> = .Some(2)
-    val s3: Option<int> = Option.Some(3)
-    val s4: Option<int> = Option<int>.Some(4)
+    let s1: Option<int> = .Some(1)
+    let s2: Option<int> = .Some(2)
+    let s3: Option<int> = Option.Some(3)
+    let s4: Option<int> = Option<int>.Some(4)
 
-    val n1: Option<int> = .None
-    val n2: Option<int> = .None
+    let n1: Option<int> = .None
+    let n2: Option<int> = .None
 }
 
 union Option<T> {
@@ -1293,8 +1293,8 @@ union Option<T> {
     {
         const string source = """
 func build() {
-    val theme = Theme(.None)
-    val theme2 = Theme(.None)
+    let theme = Theme(.None)
+    let theme2 = Theme(.None)
 }
 
 record Theme(PrimaryColor: Option<string>)
@@ -1710,8 +1710,8 @@ union struct Result {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -1742,8 +1742,8 @@ class Holder {
 
     func format() -> string {
         return match self.current {
-            .Ok(val payload) => payload.ToString()
-            .Error(val message) => message
+            .Ok(let payload) => payload.ToString()
+            .Error(let message) => message
         }
     }
 }
@@ -1779,8 +1779,8 @@ class Holder {
 
     func format() -> string {
         return match self.Current {
-            .Ok(val payload) => payload.ToString()
-            .Error(val message) => message
+            .Ok(let payload) => payload.ToString()
+            .Error(let message) => message
         }
     }
 }
@@ -1808,11 +1808,11 @@ union struct Result<T> {
     {
         const string source = """
 func format() -> string {
-    val result: Result<int> = default
+    let result: Result<int> = default
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -1843,8 +1843,8 @@ func format() -> string {
     result = .Ok(1)
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -1878,8 +1878,8 @@ func format(useDefault: bool) -> string {
     }
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -1910,8 +1910,8 @@ func format(useNested: bool) -> string {
 
     if useNested {
         return match result {
-            .Ok(val payload) => payload.ToString()
-            .Error(val message) => message
+            .Ok(let payload) => payload.ToString()
+            .Error(let message) => message
         }
     }
 
@@ -1949,8 +1949,8 @@ func format(useDefault: bool) -> string {
     }
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -1984,8 +1984,8 @@ func format(values: int[]) -> string {
     }
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -2020,8 +2020,8 @@ func format() -> string {
     }
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -2057,8 +2057,8 @@ func format() -> string {
     }
 
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -2086,8 +2086,8 @@ union struct Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
         _ => "uninitialized"
     }
 }
@@ -2145,7 +2145,7 @@ func consume(result: Result<int>) {
 }
 
 func run() {
-    val result: Result<int> = default
+    let result: Result<int> = default
     consume(result)
 }
 
@@ -2276,7 +2276,7 @@ class Sink {
 }
 
 func run() {
-    val sink = Sink()
+    let sink = Sink()
     sink.consume(default)
 }
 
@@ -2329,7 +2329,7 @@ func consumeAll(results: Result<int> ...) {
 }
 
 func run() {
-    val result: Result<int> = default
+    let result: Result<int> = default
     consumeAll(.Ok(1), result)
 }
 
@@ -2356,7 +2356,7 @@ func consume<T>(result: Result<T>) {
 }
 
 func run() {
-    val result: Result<int> = default
+    let result: Result<int> = default
     consume(result)
 }
 
@@ -2385,7 +2385,7 @@ extension ResultExtensions<T> for Result<T> {
 }
 
 func run() {
-    val result: Result<int> = default
+    let result: Result<int> = default
     result.Touch()
 }
 
@@ -2408,8 +2408,8 @@ union struct Result<T> {
     {
         const string source = """
 func run() {
-    val sink: Result<int> -> unit = value => ()
-    val result: Result<int> = default
+    let sink: Result<int> -> unit = value => ()
+    let result: Result<int> = default
     sink(result)
 }
 
@@ -2499,7 +2499,7 @@ func consume(result: Result<int>) {
 }
 
 func run(flag: bool) {
-    val result: Result<int> = if flag { .Ok(1) } else { .Error("boom") }
+    let result: Result<int> = if flag { .Ok(1) } else { .Error("boom") }
     consume(result)
 }
 
@@ -2524,7 +2524,7 @@ func consume(result: Result<int>) {
 }
 
 func run(flag: bool) {
-    val result: Result<int> = if flag { .Ok(1) } else { default }
+    let result: Result<int> = if flag { .Ok(1) } else { default }
     consume(result)
 }
 
@@ -2636,7 +2636,7 @@ union struct Result<T> {
     {
         const string source = """
 func make() -> Result<int> {
-    val result: Result<int> = default
+    let result: Result<int> = default
     return result
 }
 
@@ -2704,8 +2704,8 @@ union struct Result<T> {
         const string source = """
 func forward(result: Result<int>) -> Result<int> {
     return match result {
-        .Ok(val value) => .Ok(value)
-        .Error(val message) => .Error(message)
+        .Ok(let value) => .Ok(value)
+        .Error(let message) => .Error(message)
     }
 }
 
@@ -2929,7 +2929,7 @@ union struct Result<T> {
     {
         const string source = """
 func run() {
-    val factory: () -> Result<int> = () -> Result<int> => default
+    let factory: () -> Result<int> = () -> Result<int> => default
 }
 
 union struct Result<T> {
@@ -3088,7 +3088,7 @@ async func fetch(url: string) -> Task<Result<string, string>> {
     try {
         use response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
-        val responseBody = await response.Content.ReadAsStringAsync()
+        let responseBody = await response.Content.ReadAsStringAsync()
         return .Ok(responseBody)
     } catch (HttpRequestException e) {
         return .Error(e.Message)
@@ -3949,8 +3949,8 @@ union Result<T, E> {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -3973,8 +3973,8 @@ union class Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -3997,8 +3997,8 @@ union class Result<T> {
         const string source = """
 func describe(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -4021,8 +4021,8 @@ union class Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
     }
 }
 
@@ -4046,8 +4046,8 @@ union class Result<T> {
 func describe(status: Status) -> string {
     return match status {
         .Unknown => "unknown"
-        .Open(val openReason) => openReason
-        .Closed(val closedReason, val closedCode) => closedReason + closedCode.ToString()
+        .Open(let openReason) => openReason
+        .Closed(let closedReason, let closedCode) => closedReason + closedCode.ToString()
     }
 }
 
@@ -4092,8 +4092,8 @@ union Payment(Cash | Card)
 
 func describe(payment: Payment) -> string {
     return match payment {
-        Cash(val amount) => amount.ToString()
-        Card(val reference) => reference
+        Cash(let amount) => amount.ToString()
+        Card(let reference) => reference
     }
 }
 """;
@@ -4122,8 +4122,8 @@ func describe(payment: Payment) -> string {
         const string source = """
 func describe(status: Status) -> string {
     return match status {
-        .Unknown(val payload) => payload.ToString()
-        .Open(val reason) => reason
+        .Unknown(let payload) => payload.ToString()
+        .Open(let reason) => reason
     }
 }
 
@@ -4148,7 +4148,7 @@ import Result.*
 
 func format(result: Result<int>) -> string {
     return match result {
-        Ok(val payload) => payload.ToString()
+        Ok(let payload) => payload.ToString()
     }
 }
 
@@ -4172,7 +4172,7 @@ union Result<T> {
         const string source = """
 func describe(value: Test) -> string {
     return match value {
-        .Something(val text) => text
+        .Something(let text) => text
         .Nothing => "none"
     }
 }
@@ -4201,7 +4201,7 @@ union class Test {
         const string source = """
 func describe(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => payload.ToString()
+        .Ok(let payload) => payload.ToString()
     }
 }
 
@@ -4226,8 +4226,8 @@ union Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) when payload > 1 => "ok ${payload}"
-        .Error(val message) => "error ${message}"
+        .Ok(let payload) when payload > 1 => "ok ${payload}"
+        .Error(let message) => "error ${message}"
     }
 }
 
@@ -4252,8 +4252,8 @@ union Result<T> {
         const string source = """
 func area(shape: Shape) -> int {
     return match shape {
-        .Circle(val r) => r * r * 3
-        .Rectangle(4, val h) => 42
+        .Circle(let r) => r * r * 3
+        .Rectangle(4, let h) => 42
     }
 }
 

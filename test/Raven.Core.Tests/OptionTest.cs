@@ -143,9 +143,9 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Linq.*
 
-val nested: Option<Option<int>> = default
-val flattened = nested.Flatten()
-val value = flattened.UnwrapOr(0)
+let nested: Option<Option<int>> = default
+let flattened = nested.Flatten()
+let value = flattened.UnwrapOr(0)
 """;
 
         var verifier = CreateVerifier(
@@ -167,10 +167,10 @@ val value = flattened.UnwrapOr(0)
 import System.*
 import System.Linq.*
 
-val input: Option<int> = .Some(20)
-val mapped = input.Map(v => v + 1)
-val filtered = mapped.Where(v => v > 10)
-val output = filtered.UnwrapOr(0)
+let input: Option<int> = .Some(20)
+let mapped = input.Map(v => v + 1)
+let filtered = mapped.Where(v => v > 10)
+let output = filtered.UnwrapOr(0)
 """;
 
         CreateVerifier(code).Verify();
@@ -183,8 +183,8 @@ val output = filtered.UnwrapOr(0)
 import System.*
 import System.Linq.*
 
-val input: Option<int> = .Some(20)
-val _ = input.Map((v: string) => v)
+let input: Option<int> = .Some(20)
+let _ = input.Map((v: string) => v)
 """;
 
         var verifier = CreateVerifier(

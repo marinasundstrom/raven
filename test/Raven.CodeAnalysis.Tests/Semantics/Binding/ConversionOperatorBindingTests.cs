@@ -26,9 +26,9 @@ public class ConversionOperatorBindingTests : CompilationTestBase
         func takesString(value: string) -> () { }
 
         func test() -> () {
-            val box: Box = default
+            let box: Box = default
             takesString(box)
-            val number: int = (int)box
+            let number: int = (int)box
         }
         """;
 
@@ -53,7 +53,7 @@ public union Option<T> {
 
 public extension OptionExtensions1<T : class> for Option<T> {
     static func implicit(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
+        if opt is .Some(let value) {
             return value
         }
         null
@@ -62,7 +62,7 @@ public extension OptionExtensions1<T : class> for Option<T> {
 
 public extension OptionExtensions2<T : struct> for Option<T> {
     static func implicit(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
+        if opt is .Some(let value) {
             return value
         }
         null
@@ -77,8 +77,8 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         const string source = """
 import System.*
 
-val value = Option<int>.None
-val result: int? = value
+let value = Option<int>.None
+let result: int? = value
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -133,8 +133,8 @@ extension OptionExtensions1<T : class> for Option<T> {
         const string source = """
 import System.*
 
-val raw: string? = null
-val result: Option<string> = raw
+let raw: string? = null
+let result: Option<string> = raw
 """;
 
         var (compilation, tree) = CreateCompilation(
@@ -208,7 +208,7 @@ import System.*
 
 func format<T>(result: Result<T, string>) -> Option<string> {
     return match result {
-        .Ok(val value) => value.ToString()
+        .Ok(let value) => value.ToString()
         .Error(_) => .None
     }
 }
@@ -236,9 +236,9 @@ func format<T>(result: Result<T, string>) -> Option<string> {
         func takesString(value: string) -> () { }
 
         func test() -> () {
-            val box: Box = default
+            let box: Box = default
             takesString(box)
-            val number: int = (int)box
+            let number: int = (int)box
         }
         """;
 

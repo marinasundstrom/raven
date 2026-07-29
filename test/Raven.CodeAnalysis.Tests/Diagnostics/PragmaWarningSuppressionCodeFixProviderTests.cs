@@ -29,7 +29,7 @@ func Test() {
     {
         const string code = """
 func Test(obj: Foo?) -> () {
-    val o = obj
+    let o = obj
 }
 
 class Foo {}
@@ -38,7 +38,7 @@ class Foo {}
         const string fixedCode = """
 #pragma warning disable-next-line RAV9012
 func Test(obj: Foo?) -> () {
-    val o = obj
+    let o = obj
 }
 
 class Foo {}
@@ -82,14 +82,14 @@ label:
     {
         const string code = """
 func Test() -> () {
-    val x = 1
+    let x = 1
 }
 """;
 
         const string fixedCode = """
 func Test() -> () {
     #pragma warning disable-next-line USR1234
-    val x = 1
+    let x = 1
 }
 """;
 

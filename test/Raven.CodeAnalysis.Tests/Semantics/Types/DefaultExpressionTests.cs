@@ -14,7 +14,7 @@ public class DefaultExpressionTests : CompilationTestBase
     public void DefaultExpression_WithExplicitType_UsesType()
     {
         const string code = """
-        val value: int = default(int)
+        let value: int = default(int)
         """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -29,7 +29,7 @@ public class DefaultExpressionTests : CompilationTestBase
     public void DefaultLiteral_TargetTyped_NonNullableReference_UsesNullableContextualType()
     {
         const string code = """
-        val text: string = default
+        let text: string = default
         """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -48,7 +48,7 @@ public class DefaultExpressionDiagnosticTests : DiagnosticTestBase
     public void DefaultLiteral_WithoutTargetType_ReportsDiagnostic()
     {
         const string code = """
-        val value = default
+        let value = default
         """;
 
         var verifier = CreateVerifier(code, [

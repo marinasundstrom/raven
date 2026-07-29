@@ -70,7 +70,7 @@ public sealed class LanguageServerInlayHintTests : IDisposable
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val answer = 1 + 2
+    let answer = 1 + 2
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -116,9 +116,9 @@ func Add(left: int, right: int) {
 }
 
 func Main() -> unit {
-    val answer = 1 + 2
-    val explicit: int = 3
-    val name = "Raven"
+    let answer = 1 + 2
+    let explicit: int = 3
+    let name = "Raven"
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -196,12 +196,12 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string initialCode = """
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """;
         const string updatedCode = """
 func Main() -> unit {
-    val value = "Raven"
+    let value = "Raven"
 }
 """;
 
@@ -253,7 +253,7 @@ func Main() -> unit {
 import Utilities.*
 
 func Main() -> unit {
-    val test = Test2()
+    let test = Test2()
 }
 """;
         const string initialUtilitiesCode = """
@@ -354,7 +354,7 @@ func Test2() -> IDisposable {
 import Utilities.*
 
 func Main() -> unit {
-    val test = Test2()
+    let test = Test2()
 }
 """;
 
@@ -446,14 +446,14 @@ func Test2() -> {{returnType}} {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string initialCode = """
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """;
         const string updatedCode = """
 // edited while inlay hints are still cached
 
 func Main() -> unit {
-    val valueEdited = 1
+    let valueEdited = 1
 }
 """;
 
@@ -510,7 +510,7 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string initialCode = """
 func Main() -> unit {
-    val value = 1
+    let value = 1
 }
 """;
         const string updatedCode = """
@@ -573,7 +573,7 @@ func Render(spacing: double, title: string) -> unit {
 }
 
 func Main() -> unit {
-    val panel = StackPanel(8.0)
+    let panel = StackPanel(8.0)
     Render(8.0, title: "ready")
 }
 """;
@@ -630,12 +630,12 @@ record class Point(x: int, y: int) {
 }
 
 func Main() -> unit {
-    val point = Point(1, 2)
-    val (left, top) = point
-    val (x: explicitLeft, explicitTop) = point
+    let point = Point(1, 2)
+    let (left, top) = point
+    let (x: explicitLeft, explicitTop) = point
 
-    val person = Person("Raven", 3)
-    if val Person(personName, personAge) = person {
+    let person = Person("Raven", 3)
+    if let Person(personName, personAge) = person {
     }
 }
 """;
@@ -690,7 +690,7 @@ func Main() -> unit {
         var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 90).Select(static i => $"// padding {i}"));
         var code = $$"""
 func Main() -> unit {
-    val answer = 1 + 2
+    let answer = 1 + 2
 }
 
 {{padding}}
@@ -734,8 +734,8 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val first = 1
-    val second = "two"
+    let first = 1
+    let second = "two"
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -815,7 +815,7 @@ func Main() -> unit {
         var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 90).Select(static i => $"// padding {i}"));
         var code = $$"""
 func Main() -> unit {
-    val answer = 1
+    let answer = 1
 }
 
 {{padding}}
@@ -878,7 +878,7 @@ func Where(values: int[], predicate: (int -> bool)) -> int[] {
 }
 
 func Main() -> unit {
-    val filtered = Where([|1, 2, 3|], candidate => candidate > 1)
+    let filtered = Where([|1, 2, 3|], candidate => candidate > 1)
 }
 
 {{padding}}
@@ -925,8 +925,8 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val a = 1
-    val b = 2
+    let a = 1
+    let b = 2
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -940,7 +940,7 @@ func Main() -> unit {
         AssertHasHintAtInsertion(sourceText, initialHints, code.IndexOf("a = 1", StringComparison.Ordinal) + 1, ": int");
         AssertHasHintAtInsertion(sourceText, initialHints, code.IndexOf("b = 2", StringComparison.Ordinal) + 1, ": int");
 
-        var updatedCode = code.Replace("val a = 1", "val a: int = 1", StringComparison.Ordinal);
+        var updatedCode = code.Replace("let a = 1", "let a: int = 1", StringComparison.Ordinal);
         var updatedSourceText = SourceText.From(updatedCode);
         await store.UpsertDocumentAsync(uri, updatedSourceText);
 
@@ -977,13 +977,13 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val first = 1
-    val second = "two"
+    let first = 1
+    let second = "two"
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
-        var secondLineStart = code.IndexOf("    val second", StringComparison.Ordinal);
+        var secondLineStart = code.IndexOf("    let second", StringComparison.Ordinal);
         secondLineStart.ShouldBeGreaterThan(0);
 
         var result = await handler.Handle(new InlayHintParams
@@ -1023,7 +1023,7 @@ func Make(value: int) -> int {
 }
 
 func Main() -> unit {
-    val answer = Make(41)
+    let answer = Make(41)
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -1074,7 +1074,7 @@ func Make(value: int) -> int {
 }
 
 func Main() -> unit {
-    val answer = Make(41)
+    let answer = Make(41)
 }
 
 {{padding}}
@@ -1136,8 +1136,8 @@ union class FulfillmentError {
 record class FulfillmentPlan(val Name: string)
 
 func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<string, FulfillmentError> {
-    val plan = planResult?
-    val nameResult = planResult?.Name
+    let plan = planResult?
+    let nameResult = planResult?.Name
     return .Ok(plan.Name)
 }
 """;
@@ -1257,8 +1257,8 @@ class Parser {
 
 class C {
     func Test() -> Result<int, string> {
-        val dto = Dto("normal")
-        val priority = Parser.ParsePriority(dto.Priority)?
+        let dto = Dto("normal")
+        let priority = Parser.ParsePriority(dto.Priority)?
         return Result<int, string>.Ok(priority)
     }
 }
@@ -1312,13 +1312,13 @@ class C {
         var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 220).Select(static i => $"// padding {i}"));
         var code = $$"""
 func Main() -> unit {
-    val values = [1, 2, 3]
+    let values = [1, 2, 3]
     for value in values {
         WriteLine(value)
     }
 
-    val pairs = [("one", 1)]
-    for val (key, count) in pairs {
+    let pairs = [("one", 1)]
+    for let (key, count) in pairs {
         WriteLine(key)
         WriteLine(count)
     }
@@ -1382,7 +1382,7 @@ func Add(left: int, right: int) -> int {
 }
 
 func Main() -> unit {
-    val answer: int = 1 + 2
+    let answer: int = 1 + 2
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -1423,15 +1423,15 @@ func Main() -> unit {
     var assignedB = ""
     (assignedA, assignedB) = (1, "one")
 
-    val (declaredA, declaredB) = (2, "two")
+    let (declaredA, declaredB) = (2, "two")
     (var inlineA, var inlineB) = (3, "three")
 
-    val values = [|4, 5, 6|]
+    let values = [|4, 5, 6|]
     var assignedHead = 0
     var assignedRest = [|0|]
     [assignedHead, ...assignedRest] = values
 
-    val [declaredHead, ...declaredRest] = values
+    let [declaredHead, ...declaredRest] = values
     [let inlineHead, ...let inlineRest] = values
 }
 """;
@@ -1483,7 +1483,7 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val numbers = [|1, 2, 3|]
+    let numbers = [|1, 2, 3|]
     for number in numbers {
         number
     }
@@ -1554,7 +1554,7 @@ func Consume(callback: (int -> int)) -> int {
 
 func Main() -> unit {
     use resource = DisposableResource()
-    val result = Consume(value => value + 1)
+    let result = Consume(value => value + 1)
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -1619,7 +1619,7 @@ class RequestContext {
 func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
 
 Accept(async func (context: RequestContext) {
-    val content = await Task.FromResult(context.Text)
+    let content = await Task.FromResult(context.Text)
     return "submitted: $content"
 })
 """;
@@ -1665,7 +1665,7 @@ func SelectValue(callback: (int -> int)) -> int {
 }
 
 func Main() -> unit {
-    val result = SelectValue(value => value + 1)
+    let result = SelectValue(value => value + 1)
 }
 
 {{padding}}
@@ -1726,7 +1726,7 @@ func Build(value: int) {
 }
 
 func Main() -> unit {
-    val result = Build(41)
+    let result = Build(41)
 }
 
 {{padding}}
@@ -1779,7 +1779,7 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val json = System.Text.Json.Nodes.JsonObject()
+    let json = System.Text.Json.Nodes.JsonObject()
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -1834,7 +1834,7 @@ func Main() -> unit {
 import System.Text.Json.Nodes.*
 
 func Main() -> unit {
-    val json = JsonObject()
+    let json = JsonObject()
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -1881,7 +1881,7 @@ func Main() -> unit {
 import System.Text.Json.Nodes.*
 
 func Main() -> unit {
-    val json = JsonObject()
+    let json = JsonObject()
 }
 
 {{padding}}
@@ -1936,7 +1936,7 @@ class FuelConsumptionRecord {
 }
 
 func Main() -> unit {
-    val entry = FuelConsumptionRecord()
+    let entry = FuelConsumptionRecord()
 }
 
 {{padding}}
@@ -1996,7 +1996,7 @@ import First.*
 import Second.*
 
 func Main() -> unit {
-    val json = First.JsonObject()
+    let json = First.JsonObject()
 }
 """;
         await store.UpsertDocumentAsync(uri, code);

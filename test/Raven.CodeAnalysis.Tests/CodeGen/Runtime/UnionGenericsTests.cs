@@ -17,8 +17,8 @@ public class UnionGenericsTests
     private const string GenericUnionSample = """
 import System.*
 
-val ok : Result<int, string> = .Ok(99)
-val err = Result<int, string>.Error("boom")
+let ok : Result<int, string> = .Ok(99)
+let err = Result<int, string>.Error("boom")
 
 Console.WriteLine(format(ok))
 Console.WriteLine(format(err))
@@ -26,8 +26,8 @@ Console.WriteLine(format(err))
 
 func format(result: Result<int, string>) -> string {
     return match result {
-        .Ok(val value) => "ok ${value}"
-        .Error(val message) => "error '${message}'"
+        .Ok(let value) => "ok ${value}"
+        .Error(let message) => "error '${message}'"
     }
 }
 
@@ -124,7 +124,8 @@ union Result<T, E> {
     {
         private readonly MetadataReader _reader;
 
-        public TypeNameProvider(MetadataReader reader) {
+        public TypeNameProvider(MetadataReader reader)
+        {
             _reader = reader;
         }
 

@@ -55,7 +55,7 @@ public class NullableTypeTests : CompilationTestBase
         import System.*
 
         func Main() -> unit {
-            val s: string = Console.ReadLine()
+            let s: string = Console.ReadLine()
         }
         """;
 
@@ -69,8 +69,8 @@ public class NullableTypeTests : CompilationTestBase
     public void NullableSyntax_BindsToNullableTypeSymbol()
     {
         var source = """
-        val s: string? = null
-        val i: int? = null
+        let s: string? = null
+        let i: int? = null
         """;
 
         var (compilation, tree) = CreateCompilation(
@@ -95,7 +95,7 @@ public class NullableTypeTests : CompilationTestBase
         var source = """
         import System.*
 
-        val i: Nullable<int> = null
+        let i: Nullable<int> = null
         """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -116,9 +116,9 @@ public class NullableTypeTests : CompilationTestBase
         var source = """
         import System.*
 
-        val a: int? = 1
-        val b: Nullable<int> = a
-        val c: int? = b
+        let a: int? = 1
+        let b: Nullable<int> = a
+        let c: int? = b
         """;
 
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -142,9 +142,9 @@ public class NullableTypeTests : CompilationTestBase
         var source = """
         import System.*
 
-        val n: Nullable<int> = 1
-        val hasValue = n.HasValue
-        val value = n.GetValueOrDefault()
+        let n: Nullable<int> = 1
+        let hasValue = n.HasValue
+        let value = n.GetValueOrDefault()
         """;
 
         var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -206,7 +206,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         f(2)
     }
 }
@@ -230,7 +230,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         f?(2)
     }
 }
@@ -249,7 +249,7 @@ class Foo {
         var source = """
 class Foo {
     func Run() -> unit {
-        val f: (() -> ())? = null
+        let f: (() -> ())? = null
         f?()
     }
 }
@@ -365,7 +365,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         if f is not null {
             f(2)
         }
@@ -388,7 +388,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         if f is not null {
             f(2)
         }
@@ -411,7 +411,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         if (f is not null) {
             f.Invoke(2)
         }
@@ -434,7 +434,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         if f is null {
             return
         }
@@ -458,7 +458,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         if f is null {
             return
         }
@@ -512,7 +512,7 @@ class Foo {
     }
 
     func Run(input: object) -> unit {
-        val candidate = input as string
+        let candidate = input as string
         if candidate is null {
             return
         }
@@ -537,7 +537,7 @@ import System.*
 
 class Foo {
     func Run() -> unit {
-        val f: Action<int>? = null
+        let f: Action<int>? = null
         if f != null {
             f(2)
         }
@@ -679,7 +679,7 @@ class Foo {
     public void ObjectVariable_AssignedNull_RequiresNullable()
     {
         var (compilation, _) = CreateCompilation(
-            "val x: object = null",
+            "let x: object = null",
             options: new CompilationOptions(OutputKind.ConsoleApplication));
 
         var diagnostic = Assert.Single(
@@ -729,11 +729,11 @@ class Foo {
         var source = """
         func f(x: string) -> int { 0 }
         func f2(x: string?) -> int { 1 }
-        val s: string = ""
-        val n: string? = null
-        val a = f(s)
-        val b = f2(n)
-        val c = f2(null)
+        let s: string = ""
+        let n: string? = null
+        let a = f(s)
+        let b = f2(n)
+        let c = f2(null)
         """;
 
         var (compilation, tree) = CreateCompilation(
@@ -790,7 +790,7 @@ class Foo {
     public void ConsoleWriteLine_WithNullableLocal_Chooses_StringOverload()
     {
         const string source = """
-            val value: string? = null
+            let value: string? = null
             System.Console.WriteLine(value)
             """;
 
@@ -811,7 +811,7 @@ class Foo {
     public void NullableString_EqualityComparisonWithStringLiteral_IsAllowed()
     {
         const string source = """
-            val x: string? = null
+            let x: string? = null
 
             if x == "" { }
             """;
@@ -833,7 +833,7 @@ class Foo {
     public void NullableInt_EqualityComparisonWithIntLiteral_IsAllowed()
     {
         const string source = """
-            val x: int? = null
+            let x: int? = null
 
             if x == 1 { }
             if x != 1 { }
@@ -858,8 +858,8 @@ class Foo {
         const string source = """
             class Foo {}
 
-            val x: Foo? = null
-            val foo = Foo()
+            let x: Foo? = null
+            let foo = Foo()
 
             if x == foo { }
             if x != foo { }

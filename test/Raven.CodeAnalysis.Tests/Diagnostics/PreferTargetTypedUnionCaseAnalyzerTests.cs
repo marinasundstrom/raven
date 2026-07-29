@@ -10,7 +10,7 @@ public class PreferTargetTypedUnionCaseAnalyzerTests : AnalyzerTestBase
     {
         const string code = """
 func Test() {
-    val v = Option<int>.Some(0)
+    let v = Option<int>.Some(0)
 }
 
 union Option<T> {

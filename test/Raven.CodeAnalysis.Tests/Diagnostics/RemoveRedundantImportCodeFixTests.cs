@@ -84,13 +84,13 @@ WriteLine("ok")
 import System.Text.*
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         const string fixedCode = """
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         var verifier = CreateCodeFixVerifier<UnusedImportDirectiveAnalyzer, RemoveRedundantImportCodeFixProvider>(
@@ -113,13 +113,13 @@ import System.Text.*
 import System.Net.*
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         const string fixedCode = """
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         var verifier = CreateCodeFixVerifier<UnusedImportDirectiveAnalyzer, RemoveRedundantImportCodeFixProvider>(
@@ -186,7 +186,7 @@ import System.Text.*
 import System.Net.*
 import System.*
 
-val text: String = "ok"
+let text: String = "ok"
 """;
 
         var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);

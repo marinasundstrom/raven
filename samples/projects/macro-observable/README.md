@@ -6,7 +6,7 @@ The sample shape is:
 
 ```raven
 func Main() -> unit {
-    val viewModel = MyViewModel()
+    let viewModel = MyViewModel()
     viewModel.PropertyChanged += (sender: object?, args: PropertyChangedEventArgs) => {
         WriteLine(args.PropertyName ?? "")
     }

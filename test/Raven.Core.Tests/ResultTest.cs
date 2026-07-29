@@ -127,9 +127,9 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
 import System.*
 import System.Linq.*
 
-val result: Result<int, string> = .Error("boom")
-val hasError = result.HasError
-val text = result.MapError(message => message + "!").UnwrapError()
+let result: Result<int, string> = .Error("boom")
+let hasError = result.HasError
+let text = result.MapError(message => message + "!").UnwrapError()
 """;
 
         CreateVerifier(code).Verify();
@@ -142,8 +142,8 @@ val text = result.MapError(message => message + "!").UnwrapError()
 import System.*
 import System.Linq.*
 
-val result: Result<int, string> = .Error("boom")
-val _ = result.MapError((v: int) => v)
+let result: Result<int, string> = .Error("boom")
+let _ = result.MapError((v: int) => v)
 """;
 
         var verifier = CreateVerifier(
@@ -168,7 +168,7 @@ import System.Collections.Generic.*
 
 extension TestExt<T> for IEnumerable<T> {
     func ToArrayOrError2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
-        val result: Result<T[], Exception> = .Ok([])
+        let result: Result<T[], Exception> = .Ok([])
         result.MapError(errorFactory)
     }
 }
@@ -205,8 +205,8 @@ extension TestExt<T> for IEnumerable<T> {
         const string code = """
 import System.*
 
-val result: Result<int, ContextError<IError>> = default
-val wrapped = result.WithContext("reading value")
+let result: Result<int, ContextError<IError>> = default
+let wrapped = result.WithContext("reading value")
 """;
 
         var verifier = CreateVerifier(

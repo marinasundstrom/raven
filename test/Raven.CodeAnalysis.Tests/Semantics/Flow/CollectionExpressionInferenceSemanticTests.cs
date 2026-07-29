@@ -16,8 +16,8 @@ public class CollectionExpressionInferenceSemanticTests : DiagnosticTestBase
         const string source = """
 import System.Collections.Immutable.*
 
-val list: ImmutableList<int> = [2, 3, 4]
-val newList = [7, ...list, 5]
+let list: ImmutableList<int> = [2, 3, 4]
+let newList = [7, ...list, 5]
 """;
 
         var verifier = CreateVerifier(source);
@@ -44,9 +44,9 @@ val newList = [7, ...list, 5]
         const string source = """
 import System.Collections.Immutable.*
 
-val a: ImmutableList<int> = [1, 2]
-val b: ImmutableList<int> = [3, 4]
-val merged = [...a, ...b]
+let a: ImmutableList<int> = [1, 2]
+let b: ImmutableList<int> = [3, 4]
+let merged = [...a, ...b]
 """;
 
         var verifier = CreateVerifier(source);
@@ -74,9 +74,9 @@ val merged = [...a, ...b]
 import System.Collections.Immutable.*
 import System.Collections.Generic.*
 
-val a: ImmutableList<int> = [1, 2]
-val b: List<int> = [3, 4]
-val merged = [...a, ...b]
+let a: ImmutableList<int> = [1, 2]
+let b: List<int> = [3, 4]
+let merged = [...a, ...b]
 """;
 
         var verifier = CreateVerifier(source);
@@ -104,9 +104,9 @@ val merged = [...a, ...b]
 import System.Collections.Immutable.*
 import System.Collections.Generic.*
 
-val a: ImmutableList<int> = [1, 2]
-val b: List<int> = [3, 4]
-val merged: List<int> = [...a, ...b]
+let a: ImmutableList<int> = [1, 2]
+let b: List<int> = [3, 4]
+let merged: List<int> = [...a, ...b]
 """;
 
         var verifier = CreateVerifier(source);
@@ -131,7 +131,7 @@ val merged: List<int> = [...a, ...b]
     public void NoTargetType_NumericElements_InferMostPreciseCompatibleNumericList()
     {
         const string source = """
-val inferred = [1, 2.0]
+let inferred = [1, 2.0]
 """;
 
         var verifier = CreateVerifier(source);
@@ -158,7 +158,7 @@ val inferred = [1, 2.0]
     public void NoTargetType_PlainCollectionLiteral_InfersImmutableList()
     {
         const string source = """
-val inferred = [1, 2, 3]
+let inferred = [1, 2, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -181,7 +181,7 @@ val inferred = [1, 2, 3]
     public void NoTargetType_DictionaryLiteral_InfersImmutableDictionary()
     {
         const string source = """
-val inferred = ["a": 1, "b": 2]
+let inferred = ["a": 1, "b": 2]
 """;
 
         var verifier = CreateVerifier(source);
@@ -205,7 +205,7 @@ val inferred = ["a": 1, "b": 2]
     public void NoTargetType_MutableDictionaryLiteral_InfersDictionary()
     {
         const string source = """
-val inferred = !["a": 1, "b": 2]
+let inferred = !["a": 1, "b": 2]
 """;
 
         var verifier = CreateVerifier(source);
@@ -231,8 +231,8 @@ val inferred = !["a": 1, "b": 2]
         const string source = """
 import System.Collections.Generic.*
 
-val other: Dictionary<string, int> = !["b": 2]
-val inferred = [..."a": 1, ...other, "c": 3]
+let other: Dictionary<string, int> = !["b": 2]
+let inferred = [..."a": 1, ...other, "c": 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -259,7 +259,7 @@ val inferred = [..."a": 1, ...other, "c": 3]
     public void NoTargetType_DictionaryComprehension_InfersImmutableDictionary()
     {
         const string source = """
-val inferred = [for key in [|"a", "bb"|] => key: key.Length]
+let inferred = [for key in [|"a", "bb"|] => key: key.Length]
 """;
 
         var verifier = CreateVerifier(source);
@@ -283,7 +283,7 @@ val inferred = [for key in [|"a", "bb"|] => key: key.Length]
     public void NoTargetType_MutableCollectionLiteral_InfersMutableList()
     {
         const string source = """
-val inferred = ![1, 2, 3]
+let inferred = ![1, 2, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -306,7 +306,7 @@ val inferred = ![1, 2, 3]
     public void NoTargetType_ExplicitArrayLiteral_InfersFixedArray()
     {
         const string source = """
-val inferred = [|1, 2, 3|]
+let inferred = [|1, 2, 3|]
 """;
 
         var verifier = CreateVerifier(source);
@@ -329,8 +329,8 @@ val inferred = [|1, 2, 3|]
     public void NoTargetType_ExplicitArrayLiteralWithSpread_PreservesArrayInference()
     {
         const string source = """
-val prefix = [|1, 2|]
-val inferred = [|...prefix, 3|]
+let prefix = [|1, 2|]
+let inferred = [|...prefix, 3|]
 """;
 
         var verifier = CreateVerifier(source);
@@ -358,7 +358,7 @@ val inferred = [|...prefix, 3|]
         const string source = """
 import System.Collections.Immutable.*
 
-val values: ImmutableArray<int> = [1, 2, 3]
+let values: ImmutableArray<int> = [1, 2, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -414,7 +414,7 @@ class Box {
     var Values: ImmutableArray<int> = []
 }
 
-val box = Box {
+let box = Box {
     Values = [1, 2, 3]
 }
 """;
@@ -431,7 +431,7 @@ import System.Collections.Immutable.*
 interface IBase {}
 class Derived : IBase {}
 
-val values: ImmutableArray<IBase> = [Derived()]
+let values: ImmutableArray<IBase> = [Derived()]
 """;
 
         var verifier = CreateVerifier(source);
@@ -457,7 +457,7 @@ val values: ImmutableArray<IBase> = [Derived()]
     public void ArrayTarget_CommaSeparatedCollectionExpression_Binds()
     {
         const string source = """
-val values: int[] = [1, 2, 3]
+let values: int[] = [1, 2, 3]
 """;
 
         CreateVerifier(source).Verify();
@@ -469,7 +469,7 @@ val values: int[] = [1, 2, 3]
         const string source = """
 import System.Collections.Generic.*
 
-val values: List<int> = [1, 2, 3]
+let values: List<int> = [1, 2, 3]
 """;
 
         CreateVerifier(source).Verify();
@@ -479,8 +479,8 @@ val values: List<int> = [1, 2, 3]
     public void NoTargetType_CollectionLiteralWithSpread_InfersImmutableList()
     {
         const string source = """
-val values: int[] = [1, 2]
-val inferred = [...values, 3]
+let values: int[] = [1, 2]
+let inferred = [...values, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -506,8 +506,8 @@ val inferred = [...values, 3]
     public void NoTargetType_CollectionLiteralWithFixedSpread_InfersImmutableList()
     {
         const string source = """
-val values: int[2] = [1, 2]
-val inferred = [...values, 3]
+let values: int[2] = [1, 2]
+let inferred = [...values, 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -533,7 +533,7 @@ val inferred = [...values, 3]
     public void NoTargetType_CollectionLiteralWithConstantRangeElement_InfersImmutableList()
     {
         const string source = """
-val inferred = [1..3]
+let inferred = [1..3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -556,7 +556,7 @@ val inferred = [1..3]
     public void NoTargetType_CollectionLiteralWithExclusiveConstantRangeElement_InfersImmutableList()
     {
         const string source = """
-val inferred = [1..<4]
+let inferred = [1..<4]
 """;
 
         var verifier = CreateVerifier(source);
@@ -579,7 +579,7 @@ val inferred = [1..<4]
     public void NoTargetType_CollectionLiteralWithMixedConstantRangeElement_InfersImmutableList()
     {
         const string source = """
-val inferred = [1, 3..4, 9]
+let inferred = [1, 3..4, 9]
 """;
 
         var verifier = CreateVerifier(source);
@@ -603,7 +603,7 @@ val inferred = [1, 3..4, 9]
     {
         const string source = """
 const MAX_VALUE = 10
-val inferred = [3..MAX_VALUE]
+let inferred = [3..MAX_VALUE]
 """;
 
         var verifier = CreateVerifier(source);
@@ -627,7 +627,7 @@ val inferred = [3..MAX_VALUE]
     {
         const string source = """
 const MAX_VALUE = 10
-val inferred = [|3..MAX_VALUE|]
+let inferred = [|3..MAX_VALUE|]
 """;
 
         var verifier = CreateVerifier(source);
@@ -650,7 +650,7 @@ val inferred = [|3..MAX_VALUE|]
     public void NoTargetType_IncompatibleElements_DoNotInferObjectArray()
     {
         const string source = """
-val inferred = [1, true]
+let inferred = [1, true]
 """;
 
         var verifier = CreateVerifier(source, [

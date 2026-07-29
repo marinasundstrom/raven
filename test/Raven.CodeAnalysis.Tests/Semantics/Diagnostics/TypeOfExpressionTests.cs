@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -10,8 +11,8 @@ public class TypeOfExpressionTests : DiagnosticTestBase
     public void TypeOf_WithMissingType_ReportsSingleDiagnostic()
     {
         const string testCode = """
-val t = typeof(System.DoesNotExist)
-val members = t.GetMembers()
+let t = typeof(System.DoesNotExist)
+let members = t.GetMembers()
 """;
 
         var verifier = CreateVerifier(testCode, expectedDiagnostics: new[]
@@ -31,10 +32,10 @@ val members = t.GetMembers()
         const string testCode = """
 import System.Console.*
 
-val t = typeof(System.DoesNotExist)
+let t = typeof(System.DoesNotExist)
 WriteLine(t)
 
-val members = t.GetMembers()
+let members = t.GetMembers()
 for member in members {
     WriteLine(member.Name)
 }
@@ -57,8 +58,8 @@ for member in members {
         const string testCode = """
 import System.*
 
-val t = typeof(System.String)
-val members = t.GetMembers(.Public)
+let t = typeof(System.String)
+let members = t.GetMembers(.Public)
 """;
 
         var verifier = CreateVerifier(testCode);
@@ -72,8 +73,8 @@ val members = t.GetMembers(.Public)
         const string testCode = """
 import System.*
 
-val t = typeof(System.Collections.Generic.Dictionary<,>)
-val name = t.Name
+let t = typeof(System.Collections.Generic.Dictionary<,>)
+let name = t.Name
 """;
 
         var verifier = CreateVerifier(testCode);
@@ -87,8 +88,8 @@ val name = t.Name
         const string testCode = """
 class Box<T> { }
 
-val t = typeof(Box<>)
-val name = t.Name
+let t = typeof(Box<>)
+let name = t.Name
 """;
 
         var verifier = CreateVerifier(testCode);

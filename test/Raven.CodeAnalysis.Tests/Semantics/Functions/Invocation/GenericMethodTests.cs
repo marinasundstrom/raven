@@ -158,7 +158,7 @@ public sealed class GenericMethodTests : CompilationTestBase
 
             func Main() -> ()
             {
-                val r = Parse<bool?>("42")
+                let r = Parse<bool?>("42")
                 WriteLine(r)
             }
 
@@ -207,8 +207,8 @@ public sealed class GenericMethodTests : CompilationTestBase
         var source = """
 import System.Threading.Tasks.*
 
-val handler: IHandler<Request, Response<int>> = Handler()
-val response = await handler.Handle(Request())
+let handler: IHandler<Request, Response<int>> = Handler()
+let response = await handler.Handle(Request())
 
 interface IHandler<TRequest, TResponse> {
     func Handle(request: TRequest) -> Task<TResponse>;

@@ -10,7 +10,7 @@ public class WhileStatementSyntaxTests
     public void WhilePatternStatement_ParsesAsDedicatedNode()
     {
         const string testCode = """
-while val (.Ok, value) = Func() {
+while let (.Ok, value) = Func() {
 }
 """;
 
@@ -30,7 +30,7 @@ while val (.Ok, value) = Func() {
     public void WhilePatternStatement_WithImplicitTypedPositionalElements_ParsesVariablePatterns()
     {
         const string testCode = """
-while val (key: string, value: int) = Next() {
+while let (key: string, value: int) = Next() {
 }
 """;
 

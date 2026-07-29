@@ -152,7 +152,7 @@ The `RAV9012` split is intentional:
   be applied independently to pattern-based `if` statements, including non-`Option` code
 
 `RAV9012` reports explicit nullable declaration annotations. It does not report inferred
-target declarations such as `val x = ...`, even when the initializer has a nullable type.
+target declarations such as `let x = ...`, even when the initializer has a nullable type.
 
 For suggestion payload conventions (`--suggestions`, rewrite property keys, and option
 gating), see `docs/compiler/development/suggestions.md`.

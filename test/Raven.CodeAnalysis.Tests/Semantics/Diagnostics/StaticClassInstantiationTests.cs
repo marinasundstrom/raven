@@ -12,7 +12,7 @@ static class Foo {
     static func Test() -> unit {}
 }
 
-val value = Foo();
+let value = Foo();
 """;
 
         var verifier = CreateVerifier(

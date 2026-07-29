@@ -74,7 +74,7 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
 
         class C {
             static func M() -> () {
-                val value: int | string = 42
+                let value: int | string = 42
             }
         }
         """;
@@ -95,7 +95,7 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
 
         class C {
             static func M() -> () {
-                val value: Union<int, string?> = null
+                let value: Union<int, string?> = null
             }
         }
         """;

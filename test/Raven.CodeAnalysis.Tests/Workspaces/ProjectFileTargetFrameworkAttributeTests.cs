@@ -256,7 +256,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
-        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "val x = 1");
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "let x = 1");
 
         var projectPath = Path.Combine(projectDir, "App.ravenproj");
         File.WriteAllText(
@@ -289,7 +289,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             import System.ComponentModel.*
 
             func Main() -> unit {
-                val viewModel = MyViewModel()
+                let viewModel = MyViewModel()
             }
 
             class MyViewModel {

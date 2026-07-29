@@ -50,7 +50,7 @@ import System.Text.Json.*
 class Program {
     public static func Run() -> bool {
         use document = JsonDocument.Parse("32")
-        val element = document.RootElement
+        let element = document.RootElement
 
         if element.ValueKind is JsonValueKind.String {
             return false
@@ -169,7 +169,7 @@ enum DeviceType {
 
 class Program {
     public static func Run() -> bool {
-        val selected: DeviceType = .Monitor
+        let selected: DeviceType = .Monitor
         return selected == DeviceType.Monitor
     }
 }
@@ -209,8 +209,8 @@ enum OtherDeviceType : byte {
 
 class Program {
     public static func Run() -> bool {
-        val unknown = (DeviceType)123
-        val other = (OtherDeviceType)DeviceType.CPU
+        let unknown = (DeviceType)123
+        let other = (OtherDeviceType)DeviceType.CPU
         return (int)unknown == 123 &&
             (long)DeviceType.Monitor == 2L &&
             other == OtherDeviceType.CPU

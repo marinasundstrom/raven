@@ -136,7 +136,7 @@ let result = match value {
     {
         const string code = """
 let result = match option {
-    .Some(val value) => .Some(mapper(value))
+    .Some(let value) => .Some(mapper(value))
     .None => .None
 }
 """;
@@ -154,7 +154,7 @@ let result = match option {
     [Fact]
     public void MatchExpression_WithOuterValSequencePatternArm_ParsesBindingKeyword()
     {
-        var (arm, tree) = ParseFirstMatchArm("val [first, second, ...rest]");
+        var (arm, tree) = ParseFirstMatchArm("let [first, second, ...rest]");
 
         Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
         var sequence = Assert.IsType<SequencePatternSyntax>(arm.Pattern);
@@ -166,7 +166,7 @@ let result = match option {
     [Fact]
     public void MatchExpression_WithOuterValNominalPatternArm_ParsesBindingKeyword()
     {
-        var (arm, tree) = ParseFirstMatchArm("val Some((x, y))");
+        var (arm, tree) = ParseFirstMatchArm("let Some((x, y))");
 
         Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
         Assert.IsType<NominalDeconstructionPatternSyntax>(arm.Pattern);
@@ -177,7 +177,7 @@ let result = match option {
     [Fact]
     public void MatchExpression_WithOuterValImplicitTypedPositionalArm_ParsesTypedCaptures()
     {
-        var (arm, tree) = ParseFirstMatchArm("val (key: string, value: int)");
+        var (arm, tree) = ParseFirstMatchArm("let (key: string, value: int)");
 
         Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
         var pattern = Assert.IsType<PositionalPatternSyntax>(arm.Pattern);
@@ -205,7 +205,7 @@ let result = match option {
     [Fact]
     public void MatchExpression_WithTrailingWholePatternDesignation_Parses()
     {
-        var (arm, tree) = ParseFirstMatchArm("val Some((x, y)) pair");
+        var (arm, tree) = ParseFirstMatchArm("let Some((x, y)) pair");
 
         Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
         var pattern = Assert.IsType<NominalDeconstructionPatternSyntax>(arm.Pattern);
@@ -327,8 +327,8 @@ let r = match x {
     {
         const string code = """
 let result = match token {
-    .Identifier(val text) => text
-    .Number(val value) => value.ToString()
+    .Identifier(let text) => text
+    .Number(let value) => value.ToString()
     _ => ""
 }
 """;
@@ -356,9 +356,9 @@ union Status {
 let status: Status = .A(value: 1)
 
 let result = match status {
-    .A(val value) =>
+    .A(let value) =>
         value
-    .B(val value) =>
+    .B(let value) =>
         value
 }
 """;
@@ -412,9 +412,9 @@ let result = match value {
     {
         const string code = """
 func Main() {
-    val value = 1
+    let value = 1
 
-    val result = match value {
+    let result = match value {
         1 => WriteLine("oops)
         _ => 0
     }
@@ -438,7 +438,7 @@ union Result(int)
     {
         const string code = """
 func Main() {
-    val x2 = MyResult(42)
+    let x2 = MyResult(42)
 
     match x2 {
         string str => WriteLine("Str: $str")

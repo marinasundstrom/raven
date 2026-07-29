@@ -132,8 +132,8 @@ union Shape {
         const string code = """
 import System.Console.*
 
-val f: Foo? = Foo(21)
-val s = f?(2)
+let f: Foo? = Foo(21)
+let s = f?(2)
 
 WriteLine("$s")
 

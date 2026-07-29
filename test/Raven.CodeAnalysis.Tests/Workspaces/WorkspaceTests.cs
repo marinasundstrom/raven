@@ -473,7 +473,7 @@ class A {
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, "P");
 
-        var code = "func Main() -> () {\n    val text = \"a\" + \"b\"\n}";
+        var code = "func Main() -> () {\n    let text = \"a\" + \"b\"\n}";
         var documentId = DocumentId.CreateNew(projectId);
         solution = solution.AddDocument(documentId, "Main.rvn", SourceText.From(code));
         workspace.TryApplyChanges(solution);
@@ -487,7 +487,7 @@ class A {
         var updated = refactoring.Action.GetChangedSolution(workspace.CurrentSolution);
         var updatedText = await updated.GetDocument(documentId)!.GetTextAsync();
 
-        Assert.Equal("func Main() -> () {\n    val text = \"ab\"\n}", updatedText.ToString());
+        Assert.Equal("func Main() -> () {\n    let text = \"ab\"\n}", updatedText.ToString());
     }
 
     [Fact]
@@ -500,7 +500,7 @@ class A {
 
         var code = """
 func Test(maybeText: Option<string>) {
-    if maybeText is Some(val text) {
+    if maybeText is Some(let text) {
         Console.WriteLine(text)
     } else {
         Console.WriteLine("missing")
@@ -525,7 +525,7 @@ func Test(maybeText: Option<string>) {
             """
 func Test(maybeText: Option<string>) {
     match maybeText {
-        Some(val text) => {
+        Some(let text) => {
             Console.WriteLine(text)
         }
         None => {
@@ -548,7 +548,7 @@ func Test(maybeText: Option<string>) {
 
         var code = """
 func Test(person: Person) {
-    if val Person(id, name) = person {
+    if let Person(id, name) = person {
         Console.WriteLine(name)
     } else {
         Console.WriteLine("missing")
@@ -573,7 +573,7 @@ func Test(person: Person) {
             """
 func Test(person: Person) {
     match person {
-        val Person(id, name) => {
+        let Person(id, name) => {
             Console.WriteLine(name)
         }
         _ => {
@@ -596,7 +596,7 @@ func Test(person: Person) {
 
         var code = """
 func Test(maybeText: Option<string>) {
-    if val Some(text) = maybeText {
+    if let Some(text) = maybeText {
         Console.WriteLine(text)
     } else {
         Console.WriteLine("missing")
@@ -621,7 +621,7 @@ func Test(maybeText: Option<string>) {
             """
 func Test(maybeText: Option<string>) {
     match maybeText {
-        val Some(text) => {
+        let Some(text) => {
             Console.WriteLine(text)
         }
         None => {
@@ -644,7 +644,7 @@ func Test(maybeText: Option<string>) {
 
         var code = """
 func Test(result: Result<string, string>) {
-    if result is Ok(val text) {
+    if result is Ok(let text) {
         Console.WriteLine(text)
     } else {
         Console.WriteLine("missing")
@@ -669,7 +669,7 @@ func Test(result: Result<string, string>) {
             """
 func Test(result: Result<string, string>) {
     match result {
-        Ok(val text) => {
+        Ok(let text) => {
             Console.WriteLine(text)
         }
         Error => {
@@ -692,7 +692,7 @@ func Test(result: Result<string, string>) {
 
         var code = """
 func Test(result: Result<string, string>) {
-    if val Ok(text) = result {
+    if let Ok(text) = result {
         Console.WriteLine(text)
     } else {
         Console.WriteLine("missing")
@@ -717,7 +717,7 @@ func Test(result: Result<string, string>) {
             """
 func Test(result: Result<string, string>) {
     match result {
-        val Ok(text) => {
+        let Ok(text) => {
             Console.WriteLine(text)
         }
         Error => {
@@ -740,7 +740,7 @@ func Test(result: Result<string, string>) {
 
         var code = """
 func Test(maybeText: Option<string>) {
-    if maybeText is Some(val text) {
+    if maybeText is Some(let text) {
         Console.WriteLine(text)
     } else {
         Console.WriteLine("missing")

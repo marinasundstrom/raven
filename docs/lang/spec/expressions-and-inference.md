@@ -40,7 +40,7 @@ conditional branches or early `return` statements—the inferred result is the
 nearest compatible type for the flow.
 
 ```raven
-val pet = if flag { Dog() } else { Cat() }
+let pet = if flag { Dog() } else { Cat() }
 // pet has an inferred compatible type
 ```
 
@@ -55,7 +55,7 @@ is required.
 
 ```raven
 var i = 0       // i : int
-val j = 0       // j : int
+let j = 0       // j : int
 var k: 1 = 1    // k : 1
 ```
 
@@ -67,12 +67,12 @@ By default, literal branches widen to their underlying primitive types:
 #### Branch type inference
 
 ```raven
-val x: int = 3
-val value = if x > 2 { 42 } else { x }
+let x: int = 3
+let value = if x > 2 { 42 } else { x }
 // value : int
 
-val other: long = 0
-val widened = if x > 2 { other } else { 42 }
+let other: long = 0
+let widened = if x > 2 { other } else { 42 }
 // widened has an inferred compatible numeric type
 ```
 
@@ -100,16 +100,16 @@ value fits in the target type. This mirrors C#’s constant conversion rules and
 avoids accidental narrowing for non-constant values.
 
 ```raven
-val a = 42        // int
-val b = 4_000_000_000 // long
+let a = 42        // int
+let b = 4_000_000_000 // long
 
-val x: byte = 12 // OK: constant int fits in byte
-val y: byte = 300 // error: constant out of range
+let x: byte = 12 // OK: constant int fits in byte
+let y: byte = 300 // error: constant out of range
 
-val z = 32b      // explicit byte literal
-val n = 10L      // explicit long literal
-val bits = 0b1010_0101 // binary int literal
-val mask = 0xFF  // hexadecimal int literal
+let z = 32b      // explicit byte literal
+let n = 10L      // explicit long literal
+let bits = 0b1010_0101 // binary int literal
+let mask = 0xFF  // hexadecimal int literal
 ```
 
 #### Floating-point literals
@@ -122,10 +122,10 @@ val mask = 0xFF  // hexadecimal int literal
   * `m` / `M` — `decimal`
 
 ```raven
-val d = 3.14     // double
-val f = 3.14f    // float
-val m = 9.99m    // decimal
-val e = 1e3      // double
+let d = 3.14     // double
+let f = 3.14f    // float
+let m = 9.99m    // decimal
+let e = 1e3      // double
 ```
 
 Decimal literals do not support exponent notation. Attempting to combine an
@@ -154,7 +154,7 @@ statement bodies) do not participate in lambda return-type inference. If no valu
 path exists, the lambda return type defaults to `unit`.
 
 ```raven
-val example = (x: int) -> {
+let example = (x: int) -> {
     if x > 0 { return x }
     "neg"
 }
@@ -170,8 +170,8 @@ constructed, so the lambda observes the same declared type as any other use of
 the variable.
 
 ```raven
-val a = 42
-val makeAdder = () => a + 3
+let a = 42
+let makeAdder = () => a + 3
 
 makeAdder() // returns 45, makeAdder : System.Func<int>
 ```

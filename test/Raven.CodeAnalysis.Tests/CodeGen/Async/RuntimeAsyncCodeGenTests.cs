@@ -248,7 +248,7 @@ class Program {
     async func Fetch() -> Task<int> {
         use stream = MemoryStream()
         try {
-            val value = await Task.FromResult(42)
+            let value = await Task.FromResult(42)
             return value
         } catch (Exception e) {
             return -1
@@ -279,7 +279,7 @@ import System.Threading.Tasks.*
 
 class Program {
     public async func Compute() -> Task<string> {
-        val run = async () => {
+        let run = async () => {
             await Task.Delay(1)
             return "ok"
         }

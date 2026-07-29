@@ -29,7 +29,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    val value = "name" ?? throw 42;
+    let value = "name" ?? throw 42;
 }
 """;
 
@@ -127,7 +127,7 @@ record Error(Message: string)
     {
         var code = """
 func Main() {
-    val value = {
+    let value = {
         throw System.InvalidOperationException("fail")
         ()
     };

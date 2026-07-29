@@ -186,7 +186,7 @@ class C {
         } catch (Exception e) {
             return -1
         } finally {
-            val _ = 0
+            let _ = 0
         }
     }
 }
@@ -262,7 +262,7 @@ retry:
         var code = """
 class C {
     func Compute(x: int) -> int {
-        val adjusted = x + 1
+        let adjusted = x + 1
         return adjusted
     }
 }
@@ -285,9 +285,9 @@ class C {
         var code = """
 class C {
     func Compute() -> () {
-        val x = 1
-        val y = x + 2
-        val z = y + 3
+        let x = 1
+        let y = x + 2
+        let z = y + 3
     }
 }
 """;
@@ -311,7 +311,7 @@ import System.*
 func Main() {
     Console.WriteLine("Hello, World!")
 
-    val x = "Foo"
+    let x = "Foo"
 
     Console.WriteLine("Hello, World!")
 }
@@ -340,8 +340,8 @@ func Main() {
         var code = """
 import System.*
 
-val seed = 40
-val answer = seed + 2
+let seed = 40
+let answer = seed + 2
 Console.WriteLine(answer)
 """;
 
@@ -368,8 +368,8 @@ Console.WriteLine(answer)
 import System.*
 
 func Main() {
-    val subtotal = 10
-    val total = AddTax(subtotal)
+    let subtotal = 10
+    let total = AddTax(subtotal)
     Console.WriteLine(total)
 }
 
@@ -410,14 +410,14 @@ import System.*
 
 class Program {
     static func Main() {
-        val result = Worker.Transform(5)
+        let result = Worker.Transform(5)
         Console.WriteLine(result)
     }
 }
 
 class Worker {
     static func Transform(value: int) -> int {
-        val doubled = value * 2
+        let doubled = value * 2
         return doubled + 1
     }
 }
@@ -454,8 +454,8 @@ class Worker {
 import System.*
 
 func Main() {
-    val value = 2
-    val label = match value {
+    let value = 2
+    let label = match value {
         1 => "one"
         _ => "other"
     }
@@ -484,8 +484,8 @@ func Main() {
 import System.*
 
 func Main() {
-    val value = 2
-    val label = match value {
+    let value = 2
+    let label = match value {
         1 => {
             "one"
         }
@@ -517,8 +517,8 @@ func Main() {
     {
         var code = """
 func Main() {
-    val value = GetValue()
-    val text = match value {
+    let value = GetValue()
+    let text = match value {
         1 when value > 0 => "ok"
         _ => "no"
     }
@@ -551,14 +551,14 @@ func GetValue() -> int => 1
 import System.*
 
 func Main() {
-    val number = 3
+    let number = 3
     if number > 2 {
         Console.WriteLine("big")
     } else {
         Console.WriteLine("small")
     }
 
-    val sum = Add(number, 5)
+    let sum = Add(number, 5)
     Console.WriteLine(sum)
 }
 
@@ -631,12 +631,12 @@ class Program {
 import System.*
 
 func Main() {
-    val seed = 2
+    let seed = 2
     func Bump(value: int) -> int {
         return value + 1
     }
 
-    val result = Bump(seed)
+    let result = Bump(seed)
     Console.WriteLine(result)
 }
 """;
@@ -669,8 +669,8 @@ import System.*
 
 class Program {
     static func Main() {
-        val left = Increment(1)
-        val right = Double(left)
+        let left = Increment(1)
+        let right = Double(left)
         Console.WriteLine(right)
     }
 

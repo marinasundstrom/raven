@@ -1,5 +1,7 @@
 using System;
+
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -33,7 +35,7 @@ class Exception {
     public init() {}
 }
 
-val local: Exception = Exception()
+let local: Exception = Exception()
 """;
 
         var verifier = CreateVerifier(

@@ -17,7 +17,7 @@ union Result<T, E> {
     case Error(error: E)
 }
 
-val input: string | Expression<() -> object>
+let input: string | Expression<() -> object>
 ```
 
 But the compiler should emit and recognize the .NET 11 union markers and basic
@@ -220,7 +220,7 @@ nullable-content bit to one use site and remain C#-compatible. If null contents
 are needed, they must be represented by nullable case types:
 
 ```raven
-val value: string? | int
+let value: string? | int
 ```
 
 rather than a hidden Raven-only nullable marker on `string | int`.
@@ -230,8 +230,8 @@ rather than a hidden Raven-only nullable marker on `string | int`.
 Raven may keep its current construction surface:
 
 ```raven
-val ok: Result<int, string> = Ok(1)
-val err = Result<int, string>.Error("bad")
+let ok: Result<int, string> = Ok(1)
+let err = Result<int, string>.Error("bad")
 ```
 
 For interop, the emitted carrier should expose creation members that C# can use
@@ -305,7 +305,7 @@ semantic APIs:
 ```raven
 import System.Result.*
 
-val result = Ok(42)
+let result = Ok(42)
 ```
 
 `import System.Result.*` imports the logical members of the `Result` union,
@@ -372,8 +372,8 @@ import System.Result.*
 
 func Render(result: Result<int, string>) -> string {
     match result {
-        Ok(val value) => value.ToString()
-        Error(val error) => error
+        Ok(let value) => value.ToString()
+        Error(let error) => error
     }
 }
 ```
@@ -417,10 +417,10 @@ func GetUser() -> Result<User, Err> {
 }
 
 func GetItem() -> Result<string, Err> {
-    val maybeItem = GetUser()?.Item?
+    let maybeItem = GetUser()?.Item?
 
     match maybeItem {
-        Some(val item) => Ok(item.Name)
+        Some(let item) => Ok(item.Name)
         None => Error(Err.MissingName)
     }
 }

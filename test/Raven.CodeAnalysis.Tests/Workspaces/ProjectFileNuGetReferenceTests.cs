@@ -393,8 +393,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
             app.MapGet("/", () => "Hello from Raven Minimal API")
             app.Run()
             """);
@@ -432,8 +432,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
             app.MapGet("/", (name: string) => "Hello ${name} from Raven Minimal API")
             app.Run()
             """);
@@ -470,8 +470,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
             app.MapGet("/", () => "Hello from Raven Minimal API")
             app.Run()
             """);
@@ -533,8 +533,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
             app.MapGet("/", () => "Hello from Raven Minimal API")
             app.Run()
             """);
@@ -593,8 +593,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
             app.MapGet("/", () => "Hello from Raven Minimal API")
             app.Run()
             """);
@@ -1427,7 +1427,7 @@ public sealed class ProjectFileNuGetReferenceTests
         AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "options.UseNpgsql", "UseNpgsql"), "UseNpgsql");
         AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "-> Task", "Task"), "Task");
         AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "CreateBuilder(args)", "CreateBuilder"), "CreateBuilder");
-        AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "val builder", "builder"), "builder");
+        AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "let builder", "builder"), "builder");
         AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "options.UseNpgsql", "options"), "options");
         AssertSymbolName(QuerySymbolAtMarker(model, root, sourceText, "VehicleSeedData.SeedAsync", "VehicleSeedData"), "VehicleSeedData");
     }
@@ -1578,8 +1578,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
             app.MapGet("/", (name: string) => "Hello ${name}")
             app.Run()
             """);
@@ -1799,8 +1799,8 @@ public sealed class ProjectFileNuGetReferenceTests
             import System.Threading.Tasks.*
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
 
             app.MapGet("/", () => "sync")
             app.MapGet("/async", async () => {
@@ -1851,8 +1851,8 @@ public sealed class ProjectFileNuGetReferenceTests
             import System.Collections.Generic.*
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
 
             app.MapGet("/stream", async () -> IAsyncEnumerable<int> => {
                 yield return 1
@@ -1895,8 +1895,8 @@ public sealed class ProjectFileNuGetReferenceTests
             """
             import Microsoft.AspNetCore.Builder.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
 
             app.MapGet("/stream", async () => {
                 yield return 1
@@ -1941,8 +1941,8 @@ public sealed class ProjectFileNuGetReferenceTests
             import System.Threading.*
             import System.Threading.Tasks.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
 
             app.MapGet("/stream", async (cancellationToken: CancellationToken) => {
                 yield return 1
@@ -1989,8 +1989,8 @@ public sealed class ProjectFileNuGetReferenceTests
             import System.Threading.*
             import System.Threading.Tasks.*
 
-            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
-            val app = builder.Build()
+            let builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            let app = builder.Build()
 
             app.MapGet("/stream", async ([EnumeratorCancellation] cancellationToken: CancellationToken) => {
                 yield return 1

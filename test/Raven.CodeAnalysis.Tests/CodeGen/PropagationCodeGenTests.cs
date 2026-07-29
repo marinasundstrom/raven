@@ -23,7 +23,7 @@ class Harness {
     }
 
     private static func PropagateNone() -> Option<int> {
-        val value = NoneValue()?
+        let value = NoneValue()?
         return .Some(value)
     }
 

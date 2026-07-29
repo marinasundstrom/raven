@@ -17,7 +17,7 @@ A block is an expression; its value is the value of its last expression
 
 ```raven
 {
-    val x = 10
+    let x = 10
     x + 1
 }
 ```
@@ -37,12 +37,12 @@ Branches may be written either as block expressions (`{ ... }`) or as a single
 expression without braces:
 
 ```raven
-val a = if cond { 10 } else { 20 }
-val b = if cond 10 else 20
+let a = if cond { 10 } else { 20 }
+let b = if cond 10 else 20
 ```
 
 ```raven
-val res =
+let res =
     if cond {
         10
     } else {
@@ -86,7 +86,7 @@ for otherwise bare captures and for an optional whole-pattern designation. An
 ```raven
 var i = 0
 while i < list.Length {
-    val item = list[i]
+    let item = list[i]
     Console.WriteLine(item)
     i = i + 1
 }
@@ -323,7 +323,7 @@ statements are likewise disallowed in expression contexts. 【F:src/Raven.CodeAn
 ```raven
 func retryingWork() {
 start:
-    val ok = tryOnce()
+    let ok = tryOnce()
     if not ok {
         goto start
     }
@@ -395,7 +395,7 @@ import System.Collections.Generic.*
 
 class Counter {
     func Numbers() -> Func<IEnumerable<int>> {
-        val factory: Func<IEnumerable<int>> = () => {
+        let factory: Func<IEnumerable<int>> = () => {
             yield 1
             yield 2
         }

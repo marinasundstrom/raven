@@ -1,12 +1,12 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
-val compute = async (value: int) -> Task<int> {
+let compute = async (value: int) -> Task<int> {
     await Task.Delay(5)
     return value
 }
 
-val result = await compute(42)
+let result = await compute(42)
 
 WriteLine(result)
 return result

@@ -80,7 +80,7 @@ namespace Shared {
         var sourceTree = SyntaxTree.ParseText(
             """
 func Main() {
-    val year = System.DateTime.Now.Year
+    let year = System.DateTime.Now.Year
 }
 """);
 
@@ -136,7 +136,7 @@ namespace Shared {
         var sourceTree = SyntaxTree.ParseText(
             """
 func ReadNow() {
-    val year = System.DateTime.Now.Year
+    let year = System.DateTime.Now.Year
 }
 """);
         var compilation = CreateCompilation(sourceTree, options);
@@ -214,7 +214,7 @@ extension WidgetExtensions for Widget {
     func First() -> int => 1
 
     func Second() -> int {
-        val value = self.First()
+        let value = self.First()
         return value
     }
 }

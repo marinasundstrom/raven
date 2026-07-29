@@ -1,6 +1,8 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Shouldly;
 
 namespace Raven.CodeAnalysis.Tests.Semantics;
@@ -12,8 +14,8 @@ public class GlobalStatementDataFlowTests
     {
         var code = """
 import System.Console.*
-val numbers = [1, 2, 3]
-val total = 0
+let numbers = [1, 2, 3]
+let total = 0
 for number in numbers {
     total = total + number
 }

@@ -16,7 +16,7 @@ public sealed class TargetTypeScopeTests
         var syntaxTree = SyntaxTree.ParseText(
             """
 func Main() {
-    val x = 1
+    let x = 1
 }
 """);
 
@@ -73,7 +73,7 @@ func Apply(value: int, mapper: func(int) -> int) -> int {
 }
 
 func Main() {
-    val result = Apply(1, func item => item + 1)
+    let result = Apply(1, func item => item + 1)
 }
 """);
 
