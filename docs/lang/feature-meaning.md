@@ -231,6 +231,19 @@ treated as conceptually identical.
 `unit` has a different meaning again: it represents no meaningful return value,
 not an absent value.
 
+That meaning is enforced at a callable boundary. A `unit`-returning function
+cannot silently discard a non-`unit` tail value that looks like a result.
+Assign the expression to `_` when discarding it is deliberate:
+
+```raven
+func Refresh(cache: Cache) {
+    _ = cache.TryRefresh()
+}
+```
+
+This makes `unit` an explicit statement about value flow rather than only
+another spelling for CLR `void`.
+
 ## `Result<T, E>` represents expected failure
 
 `Result<T, E>` says that failure is an expected outcome of a correctly used

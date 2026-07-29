@@ -26,6 +26,10 @@ discarded.
 * Statement-form `match`, and statement-form `if` with an `else` branch, may
   contribute an implicit tail return when they are the final statement in a
   value-returning body.
+* A final expression whose value is not `unit` cannot silently resemble a tail
+  result in a `unit`-returning callable. Diagnostic `RAV9034` reports that its
+  result is unused. Use `_ = expression` when discarding that final value is
+  intentional.
 
 Statement-form `if` also has a dedicated pattern-binding form:
 

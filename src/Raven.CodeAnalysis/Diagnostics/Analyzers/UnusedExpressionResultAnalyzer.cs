@@ -16,7 +16,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         title: "Expression result is not used",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Expression result is not used.",
+        messageFormat: "Expression result is not used; assign it to '_' to discard it explicitly.",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 
@@ -42,7 +42,8 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         if (!ReturnsValue(operation.Type))
             return;
 
-        if (!IsPureValueComposition(operation))
+        if (!IsTrailingValueInUnitCallable(expressionStatement, context.SemanticModel) &&
+            !IsPureValueComposition(operation))
             return;
 
         context.ReportDiagnostic(Diagnostic.Create(Descriptor, operation.Syntax.GetLocation()));
@@ -131,6 +132,49 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         };
     }
 
+    private static bool IsTrailingValueInUnitCallable(
+        ExpressionStatementSyntax expressionStatement,
+        SemanticModel semanticModel)
+    {
+        if (!TryGetTrailingBlock(expressionStatement, out var blockNode))
+            return false;
+
+        ITypeSymbol? returnType = blockNode.Parent switch
+        {
+            BaseMethodDeclarationSyntax method =>
+                (semanticModel.GetDeclaredSymbol(method) as IMethodSymbol)?.ReturnType,
+            FunctionStatementSyntax function =>
+                (semanticModel.GetDeclaredSymbol(function) as IMethodSymbol)?.ReturnType,
+            AccessorDeclarationSyntax accessor =>
+                GetAccessorReturnType(accessor, semanticModel),
+            FunctionExpressionSyntax functionExpression =>
+                GetLambdaReturnType(functionExpression, semanticModel),
+            _ => null,
+        };
+
+        return returnType?.SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
+    }
+
+    private static bool TryGetTrailingBlock(
+        ExpressionStatementSyntax expressionStatement,
+        out SyntaxNode blockNode)
+    {
+        blockNode = expressionStatement.Parent;
+        var statements = blockNode switch
+        {
+            BlockStatementSyntax blockStatement => blockStatement.Statements,
+            BlockSyntax blockExpression => blockExpression.Statements,
+            _ => default,
+        };
+
+        if (statements.Count == 0)
+            return false;
+
+        var trailingStatement = statements[^1];
+        return trailingStatement.SyntaxTree == expressionStatement.SyntaxTree &&
+               trailingStatement.Span == expressionStatement.Span;
+    }
+
     private static bool IsBranchValueConsumed(BlockSyntax blockExpression)
     {
         SyntaxNode current = blockExpression;
@@ -200,11 +244,29 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
                ReturnsValue(propertySymbol.Type);
     }
 
+    private static ITypeSymbol? GetAccessorReturnType(
+        AccessorDeclarationSyntax accessor,
+        SemanticModel semanticModel)
+    {
+        if (accessor.Keyword.Text != "get")
+            return semanticModel.Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        return accessor.Parent?.Parent is PropertyDeclarationSyntax property &&
+               semanticModel.GetDeclaredSymbol(property) is IPropertySymbol propertySymbol
+            ? propertySymbol.Type
+            : null;
+    }
+
     private static bool LambdaReturnsValue(FunctionExpressionSyntax functionExpression, SemanticModel semanticModel)
+        => ReturnsValue(GetLambdaReturnType(functionExpression, semanticModel));
+
+    private static ITypeSymbol? GetLambdaReturnType(
+        FunctionExpressionSyntax functionExpression,
+        SemanticModel semanticModel)
     {
         var typeInfo = semanticModel.GetTypeInfo(functionExpression);
         var delegateType = typeInfo.ConvertedType as INamedTypeSymbol ?? typeInfo.Type as INamedTypeSymbol;
-        return ReturnsValue(delegateType?.GetDelegateInvokeMethod()?.ReturnType);
+        return delegateType?.GetDelegateInvokeMethod()?.ReturnType;
     }
 
     private static bool ReturnsValue(IMethodSymbol? method)

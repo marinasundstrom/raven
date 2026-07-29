@@ -54,7 +54,9 @@ Raven currently provides analyzers for two different contexts:
 - **UnusedExpressionResultAnalyzer** (Raven, `RAV9034`) – reports standalone expressions
   whose value is known to be unused when the expression is a conservative composition of
   literals, variables, unary operators, binary operators, and tuples. Calls and other
-  potentially effectful expressions are excluded.
+  potentially effectful expressions are normally excluded, but a non-`unit` expression
+  in the tail position of a `unit` callable is reported because it would otherwise look
+  like a returned value. Assign to `_` to make an intentional discard explicit.
 - **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
   invocations, property accesses, or field accesses whose returned value is not handled.
   Assign the returned value to a target, assign it to `_`, return it, or pass it on. The

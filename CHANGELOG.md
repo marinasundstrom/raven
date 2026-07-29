@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Unit-returning callables now report `RAV9034` when their final expression
+  produces a non-unit value, including effectful invocations. This prevents a
+  discarded value from looking like a valid tail result; `_ = expression`
+  remains the explicit intentional-discard form.
 - Added a Playground sample demonstrating Raven's support for functional
   programming patterns within its pragmatic, general-purpose model: immutable
   transformations, value-producing `match` and `if` expressions, block

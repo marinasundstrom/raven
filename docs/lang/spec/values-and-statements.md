@@ -21,6 +21,12 @@ Raven has no `void` type. The absence of a meaningful value is represented by th
 spelled `unit` or `()`. Functions without an explicit return type implicitly
 return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes](dotnet-implementation.md#unit-type)). The `unit` type participates in generics and tuples like any other type.
 
+`unit` is also a source-level contract: it says that no value flows out of the
+computation. It is not only an emitted substitute for CLR `void`. Consequently,
+a non-`unit` expression in the tail position of a `unit` callable is diagnosed
+as an unused result. An intentional discard is written explicitly as
+`_ = expression`.
+
 ## Null and absence
 
 Raven distinguishes nullable values from `unit`:

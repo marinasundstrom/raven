@@ -128,7 +128,7 @@ func A() -> () {
     }
 
     [Fact]
-    public void InvocationExpressionStatement_DoesNotReport()
+    public void InvocationExpressionStatement_AsUnitCallableTail_ReportsDiagnostic()
     {
         const string code = """
 func Compute() -> int {
@@ -136,6 +136,128 @@ func Compute() -> int {
 }
 
 func A() -> () {
+    Compute()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(6, 5, 6, 14)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void InvocationExpressionStatement_AsImplicitUnitCallableTail_ReportsDiagnostic()
+    {
+        const string code = """
+func Compute() -> int {
+    42
+}
+
+func A() {
+    Compute()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(6, 5, 6, 14)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void InvocationExpressionStatement_BeforeUnitCallableTail_DoesNotReport()
+    {
+        const string code = """
+func Compute() -> int {
+    42
+}
+
+func Log() -> () { }
+
+func A() -> () {
+    Compute()
+    Log()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void InvocationAssignedToDiscard_AsUnitCallableTail_DoesNotReport()
+    {
+        const string code = """
+func Compute() -> int {
+    42
+}
+
+func A() -> () {
+    _ = Compute()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void InvocationExpressionStatement_AsActionLambdaTail_ReportsDiagnostic()
+    {
+        const string code = """
+import System.*
+
+func Compute() -> int {
+    42
+}
+
+let action: Action = func () {
+    Compute()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(8, 5, 8, 14)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void InvocationExpressionStatement_AsInferredValueLambdaTail_DoesNotReport()
+    {
+        const string code = """
+func Compute() -> int {
+    42
+}
+
+let calculate = func () {
     Compute()
 }
 """;

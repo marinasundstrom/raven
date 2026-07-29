@@ -46,6 +46,12 @@ Implicit return inference for methods/functions/lambdas uses explicit `return`
 statements and the outer body tail expression only. Tail expressions inside nested
 statement blocks are not treated as implicit returns for the enclosing member.
 
+For a callable returning `unit`, the outer body does not accept a non-`unit`
+tail value as a return. Such a value would otherwise look like an implicit
+result while being discarded, so diagnostic `RAV9034` reports it as unused.
+Write `_ = expression` to make an intentional discard explicit, or change the
+callable return type when the value is meant to be its result.
+
 ```raven
 func DoOperation(a: int, b: int) -> int {
     if a > b {
