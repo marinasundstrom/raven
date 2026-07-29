@@ -197,6 +197,7 @@ internal static class RavenDocCommand
         string? outputPath = null;
         var targetFramework = DefaultTargetFramework;
         var siteLinks = new List<DocumentationSiteLink>();
+        var templateValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var referencePaths = new List<string>();
         var showHelp = false;
 
@@ -236,6 +237,17 @@ internal static class RavenDocCommand
                         return false;
                     }
                     siteLinks.Add(navigationLink);
+                    break;
+                case "--value":
+                    if (!TryReadValue(args, ref index, out var templateValue) ||
+                        !TryParseTemplateValue(templateValue!, out var templateName, out var replacement))
+                    {
+                        Console.Error.WriteLine(
+                            "Invalid --value. Use --value name=value.");
+                        options = default;
+                        return false;
+                    }
+                    templateValues[templateName] = replacement;
                     break;
                 case "-r":
                 case "--reference":
@@ -279,10 +291,28 @@ internal static class RavenDocCommand
             inputPath,
             outputPath,
             targetFramework!,
-            new DocumentationSiteOptions(siteLinks),
+            new DocumentationSiteOptions(siteLinks, templateValues),
             referencePaths,
             showHelp);
         return true;
+    }
+
+    private static bool TryParseTemplateValue(
+        string value,
+        out string name,
+        out string replacement)
+    {
+        var separator = value.IndexOf('=');
+        if (separator <= 0)
+        {
+            name = string.Empty;
+            replacement = string.Empty;
+            return false;
+        }
+
+        name = value[..separator].Trim();
+        replacement = value[(separator + 1)..];
+        return MarkdownTemplate.IsValidValueName(name);
     }
 
     private static bool TryParseNavigationLink(
@@ -334,6 +364,7 @@ internal static class RavenDocCommand
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)
               -f, --framework <tfm>       Target framework used for references (default: net10.0)
                   --nav <label=url>        Add a related-site link to the generated header
+                  --value <name=value>     Replace {{name}} in Markdown; may be repeated
               -r, --reference <assembly>   Add a metadata reference for source input
               -h, --help                  Show help
 

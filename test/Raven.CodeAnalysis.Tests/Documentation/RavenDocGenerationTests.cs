@@ -10,7 +10,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         var (compilation, _) = CreateCompilation("""
             namespace Samples.Docs
 
-            /// A documented Raven type.
+            /// A documented Raven type from version {{ productVersion }}.
+            /// Published at [the API root]({{apiRoot}}).
+            /// The unresolved {{futureValue}} remains visible.
             ///
             /// ## Usage
             ///
@@ -39,11 +41,16 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 compilation,
                 outputPath,
                 new DocumentationSiteOptions(
-                [
-                    new DocumentationSiteLink(
-                        "Raven documentation",
-                        "https://example.com/raven/")
-                ]));
+                    [
+                        new DocumentationSiteLink(
+                            "Raven documentation",
+                            "https://example.com/raven/")
+                    ],
+                    new Dictionary<string, string>
+                    {
+                        ["productVersion"] = "1.2.3+build.7",
+                        ["apiRoot"] = "../reference/"
+                    }));
 
             var typePagePath = Path.Combine(outputPath, "Samples", "Docs", "Widget", "index.html");
             var memberPagePath = Path.Combine(outputPath, "Samples", "Docs", "Widget", "method_GetTitle.html");
@@ -59,7 +66,10 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             typePage.ShouldContain("member-card");
             typePage.ShouldContain("symbol-icon--function");
             typePage.ShouldContain("id=\"methods\"");
-            typePage.ShouldContain("A documented Raven type.");
+            typePage.ShouldContain("A documented Raven type from version 1.2.3+build.7.");
+            typePage.ShouldContain("href=\"../reference/\"");
+            typePage.ShouldContain("The unresolved {{futureValue}} remains visible.");
+            typePage.ShouldNotContain("{{ productVersion }}");
             typePage.ShouldContain("method_GetTitle.html");
             typePage.ShouldContain("language-raven");
             typePage.ShouldContain("site.js");

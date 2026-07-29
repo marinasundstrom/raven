@@ -135,6 +135,37 @@ Source-directory input can add assembly dependencies with repeatable
 `--reference <assembly>` options. Repeatable `--nav <label=url>` options add
 links to related documentation sites in the generated header.
 
+### Injecting build values
+
+RavenDoc can replace explicit placeholders in Markdown with values supplied by
+the build or publishing workflow. Pass `--value name=value` once for each
+value:
+
+```bash
+dotnet run --project src/RavenDoc -- \
+  src/Raven.Core/Raven.Core.rvnproj \
+  --output artifacts/raven-core-api \
+  --value version=1.4.0 \
+  --value apiRoot=../api/
+```
+
+Use the values in documentation Markdown with `{{name}}`:
+
+```raven
+/// Available since Raven {{version}}.
+///
+/// See the [complete API reference]({{apiRoot}}).
+public func Parse(text: string) -> SyntaxTree
+```
+
+Values are substituted as plain Markdown before HTML rendering. This supports
+paths, package or compiler versions, commit identifiers, and version stamps
+without making RavenDoc responsible for discovering that build metadata.
+Whitespace inside a placeholder is optional. Value names may contain letters,
+digits, `_`, `-`, and `.`, and must begin with a letter or `_`. Repeating a
+name uses its last supplied value. Placeholders without a supplied value remain
+visible in the generated documentation.
+
 Namespace functions are organized under their Raven namespace. Their pages
 also identify the emitted CLR container so consumers using C#, reflection, or
 another .NET language can locate the metadata member. Namespace-level

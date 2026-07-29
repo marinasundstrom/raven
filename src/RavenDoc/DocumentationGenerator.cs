@@ -56,6 +56,8 @@ public static class DocumentationGenerator
         = new(StringComparer.Ordinal);
 
     private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
+    private static IReadOnlyDictionary<string, string> TemplateValues =
+        new Dictionary<string, string>();
 
     static DocumentationGenerator()
     {
@@ -166,6 +168,8 @@ public static class DocumentationGenerator
         ReportedBrokenXrefs.Clear();
         AdditionalNamespaceMembers.Clear();
         SiteLinks = siteOptions?.Links ?? [];
+        TemplateValues = siteOptions?.TemplateValues ??
+            new Dictionary<string, string>();
         foreach (var symbol in additionalNamespaceMembers)
         {
             var namespaceName = GetNamespaceFullName(symbol.ContainingNamespace);
@@ -726,13 +730,13 @@ public static class DocumentationGenerator
         }
 
         var documentation = RavenDocumentationLoader.Load(comment);
-        var markdown = BuildDocumentationMarkdown(documentation);
+        var markdown = MarkdownTemplate.Apply(
+            BuildDocumentationMarkdown(documentation),
+            TemplateValues);
         var info = new SymbolDocInfo
         {
             RawMarkdown = markdown,
-            Summary = documentation.GetSection(DocumentationSectionKind.Summary) is { } summary
-                ? ToTableCellText(summary)
-                : ExtractFirstParagraphSummary(markdown)
+            Summary = ExtractFirstParagraphSummary(markdown)
         };
 
         DocInfoCache[symbol] = info;
@@ -1117,6 +1121,8 @@ public static class DocumentationGenerator
 
     private static string RenderMarkdownWithXrefs(string markdown, string currentDir)
     {
+        markdown = MarkdownTemplate.Apply(markdown, TemplateValues);
+
         // Build a per-page pipeline so we can capture currentDir in the callback.
         var builder = new MarkdownPipelineBuilder()
             .UseAdvancedExtensions()
@@ -1883,7 +1889,9 @@ public static class DocumentationGenerator
     }
 }
 
-public sealed record DocumentationSiteOptions(IReadOnlyList<DocumentationSiteLink> Links)
+public sealed record DocumentationSiteOptions(
+    IReadOnlyList<DocumentationSiteLink> Links,
+    IReadOnlyDictionary<string, string>? TemplateValues = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

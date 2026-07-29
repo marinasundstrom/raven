@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- RavenDoc now accepts repeatable `--value name=value` inputs and substitutes
+  explicit `{{name}}` placeholders in Markdown, enabling publishing workflows
+  to inject paths, versions, commit identifiers, and version stamps while
+  leaving unresolved placeholders visible.
 - RavenDoc now separates its reusable page template and static assets from
   symbol extraction, renders compact API headings, editor-like signatures with
   generic constraints, distinct namespace/member icons, structured
