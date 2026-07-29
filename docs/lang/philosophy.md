@@ -98,6 +98,25 @@ That does not mean every construct must be forced into expression form. Raven ke
 
 The language aim is composability without pretending that side effects do not exist.
 
+## Permissive language, enforceable policy
+
+Raven keeps style and safety guidance separate from basic language validity
+when the runtime meaning is already clear. Built-in analyzers provide
+Raven-native conventions without turning one programming style into the only
+accepted style. A project can keep the defaults, promote selected diagnostics
+to errors, lower their severity, or disable them through standard diagnostic
+configuration.
+
+For example, a non-`unit` tail expression in a `unit` callable is valid and its
+value is discarded. `RAV9034` warns by default because the expression can look
+like an implicit result. Code can make that intent explicit with `_ =`, use an
+explicit `return` where appropriate, or disable the diagnostic when the
+convention does not suit the project.
+
+This division is deliberate: the compiler defines permissive, predictable
+semantics, while analyzers let users enforce the subset of conventions that
+fits their codebase.
+
 ## Flow should stay visible
 
 Raven wants happy-path code to stay linear while still making failure and absence honest. That is why `Option<T>` and `Result<T, E>` are central to the language story instead of being treated as niche library patterns.

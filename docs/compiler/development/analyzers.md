@@ -3,6 +3,9 @@
 Raven ships with Roslyn-style analyzers that inspect syntax and semantics and
 report diagnostics. Analyzers run as part of compilation and can surface suggestions or
 warnings for code that compiles but might benefit from additional annotations or fixes.
+This is the contributor-facing implementation inventory. Users choosing or
+configuring rules should start with
+[Built-in analyzers](../analyzers/built-in.md).
 
 For the analyzer specification, authoring guidance, API surface, and configuration model, see
 [Analyzers](../analyzers/README.md) and the
@@ -56,7 +59,9 @@ Raven currently provides analyzers for two different contexts:
   literals, variables, unary operators, binary operators, and tuples. Calls and other
   potentially effectful expressions are normally excluded, but a non-`unit` expression
   in the tail position of a `unit` callable is reported because it would otherwise look
-  like a returned value. Assign to `_` to make an intentional discard explicit.
+  like a returned value. Assign to `_` to make an intentional discard explicit. This is
+  analyzer guidance rather than a language restriction; set
+  `dotnet_diagnostic.RAV9034.severity = none` in `.editorconfig` to disable it.
 - **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
   invocations, property accesses, or field accesses whose returned value is not handled.
   Assign the returned value to a target, assign it to `_`, return it, or pass it on. The

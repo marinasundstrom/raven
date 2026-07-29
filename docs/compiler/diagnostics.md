@@ -3,6 +3,10 @@
 This page is the source-of-truth catalog for Raven compiler diagnostics.
 It is synchronized with `src/Raven.CodeAnalysis/DiagnosticDescriptors.xml` and links to runnable samples where relevant.
 
+For configurable guidance reported by the analyzers bundled with Raven, see
+[Built-in analyzers](analyzers/built-in.md). Compiler diagnostics define
+language validity; analyzer diagnostics define project-selectable policy.
+
 ## How to inspect diagnostics from a sample
 
 From `samples/`:

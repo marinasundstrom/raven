@@ -8,6 +8,8 @@ publishing.
 
 This section defines the expected behavior and authoring model for Raven analyzers:
 
+- [Built-in analyzers](built-in.md) is the user-facing rule and default-severity
+  reference.
 - [Analyzer specification](specification.md) defines analyzer behavior.
 - [Authoring analyzers](authoring.md) explains how to implement and test an analyzer.
 - [Analyzer API surface](api-surface.md) describes the public types analyzers should use.
@@ -24,8 +26,8 @@ Related docs:
 - [Operations API](../api/operations.md) covers operation trees for expression and statement
   analysis.
 - [Analyzer verifier](../development/testing/analyzer-verifier.md) covers test helpers.
-- [Built-in analyzer inventory](../development/analyzers.md) lists the analyzers shipped
-  with Raven.
+- [Analyzer implementation notes](../development/analyzers.md) cover contributor-facing
+  details for the analyzers shipped with Raven.
 
 ## Summary
 

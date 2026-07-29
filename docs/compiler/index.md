@@ -13,6 +13,8 @@ Start with:
 - [Extend a project](extending-projects.md)
 - [VS Code extension](raven-vscode-extension.md)
 - [Diagnostics](diagnostics.md)
+- [Built-in analyzers](analyzers/built-in.md)
+- [Analyzer configuration](analyzers/configuration.md)
 - [JSON serialization](json-serialization.md)
 
 Project extensions are covered from a user and library-author perspective.

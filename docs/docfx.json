@@ -33,6 +33,8 @@
           "compiler/raven-macros-library.md",
           "compiler/json-serialization.md",
           "compiler/diagnostics.md",
+          "compiler/analyzers/built-in.md",
+          "compiler/analyzers/configuration.md",
           "compiler/raven-vscode-extension.md",
           "compiler/distribution.md",
           "compiler/api/README.md",

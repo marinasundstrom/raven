@@ -10,6 +10,10 @@
   href: json-serialization.md
 - name: Diagnostics
   href: diagnostics.md
+- name: Built-in analyzers
+  href: analyzers/built-in.md
+- name: Configure analyzers
+  href: analyzers/configuration.md
 - name: VS Code extension
   href: raven-vscode-extension.md
 - name: Distribution
