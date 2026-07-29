@@ -8,6 +8,57 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class SingleFileWorkspaceCompilationTests
 {
     [Fact]
+    public void WorkspaceCompilation_MacroFunctionEditsInvalidateOnlyTheLocalMacroPartition()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                performanceInstrumentation: instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var document = project.AddDocument(
+            "main.rvn",
+            SourceText.From(CreateMixedMacroFunctionSource(42, 0)),
+            "/tmp/main.rvn");
+        workspace.TryApplyChanges(document.Project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        AssertNoErrors(initialCompilation);
+        Assert.Equal("42", GetLocalAnswerExpansion(initialCompilation));
+        Assert.Equal(1, instrumentation.Macros.LocalPartitionCompilations);
+        Assert.Equal(0, instrumentation.Macros.LocalPartitionReuses);
+
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(
+                document.Id,
+                SourceText.From(CreateMixedMacroFunctionSource(42, 1))));
+
+        var consumerCompilation = workspace.GetCompilation(projectId);
+        AssertNoErrors(consumerCompilation);
+        Assert.Equal("42", GetLocalAnswerExpansion(consumerCompilation));
+        Assert.Equal(1, instrumentation.Macros.LocalPartitionCompilations);
+        Assert.Equal(1, instrumentation.Macros.LocalPartitionReuses);
+
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(
+                document.Id,
+                SourceText.From(CreateMixedMacroFunctionSource(43, 1))));
+
+        var macroCompilation = workspace.GetCompilation(projectId);
+        AssertNoErrors(macroCompilation);
+        Assert.Equal("43", GetLocalAnswerExpansion(macroCompilation));
+        Assert.Equal(2, instrumentation.Macros.LocalPartitionCompilations);
+        Assert.Equal(1, instrumentation.Macros.LocalPartitionReuses);
+    }
+
+    [Fact]
     public void WorkspaceCompilation_ReusesLocalMacroArtifactUntilMacroSourceChanges()
     {
         var instrumentation = new PerformanceInstrumentation();
@@ -127,6 +178,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             SourceText.From(
                 """
                 import Raven.CodeAnalysis.Macros.*
+                import Raven.Macros.*
 
                 class LocalAnswerMacro : ITokenTreeExpressionMacro {
                     val Name: string => "localAnswer"
@@ -134,7 +186,7 @@ public sealed class SingleFileWorkspaceCompilationTests
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                         FreestandingMacroExpansionResult {
-                            Expression = #quote { 42 }
+                            Expression = quote! { 42 }
                         }
                     }
                 }
@@ -142,7 +194,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             "/tmp/macros.rvn").Project;
         project = project.AddDocument(
             "main.rvn",
-            SourceText.From("func Main() -> int => #localAnswer { }"),
+            SourceText.From("func Main() -> int => localAnswer! { }"),
             "/tmp/main.rvn").Project;
 
         workspace.TryApplyChanges(project.Solution);
@@ -198,6 +250,7 @@ public sealed class SingleFileWorkspaceCompilationTests
     private static string CreateMixedLocalAnswerMacroSource(int answer, int addend)
         => $$"""
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             class LocalAnswerMacro : ITokenTreeExpressionMacro {
                 val Name: string => "localAnswer"
@@ -205,12 +258,22 @@ public sealed class SingleFileWorkspaceCompilationTests
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { {{answer}} }
+                        Expression = quote! { {{answer}} }
                     }
                 }
             }
 
-            func Main() -> int => #localAnswer { } + {{addend}}
+            func Main() -> int => localAnswer! { } + {{addend}}
+            """;
+
+    private static string CreateMixedMacroFunctionSource(int answer, int addend)
+        => $$"""
+            macro func Answer() {
+                let answer = {{answer}}
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(answer.ToString())
+            }
+
+            func Main() -> int => Answer!() + {{addend}}
             """;
 
     private static string GetLocalAnswerExpansion(Compilation compilation)

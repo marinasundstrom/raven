@@ -36,6 +36,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Their signature semantic model now provides method-like body scopes, so
   parameter declarations, locals, references, member access, and invocations
   resolve without consulting the lowered macro implementation tree.
+- Made authored `macro func` declarations first-class incremental executable
+  owners. Signature and body edits now invalidate their semantic state without
+  discarding unrelated state, and language-service queries recover through
+  malformed intermediate edits instead of reusing stale parameters or locals.
 - Prevented authored macro-function parameters and attached-target names from
   colliding with compiler-generated adapter locals during local macro lowering.
 - Updated the Playground metaprogramming sample to use native macro functions

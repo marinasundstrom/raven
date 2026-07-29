@@ -7219,6 +7219,7 @@ public partial class SemanticModel
             {
                 BaseMethodDeclarationSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 FunctionStatementSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                MacroFunctionDeclarationSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 SimpleFunctionExpressionSyntax { Parameter: { } parameter } => [parameter],
                 ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 _ => Enumerable.Empty<ParameterSyntax>()
@@ -10671,6 +10672,7 @@ public partial class SemanticModel
 
                 case BaseConstructorDeclarationSyntax:
                 case BaseMethodDeclarationSyntax:
+                case MacroFunctionDeclarationSyntax:
                 case ParameterlessConstructorDeclarationSyntax:
                 case PropertyDeclarationSyntax:
                 case EventDeclarationSyntax:
@@ -10712,6 +10714,7 @@ public partial class SemanticModel
 
             case BaseConstructorDeclarationSyntax:
             case BaseMethodDeclarationSyntax:
+            case MacroFunctionDeclarationSyntax:
             case ParameterlessConstructorDeclarationSyntax:
             case PropertyDeclarationSyntax:
             case EventDeclarationSyntax:
@@ -10737,6 +10740,11 @@ public partial class SemanticModel
             case MethodDeclarationSyntax methodDeclaration when
                 TryResolveMethodSymbolForDeclaration(methodDeclaration, out var methodSymbol):
                 symbol = methodSymbol;
+                return true;
+
+            case MacroFunctionDeclarationSyntax macroFunctionDeclaration when
+                TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol):
+                symbol = macroFunctionSymbol;
                 return true;
 
             case BaseConstructorDeclarationSyntax constructorDeclaration when
@@ -11572,6 +11580,7 @@ public partial class SemanticModel
                 case BlockStatementSyntax:
                 case CompilationUnitSyntax:
                 case FunctionStatementSyntax:
+                case MacroFunctionDeclarationSyntax:
                 case MethodDeclarationSyntax:
                 case AccessorDeclarationSyntax:
                 case ConstructorDeclarationSyntax:
@@ -11623,6 +11632,9 @@ public partial class SemanticModel
         {
             case FunctionStatementSyntax function when function.ParameterList is { } parameterList:
                 AddParameters(parameterList.Parameters);
+                break;
+            case MacroFunctionDeclarationSyntax macroFunction:
+                AddParameters(macroFunction.ParameterList.Parameters);
                 break;
             case MethodDeclarationSyntax method when method.ParameterList is { } parameterList:
                 AddParameters(parameterList.Parameters);
@@ -11727,6 +11739,7 @@ public partial class SemanticModel
 
     private static bool IsNestedExecutableScope(SyntaxNode node)
         => node is FunctionStatementSyntax
+            or MacroFunctionDeclarationSyntax
             or MethodDeclarationSyntax
             or ConstructorDeclarationSyntax
             or OperatorDeclarationSyntax
@@ -12588,7 +12601,7 @@ public partial class SemanticModel
         {
             root = node.AncestorsAndSelf().FirstOrDefault(current =>
                 current is BlockStatementSyntax &&
-                current.Parent is BaseMethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax);
+                current.Parent is BaseMethodDeclarationSyntax or FunctionStatementSyntax or MacroFunctionDeclarationSyntax or AccessorDeclarationSyntax);
 
             root ??= node.AncestorsAndSelf().FirstOrDefault(current =>
                 current is IfStatementSyntax or IfPatternStatementSyntax or WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax);
@@ -12637,6 +12650,7 @@ public partial class SemanticModel
         owner = node.AncestorsAndSelf().FirstOrDefault(static current =>
             current is FunctionExpressionSyntax
                 or FunctionStatementSyntax
+                or MacroFunctionDeclarationSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax
@@ -14646,6 +14660,7 @@ public partial class SemanticModel
             OperatorDeclarationSyntax or
             ConversionOperatorDeclarationSyntax or
             FunctionStatementSyntax or
+            MacroFunctionDeclarationSyntax or
             AccessorDeclarationSyntax or
             PropertyDeclarationSyntax or
             EventDeclarationSyntax or

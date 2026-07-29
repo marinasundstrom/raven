@@ -37,6 +37,33 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_ClassifiesMacroFunctionParameterNameEdit_AsSignatureOrDeclarationChange()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            macro func Expand(value: int) {
+                expand value
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            macro func Expand(item: int) {
+                expand item
+            }
+            """));
+        var currentMacro = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentMacro.Span, currentMacro.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
+        change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.SignatureOrDeclaration);
+    }
+
+    [Fact]
     public void Analyze_ClassifiesMethodLocalDeclarationInitializerEdit_AsBodyDeclarationChange()
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(
@@ -67,6 +94,37 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
 
         var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
 
+        result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
+        change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyDeclaration);
+    }
+
+    [Fact]
+    public void Analyze_ClassifiesMacroFunctionLocalInitializerEdit_AsBodyDeclarationChange()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            macro func Expand(value: int) {
+                let doubled = value * 2
+                expand doubled
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            macro func Expand(value: int) {
+                let doubled = value * 3
+                expand doubled
+            }
+            """));
+        var currentMacro = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentMacro.Span, currentMacro.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.BlocksSemanticDiagnosticTransfer.ShouldBeFalse();
+        result.ChangedOwners.ShouldContain(currentDescriptor);
         result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
         change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyDeclaration);
     }

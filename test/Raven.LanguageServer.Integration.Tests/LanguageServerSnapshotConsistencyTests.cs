@@ -84,7 +84,7 @@ macro func FirstToken(tokens: IMacroTokenStream) {
     expand SyntaxFactory.ParseExpression(token.Text)
 }
 
-func Main() -> int => #Double(21)
+func Main() -> int => Double!(21)
 """;
         var results = await ReplayInlineHoversAsync(
             text,
@@ -98,6 +98,68 @@ func Main() -> int => #Double(21)
             new HoverReplayTarget("token member", "token.Text", "token.".Length + 1, "Text"));
 
         results.Count.ShouldBe(8);
+    }
+
+    [Fact]
+    public async Task HoverHandler_MacroFunctionEdits_InvalidateWarmStateAndRecoverAsync()
+    {
+        const string initialText = """
+macro func Measure(value: int) {
+    let measured = value * 2
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(measured.ToString())
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(initialText);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        await AssertHoverAsync(initialText, "value * 2", 1, "value: int");
+        await AssertHoverAsync(initialText, "measured.ToString", 1, "val measured: int");
+
+        const string signatureEdit = """
+macro func Measure(value: string) {
+    let measured = value.Length
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(measured.ToString())
+}
+""";
+        await store.UpsertDocumentAsync(uri, signatureEdit);
+        await AssertHoverAsync(signatureEdit, "value.Length", 1, "value: string");
+        await AssertHoverAsync(signatureEdit, "measured.ToString", 1, "val measured: int");
+
+        const string invalidEdit = """
+macro func (value: string) {
+    let measured = value.Length
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(measured.ToString())
+}
+""";
+        await store.UpsertDocumentAsync(uri, invalidEdit);
+        await AssertHoverAsync(invalidEdit, "value.Length", 1, "value: string");
+
+        const string restoredText = """
+macro func Measure(text: string) {
+    let length = text.Length
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
+}
+""";
+        await store.UpsertDocumentAsync(uri, restoredText);
+        await AssertHoverAsync(restoredText, "text.Length", 1, "text: string");
+        await AssertHoverAsync(restoredText, "length.ToString", 1, "val length: int");
+
+        async Task AssertHoverAsync(string source, string marker, int markerOffset, string expected)
+        {
+            var sourceText = SourceText.From(source);
+            var offset = source.IndexOf(marker, StringComparison.Ordinal);
+            offset.ShouldBeGreaterThanOrEqualTo(0);
+
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = GetPosition(sourceText, offset + markerOffset)
+            }, CancellationToken.None);
+
+            hover.ShouldNotBeNull();
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            hover.Contents.MarkupContent!.Value.ShouldContain(expected);
+        }
     }
 
     [Fact]
