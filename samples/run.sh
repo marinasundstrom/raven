@@ -77,7 +77,9 @@ load_exclusions() {
     [[ -n "${rest:-}" ]] && continue
     [[ -z "${entry_mode:-}" || -z "${pattern:-}" ]] && continue
 
-    if [[ "$entry_mode" == "all" || "$entry_mode" == "$mode" ]]; then
+    if [[ "$entry_mode" == "all" ||
+          "$entry_mode" == "$mode" ||
+          ( "$mode" == "run" && "$entry_mode" == "build" ) ]]; then
       EXCLUDE_PATTERNS+=("$pattern")
     fi
   done < "$EXCLUSIONS_FILE"
@@ -93,6 +95,17 @@ is_excluded() {
     fi
   done
   return 1
+}
+
+has_source_sample() {
+  local relpath="$1"
+  local stem="${relpath%.dll}"
+
+  if [[ "$stem" == _root/* ]]; then
+    stem="${stem#_root/}"
+  fi
+
+  [[ -f "$SCRIPT_DIR/$stem.rav" || -f "$SCRIPT_DIR/$stem.rvn" ]]
 }
 
 if [[ ! -d "$OUTPUT_DIR" ]]; then
@@ -122,6 +135,11 @@ for dll in "${dlls[@]}"; do
     relpath="$filename"
   fi
 
+  if ! has_source_sample "$relpath"; then
+    echo "Skipping non-sample assembly: $relpath"
+    continue
+  fi
+
   if is_excluded "$relpath" "$filename"; then
     echo "Skipping excluded: $relpath"
     continue
@@ -143,7 +161,9 @@ echo "===== Summary ====="
 echo "Succeeded: ${#successes[@]}"
 for s in "${successes[@]-}"; do echo "  - $s"; done
 echo "Failed:    ${#failures[@]}"
-for f in "${failures[@]-}"; do echo "  - $f"; done
+if (( ${#failures[@]} > 0 )); then
+  for f in "${failures[@]}"; do echo "  - $f"; done
+fi
 
 # Exit non-zero if any failed; still ran all of them.
 (( ${#failures[@]} > 0 )) && exit 1 || exit 0

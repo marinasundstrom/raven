@@ -340,7 +340,7 @@ if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
     RAVEN_CORE_SOURCES+=("$source")
   done < <(find "$REPO_ROOT/src/Raven.Core" -maxdepth 1 -name '*.rav' | sort)
   if [[ -x "$COMPILER_BIN" && ${#RAVEN_CORE_SOURCES[@]} -gt 0 ]]; then
-    "$COMPILER_BIN" -- --emit-core-types-only --framework "$DOTNET_VERSION" --output-type classlib \
+    "$COMPILER_BIN" --emit-core-types-only --framework "$DOTNET_VERSION" --output-type classlib \
       -o "$DIRECT_RAVEN_CORE" "${RAVEN_CORE_SOURCES[@]}"
     if [[ -f "$DIRECT_RAVEN_CORE" ]]; then
       RAVEN_CORE="$DIRECT_RAVEN_CORE"
@@ -394,7 +394,7 @@ for file in "${sample_files[@]}"; do
 
   echo "Compiling: $file -> $output"
 
-  cmd=("$COMPILER_BIN" -- "$file" -o "$output" --framework "$DOTNET_VERSION")
+  cmd=("$COMPILER_BIN" "$file" -o "$output" --framework "$DOTNET_VERSION")
   if [[ -n "${RAVEN_CORE:-}" && -f "$RAVEN_CORE" ]]; then
     cmd+=(--raven-core "$RAVEN_CORE")
   fi
