@@ -581,6 +581,116 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task PublishDocumentCompilerDiagnostics_IncludesMacroBodyDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenCompile Include="src/**/*.rvn" />
+              </ItemGroup>
+            </Project>
+            """);
+        const string validSource = """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func AddOffset(expression: ExpressionSyntax) {
+                expand expression
+            }
+
+            func Main() {
+                let value = AddOffset!(40)
+            }
+            """;
+        const string invalidSource = """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func AddOffset(expression: ExpressionSyntax) {
+                match expression {
+                }
+                expand expression
+            }
+
+            func Main() {
+                let value = AddOffset!(40)
+            }
+            """;
+        await File.WriteAllTextAsync(documentPath, validSource);
+
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var published = new List<PublishDiagnosticsParams>();
+        var handler = new RavenTextDocumentSyncHandler(
+            store,
+            new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance),
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance,
+            publishDiagnosticsOverride: published.Add);
+        await store.UpsertDocumentAsync(uri, validSource);
+        _ = await store.TryGetDocumentCompilerDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        await store.UpsertDocumentAsync(uri, invalidSource);
+        GetDocumentSessions(handler)[uri] = 1;
+        GetDocumentVersions(handler)[uri] = 1;
+
+        var directDiagnostics = (await store.TryGetDocumentCompilerDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None)).Diagnostics;
+        directDiagnostics.Any(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal))
+            .ShouldBeTrue(string.Join(
+                Environment.NewLine,
+                directDiagnostics.Select(diagnostic =>
+                    $"{diagnostic.Code?.String} {diagnostic.Message}")));
+
+        var publishDiagnostics = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "PublishDiagnosticsAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        publishDiagnostics.ShouldNotBeNull();
+        var publishTask = (Task)publishDiagnostics!.Invoke(
+            handler,
+            [uri, CancellationToken.None, 1L, 1, DocumentStore.DiagnosticLane.DocumentCompiler, 1L])!;
+        await publishTask;
+
+        var diagnostics = published.ShouldHaveSingleItem().Diagnostics;
+        var summary = string.Join(
+            Environment.NewLine,
+            diagnostics.Select(diagnostic =>
+                $"{diagnostic.Code?.String}@{diagnostic.Range.Start.Line}:{diagnostic.Range.Start.Character} {diagnostic.Message}"));
+        diagnostics.Any(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal))
+            .ShouldBeTrue(summary);
+        diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAVM010", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void AcceptPendingSyntaxDiagnosticsForPublish_PublishesEmptySetWhenPendingTextIsFixed()
     {
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));

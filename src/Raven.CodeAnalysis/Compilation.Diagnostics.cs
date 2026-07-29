@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -264,12 +265,13 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
-        if (!SyntaxTrees.Contains(syntaxTree))
-            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
-
         var diagnostics = new List<Diagnostic>();
 
         EnsureSetup();
+
+        var semanticTrees = GetDocumentSemanticTrees(syntaxTree);
+        if (semanticTrees.IsDefaultOrEmpty)
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
 
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
         {
@@ -277,11 +279,28 @@ public partial class Compilation
             Add(diagnostic);
         }
 
-        var model = GetSemanticModel(syntaxTree);
-        foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
+        foreach (var semanticTree in semanticTrees)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            Add(diagnostic);
+            if (_macroSyntaxTrees.Contains(semanticTree))
+            {
+                foreach (var diagnostic in GetDiagnostics(
+                             semanticTree,
+                             analyzerOptions,
+                             cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Add(diagnostic);
+                }
+
+                continue;
+            }
+
+            var model = GetSemanticModel(semanticTree);
+            foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Add(diagnostic);
+            }
         }
 
         return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
@@ -291,6 +310,59 @@ public partial class Compilation
             var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false, cancellationToken);
             if (mapped is not null)
                 diagnostics.Add(mapped);
+        }
+    }
+
+    private ImmutableArray<SyntaxTree> GetDocumentSemanticTrees(SyntaxTree authoredTree)
+    {
+        var trees = ImmutableArray.CreateBuilder<SyntaxTree>(2);
+        if (_syntaxTrees.Contains(authoredTree) || _macroSyntaxTrees.Contains(authoredTree))
+            Add(authoredTree);
+
+        var filePath = authoredTree.FilePath;
+        if (!string.IsNullOrWhiteSpace(filePath))
+        {
+            AddMatchingPath(_syntaxTrees);
+            AddMatchingPath(_macroSyntaxTrees);
+        }
+
+        if (trees.Count == 0)
+        {
+            var partition = LocalMacroSyntaxClassifier.Partition(authoredTree);
+            AddEquivalent(partition.ConsumerTree, _syntaxTrees);
+            AddEquivalent(partition.MacroTree, _macroSyntaxTrees);
+        }
+
+        return trees.ToImmutable();
+
+        void AddMatchingPath(IEnumerable<SyntaxTree> candidates)
+        {
+            foreach (var candidate in candidates)
+            {
+                if (string.Equals(candidate.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+                    Add(candidate);
+            }
+        }
+
+        void AddEquivalent(SyntaxTree? projectedTree, IEnumerable<SyntaxTree> candidates)
+        {
+            if (projectedTree is null)
+                return;
+
+            var projectedText = projectedTree.GetText()?.ToString();
+            if (projectedText is null)
+                return;
+
+            var candidate = candidates.FirstOrDefault(tree =>
+                string.Equals(tree.GetText()?.ToString(), projectedText, StringComparison.Ordinal));
+            if (candidate is not null)
+                Add(candidate);
+        }
+
+        void Add(SyntaxTree tree)
+        {
+            if (!trees.Contains(tree))
+                trees.Add(tree);
         }
     }
 

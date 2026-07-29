@@ -907,6 +907,7 @@ internal sealed class DocumentStore
                     uri,
                     context.Value.Compilation,
                     syntaxTree,
+                    context.Value.Document.SyntaxTree ?? syntaxTree,
                     documentDiagnosticsCacheKey,
                     useBusySkip,
                     effectiveCancellationToken).ConfigureAwait(false);
@@ -1057,6 +1058,7 @@ internal sealed class DocumentStore
         DocumentUri uri,
         Compilation compilation,
         SyntaxTree syntaxTree,
+        SyntaxTree authoredSyntaxTree,
         DocumentDiagnosticsCacheKey cacheKey,
         bool useBusySkip,
         CancellationToken cancellationToken)
@@ -1074,11 +1076,11 @@ internal sealed class DocumentStore
 
         var compilerDiagnostics = GetDocumentCompilerDiagnostics(
             compilation,
-            syntaxTree,
+            authoredSyntaxTree,
             semanticModel,
             analyzerOptions: null,
             cancellationToken);
-        var mappedDiagnostics = MapDiagnostics(compilerDiagnostics, syntaxTree);
+        var mappedDiagnostics = MapDocumentDiagnostics(compilerDiagnostics);
         _documentCompilerDiagnosticsCache[cacheKey] = mappedDiagnostics;
         return mappedDiagnostics;
     }
@@ -1106,6 +1108,7 @@ internal sealed class DocumentStore
             uri,
             compilation,
             syntaxTree,
+            document.SyntaxTree ?? syntaxTree,
             cacheKey,
             useBusySkip,
             cancellationToken).ConfigureAwait(false);
@@ -1408,6 +1411,18 @@ internal sealed class DocumentStore
         SyntaxTree syntaxTree)
         => diagnostics
             .Where(diagnostic => ShouldReport(diagnostic, syntaxTree))
+            .Select(MapDiagnostic)
+            .OrderBy(static diagnostic => diagnostic.Range.Start.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.Start.Character)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Character)
+            .ThenBy(static diagnostic => diagnostic.Code?.String ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(static diagnostic => diagnostic.Message, StringComparer.Ordinal)
+            .ToImmutableArray();
+
+    private static ImmutableArray<LspDiagnostic> MapDocumentDiagnostics(
+        IEnumerable<CodeDiagnostic> diagnostics)
+        => diagnostics
             .Select(MapDiagnostic)
             .OrderBy(static diagnostic => diagnostic.Range.Start.Line)
             .ThenBy(static diagnostic => diagnostic.Range.Start.Character)

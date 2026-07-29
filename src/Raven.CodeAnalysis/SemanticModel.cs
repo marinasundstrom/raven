@@ -1907,18 +1907,35 @@ public partial class SemanticModel
                     ReferenceEquals(expression.Name, node) ||
                     expression.Name.DescendantNodes().Any(descendant => ReferenceEquals(descendant, node)));
         if (macroExpression is not null &&
-            macroExpression.TryGetMacroName(out var macroName) &&
-            Compilation.GetMacroRegistry().TryResolveMacroSymbol(
-                Compilation,
-                macroExpression,
-                macroName,
-                out var macroSymbol,
-                out _))
+            macroExpression.TryGetMacroName(out var macroName))
         {
-            var macroInfo = new SymbolInfo(macroSymbol);
-            StoreSymbolMapping(node, macroInfo);
-            StoreNodeInterestSymbolDescriptor(node, macroSymbol);
-            return macroInfo;
+            IMacroSymbol? macroSymbol = null;
+            if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+                    Compilation,
+                    macroExpression,
+                    macroName,
+                    out var loadedMacroSymbol,
+                    out _))
+            {
+                macroSymbol = loadedMacroSymbol;
+            }
+            else if (
+                Compilation.TryResolveLocalMacroFunctionSymbol(
+                    macroExpression,
+                    macroName,
+                    out var localMacroSymbol,
+                    out _))
+            {
+                macroSymbol = localMacroSymbol;
+            }
+
+            if (macroSymbol is not null)
+            {
+                var macroInfo = new SymbolInfo(macroSymbol);
+                StoreSymbolMapping(node, macroInfo);
+                StoreNodeInterestSymbolDescriptor(node, macroSymbol);
+                return macroInfo;
+            }
         }
 
         if (node is IdentifierNameSyntax macroParameterReference &&

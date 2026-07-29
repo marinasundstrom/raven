@@ -462,7 +462,10 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 expand SyntaxFactory.ParseExpression(doubled.ToString())
             }
 
-            func Main() -> int => Double!(21)
+            func Main() -> int {
+                let broken = Broken!(40)
+                Double!(21)
+            }
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -472,6 +475,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var diagnostics = compilation.GetDiagnostics();
+        var documentDiagnostics = compilation.GetDocumentDiagnostics(sourceTree);
         var exhaustivenessDiagnostics = diagnostics
             .Where(static diagnostic => diagnostic.Id == "RAV2100")
             .ToArray();
@@ -484,14 +488,23 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 Assert.Equal(3, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
             });
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM010");
+        Assert.Contains(documentDiagnostics, static diagnostic => diagnostic.Id == "RAV2100");
 
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
-        var invocation = consumerTree.GetRoot()
+        var invocations = consumerTree.GetRoot()
             .DescendantNodes()
             .OfType<FreestandingMacroExpressionSyntax>()
-            .Single();
-        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+            .ToArray();
+        var brokenInvocation = Assert.Single(invocations, expression =>
+            expression.Name.ToString() == "Broken");
+        var doubleInvocation = Assert.Single(invocations, expression =>
+            expression.Name.ToString() == "Double");
+        var semanticModel = compilation.GetSemanticModel(consumerTree);
+        var brokenSymbol = semanticModel.GetSymbolInfo(brokenInvocation).Symbol;
+        var expansion = semanticModel.GetMacroExpansion(doubleInvocation);
 
+        Assert.IsAssignableFrom<IMacroFunctionSymbol>(brokenSymbol);
+        Assert.Equal("Broken", brokenSymbol.Name);
         Assert.Equal("42", expansion!.Expression!.ToString());
     }
 

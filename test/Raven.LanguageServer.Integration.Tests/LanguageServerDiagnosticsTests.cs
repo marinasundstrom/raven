@@ -185,7 +185,7 @@ macro func Inspect(expression: ExpressionSyntax) {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_MacroFunctionBodyEditInvalidatesWarmDiagnosticsAsync()
+    public async Task TryGetDocumentCompilerDiagnosticsAsync_MacroFunctionBodyEditPublishesAuthoredDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -302,20 +302,32 @@ func Main() {
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         await store.UpsertDocumentAsync(uri, validCode);
-        var warmDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var warmDiagnostics = (await store.TryGetDocumentCompilerDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None)).Diagnostics;
         warmDiagnostics.ShouldNotContain(diagnostic =>
             diagnostic.Code.HasValue &&
             string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal));
 
         await store.UpsertDocumentAsync(uri, incompleteCode);
-        _ = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        _ = await store.TryGetDocumentCompilerDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None);
 
         await store.UpsertDocumentAsync(uri, invalidCode);
-        var editedDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var editedResult = await store.TryGetDocumentCompilerDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        var editedDiagnostics = editedResult.Diagnostics;
         var editedSummary = string.Join(
             Environment.NewLine,
             editedDiagnostics.Select(diagnostic =>
-                $"{diagnostic.Code?.String}@{diagnostic.Range.Start.Line}:{diagnostic.Range.Start.Character} {diagnostic.Message}"));
+                $"{diagnostic.Code?.String}@{diagnostic.Range.Start.Line}:{diagnostic.Range.Start.Character} {diagnostic.Message}")) +
+            Environment.NewLine +
+            $"Was skipped: {editedResult.WasSkipped}";
 
         editedDiagnostics.Any(diagnostic =>
             diagnostic.Code.HasValue &&
@@ -338,10 +350,35 @@ func Main() {
             diagnostic.Code.HasValue &&
             string.Equals(diagnostic.Code.Value.String, "RAVM010", StringComparison.Ordinal) &&
             diagnostic.Message.Contains("FirstTokenLength", StringComparison.Ordinal));
-        editedDiagnostics.ShouldContain(diagnostic =>
+        editedDiagnostics.ShouldNotContain(diagnostic =>
             diagnostic.Code.HasValue &&
             string.Equals(diagnostic.Code.Value.String, "RAVM010", StringComparison.Ordinal) &&
             diagnostic.Message.Contains("AddOffset", StringComparison.Ordinal));
+
+        var hoverHandler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        await AssertHoverAsync("match expression", "match ".Length + 1, "expression: ExpressionSyntax");
+        await AssertHoverAsync(
+            "ParseExpression(source)",
+            "ParseExpression(".Length + 1,
+            "val source: string");
+
+        async Task AssertHoverAsync(string marker, int markerOffset, string expected)
+        {
+            var offset = invalidCode.IndexOf(marker, StringComparison.Ordinal);
+            offset.ShouldBeGreaterThanOrEqualTo(0);
+            var sourceText = Raven.CodeAnalysis.Text.SourceText.From(invalidCode);
+            var hover = await hoverHandler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = PositionHelper.ToRange(
+                    sourceText,
+                    new CodeTextSpan(offset + markerOffset, 0)).Start
+            }, CancellationToken.None);
+
+            hover.ShouldNotBeNull();
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            hover.Contents.MarkupContent!.Value.ShouldContain(expected);
+        }
     }
 
     [Fact]

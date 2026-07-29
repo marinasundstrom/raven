@@ -105,6 +105,54 @@ public partial class Compilation
         return reference;
     }
 
+    internal bool TryResolveLocalMacroFunctionSymbol(
+        SyntaxNode context,
+        string macroName,
+        out IMacroFunctionSymbol symbol,
+        out bool isAmbiguous)
+    {
+        EnsureSetup();
+
+        var normalizedName = macroName.Replace("::", ".", StringComparison.Ordinal);
+        var matches = new List<IMacroFunctionSymbol>(2);
+        foreach (var tree in _macroSyntaxTrees)
+        {
+            var semanticModel = GetSemanticModel(tree);
+            foreach (var declaration in tree.GetRoot()
+                         .DescendantNodes()
+                         .OfType<MacroFunctionDeclarationSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(declaration) is not IMacroFunctionSymbol candidate)
+                    continue;
+
+                var isMatch = MacroRegistry.IsQualifiedName(macroName)
+                    ? string.Equals(candidate.CanonicalName, normalizedName, StringComparison.Ordinal)
+                    : MacroRegistry.IsNamespaceInScope(
+                          this,
+                          context,
+                          MacroRegistry.GetNamespace(candidate.CanonicalName)) &&
+                      (string.Equals(candidate.Name, macroName, StringComparison.Ordinal) ||
+                       string.Equals(
+                           MacroFunctionLowering.GetMacroAlias(declaration),
+                           macroName,
+                           StringComparison.Ordinal));
+                if (!isMatch)
+                    continue;
+
+                matches.Add(candidate);
+                if (matches.Count == 2)
+                    break;
+            }
+
+            if (matches.Count == 2)
+                break;
+        }
+
+        isAmbiguous = matches.Count > 1;
+        symbol = matches.Count == 1 ? matches[0] : null!;
+        return matches.Count == 1;
+    }
+
     private static ImmutableArray<Diagnostic> CombineLocalMacroDiagnostics(
         ImmutableArray<Diagnostic> authoredDiagnostics,
         ImmutableArray<Diagnostic> emittedDiagnostics)

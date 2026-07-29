@@ -278,7 +278,7 @@ internal static class MacroFunctionLowering
         return candidate;
     }
 
-    private static string? GetMacroAlias(MacroFunctionDeclarationSyntax declaration)
+    internal static string? GetMacroAlias(MacroFunctionDeclarationSyntax declaration)
     {
         foreach (var attribute in declaration.AttributeLists.SelectMany(static list => list.Attributes))
         {

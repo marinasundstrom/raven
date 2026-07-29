@@ -352,7 +352,7 @@ internal sealed class MacroRegistry
         }
     }
 
-    private static bool IsNamespaceInScope(
+    internal static bool IsNamespaceInScope(
         Compilation compilation,
         SyntaxNode context,
         string macroNamespace)
@@ -423,17 +423,17 @@ internal sealed class MacroRegistry
         return string.Join(".", names);
     }
 
-    private static bool IsQualifiedName(string name)
+    internal static bool IsQualifiedName(string name)
         => name.Contains('.', StringComparison.Ordinal) ||
            name.Contains("::", StringComparison.Ordinal);
 
-    private static string GetNamespace(string canonicalName)
+    internal static string GetNamespace(string canonicalName)
     {
         var separator = canonicalName.LastIndexOf('.');
         return separator < 0 ? string.Empty : canonicalName[..separator];
     }
 
-    private static string GetSimpleName(string canonicalName)
+    internal static string GetSimpleName(string canonicalName)
     {
         var separator = canonicalName.LastIndexOf('.');
         return separator < 0 ? canonicalName : canonicalName[(separator + 1)..];

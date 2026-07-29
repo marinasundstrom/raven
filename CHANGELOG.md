@@ -13,6 +13,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   for normal lookup and semantic tooling. Incremental recovery now preserves
   incomplete macro bodies, while language-service analysis retains the complete
   authored macro compilation even when emission filters out a broken macro.
+  Document-scoped compiler diagnostics now unify the consumer and macro
+  projections of an authored file, so VS Code publishes macro-body diagnostics
+  during edits. Invocations still resolve to a recognized local macro
+  declaration when its implementation is broken, avoiding misleading
+  unresolved-macro cascades, while hover remains available throughout macro
+  parameters and bodies.
 - RavenDoc now omits redundant `public` modifiers, hides compiler-emitted
   extension grouping types and implementation-only accessors, preserves
   protected accessor contracts, and renders operator signatures without a

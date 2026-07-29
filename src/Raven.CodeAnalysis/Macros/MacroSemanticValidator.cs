@@ -92,8 +92,18 @@ internal static class MacroSemanticValidator
                 out loaded,
                 out var isAmbiguous))
         {
+            if (compilation.TryResolveLocalMacroFunctionSymbol(
+                    attribute,
+                    macroName,
+                    out var localMacro,
+                    out var localIsAmbiguous) &&
+                localMacro.MacroKind == MacroKind.AttachedDeclaration)
+            {
+                return false;
+            }
+
             diagnostics?.Report(Diagnostic.Create(
-                isAmbiguous ? s_ambiguousMacro : s_unknownMacro,
+                isAmbiguous || localIsAmbiguous ? s_ambiguousMacro : s_unknownMacro,
                 attribute.Name.GetLocation(),
                 macroName));
             return false;
@@ -144,8 +154,18 @@ internal static class MacroSemanticValidator
                 out loaded,
                 out var isAmbiguous))
         {
+            if (compilation.TryResolveLocalMacroFunctionSymbol(
+                    expression,
+                    macroName,
+                    out var localMacro,
+                    out var localIsAmbiguous) &&
+                localMacro.MacroKind == MacroKind.FreestandingExpression)
+            {
+                return false;
+            }
+
             diagnostics?.Report(Diagnostic.Create(
-                isAmbiguous ? s_ambiguousMacro : s_unknownMacro,
+                isAmbiguous || localIsAmbiguous ? s_ambiguousMacro : s_unknownMacro,
                 expression.Name.GetLocation(),
                 macroName));
             return false;
