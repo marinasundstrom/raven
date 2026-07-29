@@ -126,6 +126,6 @@ class ConsoleLogger : Logger {
 
     func Log(message: string) -> () {
         WriteLine(message)
-        Logged?.Invoke(message) // nullable interop style (event can be null)
+        _ = Logged?.Invoke(message) // nullable interop style (event can be null)
     }
 }

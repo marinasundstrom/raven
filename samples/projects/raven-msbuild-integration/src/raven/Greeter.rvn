@@ -1,4 +1,4 @@
-class Greeter {
+public class Greeter {
     static func Message() -> string {
         "Hello from Raven via MSBuild integration"
     }

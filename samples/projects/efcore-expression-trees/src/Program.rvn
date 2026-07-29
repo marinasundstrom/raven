@@ -44,6 +44,6 @@ class AppDbContext : DbContext {
     var Users: DbSet<User>
 
     protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) {
-        optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")
+        _ = optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")
     }
 }
