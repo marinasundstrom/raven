@@ -31,6 +31,7 @@ public static class DocumentationGenerator
     private static readonly SymbolDisplayFormat ContainingNamespaceDisplayFormat;
     private static readonly SymbolDisplayFormat ContainingTypeDisplayFormat;
     private static readonly RavenDocSiteTemplate SiteTemplate = new();
+    private static readonly RavenDocContentTemplate ContentTemplate = new();
 
     // ----------------------------
     // Markdown pipeline + layout
@@ -669,8 +670,7 @@ public static class DocumentationGenerator
         };
     }
 
-    private static void AppendGroupedMemberTables(
-        StringBuilder sb,
+    private static IReadOnlyList<string> RenderGroupedMemberSections(
         string currentDir,
         IEnumerable<ISymbol> members,
         bool isNamespacePage)
@@ -682,6 +682,7 @@ public static class DocumentationGenerator
 
         var order = isNamespacePage ? NamespaceMemberSectionOrder : TypeMemberSectionOrder;
 
+        var renderedSections = new List<string>();
         foreach (var section in order)
         {
             if (!grouped.TryGetValue(section, out var sectionMembers) || sectionMembers.Length == 0)
@@ -693,8 +694,11 @@ public static class DocumentationGenerator
                 .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
                 .ToArray();
 
-            AppendMemberTable(sb, GetSectionTitle(section), currentDir, ordered);
+            renderedSections.Add(
+                RenderMemberTable(GetSectionTitle(section), currentDir, ordered));
         }
+
+        return renderedSections;
     }
 
     // ----------------------------
@@ -941,16 +945,19 @@ public static class DocumentationGenerator
         }
     }
 
-    private static void AppendMemberTable(StringBuilder sb, string title, string currentDir, IEnumerable<ISymbol> members)
+    private static string RenderMemberTable(
+        string title,
+        string currentDir,
+        IEnumerable<ISymbol> members)
     {
         var rows = BuildMemberRows(currentDir, members);
-        sb.AppendLine(SiteTemplate.RenderMemberSection(
+        return SiteTemplate.RenderMemberSection(
             title,
             rows.Select(row => new RavenDocMemberTemplateModel(
                 row.Kind,
                 row.Signature,
                 row.Href,
-                row.Summary)).ToArray()));
+                row.Summary)).ToArray());
     }
 
     private static RavenDocSymbolKind GetTemplateSymbolKind(ISymbol symbol)
@@ -1021,26 +1028,31 @@ public static class DocumentationGenerator
         return "Unknown location";
     }
 
-    private static void AppendSourceAndAssemblyLines(StringBuilder sb, Compilation compilation, ISymbol symbol)
+    private static IReadOnlyList<string> GetSourceAndAssemblyLines(
+        Compilation compilation,
+        ISymbol symbol)
     {
+        var lines = new List<string>();
         var asmFile = GetAssemblyFileNameForSymbol(compilation, symbol);
-        sb.AppendLine($"**Assembly**: {HtmlEscape(asmFile)}<br />");
+        lines.Add($"**Assembly**: {HtmlEscape(asmFile)}<br />");
 
-        AppendSourceFileLine(sb, symbol);
+        var sourceFileLine = GetSourceFileLine(symbol);
+        if (sourceFileLine is not null)
+            lines.Add(sourceFileLine);
+        return lines;
     }
 
-    private static void AppendSourceFileLine(StringBuilder sb, ISymbol symbol)
+    private static string? GetSourceFileLine(ISymbol symbol)
     {
         var sourceFileName = GetSourceFileName(symbol);
         if (string.IsNullOrWhiteSpace(sourceFileName))
-            return;
+            return null;
 
         var githubUrl = GetSourceGitHubUrl(symbol);
 
-        if (!string.IsNullOrWhiteSpace(githubUrl))
-            sb.AppendLine($"**Source file**: [{EscapeName(sourceFileName)}]({githubUrl})<br />");
-        else
-            sb.AppendLine($"**Source file**: {HtmlEscape(sourceFileName)}<br />");
+        return !string.IsNullOrWhiteSpace(githubUrl)
+            ? $"**Source file**: [{EscapeName(sourceFileName)}]({githubUrl})<br />"
+            : $"**Source file**: {HtmlEscape(sourceFileName)}<br />";
     }
 
     private static string GetOutputAssemblyFileName(Compilation compilation)
@@ -1409,44 +1421,43 @@ public static class DocumentationGenerator
         EnsureDirForFile(indexPath);
         var currentDir = Path.GetDirectoryName(indexPath)!;
 
-        var sb = new StringBuilder();
-
         string name = typeSymbol.ToDisplayString(
             MemberDisplayFormat
                 .WithKindOptions(SymbolDisplayKindOptions.None)
                 .WithMemberOptions(SymbolDisplayMemberOptions.None));
         var signature = FormatSignature(typeSymbol);
-
-        sb.AppendLine(SiteTemplate.RenderHero(
+        var heroHtml = SiteTemplate.RenderHero(
             RavenDocSymbolKind.Type,
             GetSymbolKindLabel(typeSymbol),
             name,
-            signature));
-        sb.AppendLine();
+            signature);
+        var metadataLines = new List<string>();
 
         if (typeSymbol.ContainingType is not null)
         {
             var containingType = typeSymbol.ContainingType!;
-            sb.AppendLine($"**Containing type**: {FormatTypeLink(currentDir, containingType, ContainingTypeDisplayFormat)}<br />");
+            metadataLines.Add(
+                $"**Containing type**: {FormatTypeLink(currentDir, containingType, ContainingTypeDisplayFormat)}<br />");
         }
         if (typeSymbol.ContainingNamespace is not null)
         {
             var containingNamespace = typeSymbol.ContainingNamespace!;
             var target = GetNamespaceIndexPath(containingNamespace);
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
-            sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+            metadataLines.Add(
+                $"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
-        AppendSourceAndAssemblyLines(sb, compilation, typeSymbol);
+        metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, typeSymbol));
 
-        sb.AppendLine();
-
+        var relationshipLines = new List<string>();
         var inheritanceChain = GetInheritanceChain(typeSymbol);
         if (inheritanceChain.Count > 1)
         {
             var inheritanceLinks = inheritanceChain
                 .Select(type => FormatTypeLink(currentDir, type, BaseTypeDisplayFormat));
-            sb.AppendLine($"**Inheritance**: {string.Join(" → ", inheritanceLinks)}<br />");
+            relationshipLines.Add(
+                $"**Inheritance**: {string.Join(" → ", inheritanceLinks)}<br />");
         }
         var implementedInterfaces = typeSymbol.Interfaces
             .Distinct(SymbolEqualityComparer.Default)
@@ -1456,13 +1467,9 @@ public static class DocumentationGenerator
         {
             var interfaceLinks = implementedInterfaces
                 .Select(type => FormatTypeLink(currentDir, (ITypeSymbol)type, BaseTypeDisplayFormat));
-            sb.AppendLine($"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
+            relationshipLines.Add(
+                $"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
         }
-
-        sb.AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(commentInfo.RawMarkdown))
-            sb.Append(commentInfo.RawMarkdown);
 
         var members = PreferDocumentableGenericDefinitions(typeSymbol.GetMembers())
             .Where(GetMembersFilterPredicate)
@@ -1472,8 +1479,10 @@ public static class DocumentationGenerator
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
-        sb.AppendLine();
-        AppendGroupedMemberTables(sb, currentDir, members, isNamespacePage: false);
+        var memberSections = RenderGroupedMemberSections(
+            currentDir,
+            members,
+            isNamespacePage: false);
 
         foreach (var nestedType in members.OfType<ITypeSymbol>())
         {
@@ -1489,7 +1498,14 @@ public static class DocumentationGenerator
             GenerateMemberGroupPage(compilation, typeSymbol, g.Key, g.ToArray());
         }
 
-        var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
+        var contentMarkdown = ContentTemplate.RenderTypePage(
+            new RavenDocTypeContentTemplateModel(
+                heroHtml,
+                metadataLines,
+                relationshipLines,
+                commentInfo.RawMarkdown,
+                memberSections));
+        var contentHtml = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
         var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
@@ -1512,33 +1528,31 @@ public static class DocumentationGenerator
         if (colon >= 0 && colon + 1 < groupName.Length)
             groupName = groupName[(colon + 1)..];
 
-        var sb = new StringBuilder();
-
         string name = members.Count == 1
             ? members[0].Name
             : groupName;
         var signature = members.Count == 1
             ? FormatSignature(members[0])
             : null;
-
-        sb.AppendLine(SiteTemplate.RenderHero(
+        var heroHtml = SiteTemplate.RenderHero(
             GetTemplateSymbolKind(members[0]),
             members.Count == 1 ? GetSymbolKindLabel(members[0]) : "Member group",
             name,
-            signature));
-        sb.AppendLine();
+            signature);
+        var metadataLines = new List<string>();
         if (containingType is not null)
         {
             var target = GetTypeIndexPath(containingType);
             var memberName = EscapeName(containingType.ToDisplayString(ContainingTypeDisplayFormat));
-            sb.AppendLine($"**Type**: [{memberName}]({RelLink(currentDir, target)})<br />");
+            metadataLines.Add(
+                $"**Type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         else if (members[0].ContainingType is { } clrContainer)
         {
             var clrContainerName = clrContainer.ToDisplayString(
                 SymbolDisplayFormat.FullyQualifiedFormat
                     .WithKindOptions(SymbolDisplayKindOptions.None));
-            sb.AppendLine(
+            metadataLines.Add(
                 $"**CLR container (for .NET interop)**: `{EscapeName(clrContainerName)}`<br />");
         }
         var containingNamespace = containingType?.ContainingNamespace ?? members[0].ContainingNamespace;
@@ -1546,55 +1560,49 @@ public static class DocumentationGenerator
         {
             var target = GetNamespaceIndexPath(containingNamespace);
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
-            sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+            metadataLines.Add(
+                $"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
-        AppendSourceAndAssemblyLines(sb, compilation, members[0]);
-
-        sb.AppendLine();
+        metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, members[0]));
 
         if (members.Count == 1)
         {
             var doc = GetOrCreateDocInfo(members[0]);
-            if (!string.IsNullOrWhiteSpace(doc.RawMarkdown))
-                sb.Append(doc.RawMarkdown);
-            else
-                sb.AppendLine("_No documentation available._");
-
-            var htmlSingle = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
+            var contentMarkdown = ContentTemplate.RenderMemberPage(
+                new RavenDocMemberContentTemplateModel(
+                    heroHtml,
+                    metadataLines,
+                    string.IsNullOrWhiteSpace(doc.RawMarkdown)
+                        ? "_No documentation available._"
+                        : doc.RawMarkdown));
+            var htmlSingle = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
             var pageSingle = WrapHtml(currentDir, name, documentedAssemblyName, htmlSingle);
             File.WriteAllText(filePath, pageSingle);
             return;
         }
 
-        sb.AppendLine("## Overloads / Variants");
-        sb.AppendLine();
-
-        foreach (var member in members
+        var variants = members
             .OrderBy(m => m.Name)
-            .ThenBy(m => m.ToDisplayString(MemberDisplayFormat)))
-        {
-            var memberName = EscapeName(member.Name);
-
-            sb.AppendLine($"### {memberName}");
-            sb.AppendLine();
-            sb.AppendLine(SiteTemplate.RenderSignature(
-                FormatSignature(member)));
-            sb.AppendLine();
-
-            AppendSourceFileLine(sb, member);
-            sb.AppendLine();
-
-            var doc = GetOrCreateDocInfo(member);
-            if (!string.IsNullOrWhiteSpace(doc.RawMarkdown))
-                sb.Append(doc.RawMarkdown);
-            else
-                sb.AppendLine("_No documentation available._");
-
-            sb.AppendLine();
-        }
-
-        var overloadsHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
+            .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
+            .Select(member =>
+            {
+                var doc = GetOrCreateDocInfo(member);
+                return new RavenDocMemberVariantTemplateModel(
+                    EscapeName(member.Name),
+                    SiteTemplate.RenderSignature(FormatSignature(member)),
+                    GetSourceFileLine(member),
+                    string.IsNullOrWhiteSpace(doc.RawMarkdown)
+                        ? "_No documentation available._"
+                        : doc.RawMarkdown);
+            })
+            .ToArray();
+        var overloadsMarkdown = ContentTemplate.RenderMemberGroupPage(
+            new RavenDocMemberGroupContentTemplateModel(
+                heroHtml,
+                metadataLines,
+                variants));
+        var overloadsHtml = RenderMarkdownWithXrefs(overloadsMarkdown, currentDir);
         var pageHtml2 = WrapHtml(currentDir, name, documentedAssemblyName, overloadsHtml);
         File.WriteAllText(filePath, pageHtml2);
     }
@@ -1607,8 +1615,6 @@ public static class DocumentationGenerator
         EnsureDirForFile(indexPath);
         var currentDir = Path.GetDirectoryName(indexPath)!;
 
-        var sb = new StringBuilder();
-
         string name = namespaceSymbol.ToDisplayString(
             SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
         var namespaceName = GetNamespaceFullName(namespaceSymbol);
@@ -1616,19 +1622,13 @@ public static class DocumentationGenerator
         if (string.IsNullOrWhiteSpace(name))
             name = "Global namespace";
 
-        sb.AppendLine(SiteTemplate.RenderHero(
+        var heroHtml = SiteTemplate.RenderHero(
             RavenDocSymbolKind.Namespace,
             "Namespace",
             name,
             string.IsNullOrWhiteSpace(namespaceName)
                 ? null
-                : $"namespace {name}"));
-        sb.AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(docInfo.RawMarkdown))
-            sb.Append(docInfo.RawMarkdown);
-
-        sb.AppendLine();
+                : $"namespace {name}");
 
         var declaredNamespaceMembers =
             PreferDocumentableGenericDefinitions(namespaceSymbol.GetMembers())
@@ -1674,7 +1674,10 @@ public static class DocumentationGenerator
                 IsFromDocumentedAssembly(member))
             .ToArray();
 
-        AppendGroupedMemberTables(sb, currentDir, members, isNamespacePage: true);
+        var memberSections = RenderGroupedMemberSections(
+            currentDir,
+            members,
+            isNamespacePage: true);
 
         foreach (var ns2 in members.OfType<INamespaceSymbol>())
         {
@@ -1703,7 +1706,12 @@ public static class DocumentationGenerator
                 new[] { m });
         }
 
-        var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
+        var contentMarkdown = ContentTemplate.RenderNamespacePage(
+            new RavenDocNamespaceContentTemplateModel(
+                heroHtml,
+                docInfo.RawMarkdown,
+                memberSections));
+        var contentHtml = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
         var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }

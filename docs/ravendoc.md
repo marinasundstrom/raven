@@ -216,9 +216,11 @@ not require a CDN.
 The current rendering boundary is intentionally explicit:
 
 * `DocumentationGenerator` extracts documentation, builds symbol navigation,
-  and selects page content.
-* `RavenDocSiteTemplate` owns the HTML shell and reusable hero, signature, and
-  member-list components.
+  resolves links, and projects compiler symbols into page models.
+* `RavenDocContentTemplate` owns page-content composition such as metadata,
+  relationships, documentation, member sections, and overload variants.
+* `RavenDocSiteTemplate` owns the outer HTML shell and reusable hero,
+  signature, and member-list components.
 * `Assets/ravendoc.css` and `Assets/ravendoc.js` own presentation and
   progressive enhancement.
 
