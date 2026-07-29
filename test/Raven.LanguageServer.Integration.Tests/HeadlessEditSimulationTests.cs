@@ -267,8 +267,22 @@ public sealed class HeadlessEditSimulationTests : IDisposable
         {
             var sourceRoot = Path.GetDirectoryName(_mainPath)!;
             var path = Path.Combine(sourceRoot, fileName);
+            var isNewDocument = !File.Exists(path);
             File.WriteAllText(path, text);
-            await _store.UpsertDocumentAsync(DocumentUri.FromFileSystemPath(path), text);
+            var uri = DocumentUri.FromFileSystemPath(path);
+
+            if (isNewDocument)
+            {
+                await _manager.ReloadForWatchedFilesAsync([
+                    new FileEvent
+                    {
+                        Uri = uri,
+                        Type = FileChangeType.Created
+                    }
+                ]);
+            }
+
+            await _store.UpsertDocumentAsync(uri, text);
         }
 
         public async Task<HeadlessEditResult> ApplyEditAndProbeAsync(
