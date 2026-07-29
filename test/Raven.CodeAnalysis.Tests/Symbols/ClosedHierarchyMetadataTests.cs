@@ -155,6 +155,83 @@ public sealed class ClosedHierarchyMetadataTests
                 StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void SyntaxApi_EmptyMatchInOrdinaryFunctionReportsExpressionKinds()
+    {
+        AssertEmptyExpressionSyntaxMatchReportsMissingCases(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            func Inspect(expression: ExpressionSyntax) {
+                match expression {
+                }
+            }
+            """,
+            "SyntaxApi.EmptyMatch.OrdinaryFunction");
+    }
+
+    [Fact]
+    public void SyntaxApi_EmptyMatchInMacroFunctionReportsExpressionKinds()
+    {
+        AssertEmptyExpressionSyntaxMatchReportsMissingCases(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Inspect(expression: ExpressionSyntax) {
+                match expression {
+                }
+                expand SyntaxFactory.ParseExpression("0")
+            }
+            """,
+            "SyntaxApi.EmptyMatch.MacroFunction");
+    }
+
+    private static void AssertEmptyExpressionSyntaxMatchReportsMissingCases(
+        string source,
+        string assemblyName)
+    {
+        var reference = MetadataReference.CreateFromFile(typeof(ExpressionSyntax).Assembly.Location);
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            assemblyName,
+            [tree],
+            [.. TestMetadataReferences.Default, reference],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                          diagnostic.Descriptor != CompilerDiagnostics.MatchExpressionNotExhaustive);
+        var matchDiagnostics = diagnostics
+            .Where(diagnostic =>
+                diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+        Assert.NotEmpty(matchDiagnostics);
+        Assert.Contains(
+            matchDiagnostics,
+            diagnostic => diagnostic.GetMessage().Contains(
+                nameof(AssignmentExpressionSyntax),
+                StringComparison.Ordinal));
+        Assert.Contains(
+            matchDiagnostics,
+            diagnostic => diagnostic.GetMessage().Contains(
+                "Missing",
+                StringComparison.Ordinal));
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        Assert.All(
+            matchDiagnostics,
+            diagnostic => Assert.Equal(match.MatchKeyword.Span, diagnostic.Location.SourceSpan));
+
+        var exhaustiveness = compilation
+            .GetSemanticModel(tree)
+            .GetMatchExhaustiveness(match);
+        Assert.False(exhaustiveness.IsExhaustive);
+        Assert.Contains(nameof(AssignmentExpressionSyntax), exhaustiveness.MissingCases);
+        Assert.Contains("Missing", exhaustiveness.MissingCases);
+    }
+
     private static Compilation CreateMetadataConsumer(MetadataReference reference)
         => Compilation.Create(
             "ClosedHierarchy.MetadataConsumer",

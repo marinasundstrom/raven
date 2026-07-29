@@ -212,22 +212,35 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     [Fact]
     public void AttachedMacroFunction_ExposesTargetSemantics()
     {
-        var (compilation, tree) = CreateCompilation("""
+        var (baseCompilation, tree) = CreateCompilation("""
             macro func Observable() on property: Property {
                 replace property
-                introduce CreateBackingField(property)
+                introduce property
             }
             """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(PropertyDeclarationSyntax).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
             .OfType<MacroFunctionDeclarationSyntax>()
             .Single();
+        var model = compilation.GetSemanticModel(tree);
         var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
-            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+            model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroKind.AttachedDeclaration, symbol.MacroKind);
         Assert.Equal(MacroTarget.Property, symbol.Targets);
         Assert.Equal("property", symbol.TargetName);
+        var targetParameter = Assert.IsAssignableFrom<IParameterSymbol>(symbol.TargetParameter);
+        Assert.Equal("PropertyDeclarationSyntax", targetParameter.Type.Name);
+        Assert.Equal(
+            declaration.TargetClause!.Identifier.Span,
+            Assert.Single(targetParameter.Locations).SourceSpan);
+        Assert.All(
+            declaration.Body!.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(static identifier => identifier.Identifier.ValueText == "property"),
+            identifier => Assert.Same(targetParameter, model.GetSymbolInfo(identifier).Symbol));
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -256,7 +269,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             import Raven.CodeAnalysis.Macros.*
 
             macro func Query(dialect: string, tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
-                expand ParseQuery(dialect, tokens)
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("0")
             }
             """);
         var compilation = baseCompilation.AddReferences(

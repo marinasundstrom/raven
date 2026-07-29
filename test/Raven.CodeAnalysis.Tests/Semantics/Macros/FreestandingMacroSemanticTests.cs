@@ -264,7 +264,9 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(attribute);
 
-        Assert.NotNull(expansion);
+        Assert.True(
+            expansion is not null,
+            string.Join(Environment.NewLine, compilation.GetDiagnostics()));
         Assert.IsType<PropertyDeclarationSyntax>(expansion!.ReplacementDeclaration);
         Assert.Equal(2, expansion.IntroducedMembers.Length);
         Assert.All(
@@ -440,6 +442,57 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.DoesNotContain(
             compilation.GetDiagnostics(consumerTree),
             diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, macroTree));
+    }
+
+    [Fact]
+    public void InvalidMacroFunction_DoesNotPreventValidSiblingFromExpanding()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Broken(expression: ExpressionSyntax) {
+                match expression {
+                }
+                expand expression
+            }
+
+            macro func Double(value: int) {
+                let doubled = value * 2
+                expand SyntaxFactory.ParseExpression(doubled.ToString())
+            }
+
+            func Main() -> int => Double!(21)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "PartiallyInvalidMacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var exhaustivenessDiagnostics = diagnostics
+            .Where(static diagnostic => diagnostic.Id == "RAV2100")
+            .ToArray();
+        Assert.NotEmpty(exhaustivenessDiagnostics);
+        Assert.All(
+            exhaustivenessDiagnostics,
+            diagnostic =>
+            {
+                Assert.Equal(sourceTree.FilePath, diagnostic.Location.SourceTree?.FilePath);
+                Assert.Equal(3, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
+            });
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM010");
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("42", expansion!.Expression!.ToString());
     }
 
     [Fact]

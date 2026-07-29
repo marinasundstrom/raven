@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Macro-function bodies now participate in primary semantic diagnostics like
+  ordinary function bodies. Invalid local macros report against authored source
+  immediately instead of waiting for the projected macro assembly, and project
+  diagnostics no longer replace those errors with generated source positions.
+  A broken macro function no longer prevents valid sibling macros from compiling
+  and expanding, and attached macro targets are modeled as implicit parameters
+  for normal lookup and semantic tooling.
 - RavenDoc now omits redundant `public` modifiers, hides compiler-emitted
   extension grouping types and implementation-only accessors, preserves
   protected accessor contracts, and renders operator signatures without a

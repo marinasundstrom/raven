@@ -303,7 +303,12 @@ public partial class SemanticModel
                     target,
                     targetClause.Identifier.Kind == SyntaxKind.None
                         ? "target"
-                        : targetClause.Identifier.ValueText);
+                        : targetClause.Identifier.ValueText,
+                    GetMacroTargetSyntaxType(target),
+                    targetClause.Identifier.Kind == SyntaxKind.None
+                        ? targetClause.GetLocation()
+                        : targetClause.Identifier.GetLocation(),
+                    targetClause.GetReference());
             }
             else
             {
@@ -311,7 +316,12 @@ public partial class SemanticModel
                     MacroTarget.None,
                     targetClause.Identifier.Kind == SyntaxKind.None
                         ? "target"
-                        : targetClause.Identifier.ValueText);
+                        : targetClause.Identifier.ValueText,
+                    GetMacroTargetSyntaxType(MacroTarget.None),
+                    targetClause.Identifier.Kind == SyntaxKind.None
+                        ? targetClause.GetLocation()
+                        : targetClause.Identifier.GetLocation(),
+                    targetClause.GetReference());
                 _declarationDiagnostics.ReportUnknownMacroTarget(
                     targetName,
                     targetClause.Target.GetLocation());
@@ -438,6 +448,25 @@ public partial class SemanticModel
                 expressionParameter.Symbol.Name,
                 expressionParameter.Syntax.DefaultValue!.GetLocation());
         }
+    }
+
+    private ITypeSymbol GetMacroTargetSyntaxType(MacroTarget target)
+    {
+        var metadataName = target switch
+        {
+            MacroTarget.Type => "Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax",
+            MacroTarget.Method => "Raven.CodeAnalysis.Syntax.MethodDeclarationSyntax",
+            MacroTarget.Property => "Raven.CodeAnalysis.Syntax.PropertyDeclarationSyntax",
+            MacroTarget.Field => "Raven.CodeAnalysis.Syntax.FieldDeclarationSyntax",
+            MacroTarget.Event => "Raven.CodeAnalysis.Syntax.EventDeclarationSyntax",
+            MacroTarget.Parameter => "Raven.CodeAnalysis.Syntax.ParameterSyntax",
+            MacroTarget.Accessor => "Raven.CodeAnalysis.Syntax.AccessorDeclarationSyntax",
+            MacroTarget.Constructor => "Raven.CodeAnalysis.Syntax.ConstructorDeclarationSyntax",
+            _ => "Raven.CodeAnalysis.Syntax.SyntaxNode"
+        };
+
+        return Compilation.GetTypeByMetadataName(metadataName)
+            ?? Compilation.ErrorTypeSymbol;
     }
 
     private void ValidateMacroContributionStatements(

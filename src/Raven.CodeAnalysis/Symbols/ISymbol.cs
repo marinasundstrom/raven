@@ -349,6 +349,11 @@ public interface IMacroFunctionSymbol : IMacroSymbol
     string? TargetName { get; }
 
     /// <summary>
+    /// Gets the implicit parameter representing the current attached target.
+    /// </summary>
+    IParameterSymbol? TargetParameter { get; }
+
+    /// <summary>
     /// Gets the type produced at the macro invocation site.
     /// </summary>
     ITypeSymbol ReturnType { get; }

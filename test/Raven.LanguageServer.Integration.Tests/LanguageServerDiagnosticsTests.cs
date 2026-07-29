@@ -126,6 +126,131 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_MacroFunctionBodyPublishesMatchExhaustivenessImmediatelyAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string code = """
+import Raven.CodeAnalysis.Syntax.*
+
+macro func Inspect(expression: ExpressionSyntax) {
+    match expression {}
+    expand SyntaxFactory.ParseExpression("0")
+}
+""";
+        File.WriteAllText(documentPath, code);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        await store.UpsertDocumentAsync(uri, code);
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var diagnosticSummary = string.Join(
+            Environment.NewLine,
+            diagnostics.Select(diagnostic =>
+                $"{diagnostic.Code?.String}@{diagnostic.Range.Start.Line}:{diagnostic.Range.Start.Character} {diagnostic.Message}"));
+
+        diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV2100", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains(nameof(AssignmentExpressionSyntax), StringComparison.Ordinal) &&
+            diagnostic.Range.Start.Line == 3).ShouldBeTrue(diagnosticSummary);
+        diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV2100", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Missing", StringComparison.Ordinal) &&
+            diagnostic.Range.Start.Line == 3).ShouldBeTrue(diagnosticSummary);
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_MacroFunctionBodyEditInvalidatesWarmDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string validCode = """
+import Raven.CodeAnalysis.Syntax.*
+
+macro func Inspect(expression: ExpressionSyntax) {
+    match expression {
+        _ => ()
+    }
+    expand SyntaxFactory.ParseExpression("0")
+}
+""";
+        const string invalidCode = """
+import Raven.CodeAnalysis.Syntax.*
+
+macro func Inspect(expression: ExpressionSyntax) {
+    match expression {}
+    expand SyntaxFactory.ParseExpression("0")
+}
+""";
+        File.WriteAllText(documentPath, validCode);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        await store.UpsertDocumentAsync(uri, validCode);
+        var warmDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        warmDiagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal));
+
+        await store.UpsertDocumentAsync(uri, invalidCode);
+        var editedDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        editedDiagnostics.ShouldContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal) &&
+            diagnostic.Range.Start.Line == 3);
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TagsUnusedLocalAsUnnecessaryAsync()
     {
         Directory.CreateDirectory(_tempRoot);

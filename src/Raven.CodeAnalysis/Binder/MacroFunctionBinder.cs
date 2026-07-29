@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
@@ -17,6 +18,15 @@ internal sealed class MacroFunctionBinder : Binder
         => node == _syntax
             ? GetMacroFunctionSymbol()
             : base.BindDeclaredSymbol(node);
+
+    public override Compilation Compilation
+        => ParentBinder?.Compilation
+            ?? (_symbol?.ContainingAssembly as SourceAssemblySymbol)?.Compilation
+            ?? base.Compilation;
+
+    public override SemanticModel SemanticModel
+        => ParentBinder?.SemanticModel
+            ?? Compilation.GetSemanticModel(_syntax.SyntaxTree);
 
     public IMacroFunctionSymbol GetMacroFunctionSymbol()
     {

@@ -590,11 +590,13 @@ public partial class SemanticModel
                 }
             }
 
-            if (node is MacroFunctionDeclarationSyntax)
+            if (node is MacroFunctionDeclarationSyntax macroFunction)
             {
-                // The declaration signature is bound during source declaration.
-                // Its body is compile-time implementation code and must not be
-                // bound as an ordinary runtime statement body.
+                var macroFunctionBinder = currentBinder as MacroFunctionBinder
+                    ?? GetBinderForDiagnostics(macroFunction, currentBinder) as MacroFunctionBinder;
+                if (macroFunctionBinder is not null)
+                    BindMacroFunctionBody(macroFunction, macroFunctionBinder);
+
                 return;
             }
 
@@ -729,6 +731,22 @@ public partial class SemanticModel
                 Traverse(expressionBody, expressionBinder);
                 ReportStructUnionDefaultExpressionBodyReturn(functionBinder, expressionBody, expressionBinder);
             }
+        }
+
+        void BindMacroFunctionBody(
+            MacroFunctionDeclarationSyntax macroFunction,
+            MacroFunctionBinder macroFunctionBinder)
+        {
+            _ = macroFunctionBinder.GetMacroFunctionSymbol();
+
+            if (macroFunction.Body is { } body)
+            {
+                Traverse(body, GetBinderForDiagnostics(body, macroFunctionBinder));
+                return;
+            }
+
+            if (macroFunction.ExpressionBody is { } expressionBody)
+                Traverse(expressionBody, GetBinderForDiagnostics(expressionBody, macroFunctionBinder));
         }
 
         void ReportStructUnionDefaultExpressionBodyReturn(
@@ -1168,6 +1186,7 @@ public partial class SemanticModel
                 EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
                 MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
                 FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
+                MacroFunctionDeclarationSyntax macroFunction => macroFunction.AttributeLists,
                 ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
                 ParameterlessConstructorDeclarationSyntax initDeclaration => initDeclaration.AttributeLists,
                 InitializerBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.AttributeLists,
@@ -1798,6 +1817,7 @@ public partial class SemanticModel
         static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
             => node is FunctionExpressionSyntax
                 or FunctionStatementSyntax
+                or MacroFunctionDeclarationSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax
@@ -1855,6 +1875,7 @@ public partial class SemanticModel
         => binderState is TypeMemberBinder
             or TypeDeclarationBinder
             or FunctionBinder
+            or MacroFunctionBinder
             or ImportBinder
             or CompilationUnitBinder
             or NamespaceBinder;

@@ -12,6 +12,7 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private MacroTarget _targets;
     private string? _targetName;
+    private IParameterSymbol? _targetParameter;
     private bool _isAttached;
 
     public SourceMacroFunctionSymbol(
@@ -50,6 +51,8 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
 
     public string? TargetName => _targetName;
 
+    public IParameterSymbol? TargetParameter => _targetParameter;
+
     public ITypeSymbol ReturnType => _returnType;
 
     public ImmutableArray<IParameterSymbol> Parameters =>
@@ -72,10 +75,23 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
         _typeParameters = typeParameters;
     }
 
-    internal void SetTarget(MacroTarget targets, string? targetName)
+    internal void SetTarget(
+        MacroTarget targets,
+        string? targetName,
+        ITypeSymbol targetType,
+        Location targetLocation,
+        SyntaxReference targetSyntaxReference)
     {
         _isAttached = true;
         _targets = targets;
         _targetName = targetName;
+        _targetParameter = new SourceParameterSymbol(
+            targetName ?? "target",
+            targetType,
+            this,
+            containingType: null,
+            ContainingNamespace,
+            [targetLocation],
+            [targetSyntaxReference]);
     }
 }

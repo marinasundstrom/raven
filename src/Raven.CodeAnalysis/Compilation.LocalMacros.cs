@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -38,7 +39,32 @@ public partial class Compilation
             references,
             _macroReferences,
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
-        var loweredMacroTrees = _macroSyntaxTrees
+        var signatureDiagnostics = RewriteLocalMacroDependencyCycles(
+            _macroSignatureCompilation.GetDiagnostics());
+        var macroTreesToCompile = _macroSyntaxTrees;
+        if (signatureDiagnostics.Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+        {
+            macroTreesToCompile = CreateValidLocalMacroTrees(signatureDiagnostics);
+            if (macroTreesToCompile.Length == 0)
+                return CompleteFailedLocalMacroPartition(signatureDiagnostics);
+
+            _macroSignatureCompilation = new Compilation(
+                $"{AssemblyName}.MacroSignatures",
+                macroTreesToCompile,
+                [],
+                references,
+                _macroReferences,
+                Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            var remainingDiagnostics = _macroSignatureCompilation.GetDiagnostics();
+            if (remainingDiagnostics.Any(static diagnostic =>
+                    diagnostic.Severity == DiagnosticSeverity.Error))
+            {
+                return CompleteFailedLocalMacroPartition(
+                    signatureDiagnostics.AddRange(remainingDiagnostics));
+            }
+        }
+
+        var loweredMacroTrees = macroTreesToCompile
             .Select(tree => MacroFunctionLowering.Lower(
                 tree,
                 _macroSignatureCompilation.GetSemanticModel(tree)))
@@ -61,7 +87,9 @@ public partial class Compilation
 
         using var image = new MemoryStream();
         var emitResult = _macroPartitionCompilation.Emit(image);
-        _macroPartitionDiagnostics = RewriteLocalMacroDependencyCycles(emitResult.Diagnostics);
+        _macroPartitionDiagnostics = CombineLocalMacroDiagnostics(
+            signatureDiagnostics,
+            RewriteLocalMacroDependencyCycles(emitResult.Diagnostics));
         PerformanceInstrumentation.Macros.RecordLocalPartitionCompilation();
 
         var reference = emitResult.Success
@@ -74,6 +102,101 @@ public partial class Compilation
             _macroPartitionDiagnostics,
             loweredMacroTrees);
         return reference;
+    }
+
+    private static ImmutableArray<Diagnostic> CombineLocalMacroDiagnostics(
+        ImmutableArray<Diagnostic> authoredDiagnostics,
+        ImmutableArray<Diagnostic> emittedDiagnostics)
+    {
+        if (authoredDiagnostics.IsDefaultOrEmpty)
+            return emittedDiagnostics;
+
+        return authoredDiagnostics.AddRange(emittedDiagnostics.Where(emitted =>
+            !authoredDiagnostics.Any(authored =>
+                authored.Descriptor == emitted.Descriptor &&
+                authored.Severity == emitted.Severity &&
+                authored.GetMessageArgs().SequenceEqual(emitted.GetMessageArgs()))));
+    }
+
+    private SyntaxTree[] CreateValidLocalMacroTrees(ImmutableArray<Diagnostic> diagnostics)
+    {
+        var invalidDeclarations = new Dictionary<SyntaxTree, HashSet<TextSpan>>();
+        foreach (var diagnostic in diagnostics)
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error)
+                continue;
+
+            var syntaxTree = diagnostic.Location.SourceTree;
+            if (syntaxTree is null || !_macroSyntaxTrees.Contains(syntaxTree))
+                return [];
+
+            var declaration = syntaxTree.GetRoot()
+                .DescendantNodes()
+                .OfType<MacroFunctionDeclarationSyntax>()
+                .FirstOrDefault(candidate =>
+                    candidate.FullSpan.Contains(diagnostic.Location.SourceSpan));
+            if (declaration is null)
+                return [];
+
+            if (!invalidDeclarations.TryGetValue(syntaxTree, out var spans))
+            {
+                spans = [];
+                invalidDeclarations.Add(syntaxTree, spans);
+            }
+
+            spans.Add(declaration.FullSpan);
+        }
+
+        if (invalidDeclarations.Count == 0)
+            return [];
+
+        var validDeclarationCount = _macroSyntaxTrees
+            .SelectMany(static tree => tree.GetRoot()
+                .DescendantNodes()
+                .OfType<MacroFunctionDeclarationSyntax>())
+            .Count(declaration =>
+                !invalidDeclarations.TryGetValue(declaration.SyntaxTree, out var spans) ||
+                !spans.Contains(declaration.FullSpan));
+        if (validDeclarationCount == 0)
+            return [];
+
+        return _macroSyntaxTrees
+            .Select(tree => invalidDeclarations.TryGetValue(tree, out var spans)
+                ? MaskLocalMacroDeclarations(tree, spans)
+                : tree)
+            .ToArray();
+    }
+
+    private static SyntaxTree MaskLocalMacroDeclarations(
+        SyntaxTree syntaxTree,
+        HashSet<TextSpan> declarationSpans)
+    {
+        var source = syntaxTree.GetText()!.ToString().ToCharArray();
+        foreach (var span in declarationSpans)
+        {
+            for (var position = span.Start; position < span.End; position++)
+            {
+                if (source[position] is not ('\r' or '\n'))
+                    source[position] = ' ';
+            }
+        }
+
+        return SyntaxTree.ParseText(
+            SourceText.From(new string(source), syntaxTree.Encoding),
+            syntaxTree.Options,
+            syntaxTree.FilePath);
+    }
+
+    private MacroReference? CompleteFailedLocalMacroPartition(
+        ImmutableArray<Diagnostic> diagnostics)
+    {
+        _macroPartitionDiagnostics = diagnostics;
+        _localMacroPartitionArtifact = new LocalMacroPartitionArtifact(
+            Reference: null,
+            diagnostics,
+            _macroSyntaxTrees);
+        PerformanceInstrumentation.Macros.RecordLocalPartitionCompilation();
+        return null;
     }
 
     private ImmutableArray<Diagnostic> RewriteLocalMacroDependencyCycles(
@@ -128,6 +251,8 @@ public partial class Compilation
     internal void TryReuseLocalMacroPartitionFrom(Compilation previousCompilation)
     {
         if (previousCompilation._localMacroPartitionArtifact is not { } artifact ||
+            artifact.Diagnostics.Any(static diagnostic =>
+                diagnostic.Severity == DiagnosticSeverity.Error) ||
             !HasEquivalentLocalMacroPartition(previousCompilation))
         {
             return;

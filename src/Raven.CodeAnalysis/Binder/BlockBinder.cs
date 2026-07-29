@@ -1144,10 +1144,18 @@ partial class BlockBinder : Binder
 
             if (allowLocalsAndParams && current is MacroFunctionBinder macroFunctionBinder)
             {
-                foreach (var param in macroFunctionBinder.GetMacroFunctionSymbol().Parameters)
+                var macroFunction = macroFunctionBinder.GetMacroFunctionSymbol();
+                foreach (var param in macroFunction.Parameters)
                 {
                     if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
+                }
+
+                if (macroFunction.TargetParameter is { } targetParameter &&
+                    targetParameter.Name == name &&
+                    seen.Add(GetLookupKey(targetParameter)))
+                {
+                    yield return targetParameter;
                 }
             }
 
@@ -16397,9 +16405,17 @@ partial class BlockBinder : Binder
 
             if (allowLocalsAndParams && current is MacroFunctionBinder macroFunctionBinder)
             {
-                foreach (var param in macroFunctionBinder.GetMacroFunctionSymbol().Parameters)
+                var macroFunction = macroFunctionBinder.GetMacroFunctionSymbol();
+                foreach (var param in macroFunction.Parameters)
                     if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
+
+                if (macroFunction.TargetParameter is { } targetParameter &&
+                    targetParameter.Name == name &&
+                    seen.Add(GetLookupKey(targetParameter)))
+                {
+                    yield return targetParameter;
+                }
             }
 
             if (allowLocalsAndParams && current is FunctionExpressionBinder lambdaBinder)
@@ -16534,10 +16550,17 @@ partial class BlockBinder : Binder
 
             if (current is MacroFunctionBinder macroFunctionBinder)
             {
-                foreach (var param in macroFunctionBinder.GetMacroFunctionSymbol().Parameters)
+                var macroFunction = macroFunctionBinder.GetMacroFunctionSymbol();
+                foreach (var param in macroFunction.Parameters)
                 {
                     if (seen.Add(param.Name))
                         yield return param;
+                }
+
+                if (macroFunction.TargetParameter is { } targetParameter &&
+                    seen.Add(targetParameter.Name))
+                {
+                    yield return targetParameter;
                 }
             }
 
