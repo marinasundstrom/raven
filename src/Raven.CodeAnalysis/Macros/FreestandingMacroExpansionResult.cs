@@ -82,6 +82,17 @@ public sealed class FreestandingMacroExpansionResult
 
     public ImmutableArray<Diagnostic> Diagnostics { get; set; } = ImmutableArray<Diagnostic>.Empty;
 
+    internal ImmutableArray<MacroFileDependency> FileDependencies { get; set; } =
+        ImmutableArray<MacroFileDependency>.Empty;
+
     private static ImmutableArray<T> Normalize<T>(ImmutableArray<T> values)
         => values.IsDefault ? ImmutableArray<T>.Empty : values;
+}
+
+internal sealed record FreestandingMacroExpansionCacheEntry(
+    FreestandingMacroExpansionResult? Result)
+{
+    public bool IsCurrent()
+        => Result is null ||
+           Result.FileDependencies.All(static dependency => dependency.IsCurrent());
 }

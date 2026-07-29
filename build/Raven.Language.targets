@@ -65,12 +65,25 @@
 
   <Import Project="$(RavenCommonTargetsPath)" />
 
+  <PropertyGroup>
+    <_RavenCompilerDependencyFile>$(IntermediateOutputPath)$(TargetName).ravendeps</_RavenCompilerDependencyFile>
+    <CoreCompileDependsOn>_ReadRavenCompilerDependencies;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+  </PropertyGroup>
+
   <Target Name="CreateManifestResourceNames" />
+
+  <Target Name="_ReadRavenCompilerDependencies">
+    <ReadLinesFromFile
+      File="$(_RavenCompilerDependencyFile)"
+      Condition="Exists('$(_RavenCompilerDependencyFile)')">
+      <Output TaskParameter="Lines" ItemName="_RavenCompilerDependency" />
+    </ReadLinesFromFile>
+  </Target>
 
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference);@(Analyzer);@(SourceGenerator)"
+    Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference);@(Analyzer);@(SourceGenerator)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>
@@ -94,7 +107,7 @@
 
     <Message Importance="High" Text="RavenCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; $(RavenTargetFrameworkArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
 
     <MakeDir Directories="@(IntermediateRefAssembly->'%(RootDir)%(Directory)')" Condition="'@(IntermediateRefAssembly)' != ''" />
     <Copy
@@ -108,6 +121,7 @@
       <FileWrites Include="@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).pdb')" />
       <FileWrites Include="$(IntermediateOutputPath)$(TargetName).runtimeconfig.json" />
       <FileWrites Include="$(IntermediateOutputPath)$(TargetName)$(ExeExtension)" Condition="'$(OutputType)' != 'Library'" />
+      <FileWrites Include="$(_RavenCompilerDependencyFile)" />
     </ItemGroup>
   </Target>
 

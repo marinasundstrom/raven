@@ -12,6 +12,7 @@
   <ItemGroup>
     <RavenCompile Include="AssemblyInfo.rvn" />
     <RavenCompile Include="Compile.rvn" />
+    <RavenCompile Include="EmbedFileContent.rvn" />
     <RavenCompile Include="Quote.rvn" />
     <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj"
                       PrivateAssets="all" />

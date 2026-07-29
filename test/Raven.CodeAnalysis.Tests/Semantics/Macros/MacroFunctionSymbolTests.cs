@@ -304,6 +304,32 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void ArgumentStyleMacroFunction_ExposesCompilerSuppliedFreestandingContextRole()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            macro func Embed(
+                path: string,
+                context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
+            ) {
+                expand path
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
+        Assert.Equal(MacroParameterRole.FreestandingContext, symbol.Parameters[1].MacroRole);
+        Assert.Equal("FreestandingMacroContext", symbol.Parameters[1].Type.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void MacroParameterRole_UsesResolvedTypeIdentity()
     {
         var (compilation, tree) = CreateCompilation("""

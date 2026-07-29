@@ -124,6 +124,9 @@ internal static class MacroExpansionService
                 result = ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
                     ?? tokenTreeMacro.Expand(context)
                     ?? FreestandingMacroExpansionResult.Empty;
+                result.FileDependencies = MergeFileDependencies(
+                    result.FileDependencies,
+                    context.GetFileDependencies());
             }
             else
             {
@@ -136,6 +139,9 @@ internal static class MacroExpansionService
                 result = ExpandWithTypedParametersIfAvailable(freestandingMacro, context, diagnostics)
                     ?? freestandingMacro.Expand(context)
                     ?? FreestandingMacroExpansionResult.Empty;
+                result.FileDependencies = MergeFileDependencies(
+                    result.FileDependencies,
+                    context.GetFileDependencies());
             }
 
             result = ContextualizeExpansionResult(expression, result);
@@ -168,6 +174,14 @@ internal static class MacroExpansionService
 
         return exception;
     }
+
+    private static ImmutableArray<MacroFileDependency> MergeFileDependencies(
+        ImmutableArray<MacroFileDependency> first,
+        ImmutableArray<MacroFileDependency> second)
+        => first
+            .AddRange(second)
+            .DistinctBy(static dependency => dependency.Path, StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
 
     private static void RethrowCancellation(Exception failure, CancellationToken cancellationToken)
     {
@@ -257,7 +271,10 @@ internal static class MacroExpansionService
             [typedContextType],
             modifiers: null);
 
-        return (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        var result = (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        context.AddFileDependencies(
+            ((FreestandingMacroContext)typedContext!).GetFileDependencies());
+        return result;
     }
 
     private static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
@@ -300,7 +317,10 @@ internal static class MacroExpansionService
             [typedContextType],
             modifiers: null);
 
-        return (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        var result = (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        context.AddFileDependencies(
+            ((TokenTreeMacroContext)typedContext!).GetFileDependencies());
+        return result;
     }
 
     private static MacroExpansionResult ContextualizeExpansionResult(
@@ -437,7 +457,8 @@ internal static class MacroExpansionService
         {
             Expression = contextualExpression,
             MacroDiagnostics = result.MacroDiagnostics,
-            Diagnostics = result.Diagnostics
+            Diagnostics = result.Diagnostics,
+            FileDependencies = result.FileDependencies
         };
     }
 

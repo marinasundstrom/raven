@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `Raven.Macros.EmbedFileContent!` with the imported
+  `embedFileContent!` alias. It resolves paths relative to the invoking source
+  file, embeds UTF-8 text as a string literal, diagnoses missing files, and
+  invalidates cached expansions when observed files change or disappear.
 - Macro function declarations now appear in VS Code's document outline with a
   distinct operator symbol, including local functions nested in their bodies.
 - The documentation build now publishes independent RavenDoc API sites for

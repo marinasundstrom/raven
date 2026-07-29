@@ -11,6 +11,8 @@ public class TokenTreeMacroContext
 {
     private readonly IMacroTokenStreamProvider? _tokenStreamProvider;
     private readonly ImmutableArray<MacroKeyword> _keywords;
+    private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
+        ImmutableArray.CreateBuilder<MacroFileDependency>();
 
     public TokenTreeMacroContext(
         Compilation compilation,
@@ -201,6 +203,15 @@ public class TokenTreeMacroContext
         var location = Syntax.SyntaxTree?.GetLocation(sourceSpan) ?? Location.None;
         return new MacroExpansionDiagnostic(severity, message, location, code);
     }
+
+    internal MacroFileReadResult ReadFile(string path)
+        => MacroFileReader.Read(Syntax, path, _fileDependencies);
+
+    internal ImmutableArray<MacroFileDependency> GetFileDependencies()
+        => _fileDependencies.ToImmutable();
+
+    internal void AddFileDependencies(IEnumerable<MacroFileDependency> dependencies)
+        => _fileDependencies.AddRange(dependencies);
 
     private static ImmutableArray<MacroArgument> CreateArguments(
         ArgumentListSyntax argumentList,

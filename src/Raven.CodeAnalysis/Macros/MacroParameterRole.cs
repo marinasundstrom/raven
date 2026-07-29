@@ -32,4 +32,10 @@ public enum MacroParameterRole
     /// The compiler supplies the complete token-tree expansion context.
     /// </summary>
     Context = 4,
+
+    /// <summary>
+    /// The compiler supplies the complete argument-style freestanding expansion
+    /// context without requiring a token-tree body.
+    /// </summary>
+    FreestandingContext = 5,
 }

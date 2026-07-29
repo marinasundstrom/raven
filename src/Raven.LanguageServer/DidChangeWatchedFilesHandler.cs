@@ -85,7 +85,7 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
             Watchers = new Container<LspFileSystemWatcher>(
                 new LspFileSystemWatcher
                 {
-                    GlobPattern = new GlobPattern("**/*.{rvn,rav,rvnproj,csproj,fsproj}"),
+                    GlobPattern = new GlobPattern("**/*"),
                     Kind = WatchKind.Create | WatchKind.Change | WatchKind.Delete
                 },
                 new LspFileSystemWatcher

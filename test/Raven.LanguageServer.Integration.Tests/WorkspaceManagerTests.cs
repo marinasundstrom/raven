@@ -1404,6 +1404,72 @@ dotnet_diagnostic.RAV9029.severity = error
     }
 
     [Fact]
+    public async Task WatchedEmbeddedFileChangeDeleteAndRecreate_RefreshesOpenConsumerAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "EmbedApp", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var assetPath = Path.Combine(_tempRoot, "src", "message.txt");
+        var source = """
+import Raven.Macros.*
+
+func Main() -> string => embedFileContent!("message.txt")
+""";
+        WriteRavenFile(sourcePath, source);
+        File.WriteAllText(assetPath, "first");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var sourceUri = DocumentUri.FromFileSystemPath(sourcePath);
+        var assetUri = DocumentUri.FromFileSystemPath(assetPath);
+        _ = await manager.UpsertDocumentAsync(sourceUri, source);
+        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+            .ShouldBe("\"first\"");
+
+        File.WriteAllText(assetPath, "second");
+        var changedDocuments = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent { Uri = assetUri, Type = FileChangeType.Changed }
+        ]);
+        changedDocuments.ShouldContain(sourceUri);
+        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+            .ShouldBe("\"second\"");
+
+        File.Delete(assetPath);
+        var deletedDocuments = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent { Uri = assetUri, Type = FileChangeType.Deleted }
+        ]);
+        deletedDocuments.ShouldContain(sourceUri);
+        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+            .ShouldBeNull();
+
+        File.WriteAllText(assetPath, "third");
+        var recreatedDocuments = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent { Uri = assetUri, Type = FileChangeType.Created }
+        ]);
+        recreatedDocuments.ShouldContain(sourceUri);
+        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+            .ShouldBe("\"third\"");
+    }
+
+    [Fact]
     public async Task Initialize_SampleMacroObservableRoot_ResolvesMacrosForAppDocumentAsync()
     {
         var repoRoot = GetRepositoryRoot();

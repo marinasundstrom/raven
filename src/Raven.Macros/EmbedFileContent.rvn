@@ -1,0 +1,28 @@
+namespace Raven.Macros
+
+/// Embeds the UTF-8 text content of a file as a string literal.
+///
+/// Import `Raven.Macros.*` to invoke the conventional
+/// `embedFileContent!` alias. The canonical
+/// `Raven.Macros.EmbedFileContent!` spelling remains available when the alias
+/// is shadowed or the namespace is not imported.
+///
+/// Relative paths are resolved from the directory containing the Raven source
+/// file that invokes the macro. Compilation fails when the file does not exist
+/// or cannot be read. Cached expansions observe the file and are refreshed
+/// after it changes, is deleted, or is recreated.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// let template = embedFileContent!("assets/template.html")
+/// ```
+[Raven.CodeAnalysis.Macros.MacroAlias("embedFileContent")]
+public macro func EmbedFileContent(
+    path: string,
+    context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
+) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandEmbedFileContent(context, path)
+}

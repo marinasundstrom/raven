@@ -335,6 +335,10 @@ following raw token-tree body.
 `TokenTreeMacroContext` has the compiler-supplied `Context` role and exposes
 the complete low-level provider context for advanced library macros; it does
 not consume a caller argument.
+`FreestandingMacroContext` similarly has the compiler-supplied
+`FreestandingContext` role for argument-style macros. It exposes the complete
+freestanding provider context without requiring or consuming a raw token-tree
+body.
 `IParameterSymbol.MacroRole` exposes that distinction without adding a second
 parameter syntax.
 

@@ -22,7 +22,7 @@ public partial class SemanticModel
     private readonly SemanticBindingState _bindingState = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
     private readonly ConcurrentDictionary<SyntaxNode, ImmutableDictionary<AttributeSyntax, MacroExpansionResult?>> _macroExpansionCache = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, FreestandingMacroExpansionResult?> _freestandingMacroExpansionCache = new();
+    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, FreestandingMacroExpansionCacheEntry> _freestandingMacroExpansionCache = new();
     private readonly ConcurrentDictionary<AttributeSyntax, ImmutableArray<SyntaxNode>> _expandedDeclarationCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
@@ -350,6 +350,8 @@ public partial class SemanticModel
     {
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
+        InvalidateStaleFreestandingMacroExpansions();
+
         if (_diagnostics is null)
             EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: true, cancellationToken);
 
@@ -358,6 +360,8 @@ public partial class SemanticModel
 
     internal IImmutableList<Diagnostic> GetDocumentDiagnostics(CancellationToken cancellationToken = default)
     {
+        InvalidateStaleFreestandingMacroExpansions();
+
         if (_documentDiagnostics is null)
             EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false, cancellationToken);
 
@@ -9535,16 +9539,50 @@ public partial class SemanticModel
 
         ArgumentNullException.ThrowIfNull(expression);
 
-        return _freestandingMacroExpansionCache.GetOrAdd(
+        if (_freestandingMacroExpansionCache.TryGetValue(expression, out var cached) &&
+            cached.IsCurrent())
+        {
+            return cached.Result;
+        }
+
+        if (cached is not null)
+            InvalidateFreestandingMacroExpansion(expression);
+
+        var result = MacroExpansionService.ExpandFreestandingMacro(
+            Compilation,
+            this,
             expression,
-            static (syntax, state) => MacroExpansionService.ExpandFreestandingMacro(
-                state.Model.Compilation,
-                state.Model,
-                syntax,
-                state.Model._declarationDiagnostics,
-                state.CancellationToken),
-            (Model: this, CancellationToken: cancellationToken));
+            _declarationDiagnostics,
+            cancellationToken);
+        _freestandingMacroExpansionCache[expression] =
+            new FreestandingMacroExpansionCacheEntry(result);
+        return result;
     }
+
+    private void InvalidateStaleFreestandingMacroExpansions()
+    {
+        foreach (var (expression, entry) in _freestandingMacroExpansionCache)
+        {
+            if (!entry.IsCurrent())
+                InvalidateFreestandingMacroExpansion(expression);
+        }
+    }
+
+    private void InvalidateFreestandingMacroExpansion(FreestandingMacroExpressionSyntax expression)
+    {
+        _freestandingMacroExpansionCache.TryRemove(expression, out _);
+        _declarationDiagnostics.ClearDiagnostics(expression.Span);
+        _diagnostics = null;
+        _documentDiagnostics = null;
+        _expandedRoot = null;
+        _macroReplacementSyntaxMap.Clear();
+    }
+
+    internal IEnumerable<string> GetObservedMacroFilePaths()
+        => _freestandingMacroExpansionCache.Values
+            .SelectMany(static entry =>
+                entry.Result?.FileDependencies ?? ImmutableArray<MacroFileDependency>.Empty)
+            .Select(static dependency => dependency.Path);
 
     internal bool TryGetMacroReplacementSyntax(SyntaxNode node, out SyntaxNode replacement)
         => _macroReplacementSyntaxMap.TryGetValue(node, out replacement!);

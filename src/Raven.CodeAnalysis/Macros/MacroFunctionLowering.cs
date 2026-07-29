@@ -58,9 +58,16 @@ internal static class MacroFunctionLowering
             .Where(static parameter =>
                 parameter.Role == MacroParameterRole.Context)
             .ToArray();
+        var freestandingContextParameters = parameters
+            .Where(static parameter =>
+                parameter.Role == MacroParameterRole.FreestandingContext)
+            .ToArray();
         var valueParameters = parameters
             .Where(static parameter =>
-                parameter.Role is not (MacroParameterRole.TokenStream or MacroParameterRole.Context))
+                parameter.Role is not (
+                    MacroParameterRole.TokenStream or
+                    MacroParameterRole.Context or
+                    MacroParameterRole.FreestandingContext))
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0 || contextParameters.Length > 0;
         var hasParameters = valueParameters.Length > 0;
@@ -134,6 +141,11 @@ internal static class MacroFunctionLowering
         {
             builder.AppendLine(
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.TokenTreeMacroContext = {contextVariableName}");
+        }
+        foreach (var contextParameter in freestandingContextParameters)
+        {
+            builder.AppendLine(
+                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.FreestandingMacroContext = {contextVariableName}");
         }
 
         if (!hasTokenTreeBody && declaration.TargetClause is { } targetClause)

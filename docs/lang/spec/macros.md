@@ -284,6 +284,15 @@ low-level diagnostic, token-tree, and expansion APIs; `Raven.Macros` currently
 uses it to forward its Raven-authored declarations to the transitional
 `StandardMacroExpansions` implementations.
 
+An argument-style macro may instead declare a `FreestandingMacroContext`
+parameter. It has the compiler-supplied `FreestandingContext` role and exposes
+the invocation, arguments, semantic model, diagnostics, and other
+freestanding-expansion services without changing the call site into a
+token-tree macro. It therefore does not require a `{ ... }` body. For example,
+a macro declared with an ordinary `path: string` parameter plus a
+`FreestandingMacroContext` parameter is invoked as `Macro!("path")`; only the
+ordinary value parameter is supplied by the caller.
+
 Macro bodies are ordinary synchronous Raven blocks augmented by three
 contextual contribution statements:
 

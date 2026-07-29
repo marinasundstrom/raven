@@ -134,6 +134,14 @@ public partial class Compilation
         return false;
     }
 
+    internal ImmutableArray<string> GetObservedMacroFilePaths()
+        => _semanticModels.Values
+            .Concat(_generatedSemanticModels.Values)
+            .SelectMany(static model => model.GetObservedMacroFilePaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
     internal bool TryGetSemanticModelForDeclarationBinding(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         EnsureSetup();

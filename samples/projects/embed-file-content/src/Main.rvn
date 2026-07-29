@@ -1,0 +1,7 @@
+import System.Console.*
+import Raven.Macros.*
+
+func Main() {
+    let message = embedFileContent!("assets/message.txt")
+    Write(message)
+}

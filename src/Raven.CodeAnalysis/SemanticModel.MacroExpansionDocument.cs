@@ -15,6 +15,7 @@ public partial class SemanticModel
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
+        InvalidateStaleFreestandingMacroExpansions();
         EnsureDiagnosticBindingCompleted();
 
         if (_expandedRoot is not null)

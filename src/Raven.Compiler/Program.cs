@@ -47,6 +47,7 @@ var isCompilerDriverInvocation =
 // --raven-core <path> - path to a prebuilt Raven.Core.dll (skips embedded core types)
 // --emit-core-types-only - embed the Raven.Core shims instead of referencing Raven.Core.dll
 // --output-type <console|classlib> - output kind
+// --dependency-file <path> - write observed compile-time file dependencies
 // --unsafe           - enable unsafe mode (required for pointer declarations/usages)
 // --no-global-statements - disable top-level/global statements
 // --no-namespace-members - disable namespace-scope function and const declarations
@@ -87,6 +88,7 @@ var additionalRefs = new List<string>();
 var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
 string? outputPath = null;
+string? dependencyFilePath = null;
 var outputKind = OutputKind.ConsoleApplication;
 string? ravenCorePath = null;
 var ravenCoreExplicitlyProvided = false;
@@ -158,6 +160,10 @@ for (int i = 0; i < args.Length; i++)
         case "--output":
             if (i + 1 < args.Length)
                 outputPath = args[++i];
+            break;
+        case "--dependency-file":
+            if (i + 1 < args.Length)
+                dependencyFilePath = args[++i];
             break;
         case "-s":
         case "--syntax-tree":
@@ -1261,6 +1267,8 @@ if (!noEmit)
             ReplaceFile(tempOutputFilePath, outputFilePath);
             ReplaceFile(tempPdbFilePath, pdbFilePath);
             CopyEmittedLocalDependencies(project, outputFilePath, outputDirectory);
+            if (!string.IsNullOrWhiteSpace(dependencyFilePath))
+                WriteDependencyFile(dependencyFilePath, compilation.GetObservedMacroFilePaths());
         }
         else
         {
@@ -1307,6 +1315,18 @@ static void TryDeleteFile(string path)
     catch
     {
     }
+}
+
+static void WriteDependencyFile(string path, IEnumerable<string> dependencies)
+{
+    var fullPath = Path.GetFullPath(path);
+    var directory = Path.GetDirectoryName(fullPath);
+    if (!string.IsNullOrWhiteSpace(directory))
+        Directory.CreateDirectory(directory);
+
+    var temporaryPath = CreateTemporaryOutputPath(fullPath);
+    File.WriteAllLines(temporaryPath, dependencies);
+    ReplaceFile(temporaryPath, fullPath);
 }
 
 if (!emitDocs &&
@@ -2394,6 +2414,8 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
         Console.WriteLine("  --output-type <console|classlib>");
         Console.WriteLine("                     Output kind for the produced assembly.");
+        Console.WriteLine("  --dependency-file <path>");
+        Console.WriteLine("                     Write observed compile-time file dependencies.");
         Console.WriteLine("  --unsafe           Enable unsafe mode (required for pointer declarations/usages)");
         Console.WriteLine("  --global-statements");
         Console.WriteLine("                     Enable top-level/global statements (default)");

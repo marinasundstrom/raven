@@ -12,6 +12,14 @@ internal static class MacroParameterRoleFacts
         if (IsOrDerivesFrom(
             parameterType,
             "Raven.CodeAnalysis.Macros",
+            nameof(FreestandingMacroContext)))
+        {
+            return MacroParameterRole.FreestandingContext;
+        }
+
+        if (IsOrDerivesFrom(
+            parameterType,
+            "Raven.CodeAnalysis.Macros",
             nameof(TokenTreeMacroContext)))
         {
             return MacroParameterRole.Context;
@@ -44,6 +52,9 @@ internal static class MacroParameterRoleFacts
 
     public static MacroParameterRole GetRole(Type parameterType)
     {
+        if (typeof(FreestandingMacroContext).IsAssignableFrom(parameterType))
+            return MacroParameterRole.FreestandingContext;
+
         if (typeof(TokenTreeMacroContext).IsAssignableFrom(parameterType))
             return MacroParameterRole.Context;
 
@@ -70,6 +81,8 @@ internal static class MacroParameterRoleFacts
                 "Raven.CodeAnalysis.Macros.IMacroTokenStream",
             nameof(TokenTreeMacroContext) or "Raven.CodeAnalysis.Macros.TokenTreeMacroContext" =>
                 "Raven.CodeAnalysis.Macros.TokenTreeMacroContext",
+            nameof(FreestandingMacroContext) or "Raven.CodeAnalysis.Macros.FreestandingMacroContext" =>
+                "Raven.CodeAnalysis.Macros.FreestandingMacroContext",
             _ => null
         };
 
@@ -94,6 +107,7 @@ internal static class MacroParameterRoleFacts
                 "Raven.CodeAnalysis.Syntax.ExpressionSyntax",
             MacroParameterRole.TokenStream => "Raven.CodeAnalysis.Macros.IMacroTokenStream",
             MacroParameterRole.Context => "Raven.CodeAnalysis.Macros.TokenTreeMacroContext",
+            MacroParameterRole.FreestandingContext => "Raven.CodeAnalysis.Macros.FreestandingMacroContext",
             _ => parameter.TypeAnnotation?.Type.ToString() ?? "object"
         };
 

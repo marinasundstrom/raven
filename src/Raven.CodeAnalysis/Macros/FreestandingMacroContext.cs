@@ -8,6 +8,9 @@ namespace Raven.CodeAnalysis.Macros;
 
 public class FreestandingMacroContext
 {
+    private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
+        ImmutableArray.CreateBuilder<MacroFileDependency>();
+
     public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
@@ -49,6 +52,15 @@ public class FreestandingMacroContext
         ArgumentNullException.ThrowIfNull(argument);
         return new MacroExpansionDiagnostic(severity, message, argument.Syntax.GetLocation(), code);
     }
+
+    internal MacroFileReadResult ReadFile(string path)
+        => MacroFileReader.Read(Syntax, path, _fileDependencies);
+
+    internal ImmutableArray<MacroFileDependency> GetFileDependencies()
+        => _fileDependencies.ToImmutable();
+
+    internal void AddFileDependencies(IEnumerable<MacroFileDependency> dependencies)
+        => _fileDependencies.AddRange(dependencies);
 
     private static ImmutableArray<MacroArgument> CreateArguments(ArgumentListSyntax argumentList, SemanticModel semanticModel)
     {

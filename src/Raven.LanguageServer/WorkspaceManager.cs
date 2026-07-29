@@ -188,7 +188,8 @@ internal sealed class WorkspaceManager
             return false;
 
         var normalizedPath = NormalizePath(path);
-        if (!IsRelevantWatchedFileChangePath(normalizedPath))
+        if (!IsRelevantWatchedFileChangePath(normalizedPath) &&
+            !IsObservedMacroFilePath(normalizedPath))
             return false;
 
         if (change.Type == FileChangeType.Changed &&
@@ -199,6 +200,27 @@ internal sealed class WorkspaceManager
         }
 
         return true;
+    }
+
+    private bool IsObservedMacroFilePath(string path)
+    {
+        if (IsWatchedFilePathExcluded(path))
+            return false;
+
+        foreach (var project in _workspace.CurrentSolution.Projects)
+        {
+            var compilation = _workspace.GetCompilation(project.Id);
+            if (compilation.GetObservedMacroFilePaths().Any(dependencyPath =>
+                    string.Equals(
+                        NormalizePath(dependencyPath),
+                        path,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public IReadOnlyList<DocumentUri> ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(IEnumerable<FileEvent> changes)
