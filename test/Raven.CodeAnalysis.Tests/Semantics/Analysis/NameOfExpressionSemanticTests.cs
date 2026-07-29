@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -9,6 +10,9 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class NameOfExpressionSemanticTests : CompilationTestBase
 {
+    protected override MetadataReference[] GetMetadataReferences()
+        => TestMetadataReferences.DefaultWithRavenMacros;
+
     [Fact]
     public void NameOfExpression_WithValueTypeAndMemberOperands_BindsToStringNames()
     {

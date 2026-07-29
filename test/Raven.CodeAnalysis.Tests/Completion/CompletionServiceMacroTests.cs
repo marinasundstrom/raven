@@ -117,7 +117,7 @@ class MacroHost {
         var compilation = Compilation.Create(
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddMacroSyntaxTrees(macroTree)
             .AddSyntaxTrees(syntaxTree);
 
@@ -147,7 +147,8 @@ class MacroHost {
         var compilation = Compilation.Create(
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree);
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.RavenMacros);
 
         var position = code.IndexOf('(', code.IndexOf("#quo", StringComparison.Ordinal));
         var items = new CompletionService()
@@ -178,7 +179,8 @@ class MacroHost {
         var compilation = Compilation.Create(
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree);
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.RavenMacros);
 
         var position = code.IndexOf('!', code.IndexOf("quo!", StringComparison.Ordinal));
         var items = new CompletionService()
@@ -205,7 +207,8 @@ class MacroHost {
         var compilation = Compilation.Create(
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree);
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.RavenMacros);
 
         var position = code.IndexOf('!', code.IndexOf("quo!", StringComparison.Ordinal));
         var items = new CompletionService()
@@ -234,7 +237,8 @@ class MacroHost {
         var compilation = Compilation.Create(
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree);
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.RavenMacros);
 
         var position = code.IndexOf('!', code.IndexOf("comp!", StringComparison.Ordinal));
         var items = new CompletionService()

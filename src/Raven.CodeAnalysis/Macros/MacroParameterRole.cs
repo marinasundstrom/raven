@@ -27,4 +27,9 @@ public enum MacroParameterRole
     /// token-tree body.
     /// </summary>
     TokenStream = 3,
+
+    /// <summary>
+    /// The compiler supplies the complete token-tree expansion context.
+    /// </summary>
+    Context = 4,
 }

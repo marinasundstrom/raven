@@ -943,6 +943,24 @@ var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
     path => IsAssemblyCompatibleWithTargetFramework(path, version.Moniker),
     copyLocal: false,
     ravenCodeAnalysisCandidates.ToArray());
+var ravenMacrosCandidates = new List<string>
+{
+    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, "Raven.Macros.dll"),
+    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.Macros.dll"),
+    Path.Combine(AppContext.BaseDirectory, "Raven.Macros.dll"),
+    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../sdk/Raven.Macros.dll")),
+};
+foreach (var tfm in fallbackLocalTfms)
+{
+    ravenMacrosCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", tfm, "Raven.Macros.dll"));
+    ravenMacrosCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", tfm, tfm, "Raven.Macros.dll"));
+}
+
+var ravenMacrosPath = ResolveAndCopyLocalDependency(
+    "Raven.Macros.dll",
+    path => IsAssemblyCompatibleWithTargetFramework(path, version.Moniker),
+    copyLocal: false,
+    ravenMacrosCandidates.ToArray());
 
 var useRuntimeAsync = runtimeAsyncOverride
     ?? (version.Moniker.Framework == FrameworkId.NetCoreApp && version.Moniker.Version.Major >= 11);
@@ -1056,53 +1074,12 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
     project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCorePath));
 }
 
-var intrinsicRuntimeRequirements = GetIntrinsicRuntimeRequirements(project);
-var existingCodeAnalysisReference = project.MetadataReferences
-    .OfType<PortableExecutableReference>()
-    .FirstOrDefault(static reference =>
-        string.Equals(
-            Path.GetFileName(reference.FilePath),
-            "Raven.CodeAnalysis.dll",
-            StringComparison.OrdinalIgnoreCase));
-var codeAnalysisRuntimeMarkerPath = Path.Combine(
-    outputDirectory,
-    ".raven-codeanalysis-runtime");
-var codeAnalysisRuntimeRemovedMarkerPath = Path.Combine(
-    outputDirectory,
-    ".raven-codeanalysis-runtime-removed");
-if (File.Exists(codeAnalysisRuntimeMarkerPath))
+if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
+    !string.IsNullOrWhiteSpace(ravenMacrosPath))
 {
-    File.Delete(codeAnalysisRuntimeMarkerPath);
-    File.WriteAllText(codeAnalysisRuntimeRemovedMarkerPath, string.Empty);
-}
-
-if (intrinsicRuntimeRequirements.RequiresCodeAnalysis &&
-    existingCodeAnalysisReference is null &&
-    !string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
-{
-    project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCodeAnalysisPath));
-
-    if (!noEmit)
-    {
-        if (File.Exists(codeAnalysisRuntimeRemovedMarkerPath))
-            File.Delete(codeAnalysisRuntimeRemovedMarkerPath);
-
-        ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
-            "Raven.CodeAnalysis.dll",
-            candidateFilter: null,
-            copyLocal: true,
-            ravenCodeAnalysisPath);
-        CopyCodeAnalysisRuntimeDependencies(
-            ravenCodeAnalysisPath,
-            outputDirectory,
-            intrinsicRuntimeRequirements.RequiresRuntimeCompiler);
-    }
-}
-else if (intrinsicRuntimeRequirements.RequiresCodeAnalysis &&
-         existingCodeAnalysisReference is null)
-{
-    AnsiConsole.MarkupLine(
-        "[yellow]Warning: This compilation uses quote!/compile!, but the compiler-matched Raven.CodeAnalysis.dll could not be located.[/]");
+    project = AddMetadataReferenceIfMissing(project, ravenMacrosPath);
+    if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
+        project = AddMetadataReferenceIfMissing(project, ravenCodeAnalysisPath);
 }
 
 foreach (var r in additionalRefs)
@@ -1283,6 +1260,7 @@ if (!noEmit)
         {
             ReplaceFile(tempOutputFilePath, outputFilePath);
             ReplaceFile(tempPdbFilePath, pdbFilePath);
+            CopyEmittedLocalDependencies(project, outputFilePath, outputDirectory);
         }
         else
         {
@@ -1913,97 +1891,100 @@ static int WriteProjectDocumentsToDisk(Project project)
     return updatedDocumentCount;
 }
 
-static IntrinsicRuntimeRequirements GetIntrinsicRuntimeRequirements(Project project)
+static Project AddMetadataReferenceIfMissing(Project project, string assemblyPath)
 {
-    var requiresCodeAnalysis = false;
-    var requiresRuntimeCompiler = false;
+    var fullPath = Path.GetFullPath(assemblyPath);
+    var assemblyName = Path.GetFileNameWithoutExtension(fullPath);
+    return project.MetadataReferences
+        .OfType<PortableExecutableReference>()
+        .Any(reference =>
+            string.Equals(
+                Path.GetFileNameWithoutExtension(reference.FilePath),
+                assemblyName,
+                StringComparison.OrdinalIgnoreCase))
+        ? project
+        : project.AddMetadataReference(MetadataReference.CreateFromFile(fullPath));
+}
 
-    foreach (var document in project.Documents)
+static void CopyEmittedLocalDependencies(
+    Project project,
+    string assemblyPath,
+    string outputDirectory)
+{
+    if (!File.Exists(assemblyPath))
+        return;
+
+    var knownAssemblies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var reference in project.MetadataReferences.OfType<PortableExecutableReference>())
     {
-        var syntaxTree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult();
-        if (syntaxTree is null)
+        if (!string.IsNullOrWhiteSpace(reference.FilePath) &&
+            File.Exists(reference.FilePath))
+            knownAssemblies.TryAdd(
+                Path.GetFileNameWithoutExtension(reference.FilePath),
+                Path.GetFullPath(reference.FilePath));
+    }
+
+    foreach (var directory in knownAssemblies.Values
+        .Select(Path.GetDirectoryName)
+        .Append(AppContext.BaseDirectory)
+        .Where(static path => !string.IsNullOrWhiteSpace(path))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray())
+    {
+        foreach (var candidate in Directory.EnumerateFiles(directory!, "*.dll"))
+            knownAssemblies.TryAdd(
+                Path.GetFileNameWithoutExtension(candidate),
+                candidate);
+    }
+
+    var copiedFiles = new List<string>();
+    var pending = new Queue<string>(GetReferencedAssemblyNames(assemblyPath));
+    var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    while (pending.TryDequeue(out var referencedAssemblyName))
+    {
+        if (!visited.Add(referencedAssemblyName) ||
+            !knownAssemblies.TryGetValue(referencedAssemblyName, out var dependencyPath))
+        {
+            continue;
+        }
+        if (IsPlatformAssemblyReference(referencedAssemblyName, dependencyPath))
             continue;
 
-        foreach (var expression in syntaxTree.GetRoot()
-                     .DescendantNodes()
-                     .OfType<FreestandingMacroExpressionSyntax>())
-        {
-            if (expression.TokenTree is null ||
-                !expression.TryGetMacroName(out var macroName))
-            {
-                continue;
-            }
+        var destinationPath = Path.Combine(outputDirectory, Path.GetFileName(dependencyPath));
+        if (string.Equals(dependencyPath, destinationPath, StringComparison.OrdinalIgnoreCase))
+            continue;
 
-            if (string.Equals(macroName, "quote", StringComparison.Ordinal))
-            {
-                requiresCodeAnalysis = true;
-            }
-            else if (string.Equals(macroName, "compile", StringComparison.Ordinal))
-            {
-                requiresCodeAnalysis = true;
-                requiresRuntimeCompiler = true;
-            }
-        }
+        File.Copy(dependencyPath, destinationPath, overwrite: true);
+        copiedFiles.Add(Path.GetFileName(destinationPath));
+        foreach (var transitiveName in GetReferencedAssemblyNames(dependencyPath))
+            pending.Enqueue(transitiveName);
     }
 
-    return new IntrinsicRuntimeRequirements(
-        requiresCodeAnalysis,
-        requiresRuntimeCompiler);
+    var manifestPath = Path.Combine(outputDirectory, ".raven-runtime-dependencies");
+    if (copiedFiles.Count == 0)
+        TryDeleteFile(manifestPath);
+    else
+        File.WriteAllLines(manifestPath, copiedFiles.Distinct(StringComparer.OrdinalIgnoreCase));
 }
 
-static void CopyCodeAnalysisRuntimeDependencies(
-    string? ravenCodeAnalysisPath,
-    string outputDirectory,
-    bool includeRuntimeCompilerDependencies)
+static IEnumerable<string> GetReferencedAssemblyNames(string assemblyPath)
 {
-    if (string.IsNullOrWhiteSpace(ravenCodeAnalysisPath) ||
-        !File.Exists(ravenCodeAnalysisPath))
-    {
-        return;
-    }
+    using var stream = File.OpenRead(assemblyPath);
+    using var peReader = new PEReader(stream);
+    if (!peReader.HasMetadata)
+        yield break;
 
-    Directory.CreateDirectory(outputDirectory);
-    CopyFile(ravenCodeAnalysisPath, outputDirectory);
-
-    if (includeRuntimeCompilerDependencies)
-    {
-        var candidateDirectories = new[]
-        {
-            Path.GetDirectoryName(ravenCodeAnalysisPath),
-            AppContext.BaseDirectory
-        }
-        .Where(static path => !string.IsNullOrWhiteSpace(path))
-        .Distinct(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var directory in candidateDirectories)
-        {
-            foreach (var dependencyPath in Directory.EnumerateFiles(directory!, "*.dll"))
-            {
-                var fileName = Path.GetFileName(dependencyPath);
-                if (fileName.StartsWith("Mono.Cecil", StringComparison.OrdinalIgnoreCase) ||
-                    fileName.StartsWith("Microsoft.CodeAnalysis", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(fileName, "Microsoft.Build.Locator.dll", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(fileName, "System.Reflection.MetadataLoadContext.dll", StringComparison.OrdinalIgnoreCase))
-                {
-                    CopyFile(dependencyPath, outputDirectory);
-                }
-            }
-        }
-    }
-
-    File.WriteAllText(
-        Path.Combine(outputDirectory, ".raven-codeanalysis-runtime"),
-        includeRuntimeCompilerDependencies ? "compile" : "quote");
-
-    static void CopyFile(string sourcePath, string destinationDirectory)
-    {
-        var destinationPath = Path.Combine(destinationDirectory, Path.GetFileName(sourcePath));
-        if (string.Equals(sourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        File.Copy(sourcePath, destinationPath, overwrite: true);
-    }
+    var reader = peReader.GetMetadataReader();
+    foreach (var handle in reader.AssemblyReferences)
+        yield return reader.GetString(reader.GetAssemblyReference(handle).Name);
 }
+
+static bool IsPlatformAssemblyReference(string assemblyName, string assemblyPath)
+    => string.Equals(assemblyName, "Raven.Core", StringComparison.OrdinalIgnoreCase) ||
+       string.Equals(assemblyName, "mscorlib", StringComparison.OrdinalIgnoreCase) ||
+       string.Equals(assemblyName, "netstandard", StringComparison.OrdinalIgnoreCase) ||
+       assemblyPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+           .Any(static segment => string.Equals(segment, "packs", StringComparison.OrdinalIgnoreCase));
 
 static string? FindDebugDirectory()
 {
@@ -3087,7 +3068,3 @@ readonly record struct CompilerExecutionOptions(
     bool EnableOverloadLog,
     string? OverloadLogPath,
     PerformanceInstrumentation PerformanceInstrumentation);
-
-readonly record struct IntrinsicRuntimeRequirements(
-    bool RequiresCodeAnalysis,
-    bool RequiresRuntimeCompiler);

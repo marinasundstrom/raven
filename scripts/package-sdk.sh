@@ -34,6 +34,9 @@ dotnet publish "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -
   --self-contained false -o "$PUBLISH_DIR/rvnc" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false
+dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c Release -f "$TFM" \
+  /property:WarningLevel=0 \
+  /property:RavenCompilerHost="$PUBLISH_DIR/rvnc/rvnc.dll"
 dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
@@ -46,6 +49,11 @@ cp "$ROOT_DIR/build/Raven.Language.targets" "$STAGE_DIR/sdk/build/"
 cp "$ROOT_DIR/build/Raven.MSBuild.props" "$STAGE_DIR/sdk/build/"
 cp "$ROOT_DIR/build/Raven.MSBuild.targets" "$STAGE_DIR/sdk/build/"
 cp "$ROOT_DIR/src/Raven.Core/bin/Release/$TFM/Raven.Core.dll" "$STAGE_DIR/sdk/"
+cp "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.dll" "$STAGE_DIR/sdk/"
+cp "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.xml" "$STAGE_DIR/sdk/"
+if [[ -d "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.docs" ]]; then
+  cp -R "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.docs" "$STAGE_DIR/sdk/"
+fi
 printf '%s\n' "$VERSION" > "$STAGE_DIR/VERSION"
 
 if [[ "$RID" == win-* ]]; then

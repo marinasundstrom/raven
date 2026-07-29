@@ -804,9 +804,9 @@ Explicit entry-point manifest validation:
 * `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
   `answer + 1`
 
-## Active slice: default environment and in-memory activation
+## Historical slice: default environment and in-memory activation
 
-Status: **implemented and validated**
+Status: **superseded by the Raven.Macros companion assembly**
 
 * [x] centralize compiler-provided macro registration in a default environment
 * [x] use the same default environment for binding and completion
@@ -816,11 +816,10 @@ Status: **implemented and validated**
 * [x] prove the image path with a Raven-authored macro that imports
   `Raven.Macros.*` and uses `quote!`
 
-The default environment is the common registration point for future
-compiler-intrinsic and SDK-bundled macros such as `#embedFile`. In-memory image
-activation is the execution boundary needed by the Playground and the future
-same-project compile-time partition; it does not yet identify or compile that
-partition.
+The original compiler-owned default environment has been removed. Standard
+`quote` and `compile` declarations now come from the Raven-authored
+`Raven.Macros` plugin, while in-memory image activation remains the execution
+boundary used by the Playground and local macro partitions.
 
 Validation record for this slice:
 

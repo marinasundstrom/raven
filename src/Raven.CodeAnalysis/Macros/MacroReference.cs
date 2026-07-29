@@ -34,6 +34,25 @@ public sealed class MacroReference
     {
     }
 
+    /// <summary>
+    /// Creates a macro reference from an already loaded assembly.
+    /// </summary>
+    /// <param name="assembly">The loaded compiler-plugin assembly.</param>
+    /// <param name="display">
+    /// An optional path or label used for diagnostics and duplicate-reference
+    /// detection.
+    /// </param>
+    public static MacroReference CreateFromAssembly(
+        Assembly assembly,
+        string? display = null)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        return new MacroReference(
+            CreateAssemblyMacroFactory(assembly),
+            display ?? assembly.Location,
+            sourceProjectFilePath: null);
+    }
+
     private MacroReference(Func<MacroSnapshot> macroFactory, string? display, string? sourceProjectFilePath)
     {
         ArgumentNullException.ThrowIfNull(macroFactory);
@@ -337,8 +356,25 @@ public sealed class MacroReference
 
         private static Assembly? TryLoadSharedAssembly(AssemblyName assemblyName)
         {
-            if (AssemblyName.ReferenceMatchesDefinition(assemblyName, s_macroContractsAssembly.GetName()))
+            var contractsAssemblyName = s_macroContractsAssembly.GetName();
+            if (string.Equals(
+                    assemblyName.Name,
+                    contractsAssemblyName.Name,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (!AssemblyName.ReferenceMatchesDefinition(
+                        assemblyName,
+                        contractsAssemblyName) ||
+                    assemblyName.Version is not null &&
+                    contractsAssemblyName.Version is not null &&
+                    assemblyName.Version != contractsAssemblyName.Version)
+                {
+                    throw new FileLoadException(
+                        $"Macro provider requires '{assemblyName.FullName}', but the compiler host uses '{contractsAssemblyName.FullName}'. Rebuild the macro library against a compatible Raven.CodeAnalysis version.");
+                }
+
                 return s_macroContractsAssembly;
+            }
 
             try
             {

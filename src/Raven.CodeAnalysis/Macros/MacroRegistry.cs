@@ -68,9 +68,6 @@ internal sealed class MacroRegistry
         var attachedMacros = ImmutableDictionary.CreateBuilder<string, LoadedAttachedMacro>(StringComparer.Ordinal);
         var freestandingMacros = ImmutableDictionary.CreateBuilder<string, LoadedFreestandingMacro>(StringComparer.Ordinal);
 
-        foreach (var macro in DefaultMacroEnvironment.Macros)
-            RegisterMacro(macro, "Raven.Compiler");
-
         foreach (var reference in references)
         {
             try

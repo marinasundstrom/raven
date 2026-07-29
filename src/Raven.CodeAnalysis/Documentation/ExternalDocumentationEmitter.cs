@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Xml.Linq;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Documentation;
 
@@ -106,26 +107,54 @@ internal static class ExternalDocumentationEmitter
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var symbol in EnumerateDocumentableSymbols(compilation.GetSourceGlobalNamespace()))
         {
-            if (symbol.IsImplicitlyDeclared)
-                continue;
-
-            var comment = symbol.GetDocumentationComment();
-            if (comment is null || string.IsNullOrWhiteSpace(comment.Content))
-                continue;
-
-            if (!includeMarkdown &&
-                comment.Format == DocumentationFormat.Markdown &&
-                !LooksLikeXmlDocumentation(comment.Content))
-                continue;
-
-            if (!DocumentationCommentIdBuilder.TryGetMemberId(symbol, out var memberId))
-                continue;
-
-            if (!seen.Add(memberId))
-                continue;
-
-            yield return new DocumentationEntry(memberId, comment);
+            if (TryCreateEntry(symbol, includeMarkdown, seen, out var entry))
+                yield return entry;
         }
+
+        foreach (var tree in compilation.MacroSyntaxTrees)
+        {
+            var semanticModel = compilation.GetSemanticModel(tree);
+            foreach (var declaration in tree.GetRoot().DescendantNodesAndSelf().OfType<MacroFunctionDeclarationSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(declaration) is { } symbol &&
+                    TryCreateEntry(symbol, includeMarkdown, seen, out var entry))
+                {
+                    yield return entry;
+                }
+            }
+        }
+    }
+
+    private static bool TryCreateEntry(
+        ISymbol symbol,
+        bool includeMarkdown,
+        HashSet<string> seen,
+        out DocumentationEntry entry)
+    {
+        entry = default;
+
+        if (symbol.IsImplicitlyDeclared)
+            return false;
+
+        var comment = symbol.GetDocumentationComment();
+        if (comment is null || string.IsNullOrWhiteSpace(comment.Content))
+            return false;
+
+        if (!includeMarkdown &&
+            comment.Format == DocumentationFormat.Markdown &&
+            !LooksLikeXmlDocumentation(comment.Content))
+        {
+            return false;
+        }
+
+        if (!DocumentationCommentIdBuilder.TryGetMemberId(symbol, out var memberId))
+            return false;
+
+        if (!seen.Add(memberId))
+            return false;
+
+        entry = new DocumentationEntry(memberId, comment);
+        return true;
     }
 
     private static IEnumerable<ISymbol> EnumerateDocumentableSymbols(INamespaceSymbol namespaceSymbol)

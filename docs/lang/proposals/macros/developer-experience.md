@@ -332,6 +332,9 @@ macro invocation's argument list. An `ExpressionSyntax` parameter retains that
 real compiler API type while projecting the authored argument node. The
 `IMacroTokenStream` type has the `TokenStream` role and binds from the
 following raw token-tree body.
+`TokenTreeMacroContext` has the compiler-supplied `Context` role and exposes
+the complete low-level provider context for advanced library macros; it does
+not consume a caller argument.
 `IParameterSymbol.MacroRole` exposes that distinction without adding a second
 parameter syntax.
 
@@ -747,14 +750,14 @@ assembly attribute. A future Swift-inspired declaration model may generate the
 partition and export metadata from dedicated syntax, allowing ordinary authors
 to avoid local partition attributes as well.
 
-## Default macro environment
+## Standard macro library
 
-The selected Raven compiler and SDK may provide a version-matched macro set.
-These implementations are registered automatically in normal compilations and
-in the Playground without a package dependency or project item, but their names
-still obey ordinary namespace import rules.
+The selected Raven SDK distributes a version-matched `Raven.Macros` compiler
+plugin. The toolchain references that assembly in normal compilations and in
+the Playground, but its names still obey ordinary namespace import rules.
 
-`Raven.Macros.Quote` and `Raven.Macros.Compile` are compiler-provided macros.
+`Raven.Macros.Quote` and `Raven.Macros.Compile` are Raven-authored macro
+functions exported by that assembly.
 `[MacroAlias("quote")]` and `[MacroAlias("compile")]` supply their conventional
 spellings after `import Raven.Macros.*`. A future tracked-resource macro such
 as `EmbedFile` may instead be implemented as an SDK-bundled compiler plugin.
@@ -763,9 +766,9 @@ category.
 
 Third-party macros still arrive through provider-marked project or package
 dependencies. Same-project macros arrive through the local compile-time
-partition. Default registration must be deterministic for the selected Raven
-toolchain version, and conflicts with dependency-provided macros must produce
-clear compiler diagnostics.
+partition. Standard-library activation must be deterministic for the selected
+Raven toolchain version, and conflicts with dependency-provided macros must
+produce clear compiler diagnostics.
 
 ## Same-project macros
 

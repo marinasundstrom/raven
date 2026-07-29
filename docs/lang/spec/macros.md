@@ -276,6 +276,14 @@ distinguishes caller-supplied `Value` parameters, caller-supplied
 parameter for semantic tooling. Runtime macro parameter descriptors expose the
 same role through `MacroParameterDescriptor.Role`.
 
+An advanced token-tree macro may instead declare a
+`TokenTreeMacroContext` parameter. That parameter has the compiler-supplied
+`Context` role and receives the complete provider context rather than a
+caller-supplied argument. It is intended for macro libraries that need the
+low-level diagnostic, token-tree, and expansion APIs; `Raven.Macros` currently
+uses it to forward its Raven-authored declarations to the transitional
+`StandardMacroExpansions` implementations.
+
 Macro bodies are ordinary synchronous Raven blocks augmented by three
 contextual contribution statements:
 
@@ -315,8 +323,10 @@ expose the underlying provider API directly.
 
 ### Expression quotes
 
-`quote! { expression }`, equivalently `#quote { expression }`, is a
-compiler-owned token-tree macro. It captures one
+`quote! { expression }` is a token-tree macro provided by the standard
+`Raven.Macros` compiler-plugin assembly. Its `quote` alias enters scope through
+`import Raven.Macros.*`; the canonical `Raven.Macros.Quote!` name is available
+without that wildcard import. It captures one
 complete Raven expression as syntax data and expands to ordinary, fully
 qualified `SyntaxFactory` construction code. Tokens and trivia are preserved.
 Parser diagnostics, trailing input, and incomplete recovery are rejected at
@@ -330,18 +340,19 @@ authored locations and type-checked through the ordinary generated expansion.
 No splice-specific token kind is introduced.
 
 The result is a runtime `ExpressionSyntax` value from
-`Raven.CodeAnalysis`. The Raven compiler and SDK project integration add the
-compiler-matched runtime assembly only when `quote!` or `compile!` is present.
-An explicit compatible project reference is respected instead. Hosts that use
-the `Compilation` API directly must provide the reference themselves.
+`Raven.CodeAnalysis`. The Raven compiler and SDK project integration resolve
+that assembly through the macro library's ordinary dependency closure. Runtime
+dependencies are copied when the emitted application actually references them.
+Hosts that use the `Compilation` API directly must provide the macro and
+metadata references themselves.
 Statement, member, declaration, token, identifier, list, and repetition
 quote/splice forms are not part of the current language.
 
-`quote!`/`#quote` is syntax quotation, analogous in shape to the
+`quote!` is syntax quotation, analogous in shape to the
 compiler-integrated
 operation quotation that converts a target-typed lambda to
 `Expression<TDelegate>`. The representations are different: expression trees
-contain standardized .NET operations and no source syntax, while `#quote`
+contain standardized .NET operations and no source syntax, while `quote!`
 produces Raven syntax with its tokens and trivia. The resulting syntax object
 can be traversed and rewritten into a new immutable tree using
 `Raven.CodeAnalysis`; it is not semantically bound until inserted into a
@@ -380,13 +391,12 @@ default assembly load context. Callers should therefore cache delegates for
 repeated use and must treat syntax derived from untrusted input as executable
 code.
 
-The intrinsic expands into an ordinary call to
-`Raven.CodeAnalysis.RavenCompiler.Compile<TDelegate>`. SDK builds inject and
-copy the compiler-matched `Raven.CodeAnalysis` assembly and its runtime
-compiler dependencies only when needed. If the project already references
-`Raven.CodeAnalysis`, its reference and copy-local policy remain authoritative.
-Direct `Compilation` API hosts must provide the assembly reference and arrange
-runtime deployment themselves.
+The macro expands into an ordinary call to
+`Raven.CodeAnalysis.RavenCompiler.Compile<TDelegate>`. SDK builds resolve and
+copy the macro library's compatible `Raven.CodeAnalysis` dependency and its
+runtime closure when the emitted program references them. Direct `Compilation`
+API hosts must provide the assembly references and arrange runtime deployment
+themselves.
 
 The raw body is the source of truth. Any standard Raven token stream,
 macro-local keyword overlay, custom lexer token stream, or custom DSL syntax

@@ -321,7 +321,7 @@ public sealed class QuoteMacroCodeGenTests
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(imports, syntaxTree)
-            .AddReferences(TestMetadataReferences.Default);
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros);
 
         return includeCodeAnalysisReference
             ? compilation.AddReferences(CodeAnalysisReference)

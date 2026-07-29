@@ -120,7 +120,7 @@ public sealed class CompileMacroCodeGenTests
                 "test",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddReferences(CodeAnalysisReference);
 
     private static MetadataReference CodeAnalysisReference

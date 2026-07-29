@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Moved the standard `quote` and `compile` declarations into the Raven-authored
+  `Raven.Macros` compiler-plugin assembly. Its aliases require
+  `import Raven.Macros.*`, while canonical qualified names remain available.
+- Raven compiler-plugin projects marked with `RavenCompilerPlugin` can now emit
+  reusable `macro func` declarations, and compiler/MSBuild runtime dependency
+  propagation follows actual emitted assembly references instead of scanning
+  source for specific macro names.
 - Fixed a language-server hover regression that could recursively materialize
   metadata symbols while resolving qualified names. Metadata types now use a
   cached simple-name index, qualified namespace segments resolve from available

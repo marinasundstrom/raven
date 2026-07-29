@@ -20,7 +20,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             targetFramework: TestMetadataReferences.TargetFramework);
         var project = workspace.CurrentSolution.GetProject(projectId)!;
 
-        foreach (var reference in TestMetadataReferences.Default)
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenMacros)
             project = project.AddMetadataReference(reference);
 
         var document = project.AddDocument(
@@ -71,7 +71,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             targetFramework: TestMetadataReferences.TargetFramework);
         var project = workspace.CurrentSolution.GetProject(projectId)!;
 
-        foreach (var reference in TestMetadataReferences.Default)
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenMacros)
             project = project.AddMetadataReference(reference);
 
         var document = project.AddDocument(
@@ -123,7 +123,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             targetFramework: TestMetadataReferences.TargetFramework);
         var project = workspace.CurrentSolution.GetProject(projectId)!;
 
-        foreach (var reference in TestMetadataReferences.Default)
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenMacros)
             project = project.AddMetadataReference(reference);
 
         var initialSource = CreateMixedLocalAnswerMacroSource(42, 0)
@@ -170,7 +170,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             targetFramework: TestMetadataReferences.TargetFramework);
         var project = workspace.CurrentSolution.GetProject(projectId)!;
 
-        foreach (var reference in TestMetadataReferences.Default)
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenMacros)
             project = project.AddMetadataReference(reference);
 
         project = project.AddDocument(

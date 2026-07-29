@@ -12,6 +12,9 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
 public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 {
+    protected override MetadataReference[] GetMetadataReferences()
+        => TestMetadataReferences.DefaultWithRavenMacros;
+
     private new (Compilation Compilation, SyntaxTree Tree) CreateCompilation(
         string source,
         CompilationOptions? options = null,
@@ -45,7 +48,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "MacroFunctionConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var diagnostics = compilation.GetDiagnostics();
@@ -87,7 +90,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "NamespacedMacroFunctionConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
 
         var diagnostics = compilation.GetDiagnostics();
@@ -137,7 +140,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "MacroFunctionLoweringNameConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var diagnostics = compilation.GetDiagnostics();
@@ -173,7 +176,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "ExpressionMacroFunctionConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var diagnostics = compilation.GetDiagnostics();
@@ -211,7 +214,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "TokenStreamMacroFunctionConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var diagnostics = compilation.GetDiagnostics();
@@ -251,7 +254,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "AttachedMacroFunctionConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var attribute = consumerTree.GetRoot()
@@ -294,7 +297,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
@@ -330,7 +333,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var source = sourceTree.GetText()!.ToString();
@@ -363,7 +366,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
 
         Assert.Equal([consumerTree], compilation.SyntaxTrees);
@@ -381,7 +384,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddMacroSyntaxTrees(macroTree)
             .AddSyntaxTrees(consumerTree);
 
@@ -418,7 +421,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "BrokenLocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddMacroSyntaxTrees(macroTree)
             .AddSyntaxTrees(consumerTree);
 
@@ -468,7 +471,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var diagnostic = Assert.Single(
@@ -516,7 +519,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
 
         var diagnostic = Assert.Single(

@@ -85,6 +85,63 @@ public sealed class WorkspaceManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task OpenProject_AddsStandardMacroLibraryAsMetadataAndMacroReferenceAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var text = """
+import Raven.Macros.*
+
+func Main() {
+    let syntax = quote! { 40 + 2 }
+}
+""";
+        WriteRavenFile(filePath, text);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var document = await manager.UpsertDocumentAsync(
+            DocumentUri.FromFileSystemPath(filePath),
+            text);
+
+        document.Project.MetadataReferences
+            .OfType<PortableExecutableReference>()
+            .ShouldContain(reference =>
+                string.Equals(
+                    Path.GetFileName(reference.FilePath),
+                    "Raven.Macros.dll",
+                    StringComparison.OrdinalIgnoreCase));
+        var compilation = workspace.GetCompilation(document.Project.Id);
+        var diagnostics = compilation.GetDiagnostics();
+        compilation.MacroReferences.ShouldContain(reference =>
+            string.Equals(
+                Path.GetFileName(reference.Display),
+                "Raven.Macros.dll",
+                StringComparison.OrdinalIgnoreCase));
+        diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void FindWorkspaceProjectFiles_RecursesIntoNestedProjects()
     {
         Directory.CreateDirectory(_tempRoot);

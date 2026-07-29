@@ -35,6 +35,9 @@ dotnet run -f net10.0 --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csp
   -- --emit-core-types-only --framework net10.0 --output-type classlib \
   -o "$RAVEN_CORE_OUT" "${RAVEN_CORE_SOURCES[@]}"
 
+echo "==> Building Raven.Macros"
+dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c "$BUILD_CONFIG" -f net10.0 --no-restore --property WarningLevel=0
+
 echo "==> Building Raven.Compiler with Raven.Core"
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
 

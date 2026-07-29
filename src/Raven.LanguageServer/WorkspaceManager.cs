@@ -370,6 +370,7 @@ internal sealed class WorkspaceManager
         EnsureCompilerPerformanceInstrumentation(projectId);
         ApplyInitialEditorConfigDiagnosticOptions(projectId);
         EnsureRavenCoreReference(projectId);
+        EnsureRavenMacrosReference(projectId);
         EnsureBuiltInAnalyzers(projectId);
         loadedProjects[normalizedProjectPath] = projectId;
         ClearProjectOpenFailure(normalizedProjectPath);
@@ -463,6 +464,38 @@ internal sealed class WorkspaceManager
         _logger.LogDebug(
             "Added Raven.Core metadata reference '{ReferencePath}' for opened project '{ProjectName}'.",
             ravenCoreReferencePath,
+            project.Name);
+    }
+
+    private void EnsureRavenMacrosReference(ProjectId projectId)
+    {
+        var project = _workspace.CurrentSolution.GetProject(projectId);
+        if (project is null)
+            return;
+
+        var preferredTfm = project.TargetFramework ??
+            TargetFrameworkResolver.ResolveLatestInstalledVersion().Moniker.ToTfm();
+        var ravenMacrosReferencePath = ResolveRavenMacrosReferencePath(preferredTfm);
+        if (string.IsNullOrWhiteSpace(ravenMacrosReferencePath))
+        {
+            _logger.LogWarning(
+                "Unable to locate a valid Raven.Macros metadata reference for project '{ProjectName}'.",
+                project.Name);
+            return;
+        }
+
+        var solution = _workspace.CurrentSolution;
+        solution = AddMetadataReferenceIfMissing(
+            solution,
+            projectId,
+            ravenMacrosReferencePath);
+        solution = AddMetadataReferenceIfMissing(
+            solution,
+            projectId,
+            typeof(Compilation).Assembly.Location);
+        _workspace.TryApplyChanges(solution);
+        _logger.LogDebug(
+            "Added Raven.Macros and its compiler contract reference for opened project '{ProjectName}'.",
             project.Name);
     }
 
@@ -2022,6 +2055,28 @@ internal sealed class WorkspaceManager
             _logger.LogWarning("Unable to locate a valid Raven.Core metadata reference for project '{ProjectName}'.", name);
         }
 
+        var ravenMacrosReferencePath = ResolveRavenMacrosReferencePath(version.Moniker.ToTfm());
+        if (ravenMacrosReferencePath is not null)
+        {
+            solution = AddMetadataReferenceIfMissing(
+                solution,
+                projectId,
+                ravenMacrosReferencePath);
+            solution = AddMetadataReferenceIfMissing(
+                solution,
+                projectId,
+                typeof(Compilation).Assembly.Location);
+            _logger.LogDebug(
+                "Added Raven.Macros and its compiler contract reference for project '{ProjectName}'.",
+                name);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Unable to locate a valid Raven.Macros metadata reference for project '{ProjectName}'.",
+                name);
+        }
+
         _workspace.TryApplyChanges(solution);
         EnsureBuiltInAnalyzers(projectId);
         return projectId;
@@ -2030,6 +2085,17 @@ internal sealed class WorkspaceManager
     private string? ResolveRavenCoreReferencePath(string preferredTfm)
     {
         foreach (var candidate in EnumerateRavenCoreCandidates(preferredTfm))
+        {
+            if (IsValidMetadataReferencePath(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private string? ResolveRavenMacrosReferencePath(string preferredTfm)
+    {
+        foreach (var candidate in EnumerateRavenMacrosCandidates(preferredTfm))
         {
             if (IsValidMetadataReferencePath(candidate))
                 return candidate;
@@ -2069,6 +2135,77 @@ internal sealed class WorkspaceManager
         candidates.Add(Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"));
 
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<string> EnumerateRavenMacrosCandidates(string preferredTfm)
+    {
+        var tfms = new[] { preferredTfm, "net11.0", "net10.0" }
+            .Where(tfm => !string.IsNullOrWhiteSpace(tfm))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var roots = new[]
+        {
+            TryFindRepositoryRoot(Directory.GetCurrentDirectory()),
+            TryFindRepositoryRoot(AppContext.BaseDirectory),
+        }
+        .Where(path => !string.IsNullOrWhiteSpace(path))
+        .Cast<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+        var candidates = new List<string>();
+
+        foreach (var root in roots)
+        {
+            foreach (var tfm in tfms)
+            {
+                candidates.Add(Path.Combine(
+                    root,
+                    "src",
+                    "Raven.Macros",
+                    "bin",
+                    "Debug",
+                    tfm,
+                    "Raven.Macros.dll"));
+                candidates.Add(Path.Combine(
+                    root,
+                    "src",
+                    "Raven.Macros",
+                    "bin",
+                    "Debug",
+                    tfm,
+                    tfm,
+                    "Raven.Macros.dll"));
+            }
+        }
+
+        candidates.Add(Path.Combine(AppContext.BaseDirectory, "Raven.Macros.dll"));
+        candidates.Add(Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../sdk/Raven.Macros.dll")));
+        return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Solution AddMetadataReferenceIfMissing(
+        Solution solution,
+        ProjectId projectId,
+        string referencePath)
+    {
+        var fileName = Path.GetFileName(referencePath);
+        var project = solution.GetProject(projectId);
+        if (project is null ||
+            project.MetadataReferences
+                .OfType<PortableExecutableReference>()
+                .Any(reference => string.Equals(
+                    Path.GetFileName(reference.FilePath),
+                    fileName,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            return solution;
+        }
+
+        return solution.AddMetadataReference(
+            projectId,
+            MetadataReference.CreateFromFile(referencePath));
     }
 
     private static string? TryFindRepositoryRoot(string startPath)

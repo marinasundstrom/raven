@@ -39,6 +39,8 @@ public sealed class PlaygroundLanguageService
 
         foreach (var reference in frameworkReferences.GetReferences())
             solution = solution.AddMetadataReference(_projectId, reference);
+        foreach (var reference in frameworkReferences.GetMacroReferences())
+            solution = solution.AddMacroReference(_projectId, reference);
 
         _workspace.TryApplyChanges(solution);
     }

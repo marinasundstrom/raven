@@ -149,7 +149,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
-    public void RavenProject_CompileMacro_AddsCodeAnalysisRuntimeDependencyOnDemand()
+    public void RavenProject_CompileMacro_DiscoversRuntimeDependencyClosureFromOutput()
     {
         var repoRoot = GetRepositoryRoot();
         var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
@@ -178,10 +178,11 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
             File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
                 import System.*
+                import Raven.Macros.*
 
                 func Main() {
                     let increment = compile<System.Func<int, int>>! {
-                        value => #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("value")) + 1
+                        value => value + 1
                     }
 
                     Console.WriteLine(increment(41))
@@ -205,7 +206,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             var depsPath = Path.Combine(outputDirectory, "CompileMacroRuntimeDependency.deps.json");
             Assert.True(
                 File.Exists(codeAnalysisPath),
-                $"Expected the intrinsic runtime dependency at '{codeAnalysisPath}'.");
+                $"Expected the macro runtime dependency at '{codeAnalysisPath}'.");
             Assert.Contains("Raven.CodeAnalysis", File.ReadAllText(depsPath), StringComparison.Ordinal);
 
             var runResult = RunProcess(
@@ -246,7 +247,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     "obj",
                     "Debug",
                     "net10.0",
-                    ".raven-codeanalysis-runtime")));
+                    ".raven-runtime-dependencies")));
             Assert.DoesNotContain(
                 "Raven.CodeAnalysis",
                 File.ReadAllText(depsPath),
@@ -259,7 +260,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
-    public void RavenProject_QuoteMacro_RespectsExplicitCodeAnalysisReference()
+    public void RavenProject_QuoteMacro_UsesExplicitCodeAnalysisReferenceWithGeneralDependencyClosure()
     {
         var repoRoot = GetRepositoryRoot();
         var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
@@ -295,6 +296,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
             File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
                 import System.*
+                import Raven.Macros.*
 
                 func Main() {
                     let syntax = quote! { 40 + 2 }
@@ -316,14 +318,17 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
             var outputDirectory = Path.Combine(projectRoot, "bin", "Debug", "net10.0");
             Assert.True(File.Exists(Path.Combine(outputDirectory, "Raven.CodeAnalysis.dll")));
-            Assert.False(
-                File.Exists(Path.Combine(
-                    projectRoot,
-                    "obj",
-                    "Debug",
-                    "net10.0",
-                    ".raven-codeanalysis-runtime")),
-                "An explicit Raven.CodeAnalysis reference should not be replaced by an injected runtime dependency.");
+            var manifestPath = Path.Combine(
+                projectRoot,
+                "obj",
+                "Debug",
+                "net10.0",
+                ".raven-runtime-dependencies");
+            Assert.True(File.Exists(manifestPath));
+            Assert.Contains(
+                "Raven.CodeAnalysis.dll",
+                File.ReadAllText(manifestPath),
+                StringComparison.Ordinal);
         }
         finally
         {

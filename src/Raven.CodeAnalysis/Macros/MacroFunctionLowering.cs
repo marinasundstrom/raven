@@ -54,11 +54,15 @@ internal static class MacroFunctionLowering
             .Where(static parameter =>
                 parameter.Role == MacroParameterRole.TokenStream)
             .ToArray();
+        var contextParameters = parameters
+            .Where(static parameter =>
+                parameter.Role == MacroParameterRole.Context)
+            .ToArray();
         var valueParameters = parameters
             .Where(static parameter =>
-                parameter.Role != MacroParameterRole.TokenStream)
+                parameter.Role is not (MacroParameterRole.TokenStream or MacroParameterRole.Context))
             .ToArray();
-        var hasTokenTreeBody = tokenStreamParameters.Length > 0;
+        var hasTokenTreeBody = tokenStreamParameters.Length > 0 || contextParameters.Length > 0;
         var hasParameters = valueParameters.Length > 0;
         var usedNames = declaration.DescendantTokens()
             .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
@@ -126,7 +130,13 @@ internal static class MacroFunctionLowering
             builder.AppendLine(
                 $"        let {tokenStreamParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.IMacroTokenStream = {contextVariableName}.CreateTokenStream()");
         }
-        else if (declaration.TargetClause is { } targetClause)
+        foreach (var contextParameter in contextParameters)
+        {
+            builder.AppendLine(
+                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.TokenTreeMacroContext = {contextVariableName}");
+        }
+
+        if (!hasTokenTreeBody && declaration.TargetClause is { } targetClause)
             AppendTargetBinding(builder, targetClause, resultName, contextVariableName);
 
         AppendLoweredBody(builder, source, declaration, resultBuilderName);

@@ -1,0 +1,22 @@
+namespace Raven.Macros
+
+/// Quotes a Raven expression and compiles it into the requested delegate type.
+///
+/// Import `Raven.Macros.*` to invoke the conventional `compile!` alias. Runtime
+/// compilation is comparatively expensive, so applications should compile
+/// once and reuse the resulting delegate.
+///
+/// ## Example
+///
+/// ```raven
+/// import System.*
+/// import Raven.Macros.*
+///
+/// let increment = compile<Func<int, int>>! {
+///     value => value + 1
+/// }
+/// ```
+[Raven.CodeAnalysis.Macros.MacroAlias("compile")]
+public macro func Compile(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandCompile(context)
+}

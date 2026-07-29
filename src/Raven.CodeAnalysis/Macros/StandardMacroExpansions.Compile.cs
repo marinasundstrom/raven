@@ -3,23 +3,24 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-[MacroAlias("compile")]
-internal sealed class IntrinsicCompileMacro : ITokenTreeExpressionMacro
+/// <summary>
+/// Implements low-level expansion mechanics used by the standard Raven macro library.
+/// </summary>
+/// <remarks>
+/// This is a transitional compiler-side implementation. As the Raven macro-function
+/// API gains the required diagnostic and syntax-construction capabilities, behavior
+/// that does not require compiler internals should move wholly or partly into
+/// Raven.Macros.
+/// </remarks>
+public static partial class StandardMacroExpansions
 {
     private const string MissingDelegateTypeCode = "COMPILE001";
-    private const string ExpansionFailedCode = "COMPILE002";
+    private const string CompileExpansionFailedCode = "COMPILE002";
 
-    public static IntrinsicCompileMacro Instance { get; } = new();
-
-    private IntrinsicCompileMacro()
-    {
-    }
-
-    public string Namespace => "Raven.Macros";
-
-    public string Name => "Compile";
-
-    public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+    /// <summary>
+    /// Expands a Raven runtime compilation expression.
+    /// </summary>
+    public static FreestandingMacroExpansionResult ExpandCompile(TokenTreeMacroContext context)
     {
         if (context.Syntax.Name is not GenericNameSyntax genericName ||
             genericName.TypeArgumentList.Arguments.Count != 1)
@@ -31,7 +32,7 @@ internal sealed class IntrinsicCompileMacro : ITokenTreeExpressionMacro
                     code: MissingDelegateTypeCode));
         }
 
-        var quoteResult = IntrinsicQuoteMacro.Instance.Expand(context);
+        var quoteResult = ExpandQuote(context);
         if (quoteResult.Expression is null)
             return quoteResult;
 
@@ -56,7 +57,7 @@ internal sealed class IntrinsicCompileMacro : ITokenTreeExpressionMacro
                 context.CreateDiagnostic(
                     "The compiler could not construct the runtime compilation expression.",
                     syntax: context.Syntax.Name,
-                    code: ExpansionFailedCode));
+                    code: CompileExpansionFailedCode));
         }
 
         return FreestandingMacroExpansionResult.FromExpression(expression);

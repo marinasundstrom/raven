@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
     <ProjectReference Include="..\Raven.Core\Raven.Core.rvnproj" />
+    <ProjectReference Include="..\Raven.Macros\Raven.Macros.rvnproj" />
   </ItemGroup>
 
   <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
@@ -33,6 +34,8 @@
                       LogicalName="Raven.Playground.Framework.Raven.CodeAnalysis.dll" />
     <EmbeddedResource Include="..\Raven.Core\bin\$(Configuration)\net10.0\Raven.Core.dll"
                       LogicalName="Raven.Playground.Framework.Raven.Core.dll" />
+    <EmbeddedResource Include="..\Raven.Macros\bin\$(Configuration)\net10.0\Raven.Macros.dll"
+                      LogicalName="Raven.Playground.Framework.Raven.Macros.dll" />
   </ItemGroup>
 
   <Target Name="EmbedPlaygroundFrameworkAssemblies"

@@ -16,6 +16,7 @@ internal static class DocumentationCommentIdBuilder
             {
                 INamedTypeSymbol type => GetTypeMemberId(type),
                 IMethodSymbol method => GetMethodMemberId(method),
+                IMacroFunctionSymbol macroFunction => GetMacroFunctionMemberId(macroFunction),
                 IPropertySymbol property => GetPropertyMemberId(property),
                 IFieldSymbol field => GetFieldMemberId(field),
                 IEventSymbol @event => GetEventMemberId(@event),
@@ -54,6 +55,28 @@ internal static class DocumentationCommentIdBuilder
             builder.Append(GetParameterTypeName(method.ReturnType));
         }
 
+        return builder.ToString();
+    }
+
+    public static string GetMacroFunctionMemberId(IMacroFunctionSymbol macroFunction)
+    {
+        var builder = new StringBuilder();
+        builder.Append("M:");
+
+        if (macroFunction.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
+        {
+            builder.Append(containingNamespace.ToMetadataName());
+            builder.Append('.');
+        }
+
+        builder.Append(GetMetadataName(macroFunction).Replace('.', '#'));
+        if (macroFunction.Arity > 0)
+        {
+            builder.Append("``");
+            builder.Append(macroFunction.Arity);
+        }
+
+        AppendParameterList(builder, macroFunction.Parameters);
         return builder.ToString();
     }
 

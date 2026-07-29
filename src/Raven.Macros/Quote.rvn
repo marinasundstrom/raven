@@ -1,0 +1,21 @@
+namespace Raven.Macros
+
+/// Quotes a Raven expression as an immutable Raven syntax tree.
+///
+/// Import `Raven.Macros.*` to invoke the conventional `quote!` alias. The
+/// canonical `Raven.Macros.Quote!` spelling remains available when the alias
+/// is shadowed or the namespace is not imported.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// let syntax = quote! {
+///     left + right
+/// }
+/// ```
+[Raven.CodeAnalysis.Macros.MacroAlias("quote")]
+public macro func Quote(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandQuote(context)
+}

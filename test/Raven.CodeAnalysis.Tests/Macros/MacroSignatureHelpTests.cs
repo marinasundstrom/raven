@@ -11,6 +11,8 @@ public sealed class MacroSignatureHelpTests
     public void GetMacroSignatureHelp_TypedTokenTreeMacro_ReturnsNormalizedParametersAndActiveName()
     {
         const string code = """
+import Raven.CodeAnalysis.Tests.Macros.*
+
 class Host {
     func Test() {
         val value = #typedQuery(Dialect: "sql", Optimize: true) { from users }
@@ -60,6 +62,8 @@ class Host {
     public void GetMacroSignatureHelp_TypedAttachedMacro_ReturnsAttachedSignature()
     {
         const string code = """
+import Raven.CodeAnalysis.Tests.Macros.*
+
 class Host {
     #[typedObservable(Notify: true)]
     var Value: int = 0
@@ -87,6 +91,8 @@ class Host {
     public void GetMacroSignatureHelp_ExpressionProjection_UsesLanguageRoleName()
     {
         const string code = """
+import Raven.CodeAnalysis.Tests.Macros.*
+
 class Host {
     func Test() {
         val value = #project(1 + 2)

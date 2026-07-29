@@ -5,25 +5,26 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-[MacroAlias("quote")]
-internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
+/// <summary>
+/// Implements the low-level expansion mechanics used by the standard Raven macro library.
+/// </summary>
+/// <remarks>
+/// This is a transitional compiler-side implementation. As the Raven macro-function
+/// API gains the required diagnostic and syntax-construction capabilities, behavior
+/// that does not require compiler internals should move wholly or partly into
+/// Raven.Macros.
+/// </remarks>
+public static partial class StandardMacroExpansions
 {
     private const string IncompleteQuoteCode = "QUOTE001";
-    private const string ExpansionFailedCode = "QUOTE002";
+    private const string QuoteExpansionFailedCode = "QUOTE002";
     private const string MissingReferenceCode = "QUOTE003";
     private const string IncompleteSpliceCode = "QUOTE005";
 
-    public static IntrinsicQuoteMacro Instance { get; } = new();
-
-    private IntrinsicQuoteMacro()
-    {
-    }
-
-    public string Namespace => "Raven.Macros";
-
-    public string Name => "Quote";
-
-    public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+    /// <summary>
+    /// Expands a Raven expression quote.
+    /// </summary>
+    public static FreestandingMacroExpansionResult ExpandQuote(TokenTreeMacroContext context)
     {
         var splicePreparation = PrepareExpressionSplices(context);
         if (!splicePreparation.Diagnostics.IsEmpty ||
@@ -98,7 +99,7 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
             return Error(
                 context,
                 "The compiler could not construct the quoted expression.",
-                code: ExpansionFailedCode);
+                code: QuoteExpansionFailedCode);
         }
 
         var expansionResult = expansion.Value;
@@ -110,7 +111,7 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
             return Error(
                 context,
                 "The compiler could not construct the quoted expression.",
-                code: ExpansionFailedCode);
+                code: QuoteExpansionFailedCode);
         }
 
         return FreestandingMacroExpansionResult.FromExpression(expansionExpression);

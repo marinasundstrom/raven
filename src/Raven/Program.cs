@@ -103,6 +103,7 @@ static int RunDoctorCommand(string[] args)
     var requiredFiles = new[]
     {
         Path.Combine("sdk", "Raven.Core.dll"),
+        Path.Combine("sdk", "Raven.Macros.dll"),
         Path.Combine("sdk", "build", "Raven.Language.targets"),
         Path.Combine("tools", "rvn", "rvn.dll"),
         Path.Combine("tools", "rvnc", "rvnc.dll"),

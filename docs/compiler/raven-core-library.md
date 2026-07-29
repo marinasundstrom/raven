@@ -6,6 +6,11 @@ programs can rely on a consistent Option/Result vocabulary across projects,
 plus a handful of generated shims the compiler produces automatically when it
 builds the library.
 
+Standard compile-time macros live separately in `Raven.Macros`; see
+[Raven Macro Library](raven-macros-library.md). This keeps the runtime core free
+of compiler API dependencies while allowing macro libraries to declare their
+ordinary `Raven.CodeAnalysis` compatibility contract.
+
 ## How Raven.Core is built
 
 The `src/Raven.Core` project builds directly from the Raven sources in

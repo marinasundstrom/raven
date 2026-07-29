@@ -18,6 +18,7 @@ SDK_ROOT="$(cd "$SDK_ROOT" && pwd)"
 required_files=(
   "VERSION"
   "sdk/Raven.Core.dll"
+  "sdk/Raven.Macros.dll"
   "sdk/build/Raven.Language.targets"
   "sdk/build/Raven.MSBuild.props"
   "sdk/build/Raven.MSBuild.targets"

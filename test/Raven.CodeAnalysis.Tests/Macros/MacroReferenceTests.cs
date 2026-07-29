@@ -55,6 +55,7 @@ public sealed class MacroReferenceTests
     {
         var macroImage = EmitMacroAssembly("""
             import Raven.CodeAnalysis.Macros.*
+            import Raven.Macros.*
 
             [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
@@ -64,7 +65,7 @@ public sealed class MacroReferenceTests
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote! { 42 }
                     }
                 }
             }
@@ -129,6 +130,64 @@ public sealed class MacroReferenceTests
             .ToArray();
 
         Assert.Equal(["first", "second"], macros);
+    }
+
+    [Fact]
+    public void MacroFunctionLibrary_EmitsReusableCompilerPlugin()
+    {
+        var manifestTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin]
+            """,
+            path: "AssemblyInfo.rvn");
+        var macroTree = SyntaxTree.ParseText(
+            """
+            namespace Example.Macros
+
+            [Raven.CodeAnalysis.Macros.MacroAlias("answer")]
+            public macro func Answer(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+                expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromExpression(
+                    Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """,
+            path: "Answer.rvn");
+        var macroCompilation = Compilation.Create(
+                "Example.Macros",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(manifestTree, macroTree);
+
+        using var image = new MemoryStream();
+        var emitResult = macroCompilation.Emit(image);
+        Assert.True(
+            emitResult.Success,
+            string.Join(System.Environment.NewLine, emitResult.Diagnostics));
+
+        var macroReference = MacroReference.CreateFromImage(
+            image.ToArray(),
+            display: "Raven macro function library");
+        var macro = Assert.Single(macroReference.Macros);
+        Assert.Equal("Example.Macros", macro.Namespace);
+        Assert.Equal("Answer", macro.Name);
+        Assert.Equal("answer", macro.Alias);
+
+        var consumer = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(macroReference)
+            .AddSyntaxTrees(SyntaxTree.ParseText(
+                """
+                import Example.Macros.*
+
+                func Main() -> int => answer! { ignored }
+                """));
+
+        Assert.DoesNotContain(
+            consumer.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -512,7 +571,12 @@ public sealed class MacroReferenceTests
                 $"InMemoryMacros_{System.Guid.NewGuid():N}",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(macroTree)
-            .AddReferences([.. TestMetadataReferences.Default, codeAnalysisReference]);
+            .AddReferences([
+                .. TestMetadataReferences.DefaultWithRavenMacros,
+                codeAnalysisReference
+            ])
+            .AddMacroReferences(MacroReference.CreateFromFile(
+                ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));
 
         using var macroImage = new MemoryStream();
         var macroEmit = macroCompilation.Emit(macroImage);

@@ -428,4 +428,60 @@ public class Widget {
                 Directory.Delete(directory, recursive: true);
         }
     }
+
+    [Fact]
+    public void ExternalDocumentationEmitter_EmitsMarkdownForMacroFunction()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+namespace Example
+
+/// Expands the supplied token tree.
+///
+/// ## Parameters
+/// - `context`: The token tree context to expand.
+public macro func Expand(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandQuote(context)
+}
+""",
+            new ParseOptions
+            {
+                DocumentationMode = true,
+                DocumentationFormat = DocumentationFormat.Markdown
+            });
+        var assemblyInfoTree = SyntaxTree.ParseText(
+            """
+import Raven.CodeAnalysis.Macros.*
+[assembly: RavenCompilerPlugin]
+""");
+
+        var compilation = Compilation.Create(
+                "MacroLibrary",
+                [],
+                [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTreesWithLocalMacros(assemblyInfoTree, tree);
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-emitted-macro-markdown-docs-{Guid.NewGuid():N}");
+
+        try
+        {
+            var docsRoot = ExternalDocumentationEmitter.WriteMarkdownDocumentation(
+                compilation,
+                Path.Combine(directory, "MacroLibrary.docs"));
+            var memberId = "M:Example.Expand(Raven.CodeAnalysis.Macros.TokenTreeMacroContext)";
+            var memberPath = Assert.Single(Directory.GetFiles(
+                Path.Combine(docsRoot, "invariant", "symbols", "M"),
+                "*.md"));
+
+            var emittedMarkdown = File.ReadAllText(memberPath);
+            Assert.Contains($"xref: {memberId}", emittedMarkdown, StringComparison.Ordinal);
+            Assert.Contains("Expands the supplied token tree.", emittedMarkdown, StringComparison.Ordinal);
+            Assert.Contains("The token tree context to expand.", emittedMarkdown, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
 }

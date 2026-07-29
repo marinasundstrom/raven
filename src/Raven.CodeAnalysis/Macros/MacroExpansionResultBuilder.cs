@@ -18,12 +18,23 @@ public sealed class MacroExpansionResultBuilder
     private readonly ImmutableArray<MemberDeclarationSyntax>.Builder _introducedMembers =
         ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
     private ExpressionSyntax? _expression;
+    private FreestandingMacroExpansionResult? _freestandingResult;
     private SyntaxNode? _replacement;
 
     public void Expand(ExpressionSyntax expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
         _expression = expression;
+    }
+
+    /// <summary>
+    /// Applies a complete expansion result produced by a lower-level macro API.
+    /// </summary>
+    public void Expand(FreestandingMacroExpansionResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        _freestandingResult = result;
+        _expression = result.Expression;
     }
 
     public void Replace(SyntaxNode declaration)
@@ -45,7 +56,9 @@ public sealed class MacroExpansionResultBuilder
     }
 
     public FreestandingMacroExpansionResult BuildFreestanding()
-        => _expression is null
+        => _freestandingResult is not null
+            ? _freestandingResult
+            : _expression is null
             ? FreestandingMacroExpansionResult.Empty
             : FreestandingMacroExpansionResult.FromExpression(_expression);
 

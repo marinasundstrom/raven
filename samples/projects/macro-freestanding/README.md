@@ -68,9 +68,10 @@ Current status:
 - The query MVP generates no hidden temporary names and retains no custom DSL
   tree. Additional generators, repeated clauses, ordering, joins, and editor
   services remain future work.
-- `quote!` is the compiler-owned expression-only quote MVP. Import
-  `Raven.Macros.*` to bring its alias into scope; it needs no plugin
-  registration, preserves the quoted expression's tokens and trivia, and
+- `quote!` is the standard library's expression-only quote MVP. Import
+  `Raven.Macros.*` to bring its alias into scope; the referenced
+  `Raven.Macros` assembly supplies the compiler plugin, preserves the quoted
+  expression's tokens and trivia, and
   expands to ordinary fully qualified `SyntaxFactory` calls. Because the result
   is a runtime syntax object, the compiler adds the matching
   `Raven.CodeAnalysis` runtime dependency on demand. Its hole inserts an

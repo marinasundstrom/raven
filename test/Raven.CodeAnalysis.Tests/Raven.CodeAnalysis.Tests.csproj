@@ -39,6 +39,7 @@
       AdditionalProperties="UseRavenCoreReference=false" />
     <ProjectReference Include="..\..\src\RavenDoc\RavenDoc.csproj" />
     <ProjectReference Include="..\..\src\Raven.Core\Raven.Core.rvnproj" />
+    <ProjectReference Include="..\..\src\Raven.Macros\Raven.Macros.rvnproj" />
     <ProjectReference
       Include="..\MetadataFixtures\ExtensionMethodsFixture\ExtensionMethodsFixture.csproj" />
   </ItemGroup>

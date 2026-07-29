@@ -45,16 +45,32 @@ internal static class TestMetadataReferences
 
     private static readonly Lazy<MetadataReference[]> s_defaultWithRavenCore = new(() =>
         [.. Default, RavenCore]);
+    private static readonly Lazy<MetadataReference> s_ravenMacros = new(() =>
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Raven.Macros.dll");
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException(
+                "Raven.Macros.dll was not found in the test output directory. Build Raven.CodeAnalysis.Tests so the Raven.Macros project output is copied before using TestMetadataReferences.RavenMacros.",
+                path);
+        }
+
+        return MetadataReference.CreateFromFile(path);
+    });
+    private static readonly Lazy<MetadataReference[]> s_defaultWithRavenMacros = new(() =>
+        [.. Default, RavenMacros]);
 
     public static string TargetFramework => s_default.Value.tfm;
     public static MetadataReference[] Default => s_default.Value.refs;
     public static MetadataReference ExtensionMethodsFixture => s_extensionMethodsFixture.Value;
     public static MetadataReference RavenCore => s_ravenCore.Value;
+    public static MetadataReference RavenMacros => s_ravenMacros.Value;
     public static MetadataReference[] DefaultWithoutSystemLinq => s_defaultWithoutSystemLinq.Value;
     public static MetadataReference[] DefaultWithoutSystemLinqWithExtensionMethods => s_defaultWithoutSystemLinqWithExtensionMethods.Value;
     public static MetadataReference[] DefaultWithExtensionMethods
         => [.. Default, ExtensionMethodsFixture];
     public static MetadataReference[] DefaultWithRavenCore => s_defaultWithRavenCore.Value;
+    public static MetadataReference[] DefaultWithRavenMacros => s_defaultWithRavenMacros.Value;
 
     private static bool IsSystemLinq(MetadataReference reference)
     {

@@ -40,7 +40,7 @@ public sealed class FreestandingMacroCodeGenTests
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddMacroSyntaxTrees(macroTree)
             .AddSyntaxTrees(consumerTree);
 
