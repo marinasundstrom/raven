@@ -305,6 +305,73 @@ func A(x: int) -> int {
     }
 
     [Fact]
+    public void BlockExpressionValue_AssignedToLocal_DoesNotReport()
+    {
+        const string code = """
+func A() -> int {
+    let value = {
+        let result = 42
+        result
+    }
+
+    value
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ArrowLambdaBlockValue_DoesNotReport()
+    {
+        const string code = """
+let adjust = (value: int) -> int => {
+    let result = value + 1
+    result
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ArrowActionBlockTail_ReportsDiagnostic()
+    {
+        const string code = """
+import System.*
+
+func Compute() -> int {
+    42
+}
+
+let action: Action = () => {
+    Compute()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(8, 5, 8, 14)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void IfExpressionBranchValues_AssignedToLocal_DoNotReport()
     {
         const string code = """

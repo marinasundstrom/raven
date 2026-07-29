@@ -122,7 +122,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        return blockNode.Parent switch
+        return GetCallableOwner(blockNode) switch
         {
             BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
             FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as IMethodSymbol),
@@ -139,7 +139,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         if (!TryGetTrailingBlock(expressionStatement, out var blockNode))
             return false;
 
-        ITypeSymbol? returnType = blockNode.Parent switch
+        ITypeSymbol? returnType = GetCallableOwner(blockNode) switch
         {
             BaseMethodDeclarationSyntax method =>
                 (semanticModel.GetDeclaredSymbol(method) as IMethodSymbol)?.ReturnType,
@@ -154,6 +154,11 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
         return returnType?.SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
     }
+
+    private static SyntaxNode? GetCallableOwner(SyntaxNode blockNode)
+        => blockNode.Parent is ArrowExpressionClauseSyntax arrowExpression
+            ? arrowExpression.Parent
+            : blockNode.Parent;
 
     private static bool TryGetTrailingBlock(
         ExpressionStatementSyntax expressionStatement,
@@ -229,7 +234,12 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
                     return false;
 
                 default:
-                    return current is not BlockSyntax && current.Parent is not null;
+                    return current.Parent is not null
+                        and not FunctionExpressionSyntax
+                        and not BaseMethodDeclarationSyntax
+                        and not FunctionStatementSyntax
+                        and not AccessorDeclarationSyntax
+                        and not ArrowExpressionClauseSyntax;
             }
         }
     }

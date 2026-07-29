@@ -140,6 +140,35 @@ func Test() {
     }
 
     [Fact]
+    public void SpecificDiagnosticOptions_SuppressesUnusedExpressionResult()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithSpecificDiagnosticOption(UnusedExpressionResultAnalyzer.DiagnosticId, ReportDiagnostic.Suppress);
+        var projectId = workspace.AddProject("Test", compilationOptions: options);
+        var docId = DocumentId.CreateNew(projectId);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(
+            """
+func Test() {
+    GetValue()
+}
+
+func GetValue() -> int {
+    42
+}
+""")));
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new UnusedExpressionResultAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDiagnostics(projectId);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == UnusedExpressionResultAnalyzer.DiagnosticId);
+    }
+
+    [Fact]
     public void OpenProject_EditorConfigSuppressesConfiguredAnalyzerDiagnostics()
     {
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

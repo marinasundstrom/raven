@@ -231,9 +231,10 @@ treated as conceptually identical.
 `unit` has a different meaning again: it represents no meaningful return value,
 not an absent value.
 
-That meaning is enforced at a callable boundary. A `unit`-returning function
-cannot silently discard a non-`unit` tail value that looks like a result.
-Assign the expression to `_` when discarding it is deliberate:
+At a callable boundary, a `unit`-returning function still discards a
+non-`unit` tail value. The optional `RAV9034` analyzer diagnostic warns by
+default when that value looks like a result. Assign the expression to `_` when
+discarding it is deliberate:
 
 ```raven
 func Refresh(cache: Cache) {
