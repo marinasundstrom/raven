@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `Raven.Macros.Sha256Digest!` with the imported `sha256Digest!` alias.
+  It hashes literal values during compilation and expands to a lowercase
+  hexadecimal string, avoiding runtime hashing and naming collisions with
+  .NET's `SHA256` type.
 - Added `Raven.Macros.EmbedFileContent!` with the imported
   `embedFileContent!` alias. It resolves paths relative to the invoking source
   file, embeds UTF-8 text as a string literal, diagnoses missing files, and

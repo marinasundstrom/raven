@@ -760,13 +760,12 @@ The selected Raven SDK distributes a version-matched `Raven.Macros` compiler
 plugin. The toolchain references that assembly in normal compilations and in
 the Playground, but its names still obey ordinary namespace import rules.
 
-`Raven.Macros.Quote` and `Raven.Macros.Compile` are Raven-authored macro
-functions exported by that assembly.
-`[MacroAlias("quote")]` and `[MacroAlias("compile")]` supply their conventional
-spellings after `import Raven.Macros.*`. A future tracked-resource macro such
-as `EmbedFile` may instead be implemented as an SDK-bundled compiler plugin.
-That implementation distinction must not create a special name-resolution
-category.
+`Raven.Macros.Quote`, `Raven.Macros.Compile`,
+`Raven.Macros.EmbedFileContent`, and `Raven.Macros.Sha256Digest` are
+Raven-authored macro functions exported by that assembly. Their
+`[MacroAlias(...)]` attributes supply conventional lowercase spellings after
+`import Raven.Macros.*`. This implementation distinction does not create a
+special name-resolution category.
 
 Third-party macros still arrive through provider-marked project or package
 dependencies. Same-project macros arrive through the local compile-time

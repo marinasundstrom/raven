@@ -97,6 +97,7 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/macro-token-stream/README.md` (replace Raven's macro token stream with a custom lexer)
 - `samples/projects/macro-quote/README.md` (construct another macro's expansion with `quote!`)
 - `samples/projects/embed-file-content/README.md` (embed a UTF-8 file as a compile-time string)
+- `samples/projects/sha256-digest/README.md` (compute a SHA-256 digest during compilation)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 
 ### Source file naming and organization

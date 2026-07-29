@@ -412,6 +412,23 @@ macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
 tree is derived from that body and remains scoped to the macro invocation.
 Macro-local token kinds do not alter ordinary Raven lexing or `SyntaxKind`.
 
+### Compile-time file and digest utilities
+
+`embedFileContent!("relative/path.txt")` reads UTF-8 text during compilation
+and expands to a string literal. Relative paths are resolved from the invoking
+source file. The compiler records the file as an input so semantic caches,
+incremental project builds, and language-server snapshots refresh when it is
+changed, deleted, or recreated.
+
+`sha256Digest!(literal)` computes a SHA-256 digest during compilation and
+expands to a lowercase hexadecimal string literal. Strings and characters use
+UTF-8; Boolean and numeric literals use culture-invariant text; `null` hashes
+the empty byte sequence. Non-literal expressions are rejected.
+
+Both aliases require `import Raven.Macros.*`. Their canonical names,
+`Raven.Macros.EmbedFileContent!` and `Raven.Macros.Sha256Digest!`, remain
+available without the wildcard import.
+
 ### Token streams
 
 `TokenTreeMacroContext.CreateTokenStream()` returns the stream selected for the

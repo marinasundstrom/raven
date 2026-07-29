@@ -1,0 +1,28 @@
+namespace Raven.Macros
+
+/// Computes the SHA-256 digest of a literal value during compilation.
+///
+/// Import `Raven.Macros.*` to invoke the conventional `sha256Digest!` alias.
+/// The canonical `Raven.Macros.Sha256Digest!` spelling remains available when
+/// the alias is shadowed or the namespace is not imported. The `Digest` suffix
+/// distinguishes the macro from .NET hashing types such as `SHA256`.
+///
+/// String and character values are hashed as UTF-8. Boolean and numeric values
+/// use their culture-invariant textual representation, and `null` hashes an
+/// empty byte sequence. The macro expands to a lowercase hexadecimal string
+/// literal, so no hashing occurs at runtime.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// let digest = sha256Digest!("hello")
+/// ```
+[Raven.CodeAnalysis.Macros.MacroAlias("sha256Digest")]
+public macro func Sha256Digest(
+    value: Raven.CodeAnalysis.Syntax.ExpressionSyntax,
+    context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
+) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandSha256Digest(context, value)
+}

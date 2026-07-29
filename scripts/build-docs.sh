@@ -60,6 +60,7 @@ required_library_pages=(
     "$macros_api_output/Raven/Macros/macro_Quote.html"
     "$macros_api_output/Raven/Macros/macro_Compile.html"
     "$macros_api_output/Raven/Macros/macro_EmbedFileContent.html"
+    "$macros_api_output/Raven/Macros/macro_Sha256Digest.html"
 )
 for required_page in "${required_library_pages[@]}"; do
     if [[ ! -f "$required_page" ]]; then
