@@ -1,7 +1,4 @@
-import System.Collections.Generic.*
-import System.Runtime.CompilerServices.*
-import System.Threading.*
-import System.Threading.Tasks.*
+import AspNetMinimalApi.Domain.*
 import Microsoft.AspNetCore.Builder.*
 import Microsoft.Extensions.DependencyInjection.*
 
@@ -11,76 +8,10 @@ builder.Services.AddOpenApi()
 use app = builder.Build()
 app.MapOpenApi()
 
-app.MapGet("/", func () => ApiInfo(
-    "Raven Pet Shelter",
-    "/openapi/v1.json"))
-
-func findPet(id: int) -> Pet {
-    match id {
-        1 => Dog("Rex", "Labrador")
-        2 => Cat("Luna", 9)
-        _ => Bird("Pip", true)
-    }
-}
-
-app.MapGet("/pets/{id}", findPet)
-
-func lookupPet(lookup: PetLookup) -> Pet {
-    match lookup {
-        int id => findPet(id)
-        PetName(let name) => match name {
-            "Rex" | "rex" => findPet(1)
-            "Luna" | "luna" => findPet(2)
-            _ => findPet(3)
-        }
-    }
-}
-
-app.MapPost("/pets/find", lookupPet)
-
-async func checkVaccinations(id: int) -> Task<VaccinationStatus> {
-    await Task.Delay(25)
-
-    if id == 1 {
-        return VaccinationStatus.Current("2027-06-01")
-    }
-
-    return VaccinationStatus.Due("Rabies")
-}
-
-app.MapGet("/pets/{id}/vaccinations", checkVaccinations)
-
-async func streamPets(
-    [EnumeratorCancellation] cancellationToken: CancellationToken
-) -> IAsyncEnumerable<Pet> {
-    yield findPet(1)
-    await Task.Delay(100, cancellationToken)
-    yield findPet(2)
-    await Task.Delay(100, cancellationToken)
-    yield findPet(3)
-}
-
-app.MapGet("/pets", streamPets)
+app.MapGet("/", GetApiInfo)
+app.MapGet("/pets/{id}", FindPet)
+app.MapPost("/pets/find", LookupPet)
+app.MapGet("/pets/{id}/vaccinations", CheckVaccinations)
+app.MapGet("/pets", StreamPets)
 
 app.Run()
-
-record ApiInfo(
-    val Name: string,
-    val OpenApiDocument: string)
-
-record class Dog(val Name: string, val Breed: string)
-
-record class Cat(val Name: string, val LivesRemaining: int)
-
-record class Bird(val Name: string, val CanTalk: bool)
-
-union Pet(Dog | Cat | Bird)
-
-record class PetName(val Name: string)
-
-union PetLookup(int | PetName)
-
-union VaccinationStatus {
-    case Current(nextDueDate: string)
-    case Due(vaccine: string)
-}

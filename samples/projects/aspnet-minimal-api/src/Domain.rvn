@@ -1,0 +1,72 @@
+namespace AspNetMinimalApi.Domain
+
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import System.Threading.Tasks.*
+
+func GetApiInfo() -> ApiInfo {
+    ApiInfo(
+        "Raven Pet Shelter",
+        "/openapi/v1.json")
+}
+
+func FindPet(id: int) -> Pet {
+    match id {
+        1 => Dog("Rex", "Labrador")
+        2 => Cat("Luna", 9)
+        _ => Bird("Pip", true)
+    }
+}
+
+func LookupPet(lookup: PetLookup) -> Pet {
+    match lookup {
+        int id => FindPet(id)
+        PetName(let name) => match name {
+            "Rex" | "rex" => FindPet(1)
+            "Luna" | "luna" => FindPet(2)
+            _ => FindPet(3)
+        }
+    }
+}
+
+async func CheckVaccinations(id: int) -> Task<VaccinationStatus> {
+    await Task.Delay(25)
+
+    if id == 1 {
+        return VaccinationStatus.Current("2027-06-01")
+    }
+
+    return VaccinationStatus.Due("Rabies")
+}
+
+async func StreamPets(
+    [EnumeratorCancellation] cancellationToken: CancellationToken
+) -> IAsyncEnumerable<Pet> {
+    yield FindPet(1)
+    await Task.Delay(100, cancellationToken)
+    yield FindPet(2)
+    await Task.Delay(100, cancellationToken)
+    yield FindPet(3)
+}
+
+record ApiInfo(
+    val Name: string,
+    val OpenApiDocument: string)
+
+record class Dog(val Name: string, val Breed: string)
+
+record class Cat(val Name: string, val LivesRemaining: int)
+
+record class Bird(val Name: string, val CanTalk: bool)
+
+union Pet(Dog | Cat | Bird)
+
+record class PetName(val Name: string)
+
+union PetLookup(int | PetName)
+
+union VaccinationStatus {
+    case Current(nextDueDate: string)
+    case Due(vaccine: string)
+}

@@ -19,6 +19,12 @@ The sample also includes named async and streaming handlers:
 - `GET /pets` streams `Pet` values and observes request cancellation.
 - `GET /openapi/v1.json` serves the generated OpenAPI document.
 
+`src/Domain.rvn` declares the model and endpoint handlers directly in the
+`AspNetMinimalApi.Domain` namespace. `src/Program.rvn` imports those namespace
+members and focuses only on application composition and route mapping. Unlike
+the equivalent C# organization, Raven does not require a static container
+class merely to share named handlers across files.
+
 ## Run
 
 From this folder:
