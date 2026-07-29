@@ -138,6 +138,92 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
+    public void TypingEmptyMatchIntoMacroFunctionBody_MatchesFullParseAtEveryStep()
+    {
+        var text = SourceText.From(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+                let source = expression.ToString() + " + " + offset.ToString()
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
+            }
+            """);
+        var tree = SyntaxTree.ParseText(text);
+        var insertionPosition = text.ToString().IndexOf(
+            "    let source",
+            StringComparison.Ordinal);
+        const string insertedText = """
+                match expression {
+
+                }
+
+            """;
+
+        foreach (var character in insertedText)
+        {
+            text = text.Replace(insertionPosition, 0, character.ToString());
+            tree = tree.WithChangedText(text);
+            insertionPosition++;
+
+            var fullParse = SyntaxTree.ParseText(text);
+            Assert.Equal(
+                fullParse.GetRoot().ToFullString(),
+                tree.GetRoot().ToFullString());
+        }
+    }
+
+    [Fact]
+    public void EditingTreeWithMissingExpression_DoesNotFailIncrementalReplacement()
+    {
+        var original = SourceText.From(
+            """
+            func First() {
+                let value =
+            }
+
+            func Second() {
+                let value = 1
+            }
+            """);
+        var tree = SyntaxTree.ParseText(original);
+        var literalPosition = original.ToString().LastIndexOf('1');
+        var updated = original.Replace(literalPosition, 1, "2");
+
+        var incrementalTree = tree.WithChangedText(updated);
+        var fullParse = SyntaxTree.ParseText(updated);
+
+        Assert.Equal(
+            fullParse.GetRoot().ToFullString(),
+            incrementalTree.GetRoot().ToFullString());
+    }
+
+    [Fact]
+    public void EditingTreeWithSkippedTokens_DoesNotFailIncrementalReplacement()
+    {
+        var original = SourceText.From(
+            """
+            func First() {
+                )
+            }
+
+            func Second() {
+                let value = 1
+            }
+            """);
+        var tree = SyntaxTree.ParseText(original);
+        var literalPosition = original.ToString().LastIndexOf('1');
+        var updated = original.Replace(literalPosition, 1, "2");
+
+        var incrementalTree = tree.WithChangedText(updated);
+        var fullParse = SyntaxTree.ParseText(updated);
+
+        Assert.Equal(
+            fullParse.GetRoot().ToFullString(),
+            incrementalTree.GetRoot().ToFullString());
+    }
+
+    [Fact]
     public void ApplyChangedTextToSyntaxTree_Advanced()
     {
         var sourceText = SourceText.From(

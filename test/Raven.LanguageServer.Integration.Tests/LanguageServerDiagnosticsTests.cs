@@ -203,21 +203,87 @@ macro func Inspect(expression: ExpressionSyntax) {
         Directory.CreateDirectory(sourceDirectory);
         var documentPath = Path.Combine(sourceDirectory, "main.rvn");
         const string validCode = """
+import System.Console.*
+import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Inspect(expression: ExpressionSyntax) {
+macro func Double(value: int) {
+    let doubled = value * 2
+    expand SyntaxFactory.ParseExpression(doubled.ToString())
+}
+
+macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+    let source = expression.ToString() + " + " + offset.ToString()
+    expand SyntaxFactory.ParseExpression(source)
+}
+
+macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+    let token = tokens.ReadToken()
+    let length = token.Text.Length + offset
+    expand SyntaxFactory.ParseExpression(length.ToString())
+}
+
+func Main() {
+    let answer = Double!(21)
+    let projectedExpression = AddOffset!(2, 40)
+    let tokenLength = FirstTokenLength!(1) { raven }
+}
+""";
+        const string incompleteCode = """
+import System.Console.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+macro func Double(value: int) {
+    let doubled = value * 2
+    expand SyntaxFactory.ParseExpression(doubled.ToString())
+}
+
+macro func AddOffset(offset: int, expression: ExpressionSyntax) {
     match expression {
-        _ => ()
-    }
-    expand SyntaxFactory.ParseExpression("0")
+    let source = expression.ToString() + " + " + offset.ToString()
+    expand SyntaxFactory.ParseExpression(source)
+}
+
+macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+    let token = tokens.ReadToken()
+    let length = token.Text.Length + offset
+    expand SyntaxFactory.ParseExpression(length.ToString())
+}
+
+func Main() {
+    let answer = Double!(21)
+    let projectedExpression = AddOffset!(2, 40)
+    let tokenLength = FirstTokenLength!(1) { raven }
 }
 """;
         const string invalidCode = """
+import System.Console.*
+import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Inspect(expression: ExpressionSyntax) {
-    match expression {}
-    expand SyntaxFactory.ParseExpression("0")
+macro func Double(value: int) {
+    let doubled = value * 2
+    expand SyntaxFactory.ParseExpression(doubled.ToString())
+}
+
+macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+    match expression {
+    }
+    let source = expression.ToString() + " + " + offset.ToString()
+    expand SyntaxFactory.ParseExpression(source)
+}
+
+macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+    let token = tokens.ReadToken()
+    let length = token.Text.Length + offset
+    expand SyntaxFactory.ParseExpression(length.ToString())
+}
+
+func Main() {
+    let answer = Double!(21)
+    let projectedExpression = AddOffset!(2, 40)
+    let tokenLength = FirstTokenLength!(1) { raven }
 }
 """;
         File.WriteAllText(documentPath, validCode);
@@ -241,13 +307,41 @@ macro func Inspect(expression: ExpressionSyntax) {
             diagnostic.Code.HasValue &&
             string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal));
 
+        await store.UpsertDocumentAsync(uri, incompleteCode);
+        _ = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
         await store.UpsertDocumentAsync(uri, invalidCode);
         var editedDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var editedSummary = string.Join(
+            Environment.NewLine,
+            editedDiagnostics.Select(diagnostic =>
+                $"{diagnostic.Code?.String}@{diagnostic.Range.Start.Line}:{diagnostic.Range.Start.Character} {diagnostic.Message}"));
 
-        editedDiagnostics.ShouldContain(diagnostic =>
+        editedDiagnostics.Any(diagnostic =>
             diagnostic.Code.HasValue &&
             string.Equals(diagnostic.Code.Value.String, "RAV2100", StringComparison.Ordinal) &&
-            diagnostic.Range.Start.Line == 3);
+            diagnostic.Range.Start.Line == 10).ShouldBeTrue(editedSummary);
+        editedDiagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV1013", StringComparison.Ordinal));
+        editedDiagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV1021", StringComparison.Ordinal));
+        editedDiagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV3601", StringComparison.Ordinal));
+        editedDiagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAVM010", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Double", StringComparison.Ordinal));
+        editedDiagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAVM010", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("FirstTokenLength", StringComparison.Ordinal));
+        editedDiagnostics.ShouldContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAVM010", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("AddOffset", StringComparison.Ordinal));
     }
 
     [Fact]

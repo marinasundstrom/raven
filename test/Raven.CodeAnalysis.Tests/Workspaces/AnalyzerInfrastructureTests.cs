@@ -553,6 +553,27 @@ public class AnalyzerInfrastructureTests
     }
 
     [Fact]
+    public void GetProjectAnalyzerDiagnostics_DoesNotReuseResultForDifferentCompilation()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solution = workspace.CurrentSolution.AddProject("Test");
+        var project = solution.Projects.Single();
+        workspace.TryApplyChanges(solution);
+
+        var references = TestMetadataReferences.Default.ToArray();
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var firstCompilation = Compilation.Create("Test", [], references, options);
+        var invalidTree = SyntaxTree.ParseText("let value =");
+        var secondCompilation = Compilation.Create("Test", [invalidTree], references, options);
+
+        var firstDiagnostics = workspace.GetProjectAnalyzerDiagnostics(project.Id, firstCompilation);
+        var secondDiagnostics = workspace.GetProjectAnalyzerDiagnostics(project.Id, secondCompilation);
+
+        firstDiagnostics.ShouldBeEmpty();
+        secondDiagnostics.ShouldContain(diagnostic => diagnostic.Location.SourceTree == invalidTree);
+    }
+
+    [Fact]
     public void GetProjectAnalyzerDiagnostics_AggregatesCachedDocumentAnalyzerDiagnostics()
     {
         CountingAnalyzer.AnalyzeCount = 0;

@@ -10,7 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   diagnostics no longer replace those errors with generated source positions.
   A broken macro function no longer prevents valid sibling macros from compiling
   and expanding, and attached macro targets are modeled as implicit parameters
-  for normal lookup and semantic tooling.
+  for normal lookup and semantic tooling. Incremental recovery now preserves
+  incomplete macro bodies, while language-service analysis retains the complete
+  authored macro compilation even when emission filters out a broken macro.
 - RavenDoc now omits redundant `public` modifiers, hides compiler-emitted
   extension grouping types and implementation-only accessors, preserves
   protected accessor contracts, and renders operator signatures without a

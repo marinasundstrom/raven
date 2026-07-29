@@ -366,6 +366,7 @@ public class Workspace
     private readonly record struct ProjectAnalyzerDiagnosticsCacheKey(
         ProjectId ProjectId,
         VersionStamp Version,
+        Compilation Compilation,
         bool ReportSuppressedDiagnostics);
 
     private readonly record struct DocumentAnalyzerDiagnosticsCacheKey(
@@ -483,6 +484,7 @@ public class Workspace
         var cacheKey = new ProjectAnalyzerDiagnosticsCacheKey(
             project.Id,
             project.Version,
+            compilation,
             analyzerOptions?.ReportSuppressedDiagnostics ?? false);
         if (_projectAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
         {

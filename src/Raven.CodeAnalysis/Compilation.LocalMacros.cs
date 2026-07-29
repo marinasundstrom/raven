@@ -42,20 +42,21 @@ public partial class Compilation
         var signatureDiagnostics = RewriteLocalMacroDependencyCycles(
             _macroSignatureCompilation.GetDiagnostics());
         var macroTreesToCompile = _macroSyntaxTrees;
+        var macroImplementationCompilation = _macroSignatureCompilation;
         if (signatureDiagnostics.Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
         {
             macroTreesToCompile = CreateValidLocalMacroTrees(signatureDiagnostics);
             if (macroTreesToCompile.Length == 0)
                 return CompleteFailedLocalMacroPartition(signatureDiagnostics);
 
-            _macroSignatureCompilation = new Compilation(
+            macroImplementationCompilation = new Compilation(
                 $"{AssemblyName}.MacroSignatures",
                 macroTreesToCompile,
                 [],
                 references,
                 _macroReferences,
                 Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
-            var remainingDiagnostics = _macroSignatureCompilation.GetDiagnostics();
+            var remainingDiagnostics = macroImplementationCompilation.GetDiagnostics();
             if (remainingDiagnostics.Any(static diagnostic =>
                     diagnostic.Severity == DiagnosticSeverity.Error))
             {
@@ -67,7 +68,7 @@ public partial class Compilation
         var loweredMacroTrees = macroTreesToCompile
             .Select(tree => MacroFunctionLowering.Lower(
                 tree,
-                _macroSignatureCompilation.GetSemanticModel(tree)))
+                macroImplementationCompilation.GetSemanticModel(tree)))
             .ToArray();
         _macroPartitionCompilation = new Compilation(
             $"{AssemblyName}.Macros",

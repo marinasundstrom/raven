@@ -33,5 +33,14 @@ internal partial class ExpressionSyntax : ExpressionOrPatternSyntax
         {
             return visitor.Visit(this);
         }
+
+        internal override Missing With(
+            GreenNode[] children,
+            DiagnosticInfo[]? diagnostics = null,
+            SyntaxAnnotation[]? annotations = null)
+            => new(
+                Kind,
+                diagnostics ?? _diagnostics,
+                annotations ?? _annotations);
     }
 }
