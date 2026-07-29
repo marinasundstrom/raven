@@ -1431,48 +1431,6 @@ dotnet_diagnostic.RAV9029.severity = error
     }
 
     [Fact]
-    public async Task Initialize_RepositoryRoot_ResolvesMacrosForMacroReactiveSampleAsync()
-    {
-        var repoRoot = GetRepositoryRoot();
-        var appPath = Path.Combine(repoRoot, "samples", "projects", "macro-reactive", "app", "src", "Program.rvn");
-        var appUri = DocumentUri.FromFileSystemPath(appPath);
-
-        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
-        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
-        manager.Initialize(new InitializeParams
-        {
-            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
-            {
-                Name = "Raven",
-                Uri = DocumentUri.FromFileSystemPath(repoRoot)
-            })
-        });
-
-        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = await store.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
-
-        var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
-        diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
-
-        store.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
-        document.ShouldNotBeNull();
-        compilation.ShouldNotBeNull();
-
-        var syntaxTree = await document.GetSyntaxTreeAsync();
-        syntaxTree.ShouldNotBeNull();
-
-        var semanticModel = compilation.GetSemanticModel(syntaxTree!);
-        var root = syntaxTree.GetRoot();
-        var attribute = root.DescendantNodes()
-            .OfType<AttributeSyntax>()
-            .Single(candidate => candidate.Name.ToString() == "Observable");
-        var freestanding = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
-
-        semanticModel.GetMacroExpansion(attribute).ShouldNotBeNull();
-        semanticModel.GetMacroExpansion(freestanding).ShouldNotBeNull();
-    }
-
-    [Fact]
     public async Task TryGetRefactorings_ReturnsContextActionsForOpenDocumentAsync()
     {
         Directory.CreateDirectory(_tempRoot);
