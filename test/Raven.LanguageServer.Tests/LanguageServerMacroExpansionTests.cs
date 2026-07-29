@@ -19,6 +19,8 @@ public sealed class LanguageServerMacroExpansionTests
     public void MacroExpansionDisplayService_BuildsPreviewAtAttributePosition()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class MyViewModel {
     #[Observable]
     var Title: string
@@ -54,6 +56,8 @@ class MyViewModel {
     public void MacroExpansionDisplayService_BuildsPreviewForRequestedRange()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class MyViewModel {
     #[Observable]
     var Title: string
@@ -92,6 +96,8 @@ class MyViewModel {
     public void MacroExpansionDisplayService_FormatsDetachedSyntaxFactoryExpansion()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class MyViewModel {
     #[Observable]
     var Title: string = ""
@@ -128,6 +134,8 @@ class MyViewModel {
     public void MacroExpansionDisplayService_ShowsComposedExpansionForStackedMacros()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class MyViewModel {
     #[First]
     #[Second]
@@ -164,8 +172,10 @@ class MyViewModel {
     public void MacroExpansionDisplayService_BuildsPreviewForFreestandingMacroExpression()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class Harness {
-    func Run() -> int => #answer()
+    func Run() -> int => answer!()
 }
 """;
 
@@ -190,7 +200,7 @@ class Harness {
 
         success.ShouldBeTrue();
         display.MacroName.ShouldBe("answer");
-        display.InvocationDisplay.ShouldBe("#answer(...)");
+        display.InvocationDisplay.ShouldBe("answer!(...)");
         display.FullText.ShouldBe("42");
     }
 
@@ -199,7 +209,7 @@ class Harness {
     {
         const string code = """
 class Harness {
-    func Run() -> int => #raven {
+    func Run() -> int => Raven.LanguageServer.Tests.raven! {
         40 + 2
     }
 }
@@ -225,8 +235,8 @@ class Harness {
             out var display);
 
         success.ShouldBeTrue();
-        display.MacroName.ShouldBe("raven");
-        display.InvocationDisplay.ShouldBe("#raven { ... }");
+        display.MacroName.ShouldBe("Raven.LanguageServer.Tests.raven");
+        display.InvocationDisplay.ShouldBe("Raven.LanguageServer.Tests.raven! { ... }");
         display.FullText.ShouldBe("40 + 2");
     }
 
@@ -234,6 +244,8 @@ class Harness {
     public void MacroExpansionDisplayService_BuildsPreviewForBangMacroExpression()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class Harness {
     func Run() -> int => raven! {
         40 + 2
@@ -268,9 +280,11 @@ class Harness {
     public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideFreestandingMacroArguments()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class Harness {
     func Run(viewModel: CounterViewModel) {
-        val subscription = #subscribe(viewModel.Count, (value) => {
+        val subscription = subscribe!(viewModel.Count, (value) => {
             WriteLine(value)
         })
     }
@@ -301,6 +315,8 @@ class Harness {
     public void HoverHandler_MacroHint_IncludesKindTargetsAndArguments()
     {
         const string code = """
+import Raven.LanguageServer.Tests.*
+
 class MyViewModel {
     #[Observable]
     var Title: string
@@ -330,6 +346,7 @@ class MyViewModel {
     {
         const string code = """
 import System.*
+import Raven.LanguageServer.Tests.*
 
 class ObservableInt {
     func Subscribe(handler: (int) -> unit) -> unit { }
@@ -344,7 +361,7 @@ class Harness {
     func WriteLine(value: int) -> unit { }
 
     func Run(viewModel: CounterViewModel) -> unit {
-        val subscription = #subscribe(viewModel.Count, (value) => {
+        val subscription = subscribe!(viewModel.Count, (value) => {
             WriteLine(value)
         })
     }
@@ -379,6 +396,7 @@ class Harness {
         const string code = """
 import System.*
 import System.Console.*
+import Raven.LanguageServer.Tests.*
 
 class MyViewModel {
     #[Observable]

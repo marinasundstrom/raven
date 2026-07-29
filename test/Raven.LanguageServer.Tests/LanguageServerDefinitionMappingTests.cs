@@ -211,7 +211,7 @@ class AnswerMacro : IFreestandingExpressionMacro {
 """);
         var appPath = Path.Combine(fixture.Root, "app", "src", "main.rvn");
         fixture.WriteRavenFile(appPath, """
-func Main() -> int => #answer()
+func Main() -> int => answer!()
 """);
 
         var result = await fixture.GetDefinitionAsync(appPath, "answer");

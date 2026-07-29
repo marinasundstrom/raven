@@ -14,8 +14,8 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sighelp-{Guid.NewGuid():N}");
 
     [Theory]
-    [InlineData("val syntax = #quote() { 42 }", "#quote() { ... }")]
-    [InlineData("val syntax = quote!() { 42 }", "quote!() { ... }")]
+    [InlineData("import Raven.Macros.*\n\nval syntax = quote!() { 42 }", "quote!() { ... }")]
+    [InlineData("val syntax = Raven.Macros.Quote!() { 42 }", "Raven.Macros.Quote!() { ... }")]
     public async Task SignatureHelpHandler_TokenTreeMacro_ShowsCompilerOwnedSignatureAsync(
         string code,
         string expectedLabel)
