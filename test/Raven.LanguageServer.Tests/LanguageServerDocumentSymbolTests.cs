@@ -168,6 +168,34 @@ if true {
         bootstrap.Kind.ShouldBe(SymbolKind.Function);
     }
 
+    [Fact]
+    public void Outline_IncludesMacroFunctions_WithDistinctSymbolKind()
+    {
+        const string code = """
+namespace Tools {
+    macro func Quote(body: ExpressionSyntax) -> ExpressionSyntax {
+        func Preserve() -> ExpressionSyntax => body
+        return Preserve()
+    }
+}
+""";
+
+        var symbols = GetDocumentSymbols(code);
+
+        var tools = symbols.Single();
+        tools.Name.ShouldBe("Tools");
+        tools.Kind.ShouldBe(SymbolKind.Namespace);
+        tools.Children.ShouldNotBeNull();
+
+        var quote = tools.Children.Single();
+        quote.Name.ShouldBe("Quote");
+        quote.Kind.ShouldBe(SymbolKind.Operator);
+        quote.Children.ShouldNotBeNull();
+        var preserve = quote.Children.Single();
+        preserve.Name.ShouldBe("Preserve");
+        preserve.Kind.ShouldBe(SymbolKind.Function);
+    }
+
     private static IReadOnlyList<DocumentSymbol> GetDocumentSymbols(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");

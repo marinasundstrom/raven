@@ -217,6 +217,15 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             case GlobalStatementSyntax { Statement: FunctionStatementSyntax functionStatement }:
                 symbol = CreateFunctionStatementSymbol(functionStatement, text);
                 return true;
+            case MacroFunctionDeclarationSyntax macroFunctionDeclaration:
+                symbol = CreateSymbol(
+                    macroFunctionDeclaration.Identifier.Text,
+                    SymbolKind.Operator,
+                    macroFunctionDeclaration.Span,
+                    macroFunctionDeclaration.Identifier.Span,
+                    text,
+                    BuildNestedFunctionSymbols(GetCallableBodyRoots(macroFunctionDeclaration), text).ToArray());
+                return true;
             case ClassDeclarationSyntax classDeclaration:
                 symbol = CreateTypeSymbol(classDeclaration, SymbolKind.Class, text);
                 return true;
@@ -478,6 +487,9 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
     }
 
     private static IEnumerable<SyntaxNode> GetCallableBodyRoots(FunctionStatementSyntax declaration)
+        => GetCallableBodyRoots(declaration.Body, declaration.ExpressionBody);
+
+    private static IEnumerable<SyntaxNode> GetCallableBodyRoots(MacroFunctionDeclarationSyntax declaration)
         => GetCallableBodyRoots(declaration.Body, declaration.ExpressionBody);
 
     private static IEnumerable<SyntaxNode> GetCallableBodyRoots(MethodDeclarationSyntax declaration)

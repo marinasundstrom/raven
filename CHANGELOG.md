@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Macro function declarations now appear in VS Code's document outline with a
+  distinct operator symbol, including local functions nested in their bodies.
 - The documentation build now publishes independent RavenDoc API sites for
   `Raven.Core` and `Raven.Macros` alongside the DocFX language site and browser
   Playground. Library documentation is prominent in the main navigation,
