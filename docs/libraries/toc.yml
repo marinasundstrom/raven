@@ -1,0 +1,16 @@
+- name: Library overview
+  href: index.md
+- name: Raven.Core
+  items:
+    - name: Guide
+      href: ../compiler/raven-core-library.md
+    - name: API reference
+      href: https://marinasundstrom.github.io/raven/libraries/raven-core/
+- name: Raven.Macros
+  items:
+    - name: Guide
+      href: ../compiler/raven-macros-library.md
+    - name: API reference
+      href: https://marinasundstrom.github.io/raven/libraries/raven-macros/
+    - name: Syntax-tree guide
+      href: ../compiler/api/syntax-tree.md

@@ -6,6 +6,10 @@ namespace Raven.Macros
 /// compilation is comparatively expensive, so applications should compile
 /// once and reuse the resulting delegate.
 ///
+/// The macro first represents its body through Raven's
+/// [syntax-tree API](https://marinasundstrom.github.io/raven/compiler/api/syntax-tree.html)
+/// before compiling it into the requested delegate type.
+///
 /// ## Example
 ///
 /// ```raven

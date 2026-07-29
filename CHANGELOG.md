@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- The documentation build now publishes independent RavenDoc API sites for
+  `Raven.Core` and `Raven.Macros` alongside the DocFX language site and browser
+  Playground. Library documentation is prominent in the main navigation,
+  compiler APIs are supporting tooling reference, and macro pages link to the
+  compiler syntax-tree guide.
+- RavenDoc now renders namespace functions and `macro func` declarations on
+  namespace pages. Namespace-function pages preserve the Raven-facing shape
+  while identifying the emitted CLR container for consumers in other .NET
+  languages.
 - Moved the standard `quote` and `compile` declarations into the Raven-authored
   `Raven.Macros` compiler-plugin assembly. Its aliases require
   `import Raven.Macros.*`, while canonical qualified names remain available.

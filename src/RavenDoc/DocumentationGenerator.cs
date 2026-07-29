@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 
@@ -8,6 +7,7 @@ using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 
 public static class DocumentationGenerator
 {
@@ -51,6 +51,11 @@ public static class DocumentationGenerator
     private static readonly HashSet<string> ReportedBrokenXrefs
         = new(StringComparer.Ordinal);
 
+    private static readonly Dictionary<string, List<ISymbol>> AdditionalNamespaceMembers
+        = new(StringComparer.Ordinal);
+
+    private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
+
     static DocumentationGenerator()
     {
         MarkdownPipeline = new MarkdownPipelineBuilder()
@@ -86,20 +91,65 @@ public static class DocumentationGenerator
                 .WithKindOptions(SymbolDisplayKindOptions.None);
     }
 
-    public static void ProcessCompilation(Compilation compilation, string outputDir)
+    public static void ProcessCompilation(
+        Compilation compilation,
+        string outputDir,
+        DocumentationSiteOptions? siteOptions = null)
     {
         _ = compilation.GetDiagnostics();
-        Process(compilation, compilation.Assembly, compilation.GetSourceGlobalNamespace(), outputDir);
+        var additionalNamespaceMembers = compilation.SyntaxTrees
+            .Concat(compilation.MacroSyntaxTrees)
+            .Distinct()
+            .SelectMany(tree =>
+            {
+                var semanticModel = compilation.GetSemanticModel(tree);
+                var macroFunctions = tree.GetRoot()
+                    .DescendantNodesAndSelf()
+                    .OfType<MacroFunctionDeclarationSyntax>()
+                    .Select(semanticModel.GetDeclaredSymbol)
+                    .OfType<IMacroFunctionSymbol>()
+                    .Cast<ISymbol>();
+                var namespaceFunctions = tree.GetRoot()
+                    .DescendantNodesAndSelf()
+                    .OfType<FunctionStatementSyntax>()
+                    .Where(function =>
+                        function.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+                    .Select(semanticModel.GetDeclaredSymbol)
+                    .OfType<IMethodSymbol>()
+                    .Cast<ISymbol>();
+                return macroFunctions.Concat(namespaceFunctions);
+            })
+            .Distinct(SymbolEqualityComparer.Default)
+            .ToArray();
+        Process(
+            compilation,
+            compilation.Assembly,
+            compilation.GetSourceGlobalNamespace(),
+            outputDir,
+            additionalNamespaceMembers,
+            siteOptions);
     }
 
-    public static void ProcessAssembly(Compilation compilation, IAssemblySymbol assembly, string outputDir)
-        => Process(compilation, assembly, assembly.GlobalNamespace, outputDir);
+    public static void ProcessAssembly(
+        Compilation compilation,
+        IAssemblySymbol assembly,
+        string outputDir,
+        DocumentationSiteOptions? siteOptions = null)
+        => Process(
+            compilation,
+            assembly,
+            assembly.GlobalNamespace,
+            outputDir,
+            additionalNamespaceMembers: [],
+            siteOptions);
 
     private static void Process(
         Compilation compilation,
         IAssemblySymbol assembly,
         INamespaceSymbol globalNamespace,
-        string outputDir)
+        string outputDir,
+        IReadOnlyList<ISymbol> additionalNamespaceMembers,
+        DocumentationSiteOptions? siteOptions)
     {
         try { Directory.Delete(outputDir, recursive: true); } catch { }
         try { Directory.CreateDirectory(outputDir); } catch { }
@@ -110,6 +160,19 @@ public static class DocumentationGenerator
         DocInfoCache.Clear();
         XrefToTargetPath.Clear();
         ReportedBrokenXrefs.Clear();
+        AdditionalNamespaceMembers.Clear();
+        SiteLinks = siteOptions?.Links ?? [];
+        foreach (var symbol in additionalNamespaceMembers)
+        {
+            var namespaceName = GetNamespaceFullName(symbol.ContainingNamespace);
+            if (!AdditionalNamespaceMembers.TryGetValue(namespaceName, out var symbols))
+            {
+                symbols = [];
+                AdditionalNamespaceMembers.Add(namespaceName, symbols);
+            }
+
+            symbols.Add(symbol);
+        }
 
         WriteSharedTheme();
         WriteStyleSheet();
@@ -117,6 +180,8 @@ public static class DocumentationGenerator
 
         // PASS 1: Build xref index (so forward references resolve)
         BuildXrefIndex(globalNamespace);
+        foreach (var symbol in additionalNamespaceMembers)
+            AddSymbolToXrefIndex(symbol);
 
         AssemblyNameToPath.Clear();
 
@@ -136,6 +201,14 @@ public static class DocumentationGenerator
 
         // PASS 2: Generate pages
         ProcessSymbol(compilation, globalNamespace);
+        foreach (var namespaceRoot in additionalNamespaceMembers
+            .Select(static symbol => GetOutermostNamespace(symbol.ContainingNamespace))
+            .Where(static namespaceSymbol => namespaceSymbol is not null)
+            .Distinct(SymbolEqualityComparer.Default)
+            .Cast<INamespaceSymbol>())
+        {
+            ProcessSymbol(compilation, namespaceRoot);
+        }
     }
 
     private static void ProcessSymbol(Compilation compilation, ISymbol symbol)
@@ -147,14 +220,6 @@ public static class DocumentationGenerator
         else if (symbol is INamespaceSymbol namespaceSymbol)
         {
             GenerateNamespacePage(compilation, namespaceSymbol);
-        }
-
-        if (symbol is INamespaceOrTypeSymbol namespaceOrTypeSymbol)
-        {
-            foreach (var member in namespaceOrTypeSymbol.GetMembers().Where(GetMembersFilterPredicate))
-            {
-                ProcessSymbol(compilation, member);
-            }
         }
     }
 
@@ -217,6 +282,24 @@ body {
 }
 
 .page-context { color: var(--muted); font-size: 0.9rem; }
+
+.site-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-left: auto;
+    font-size: 0.9rem;
+}
+
+.site-navigation a {
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.site-navigation a:hover {
+    color: var(--link);
+}
 
 .content-shell {
     max-width: 1100px;
@@ -297,6 +380,8 @@ footer {
 }
 
 @media (max-width: 640px) {
+    .site-header { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
+    .site-navigation { justify-content: flex-start; margin-left: 0; overflow-x: auto; width: 100%; }
     .page-context { display: none; }
     .api-content { border-radius: 0.85rem; }
 }
@@ -372,6 +457,17 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         var highlightScriptHref = RelLink(currentDir, Path.Combine(outputDir, "highlight.js"));
         var homeHref = RelLink(currentDir, Path.Combine(outputDir, "index.html"));
 
+        var siteNavigation = SiteLinks.Count == 0
+            ? string.Empty
+            : $"""
+              <nav class="site-navigation" aria-label="Related documentation">
+                {string.Join(
+                    Environment.NewLine,
+                    SiteLinks.Select(link =>
+                        $"<a href=\"{HtmlEscape(link.Url)}\">{HtmlEscape(link.Label)}</a>"))}
+              </nav>
+              """;
+
         return $"""
         <!doctype html>
         <html lang="en">
@@ -392,6 +488,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
                 <small>Raven API reference</small>
               </span>
             </a>
+            {siteNavigation}
             <span class="page-context">{HtmlEscape(pageLabelOrTitle)}</span>
           </header>
           <main class="content-shell">
@@ -477,7 +574,10 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
     private static string GetMemberGroupPath(ISymbol member)
     {
-        var typeDir = GetTypeDir(member.ContainingType!);
+        var typeDir = member.ContainingType is { } containingType &&
+                      !IsAdditionalNamespaceMember(member)
+            ? GetTypeDir(containingType)
+            : GetNamespaceDir(member.ContainingNamespace);
         var groupKey = GetMemberGroupKey(member);
         var fileName = GetSafeFileName(groupKey) + ".html";
         return Path.Combine(typeDir, fileName);
@@ -578,6 +678,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         if (member is IFieldSymbol fs)
             return $"field:{fs.Name}";
 
+        if (member is IMacroFunctionSymbol macro)
+            return $"macro:{macro.Name}";
+
         return $"{member.Kind}:{member.Name}";
     }
 
@@ -626,6 +729,8 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     {
         Namespaces,
         Types,
+        Functions,
+        Macros,
         Constants,
         Fields,
         Constructors,
@@ -655,6 +760,8 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     {
     MemberSectionKind.Namespaces,
     MemberSectionKind.Types,
+    MemberSectionKind.Functions,
+    MemberSectionKind.Macros,
     MemberSectionKind.Other
 };
 
@@ -662,6 +769,8 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     {
         MemberSectionKind.Namespaces => "Namespaces",
         MemberSectionKind.Types => "Types",
+        MemberSectionKind.Functions => "Functions",
+        MemberSectionKind.Macros => "Macros",
         MemberSectionKind.Constants => "Constants",
         MemberSectionKind.Fields => "Fields",
         MemberSectionKind.Constructors => "Constructors",
@@ -803,6 +912,8 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         {
             INamespaceSymbol => MemberSectionKind.Namespaces,
             ITypeSymbol => MemberSectionKind.Types,
+            IMethodSymbol => MemberSectionKind.Functions,
+            IMacroFunctionSymbol => MemberSectionKind.Macros,
             _ => MemberSectionKind.Other
         };
     }
@@ -858,8 +969,17 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         if (DocInfoCache.TryGetValue(symbol, out var cached))
             return cached;
 
-        var comment = symbol.GetDocumentationComment();
-        var raw = comment?.Content;
+        string? raw;
+        try
+        {
+            raw = symbol.GetDocumentationComment()?.Content;
+        }
+        catch (BadImageFormatException exception)
+        {
+            Console.WriteLine(
+                $"Skipping unreadable documentation metadata for '{symbol.Name}': {exception.Message}");
+            raw = null;
+        }
 
         var info = new SymbolDocInfo
         {
@@ -946,6 +1066,21 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         }
 
         return rows;
+    }
+
+    private static bool CanRenderSymbol(ISymbol symbol)
+    {
+        try
+        {
+            _ = symbol.ToDisplayString(MemberDisplayFormat);
+            return true;
+        }
+        catch (BadImageFormatException exception)
+        {
+            Console.WriteLine(
+                $"Skipping unreadable API symbol '{symbol.Name}': {exception.Message}");
+            return false;
+        }
     }
 
     private static void AppendMemberTable(StringBuilder sb, string title, string currentDir, IEnumerable<ISymbol> members)
@@ -1075,20 +1210,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             if (!GetMembersFilterPredicate(s))
                 return;
 
-            var id = GetXrefId(s);
-            if (!string.IsNullOrWhiteSpace(id))
-            {
-                // Normalize overload IDs (M:/P: with params) to group IDs
-                var normalized = NormalizeXrefIdForIndex(id);
-                XrefToTargetPath[normalized] = GetTargetPathForLink(s);
-            }
-
-            if (s is ITypeSymbol ts && ts.Name.Contains("Result", StringComparison.OrdinalIgnoreCase))
-            {
-                Debug.WriteLine($"Type candidate: Name='{ts.Name}', Arity={(ts is INamedTypeSymbol n ? n.Arity : -1)}, " +
-                                  $"Namespace='{(ts.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>")}', " +
-                                  $"DocId='{id}'");
-            }
+            AddSymbolToXrefIndex(s);
 
             if (s is INamespaceOrTypeSymbol nts)
             {
@@ -1098,6 +1220,16 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         }
 
         Visit(globalNamespace);
+    }
+
+    private static void AddSymbolToXrefIndex(ISymbol symbol)
+    {
+        var id = GetXrefId(symbol);
+        if (string.IsNullOrWhiteSpace(id))
+            return;
+
+        var normalized = NormalizeXrefIdForIndex(id);
+        XrefToTargetPath[normalized] = GetTargetPathForLink(symbol);
     }
 
     private static string RenderMarkdownWithXrefs(string markdown, string currentDir)
@@ -1191,6 +1323,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             INamespaceSymbol ns => ns.IsGlobalNamespace ? "" : $"N:{GetNamespaceFullName(ns)}",
             ITypeSymbol ts => $"T:{GetTypeDocName(ts)}",
             IMethodSymbol ms => $"M:{GetMethodDocName(ms)}",
+            IMacroFunctionSymbol macro => $"M:{GetMacroFunctionDocName(macro)}",
             IPropertySymbol ps => $"P:{GetPropertyDocName(ps)}",
             IFieldSymbol fs => $"F:{GetFieldDocName(fs)}",
             IEventSymbol es => $"E:{GetEventDocName(es)}",
@@ -1275,6 +1408,37 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             {
                 if (i > 0) sb.Append(',');
                 sb.Append(GetParamTypeDocName(ms.Parameters[i].Type));
+            }
+            sb.Append(')');
+        }
+
+        return sb.ToString();
+    }
+
+    private static string GetMacroFunctionDocName(IMacroFunctionSymbol macro)
+    {
+        var sb = new StringBuilder();
+        if (macro.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
+        {
+            sb.Append(GetNamespaceFullName(containingNamespace));
+            sb.Append('.');
+        }
+
+        sb.Append(macro.Name);
+        if (macro.Arity > 0)
+        {
+            sb.Append("``");
+            sb.Append(macro.Arity);
+        }
+
+        if (!macro.Parameters.IsEmpty)
+        {
+            sb.Append('(');
+            for (var index = 0; index < macro.Parameters.Length; index++)
+            {
+                if (index > 0)
+                    sb.Append(',');
+                sb.Append(GetParamTypeDocName(macro.Parameters[index].Type));
             }
             sb.Append(')');
         }
@@ -1404,6 +1568,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         var members = typeSymbol.GetMembers()
             .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
+            .Where(CanRenderSymbol)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
@@ -1430,7 +1595,11 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         File.WriteAllText(indexPath, pageHtml);
     }
 
-    private static void GenerateMemberGroupPage(Compilation compilation, ITypeSymbol containingType, string groupKey, IReadOnlyList<ISymbol> members)
+    private static void GenerateMemberGroupPage(
+        Compilation compilation,
+        ITypeSymbol? containingType,
+        string groupKey,
+        IReadOnlyList<ISymbol> members)
     {
         if (members.Count == 0)
             return;
@@ -1451,16 +1620,25 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             : groupName;
 
         sb.AppendLine($"# {EscapeName(name)}");
+        if (containingType is not null)
         {
             var target = GetTypeIndexPath(containingType);
             var memberName = EscapeName(containingType.ToDisplayString(ContainingTypeDisplayFormat));
             sb.AppendLine($"**Type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
-        if (containingType.ContainingNamespace is not null)
+        else if (members[0].ContainingType is { } clrContainer)
         {
-            var ns = containingType.ContainingNamespace!;
-            var target = GetNamespaceIndexPath(ns);
-            var memberName = EscapeName(ns.ToDisplayString(ContainingNamespaceDisplayFormat));
+            var clrContainerName = clrContainer.ToDisplayString(
+                SymbolDisplayFormat.FullyQualifiedFormat
+                    .WithKindOptions(SymbolDisplayKindOptions.None));
+            sb.AppendLine(
+                $"**CLR container (for .NET interop)**: `{EscapeName(clrContainerName)}`<br />");
+        }
+        var containingNamespace = containingType?.ContainingNamespace ?? members[0].ContainingNamespace;
+        if (containingNamespace is not null)
+        {
+            var target = GetNamespaceIndexPath(containingNamespace);
+            var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
             sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
@@ -1535,18 +1713,59 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
         sb.AppendLine();
 
-        var members = namespaceSymbol.GetMembers()
+        var namespaceName = GetNamespaceFullName(namespaceSymbol);
+        var declaredNamespaceMembers = namespaceSymbol.GetMembers();
+        var namespaceMemberContainers = declaredNamespaceMembers
+            .OfType<INamedTypeSymbol>()
+            .Where(IsNamespaceMemberContainer)
+            .ToArray();
+        var promotedNamespaceMembers = namespaceMemberContainers
+            .SelectMany(static container => container.GetMembers())
+            .Where(static member =>
+                member.IsStatic &&
+                member is not IMethodSymbol { MethodKind: MethodKind.Constructor })
+            .Where(GetMembersFilterPredicate);
+        var explicitAdditionalMembers = AdditionalNamespaceMembers.TryGetValue(
+            namespaceName,
+            out var documentedMembers)
+            ? documentedMembers
+            : [];
+        var additionalMembers = promotedNamespaceMembers
+            .Concat(explicitAdditionalMembers)
+            .Distinct(SymbolEqualityComparer.Default)
+            .ToArray();
+        var interopContainers = additionalMembers
+            .OfType<IMethodSymbol>()
+            .Select(static method => method.ContainingType)
+            .Where(static type => type is not null)
+            .ToHashSet(SymbolEqualityComparer.Default);
+        var members = declaredNamespaceMembers
+            .Concat(additionalMembers)
             .Where(GetMembersFilterPredicate)
+            .Where(CanRenderSymbol)
+            .Where(member =>
+                member is not ITypeSymbol type ||
+                !interopContainers.Contains(type))
+            .Distinct(SymbolEqualityComparer.Default)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
-            .Where(IsFromDocumentedAssembly)
+            .Where(member =>
+                additionalMembers.Contains(member, SymbolEqualityComparer.Default) ||
+                member is INamespaceSymbol childNamespace &&
+                NamespaceContainsDocumentableMembers(childNamespace) ||
+                IsFromDocumentedAssembly(member))
             .ToArray();
 
         AppendGroupedMemberTables(sb, currentDir, members, isNamespacePage: true);
 
         foreach (var ns2 in members.OfType<INamespaceSymbol>())
         {
-            if (ns2.GetMembers().All(x => x.DeclaredAccessibility != Accessibility.Public))
+            var childNamespaceName = GetNamespaceFullName(ns2);
+            var hasAdditionalPublicMembers =
+                AdditionalNamespaceMembers.TryGetValue(childNamespaceName, out var childMembers) &&
+                childMembers.Any(GetMembersFilterPredicate);
+            if (!hasAdditionalPublicMembers &&
+                !NamespaceContainsDocumentableMembers(ns2))
                 continue;
 
             GenerateNamespacePage(compilation, ns2);
@@ -1559,8 +1778,11 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
         foreach (var m in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol))
         {
-            if (m.ContainingType is not null)
-                GenerateMemberGroupPage(compilation, m.ContainingType, GetMemberGroupKey(m), new[] { m });
+            GenerateMemberGroupPage(
+                compilation,
+                IsAdditionalNamespaceMember(m) ? null : m.ContainingType,
+                GetMemberGroupKey(m),
+                new[] { m });
         }
 
         var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
@@ -1587,6 +1809,72 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         return SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, documentedAssembly);
     }
 
+    private static bool IsAdditionalNamespaceMember(ISymbol symbol)
+    {
+        if (symbol.ContainingType is INamedTypeSymbol containingType &&
+            IsNamespaceMemberContainer(containingType))
+        {
+            return true;
+        }
+
+        var namespaceName = GetNamespaceFullName(symbol.ContainingNamespace);
+        return AdditionalNamespaceMembers.TryGetValue(namespaceName, out var members) &&
+               members.Contains(symbol, SymbolEqualityComparer.Default);
+    }
+
+    private static bool IsNamespaceMemberContainer(INamedTypeSymbol type)
+    {
+        if (string.Equals(type.Name, "NamespaceMembers", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        try
+        {
+            return type.GetAttributes().Any(static attribute =>
+                string.Equals(
+                    attribute.AttributeClass?.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat),
+                    "System.Runtime.CompilerServices.TopLevelAttribute",
+                    StringComparison.Ordinal));
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    private static bool NamespaceContainsDocumentableMembers(INamespaceSymbol namespaceSymbol)
+    {
+        foreach (var member in namespaceSymbol.GetMembers())
+        {
+            if (member is INamespaceSymbol childNamespace)
+            {
+                if (NamespaceContainsDocumentableMembers(childNamespace))
+                    return true;
+                continue;
+            }
+
+            if (member.DeclaredAccessibility == Accessibility.Public)
+                return true;
+        }
+
+        var namespaceName = GetNamespaceFullName(namespaceSymbol);
+        return AdditionalNamespaceMembers.TryGetValue(namespaceName, out var members) &&
+               members.Any(GetMembersFilterPredicate);
+    }
+
+    private static INamespaceSymbol? GetOutermostNamespace(INamespaceSymbol? namespaceSymbol)
+    {
+        if (namespaceSymbol is null || namespaceSymbol.IsGlobalNamespace)
+            return null;
+
+        var current = namespaceSymbol;
+        while (current.ContainingNamespace is { IsGlobalNamespace: false } parent)
+            current = parent;
+        return current;
+    }
+
     // ----------------------------
     // Reference equality comparer (so we can use ISymbol keys safely)
     // ----------------------------
@@ -1600,3 +1888,10 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         public int GetHashCode(T obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 }
+
+public sealed record DocumentationSiteOptions(IReadOnlyList<DocumentationSiteLink> Links)
+{
+    public static DocumentationSiteOptions Empty { get; } = new([]);
+}
+
+public sealed record DocumentationSiteLink(string Label, string Url);

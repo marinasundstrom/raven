@@ -16,5 +16,8 @@ Start with:
 - [JSON serialization](json-serialization.md)
 
 Project extensions are covered from a user and library-author perspective.
-Compiler architecture, detailed API designs, and contributor workflows remain
-separate from the user manual.
+The [compiler API](api/README.md) remains available as supporting reference for
+macro authors, tooling developers, and compiler integrations, but language use
+and the standard [Raven libraries](../libraries/index.md) are the primary
+documentation paths. Compiler architecture, detailed API designs, and
+contributor workflows remain separate from the user manual.

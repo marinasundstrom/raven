@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 return RavenDocCommand.Run(args);
@@ -36,11 +37,20 @@ internal static class RavenDocCommand
 
             if (inputPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
-                GenerateFromAssembly(inputPath, outputPath, options.TargetFramework);
+                GenerateFromAssembly(
+                    inputPath,
+                    outputPath,
+                    options.TargetFramework,
+                    options.SiteOptions);
             }
             else
             {
-                GenerateFromSource(inputPath, outputPath, options.TargetFramework);
+                GenerateFromSource(
+                    inputPath,
+                    outputPath,
+                    options.TargetFramework,
+                    options.SiteOptions,
+                    options.ReferencePaths);
             }
 
             Console.WriteLine($"RavenDoc wrote {outputPath}");
@@ -53,7 +63,12 @@ internal static class RavenDocCommand
         }
     }
 
-    private static void GenerateFromSource(string inputPath, string outputPath, string targetFramework)
+    private static void GenerateFromSource(
+        string inputPath,
+        string outputPath,
+        string targetFramework,
+        DocumentationSiteOptions siteOptions,
+        IReadOnlyList<string> referencePaths)
     {
         var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
         workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
@@ -77,33 +92,34 @@ internal static class RavenDocCommand
             var assemblyName = Directory.Exists(inputPath)
                 ? new DirectoryInfo(inputPath).Name
                 : Path.GetFileNameWithoutExtension(inputPath);
-            var projectId = workspace.AddProject(
-                assemblyName,
-                compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-            var project = workspace.CurrentSolution.GetProject(projectId)!;
-
-            foreach (var sourcePath in sourcePaths)
-            {
-                using var stream = File.OpenRead(sourcePath);
-                var document = project.AddDocument(
-                    Path.GetFileName(sourcePath),
-                    SourceText.From(stream),
-                    sourcePath);
-                project = document.Project;
-            }
-
-            foreach (var referencePath in GetFrameworkReferencePaths(targetFramework))
-                project = project.AddMetadataReference(MetadataReference.CreateFromFile(referencePath));
-
-            workspace.TryApplyChanges(project.Solution);
-            compilation = workspace.GetCompilation(projectId);
+            var parseOptions = workspace.Services.SyntaxTreeProvider.ParseOptions;
+            var syntaxTrees = sourcePaths
+                .Select(sourcePath => SyntaxTree.ParseText(
+                    SourceText.From(File.ReadAllText(sourcePath)),
+                    parseOptions,
+                    sourcePath))
+                .ToArray();
+            var references = GetFrameworkReferencePaths(targetFramework)
+                .Concat(referencePaths.Select(Path.GetFullPath))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(MetadataReference.CreateFromFile)
+                .ToArray();
+            compilation = Compilation.Create(
+                    assemblyName,
+                    options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(references)
+                .AddSyntaxTreesWithLocalMacros(syntaxTrees);
         }
 
         ReportErrors(compilation);
-        DocumentationGenerator.ProcessCompilation(compilation, outputPath);
+        DocumentationGenerator.ProcessCompilation(compilation, outputPath, siteOptions);
     }
 
-    private static void GenerateFromAssembly(string assemblyPath, string outputPath, string targetFramework)
+    private static void GenerateFromAssembly(
+        string assemblyPath,
+        string outputPath,
+        string targetFramework,
+        DocumentationSiteOptions siteOptions)
     {
         var targetReference = MetadataReference.CreateFromFile(assemblyPath);
         var references = new List<MetadataReference> { targetReference };
@@ -125,7 +141,7 @@ internal static class RavenDocCommand
         var assembly = compilation.GetAssemblyOrModuleSymbol(targetReference) as IAssemblySymbol
             ?? throw new InvalidOperationException($"Could not load assembly symbols from '{assemblyPath}'.");
 
-        DocumentationGenerator.ProcessAssembly(compilation, assembly, outputPath);
+        DocumentationGenerator.ProcessAssembly(compilation, assembly, outputPath, siteOptions);
     }
 
     private static void ReportErrors(Compilation compilation)
@@ -180,6 +196,8 @@ internal static class RavenDocCommand
         string? inputPath = null;
         string? outputPath = null;
         var targetFramework = DefaultTargetFramework;
+        var siteLinks = new List<DocumentationSiteLink>();
+        var referencePaths = new List<string>();
         var showHelp = false;
 
         for (var index = 0; index < args.Length; index++)
@@ -207,6 +225,27 @@ internal static class RavenDocCommand
                         options = default;
                         return false;
                     }
+                    break;
+                case "--nav":
+                    if (!TryReadValue(args, ref index, out var navigationValue) ||
+                        !TryParseNavigationLink(navigationValue!, out var navigationLink))
+                    {
+                        Console.Error.WriteLine(
+                            "Invalid --nav value. Use --nav \"Label=https://example.com/path/\".");
+                        options = default;
+                        return false;
+                    }
+                    siteLinks.Add(navigationLink);
+                    break;
+                case "-r":
+                case "--reference":
+                    if (!TryReadValue(args, ref index, out var referencePath))
+                    {
+                        Console.Error.WriteLine("Missing value for --reference.");
+                        options = default;
+                        return false;
+                    }
+                    referencePaths.Add(referencePath!);
                     break;
                 default:
                     if (args[index].StartsWith('-'))
@@ -236,7 +275,38 @@ internal static class RavenDocCommand
             return false;
         }
 
-        options = new RavenDocOptions(inputPath, outputPath, targetFramework!, showHelp);
+        options = new RavenDocOptions(
+            inputPath,
+            outputPath,
+            targetFramework!,
+            new DocumentationSiteOptions(siteLinks),
+            referencePaths,
+            showHelp);
+        return true;
+    }
+
+    private static bool TryParseNavigationLink(
+        string value,
+        out DocumentationSiteLink link)
+    {
+        var separator = value.IndexOf('=');
+        if (separator <= 0 || separator == value.Length - 1)
+        {
+            link = null!;
+            return false;
+        }
+
+        var label = value[..separator].Trim();
+        var url = value[(separator + 1)..].Trim();
+        if (label.Length == 0 ||
+            url.Length == 0 ||
+            !Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out _))
+        {
+            link = null!;
+            return false;
+        }
+
+        link = new DocumentationSiteLink(label, url);
         return true;
     }
 
@@ -263,6 +333,8 @@ internal static class RavenDocCommand
             Options:
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)
               -f, --framework <tfm>       Target framework used for references (default: net10.0)
+                  --nav <label=url>        Add a related-site link to the generated header
+              -r, --reference <assembly>   Add a metadata reference for source input
               -h, --help                  Show help
 
             RavenDoc reads Markdown directly from Raven source symbols or from a
@@ -274,5 +346,7 @@ internal static class RavenDocCommand
         string? InputPath,
         string? OutputPath,
         string TargetFramework,
+        DocumentationSiteOptions SiteOptions,
+        IReadOnlyList<string> ReferencePaths,
         bool ShowHelp);
 }

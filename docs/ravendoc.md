@@ -131,6 +131,15 @@ dotnet run --project src/RavenDoc -- \
 
 Use `--framework <tfm>` when the input targets something other than `net10.0`.
 When `--output` is omitted, RavenDoc writes `_site` next to the input.
+Source-directory input can add assembly dependencies with repeatable
+`--reference <assembly>` options. Repeatable `--nav <label=url>` options add
+links to related documentation sites in the generated header.
+
+Namespace functions are organized under their Raven namespace. Their pages
+also identify the emitted CLR container so consumers using C#, reflection, or
+another .NET language can locate the metadata member. Namespace-level
+`macro func` declarations are listed separately as macros and do not require a
+fabricated containing type in the Raven-facing reference.
 
 ## Relationship to metadata sidecars
 

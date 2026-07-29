@@ -32,25 +32,10 @@
           href: lang/philosophy.md
     - name: Language
       href: lang/
+    - name: Libraries
+      href: libraries/
     - name: Tools
       href: compiler/
-    - name: Compiler API
-      href: compiler/api/README.md
-      items:
-        - name: Overview
-          href: compiler/api/README.md
-        - name: Syntax trees
-          href: compiler/api/syntax-tree.md
-        - name: Semantic analysis
-          href: compiler/api/semantic-analysis.md
-        - name: Operations
-          href: compiler/api/operations.md
-        - name: Symbol resolution
-          href: compiler/api/symbol-resolution.md
-        - name: Performance guidance
-          href: compiler/api/performance.md
-        - name: .NET API reference
-          href: api/
     - name: Sample projects
       href: https://github.com/marinasundstrom/raven/tree/main/samples/projects
 - name: Playground

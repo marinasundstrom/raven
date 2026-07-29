@@ -6,8 +6,6 @@
   href: project-system.md
 - name: Extend a project
   href: extending-projects.md
-- name: Raven Core Library
-  href: raven-core-library.md
 - name: JSON serialization
   href: json-serialization.md
 - name: Diagnostics
@@ -16,3 +14,20 @@
   href: raven-vscode-extension.md
 - name: Distribution
   href: distribution.md
+- name: Compiler API
+  href: api/README.md
+  items:
+    - name: Overview
+      href: api/README.md
+    - name: Syntax trees
+      href: api/syntax-tree.md
+    - name: Semantic analysis
+      href: api/semantic-analysis.md
+    - name: Operations
+      href: api/operations.md
+    - name: Symbol resolution
+      href: api/symbol-resolution.md
+    - name: Performance guidance
+      href: api/performance.md
+    - name: .NET API reference
+      href: ../api/

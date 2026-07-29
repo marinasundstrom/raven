@@ -11,6 +11,11 @@ Standard compile-time macros live separately in `Raven.Macros`; see
 of compiler API dependencies while allowing macro libraries to declare their
 ordinary `Raven.CodeAnalysis` compatibility contract.
 
+Browse the generated
+[Raven.Core API reference](https://marinasundstrom.github.io/raven/libraries/raven-core/)
+for the public types and members extracted from Raven's Markdown documentation
+comments.
+
 ## How Raven.Core is built
 
 The `src/Raven.Core` project builds directly from the Raven sources in

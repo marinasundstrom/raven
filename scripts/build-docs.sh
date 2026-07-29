@@ -4,6 +4,8 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 site_output="$repository_root/_site"
 api_output="$repository_root/docs/api"
+core_api_output="$site_output/libraries/raven-core"
+macros_api_output="$site_output/libraries/raven-macros"
 
 dotnet tool restore --tool-manifest "$repository_root/.config/dotnet-tools.json"
 
@@ -18,22 +20,52 @@ if [[ -d "$api_output" ]]; then
     rm -rf -- "$api_output"
 fi
 
-# A clean checkout does not contain Raven's ignored generated compiler sources.
-# Generate them before MSBuild evaluates Raven.CodeAnalysis source globs so API
-# metadata sees the same complete public surface as an ordinary compiler build.
-(
-    cd "$repository_root/src/Raven.CodeAnalysis/Syntax"
-    dotnet run --project ../../../tools/NodeGenerator -- -f
-)
-(
-    cd "$repository_root/src/Raven.CodeAnalysis"
-    dotnet run --project ../../tools/BoundNodeGenerator -- -f
-    dotnet run --project ../../tools/DiagnosticsGenerator -- -f
-)
+# Build the compiler, Raven-authored libraries, and generated compiler sources
+# through the same bootstrap sequence used by local compiler development.
+BUILD_CONFIG=Debug "$repository_root/scripts/codex-build.sh"
 
-dotnet build "$repository_root/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" \
+dotnet build "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     --framework net10.0 \
+    --no-restore \
     --property WarningLevel=0
+
+# RavenDoc sites remain independent static sites. They are written into the
+# shared Pages artifact before DocFX runs; DocFX preserves unrelated output.
+dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
+    --framework net10.0 \
+    --no-build \
+    -- \
+    "$repository_root/src/Raven.Core/bin/Debug/net10.0/Raven.Core.dll" \
+    --output "$core_api_output" \
+    --framework net10.0 \
+    --nav "Raven docs=https://marinasundstrom.github.io/raven/" \
+    --nav "Raven.Macros API=https://marinasundstrom.github.io/raven/libraries/raven-macros/"
+
+dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
+    --framework net10.0 \
+    --no-build \
+    -- \
+    "$repository_root/src/Raven.Macros" \
+    --output "$macros_api_output" \
+    --framework net10.0 \
+    --reference "$repository_root/src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll" \
+    --nav "Raven docs=https://marinasundstrom.github.io/raven/" \
+    --nav "Raven.Core API=https://marinasundstrom.github.io/raven/libraries/raven-core/" \
+    --nav "Syntax trees=https://marinasundstrom.github.io/raven/compiler/api/syntax-tree.html"
+
+required_library_pages=(
+    "$core_api_output/index.html"
+    "$macros_api_output/index.html"
+    "$macros_api_output/Raven/Macros/index.html"
+    "$macros_api_output/Raven/Macros/macro_Quote.html"
+    "$macros_api_output/Raven/Macros/macro_Compile.html"
+)
+for required_page in "${required_library_pages[@]}"; do
+    if [[ ! -f "$required_page" ]]; then
+        echo "RavenDoc did not generate required library page: $required_page" >&2
+        exit 1
+    fi
+done
 
 # API metadata is generated separately. Existing source-comment warnings remain
 # visible without weakening strict validation of the authored documentation.

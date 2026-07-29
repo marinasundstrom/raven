@@ -53,11 +53,11 @@ dedicated introduction to Raven.
 ## Publication boundary
 
 `docs/docfx.json` explicitly lists public learning material, language reference,
-the tooling pages needed to use Raven, and a separate compiler API section.
-Compiler architecture and implementation details, contributor instructions,
-testing notes, investigations, language proposals, historical material, and
-standalone design work remain available in source control but are intentionally
-excluded from the user-facing site.
+the library entry points, the tooling pages needed to use Raven, and the
+supporting compiler API section. Compiler architecture and implementation
+details, contributor instructions, testing notes, investigations, language
+proposals, historical material, and standalone design work remain available in
+source control but are intentionally excluded from the user-facing site.
 
 ## Validation
 
@@ -85,3 +85,14 @@ The same Pages artifact includes the browser playground at:
 `scripts/build-playground-site.sh` builds the relocatable Blazor WebAssembly
 application and places it under `_site/playground/` after DocFX has built the
 main site. The playground and documentation therefore deploy atomically.
+
+The artifact also bundles two independent RavenDoc sites:
+
+- `Raven.Core` at `/raven/libraries/raven-core/`
+- `Raven.Macros` at `/raven/libraries/raven-macros/`
+
+RavenDoc retains its own static-site structure and rendering pipeline. The
+DocFX navigation links to these library references, and the RavenDoc headers
+link back to the language documentation and related references. The shared
+Raven theme keeps the sites visually related without coupling their page
+models.

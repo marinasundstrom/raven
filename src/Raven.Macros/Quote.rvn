@@ -6,6 +6,11 @@ namespace Raven.Macros
 /// canonical `Raven.Macros.Quote!` spelling remains available when the alias
 /// is shadowed or the namespace is not imported.
 ///
+/// The resulting value is rooted in Raven's
+/// [syntax-tree API](https://marinasundstrom.github.io/raven/compiler/api/syntax-tree.html).
+/// Use that reference when inspecting, constructing, or transforming quoted
+/// syntax.
+///
 /// ## Example
 ///
 /// ```raven

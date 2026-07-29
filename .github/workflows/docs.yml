@@ -15,6 +15,8 @@ on:
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
       - "src/Raven.Core/**"
+      - "src/Raven.Macros/**"
+      - "src/RavenDoc/**"
       - "src/Raven.Playground/**"
       - "tools/**Generator/**"
   pull_request:
@@ -29,6 +31,8 @@ on:
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
       - "src/Raven.Core/**"
+      - "src/Raven.Macros/**"
+      - "src/RavenDoc/**"
       - "src/Raven.Playground/**"
       - "tools/**Generator/**"
   workflow_dispatch:
