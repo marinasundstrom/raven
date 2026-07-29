@@ -1,0 +1,9 @@
+func NextDelivery() -> (orderId: int, destination: string) {
+    (1042, "Haifa")
+}
+
+let delivery = NextDelivery()
+let (orderId, destination) = delivery
+
+Console.WriteLine("Order $orderId is heading to $destination")
+Console.WriteLine("The tuple also exposes ${delivery.Item1} and ${delivery.Item2}")

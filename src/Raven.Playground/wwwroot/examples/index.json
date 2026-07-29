@@ -36,6 +36,12 @@
     "category": "Basics"
   },
   {
+    "id": "tuples",
+    "title": "Tuples and deconstruction",
+    "file": "tuples.rvn",
+    "category": "Basics"
+  },
+  {
     "id": "with-expressions",
     "title": "Immutable updates with with",
     "file": "with-expressions.rvn",
@@ -57,6 +63,12 @@
     "id": "shipment-lookup",
     "title": "Shipment migration with type unions",
     "file": "shipment-lookup.rvn",
+    "category": "Unions and patterns"
+  },
+  {
+    "id": "ad-hoc-unions",
+    "title": "Ad-hoc unions with type syntax",
+    "file": "ad-hoc-unions.rvn",
     "category": "Unions and patterns"
   },
   {
