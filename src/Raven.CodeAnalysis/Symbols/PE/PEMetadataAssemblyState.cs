@@ -17,6 +17,7 @@ internal sealed class PEMetadataAssemblyState
 
     private readonly ImmutableDictionary<string, ImmutableArray<Type>> _topLevelTypesByNamespace;
     private readonly ImmutableDictionary<(string NamespaceName, string Name), ImmutableArray<Type>> _topLevelTypesByNamespaceAndName;
+    private readonly ImmutableDictionary<(string Name, int Arity), ImmutableArray<Type>> _typesBySimpleName;
     private readonly ImmutableHashSet<string> _namespaces;
     private readonly ConcurrentDictionary<string, Lazy<ImmutableDictionary<string, ImmutableArray<Type>>>> _extensionMethodContainersByNamespace;
     private readonly Lazy<ImmutableArray<Type>> _extensionConversionContainers;
@@ -26,11 +27,13 @@ internal sealed class PEMetadataAssemblyState
         Assembly assembly,
         ImmutableDictionary<string, ImmutableArray<Type>> topLevelTypesByNamespace,
         ImmutableDictionary<(string NamespaceName, string Name), ImmutableArray<Type>> topLevelTypesByNamespaceAndName,
+        ImmutableDictionary<(string Name, int Arity), ImmutableArray<Type>> typesBySimpleName,
         ImmutableHashSet<string> namespaces)
     {
         _assembly = assembly;
         _topLevelTypesByNamespace = topLevelTypesByNamespace;
         _topLevelTypesByNamespaceAndName = topLevelTypesByNamespaceAndName;
+        _typesBySimpleName = typesBySimpleName;
         _namespaces = namespaces;
         _extensionMethodContainersByNamespace = new ConcurrentDictionary<string, Lazy<ImmutableDictionary<string, ImmutableArray<Type>>>>(
             StringComparer.Ordinal);
@@ -60,6 +63,7 @@ internal sealed class PEMetadataAssemblyState
     {
         var typesByNamespace = new Dictionary<string, ImmutableArray<Type>.Builder>(StringComparer.Ordinal);
         var typesByNamespaceAndName = new Dictionary<(string NamespaceName, string Name), ImmutableArray<Type>.Builder>();
+        var typesBySimpleName = new Dictionary<(string Name, int Arity), ImmutableArray<Type>.Builder>();
         var namespaces = ImmutableHashSet.CreateBuilder<string>(StringComparer.Ordinal);
         namespaces.Add(string.Empty);
 
@@ -68,6 +72,7 @@ internal sealed class PEMetadataAssemblyState
         {
             var namespaceName = type.Namespace ?? string.Empty;
             AddNamespaceAndParents(namespaces, namespaceName);
+            Add(typesBySimpleName, (StripArity(type.Name), GetArity(type.Name)), type);
 
             if (type.IsNested)
                 continue;
@@ -83,6 +88,7 @@ internal sealed class PEMetadataAssemblyState
             assembly,
             Freeze(typesByNamespace),
             Freeze(typesByNamespaceAndName),
+            Freeze(typesBySimpleName),
             namespaces.ToImmutable());
     }
 
@@ -93,6 +99,11 @@ internal sealed class PEMetadataAssemblyState
 
     public ImmutableArray<Type> GetTopLevelTypes(string namespaceMetadataName, string name)
         => _topLevelTypesByNamespaceAndName.TryGetValue((namespaceMetadataName, name), out var types)
+            ? types
+            : ImmutableArray<Type>.Empty;
+
+    public ImmutableArray<Type> GetTypesBySimpleName(string name, int arity)
+        => _typesBySimpleName.TryGetValue((name, arity), out var types)
             ? types
             : ImmutableArray<Type>.Empty;
 
@@ -828,6 +839,14 @@ internal sealed class PEMetadataAssemblyState
     {
         var index = name.IndexOf('`');
         return index >= 0 ? name[..index] : name;
+    }
+
+    private static int GetArity(string name)
+    {
+        var index = name.IndexOf('`');
+        return index >= 0 && int.TryParse(name.AsSpan(index + 1), out var arity)
+            ? arity
+            : 0;
     }
 
     private sealed class PEMetadataExtensionMethodState

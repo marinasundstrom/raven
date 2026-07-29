@@ -3393,6 +3393,9 @@ public partial class SemanticModel
             return true;
         }
 
+        if (TryGetAvailableNamespaceSymbolInfo(node, out info))
+            return true;
+
         if (node is IdentifierNameSyntax namedTypeIdentifier &&
             IsAvailableNamedTypeLookupContext(namedTypeIdentifier) &&
             TryLookupAvailableNamedType(namedTypeIdentifier.Identifier.ValueText, 0, out var namedType) &&
@@ -3415,6 +3418,56 @@ public partial class SemanticModel
 
         info = default;
         return false;
+    }
+
+    private bool TryGetAvailableNamespaceSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        ExpressionSyntax? namespaceExpression = node switch
+        {
+            MemberAccessExpressionSyntax memberAccess => memberAccess,
+            SimpleNameSyntax simpleName when
+                simpleName.Parent is MemberAccessExpressionSyntax parentAccess &&
+                IsSameSyntaxNode(parentAccess.Name, simpleName) => parentAccess,
+            SimpleNameSyntax simpleName => simpleName,
+            _ => null
+        };
+
+        if (namespaceExpression is null ||
+            !TryResolveAvailableNamespaceExpression(namespaceExpression, out var namespaceSymbol) ||
+            namespaceSymbol is null)
+        {
+            info = default;
+            return false;
+        }
+
+        info = new SymbolInfo(namespaceSymbol);
+        StoreSymbolMapping(node, info);
+        if (!ReferenceEquals(node, namespaceExpression))
+            StoreSymbolMapping(namespaceExpression, info);
+        StoreNodeInterestSymbolDescriptor(node, namespaceSymbol);
+        return true;
+    }
+
+    private bool TryResolveAvailableNamespaceExpression(
+        ExpressionSyntax expression,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamespaceSymbol? namespaceSymbol)
+    {
+        namespaceSymbol = expression switch
+        {
+            SimpleNameSyntax simpleName =>
+                Compilation.SymbolLookup.LookupNamespaceSourceFirst(null, simpleName.Identifier.ValueText),
+            MemberAccessExpressionSyntax
+            {
+                Expression: { } receiver,
+                Name: SimpleNameSyntax memberName
+            } when TryResolveAvailableNamespaceExpression(receiver, out var containingNamespace) =>
+                Compilation.SymbolLookup.LookupNamespaceSourceFirst(
+                    containingNamespace,
+                    memberName.Identifier.ValueText),
+            _ => null
+        };
+
+        return namespaceSymbol is not null;
     }
 
     private bool TryGetAvailableForTargetSymbolInfo(IdentifierNameSyntax identifier, out SymbolInfo info)
@@ -5728,12 +5781,7 @@ public partial class SemanticModel
         if (type is not null)
             return true;
 
-        type = Compilation.GlobalNamespace
-            .GetAllMembersRecursive()
-            .OfType<INamedTypeSymbol>()
-            .FirstOrDefault(candidate =>
-                string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
-                (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
+        type = Compilation.SymbolLookup.GetTypeBySimpleName(name, arity);
         return type is not null;
     }
 

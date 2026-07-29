@@ -11,6 +11,7 @@ internal sealed class CompilationSymbolLookup
 
     private readonly Compilation _compilation;
     private readonly ConcurrentDictionary<string, object> _namespaceCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<SimpleNamedTypeLookupKey, object> _simpleNamedTypeCache = new();
     private readonly ConcurrentDictionary<SourceExtensionContainerLookupKey, ImmutableArray<INamedTypeSymbol>> _sourceExtensionContainerCache = new();
 
     public CompilationSymbolLookup(Compilation compilation)
@@ -246,6 +247,32 @@ internal sealed class CompilationSymbolLookup
         return _compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName);
     }
 
+    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        var key = new SimpleNamedTypeLookupKey(name, arity);
+        if (_simpleNamedTypeCache.TryGetValue(key, out var cached))
+            return ReferenceEquals(cached, s_missing) ? null : (INamedTypeSymbol)cached;
+
+        var resolved = _compilation.SourceGlobalNamespace?
+            .GetAllTypesRecursive()
+            .FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
+                (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
+        resolved ??= _compilation.ReferencedAssemblySymbols
+            .OfType<PEAssemblySymbol>()
+            .Select(assembly => assembly.GetTypeBySimpleName(name, arity))
+            .FirstOrDefault(static candidate => candidate is not null);
+
+        if (resolved is null && !_compilation.AreSourceDeclarationsDeclared)
+            return null;
+
+        _simpleNamedTypeCache.TryAdd(key, resolved ?? s_missing);
+        return resolved;
+    }
+
     public ImmutableArray<INamedTypeSymbol> GetExtensionContainers(
         INamespaceSymbol namespaceSymbol,
         string? memberName,
@@ -310,6 +337,8 @@ internal sealed class CompilationSymbolLookup
                 yield return metadataNamespace;
         }
     }
+
+    private readonly record struct SimpleNamedTypeLookupKey(string Name, int Arity);
 
     private INamespaceSymbol? GetNamespaceUncached(string metadataName)
     {

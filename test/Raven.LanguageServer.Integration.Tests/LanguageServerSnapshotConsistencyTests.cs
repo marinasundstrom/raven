@@ -101,6 +101,38 @@ func Main() -> int => Double!(21)
     }
 
     [Fact]
+    public async Task HoverHandler_ConsumerLocalAfterMacroInvocation_UsesConsumerProjectionAsync()
+    {
+        const string text = """
+macro func Double(value: int) {
+    let doubled = value * 2
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
+}
+
+func Main() {
+    let answer = Double!(21)
+    System.Console.WriteLine(answer)
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var sourceText = SourceText.From(text);
+        var referenceOffset = text.LastIndexOf("answer", StringComparison.Ordinal) + 1;
+        var position = GetPosition(sourceText, referenceOffset);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("answer");
+        hover.Contents.MarkupContent!.Value.ShouldContain("int");
+    }
+
+    [Fact]
     public async Task HoverHandler_MacroFunctionEdits_InvalidateWarmStateAndRecoverAsync()
     {
         const string initialText = """

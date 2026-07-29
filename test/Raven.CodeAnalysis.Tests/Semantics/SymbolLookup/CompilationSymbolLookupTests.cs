@@ -100,6 +100,65 @@ func Main() {
     }
 
     [Fact]
+    public void SimpleNameLookup_FindsNestedMetadataTypeAndCachesTheResult()
+    {
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            """
+namespace Shared {
+    class Container {
+        public class Nested { }
+    }
+}
+""",
+            assemblyName: "Shared.Metadata");
+
+        var compilation = CreateCompilation(references: [.. TestMetadataReferences.Default, metadataReference]);
+        compilation.EnsureSetup();
+        compilation.EnsureSourceDeclarationsDeclared();
+
+        var first = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SymbolLookup.GetTypeBySimpleName("Nested", 0));
+        var second = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SymbolLookup.GetTypeBySimpleName("Nested", 0));
+
+        Assert.Same(first, second);
+        Assert.Equal("Container", first.ContainingType?.Name);
+        Assert.Equal("Shared.Metadata", first.ContainingAssembly?.Name);
+    }
+
+    [Fact]
+    public void QualifiedNamespaceSegmentSymbolInfo_DoesNotBindTheContainingBody()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var sourceTree = SyntaxTree.ParseText(
+            """
+func ReadNow() {
+    val year = System.DateTime.Now.Year
+}
+""");
+        var compilation = CreateCompilation(sourceTree, options);
+        var model = compilation.GetSemanticModel(sourceTree);
+        var systemIdentifier = sourceTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "System");
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var info = model.GetSymbolInfo(systemIdentifier);
+        var delta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            before);
+
+        var systemNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(info.Symbol);
+        Assert.False(systemNamespace.IsGlobalNamespace);
+        Assert.Equal("System", systemNamespace.ToDisplayString());
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
     public void SourceExtensionLookup_ByName_DoesNotForceSourceDeclarationCompletion()
     {
         var instrumentation = new PerformanceInstrumentation();

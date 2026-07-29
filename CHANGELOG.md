@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed a language-server hover regression that could recursively materialize
+  metadata symbols while resolving qualified names. Metadata types now use a
+  cached simple-name index, qualified namespace segments resolve from available
+  semantic state, and cold consumer-local hovers recover correctly in files
+  partitioned for local macro functions.
 - VS Code and the language server now treat a source file outside evaluated
   `.rvnproj` items as an isolated file-based application. Loose files no longer
   leak declarations into one another or nearby projects, standalone snapshots

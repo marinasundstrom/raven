@@ -7,27 +7,27 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 {
     private readonly ImmutableArray<INamespaceSymbol> _namespaces;
 
-    public MergedNamespaceSymbol(IEnumerable<INamespaceSymbol> namespaces, INamespaceSymbol containingNamespace)
-        : this(CreateMergedNamespaces(namespaces), containingNamespace)
+    public MergedNamespaceSymbol(IEnumerable<INamespaceSymbol> namespaces, INamespaceSymbol? containingNamespace)
+        : this(CreateState(namespaces, containingNamespace))
     {
     }
 
-    private MergedNamespaceSymbol(ImmutableArray<INamespaceSymbol> namespaces, INamespaceSymbol containingNamespace)
+    private MergedNamespaceSymbol(MergedNamespaceState state)
         : base(SymbolKind.Namespace,
-               namespaces[0].Name,
-               containingNamespace,
+               state.Namespaces[0].Name,
+               state.ContainingNamespace,
                null,
-               containingNamespace,
+               state.ContainingNamespace,
                [], [])
     {
-        _namespaces = namespaces;
+        _namespaces = state.Namespaces;
     }
 
     public override SymbolKind Kind => SymbolKind.Namespace;
 
     public bool IsNamespace => true;
     public bool IsType => false;
-    public bool IsGlobalNamespace => ContainingNamespace is null;
+    public bool IsGlobalNamespace => _namespaces.All(static namespaceSymbol => namespaceSymbol.IsGlobalNamespace);
 
     public ImmutableArray<ISymbol> GetMembers()
     {
@@ -138,7 +138,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
         {
             0 => null,
             1 => found[0],
-            _ => new MergedNamespaceSymbol(found, null)
+            _ => new MergedNamespaceSymbol(found, this)
         };
     }
 
@@ -183,18 +183,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
     }
 
     public string ToMetadataName()
-    {
-        var parts = new Stack<string>();
-        INamespaceSymbol current = this;
-
-        while (!current.IsGlobalNamespace)
-        {
-            parts.Push(current.Name);
-            current = current.ContainingNamespace!;
-        }
-
-        return string.Join(".", parts);
-    }
+        => IsGlobalNamespace ? string.Empty : _namespaces[0].ToMetadataName();
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
 
@@ -228,6 +217,37 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
         return flattened;
     }
+
+    private static MergedNamespaceState CreateState(
+        IEnumerable<INamespaceSymbol> namespaces,
+        INamespaceSymbol? containingNamespace)
+    {
+        var mergedNamespaces = CreateMergedNamespaces(namespaces);
+        if (containingNamespace is not null ||
+            mergedNamespaces.All(static namespaceSymbol => namespaceSymbol.IsGlobalNamespace))
+        {
+            return new MergedNamespaceState(mergedNamespaces, containingNamespace);
+        }
+
+        var containingNamespaces = mergedNamespaces
+            .Select(static namespaceSymbol => namespaceSymbol.ContainingNamespace)
+            .Where(static namespaceSymbol => namespaceSymbol is not null)
+            .Cast<INamespaceSymbol>()
+            .Distinct()
+            .ToImmutableArray();
+        containingNamespace = containingNamespaces.Length switch
+        {
+            0 => null,
+            1 => containingNamespaces[0],
+            _ => new MergedNamespaceSymbol(containingNamespaces, null)
+        };
+
+        return new MergedNamespaceState(mergedNamespaces, containingNamespace);
+    }
+
+    private readonly record struct MergedNamespaceState(
+        ImmutableArray<INamespaceSymbol> Namespaces,
+        INamespaceSymbol? ContainingNamespace);
 
     public IEnumerable<INamespaceSymbol> GetMergedNamespaces() => _namespaces;
 }

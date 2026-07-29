@@ -65,6 +65,17 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
             .FirstOrDefault();
     }
 
+    internal INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
+    {
+        foreach (var type in MetadataState.GetTypesBySimpleName(name, arity))
+        {
+            if (GetType(type) is INamedTypeSymbol typeSymbol)
+                return typeSymbol;
+        }
+
+        return null;
+    }
+
     internal ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers()
     {
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();

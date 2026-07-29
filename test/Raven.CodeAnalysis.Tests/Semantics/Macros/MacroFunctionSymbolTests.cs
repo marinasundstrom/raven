@@ -12,6 +12,42 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class MacroFunctionSymbolTests : CompilationTestBase
 {
     [Fact]
+    public void AuthoredConsumerPosition_BindsLocalReferenceAfterMacroInvocation()
+    {
+        const string source = """
+            macro func Double(value: int) {
+                let doubled = value * 2
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
+            }
+
+            func Main() {
+                let answer = Double!(21)
+                System.Console.WriteLine(answer)
+            }
+            """;
+        var authoredTree = SyntaxTree.ParseText(SourceText.From(source), path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(authoredTree);
+        var referenceOffset = source.LastIndexOf("answer", StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(authoredTree, referenceOffset);
+        var answerIdentifiers = model.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => identifier.Identifier.ValueText == "answer")
+            .ToArray();
+        var reference = Assert.Single(answerIdentifiers);
+
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(reference).Symbol);
+
+        Assert.Equal("answer", symbol.Name);
+        Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
+    }
+
+    [Fact]
     public void AuthoredMacroPosition_BindsParameterLocalsAndMemberInvocations()
     {
         const string source = """
