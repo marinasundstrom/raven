@@ -134,6 +134,80 @@ let x = 1
     }
 
     [Fact]
+    public async Task Handle_MultipleMissingMatchDiagnosticsOffersOneAddAllActionAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+func inspect(state: State) -> int {
+    return match state {
+    }
+}
+
+union State {
+    case None
+    case Some(value: int)
+    case Error(message: string)
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(
+            workspace,
+            NullLogger<WorkspaceManager>.Instance,
+            ImmutableArray.Create<CodeFixProvider>(new MatchExhaustivenessCodeFixProvider()),
+            ImmutableArray<CodeRefactoringProvider>.Empty);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(uri, code);
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+        var matchRange = new LspRange(new Position(1, 11), new Position(1, 16));
+
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = matchRange,
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.QuickFix),
+                    Diagnostics = new Container<LspDiagnostic>(
+                        CreateMissingCaseDiagnostic("None"),
+                        CreateMissingCaseDiagnostic("Some"),
+                        CreateMissingCaseDiagnostic("Error"))
+                }
+            },
+            CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        var actions = result!.ToArray();
+        actions.Length.ShouldBe(2);
+        actions[0].CodeAction.ShouldNotBeNull();
+        actions[0].CodeAction!.Title.ShouldBe("Add all missing match arms");
+        actions[1].Command.ShouldNotBeNull();
+        actions[1].Command!.Title.ShouldBe("Preview: Add all missing match arms");
+
+        LspDiagnostic CreateMissingCaseDiagnostic(string caseName)
+            => new()
+            {
+                Code = "RAV2100",
+                Message = $"Missing match case: '{caseName}'.",
+                Source = "raven",
+                Severity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity.Error,
+                Range = matchRange
+            };
+    }
+
+    [Fact]
     public async Task Handle_QuickFix_WithRequestDiagnosticsAndNoOnly_DoesNotWaitForBusySemanticGateAsync()
     {
         Directory.CreateDirectory(_tempRoot);

@@ -36,7 +36,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
 
     private static void RegisterAddMissingArmFix(CodeFixContext context, Diagnostic diagnostic)
     {
-        if (!TryGetMissingCase(diagnostic, out var missingCase))
+        if (!IsPrimaryMissingCaseDiagnostic(context, diagnostic))
             return;
 
         var syntaxTree = context.Document.GetSyntaxTreeAsync(context.CancellationToken).GetAwaiter().GetResult();
@@ -44,26 +44,70 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         if (root is null)
             return;
 
-        var matchExpression = FindMatchExpression(root, diagnostic.Location.SourceSpan);
-        if (matchExpression is null)
+        var matchSyntax = FindMatch(root, diagnostic.Location.SourceSpan);
+        if (matchSyntax is null)
             return;
 
-        var semanticModel = context.Document.GetSemanticModelAsync(context.CancellationToken).GetAwaiter().GetResult();
+        var semanticModel = context.Document
+            .GetSemanticModelAsync(diagnostic.Location.SourceSpan.Start, context.CancellationToken)
+            .GetAwaiter()
+            .GetResult();
         if (semanticModel is null)
             return;
 
-        var patternText = FormatPatternText(missingCase, semanticModel, matchExpression);
+        var semanticMatch = FindMatch(
+            semanticModel.SyntaxTree.GetRoot(context.CancellationToken),
+            diagnostic.Location.SourceSpan);
+        if (semanticMatch is null)
+            return;
+
+        var missingCases = GetMatchExhaustiveness(
+            semanticModel,
+            semanticMatch,
+            new MatchExhaustivenessOptions(ignoreCatchAllPatterns: false)).MissingCases;
+        if (missingCases.IsDefaultOrEmpty)
+        {
+            if (!TryGetMissingCase(diagnostic, out var missingCase))
+                return;
+
+            missingCases = [missingCase];
+        }
+
+        var patternTexts = missingCases
+            .Select(missingCase => FormatPatternText(missingCase, semanticModel, semanticMatch))
+            .Distinct(StringComparer.Ordinal)
+            .ToImmutableArray();
+        if (patternTexts.IsDefaultOrEmpty)
+            return;
+
         var sourceText = context.Document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult();
         var text = sourceText.ToString();
-        var armText = CreateMissingArmText(text, matchExpression, patternText);
-        var insertionPosition = GetLineStart(text, GetMatchExpressionCloseBraceToken(matchExpression).Span.Start);
+        var armText = string.Concat(patternTexts.Select(patternText =>
+            CreateMissingArmText(text, matchSyntax, patternText)));
+        var insertionPosition = GetLineStart(text, GetMatchCloseBraceToken(matchSyntax).Span.Start);
         var change = new TextChange(new TextSpan(insertionPosition, 0), armText);
+        var title = patternTexts.Length == 1
+            ? $"Add missing match arm for '{patternTexts[0]}'"
+            : "Add all missing match arms";
 
         context.RegisterCodeFix(
             CodeAction.CreateTextChange(
-                $"Add missing match arm for '{patternText}'",
+                title,
                 context.Document.Id,
                 change));
+    }
+
+    private static bool IsPrimaryMissingCaseDiagnostic(CodeFixContext context, Diagnostic diagnostic)
+    {
+        var first = context.Diagnostics.FirstOrDefault(candidate =>
+            string.Equals(
+                candidate.Id,
+                CompilerDiagnostics.MatchExpressionNotExhaustive.Id,
+                StringComparison.OrdinalIgnoreCase) &&
+            candidate.Location.SourceSpan.Equals(diagnostic.Location.SourceSpan) &&
+            ReferenceEquals(candidate.Location.SourceTree, diagnostic.Location.SourceTree));
+
+        return first is null || ReferenceEquals(first, diagnostic);
     }
 
     private static void RegisterReplaceCatchAllFix(CodeFixContext context, Diagnostic diagnostic)
@@ -75,17 +119,26 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
 
         var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
         var arm = token.Parent?.FirstAncestorOrSelf<MatchArmSyntax>();
-        var matchExpression = FindContainingMatchExpression(arm);
-        if (arm is null || matchExpression is null)
+        var matchSyntax = FindContainingMatch(arm);
+        if (arm is null || matchSyntax is null)
             return;
 
-        var semanticModel = context.Document.GetSemanticModelAsync(context.CancellationToken).GetAwaiter().GetResult();
+        var semanticModel = context.Document
+            .GetSemanticModelAsync(diagnostic.Location.SourceSpan.Start, context.CancellationToken)
+            .GetAwaiter()
+            .GetResult();
         if (semanticModel is null)
+            return;
+
+        var semanticMatch = FindMatch(
+            semanticModel.SyntaxTree.GetRoot(context.CancellationToken),
+            diagnostic.Location.SourceSpan);
+        if (semanticMatch is null)
             return;
 
         var ignoreCatchAllInfo = GetMatchExhaustiveness(
             semanticModel,
-            matchExpression,
+            semanticMatch,
             new MatchExhaustivenessOptions(ignoreCatchAllPatterns: true));
 
         if (!TryGetSingleMissingCase(ignoreCatchAllInfo.MissingCases, out var missingCase))
@@ -100,7 +153,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
             return;
         }
 
-        var patternText = FormatPatternText(missingCase, semanticModel, matchExpression);
+        var patternText = FormatPatternText(missingCase, semanticModel, semanticMatch);
         var change = new TextChange(arm.Pattern.Span, patternText);
 
         context.RegisterCodeFix(
@@ -125,10 +178,10 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
                 new TextChange(span, string.Empty)));
     }
 
-    private static SyntaxNode? FindMatchExpression(SyntaxNode root, TextSpan diagnosticSpan)
+    private static SyntaxNode? FindMatch(SyntaxNode root, TextSpan diagnosticSpan)
     {
         var token = root.FindToken(diagnosticSpan.Start);
-        return FindContainingMatchExpression(token.Parent);
+        return FindContainingMatch(token.Parent);
     }
 
     private static bool TryGetMissingCase(Diagnostic diagnostic, out string missingCase)
@@ -173,23 +226,33 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
     private static string FormatPatternText(
         string missingCase,
         SemanticModel semanticModel,
-        SyntaxNode matchExpression)
+        SyntaxNode matchSyntax)
     {
-        if (missingCase is "_" or "null" or "true" or "false" || missingCase.StartsWith(".", StringComparison.Ordinal))
+        if (missingCase is "_" or "null" or "true" or "false" or "()" ||
+            missingCase.StartsWith(".", StringComparison.Ordinal))
+        {
             return missingCase;
+        }
 
-        var scrutineeType = semanticModel.GetTypeInfo(GetMatchExpressionScrutinee(matchExpression)).Type;
+        var scrutineeType = semanticModel.GetTypeInfo(GetMatchScrutinee(matchSyntax)).Type;
         var union = scrutineeType.TryGetUnion() ?? scrutineeType.TryGetUnionCase()?.Union;
         if (union is not null)
         {
+            var (caseName, payloadDisplay) = SplitCaseDisplay(missingCase);
             var caseType = union.DeclaredCaseTypes.FirstOrDefault(candidate =>
-                string.Equals(candidate.Name, missingCase, StringComparison.Ordinal));
+                string.Equals(candidate.Name, caseName, StringComparison.Ordinal));
             if (caseType is not null)
             {
+                if (payloadDisplay is not null)
+                    return $".{caseName}({FormatNestedPayloadPattern(payloadDisplay)})";
+
                 return caseType.ConstructorParameters.Length == 0
-                    ? "." + missingCase
-                    : $".{missingCase}({string.Join(", ", Enumerable.Repeat("_", caseType.ConstructorParameters.Length))})";
+                    ? "." + caseName
+                    : $".{caseName}({string.Join(", ", caseType.ConstructorParameters.Select(parameter => $"let {CreateBindingName(parameter.Name, "value")}"))})";
             }
+
+            if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
+                return FormatTypedDeclarationPattern(missingCase);
         }
 
         if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType &&
@@ -201,62 +264,152 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
             return "." + missingCase;
         }
 
+        if (TypeCoverageHelper.TryGetSealedHierarchy(scrutineeType, out var sealedRoot))
+        {
+            var projectedHierarchy = scrutineeType as INamedTypeSymbol ?? sealedRoot;
+            var caseType = TypeCoverageHelper
+                .GetSealedHierarchyCoverageTypes(sealedRoot, projectedHierarchy)
+                .FirstOrDefault(candidate => MatchesTypeDisplay(candidate, missingCase));
+            if (caseType is not null)
+                return FormatSealedHierarchyPattern(caseType, missingCase);
+        }
+
+        if (scrutineeType is ITypeUnionSymbol)
+            return FormatTypedDeclarationPattern(missingCase);
+
         return missingCase;
     }
 
-    private static string CreateMissingArmText(string sourceText, SyntaxNode matchExpression, string patternText)
+    private static string FormatSealedHierarchyPattern(INamedTypeSymbol caseType, string typeDisplay)
+    {
+        var definition = caseType.OriginalDefinition as INamedTypeSymbol ?? caseType;
+        if (definition is SourceNamedTypeSymbol { IsRecord: true } or
+            ConstructedNamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } })
+        {
+            var parameters = definition.DeclaringSyntaxReferences
+                .Select(reference => reference.GetSyntax())
+                .OfType<RecordDeclarationSyntax>()
+                .Select(declaration => declaration.ParameterList)
+                .FirstOrDefault(parameterList => parameterList is not null);
+            if (parameters is { Parameters.Count: > 0 })
+            {
+                return $"{typeDisplay}({string.Join(", ", parameters.Parameters.Select(parameter =>
+                    $"let {CreateBindingName(parameter.Identifier.ValueText, "value")}"))})";
+            }
+
+            return typeDisplay;
+        }
+
+        return $"{typeDisplay} {CreateTypeBindingName(caseType.Name)}";
+    }
+
+    private static bool MatchesTypeDisplay(INamedTypeSymbol type, string display)
+        => string.Equals(type.Name, display, StringComparison.Ordinal) ||
+           string.Equals(
+               type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+               display,
+               StringComparison.Ordinal);
+
+    private static string FormatTypedDeclarationPattern(string typeDisplay)
+        => typeDisplay is "null" or "true" or "false" or "()"
+            ? typeDisplay
+            : $"{typeDisplay} v";
+
+    private static string FormatNestedPayloadPattern(string payloadDisplay)
+        => payloadDisplay.StartsWith(".", StringComparison.Ordinal) ||
+           payloadDisplay is "null" or "true" or "false" or "()"
+            ? payloadDisplay
+            : FormatTypedDeclarationPattern(payloadDisplay);
+
+    private static (string CaseName, string? PayloadDisplay) SplitCaseDisplay(string missingCase)
+    {
+        var openParen = missingCase.IndexOf('(');
+        if (openParen <= 0 || !missingCase.EndsWith(')'))
+            return (missingCase, null);
+
+        return (
+            missingCase.Substring(0, openParen),
+            missingCase.Substring(openParen + 1, missingCase.Length - openParen - 2));
+    }
+
+    private static string CreateBindingName(string sourceName, string fallback)
+    {
+        var name = string.IsNullOrWhiteSpace(sourceName)
+            ? fallback
+            : char.ToLowerInvariant(sourceName[0]) + sourceName.Substring(1);
+        return SyntaxFacts.TryParseKeyword(name, out _) ? "@" + name : name;
+    }
+
+    private static string CreateTypeBindingName(string typeName)
+    {
+        const string syntaxSuffix = "Syntax";
+        if (typeName.EndsWith(syntaxSuffix, StringComparison.Ordinal) &&
+            typeName.Length > syntaxSuffix.Length)
+        {
+            typeName = typeName.Substring(0, typeName.Length - syntaxSuffix.Length);
+        }
+
+        return CreateBindingName(typeName, "value");
+    }
+
+    private static string CreateMissingArmText(string sourceText, SyntaxNode matchSyntax, string patternText)
     {
         var newLine = sourceText.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        var armIndent = GetArmIndent(sourceText, matchExpression);
+        var armIndent = GetArmIndent(sourceText, matchSyntax);
 
         return $"{armIndent}{patternText} => {ThrowPlaceholderExpression}{newLine}";
     }
 
-    private static string GetArmIndent(string sourceText, SyntaxNode matchExpression)
+    private static string GetArmIndent(string sourceText, SyntaxNode matchSyntax)
     {
-        var arms = GetMatchExpressionArms(matchExpression);
+        var arms = GetMatchArms(matchSyntax);
         if (arms.Count > 0)
             return GetLineIndent(sourceText, arms[0].Span.Start);
 
-        return GetLineIndent(sourceText, GetMatchExpressionCloseBraceToken(matchExpression).Span.Start) + "    ";
+        return GetLineIndent(sourceText, GetMatchCloseBraceToken(matchSyntax).Span.Start) + "    ";
     }
 
-    private static SyntaxNode? FindContainingMatchExpression(SyntaxNode? node)
+    private static SyntaxNode? FindContainingMatch(SyntaxNode? node)
         => node?.FirstAncestorOrSelf<MatchExpressionSyntax>()
-            ?? (SyntaxNode?)node?.FirstAncestorOrSelf<PostfixMatchExpressionSyntax>();
+            ?? (SyntaxNode?)node?.FirstAncestorOrSelf<PostfixMatchExpressionSyntax>()
+            ?? node?.FirstAncestorOrSelf<MatchStatementSyntax>();
 
     private static MatchExhaustivenessInfo GetMatchExhaustiveness(
         SemanticModel semanticModel,
-        SyntaxNode matchExpression,
+        SyntaxNode matchSyntax,
         MatchExhaustivenessOptions options)
-        => matchExpression switch
+        => matchSyntax switch
         {
             MatchExpressionSyntax keywordFirst => semanticModel.GetMatchExhaustiveness(keywordFirst, options),
             PostfixMatchExpressionSyntax postfix => semanticModel.GetMatchExhaustiveness(postfix, options),
+            MatchStatementSyntax statement => semanticModel.GetMatchExhaustiveness(statement, options),
             _ => new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false),
         };
 
-    private static ExpressionSyntax GetMatchExpressionScrutinee(SyntaxNode matchExpression)
-        => matchExpression switch
+    private static ExpressionSyntax GetMatchScrutinee(SyntaxNode matchSyntax)
+        => matchSyntax switch
         {
             MatchExpressionSyntax keywordFirst => keywordFirst.Expression,
             PostfixMatchExpressionSyntax postfix => postfix.Expression,
-            _ => throw new ArgumentException("Expected match expression syntax.", nameof(matchExpression)),
+            MatchStatementSyntax statement => statement.Expression,
+            _ => throw new ArgumentException("Expected match syntax.", nameof(matchSyntax)),
         };
 
-    private static SyntaxList<MatchArmSyntax> GetMatchExpressionArms(SyntaxNode matchExpression)
-        => matchExpression switch
+    private static SyntaxList<MatchArmSyntax> GetMatchArms(SyntaxNode matchSyntax)
+        => matchSyntax switch
         {
             MatchExpressionSyntax keywordFirst => keywordFirst.Arms,
             PostfixMatchExpressionSyntax postfix => postfix.Arms,
+            MatchStatementSyntax statement => statement.Arms,
             _ => default,
         };
 
-    private static SyntaxToken GetMatchExpressionCloseBraceToken(SyntaxNode matchExpression)
-        => matchExpression switch
+    private static SyntaxToken GetMatchCloseBraceToken(SyntaxNode matchSyntax)
+        => matchSyntax switch
         {
             MatchExpressionSyntax keywordFirst => keywordFirst.CloseBraceToken,
             PostfixMatchExpressionSyntax postfix => postfix.CloseBraceToken,
+            MatchStatementSyntax statement => statement.CloseBraceToken,
             _ => default,
         };
 

@@ -267,6 +267,26 @@ requires the declared union cases plus `null`; that `null` is the nullable
 wrapper state, not a union pseudo-case. `RAV2103` reports a catch-all only when
 flow proves there is no remaining declared case, nullable wrapper `null`, or
 inactive/default state to match.
+
+The `RAV2100` quick fix adds every missing arm for the selected match in one
+action. It chooses an intentionally editable pattern from the scrutinee:
+
+- sealed class hierarchies use typed bindings, such as
+  `IdentifierNameSyntax identifierName`;
+- sealed record hierarchies use positional bindings, such as
+  `Case(let no)`;
+- parenthesized/type unions use typed bindings, such as `int v`;
+- case-declared unions use target-typed case patterns, such as
+  `.Success(let value)`;
+- enums use target-typed constants, such as `.None`;
+- finite literal cases retain their literal pattern, such as `false` or
+  `null`.
+
+When only one case is absent, the action names that arm. When several are
+absent, VS Code offers one `Add all missing match arms` action instead of one
+menu item per case. This is local to the selected match; document- or
+project-wide “fix all” remains a separate code-fix capability.
+
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |

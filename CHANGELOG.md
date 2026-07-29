@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Match exhaustiveness quick fixes now add all missing arms in one
+  deduplicated action for match statements and expressions, including matches
+  authored inside macro functions. Generated patterns follow the scrutinee:
+  typed bindings for sealed classes and parenthesized unions, positional
+  bindings for sealed records, target-typed cases for case-declared unions and
+  enums, and literal patterns for finite literal cases.
 - Macro-function bodies now participate in primary semantic diagnostics like
   ordinary function bodies. Invalid local macros report against authored source
   immediately instead of waiting for the projected macro assembly, and project

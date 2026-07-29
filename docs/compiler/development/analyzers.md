@@ -134,7 +134,8 @@ syntax forms. It warns when a real trailing comma is present before the closing 
 newline-delimited boundaries represented by `SyntaxKind.None` are not reported.
 
 Built-in code fixes currently include:
-- `RAV2100` (`Add missing match arm`)
+- `RAV2100` (`Add missing match arm`, or one deduplicated
+  `Add all missing match arms` action for the selected match)
 - `RAV2103` (`Remove redundant catch-all arm`)
 - `RAV9016` (`Make member private`)
 - `RAV9017` (`Make member static`)
