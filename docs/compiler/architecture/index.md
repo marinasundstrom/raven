@@ -9,6 +9,10 @@ For the current live-editing architecture direction, see
 guide for binder-owned semantic state, incremental snapshots, analyzer
 diagnostic lanes, and language-server scheduling.
 
+Before porting compiler components to Raven, use
+[Syntactic and semantic stabilization](syntactic-and-semantic-stabilization.md)
+as the evidence-based stabilization plan and behavioral exit gate.
+
 ## Raven-first development and bootstrap boundaries
 
 Raven increasingly builds its own language-facing infrastructure. New
