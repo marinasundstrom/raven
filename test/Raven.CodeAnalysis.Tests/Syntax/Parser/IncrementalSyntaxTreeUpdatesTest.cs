@@ -26,10 +26,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
         var incrementalTree = originalTree.WithChangedText(updated);
         var expectedTree = SyntaxTree.ParseText(updated);
 
-        var normalizedExpected = expectedTree.GetRoot().NormalizeWhitespace().ToFullString();
-        var normalizedActual = incrementalTree.GetRoot().NormalizeWhitespace().ToFullString();
-
-        Assert.Equal(normalizedExpected, normalizedActual);
+        AssertEquivalentSyntaxAndDiagnostics(expectedTree, incrementalTree);
     }
 
     private void AssertIncrementalStepMatchesFullParse(SyntaxTree previousTree, SourceText updated, string label, out SyntaxTree incrementalTree)
@@ -43,9 +40,32 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
         output.WriteLine(incrementalTree.GetRoot().GetSyntaxTreeRepresentation(s_treeDumpOptions));
 
         Assert.Equal(updated.ToString(), incrementalTree.GetRoot().ToFullString());
+        AssertEquivalentSyntaxAndDiagnostics(expectedTree, incrementalTree);
+    }
+
+    private static void AssertEquivalentSyntaxAndDiagnostics(SyntaxTree expectedTree, SyntaxTree actualTree)
+    {
         Assert.Equal(
-            expectedTree.GetRoot().NormalizeWhitespace().ToFullString(),
-            incrementalTree.GetRoot().NormalizeWhitespace().ToFullString());
+            expectedTree.GetRoot().GetSyntaxTreeRepresentation(s_treeDumpOptions),
+            actualTree.GetRoot().GetSyntaxTreeRepresentation(s_treeDumpOptions));
+
+        var expectedDiagnostics = expectedTree.GetDiagnostics()
+            .Select(static diagnostic => (
+                diagnostic.Id,
+                diagnostic.Severity,
+                diagnostic.Location.SourceSpan,
+                Message: diagnostic.GetMessage()))
+            .ToArray();
+        var actualDiagnostics = actualTree.GetDiagnostics()
+            .Select(static diagnostic => (
+                diagnostic.Id,
+                diagnostic.Severity,
+                diagnostic.Location.SourceSpan,
+                Message: diagnostic.GetMessage()))
+            .ToArray();
+
+        Assert.Equal(expectedDiagnostics, actualDiagnostics);
+        Assert.All(actualTree.GetDiagnostics(), diagnostic => Assert.Same(actualTree, diagnostic.Location.SourceTree));
     }
 
     [Fact]
@@ -167,10 +187,64 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
             insertionPosition++;
 
             var fullParse = SyntaxTree.ParseText(text);
-            Assert.Equal(
-                fullParse.GetRoot().ToFullString(),
-                tree.GetRoot().ToFullString());
+            AssertEquivalentSyntaxAndDiagnostics(fullParse, tree);
         }
+    }
+
+    [Fact]
+    public void EditingValidTreeToMissingExpression_MatchesFullParseDiagnostics()
+    {
+        var original = SourceText.From(
+            """
+            func Main() {
+                let value = 1
+            }
+            """);
+        var expressionPosition = original.ToString().IndexOf('1');
+        var updated = original.Replace(expressionPosition, 1, string.Empty);
+
+        AssertIncrementalParse(original, updated);
+    }
+
+    [Fact]
+    public void EditingBeforeUnchangedDiagnostic_ShiftsDiagnosticToMatchFullParse()
+    {
+        var original = SourceText.From(
+            """
+            func First() {
+                let value = 1
+            }
+
+            func Second() {
+                let missing =
+            }
+            """);
+        var expressionPosition = original.ToString().IndexOf('1');
+        var updated = original.Replace(expressionPosition, 1, "100");
+        var originalTree = SyntaxTree.ParseText(original);
+        var unchangedDeclaration = originalTree.GetRoot().Members[1].Green;
+        var incrementalTree = originalTree.WithChangedText(updated);
+
+        Assert.Same(unchangedDeclaration, incrementalTree.GetRoot().Members[1].Green);
+        AssertEquivalentSyntaxAndDiagnostics(SyntaxTree.ParseText(updated), incrementalTree);
+    }
+
+    [Fact]
+    public void FixingMissingExpression_RemovesDiagnosticToMatchFullParse()
+    {
+        var original = SourceText.From(
+            """
+            func Main() {
+                let value =
+            }
+            """);
+        var insertionPosition = original.ToString().IndexOf(
+            "\n}",
+            StringComparison.Ordinal);
+        var updated = original.Replace(insertionPosition, 0, " 1");
+
+        Assert.NotEmpty(SyntaxTree.ParseText(original).GetDiagnostics());
+        AssertIncrementalParse(original, updated);
     }
 
     [Fact]

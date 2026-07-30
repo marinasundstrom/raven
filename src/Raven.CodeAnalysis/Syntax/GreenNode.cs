@@ -165,24 +165,29 @@ public abstract class GreenNode
     }
     public GreenNode ReplaceNode(GreenNode oldNode, GreenNode newNode)
     {
-        if (this == oldNode)
+        if (ReferenceEquals(this, oldNode))
         {
             return newNode;
         }
 
-        var updatedChildren = new GreenNode[this.SlotCount];
-        for (int i = 0; i < this.SlotCount; i++)
+        var updatedChildren = new GreenNode[SlotCount];
+        var anyChildReplaced = false;
+
+        for (int i = 0; i < SlotCount; i++)
         {
-            var child = this.GetSlot(i);
-            if (child == oldNode)
+            var child = GetSlot(i);
+            var updatedChild = child?.ReplaceNode(oldNode, newNode);
+
+            if (!ReferenceEquals(updatedChild, child))
             {
-                updatedChildren[i] = newNode;
+                anyChildReplaced = true;
             }
-            else
-            {
-                updatedChildren[i] = child?.ReplaceNode(oldNode, newNode) ?? child;
-            }
+
+            updatedChildren[i] = updatedChild!;
         }
+
+        if (!anyChildReplaced)
+            return this;
 
         return With(updatedChildren);
     }

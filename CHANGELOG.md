@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Incremental syntax updates now retain fragment parser diagnostics, discard
+  stale diagnostics from replaced syntax, and shift unaffected diagnostic spans
+  after edits. Green-node replacement also preserves unchanged sibling
+  identities instead of rebuilding the entire tree. Incremental parser tests
+  compare exact syntax shape and diagnostics with an authoritative full parse,
+  including incomplete macro functions and repair edits.
 - Raven's existing nullability and control-flow actions are usable through the
   language server again: structured diagnostic arguments now survive the LSP
   round trip, strict-null guidance is registered by default, nullable-to-Option

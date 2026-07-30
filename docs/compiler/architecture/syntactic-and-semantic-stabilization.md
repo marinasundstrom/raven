@@ -113,18 +113,21 @@ to imply that every file must be rewritten before porting.
 | Symbol contracts | `Symbols/Constructed/*`, `Symbols/Source/SourceModuleSymbol.cs`, `Symbols/PE/PEModuleSymbol.cs` | Reachable incomplete lookup and construction APIs |
 | Macro declarations | `Compilation.LocalMacros.cs`, macro-function declaration and binding paths | Signature/body isolation, diagnostics, and ordinary declaration parity |
 
-### Incremental syntax diagnostics can be lost
+### Incremental syntax diagnostics must remain equivalent
 
-`SyntaxTree.WithChangedText` reparses a fragment, replaces the old node, and
-creates a new tree. The internal `SyntaxTree.Create` path attaches an empty
-diagnostic set, while the fragment parser returns only the parsed node.
-Consequently, a successful partial reparse can lose syntax diagnostics that a
-full parse would report.
+`SyntaxTree.WithChangedText` reparses a fragment and replaces the old node.
+Incremental updates now retain diagnostics produced by that fragment parse,
+discard stale diagnostics owned by the replaced syntax, and shift unaffected
+diagnostics after the edit. Green-node replacement preserves unchanged
+subtrees. This corrected earlier paths that attached an empty diagnostic set
+and rebuilt unaffected siblings after a successful partial reparse.
 
-The workspace uses `WithChangedText`, so this is a correctness issue even if an
-independent full-parse diagnostic lane sometimes hides it in the editor.
-Incremental syntax tests currently emphasize tree text and shape; they must
-also compare diagnostic identity, arguments, and spans with a full parse.
+The workspace uses `WithChangedText`, so equivalence remains a correctness
+requirement even when an independent full-parse diagnostic lane could hide a
+compiler defect in the editor. Incremental syntax tests now compare exact tree
+shape and diagnostics with a full parse for representative valid, incomplete,
+repair, shifted-diagnostic, and macro-function edits. The matrix should expand
+alongside parser recovery coverage.
 
 ### Some malformed declarations can still throw
 

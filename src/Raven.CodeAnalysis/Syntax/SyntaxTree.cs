@@ -104,7 +104,12 @@ public class SyntaxTree
     }
 
 
-    internal static SyntaxTree Create(SourceText sourceText, CompilationUnitSyntax compilationUnit, ParseOptions options, string? filePath = null)
+    internal static SyntaxTree Create(
+        SourceText sourceText,
+        CompilationUnitSyntax compilationUnit,
+        ParseOptions options,
+        string? filePath = null,
+        IEnumerable<InternalSyntax.DiagnosticInfo>? diagnostics = null)
     {
         var syntaxTree = new SyntaxTree(sourceText, filePath ?? string.Empty, options);
 
@@ -112,7 +117,7 @@ public class SyntaxTree
             .WithSyntaxTree(syntaxTree);
 
         syntaxTree.AttachSyntaxRoot(compilationUnit);
-        syntaxTree.AttachDiagnostics(Array.Empty<InternalSyntax.DiagnosticInfo>());
+        syntaxTree.AttachDiagnostics(diagnostics ?? Array.Empty<InternalSyntax.DiagnosticInfo>());
 
         return syntaxTree;
     }
@@ -232,6 +237,12 @@ public class SyntaxTree
         var root = GetRoot();
 
         CompilationUnitSyntax newCompilationUnit = root;
+        var updatedDiagnostics = GetDiagnostics()
+            .Select(static diagnostic => InternalSyntax.DiagnosticInfo.Create(
+                diagnostic.Descriptor,
+                diagnostic.Location.SourceSpan,
+                diagnostic.GetMessageArgs()))
+            .ToList();
 
         bool reparse = false;
 
@@ -242,9 +253,9 @@ public class SyntaxTree
             if (changedNode is null)
                 continue;
 
-            SyntaxNode? newNode = ParseNodeFromText(change.Span, newText, changedNode);
+            var parseResult = ParseNodeFromText(change.Span, newText, changedNode);
 
-            if (newNode is null)
+            if (parseResult is null)
             {
                 // Failed to resolve target syntax type
                 reparse = true;
@@ -252,7 +263,13 @@ public class SyntaxTree
             }
 
             newCompilationUnit = newCompilationUnit
-                .ReplaceNode(changedNode, newNode);
+                .ReplaceNode(changedNode, parseResult.Value.Node);
+
+            updatedDiagnostics = UpdateDiagnostics(
+                updatedDiagnostics,
+                changedNode.FullSpan,
+                change,
+                parseResult.Value.Diagnostics);
         }
 
         if (reparse)
@@ -261,13 +278,57 @@ public class SyntaxTree
             return ParseText(newText, _options, FilePath);
         }
 
-        var updatedTree = Create(newText, newCompilationUnit, _options, FilePath);
+        var updatedTree = Create(
+            newText,
+            newCompilationUnit,
+            _options,
+            FilePath,
+            updatedDiagnostics.OrderBy(static diagnostic => diagnostic.Span.Start));
         if (!string.Equals(updatedTree.GetRoot().ToFullString(), newText.ToString(), StringComparison.Ordinal))
         {
             return ParseText(newText, _options, FilePath);
         }
 
         return updatedTree;
+    }
+
+    private static List<InternalSyntax.DiagnosticInfo> UpdateDiagnostics(
+        IEnumerable<InternalSyntax.DiagnosticInfo> existingDiagnostics,
+        TextSpan replacedSpan,
+        TextChange change,
+        IEnumerable<InternalSyntax.DiagnosticInfo> replacementDiagnostics)
+    {
+        var delta = change.NewText.Length - change.Span.Length;
+        var diagnostics = new List<InternalSyntax.DiagnosticInfo>();
+
+        foreach (var diagnostic in existingDiagnostics)
+        {
+            if (IsOwnedByReplacedSpan(diagnostic.Span, replacedSpan))
+                continue;
+
+            var span = diagnostic.Span;
+            if (span.Start >= change.Span.End)
+            {
+                span = new TextSpan(span.Start + delta, span.Length);
+            }
+
+            diagnostics.Add(InternalSyntax.DiagnosticInfo.Create(
+                diagnostic.Descriptor,
+                span,
+                diagnostic.Args));
+        }
+
+        diagnostics.AddRange(replacementDiagnostics);
+        return diagnostics;
+    }
+
+    private static bool IsOwnedByReplacedSpan(TextSpan diagnosticSpan, TextSpan replacedSpan)
+    {
+        if (diagnosticSpan.Length != 0)
+            return diagnosticSpan.IntersectsWith(replacedSpan);
+
+        return diagnosticSpan.Start >= replacedSpan.Start &&
+               diagnosticSpan.Start < replacedSpan.End;
     }
 
     private static bool ContainsConditionalDirectives(SourceText text)
@@ -309,7 +370,7 @@ public class SyntaxTree
                change.NewLength > IncrementalParseMaxChangeLength;
     }
 
-    private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
+    private IncrementalParseResult? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
     {
         Type requestedSyntaxType;
 
@@ -342,13 +403,13 @@ public class SyntaxTree
 
         var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
 
-        var greenNode = parser.ParseSyntax(requestedSyntaxType, newText, position);
-        if (greenNode is null)
+        var parseResult = parser.ParseSyntaxWithDiagnostics(requestedSyntaxType, newText, position);
+        if (parseResult is null)
         {
             return null;
         }
 
-        var newNode = greenNode.CreateRed();
+        var newNode = parseResult.Value.Root.CreateRed();
         if (!requestedSyntaxType.IsInstanceOfType(newNode))
         {
             return null;
@@ -359,8 +420,12 @@ public class SyntaxTree
             return null;
         }
 
-        return newNode;
+        return new IncrementalParseResult(newNode, parseResult.Value.Diagnostics);
     }
+
+    private readonly record struct IncrementalParseResult(
+        SyntaxNode Node,
+        IReadOnlyList<InternalSyntax.DiagnosticInfo> Diagnostics);
 }
 
 public static partial class SyntaxFactory

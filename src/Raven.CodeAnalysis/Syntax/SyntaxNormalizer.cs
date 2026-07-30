@@ -12,6 +12,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     private int _pendingLineBreaks;
     private bool _isFirstToken = true;
     private SyntaxToken _previousToken;
+    private bool _rewriteElasticLine;
     private bool _useFormatterAnnotation;
     private bool _hasFormatterAnnotation;
 
@@ -60,6 +61,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         _pendingLineBreaks = 0;
         _isFirstToken = true;
         _previousToken = default;
+        _rewriteElasticLine = false;
     }
 
     private SyntaxToken NormalizeToken(SyntaxToken token)
@@ -114,6 +116,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             ? 0
             : GetPendingLineBreaksAfter(originalToken);
         _previousToken = rewrittenToken;
+        _rewriteElasticLine =
+            !ContainsLineBreakTrivia(originalToken.TrailingTrivia) &&
+            (_rewriteElasticLine ||
+             ContainsElasticTrivia(originalToken.LeadingTrivia) ||
+             ContainsElasticTrivia(originalToken.TrailingTrivia));
         _isFirstToken = false;
     }
 
@@ -206,7 +213,9 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return true;
         }
 
-        return ContainsElasticTrivia(token.LeadingTrivia) || ContainsElasticTrivia(token.TrailingTrivia);
+        return _rewriteElasticLine ||
+               ContainsElasticTrivia(token.LeadingTrivia) ||
+               ContainsElasticTrivia(token.TrailingTrivia);
     }
 
     private static bool TokenOrAncestorsHaveFormatterAnnotation(SyntaxToken token)
@@ -235,6 +244,17 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsLineBreakTrivia(SyntaxTriviaList triviaList)
+    {
+        foreach (var trivia in triviaList)
+        {
+            if (IsLineBreakTrivia(trivia.Kind))
+                return true;
         }
 
         return false;
