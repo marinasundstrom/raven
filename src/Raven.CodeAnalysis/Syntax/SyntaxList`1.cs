@@ -10,8 +10,8 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
 {
     public static readonly SyntaxList<TNode> Empty = new SyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null, 0);
 
-    internal readonly InternalSyntax.SyntaxList Green;
-    private readonly SyntaxNode _parent;
+    internal readonly InternalSyntax.SyntaxList? Green;
+    private readonly SyntaxNode? _parent;
     private readonly int _position;
     private readonly TextSpan _span;
     private readonly TextSpan _fullSpan;
