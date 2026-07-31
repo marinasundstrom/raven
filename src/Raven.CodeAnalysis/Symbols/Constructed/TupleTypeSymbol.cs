@@ -91,20 +91,18 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
         return symbols.Concat(TupleElements.Where(f => f.Name == name).Cast<ISymbol>()).ToImmutableArray();
     }
 
-    public ITypeSymbol? LookupType(string name)
-    {
-        throw new NotImplementedException();
-    }
+    public ITypeSymbol? LookupType(string name) => UnderlyingTupleType.LookupType(name);
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        throw new NotSupportedException();
+        symbol = TupleElements.FirstOrDefault(field => field.Name == name);
+        if (symbol is not null)
+            return true;
+
+        return UnderlyingTupleType.IsMemberDefined(name, out symbol);
     }
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
-    {
-        throw new NotImplementedException();
-    }
+    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => this;
 
     public override string ToString()
     {

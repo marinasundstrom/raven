@@ -33,6 +33,26 @@ public class TupleTypeSemanticTests
     }
 
     [Fact]
+    public void TupleSymbol_PublicMemberQueries_UseProjectedAndUnderlyingMembers()
+    {
+        var source = "let t: (id: int, name: string) = (1, \"Raven\")";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+
+        Assert.True(tuple.IsMemberDefined("id", out var id));
+        Assert.Equal(SymbolKind.Field, id?.Kind);
+        Assert.True(tuple.IsMemberDefined("ToString", out var toString));
+        Assert.Equal(SymbolKind.Method, toString?.Kind);
+        Assert.Null(tuple.LookupType("DoesNotExist"));
+        Assert.Same(tuple, tuple.Construct());
+    }
+
+    [Fact]
     public void TupleExpression_TargetTyped_UsesDeclaredType_IgnoringNames()
     {
         var source = """
