@@ -25,7 +25,7 @@ sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbo
             methodKind: MethodKind.Ordinary,
             isAsync: true)
     {
-        SetParameters([new SourceParameterSymbol("args", EntryPointSignature.CreateStringArrayType(type.ContainingAssembly), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
+        SetParameters([new SourceParameterSymbol("args", EntryPointSignature.CreateStringArrayType(type.Compilation), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
     public override bool IsStatic => true;

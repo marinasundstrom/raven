@@ -12,6 +12,24 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class EntryPointDiagnosticsTests
 {
+    [Fact]
+    public void SynthesizedEntryPointArguments_UseCompilationStringArrayType()
+    {
+        var compilation = Compilation.Create(
+            "app",
+            [SyntaxTree.ParseText("let value = 1")],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var entryPoint = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetEntryPoint());
+        var parameter = Assert.Single(entryPoint.Parameters);
+        var argsType = Assert.IsAssignableFrom<IArrayTypeSymbol>(parameter.Type);
+
+        Assert.Equal(1, argsType.Rank);
+        Assert.Equal(SpecialType.System_String, argsType.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Array, argsType.BaseType.SpecialType);
+    }
+
     [Fact(Skip = "Requires reference assemblies in this environment")]
     public void ConsoleApp_WithoutMain_ProducesDiagnostic()
     {

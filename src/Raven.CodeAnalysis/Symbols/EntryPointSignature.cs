@@ -186,13 +186,8 @@ internal static class EntryPointSignature
         return compilation.GetSpecialType(SpecialType.System_Unit);
     }
 
-    public static ITypeSymbol CreateStringArrayType(IAssemblySymbol assembly)
-    {
-        var arrayType = assembly.GetTypeByMetadataName("System.Array");
-        var stringType = assembly.GetTypeByMetadataName("System.String");
-
-        return new ArrayTypeSymbol(arrayType, stringType, arrayType.ContainingSymbol, null, arrayType.ContainingNamespace, Array.Empty<Location>());
-    }
+    public static ITypeSymbol CreateStringArrayType(Compilation compilation) =>
+        compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_String));
 
     public static bool RequiresEntryPointBridge(ITypeSymbol returnType, Compilation compilation)
     {
@@ -238,11 +233,12 @@ internal static class EntryPointSignature
 
     private static bool IsTaskOfT(INamedTypeSymbol named, INamedTypeSymbol? taskOfT)
     {
-        if (taskOfT is not null && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, taskOfT))
+        var definition = named.OriginalDefinition as INamedTypeSymbol ?? named;
+        if (taskOfT is not null && SymbolEqualityComparer.Default.Equals(definition, taskOfT))
             return true;
 
-        return named.OriginalDefinition.MetadataName == "Task`1"
-            && IsInNamespace(named.OriginalDefinition.ContainingNamespace, "System.Threading.Tasks");
+        return definition.MetadataName == "Task`1"
+            && IsInNamespace(definition.ContainingNamespace, "System.Threading.Tasks");
     }
 
     private static bool TryGetResultType(
@@ -293,13 +289,13 @@ internal static class EntryPointSignature
                 return false;
 
             if (lastDot < 0)
-                return namespaceSymbol.ContainingNamespace.IsGlobalNamespace;
+                return namespaceSymbol.ContainingNamespace?.IsGlobalNamespace == true;
 
             remaining = remaining[..lastDot];
-            namespaceSymbol = namespaceSymbol.ContainingNamespace;
-
-            if (namespaceSymbol is null)
+            if (namespaceSymbol.ContainingNamespace is not { } containingNamespace)
                 return false;
+
+            namespaceSymbol = containingNamespace;
         }
 
         return false;

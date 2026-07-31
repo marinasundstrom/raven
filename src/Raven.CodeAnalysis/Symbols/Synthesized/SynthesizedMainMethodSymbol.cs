@@ -30,7 +30,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         AsyncImplementation = asyncImplementation;
         ContainsExecutableCode = containsExecutableCode;
 
-        SetParameters([new SourceParameterSymbol("args", EntryPointSignature.CreateStringArrayType(type.ContainingAssembly), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
+        SetParameters([new SourceParameterSymbol("args", EntryPointSignature.CreateStringArrayType(type.Compilation), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
     public override bool IsStatic => true;
