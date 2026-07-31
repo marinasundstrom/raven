@@ -159,6 +159,14 @@ identity and should not be defended as such:
   remaining Raven-only public metadata needed for basic construction or
   extraction is an interop gap; Raven-specific metadata is acceptable only for
   information the standard contract cannot represent.
+- Declared union case types currently receive flattened metadata names such as
+  `Union_Case`. This avoids the current emitter and symbol-model constraints
+  around nesting a case type in a generic union, but it is not a friendly or
+  final surface for C# consumers. Stabilization must evaluate the emitted
+  ownership, generic-parameter forwarding, metadata name, and Raven source
+  projection together. The result should give other .NET languages a natural,
+  collision-resistant way to name case types without compromising Raven's
+  `Union.Case` and target-bound `.Case` conventions.
 - `ClosedHierarchyAttribute` is intentionally assembly-local today because the
   runtime does not yet provide the well-known contract Raven needs. Its name,
   constructor, and permitted-type meaning must be revisited when the C#/.NET
