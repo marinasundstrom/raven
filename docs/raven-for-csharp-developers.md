@@ -14,12 +14,14 @@ fit the problem.
 
 ## Start with the style you already use
 
-Writing Raven does not require redesigning a program before you can benefit
-from the language. You can preserve an existing object-oriented or procedural
+Raven supports gradual adoption through constructs that are already familiar
+from C#. You can preserve an existing object-oriented or procedural
 structure—classes, interfaces, methods, loops, mutable objects, and familiar
-.NET APIs—and express that structure directly in Raven. Raven promotes forms
-that make its features compose well, but those forms can be adopted one useful
-change at a time.
+.NET APIs—and express it directly in Raven without changing the way you write
+code very much. As you learn the language, you can introduce Raven's features
+and programming patterns one useful change at a time. Raven promotes forms that
+make those features compose well, but they are not prerequisites for getting
+started.
 
 ## A three-step comparison
 
