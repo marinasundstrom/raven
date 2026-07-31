@@ -167,6 +167,13 @@ identity and should not be defended as such:
   projection together. The result should give other .NET languages a natural,
   collision-resistant way to name case types without compromising Raven's
   `Union.Case` and target-bound `.Case` conventions.
+  The preferred candidate is to nest cases directly in non-generic unions. For
+  a generic `Union<T...>`, emit an attributed, arity-zero `Union` companion whose
+  nested generic case types forward the carrier's type parameters and derive
+  from `Union<T...>`. Raven should use explicit companion/case metadata to
+  project these back under the generic union; it must not infer ownership from
+  the spelling alone. The design still needs collision, accessibility,
+  documentation, type-inference, and future standard-union compatibility tests.
 - `ClosedHierarchyAttribute` is intentionally assembly-local today because the
   runtime does not yet provide the well-known contract Raven needs. Its name,
   constructor, and permitted-type meaning must be revisited when the C#/.NET
