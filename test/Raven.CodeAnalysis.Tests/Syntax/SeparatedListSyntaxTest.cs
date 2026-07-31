@@ -13,6 +13,17 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public void DefaultValue_IsAnEmptyList()
+    {
+        var separatedSyntaxList = default(SeparatedSyntaxList<ParameterSyntax>);
+
+        separatedSyntaxList.Count.ShouldBe(0);
+        separatedSyntaxList.SeparatorCount.ShouldBe(0);
+        separatedSyntaxList.ShouldBeEmpty();
+        separatedSyntaxList.GetWithSeparators().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Create_WithOneNode()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([

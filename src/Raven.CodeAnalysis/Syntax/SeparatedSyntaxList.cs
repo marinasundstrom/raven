@@ -7,15 +7,15 @@ namespace Raven.CodeAnalysis.Syntax;
 public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     where TNode : SyntaxNode
 {
-    public static readonly SeparatedSyntaxList<TNode> Empty = new SeparatedSyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null, 0);
+    public static readonly SeparatedSyntaxList<TNode> Empty = new(new InternalSyntax.SyntaxList([]), null, 0);
 
-    internal readonly InternalSyntax.SyntaxList Green;
-    private readonly SyntaxNode _parent;
+    internal readonly InternalSyntax.SyntaxList? Green;
+    private readonly SyntaxNode? _parent;
     private readonly int _position;
     private readonly TextSpan _span;
     private readonly TextSpan _fullSpan;
-    private IEnumerable<SyntaxToken> _separators;
-    private SyntaxNodeOrToken[] _slots;
+    private IEnumerable<SyntaxToken>? _separators;
+    private SyntaxNodeOrToken[]? _slots;
 
     public SeparatedSyntaxList()
     {
@@ -24,7 +24,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         _position = 0;
     }
 
-    internal SeparatedSyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position)
+    internal SeparatedSyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode? parent, int position)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
@@ -35,7 +35,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     public SeparatedSyntaxList(SyntaxNodeOrToken item)
     {
-        GreenNode[] p = [item.Green];
+        GreenNode[] p = [item.Green ?? throw new ArgumentException("The item must contain a syntax node or token.", nameof(item))];
         Green = new InternalSyntax.SyntaxList(p);
 
         Green.ComputeSpanAndFullSpan(_position, out _span, out _fullSpan);
@@ -43,13 +43,15 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     public SeparatedSyntaxList(params SyntaxNodeOrToken[] items)
     {
-        var p = items.Select(x => x.Green).ToArray();
+        ArgumentNullException.ThrowIfNull(items);
+        var p = items.Select((item, index) => item.Green
+            ?? throw new ArgumentException($"Item {index} must contain a syntax node or token.", nameof(items))).ToArray();
         Green = new InternalSyntax.SyntaxList(p);
 
         Green.ComputeSpanAndFullSpan(_position, out _span, out _fullSpan);
     }
 
-    public int Count => (Green.SlotCount + 1) / 2; // Elements are at even indices
+    public int Count => Green is null ? 0 : (Green.SlotCount + 1) / 2; // Elements are at even indices
 
     public int SeparatorCount => GetSeparators().Count();
 
@@ -62,6 +64,9 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     {
         get
         {
+            if (Green is null)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
             var node = Green[index * 2];
             var parent = _parent;
             var position = _position + Green.GetChildStartPosition(index * 2);
@@ -75,7 +80,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         if (index < 0 || index >= Count - 1)
             throw new IndexOutOfRangeException($"Invalid separator index: {index}");
 
-        var separator = Green[index * 2 + 1] as InternalSyntax.SyntaxToken;
+        var separator = Green![index * 2 + 1] as InternalSyntax.SyntaxToken;
         return separator != null ? new SyntaxToken(separator, _parent) : default;
     }
 
@@ -100,6 +105,9 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     private IEnumerable<SyntaxNodeOrToken> EnumerateItems2()
     {
+        if (Green is null)
+            yield break;
+
         for (int i = 0; i < Green.SlotCount; i++)
         {
             var node = Green.GetSlot(i);
