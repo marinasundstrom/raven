@@ -11,8 +11,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   tuple fields no longer inherit from PE symbols with absent reflection state.
   Syntax trees always expose source text; detached syntax nodes and tokens
   explicitly expose nullable parents and source behavior, while default tokens,
-  node-or-token values, and separated lists are safe to inspect. Separated-list
-  tokens retain their actual parent and source position.
+  node-or-token values, syntax lists, and separated lists are safe to inspect.
+  Child-list and reflected-property projections now materialize stable cached
+  views, detached nodes are rejected as declaration-table keys, and nested PE
+  types preserve their declaring type, namespace, and module ownership.
+  Separated-list tokens retain their actual parent and source position.
 - Public compiler-model queries no longer throw for array, tuple, type-union,
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
