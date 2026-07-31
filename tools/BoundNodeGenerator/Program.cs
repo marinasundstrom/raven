@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Threading;
 
@@ -20,7 +19,7 @@ var stampPath = Path.Combine(boundOutputDir, ".stamp");
 var lockPath = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "obj", "BoundNodeGenerator.lock");
 
 using var generationLock = AcquireGenerationLock(lockPath);
-var inputs = EnumerateInputs(boundTreeDir, symbolsDir).ToList();
+var inputs = EnumerateInputs(repoRoot, boundTreeDir, symbolsDir).ToList();
 var hash = ComputeHash(inputs);
 
 if (!force && File.Exists(stampPath) && File.ReadAllText(stampPath).Trim().Equals(hash, StringComparison.Ordinal))
@@ -122,22 +121,45 @@ static FileStream AcquireGenerationLock(string lockPath)
     }
 }
 
-static IEnumerable<string> EnumerateInputs(string boundTreeDir, string symbolsDir)
+static IEnumerable<string> EnumerateInputs(
+    string repoRoot,
+    string boundTreeDir,
+    string symbolsDir)
 {
     foreach (var file in Directory.EnumerateFiles(boundTreeDir, "*.cs", SearchOption.AllDirectories))
     {
-        if (!file.Contains($"{Path.DirectorySeparatorChar}Generated{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+        if (!IsGeneratedOutput(file))
             yield return file;
     }
 
     foreach (var file in Directory.EnumerateFiles(symbolsDir, "*.cs", SearchOption.AllDirectories))
     {
-        if (!file.Contains($"{Path.DirectorySeparatorChar}Generated{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+        if (!IsGeneratedOutput(file))
             yield return file;
     }
 
-    yield return Assembly.GetExecutingAssembly().Location;
+    var generatorDirectory = Path.Combine(repoRoot, "tools", "BoundNodeGenerator");
+    foreach (var file in Directory.EnumerateFiles(generatorDirectory, "*.cs", SearchOption.AllDirectories))
+    {
+        if (!IsBuildOutput(file))
+            yield return file;
+    }
+
+    yield return Path.Combine(generatorDirectory, "BoundNodeGenerator.csproj");
 }
+
+static bool IsGeneratedOutput(string path)
+    => path.Contains(
+        $"{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase);
+
+static bool IsBuildOutput(string path)
+    => path.Contains(
+        $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase)
+    || path.Contains(
+        $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase);
 
 static string ComputeHash(IEnumerable<string> inputs)
 {

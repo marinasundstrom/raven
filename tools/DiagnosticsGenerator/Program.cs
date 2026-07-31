@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -11,12 +10,13 @@ var diagnosticsPath = Path.GetFullPath("DiagnosticDescriptors.xml");
 var outputPath = Path.GetFullPath("CompilerDiagnostics.g.cs");
 var extensionsOutputPath = Path.GetFullPath("DiagnosticBagExtensions.g.cs");
 var stampPath = Path.GetFullPath(".diagnostics.stamp");
+var repoRoot = Path.GetFullPath(Path.Combine("..", ".."));
 var lockPath = Path.GetFullPath(Path.Combine("obj", "DiagnosticsGenerator.lock"));
 
 using var generationLock = AcquireGenerationLock(lockPath);
 
 var diagnostics = LoadDiagnosticDescriptorsFromXml(diagnosticsPath);
-var hash = await GetHashAsync(diagnosticsPath);
+var hash = await GetHashAsync(diagnosticsPath, EnumerateGeneratorInputs(repoRoot));
 
 var force = args.Contains("-f");
 
@@ -123,14 +123,35 @@ static List<DiagnosticDescriptorModel> LoadDiagnosticDescriptorsFromXml(string p
     return result;
 }
 
-static async Task<string> GetHashAsync(string diagnosticsPath)
+static async Task<string> GetHashAsync(
+    string diagnosticsPath,
+    IEnumerable<string> generatorInputs)
 {
-    var diagnosticsBytes = await File.ReadAllBytesAsync(diagnosticsPath);
-    var assemblyBytes = File.ReadAllBytes(Assembly.GetExecutingAssembly().Location);
+    using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+    hash.AppendData(await File.ReadAllBytesAsync(diagnosticsPath));
 
-    var combined = diagnosticsBytes
-        .Concat(assemblyBytes)
-        .ToArray();
+    foreach (var path in generatorInputs.OrderBy(static path => path, StringComparer.Ordinal))
+        hash.AppendData(await File.ReadAllBytesAsync(path));
 
-    return Convert.ToHexString(SHA256.HashData(combined));
+    return Convert.ToHexString(hash.GetHashAndReset());
 }
+
+static IEnumerable<string> EnumerateGeneratorInputs(string repoRoot)
+{
+    var directory = Path.Combine(repoRoot, "tools", "DiagnosticsGenerator");
+    foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+    {
+        if (!IsBuildOutput(file))
+            yield return file;
+    }
+
+    yield return Path.Combine(directory, "DiagnosticsGenerator.csproj");
+}
+
+static bool IsBuildOutput(string path)
+    => path.Contains(
+        $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase)
+    || path.Contains(
+        $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase);

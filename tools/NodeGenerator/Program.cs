@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Xml;
@@ -9,6 +8,7 @@ using NodesShared;
 
 using Raven.Generators;
 
+var repoRoot = Path.GetFullPath(Path.Combine("..", "..", ".."));
 var lockPath = Path.GetFullPath(Path.Combine("..", "obj", "NodeGenerator.lock"));
 using var generationLock = AcquireGenerationLock(lockPath);
 
@@ -20,7 +20,13 @@ var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
 ValidateModel(model);
 ValidateSyntaxHierarchies(model, hierarchies);
 ValidateFactoryDefinitions(model, factories);
-string hash = await GetHashAsync(model, hierarchies, factories, tokens, nodeKinds);
+string hash = await GetHashAsync(
+    model,
+    hierarchies,
+    factories,
+    tokens,
+    nodeKinds,
+    EnumerateGeneratorInputs(repoRoot));
 
 var force = args.Contains("-f");
 
@@ -142,7 +148,8 @@ static async Task<string> GetHashAsync(
     List<SyntaxHierarchyModel> hierarchies,
     List<FactoryDefinitionModel> factories,
     List<TokenKindModel> tokens,
-    List<NodeKindModel> nodeKinds)
+    List<NodeKindModel> nodeKinds,
+    IEnumerable<string> generatorInputs)
 {
     using var memoryStream = new MemoryStream();
 
@@ -210,18 +217,44 @@ static async Task<string> GetHashAsync(
     using var factoriesStream = new MemoryStream();
     factoriesDoc.Save(factoriesStream);
 
-    var assemblyBytes = File.ReadAllBytes(Assembly.GetExecutingAssembly().Location);
+    using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+    hash.AppendData(memoryStream.ToArray());
+    hash.AppendData(factoriesStream.ToArray());
+    hash.AppendData(tokensStream.ToArray());
+    hash.AppendData(nodeKindsStream.ToArray());
 
-    var combined = memoryStream.ToArray()
-        .Concat(factoriesStream.ToArray())
-        .Concat(tokensStream.ToArray())
-        .Concat(nodeKindsStream.ToArray())
-        .Concat(assemblyBytes)
-        .ToArray();
+    foreach (var path in generatorInputs.OrderBy(static path => path, StringComparer.Ordinal))
+        hash.AppendData(await File.ReadAllBytesAsync(path));
 
-    string hash = Convert.ToHexString(SHA256.HashData(combined));
-    return hash;
+    return Convert.ToHexString(hash.GetHashAndReset());
 }
+
+static IEnumerable<string> EnumerateGeneratorInputs(string repoRoot)
+{
+    foreach (var relativeDirectory in new[]
+    {
+        Path.Combine("tools", "NodeGenerator"),
+        Path.Combine("tools", "NodesShared")
+    })
+    {
+        var directory = Path.Combine(repoRoot, relativeDirectory);
+        foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+        {
+            if (!IsBuildOutput(file))
+                yield return file;
+        }
+
+        yield return Path.Combine(directory, Path.GetFileName(directory) + ".csproj");
+    }
+}
+
+static bool IsBuildOutput(string path)
+    => path.Contains(
+        $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase)
+    || path.Contains(
+        $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+        StringComparison.OrdinalIgnoreCase);
 
 static async Task<GenerationStats> GenerateCode(
     List<SyntaxNodeModel> model,

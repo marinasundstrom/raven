@@ -409,8 +409,6 @@ public static class RedNodeGenerator
         var ctorArgs = new List<ArgumentSyntax>();
         var finalParams = new List<ParameterSyntax>();
 
-        int offset = 0;
-
         if (node.HasExplicitKind)
         {
             // Inject kind parameter first
@@ -423,8 +421,6 @@ public static class RedNodeGenerator
                 SyntaxKind.NotEqualsExpression,
                 IdentifierName("Kind"),
                 IdentifierName("kind")));
-
-            offset = 1;
         }
 
         // Add property parameters and constructor args
