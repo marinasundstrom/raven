@@ -146,7 +146,7 @@ public static class RedNodeGenerator
                     FieldDeclaration(
                         VariableDeclaration(ParseTypeName(typeName))
                             .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(redFieldName)))))
-                    .AddModifiers(Token(SyntaxKind.InternalKeyword)));
+                    .AddModifiers(Token(SyntaxKind.PrivateKeyword)));
 
                 // 2. Property getter expression (lazy init)
                 getBlock = Block(
@@ -186,7 +186,7 @@ public static class RedNodeGenerator
                     backingFields.Add(FieldDeclaration(
                         VariableDeclaration(IdentifierName(typeName + "?"))
                             .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(backing)))))
-                        .AddModifiers(Token(SyntaxKind.InternalKeyword)));
+                        .AddModifiers(Token(SyntaxKind.PrivateKeyword)));
 
                     getExpr = CastExpression(IdentifierName(typeName + "?"),
                         InvocationExpression(IdentifierName("GetNodeSlot"))
@@ -210,7 +210,7 @@ public static class RedNodeGenerator
                     backingFields.Add(FieldDeclaration(
                         VariableDeclaration(IdentifierName(typeName + "?"))
                             .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(backing)))))
-                        .AddModifiers(Token(SyntaxKind.InternalKeyword)));
+                        .AddModifiers(Token(SyntaxKind.PrivateKeyword)));
 
                     getExpr = CastExpression(IdentifierName(typeName),
                         InvocationExpression(IdentifierName("GetNodeSlot"))
