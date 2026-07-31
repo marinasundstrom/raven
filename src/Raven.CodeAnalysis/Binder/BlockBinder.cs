@@ -6309,15 +6309,7 @@ partial class BlockBinder : Binder
         ElseExpressionClauseSyntax? elseClause,
         Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows)
     {
-        Binder? thenBinder;
-        try
-        {
-            thenBinder = SemanticModel.GetBinder(ifExpression, this);
-        }
-        catch (Exception)
-        {
-            thenBinder = this;
-        }
+        var thenBinder = SemanticModel.GetBinder(ifExpression, this);
         var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
         _allowReturnsInBlockExpressionsOnly = false;
         BoundExpression thenExpr;
@@ -6352,15 +6344,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OtherError);
         }
 
-        Binder? elseBinder;
-        try
-        {
-            elseBinder = SemanticModel.GetBinder(elseClause, this);
-        }
-        catch (Exception)
-        {
-            elseBinder = this;
-        }
+        var elseBinder = SemanticModel.GetBinder(elseClause, this);
         previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
         _allowReturnsInBlockExpressionsOnly = false;
         BoundExpression elseExpr;

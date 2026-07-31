@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Function declarations now have explicit isolation coverage proving that body
+  errors retain the declared signature, stay confined to the broken
+  declaration, and do not prevent valid sibling resolution after workspace
+  edits. `if` expression binding no longer changes scope by silently falling
+  back to the enclosing binder when branch-binder construction fails.
 - Target-typed expression binding now keys semantic cache entries by target type
   for every expression form, including wrappers such as parenthesized
   expressions, instead of relying on a syntax-kind allowlist. Semantic results

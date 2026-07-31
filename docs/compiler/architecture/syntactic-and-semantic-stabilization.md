@@ -155,14 +155,19 @@ type, such as expression-return policy, still needs an explicit identity audit.
 
 ### Broad exception suppression can hide semantic differences
 
-Control-flow, missing-return, let-else, and branch-binder paths contain broad
-exception handlers that suppress analysis or fall back to a different binder.
-These paths protect editing scenarios from crashes, but they can also omit
-diagnostics or change scope after an unrelated failure.
+Ordinary and macro functions now have focused coverage proving that a broken
+body retains its valid signature, does not invalidate a valid sibling, and
+confines body diagnostics to the broken declaration. The ordinary-function
+coverage includes an incremental workspace edit.
 
-Recovery should return explicit incomplete or error states. Tests should prove
-that malformed syntax affects only the smallest relevant region and that later
-declarations retain their normal symbols and diagnostics.
+`if` expression branches now always use their dedicated local-scope binders;
+the previous broad exception fallback to the enclosing binder could silently
+change lookup and diagnostic behavior.
+
+Control-flow, missing-return, and let-else paths still contain broad exception
+handlers that suppress secondary analysis. These belong to the flow-semantics
+slice: recovery should return explicit incomplete or unsuccessful analysis
+states rather than use exceptions as expected control flow.
 
 ### Public nullability information is not fully flow-sensitive
 
