@@ -60,7 +60,7 @@ internal abstract partial class Binder
 
     public DiagnosticBag Diagnostics => _diagnostics;
 
-    public virtual ISymbol ContainingSymbol { get; }
+    public virtual ISymbol? ContainingSymbol => null;
 
     public virtual Compilation Compilation
     {
