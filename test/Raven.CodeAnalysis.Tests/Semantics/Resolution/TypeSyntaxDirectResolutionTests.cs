@@ -566,7 +566,7 @@ class Box<T> {
     {
         const string source = """
 class Box<T> {
-    let item: T
+    val item: T
 }
 """;
 
