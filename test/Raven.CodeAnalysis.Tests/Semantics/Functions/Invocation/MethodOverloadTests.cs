@@ -172,6 +172,32 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void IntArgument_PrefersLongOverDoubleOverload()
+    {
+        const string source = """
+            func Select(value: long) -> string { "long" }
+            func Select(value: double) -> string { "double" }
+
+            func Test() -> string {
+                Select(1)
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(invocation.Expression));
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(2, methodGroup.Methods.Length);
+        Assert.Equal(SpecialType.System_Int64, Assert.Single(boundInvocation.Method.Parameters).Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int64, Assert.Single(method.Parameters).Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void LambdaArgument_CanBindToSystemDelegateParameter()
     {
         var source = """

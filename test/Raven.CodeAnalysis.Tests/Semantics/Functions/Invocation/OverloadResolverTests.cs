@@ -117,30 +117,23 @@ public sealed class OverloadResolverTests : CompilationTestBase
     }
 
     [Fact]
-    public void ResolveOverload_ReturnsNullWhenAmbiguous()
+    public void ResolveOverload_PrefersLongOverDoubleForIntArgument()
     {
         var compilation = CreateInitializedCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var longType = compilation.GetSpecialType(SpecialType.System_Int64);
         var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
 
-        var toLong = CreateMethod(compilation, "ToLong", longType);
-        var toDouble = CreateMethod(compilation, "ToDouble", doubleType);
+        var toLong = CreateMethod(compilation, "Select", longType);
+        var toDouble = CreateMethod(compilation, "Select", doubleType);
 
-        var arguments = CreateArguments(new TestBoundExpression(intType));
+        var arguments = CreateArguments(
+            new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, intType));
 
         var result = OverloadResolver.ResolveOverload([toLong, toDouble], arguments, compilation);
 
-        if (result.Success)
-        {
-            Assert.Contains(result.Method, new[] { toLong, toDouble });
-        }
-        else
-        {
-            Assert.True(result.IsAmbiguous);
-            Assert.Contains(toLong, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
-            Assert.Contains(toDouble, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
-        }
+        Assert.True(result.Success);
+        Assert.Same(toLong, result.Method);
     }
 
     [Fact]
@@ -295,7 +288,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private abstract class FakeSymbol : ISymbol
     {
-        protected FakeSymbol(SymbolKind kind, string name) {
+        protected FakeSymbol(SymbolKind kind, string name)
+        {
             Kind = kind;
             Name = name;
             MetadataName = name;
@@ -374,7 +368,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
             Parameters = parameters;
             _isExtensionMethod = isExtensionMethod;
 
-            foreach (var parameter in parameters) {
+            foreach (var parameter in parameters)
+            {
                 if (parameter is FakeSymbol fakeParameter)
                 {
                     fakeParameter.SetContainer(this);
