@@ -655,6 +655,22 @@ public class MemberContainer {
         Assert.NotEqual(TypeKind.Error, processExitEvent.Type.TypeKind);
     }
 
+    [Fact]
+    public void NestedMetadataType_PreservesDeclaringTypeAndNamespaceOwnership()
+    {
+        var compilation = Compilation.Create("pe_nested_type_contract")
+            .AddReferences(TestMetadataReferences.Default);
+        var environment = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Environment"));
+        var specialFolder = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Environment+SpecialFolder"));
+
+        Assert.Same(environment, specialFolder.ContainingType);
+        Assert.Same(environment, specialFolder.ContainingSymbol);
+        Assert.Same(environment.ContainingNamespace, specialFolder.ContainingNamespace);
+        Assert.Same(environment.ContainingModule, specialFolder.ContainingModule);
+    }
+
     public sealed class RequiredPropertyFixture
     {
         public required string Required { get; set; }

@@ -151,7 +151,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             return GetOrCreateTypeSymbol(type);
         }
 
-        var parts = type.FullName!.Split('.'); // "System.Collections.Generic.List`1" → [System, Collections, Generic, List`1]
+        var parts = (type.FullName ?? type.Name).Split('.'); // "System.Collections.Generic.List`1" → [System, Collections, Generic, List`1]
         int index = 0;
         INamespaceSymbol currentNamespace = namespaceSymbol;
 
@@ -159,12 +159,13 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         while (index < parts.Length - 1)
         {
             var nsPart = parts[index++];
-            currentNamespace = currentNamespace.GetMembers(nsPart)
-                                               .OfType<INamespaceSymbol>()
-                                               .FirstOrDefault();
-
-            if (currentNamespace is null)
+            var nextNamespace = currentNamespace.GetMembers(nsPart)
+                .OfType<INamespaceSymbol>()
+                .FirstOrDefault();
+            if (nextNamespace is null)
                 return null;
+
+            currentNamespace = nextNamespace;
         }
 
         // Final part is the type name
@@ -180,7 +181,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         if (t is not null) return t;
 
-        return ResolveMetadataMember(GlobalNamespace, type.FullName) as ITypeSymbol;
+        return ResolveMetadataMember(GlobalNamespace, type.FullName ?? type.Name) as ITypeSymbol;
     }
 
     // Metadata type names never contain generic argument lists ("<...>") or commas.
@@ -309,7 +310,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             // Ensure the declaring type has had a chance to load its members so the nested container is stable.
             _ = declaring.GetMembers();
 
-            var containingNamespace = declaring.ContainingNamespace;
+            var containingNamespace = declaring.ContainingNamespace ?? GlobalNamespace;
             return CreateMetadataTypeSymbol(type.GetTypeInfo(), containingNamespace, declaring, declaring);
         }
 
