@@ -45,15 +45,15 @@
   </ItemGroup>
 
   <Target Name="EnsureRavenGenerators" BeforeTargets="Build">
-    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- -f"
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator --artifacts-path &quot;$(MSBuildProjectDirectory)/obj/generator-artifacts/NodeGenerator/$(TargetFramework)&quot; -- -f"
       WorkingDirectory="..\..\src\Raven.CodeAnalysis\Syntax"
       Condition="!Exists('..\..\src\Raven.CodeAnalysis\Syntax\generated\.stamp')" />
 
-    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator -- -f"
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator --artifacts-path &quot;$(MSBuildProjectDirectory)/obj/generator-artifacts/BoundNodeGenerator/$(TargetFramework)&quot; -- -f"
       WorkingDirectory="..\..\src\Raven.CodeAnalysis"
       Condition="!Exists('..\..\src\Raven.CodeAnalysis\BoundTree\generated\.stamp')" />
 
-    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator -- -f"
+    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator --artifacts-path &quot;$(MSBuildProjectDirectory)/obj/generator-artifacts/DiagnosticsGenerator/$(TargetFramework)&quot; -- -f"
       WorkingDirectory="..\..\src\Raven.CodeAnalysis"
       Condition="!Exists('..\..\src\Raven.CodeAnalysis\.diagnostics.stamp')" />
 

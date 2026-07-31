@@ -51,7 +51,7 @@
     Condition="'$(DesignTimeBuild)' != 'true'">
     <MakeDir Directories="Syntax/generated" />
     <!-- WorkingDirectory is Syntax, so the project path is relative to that folder -->
-    <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator --artifacts-path &quot;$(MSBuildProjectDirectory)/obj/generator-artifacts/NodeGenerator/$(TargetFramework)&quot;"
       WorkingDirectory="Syntax" />
     <Touch Files="Syntax/generated/.stamp" AlwaysCreate="true" />
   </Target>
@@ -61,7 +61,7 @@
     Outputs="BoundTree/generated/.stamp"
     Condition="'$(DesignTimeBuild)' != 'true'">
     <MakeDir Directories="BoundTree/generated" />
-    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator" />
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator --artifacts-path &quot;$(MSBuildProjectDirectory)/obj/generator-artifacts/BoundNodeGenerator/$(TargetFramework)&quot;" />
     <Touch Files="BoundTree/generated/.stamp" AlwaysCreate="true" />
   </Target>
 
@@ -69,7 +69,7 @@
     Inputs="DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
     Outputs=".diagnostics.stamp"
     Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec Command="dotnet run --framework net10.0 --project ../../tools/DiagnosticsGenerator" />
+    <Exec Command="dotnet run --framework net10.0 --project ../../tools/DiagnosticsGenerator --artifacts-path &quot;$(MSBuildProjectDirectory)/obj/generator-artifacts/DiagnosticsGenerator/$(TargetFramework)&quot;" />
     <Touch Files=".diagnostics.stamp" AlwaysCreate="true" />
   </Target>
 

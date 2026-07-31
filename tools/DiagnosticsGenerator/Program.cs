@@ -1,13 +1,19 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml.Linq;
+
 using Raven.Generators;
 
 var diagnosticsPath = Path.GetFullPath("DiagnosticDescriptors.xml");
 var outputPath = Path.GetFullPath("CompilerDiagnostics.g.cs");
 var extensionsOutputPath = Path.GetFullPath("DiagnosticBagExtensions.g.cs");
 var stampPath = Path.GetFullPath(".diagnostics.stamp");
+var lockPath = Path.GetFullPath(Path.Combine("obj", "DiagnosticsGenerator.lock"));
+
+using var generationLock = AcquireGenerationLock(lockPath);
 
 var diagnostics = LoadDiagnosticDescriptorsFromXml(diagnosticsPath);
 var hash = await GetHashAsync(diagnosticsPath);
@@ -37,6 +43,38 @@ await File.WriteAllTextAsync(extensionsOutputPath, extensionsSource);
 File.WriteAllText(stampPath, hash);
 
 Console.WriteLine($"Generated {diagnostics.Count} diagnostics.");
+
+static FileStream AcquireGenerationLock(string lockPath)
+{
+    const int timeoutMilliseconds = 120_000;
+    const int retryDelayMilliseconds = 50;
+
+    Directory.CreateDirectory(Path.GetDirectoryName(lockPath)!);
+    var stopwatch = Stopwatch.StartNew();
+
+    while (true)
+    {
+        try
+        {
+            return new FileStream(
+                lockPath,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None);
+        }
+        catch (IOException exception)
+        {
+            if (stopwatch.ElapsedMilliseconds >= timeoutMilliseconds)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for the diagnostics generator lock '{lockPath}'.",
+                    exception);
+            }
+
+            Thread.Sleep(retryDelayMilliseconds);
+        }
+    }
+}
 
 static List<DiagnosticDescriptorModel> LoadDiagnosticDescriptorsFromXml(string path)
 {
