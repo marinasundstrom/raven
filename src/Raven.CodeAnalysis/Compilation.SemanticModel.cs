@@ -60,6 +60,8 @@ public partial class Compilation
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
         EnsureSetup();
 
         if (_macroSyntaxTrees.Contains(syntaxTree))
@@ -169,7 +171,7 @@ public partial class Compilation
 
         if (!_syntaxTrees.Contains(syntaxTree))
         {
-            throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
         }
 
         return _semanticModels.GetOrAdd(syntaxTree, tree => new SemanticModel(this, tree));
@@ -240,7 +242,7 @@ public partial class Compilation
             return generatedSemanticModel;
 
         if (!_syntaxTrees.Contains(syntaxTree))
-            throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
 
         return new SemanticModel(this, syntaxTree);
     }

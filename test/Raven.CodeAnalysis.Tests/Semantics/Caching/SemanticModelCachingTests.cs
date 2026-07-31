@@ -10,6 +10,22 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class SemanticModelCachingTests : CompilationTestBase
 {
     [Fact]
+    public void GetSemanticModel_DistinguishesNullAndForeignSyntaxTrees()
+    {
+        var tree = SyntaxTree.ParseText("let value = 1");
+        var foreignTree = SyntaxTree.ParseText("let value = 1");
+        var compilation = CreateCompilation(tree);
+
+        var nullException = Assert.Throws<ArgumentNullException>(() => compilation.GetSemanticModel(null!));
+        var foreignException = Assert.Throws<ArgumentException>(() => compilation.GetSemanticModel(foreignTree));
+        var transientException = Assert.Throws<ArgumentException>(() => compilation.CreateTransientSemanticModel(foreignTree));
+
+        Assert.Equal("syntaxTree", nullException.ParamName);
+        Assert.Equal("syntaxTree", foreignException.ParamName);
+        Assert.Equal("syntaxTree", transientException.ParamName);
+    }
+
+    [Fact]
     public void GetSemanticModel_ReturnsStableInstanceUnderConcurrentQueries()
     {
         var tree = SyntaxTree.ParseText("""
