@@ -29,9 +29,29 @@ public partial class SemanticModel
 
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
+        if (!IsValidControlFlowRegion(firstStatement, lastStatement))
+            return new ControlFlowAnalysis { Succeeded = false };
+
         var region = new ControlFlowRegion(firstStatement, lastStatement);
         EnsureControlFlowBindingReady(region.EnclosingBlock ?? firstStatement);
         return AnalyzeControlFlowInternal(region, region.EnclosingBlock ?? firstStatement);
+    }
+
+    private static bool IsValidControlFlowRegion(StatementSyntax firstStatement, StatementSyntax lastStatement)
+    {
+        if (!ReferenceEquals(firstStatement.Parent, lastStatement.Parent))
+            return false;
+
+        SyntaxList<StatementSyntax> statements = firstStatement.Parent switch
+        {
+            BlockStatementSyntax block => block.Statements,
+            BlockSyntax blockExpression => blockExpression.Statements,
+            _ => default
+        };
+
+        var startIndex = statements.IndexOf(firstStatement);
+        var endIndex = statements.IndexOf(lastStatement);
+        return startIndex >= 0 && endIndex >= startIndex;
     }
 
     internal ControlFlowAnalysis AnalyzeControlFlowInternal(ControlFlowRegion region, StatementSyntax statement, bool analyzeJumpPoints = true)
@@ -102,6 +122,11 @@ public sealed class ControlFlowRegion
             BlockSyntax blockExpr => blockExpr.Statements,
             _ => throw new ArgumentException("Region must be a contiguous set of statements in the same block.")
         };
+
+        var startIndex = statements.IndexOf(first);
+        var endIndex = statements.IndexOf(last);
+        if (startIndex < 0 || endIndex < startIndex)
+            throw new ArgumentException("Region statements must occur in source order in the same block.");
 
         var found = false;
         foreach (var stmt in statements)

@@ -40,4 +40,20 @@ public sealed class SemanticModelFlowOwnershipTests : CompilationTestBase
         Assert.Throws<ArgumentException>(() => model.AnalyzeDataFlow(detachedStatement));
         Assert.Throws<ArgumentException>(() => model.AnalyzeControlFlow(detachedStatement));
     }
+
+    [Fact]
+    public void FlowAnalysis_ReversedStatementRegionDoesNotSucceed()
+    {
+        var tree = SyntaxTree.ParseText("func Test() {\nlet first = 1\nlet second = first + 1\n}");
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var statements = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LocalDeclarationStatementSyntax>()
+            .ToArray();
+
+        Assert.False(model.AnalyzeDataFlow(statements[1], statements[0]).Succeeded);
+        Assert.False(model.AnalyzeControlFlow(statements[1], statements[0]).Succeeded);
+        Assert.Throws<ArgumentException>(() => new ControlFlowRegion(statements[1], statements[0]));
+    }
 }
