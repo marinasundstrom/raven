@@ -24,7 +24,7 @@ internal struct ParserCheckpoint : IDisposable
         _diagnosticCount = context.GetDiagnosticCount();
     }
 
-    public string DebugName => _debugName;
+    public readonly string DebugName => _debugName;
 
     public readonly void Rewind(
         [CallerMemberName] string? callerMemberName = null,
@@ -45,7 +45,7 @@ internal struct ParserCheckpoint : IDisposable
         _context.RestoreDiagnostics(_diagnosticCount);
     }
 
-    public void Dispose()
+    public readonly void Dispose()
     {
         // Intentionally does not rewind. Rewind is explicit at call sites.
     }
