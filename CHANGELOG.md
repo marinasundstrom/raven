@@ -5,10 +5,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## Unreleased
 
 - Metadata loading now preserves non-null owner and type contracts for PE field,
-  event, and method symbols, using the compiler error type for unreadable
-  referenced signatures. Syntax trees always expose source text; detached
-  syntax nodes and tokens explicitly expose nullable parents, while default
-  node-or-token and separated-list values are safe to inspect as empty values.
+  property, event, and method symbols, using the compiler error type for
+  unreadable referenced signatures. Non-constant PE fields now return no
+  constant instead of invoking an invalid reflection operation, and projected
+  tuple fields no longer inherit from PE symbols with absent reflection state.
+  Syntax trees always expose source text; detached syntax nodes and tokens
+  explicitly expose nullable parents and source behavior, while default tokens,
+  node-or-token values, and separated lists are safe to inspect. Separated-list
+  tokens retain their actual parent and source position.
 - Public compiler-model queries no longer throw for array, tuple, type-union,
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
