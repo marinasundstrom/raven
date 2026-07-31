@@ -5531,7 +5531,8 @@ public partial class SemanticModel
         // - If no initializer is present, the value is previous + 1 (first defaults to 0).
         // - If an initializer is present, it must be a constant expression.
         // - Previous enum members must be in scope while binding later initializers.
-        var underlyingType = enumSymbol.EnumUnderlyingType;
+        var underlyingType = enumSymbol.EnumUnderlyingType
+            ?? Compilation.GetSpecialType(SpecialType.System_Int32);
         var nextValue = (object?)null;
 
         foreach (var enumMember in enumDecl.Members)

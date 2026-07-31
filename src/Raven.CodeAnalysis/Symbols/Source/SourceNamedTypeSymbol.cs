@@ -177,7 +177,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public int Arity => _typeParameters.Length;
 
-    public ITypeSymbol EnumUnderlyingType { get; private set; }
+    public ITypeSymbol? EnumUnderlyingType { get; private set; }
 
     public INamedTypeSymbol UnderlyingTupleType => null!;
 

@@ -20,6 +20,11 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
             compilation.GetTypeByMetadataName("System.AttributeTargets"));
 
         Assert.Equal(TypeKind.Enum, attributeTargets.TypeKind);
+        Assert.Equal(SpecialType.System_Int32, attributeTargets.EnumUnderlyingType?.SpecialType);
+
+        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+        Assert.Null(stringType.EnumUnderlyingType);
     }
 
     [Fact]

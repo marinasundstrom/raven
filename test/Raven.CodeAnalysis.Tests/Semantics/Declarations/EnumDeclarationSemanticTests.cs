@@ -49,6 +49,18 @@ enum Bad : string { Value }
     }
 
     [Fact]
+    public void NonEnumNamedType_HasNoEnumUnderlyingType()
+    {
+        var (compilation, tree) = CreateCompilation("class Sample { }");
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Null(type.EnumUnderlyingType);
+    }
+
+    [Fact]
     public void EnumMemberValue_MustBeConstant()
     {
         const string source = """

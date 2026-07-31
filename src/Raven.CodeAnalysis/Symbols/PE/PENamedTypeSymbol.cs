@@ -87,6 +87,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
+    private ITypeSymbol? _enumUnderlyingType;
     private string _name;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
@@ -602,6 +603,18 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public override SymbolKind Kind => SymbolKind.Type;
     public override string Name => _name ??= _typeInfo.IsGenericType ? StripArity(_typeInfo.Name) : _typeInfo.Name;
+
+    public ITypeSymbol? EnumUnderlyingType => TypeKind == TypeKind.Enum
+        ? _enumUnderlyingType ??= ResolveEnumUnderlyingType()
+        : null;
+
+    private ITypeSymbol? ResolveEnumUnderlyingType()
+    {
+        var valueField = _typeInfo.DeclaredFields.FirstOrDefault(static field => field.Name == "value__");
+        return valueField is null
+            ? null
+            : _reflectionTypeLoader.ResolveType(valueField.FieldType);
+    }
 
     string StripArity(string name)
     {
