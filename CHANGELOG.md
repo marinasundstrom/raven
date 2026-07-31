@@ -31,6 +31,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   metadata, constructed, and aliased symbols. `UnderlyingTupleType` is present
   only for tuple projections and is explicitly nullable for ordinary named
   types.
+- Semantic-model queries now reject foreign and detached syntax consistently,
+  including symbol, type, operation, capture, flow-analysis, function-parameter,
+  and macro-expansion queries. Semantic-model acquisition distinguishes a null
+  tree from a non-null tree that is not part of the compilation, and reversed
+  statement regions no longer produce a successful control-flow analysis.
+- Source fields model an absent or null constant value without violating their
+  symbol contract. Failed type-resolution results without a detailed issue now
+  produce the ordinary fallback diagnostic instead of throwing, and parser
+  recovery coverage now checks every incomplete prefix of a macro function with
+  a match body.
 - Async lambda return-target and iterator signature recognition no longer
   assumes that every named type exposes an original definition or a complete
   namespace-parent chain, preventing malformed or custom symbols from causing
