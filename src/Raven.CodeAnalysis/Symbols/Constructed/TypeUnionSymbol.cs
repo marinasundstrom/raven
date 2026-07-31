@@ -67,10 +67,7 @@ internal partial class TypeUnionSymbol : SourceSymbol, ITypeUnionSymbol
         return BaseType?.GetMembers(name) ?? ImmutableArray<ISymbol>.Empty;
     }
 
-    public ITypeSymbol? LookupType(string name)
-    {
-        throw new NotImplementedException();
-    }
+    public ITypeSymbol? LookupType(string name) => BaseType?.LookupType(name);
 
     public override string ToString()
     {
