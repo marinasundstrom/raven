@@ -61,7 +61,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsImplicitlyDeclared => _definition.IsImplicitlyDeclared;
     public bool CanBeReferencedByName => _definition.CanBeReferencedByName;
     public bool IsAlias => _definition.IsAlias;
-    public ISymbol? UnderlyingSymbol => this;
+    public ISymbol UnderlyingSymbol => this;
     public Accessibility DeclaredAccessibility => _definition.DeclaredAccessibility;
     public bool IsStatic => _definition.IsStatic;
     public ISymbol? ContainingSymbol => _containingSymbol ?? _definition.ContainingSymbol;

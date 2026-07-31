@@ -46,6 +46,7 @@ class Outer<T>
 
         var constructedWrap = Assert.IsAssignableFrom<IMethodSymbol>(wrapDefinition.Construct(intType));
 
+        Assert.Same(constructedWrap, constructedWrap.UnderlyingSymbol);
         Assert.Same(constructedOuter, constructedWrap.ContainingType);
         Assert.Equal("Outer`1", constructedWrap.ContainingType?.ToFullyQualifiedMetadataName());
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(constructedWrap.TypeArguments)));

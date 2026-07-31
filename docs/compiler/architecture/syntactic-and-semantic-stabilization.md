@@ -108,6 +108,21 @@ Changes tied primarily to implementation structure can be made while porting:
 
 The port must not become the first test of what the language means.
 
+### Idiomatic absence in a Raven-authored compiler
+
+A Raven port should not mechanically preserve C#'s internal use of `null`.
+Expected absence should normally use `Option`, recoverable failure should use
+`Result`, and closed compiler states should use unions. This makes the compiler
+exercise Raven's own flow, pattern, and exhaustiveness model and avoids carrying
+ambiguous nullable state into Raven-native component boundaries.
+
+The .NET boundary remains distinct. Metadata, reflection, and interoperable
+public APIs should continue to honor platform nullability and ABI conventions,
+including nullable references where the underlying .NET contract uses them.
+Adapters at those boundaries can project a nullable platform result into an
+idiomatic Raven carrier for internal use; they should not falsify the external
+contract merely to eliminate `null` from its signature.
+
 ## Findings from the current implementation
 
 The following are implementation findings, not conclusions drawn only from the
