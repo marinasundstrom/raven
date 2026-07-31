@@ -21,4 +21,22 @@ public sealed class SyntaxListContractTests
         var emptyAgain = withBlock.Remove(block);
         Assert.Empty(emptyAgain);
     }
+
+    [Fact]
+    public void ChildList_ReusesProjectedChildrenWithCorrectOwnership()
+    {
+        var tree = SyntaxTree.ParseText("func Main() {}");
+        var root = tree.GetRoot();
+        var childList = root.ChildNodesAndTokens();
+
+        var firstEnumeration = childList.ToArray();
+        var secondEnumeration = childList.ToArray();
+
+        Assert.NotEmpty(firstEnumeration);
+        Assert.Equal(firstEnumeration.Length, secondEnumeration.Length);
+        Assert.All(firstEnumeration, child => Assert.Same(root, child.Parent));
+        Assert.All(
+            firstEnumeration.Zip(secondEnumeration),
+            pair => Assert.Same(pair.First, pair.Second));
+    }
 }

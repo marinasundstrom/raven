@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Syntax;
 public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
 {
     private readonly SyntaxNode _node;
-    private ChildSyntaxListItem[]? children;
+    private ChildSyntaxListItem[]? _children;
 
     public ChildSyntaxList(SyntaxNode node)
     {
@@ -17,11 +17,7 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
     {
         get
         {
-            if (children is null)
-            {
-                InitializeChildren();
-            }
-            return children[index];
+            return GetChildren()[index];
         }
     }
 
@@ -58,18 +54,20 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
                 }
             }
         }
-        children = tempChildren.ToArray();
+        _children = tempChildren.ToArray();
+    }
+
+    private ChildSyntaxListItem[] GetChildren()
+    {
+        if (_children is null)
+            InitializeChildren();
+
+        return _children!;
     }
 
     public IEnumerator<ChildSyntaxListItem> GetEnumerator()
     {
-        if (children is null)
-        {
-            InitializeChildren();
-        }
-        return children
-            .AsEnumerable()
-            .GetEnumerator();
+        return ((IEnumerable<ChildSyntaxListItem>)GetChildren()).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -95,7 +93,9 @@ public class ChildSyntaxListItem
     public bool IsToken => _itemGreenNode is InternalSyntax.SyntaxToken;
     public bool IsNode => _itemGreenNode is InternalSyntax.SyntaxNode;
 
-    public SyntaxToken AsToken() => _token ??= IsToken ? new SyntaxToken(_itemGreenNode as InternalSyntax.SyntaxToken, _parentNode, _position) : default;
+    public SyntaxToken AsToken() => _token ??= IsToken
+        ? new SyntaxToken((InternalSyntax.SyntaxToken)_itemGreenNode, _parentNode, _position)
+        : default;
     public SyntaxNode? AsNode() => _node ??= IsNode ? (SyntaxNode?)SyntaxNodeCache.GetValue(_itemGreenNode, (s) => s.CreateRed(_parentNode, _position)) : null;
 
     public SyntaxNode Parent => _parentNode;
