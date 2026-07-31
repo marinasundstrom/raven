@@ -103,6 +103,14 @@ public partial class SemanticModel
 
     public SyntaxTree SyntaxTree { get; }
 
+    private void ValidateSyntaxNode(SyntaxNode node, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(node, parameterName);
+
+        if (!ReferenceEquals(node.SyntaxTree, SyntaxTree))
+            throw new ArgumentException("Syntax node is not part of this semantic model's syntax tree.", parameterName);
+    }
+
     internal ImmutableArray<IMethodSymbol> GetFrameworkProjectionMethods(
         ITypeSymbol receiverType,
         string memberName)
@@ -1896,6 +1904,8 @@ public partial class SemanticModel
     /// <returns>The symbol info</returns>
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
+        ValidateSyntaxNode(node, nameof(node));
+
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
@@ -8888,6 +8898,8 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
+        ValidateSyntaxNode(node, nameof(node));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
@@ -9689,6 +9701,8 @@ public partial class SemanticModel
     /// <returns>The type info</returns>
     public TypeInfo GetTypeInfo(ExpressionSyntax expr)
     {
+        ValidateSyntaxNode(expr, nameof(expr));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
@@ -12873,6 +12887,8 @@ public partial class SemanticModel
     /// <param name="typeSyntax">The type syntax node.</param>
     public TypeInfo GetTypeInfo(TypeSyntax typeSyntax)
     {
+        ValidateSyntaxNode(typeSyntax, nameof(typeSyntax));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 

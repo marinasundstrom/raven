@@ -16,8 +16,7 @@ public partial class SemanticModel
     /// </summary>
     public IOperation? GetOperation(SyntaxNode node, CancellationToken cancellationToken = default)
     {
-        if (node is null)
-            throw new ArgumentNullException(nameof(node));
+        ValidateSyntaxNode(node, nameof(node));
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
