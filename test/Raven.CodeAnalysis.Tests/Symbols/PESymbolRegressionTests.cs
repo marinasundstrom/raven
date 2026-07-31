@@ -599,6 +599,45 @@ public class MemberContainer {
         Assert.Same(containsMethod.ReturnType, containsMethod.ReturnType);
     }
 
+    [Fact]
+    public void MetadataMembers_AreMaterializedAsPESymbols()
+    {
+        var compilation = Compilation.Create("pe_symbol_materialization")
+            .AddReferences(TestMetadataReferences.Default);
+        var stringType = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+
+        Assert.IsType<PENamespaceSymbol>(stringType.ContainingNamespace);
+        Assert.IsType<PEModuleSymbol>(stringType.ContainingModule);
+        Assert.IsType<PEAssemblySymbol>(stringType.ContainingAssembly);
+
+        var emptyField = Assert.IsType<PEFieldSymbol>(
+            Assert.Single(stringType.GetMembers("Empty")));
+        var lengthProperty = Assert.IsType<PEPropertySymbol>(
+            Assert.Single(stringType.GetMembers("Length")));
+        var containsMethod = Assert.IsType<PEMethodSymbol>(
+            Assert.Single(
+                stringType.GetMembers("Contains")
+                    .OfType<IMethodSymbol>()
+                    .Where(method => method.Parameters is [{ Type.SpecialType: SpecialType.System_Char }])));
+        var containsParameter = Assert.IsType<PEParameterSymbol>(Assert.Single(containsMethod.Parameters));
+        var appDomainType = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.AppDomain"));
+        var processExitEvent = Assert.IsType<PEEventSymbol>(
+            Assert.Single(appDomainType.GetMembers("ProcessExit")));
+
+        Assert.Same(stringType, emptyField.ContainingType);
+        Assert.Same(stringType, lengthProperty.ContainingType);
+        Assert.Same(stringType, containsMethod.ContainingType);
+        Assert.Same(containsMethod, containsParameter.ContainingSymbol);
+        Assert.Same(appDomainType, processExitEvent.ContainingType);
+        Assert.Equal(SpecialType.System_String, emptyField.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, lengthProperty.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, containsMethod.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_Char, containsParameter.Type.SpecialType);
+        Assert.NotEqual(TypeKind.Error, processExitEvent.Type.TypeKind);
+    }
+
     public sealed class RequiredPropertyFixture
     {
         public required string Required { get; set; }
