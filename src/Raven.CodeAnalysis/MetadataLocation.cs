@@ -7,4 +7,6 @@ internal class MetadataLocation : Location
         Kind = LocationKind.MetadataFile;
         MetadataModule = moduleSymbol;
     }
+
+    public override IModuleSymbol MetadataModule { get; }
 }

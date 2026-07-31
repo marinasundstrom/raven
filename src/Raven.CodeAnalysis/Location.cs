@@ -33,10 +33,10 @@ public abstract class Location : IComparable<Location>, IEquatable<Location>
 
     public LocationKind Kind { get; protected set; } = LocationKind.None;
 
-    public IModuleSymbol MetadataModule { get; protected set; }
+    public virtual IModuleSymbol? MetadataModule => null;
 
     public TextSpan SourceSpan { get; protected set; }
-    public SyntaxTree SourceTree { get; protected set; }
+    public virtual SyntaxTree? SourceTree => null;
 
     protected virtual string GetDebuggerDisplay()
     {

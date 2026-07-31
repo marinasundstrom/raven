@@ -13,6 +13,8 @@ internal class SourceLocation : Location
         SourceSpan = sourceSpan;
     }
 
+    public override SyntaxTree SourceTree { get; }
+
     public override FileLinePositionSpan GetLineSpan()
     {
         var text = SourceTree.GetText();
