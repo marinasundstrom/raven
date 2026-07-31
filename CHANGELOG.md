@@ -15,7 +15,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Child-list and reflected-property projections now materialize stable cached
   views, detached nodes are rejected as declaration-table keys, and nested PE
   types preserve their declaring type, namespace, and module ownership.
-  Separated-list tokens retain their actual parent and source position.
+  Separated-list tokens retain their actual parent and source position, while
+  token replacement can safely descend into structured recovery trivia.
+  Constructed generic methods preserve substituted array metadata, and
+  synthesized entry points use the compilation's canonical `string[]` type.
 - Public compiler-model queries no longer throw for array, tuple, type-union,
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
