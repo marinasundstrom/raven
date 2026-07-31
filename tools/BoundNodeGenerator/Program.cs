@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Threading;
 
 using BoundNodeGenerator;
 
@@ -15,7 +17,9 @@ var symbolsDir = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "Symbols");
 var boundOutputDir = Path.Combine(boundTreeDir, "generated");
 var symbolOutputDir = Path.Combine(symbolsDir, "generated");
 var stampPath = Path.Combine(boundOutputDir, ".stamp");
+var lockPath = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "obj", "BoundNodeGenerator.lock");
 
+using var generationLock = AcquireGenerationLock(lockPath);
 var inputs = EnumerateInputs(boundTreeDir, symbolsDir).ToList();
 var hash = ComputeHash(inputs);
 
@@ -84,6 +88,38 @@ static string FindRepositoryRoot()
     }
 
     throw new InvalidOperationException("Unable to locate repository root.");
+}
+
+static FileStream AcquireGenerationLock(string lockPath)
+{
+    const int timeoutMilliseconds = 120_000;
+    const int retryDelayMilliseconds = 50;
+
+    Directory.CreateDirectory(Path.GetDirectoryName(lockPath)!);
+    var stopwatch = Stopwatch.StartNew();
+
+    while (true)
+    {
+        try
+        {
+            return new FileStream(
+                lockPath,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None);
+        }
+        catch (IOException exception)
+        {
+            if (stopwatch.ElapsedMilliseconds >= timeoutMilliseconds)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for the bound-node generator lock '{lockPath}'.",
+                    exception);
+            }
+
+            Thread.Sleep(retryDelayMilliseconds);
+        }
+    }
 }
 
 static IEnumerable<string> EnumerateInputs(string boundTreeDir, string symbolsDir)

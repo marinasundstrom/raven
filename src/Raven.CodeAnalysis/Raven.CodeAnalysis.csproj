@@ -31,8 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <BoundNodeGeneratorInput Include="BoundTree\**\*.cs" Exclude="BoundTree\Generated\**\*.*" />
-    <BoundNodeGeneratorInput Include="Symbols\**\*.cs" Exclude="Symbols\Generated\**\*.*" />
+    <BoundNodeGeneratorInput Include="BoundTree\**\*.cs"
+      Exclude="BoundTree\Generated\**\*.*;BoundTree\generated\**\*.*" />
+    <BoundNodeGeneratorInput Include="Symbols\**\*.cs"
+      Exclude="Symbols\Generated\**\*.*;Symbols\generated\**\*.*" />
     <BoundNodeGeneratorInput Include="..\..\tools\BoundNodeGenerator\**\*.cs" />
     <BoundNodeGeneratorInput Include="..\..\tools\BoundNodeGenerator\BoundNodeGenerator.csproj" />
   </ItemGroup>
@@ -56,11 +58,11 @@
 
   <Target Name="RunBoundNodeGenerator"
     Inputs="@(BoundNodeGeneratorInput)"
-    Outputs="BoundTree/Generated/.stamp"
+    Outputs="BoundTree/generated/.stamp"
     Condition="'$(DesignTimeBuild)' != 'true'">
-    <MakeDir Directories="BoundTree/Generated" />
+    <MakeDir Directories="BoundTree/generated" />
     <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator" />
-    <Touch Files="BoundTree/Generated/.stamp" AlwaysCreate="true" />
+    <Touch Files="BoundTree/generated/.stamp" AlwaysCreate="true" />
   </Target>
 
   <Target Name="RunDiagnosticsGenerator"
