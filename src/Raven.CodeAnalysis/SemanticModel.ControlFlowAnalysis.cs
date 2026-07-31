@@ -12,6 +12,8 @@ public partial class SemanticModel
 {
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax statement)
     {
+        ValidateSyntaxNode(statement, nameof(statement));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         EnsureControlFlowBindingReady(statement);
@@ -22,6 +24,9 @@ public partial class SemanticModel
 
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
+        ValidateSyntaxNode(firstStatement, nameof(firstStatement));
+        ValidateSyntaxNode(lastStatement, nameof(lastStatement));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         var region = new ControlFlowRegion(firstStatement, lastStatement);

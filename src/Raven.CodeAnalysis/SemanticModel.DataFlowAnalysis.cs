@@ -12,6 +12,8 @@ public partial class SemanticModel
 {
     public DataFlowAnalysis AnalyzeDataFlow(ExpressionSyntax expression)
     {
+        ValidateSyntaxNode(expression, nameof(expression));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         var collector = new DataFlowWalker(this);
@@ -26,6 +28,8 @@ public partial class SemanticModel
 
     public DataFlowAnalysis AnalyzeDataFlow(StatementSyntax statement)
     {
+        ValidateSyntaxNode(statement, nameof(statement));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         var collector = new DataFlowWalker(this);
@@ -38,6 +42,9 @@ public partial class SemanticModel
 
     public DataFlowAnalysis AnalyzeDataFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
+        ValidateSyntaxNode(firstStatement, nameof(firstStatement));
+        ValidateSyntaxNode(lastStatement, nameof(lastStatement));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         if (firstStatement.Parent != lastStatement.Parent || firstStatement.Parent is not BlockStatementSyntax block)
