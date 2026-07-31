@@ -1,6 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Text;
-
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -12,12 +9,8 @@ internal readonly record struct ParseResult(SyntaxNode Root, IReadOnlyList<Diagn
 internal class LanguageParser
 {
     private readonly string _filePath;
-    private ILexer _lexer;
-
-    private int Position { get; set; }
 
     public ParseOptions Options { get; }
-    public Encoding Encoding { get; }
 
     public LanguageParser(string? filePath, ParseOptions options)
     {
@@ -29,9 +22,9 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        _lexer = new Lexer(textReader, options: Options);
+        var lexer = new Lexer(textReader, options: Options);
 
-        var parseContext = new BaseParseContext(_lexer, Options);
+        var parseContext = new BaseParseContext(lexer, Options);
         var root = new CompilationUnitSyntaxParser(parseContext).Parse();
         return new ParseResult(root, parseContext.Diagnostics);
     }
@@ -47,8 +40,8 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        _lexer = new Lexer(textReader, position, Options);
-        var parseContext = new BaseParseContext(_lexer, Options, position);
+        var lexer = new Lexer(textReader, position, Options);
+        var parseContext = new BaseParseContext(lexer, Options, position);
 
         try
         {
