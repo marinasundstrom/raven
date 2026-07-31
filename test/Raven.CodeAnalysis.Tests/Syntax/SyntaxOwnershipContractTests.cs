@@ -81,6 +81,22 @@ public sealed class SyntaxOwnershipContractTests
     }
 
     [Fact]
+    public void DefaultSyntaxToken_IsSafeToInspectAndTransform()
+    {
+        var token = default(SyntaxToken);
+
+        Assert.Equal(SyntaxKind.None, token.Kind);
+        Assert.Equal(default, token.Span);
+        Assert.Equal(default, token.FullSpan);
+        Assert.Empty(token.GetAnnotations(["test"]));
+        Assert.Null(token.GetAnnotation("test"));
+        Assert.False(token.HasAnnotation(new SyntaxAnnotation("test")));
+        Assert.Equal(token, token.WithLeadingTrivia(SyntaxTriviaList.Empty));
+        Assert.Equal(token, token.WithTrailingTrivia(SyntaxTriviaList.Empty));
+        Assert.Equal(token, token.WithAdditionalAnnotations(new SyntaxAnnotation("test")));
+    }
+
+    [Fact]
     public void SyntaxNodeOrToken_PreservesDefaultAndDetachedOwnership()
     {
         var empty = default(SyntaxNodeOrToken);

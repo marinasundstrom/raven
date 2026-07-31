@@ -43,7 +43,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return $"{GetType().Name} {Kind} {Text ?? Value?.ToString()}";
     }
 
-    public SyntaxKind Kind => Green.Kind;
+    public SyntaxKind Kind => Green?.Kind ?? SyntaxKind.None;
 
     public int RawKind => Green?.RawKind ?? 0;
 
@@ -74,7 +74,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         get
         {
-            return new TextSpan(SpanStart, Green.Width);
+            return new TextSpan(SpanStart, Width);
         }
     }
 
@@ -90,7 +90,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         get
         {
-            return new TextSpan(Position, Green.FullWidth);
+            return new TextSpan(Position, FullWidth);
         }
     }
 
@@ -106,24 +106,36 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
+        if (Green is null)
+            return this;
+
         var newGreen = Green.WithLeadingTrivia(trivias.Select(x => x.Green));
         return new SyntaxToken(newGreen, Parent);
     }
 
     public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
+        if (Green is null)
+            return this;
+
         var newGreen = Green.WithTrailingTrivia(trivias.Select(x => x.Green));
         return new SyntaxToken(newGreen, Parent);
     }
 
     public SyntaxToken WithLeadingTrivia(SyntaxTriviaList trivialList)
     {
+        if (Green is null)
+            return this;
+
         var newGreen = Green.WithLeadingTrivia(trivialList.Green);
         return new SyntaxToken(newGreen, Parent);
     }
 
     public SyntaxToken WithTrailingTrivia(SyntaxTriviaList trivialList)
     {
+        if (Green is null)
+            return this;
+
         var newGreen = Green.WithTrailingTrivia(trivialList.Green);
         return new SyntaxToken(newGreen, Parent);
     }
@@ -147,21 +159,24 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
     {
-        return Green.GetAnnotations(annotationKinds);
+        return Green?.GetAnnotations(annotationKinds) ?? [];
     }
 
     public SyntaxAnnotation? GetAnnotation(string kind)
     {
-        return Green.GetAnnotation(kind);
+        return Green?.GetAnnotation(kind);
     }
 
     public bool HasAnnotation(SyntaxAnnotation annotation)
     {
-        return Green.HasAnnotation(annotation);
+        return Green?.HasAnnotation(annotation) ?? false;
     }
 
     public SyntaxToken WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
     {
+        if (Green is null)
+            return this;
+
         return new SyntaxToken((InternalSyntax.SyntaxToken)Green.With(Array.Empty<GreenNode>(), null, annotations), Parent, Position);
     }
 
