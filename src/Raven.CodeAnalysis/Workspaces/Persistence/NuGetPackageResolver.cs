@@ -206,6 +206,7 @@ internal static class NuGetPackageResolver
         return paths
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Select(Path.GetFileNameWithoutExtension)
+            .OfType<string>()
             .Where(static name => !string.IsNullOrWhiteSpace(name))
             .ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
     }
