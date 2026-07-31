@@ -179,6 +179,31 @@ class C {
     }
 
     [Fact]
+    public void FieldConstantValue_NullIsDistinguishedByConstKind()
+    {
+        const string source = """
+class C {
+    const missing: string? = null
+    field current: string? = null
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var missing = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[0]));
+        var current = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[1]));
+
+        Assert.True(missing.IsConst);
+        Assert.Null(missing.GetConstantValue());
+        Assert.False(current.IsConst);
+        Assert.Null(current.GetConstantValue());
+    }
+
+    [Fact]
     public void ConstField_MissingInitializerReportsDiagnostic()
     {
         const string source = """
