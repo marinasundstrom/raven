@@ -71,16 +71,17 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
     public ImmutableArray<ISymbol> GetMembers(string name) => BaseType!.GetMembers(name);
 
-    public ITypeSymbol? LookupType(string name)
-    {
-        throw new NotImplementedException();
-    }
+    public ITypeSymbol? LookupType(string name) => BaseType?.LookupType(name);
 
     public override string ToString() => Name;
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        throw new NotSupportedException();
+        if (BaseType is not null)
+            return BaseType.IsMemberDefined(name, out symbol);
+
+        symbol = null;
+        return false;
     }
 
     private ImmutableArray<INamedTypeSymbol> ComputeInterfaces()

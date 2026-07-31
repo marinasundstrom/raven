@@ -69,6 +69,20 @@ public class TypeSymbolInterfacesTests
     }
 
     [Fact]
+    public void Array_MemberQueries_DelegateToSystemArray()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var array = compilation.CreateArrayTypeSymbol(intType);
+
+        Assert.True(array.IsMemberDefined("Length", out var length));
+        Assert.Equal(SymbolKind.Property, length?.Kind);
+        Assert.Null(array.LookupType("DoesNotExist"));
+    }
+
+    [Fact]
     public void Interfaces_ExcludeInheritedInterfaces()
     {
         var source = @"interface IA {} interface IB : IA {} class C : IB {}";
