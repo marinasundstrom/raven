@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 public class Diagnostic : IEquatable<Diagnostic>
 {
-    private readonly object[]? _messageArgs;
+    private readonly object?[]? _messageArgs;
     private static readonly ImmutableDictionary<string, string?> EmptyProperties = ImmutableDictionary<string, string?>.Empty;
 
     public DiagnosticDescriptor Descriptor { get; }
@@ -19,12 +19,12 @@ public class Diagnostic : IEquatable<Diagnostic>
 
     public string Id => Descriptor.Id;
 
-    public object[] GetMessageArgs() => _messageArgs ?? [];
+    public object?[] GetMessageArgs() => _messageArgs ?? [];
 
     public Diagnostic(
         DiagnosticDescriptor descriptor,
         Location location,
-        object[]? messageArgs,
+        object?[]? messageArgs,
         DiagnosticSeverity? severity = null,
         bool isSuppressed = false,
         ImmutableDictionary<string, string?>? properties = null)
@@ -39,12 +39,12 @@ public class Diagnostic : IEquatable<Diagnostic>
 
     public override string ToString() => GetDescription();
 
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, params object[]? messageArgs)
+    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, params object?[]? messageArgs)
     {
         return new Diagnostic(descriptor, location, messageArgs);
     }
 
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, DiagnosticSeverity severity, params object[]? messageArgs)
+    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, DiagnosticSeverity severity, params object?[]? messageArgs)
     {
         return new Diagnostic(descriptor, location, messageArgs, severity);
     }
@@ -72,7 +72,7 @@ public class Diagnostic : IEquatable<Diagnostic>
     public string GetMessage()
         => string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : []);
 
-    private IEnumerable<object> ProcessArgs(object[]? messageArgs)
+    private IEnumerable<object?> ProcessArgs(object?[]? messageArgs)
     {
         return messageArgs?.Select(arg =>
         {

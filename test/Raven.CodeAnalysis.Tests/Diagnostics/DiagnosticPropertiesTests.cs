@@ -48,6 +48,17 @@ public class DiagnosticPropertiesTests
         (left == right).ShouldBeFalse();
     }
 
+    [Fact]
+    public void Create_WithNullMessageArgument_PreservesAndFormatsArgument()
+    {
+        var descriptor = CreateDescriptor("RAV9995", "Value is '{0}'.");
+
+        var diagnostic = Diagnostic.Create(descriptor, Location.None, (object?)null);
+
+        Assert.Null(Assert.Single(diagnostic.GetMessageArgs()));
+        diagnostic.GetMessage().ShouldBe("Value is ''.");
+    }
+
     private static DiagnosticDescriptor CreateDescriptor(string id, string messageFormat)
         => DiagnosticDescriptor.Create(
             id,
