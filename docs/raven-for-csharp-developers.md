@@ -12,17 +12,17 @@ This guide presents starting points, not mechanical rewrite rules. Raven fully
 supports classes, interfaces, methods, properties, and mutable objects when they
 fit the problem.
 
-## Gradual adoption
+## Gradually adopt idiomatic Raven
 
-Familiar C# structures—classes, interfaces, methods, loops, mutable objects,
-nullable values, exceptions, and ordinary .NET APIs—can be expressed directly
-in Raven. You can start with a close translation and introduce Raven features
-as you learn them.
+This guide is an introduction for C# developers. Familiar C#
+structures—classes, interfaces, methods, loops, mutable objects, nullable
+values, exceptions, and ordinary .NET APIs—can be expressed directly in Raven,
+so you can begin with a close translation.
 
-Adopt records, unions, patterns, functions, `Option`, and `Result` when they
-make a particular problem clearer; none is a prerequisite for getting started.
-For the deeper design guidance, read [Meaning of Raven
-features](lang/feature-meaning.md) and [Domain modeling in
+As you become comfortable with the language, introduce idiomatic Raven
+features—records, unions, patterns, functions, `Option`, and `Result`—where they
+make the code clearer. For more in-depth rationale and design guidance, read
+[Meaning of Raven features](lang/feature-meaning.md) and [Domain modeling in
 Raven](lang/domain-modeling.md).
 
 ## A quick translation table
