@@ -347,6 +347,20 @@ The eventual representation should support cheap snapshots and spans without
 creating strings in normal compiler paths. Caching should be snapshot-owned,
 bounded, and invalidated by source identity rather than hidden global state.
 
+### Diagnostic rendering repeats formatting work
+
+`Diagnostic` is immutable, but each `GetMessage()` call currently projects
+symbol arguments to display strings, allocates a new argument array, and runs
+composite formatting again. Diagnostics are rendered repeatedly by sorting,
+equality, command-line output, and language-server publication.
+
+Investigate lazy formatted-message caching or argument normalization at
+construction time. Any change must be backed by allocation measurements over
+diagnostic-heavy compilations and tests proving identical messages, equality,
+and hash codes for null, symbol, and ordinary value arguments. Measure retained
+memory as well as throughput: caching every formatted message may trade short
+lived allocations for excessive snapshot retention.
+
 ## Required test strategy
 
 ### Syntax equivalence
