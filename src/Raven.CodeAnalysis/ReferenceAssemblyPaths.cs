@@ -151,8 +151,9 @@ public static class ReferenceAssemblyPaths
     {
         var versions = Directory.GetDirectories(packRoot)
                                 .Select(Path.GetFileName)
-                                .Where(n => !string.IsNullOrEmpty(n))
-                                .ToArray()!;
+                                .OfType<string>()
+                                .Where(static name => name.Length > 0)
+                                .ToArray();
 
         if (versions.Length == 0)
             return null;
@@ -195,8 +196,9 @@ public static class ReferenceAssemblyPaths
     {
         var tfms = Directory.GetDirectories(refRoot)
                             .Select(Path.GetFileName)
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .ToArray()!;
+                            .OfType<string>()
+                            .Where(static name => name.Length > 0)
+                            .ToArray();
 
         if (tfms.Length == 0)
             return null;
