@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -36,6 +37,62 @@ func Main() {
 
         var ex = Record.Exception(() => scope.Dispose());
         Assert.Null(ex);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ParenthesizedExpressionCache_DistinguishesTargetTypes(bool bindStringFirst)
+    {
+        var syntaxTree = SyntaxTree.ParseText(
+            """
+func Main() {
+    let value = (default)
+}
+""");
+
+        var compilation = Compilation.Create(
+            "target-type-cache-tests",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var parenthesized = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedExpressionSyntax>()
+            .Single();
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(parenthesized));
+        var int32 = compilation.GetSpecialType(SpecialType.System_Int32);
+        var @string = compilation.GetSpecialType(SpecialType.System_String);
+
+        var firstTarget = bindStringFirst ? @string : int32;
+        var secondTarget = bindStringFirst ? int32 : @string;
+
+        BoundExpression firstExpression;
+        using (binder.PushTargetType(firstTarget))
+            firstExpression = binder.BindExpression(parenthesized);
+
+        BoundExpression secondExpression;
+        using (binder.PushTargetType(secondTarget))
+            secondExpression = binder.BindExpression(parenthesized);
+
+        AssertTargetType(firstExpression, bindStringFirst);
+        AssertTargetType(secondExpression, !bindStringFirst);
+        Assert.NotSame(firstExpression, secondExpression);
+
+        void AssertTargetType(BoundExpression expression, bool expectString)
+        {
+            if (expectString)
+            {
+                var nullableString = Assert.IsType<NullableTypeSymbol>(expression.Type);
+                Assert.Equal(SpecialType.System_String, nullableString.UnderlyingType.SpecialType);
+            }
+            else
+            {
+                Assert.True(SymbolEqualityComparer.Default.Equals(int32, expression.Type));
+            }
+        }
     }
 
     [Fact]

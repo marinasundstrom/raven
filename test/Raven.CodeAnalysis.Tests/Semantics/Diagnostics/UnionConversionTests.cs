@@ -335,4 +335,58 @@ union Result<T, E> {
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Id == CompilerDiagnostics.CannotConvertFromTypeToType.Id);
     }
+
+    [Fact]
+    public void ParenthesizedTargetTypedCase_RemainsStableAfterPriorNonTargetBinding()
+    {
+        var source = """
+func build() -> Result<int, string> {
+    return (.Ok(1))
+}
+
+union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var parenthesized = Assert.Single(
+            tree.GetRoot().DescendantNodes().OfType<ParenthesizedExpressionSyntax>());
+
+        var semanticModel = compilation.GetSemanticModel(tree);
+        _ = semanticModel.GetBoundNode(parenthesized);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void TupleOfTargetTypedCases_RemainsStableAfterPriorNonTargetBinding()
+    {
+        var source = """
+func build() -> (Result<int, string>, Result<int, string>) {
+    return (.Ok(1), .Error("failure"))
+}
+
+union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var tuple = Assert.Single(
+            tree.GetRoot().DescendantNodes().OfType<TupleExpressionSyntax>());
+
+        var semanticModel = compilation.GetSemanticModel(tree);
+        _ = semanticModel.GetBoundNode(tuple);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+    }
 }

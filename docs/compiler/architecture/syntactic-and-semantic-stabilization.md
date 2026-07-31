@@ -142,18 +142,16 @@ parser exceptions are guarded construction and dispatch invariants; mutation
 coverage exercises the relevant directive, operator, relational-pattern, and
 macro boundaries so that no user edit reaches them.
 
-### Context-sensitive binding depends on a manual cache classification
+### Target-sensitive binding uses contextual cache identity
 
-Expression binding uses separate contextual caching only for a manually
-enumerated set of target-type-sensitive syntax forms. That list is easy to
-miss when adding syntax, and wrappers or aggregate expressions can contain
-target-sensitive children without themselves appearing in the list.
+Target-typed expression binding now caches every expression form by syntax and
+target type. This replaces the manually enumerated syntax-kind allowlist, which
+could omit wrappers or newly added expressions and make the first requested
+target type affect later semantic answers.
 
-The resulting risk is query-order-dependent binding: the first target type or
-context to request a bound node can affect later semantic answers. The solution
-should be general—context must be part of the semantic identity, or the bound
-state must defer the context-dependent decision—rather than a growing list of
-language-service exceptions.
+Focused permutation tests bind the same parenthesized expression under
+different target types in both orders. Additional binding context beyond target
+type, such as expression-return policy, still needs an explicit identity audit.
 
 ### Broad exception suppression can hide semantic differences
 

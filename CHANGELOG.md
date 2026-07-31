@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Target-typed expression binding now keys semantic cache entries by target type
+  for every expression form, including wrappers such as parenthesized
+  expressions, instead of relying on a syntax-kind allowlist. Semantic results
+  are stable regardless of which target-type context binds the syntax first.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

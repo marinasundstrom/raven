@@ -2188,11 +2188,8 @@ partial class BlockBinder : Binder
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         using var _ = EnterExecutionScope();
 
-        // Collection literals are target-type-sensitive. Reusing a cached node can
-        // apply a previous context (for example, inferred array) in a later binding
-        // that has an explicit target type.
         var activeTargetType = _targetTypeStack.Count > 0 ? _targetTypeStack.Peek() : null;
-        var useContextualCache = activeTargetType is not null && IsTargetTypeSensitiveExpression(syntax);
+        var useContextualCache = activeTargetType is not null;
         var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax;
 
         if (useContextualCache && TryGetCachedBoundNode(syntax, activeTargetType) is BoundExpression contextualCached)
@@ -2266,19 +2263,6 @@ partial class BlockBinder : Binder
 
         return boundNode;
     }
-
-    private static bool IsTargetTypeSensitiveExpression(ExpressionSyntax syntax)
-        => syntax is MemberBindingExpressionSyntax
-            or InvocationExpressionSyntax
-            or MemberAccessExpressionSyntax
-            or IdentifierNameSyntax
-            or DefaultExpressionSyntax
-            or StackAllocExpressionSyntax
-            or MatchExpressionSyntax
-            or PostfixMatchExpressionSyntax
-            or IfExpressionSyntax
-            or IfPatternExpressionSyntax
-            || syntax is PostfixOperatorExpressionSyntax { OperatorToken.Kind: SyntaxKind.ExclamationToken };
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
