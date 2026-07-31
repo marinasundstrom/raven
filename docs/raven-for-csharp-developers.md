@@ -19,16 +19,16 @@ from C#. You can preserve an existing object-oriented or procedural
 structure—classes, interfaces, methods, loops, mutable objects, and familiar
 .NET APIs—and express it directly in Raven without changing the way you write
 code very much. As you learn the language, you can introduce Raven's features
-and programming patterns one useful change at a time. Raven promotes forms that
-make those features compose well, but they are not prerequisites for getting
+and programming patterns one useful change at a time. Raven is designed so
+those features compose well, but they are not prerequisites for getting
 started.
 
 ## A three-step comparison
 
 A useful comparison has three steps: how you would solve a problem in C#, how
-you can use the same approach in Raven, and the approach Raven promotes when its
-features express the intention more clearly. The direct translation is still
-valid Raven.
+you can use the same approach in Raven, and a Raven-oriented alternative that
+may express the intention more clearly. The direct translation is still valid
+Raven.
 
 **C# approach:** choose a value through assignment.
 
@@ -47,7 +47,7 @@ if shipment.IsPriority {
 }
 ```
 
-**The approach Raven promotes here:** make the condition produce the value.
+**A Raven-oriented alternative:** make the condition produce the value.
 
 ```raven
 let description = if shipment.IsPriority {
@@ -59,7 +59,7 @@ let description = if shipment.IsPriority {
 
 The same progression applies to other common problems:
 
-| Problem | Same approach in Raven | Approach Raven promotes when appropriate |
+| Problem | Same approach in Raven | Raven features to consider |
 | --- | --- | --- |
 | Choose a value conditionally | `var`, `if`, and assignment | An `if` expression bound with `let` |
 | Organize stateless helpers | A type with static methods | Plain functions |
@@ -69,8 +69,9 @@ The same progression applies to other common problems:
 | Represent a closed set of states | An enum or class hierarchy | A union with `match` |
 | Test several aspects of a value | Boolean conditions and local extraction | Composed property patterns and bindings |
 
-Raven's promoted style is not its only valid style. It is the style for which
-the language's features are designed to compose most naturally.
+The third column is not universally preferred. Choose the form that best
+expresses the problem and its solution; Raven's features are options that
+compose well when they fit.
 
 ## Entry points do not require a `Program` class
 
@@ -107,7 +108,7 @@ func Main() -> () {
 Create an application class only if the application itself has meaningful state
 or behavior to encapsulate—not because the runtime entry point needs a home.
 
-## Utility classes become plain functions
+## Plain functions for stateless helpers
 
 C# frequently uses static classes as namespaces for behavior:
 
@@ -165,7 +166,7 @@ deterministic function. Use an interface when the dependency is genuinely an
 open protocol with several related operations or implementations. Use a class
 when it owns state, disposal, or a resource lifecycle.
 
-## DTOs become explicit data shapes
+## Records for data shapes
 
 A record expresses immutable domain data without a handwritten property and
 constructor shell:
@@ -188,7 +189,7 @@ Choose a record struct for value semantics and a record class for reference
 semantics. Choose an ordinary class when identity or encapsulated mutable state
 matters more than structural value behavior.
 
-## Domain primitives become domain types
+## Domain types for domain concepts
 
 C# applications often pass primitive values whose meaning exists only in names
 and conventions:
@@ -218,7 +219,7 @@ record struct Year private (Value: int) {
 This is an ordinary record with a restricted constructor, not special compiler
 support for opaque aliases. A `Year` cannot be confused with every other `int`.
 
-## Absence becomes `Option`
+## `Option` for expected absence
 
 Raven also projects a curated set of familiar .NET APIs into this model. The
 underlying framework types remain the same, but their Raven-facing signatures
@@ -272,7 +273,7 @@ let message = FindCustomer("C-100") match {
 Raven still supports nullable values for .NET interop. `Option<T>` is the
 preferred domain shape when absence is expected and meaningful.
 
-## Expected failure becomes `Result`
+## `Result` for expected failure
 
 Exceptions are useful for unexpected faults. They are less useful when callers
 are expected to branch on validation or lookup outcomes.
@@ -310,7 +311,7 @@ The `?` expression keeps the successful path linear while preserving the typed
 failure in the function signature. Use `match` when recovery deserves to be
 shown explicitly.
 
-## State plus payload becomes a union
+## Unions for closed states with payloads
 
 C# models sometimes combine an enum with fields that are valid only for some
 states:
@@ -324,7 +325,26 @@ public sealed record Delivery(
     string? FailureReason);
 ```
 
-A Raven union puts the data on the case where it is valid:
+Raven can use the same enum-plus-record model:
+
+```raven
+import System.*
+
+enum DeliveryStatus {
+    Pending
+    Delivered
+    Failed
+}
+
+record class Delivery(
+    val Status: DeliveryStatus,
+    val DeliveredAt: DateTime?,
+    val FailureReason: string?)
+```
+
+That model is valid Raven and may be the clearest choice, especially when it
+matches an existing .NET contract. When each state has different valid data, a
+custom union can keep the payload on the case where it belongs:
 
 ```raven
 import System.*
@@ -346,9 +366,9 @@ func Describe(status: DeliveryStatus) -> string {
 }
 ```
 
-Use an enum when cases are only named constants. Use a union for a closed family
-of cases with different payloads. Use an interface or class hierarchy when the
-family must remain open to new third-party implementations.
+An enum fits cases that are only named constants. A union fits a closed family
+whose cases carry different payloads. An interface or class hierarchy fits a
+family that must remain open to new third-party implementations.
 
 ## Immutability is the visible default
 
@@ -372,35 +392,58 @@ Use `let` for a lexical binding that does not change and `var` when mutation is 
 the algorithm. Mutable objects and fields remain available when stateful
 modeling is appropriate.
 
-## Pattern matching replaces scattered inspection
+## Property patterns for structural decisions
 
-Raven patterns work across unions, options, results, records, tuples, and other
-structural shapes. Code that would distribute null, type, and status checks
-across several C# branches can often become one visible decision:
+C# commonly classifies an object with boolean conditions:
+
+```csharp
+static string Describe(Shipment shipment)
+{
+    if (shipment.IsPriority && shipment.WeightKg > 20)
+        return "Heavy priority shipment";
+    if (shipment.IsPriority)
+        return "Priority shipment";
+    return "Standard shipment";
+}
+```
+
+The same conditions and early returns are valid Raven:
 
 ```raven
-union CustomerError {
-    case NotFound(id: string)
-    case Unavailable
+func Describe(shipment: Shipment) -> string {
+    if shipment.IsPriority && shipment.WeightKg > 20 {
+        return "Heavy priority shipment"
+    }
+    if shipment.IsPriority {
+        return "Priority shipment"
+    }
+    return "Standard shipment"
 }
+```
 
-func Message(result: Result<Customer, CustomerError>) -> string {
-    return result match {
-        Ok(let customer) => "Welcome ${customer.Name}"
-        Error(.NotFound(let id)) => "No customer named $id"
-        Error(.Unavailable) => "Customer service unavailable"
+When the problem is best understood as recognizing structural shapes, property
+patterns can express those shapes directly and compose with `match`:
+
+```raven
+func Describe(shipment: Shipment) -> string {
+    return shipment match {
+        { IsPriority: true, WeightKg: > 20 } => "Heavy priority shipment"
+        { IsPriority: true } => "Priority shipment"
+        _ => "Standard shipment"
     }
 }
 ```
 
-The point is not merely a shorter `switch`. The data model and the decision use
-the same case vocabulary, so invalid combinations are harder to represent.
+Neither Raven version is inherently better. Use conditions when the branching
+process is clearest; use property patterns when the shapes being recognized are
+the important part of the problem. Raven patterns also compose across unions,
+options, results, records, tuples, sequences, and other structural values.
 
-## Classes are still the Raven way when the domain has objects
+## Classes for identity and lifecycle
 
-Do not translate every C# class into a collection of functions. A stateful
+Not every C# class needs to become a collection of functions. A stateful
 connection, aggregate with identity, actor, cache, UI component, or resource
-owner can still be most honestly represented by a class:
+owner may still be most honestly represented by a class:
 
 ```raven
 class GreenhouseDevice private (val DeviceId: string) {
@@ -424,14 +467,14 @@ into object-oriented components when useful.
 
 When translating a design from C#, ask:
 
-1. Is this just an operation? Start with a function.
+1. Is this just an operation? Consider a function.
 2. Is this one required capability? Consider a function parameter.
 3. Is this immutable data or a domain value? Consider a record.
 4. Is this a closed set of meaningful alternatives? Consider a union.
-5. Is absence or failure expected? Use `Option` or `Result`.
-6. Does this concept have identity, state, lifecycle, or encapsulation? Use a
-   class.
-7. Must unrelated implementations participate in an open contract? Use an
+5. Is absence or failure expected? Consider `Option` or `Result`.
+6. Does this concept have identity, state, lifecycle, or encapsulation? Consider
+   a class.
+7. Must unrelated implementations participate in an open contract? Consider an
    interface.
 
 This is the main adjustment when moving from C#: classes remain available, but
