@@ -3961,7 +3961,9 @@ partial class BlockBinder : Binder
         }
 
         var compatibleMethods = methodGroup.Methods
-            .Where(candidate => IsCompatibleWithDelegate(candidate, invoke, methodGroup.Receiver is not null))
+            .Select(candidate => GetMethodCompatibleWithDelegate(candidate, invoke, methodGroup.Receiver is not null))
+            .Where(static candidate => candidate is not null)
+            .Select(static candidate => candidate!)
             .ToImmutableArray();
 
         var selectedMethod = methodGroup.SelectedMethod;
@@ -4041,16 +4043,21 @@ partial class BlockBinder : Binder
         return OverloadResolver.ResolveOverload(methods, arguments, Compilation, binder: this, receiver: receiver);
     }
 
-    private bool IsCompatibleWithDelegate(IMethodSymbol method, IMethodSymbol invoke, bool hasReceiver)
+    private IMethodSymbol? GetMethodCompatibleWithDelegate(IMethodSymbol method, IMethodSymbol invoke, bool hasReceiver)
     {
         if (!hasReceiver && !method.IsStatic)
-            return false;
+            return null;
 
-        if (method.IsGenericMethod)
-            return false;
+        method = OverloadResolver.TryConstructMethodGroupCandidate(method, invoke, Compilation, this) ?? method;
+
+        if (method.IsGenericMethod &&
+            method.TypeArguments.Any(static typeArgument => typeArgument is ITypeParameterSymbol))
+        {
+            return null;
+        }
 
         if (method.Parameters.Length != invoke.Parameters.Length)
-            return false;
+            return null;
 
         for (var i = 0; i < method.Parameters.Length; i++)
         {
@@ -4058,21 +4065,21 @@ partial class BlockBinder : Binder
             var delegateParameter = invoke.Parameters[i];
 
             if (methodParameter.RefKind != delegateParameter.RefKind)
-                return false;
+                return null;
 
             if (SymbolEqualityComparer.Default.Equals(delegateParameter.Type, methodParameter.Type))
                 continue;
 
             var conversion = Compilation.ClassifyConversion(delegateParameter.Type, methodParameter.Type);
             if (!conversion.Exists || !conversion.IsImplicit)
-                return false;
+                return null;
         }
 
         if (SymbolEqualityComparer.Default.Equals(method.ReturnType, invoke.ReturnType))
-            return true;
+            return method;
 
         var returnConversion = Compilation.ClassifyConversion(method.ReturnType, invoke.ReturnType);
-        return returnConversion.Exists && returnConversion.IsImplicit;
+        return returnConversion.Exists && returnConversion.IsImplicit ? method : null;
     }
 
     private static ImmutableArray<ISymbol> AsSymbolCandidates(ImmutableArray<IMethodSymbol> methods)

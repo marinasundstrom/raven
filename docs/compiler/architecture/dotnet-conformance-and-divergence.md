@@ -151,8 +151,11 @@ contract.
 The current implementation also contains differences that are not yet language
 identity and should not be defended as such:
 
-- Generic overload resolution and conversion ranking still have explicit gaps.
-  These need a conformance matrix before any mismatch can be called intentional.
+- Generic method groups whose type arguments are inferable from target delegate
+  parameters now participate in outer generic inference and final delegate
+  conversion. Other generic overload-resolution forms and coarse conversion
+  ranking still need a conformance matrix before any mismatch can be called
+  intentional.
 - Nullable transform flags and the non-null source context now round-trip, but
   nullable flow attributes are incomplete.
 - Raven unions are moving toward the standard C#/.NET recognition surface. Any

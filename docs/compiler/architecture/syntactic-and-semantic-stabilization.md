@@ -318,9 +318,13 @@ should receive the same no-throw query coverage as part of their introduction.
 
 ### Generic overload resolution has explicit gaps
 
-Overload resolution currently skips some open generic method-group candidates,
-and conversion ranking uses coarse fallback scores in several cases. This may
-be adequate for existing samples without being a stable language rule.
+Overload resolution now constructs open generic method-group candidates when
+their type arguments can be inferred from the target delegate parameters. The
+constructed signature participates both in outer generic inference and in the
+final delegate conversion, so calls such as `Apply(21, Identity)` consistently
+resolve both methods. Conversion ranking still uses coarse fallback scores in
+several cases, and the remaining generic inference forms need a conformance
+matrix before they can be treated as stable language rules.
 
 Tests should cover inference, constraints, variance, extension methods, method
 groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each

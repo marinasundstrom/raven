@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
@@ -21,7 +22,15 @@ internal sealed partial class BoundMethodGroupExpression : BoundExpression
             throw new ArgumentException("Method group must include at least one candidate.", nameof(methods));
 
         if (selectedMethod is not null)
-            Debug.Assert(methods.Contains(selectedMethod, SymbolEqualityComparer.Default), "Selected method must belong to the candidate set.");
+        {
+            Debug.Assert(
+                methods.Any(method =>
+                    SymbolEqualityComparer.Default.Equals(method, selectedMethod) ||
+                    SymbolEqualityComparer.Default.Equals(
+                        method.OriginalDefinition ?? method,
+                        selectedMethod.OriginalDefinition ?? selectedMethod)),
+                "Selected method must be constructed from the candidate set.");
+        }
 
         Receiver = receiver;
         Methods = methods;

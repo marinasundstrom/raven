@@ -698,7 +698,7 @@ internal sealed class OverloadResolver
 
             if (expression is BoundMethodGroupExpression methodGroup)
             {
-                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method))
+                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method, binder))
                     return null;
                 continue;
             }
@@ -806,7 +806,7 @@ internal sealed class OverloadResolver
 
             if (expression is BoundMethodGroupExpression methodGroup)
             {
-                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method))
+                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method, binder))
                     return null;
 
                 continue;
@@ -1047,7 +1047,8 @@ internal sealed class OverloadResolver
         ITypeSymbol parameterType,
         BoundMethodGroupExpression methodGroup,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-        IMethodSymbol? inferenceMethod)
+        IMethodSymbol? inferenceMethod,
+        Binder? binder)
     {
         // Method groups only participate in inference when the target parameter is a delegate type.
         if (parameterType is not INamedTypeSymbol delegateType ||
@@ -1060,8 +1061,6 @@ internal sealed class OverloadResolver
         if (invoke is null)
             return true;
 
-        // Best-effort: pick the first candidate that can unify with the delegate signature
-        // without producing conflicting substitutions.
         var candidates = methodGroup.Methods;
         if (candidates.IsDefaultOrEmpty)
             return false;
@@ -1071,13 +1070,16 @@ internal sealed class OverloadResolver
             if (candidate is null)
                 continue;
 
-            // Skip open generic method-group candidates for now.
-            // (C# can sometimes infer these too, but this keeps Raven behavior predictable
-            // until we add a dedicated inference pass for the group method's own type params.)
-            if (candidate.IsGenericMethod && candidate.TypeParameters.Length > 0)
+            var constructedCandidate = TryConstructMethodGroupCandidate(
+                candidate,
+                invoke,
+                compilation,
+                binder,
+                substitutions);
+            if (constructedCandidate is null)
                 continue;
 
-            if (candidate.Parameters.Length != invoke.Parameters.Length)
+            if (constructedCandidate.Parameters.Length != invoke.Parameters.Length)
                 continue;
 
             // Backtrackable inference: try candidate against a copy, then commit.
@@ -1088,7 +1090,7 @@ internal sealed class OverloadResolver
             for (int i = 0; i < invoke.Parameters.Length; i++)
             {
                 var expectedParam = invoke.Parameters[i];
-                var candidateParam = candidate.Parameters[i];
+                var candidateParam = constructedCandidate.Parameters[i];
 
                 // Ref-kind mismatch cannot be bridged by conversions.
                 if (expectedParam.RefKind != candidateParam.RefKind)
@@ -1108,7 +1110,7 @@ internal sealed class OverloadResolver
                 continue;
 
             // Unify return types as well so we can infer TResult from a method group like `Compute`.
-            if (!TryInferFromTypes(compilation, invoke.ReturnType, candidate.ReturnType, temp, inferenceMethod))
+            if (!TryInferFromTypes(compilation, invoke.ReturnType, constructedCandidate.ReturnType, temp, inferenceMethod))
                 continue;
 
             // Commit inferred substitutions.
@@ -1121,6 +1123,35 @@ internal sealed class OverloadResolver
 
         // No candidate could be used to infer the delegate conversion.
         return false;
+    }
+
+    internal static IMethodSymbol? TryConstructMethodGroupCandidate(
+        IMethodSymbol candidate,
+        IMethodSymbol delegateInvoke,
+        Compilation compilation,
+        Binder? binder,
+        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? knownTargetSubstitutions = null)
+    {
+        if (!candidate.IsGenericMethod || candidate.TypeParameters.IsDefaultOrEmpty)
+            return candidate;
+
+        if (candidate.Parameters.Length != delegateInvoke.Parameters.Length)
+            return null;
+
+        var arguments = new BoundArgument[delegateInvoke.Parameters.Length];
+        for (var i = 0; i < delegateInvoke.Parameters.Length; i++)
+        {
+            var delegateParameter = delegateInvoke.Parameters[i];
+            var parameterType = knownTargetSubstitutions is null
+                ? delegateParameter.Type
+                : SubstituteType(delegateParameter.Type, knownTargetSubstitutions);
+            arguments[i] = new BoundArgument(
+                new BoundDefaultValueExpression(parameterType),
+                delegateParameter.RefKind,
+                name: null);
+        }
+
+        return ApplyTypeArgumentInference(candidate, receiver: null, arguments, compilation, binder);
     }
 
     private static ImmutableArray<OverloadCandidateLog> MarkCandidates(
@@ -1559,6 +1590,59 @@ internal sealed class OverloadResolver
         }
 
         return type;
+    }
+
+    private static ITypeSymbol SubstituteType(
+        ITypeSymbol type,
+        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol typeParameter:
+                if (substitutions.TryGetValue(typeParameter, out var substitutedType) ||
+                    TypeSubstitution.TryGetEquivalentTypeParameterSubstitution(typeParameter, substitutions, out substitutedType))
+                {
+                    return substitutedType;
+                }
+
+                return type;
+
+            case INamedTypeSymbol named:
+                {
+                    var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
+                    if (typeArguments.IsDefaultOrEmpty)
+                        return type;
+
+                    var rewritten = new ITypeSymbol[typeArguments.Length];
+                    var changed = false;
+
+                    for (var i = 0; i < typeArguments.Length; i++)
+                    {
+                        var substitutedArgument = SubstituteType(typeArguments[i], substitutions);
+                        rewritten[i] = substitutedArgument;
+                        changed |= !SymbolEqualityComparer.Default.Equals(substitutedArgument, typeArguments[i]);
+                    }
+
+                    if (!changed)
+                        return type;
+
+                    var definition = TypeSubstitution.GetDefinitionForSubstitution(named);
+                    return definition.Arity == rewritten.Length
+                        ? definition.Construct(rewritten)
+                        : type;
+                }
+
+            case NullableTypeSymbol nullable:
+                {
+                    var underlyingType = SubstituteType(nullable.UnderlyingType, substitutions);
+                    return SymbolEqualityComparer.Default.Equals(underlyingType, nullable.UnderlyingType)
+                        ? type
+                        : underlyingType.MakeNullable();
+                }
+
+            default:
+                return type;
+        }
     }
 
     private static bool TryGetInferredTypeArgument(
@@ -2659,13 +2743,17 @@ internal sealed class OverloadResolver
             if (candidate is null)
                 continue;
 
-            // Skip open generic candidates; they are not directly convertible without type inference.
-            if (candidate.IsGenericMethod && candidate.TypeParameters.Length > 0)
+            var constructedCandidate = TryConstructMethodGroupCandidate(
+                candidate,
+                invoke,
+                compilation,
+                binder);
+            if (constructedCandidate is null)
                 continue;
 
             // Delegate conversion requires the method to be invokable with the delegate's parameter list.
             // For now we require equal parameter counts (no optional/params-array bridging).
-            if (candidate.Parameters.Length != invoke.Parameters.Length)
+            if (constructedCandidate.Parameters.Length != invoke.Parameters.Length)
                 continue;
 
             var ok = true;
@@ -2675,7 +2763,7 @@ internal sealed class OverloadResolver
                 ThrowIfDiagnosticBindingCancellationRequested(binder);
 
                 var invokeParam = invoke.Parameters[i];
-                var methodParam = candidate.Parameters[i];
+                var methodParam = constructedCandidate.Parameters[i];
 
                 if (invokeParam.RefKind != methodParam.RefKind)
                 {
@@ -2698,7 +2786,7 @@ internal sealed class OverloadResolver
 
             // Returns are covariant: the method return must be implicitly convertible to the delegate return.
             var delegateReturn = invoke.ReturnType;
-            var methodReturn = candidate.ReturnType;
+            var methodReturn = constructedCandidate.ReturnType;
 
             if (delegateReturn.SpecialType == SpecialType.System_Void)
             {

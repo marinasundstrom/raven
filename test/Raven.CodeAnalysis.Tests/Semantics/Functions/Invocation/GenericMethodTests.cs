@@ -101,6 +101,48 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Fact]
+    public void GenericMethodInvocation_GenericMethodGroup_InfersBothMethods()
+    {
+        const string source = """
+            import System.*
+
+            let result = Apply(21, Identity)
+
+            func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> TResult {
+                transform(value)
+            }
+
+            func Identity<T>(value: T) -> T {
+                value
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(System.Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
+        var applyInvocation = Assert.Single(invocations, invocation => invocation.Expression.ToString() == "Apply");
+        var applyMethod = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(applyInvocation)).Method;
+
+        Assert.Equal(new[] { SpecialType.System_Int32, SpecialType.System_Int32 },
+            applyMethod.TypeArguments.Select(static type => type.SpecialType));
+
+        var applySymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(applyInvocation).Symbol);
+        Assert.Equal(new[] { SpecialType.System_Int32, SpecialType.System_Int32 },
+            applySymbol.TypeArguments.Select(static type => type.SpecialType));
+
+        var identityReference = tree.GetRoot().DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Identity");
+        var identityMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(identityReference).Symbol);
+
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(identityMethod.TypeArguments).SpecialType);
+    }
+
+    [Fact]
     public void GenericMethodInvocation_ConstraintFailure_DoesNotReportNameMissing()
     {
         var source = """
