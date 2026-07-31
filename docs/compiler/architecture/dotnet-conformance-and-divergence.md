@@ -174,6 +174,16 @@ identity and should not be defended as such:
   project these back under the generic union; it must not infer ownership from
   the spelling alone. The design still needs collision, accessibility,
   documentation, type-inference, and future standard-union compatibility tests.
+  Generic carriers should additionally expose case factories on the closed
+  carrier, for example `Result<T, E>.Ok(T value) -> Result<T, E>`. This works
+  with current C# inference because the carrier supplies every union type
+  argument, while the publicly nameable case remains available through the
+  companion for matching, for example `Result.Ok<T, E>`. Companion-level
+  generic factories cannot infer carrier parameters that do not occur in their
+  arguments because current C# inference does not use the assignment target or
+  return type. Raven may project or hide the carrier factories behind its case
+  syntax, but the shared recognition, tag, and extraction contract should stay
+  stable and independently versioned from this presentation layer.
 - `ClosedHierarchyAttribute` is intentionally assembly-local today because the
   runtime does not yet provide the well-known contract Raven needs. Its name,
   constructor, and permitted-type meaning must be revisited when the C#/.NET
