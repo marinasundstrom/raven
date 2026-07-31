@@ -6337,8 +6337,8 @@ public partial class SemanticModel
 
         if (selectedMethod is not null)
         {
-            var selectedReturnType = GetInvocationReturnType(selectedMethod);
-            if (IsUsefulAvailableExpressionType(selectedReturnType))
+            if (GetInvocationReturnType(selectedMethod) is { } selectedReturnType &&
+                IsUsefulAvailableExpressionType(selectedReturnType))
             {
                 returnType = selectedReturnType;
                 StoreTypeMapping(
@@ -7402,7 +7402,7 @@ public partial class SemanticModel
     private bool TryGetBestAvailableInvocationReturnType(
         InvocationExpressionSyntax invocation,
         ImmutableArray<IMethodSymbol> invocationCandidates,
-        out ITypeSymbol? returnType)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? returnType)
     {
         returnType = null;
 
