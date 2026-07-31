@@ -36,7 +36,8 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
 
     public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol)
     {
-        throw new NotImplementedException();
+        _containingAssembly.Compilation.EnsureSourceDeclarationsDeclared();
+        return ModuleNamespaceResolver.Resolve(this, namespaceSymbol);
     }
 
     public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)

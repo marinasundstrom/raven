@@ -55,10 +55,8 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
 
-    public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol)
-    {
-        throw new NotImplementedException();
-    }
+    public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol) =>
+        ModuleNamespaceResolver.Resolve(this, namespaceSymbol);
 
     public ITypeSymbol? GetType(Type type)
     {
