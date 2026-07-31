@@ -9,6 +9,20 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class IncrementalCompilationReuseTests
 {
+    [Fact]
+    public void DeclarationTable_RejectsDetachedSyntaxNodes()
+    {
+        var tree = SyntaxTree.ParseText("class Widget {}");
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default);
+        var attached = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var detached = Assert.IsType<ClassDeclarationSyntax>(attached.WithParent(parent: null, position: 0));
+
+        Assert.True(compilation.DeclarationTable.TryGetDeclKey(attached, out var attachedKey));
+        Assert.NotNull(attachedKey);
+        Assert.False(compilation.DeclarationTable.TryGetDeclKey(detached, out var detachedKey));
+        Assert.Null(detachedKey);
+    }
+
     private static object GetDescriptorState(Compilation compilation)
     {
         var field = typeof(Compilation).GetField("_descriptorState", BindingFlags.Instance | BindingFlags.NonPublic);

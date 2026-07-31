@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -38,10 +39,18 @@ internal sealed class DeclarationTable
             Build(child);
     }
 
-    public bool TryGetDeclKey(SyntaxNode node, out DeclKey key)
-        => _map.TryGetValue(GetKey(node), out key);
+    public bool TryGetDeclKey(SyntaxNode node, [NotNullWhen(true)] out DeclKey? key)
+    {
+        if (node.SyntaxTree is null)
+        {
+            key = null;
+            return false;
+        }
 
-    private bool TryCreateDeclKey(SyntaxNode node, out DeclKey key)
+        return _map.TryGetValue(GetKey(node), out key);
+    }
+
+    private bool TryCreateDeclKey(SyntaxNode node, [NotNullWhen(true)] out DeclKey? key)
     {
         switch (node)
         {
@@ -102,7 +111,10 @@ internal sealed class DeclarationTable
     }
 
     private static SyntaxNodeMapKey GetKey(SyntaxNode node)
-        => new(node.SyntaxTree, node.Span, node.Kind);
+        => new(
+            node.SyntaxTree ?? throw new InvalidOperationException("Detached syntax nodes cannot be declaration keys."),
+            node.Span,
+            node.Kind);
 
     private void CopyEntriesForTrees(
         HashSet<SyntaxTree> treesToReuse,
