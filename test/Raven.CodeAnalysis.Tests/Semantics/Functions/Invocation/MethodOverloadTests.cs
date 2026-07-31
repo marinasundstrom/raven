@@ -297,6 +297,40 @@ public class MethodOverloadTests : CompilationTestBase
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AmbiguousInvocationSymbolInfo_IsIndependentOfDiagnosticQueryOrder(bool diagnosticsFirst)
+    {
+        const string source = """
+            class First {}
+            class Second {}
+
+            func Select(value: First?) -> string { "first" }
+            func Select(value: Second?) -> string { "second" }
+
+            func Test() -> string {
+                Select(null)
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.Ambiguous, symbolInfo.CandidateReason);
+        Assert.Equal(2, symbolInfo.CandidateSymbols.Length);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
+
     [Fact]
     public void LambdaArgument_CanBindToSystemDelegateParameter()
     {
