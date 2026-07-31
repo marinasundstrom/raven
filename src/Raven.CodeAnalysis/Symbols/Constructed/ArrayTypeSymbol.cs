@@ -9,9 +9,9 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
     private ImmutableArray<INamedTypeSymbol> _arraySpecificInterfaces;
 
     public ArrayTypeSymbol(
-        INamedTypeSymbol baseType,
+        INamedTypeSymbol? baseType,
         ITypeSymbol elementType,
-        ISymbol containingSymbol,
+        ISymbol? containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,

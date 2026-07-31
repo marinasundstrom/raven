@@ -293,7 +293,10 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         if (type.IsArray)
         {
-            var elementType = ResolveType(type.GetElementType());
+            var runtimeElementType = type.GetElementType()
+                ?? throw new InvalidOperationException($"Array type '{type}' has no element type.");
+            var elementType = ResolveType(runtimeElementType)
+                ?? throw new InvalidOperationException($"Could not resolve element type '{runtimeElementType}' for array type '{type}'.");
             return new ArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Array), elementType, null, null, null, [], type.GetArrayRank());
         }
 

@@ -10,7 +10,7 @@ internal abstract class PESymbol : Symbol
     private DocumentationComment? _lazyDocumentationComment;
     private bool _documentationInitialized;
 
-    protected PESymbol(ISymbol containingSymbol,
+    protected PESymbol(ISymbol? containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
         Location[] locations, bool addAsMember = true) : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: addAsMember)
     {

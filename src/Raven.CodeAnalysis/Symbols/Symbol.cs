@@ -18,7 +18,7 @@ internal abstract class Symbol : ISymbol
     protected Symbol(
         SymbolKind kind,
         string name,
-        ISymbol containingSymbol,
+        ISymbol? containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
@@ -33,7 +33,7 @@ internal abstract class Symbol : ISymbol
     }
 
     protected Symbol(
-        ISymbol containingSymbol,
+        ISymbol? containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,

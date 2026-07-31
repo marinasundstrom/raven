@@ -546,7 +546,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (methodSearchType is TypeBuilder && _definition is SourceMethodSymbol sourceMethod)
         {
-            var methodBuilder = (MethodBuilder)codeGen.GetMemberBuilder(sourceMethod);
+            if (codeGen.GetMemberBuilder(sourceMethod) is not MethodBuilder methodBuilder)
+                throw new InvalidOperationException($"Method builder for '{sourceMethod.Name}' is unavailable.");
+
             return methodBuilder.IsGenericMethodDefinition
                 ? methodBuilder.MakeGenericMethod(runtimeTypeArguments)
                 : methodBuilder;
@@ -982,7 +984,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (typeSymbol is INamedTypeSymbol namedType)
         {
-            var definition = namedType.OriginalDefinition;
+            var definition = namedType.OriginalDefinition ?? namedType;
             var typeArguments = namedType.TypeArguments;
             var metadataName = definition.ToFullyQualifiedMetadataName();
 
@@ -1162,9 +1164,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
     private Type NormalizeStateMachineRuntimeType(ITypeSymbol? symbolArgument, Type runtimeArgument, CodeGen.CodeGenerator codeGen)
     {
-        if (runtimeArgument is null)
-            return runtimeArgument;
-
         if (symbolArgument is INamedTypeSymbol namedArgument &&
             namedArgument.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
             runtimeArgument.IsGenericType)

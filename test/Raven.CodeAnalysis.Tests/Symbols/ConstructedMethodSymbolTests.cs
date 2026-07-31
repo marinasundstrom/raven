@@ -10,6 +10,41 @@ namespace Raven.CodeAnalysis.Tests;
 public class ConstructedMethodSymbolTests
 {
     [Fact]
+    public void ConstructedMethod_SubstitutesArrayElementType()
+    {
+        var source = """
+class Factory {
+    public static func Wrap<T>(values: T[]) -> T[] => values
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "constructed-method-array-substitution",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var factorySyntax = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var factory = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
+        var wrap = Assert.Single(factory.GetMembers("Wrap").OfType<IMethodSymbol>());
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var constructedWrap = wrap.Construct(intType);
+        var parameterArray = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(constructedWrap.Parameters).Type);
+        var returnArray = Assert.IsAssignableFrom<IArrayTypeSymbol>(constructedWrap.ReturnType);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameterArray.ElementType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, returnArray.ElementType));
+        Assert.Equal(SpecialType.System_Array, parameterArray.BaseType?.SpecialType);
+        Assert.Equal(SpecialType.System_Array, returnArray.BaseType?.SpecialType);
+    }
+
+    [Fact]
     public void ConstructedMethod_UsesConstructedContainerForDisplay()
     {
         var source = """
