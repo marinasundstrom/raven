@@ -1,4 +1,6 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -28,5 +30,18 @@ public class SymbolInfoReasonTests : CompilationTestBase
 
         Assert.Equal(candidateReason, info.CandidateReason);
     }
-}
 
+    [Fact]
+    public void GetSymbolInfo_ForStatementWithoutSymbol_ReturnsNone()
+    {
+        var tree = SyntaxTree.ParseText("func Main() { return }");
+        var compilation = CreateCompilation(tree);
+        var statement = tree.GetRoot().DescendantNodes().OfType<ReturnStatementSyntax>().Single();
+
+        var info = compilation.GetSemanticModel(tree).GetSymbolInfo(statement);
+
+        Assert.Null(info.Symbol);
+        Assert.Empty(info.CandidateSymbols);
+        Assert.Equal(CandidateReason.None, info.CandidateReason);
+    }
+}

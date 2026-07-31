@@ -14,5 +14,5 @@ internal sealed partial class BoundMatchStatement : BoundStatement
 
     public ImmutableArray<BoundMatchArm> Arms { get; }
 
-    public override ISymbol Symbol => Expression.Symbol;
+    public override ISymbol? Symbol => Expression.Symbol;
 }
