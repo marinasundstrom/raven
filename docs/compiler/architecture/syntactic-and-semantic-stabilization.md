@@ -364,6 +364,11 @@ Empty and incomplete matches must receive diagnostics inside ordinary and macro
 function bodies. Adding a new closed-hierarchy member must invalidate the
 appropriate exhaustiveness results.
 
+Workspace-edit coverage now exercises that invalidation contract for source
+enums, declared union cases, and explicit sealed-hierarchy permit lists. Each
+family is checked across the exhaustive, newly non-exhaustive, and restored
+snapshots, with diagnostics and `GetMatchExhaustiveness` required to agree.
+
 ### Macro functions need declaration parity
 
 Recent work has improved local macro partitioning and isolation, but macro

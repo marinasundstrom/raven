@@ -99,6 +99,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Failed invocation binding now retains every considered method candidate, so
   `GetSymbolInfo` exposes useful candidates with
   `CandidateReason.OverloadResolutionFailure`.
+- Incremental match exhaustiveness now has add-and-restore coverage for source
+  enums, Raven union cases, and sealed-hierarchy permitted subtypes, including
+  agreement between diagnostics and `GetMatchExhaustiveness` across snapshots.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser
