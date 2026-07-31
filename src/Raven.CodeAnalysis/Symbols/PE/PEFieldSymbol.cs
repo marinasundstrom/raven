@@ -48,7 +48,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 
     public virtual bool IsReadOnly => _fieldInfo is null || _fieldInfo.IsInitOnly || _fieldInfo.IsLiteral;
 
-    public object? GetConstantValue() => _fieldInfo.GetRawConstantValue();
+    public object? GetConstantValue() => IsConst ? _fieldInfo.GetRawConstantValue() : null;
 
     public virtual FieldInfo GetFieldInfo()
     {

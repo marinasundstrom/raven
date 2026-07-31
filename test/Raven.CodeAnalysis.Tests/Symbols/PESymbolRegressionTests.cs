@@ -566,6 +566,8 @@ public class MemberContainer {
         Assert.Same(stringType, emptyField.ContainingType);
         Assert.NotNull(emptyField.Type);
         Assert.Same(emptyField.Type, emptyField.Type);
+        Assert.False(emptyField.IsConst);
+        Assert.Null(emptyField.GetConstantValue());
     }
 
     [Fact]
