@@ -89,6 +89,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   delegate parameter types. Their constructed signatures participate in outer
   generic inference, delegate conversion, and semantic symbol publication, so
   calls such as `Apply(21, Identity)` resolve both methods consistently.
+- Nullable parameter types now retain their underlying type during namespace
+  function signature declaration. Distinct overloads such as `string?` and
+  `object?` are no longer misdiagnosed as duplicates, while null-literal calls
+  consistently select the more specific reference overload.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

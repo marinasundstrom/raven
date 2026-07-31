@@ -117,6 +117,28 @@ public sealed class OverloadResolverTests : CompilationTestBase
     }
 
     [Fact]
+    public void ResolveOverload_NullLiteralPrefersMoreSpecificReferenceTypeRegardlessOfCandidateOrder()
+    {
+        var compilation = CreateInitializedCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String).MakeNullable();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object).MakeNullable();
+        var stringMethod = CreateMethod(compilation, "Select", stringType);
+        var objectMethod = CreateMethod(compilation, "Select", objectType);
+        var arguments = CreateArguments(new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NullLiteral,
+            null!,
+            compilation.NullTypeSymbol));
+
+        var stringFirst = OverloadResolver.ResolveOverload([stringMethod, objectMethod], arguments, compilation);
+        var objectFirst = OverloadResolver.ResolveOverload([objectMethod, stringMethod], arguments, compilation);
+
+        Assert.True(stringFirst.Success);
+        Assert.Same(stringMethod, stringFirst.Method);
+        Assert.True(objectFirst.Success);
+        Assert.Same(stringMethod, objectFirst.Method);
+    }
+
+    [Fact]
     public void ResolveOverload_PrefersLongOverDoubleForIntArgument()
     {
         var compilation = CreateInitializedCompilation();

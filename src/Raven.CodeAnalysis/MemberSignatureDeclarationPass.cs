@@ -843,6 +843,12 @@ internal static class MemberSignatureDeclarationPass
                 fallbackType,
                 containingType,
                 methodTypeParameters),
+            NullableTypeSyntax nullable => ResolveNullableSkeletonType(
+                semanticModel,
+                nullable,
+                fallbackType,
+                containingType,
+                methodTypeParameters),
             QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(
                 semanticModel,
                 qualifiedName,
@@ -862,6 +868,25 @@ internal static class MemberSignatureDeclarationPass
             GenericNameSyntax genericName => ResolveGenericSkeletonType(semanticModel, genericName, fallbackType, containingType, methodTypeParameters),
             _ => fallbackType
         };
+    }
+
+    private static ITypeSymbol ResolveNullableSkeletonType(
+        SemanticModel semanticModel,
+        NullableTypeSyntax nullable,
+        ITypeSymbol fallbackType,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        var underlyingType = ResolveSkeletonType(
+            semanticModel,
+            nullable.ElementType,
+            fallbackType,
+            containingType,
+            methodTypeParameters);
+
+        return underlyingType.TypeKind == TypeKind.Error
+            ? fallbackType
+            : underlyingType.MakeNullable();
     }
 
     private static ITypeSymbol ResolveArraySkeletonType(

@@ -326,6 +326,12 @@ resolve both methods. Conversion ranking still uses coarse fallback scores in
 several cases, and the remaining generic inference forms need a conformance
 matrix before they can be treated as stable language rules.
 
+Nullable parameter syntax is resolved in the declaration skeleton before
+duplicate-signature checks. Reference nullability remains excluded from CLR
+overload identity, but distinct underlying types remain distinct; a null
+literal selects the more specific applicable reference parameter independently
+of candidate or declaration order.
+
 Tests should cover inference, constraints, variance, extension methods, method
 groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each
 test should assert the chosen symbol or diagnostic, not an internal lowering

@@ -197,6 +197,42 @@ public class MethodOverloadTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NullArgument_PrefersMoreSpecificReferenceOverload(bool reverseDeclarations)
+    {
+        var overloads = reverseDeclarations
+            ? """
+                func Select(value: object?) -> string { "object" }
+                func Select(value: string?) -> string { "string" }
+                """
+            : """
+                func Select(value: string?) -> string { "string" }
+                func Select(value: object?) -> string { "object" }
+                """;
+        var source = $$"""
+            {{overloads}}
+
+            func Test() -> string {
+                Select(null)
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(invocation.Expression));
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(2, methodGroup.Methods.Length);
+        Assert.Equal(SpecialType.System_String, Assert.Single(boundInvocation.Method.Parameters).Type.GetPlainType().SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(method.Parameters).Type.GetPlainType().SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void LambdaArgument_CanBindToSystemDelegateParameter()
     {
