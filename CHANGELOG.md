@@ -27,6 +27,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
   full or span-based writes without creating substring values.
+- Tuple symbols now report tuple identity consistently across source,
+  metadata, constructed, and aliased symbols. `UnderlyingTupleType` is present
+  only for tuple projections and is explicitly nullable for ordinary named
+  types.
 - Async lambda return-target and iterator signature recognition no longer
   assumes that every named type exposes an original definition or a complete
   namespace-parent chain, preventing malformed or custom symbols from causing
