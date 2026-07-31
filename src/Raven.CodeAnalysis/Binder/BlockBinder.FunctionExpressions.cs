@@ -289,14 +289,26 @@ partial class BlockBinder
             var hasExplicitDefaultValue = false;
             object explicitDefaultValue = null;
 
-            // Lambda parameter types can be unresolved here; preserve syntactic constants anyway.
-            if (parameterSyntax?.DefaultValue?.Value is not null)
+            var defaultValue = parameterSyntax.DefaultValue;
+            if (defaultValue?.Value is null)
             {
-                if (ConstantValueEvaluator.TryEvaluate(parameterSyntax.DefaultValue.Value, out var evaluated))
+                if (seenOptionalParameter)
+                {
+                    _diagnostics.ReportOptionalParameterMustBeTrailing(
+                        GetLambdaParameterNameForDiagnostics(parameterSyntax, index),
+                        GetLambdaParameterLocation(parameterSyntax));
+                }
+            }
+            else
+            {
+                // A syntactic default establishes optional ordering even when its
+                // value is invalid. Conversion validation remains in the selected
+                // lambda binding path rather than candidate replay.
+                seenOptionalParameter = true;
+                if (ConstantValueEvaluator.TryEvaluate(defaultValue.Value, out var evaluated))
                 {
                     hasExplicitDefaultValue = true;
                     explicitDefaultValue = evaluated;
-                    seenOptionalParameter = true;
                 }
             }
 

@@ -1928,6 +1928,20 @@ class C {
 public class FunctionExpressionInferenceDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
+    public void Lambda_RequiredParameterAfterOptionalParameter_ReportsDiagnostic()
+    {
+        const string code = "let f = (first: int = 1, second: int) => second";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult(CompilerDiagnostics.OptionalParameterMustBeTrailing.Id)
+                .WithAnySpan()
+                .WithArguments("second")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void Lambda_WithErrorTypeArgument_DoesNotReportConversionError()
     {
         const string code = """
