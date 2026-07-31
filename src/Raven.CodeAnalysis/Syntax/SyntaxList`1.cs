@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Diagnostics;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -124,44 +123,6 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
     public override int GetHashCode()
     {
         return HashCode.Combine(Green, _parent);
-    }
-
-    private struct SyntaxListItem<TNode>
-    {
-        internal readonly GreenNode Green;
-        private readonly SyntaxNode _parent;
-        private readonly int _index;
-        private readonly int _position;
-
-        public SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
-        {
-            Green = node ?? throw new ArgumentNullException(nameof(node));
-            _parent = parent;
-            _index = index;
-            _position = position;
-        }
-
-        public bool IsToken => Green is InternalSyntax.SyntaxToken;
-        public bool IsNode => Green is InternalSyntax.SyntaxNode;
-
-        public SyntaxToken Token => IsToken
-            ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent,
-                _position + Green.GetChildStartPosition(_index))
-            : default;
-
-        public TNode? Node
-        {
-            get
-            {
-                var parent = _parent;
-                var position = _position + Green.GetChildStartPosition(_index);
-
-                return IsNode
-                    ? (TNode?)(object?)SyntaxNodeCache.GetValue(Green,
-                        (s) => s.CreateRed(parent, position))
-                    : default;
-            }
-        }
     }
 
     public string GetDebuggerDisplay()
