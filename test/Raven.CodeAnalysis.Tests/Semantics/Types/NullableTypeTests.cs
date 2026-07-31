@@ -168,6 +168,43 @@ public class NullableTypeTests : CompilationTestBase
         });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_ReportsNotNullAfterBothBranchesGuardNull(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Length(value: string?, chooseFirst: bool) -> int {
+                if chooseFirst {
+                    if value is null {
+                        return 0
+                    }
+                } else {
+                    if value is null {
+                        return 0
+                    }
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void GetTypeInfo_ReportsNullableValueTypeFlowNarrowing()
     {
