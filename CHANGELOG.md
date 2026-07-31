@@ -21,6 +21,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   synthesized entry points use the compilation's canonical `string[]` type.
   Detached symbols now expose nullable assembly and module containment in line
   with the public compiler API while retaining stable names for presentation.
+  PE array loading preserves pointer and by-reference element symbol kinds
+  instead of projecting every wrapper element as a named type.
 - Public compiler-model queries no longer throw for array, tuple, type-union,
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
