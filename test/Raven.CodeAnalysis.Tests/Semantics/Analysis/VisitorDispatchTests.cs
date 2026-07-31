@@ -3,6 +3,10 @@ using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 
+using GreenSyntaxNode = Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxNode;
+using GreenSyntaxRewriter = Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxRewriter;
+using GreenSyntaxToken = Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken;
+
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class VisitorDispatchTests : CompilationTestBase
@@ -113,6 +117,19 @@ public sealed class VisitorDispatchTests : CompilationTestBase
         Assert.NotNull(rewritten);
     }
 
+    [Fact]
+    public void GreenSyntaxRewriter_NodeVisit_UsesConcreteTokenRewriteHook()
+    {
+        var tree = SyntaxTree.ParseText("let value = 42");
+        var root = Assert.IsAssignableFrom<GreenSyntaxNode>(tree.GetRoot().Green);
+        var rewriter = new RecordingGreenSyntaxRewriter();
+
+        var rewritten = rewriter.Visit(root);
+
+        Assert.NotNull(rewritten);
+        Assert.True(rewriter.TokenCount > 0);
+    }
+
     private sealed class RecordingBoundVisitor : BoundTreeVisitor
     {
         public bool SawLiteralExpression { get; private set; }
@@ -159,6 +176,17 @@ public sealed class VisitorDispatchTests : CompilationTestBase
         {
             SawIfStatement = true;
             return node;
+        }
+    }
+
+    private sealed class RecordingGreenSyntaxRewriter : GreenSyntaxRewriter
+    {
+        public int TokenCount { get; private set; }
+
+        public override GreenSyntaxToken VisitToken(GreenSyntaxToken token)
+        {
+            TokenCount++;
+            return token;
         }
     }
 }

@@ -28,12 +28,15 @@ internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node;
     }
 
-    public virtual SyntaxToken VisitToken(SyntaxToken token)
+    // Tokens and trivia are GreenNode siblings of SyntaxNode. Rewriters return
+    // the concrete green value, so these intentionally replace rather than
+    // override the result-visitor hooks inherited with TResult = SyntaxNode?.
+    public new virtual SyntaxToken VisitToken(SyntaxToken token)
     {
         return token;
     }
 
-    public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
+    public new virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
     {
         return default;
     }
