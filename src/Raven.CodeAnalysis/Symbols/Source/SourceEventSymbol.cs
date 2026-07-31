@@ -67,9 +67,6 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
         _extensionReceiverType = receiverType;
     }
 
-    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
-        => base.AddDeclaration(location, reference, preferAsPrimary);
-
     internal void MarkAsPartialDefinition()
     {
         _isPartialDefinition = true;

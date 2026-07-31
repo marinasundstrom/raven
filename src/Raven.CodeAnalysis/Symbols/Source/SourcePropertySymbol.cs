@@ -104,9 +104,6 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         _implementationKind = PropertyImplementationKind.FieldOnly;
     }
 
-    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
-        => base.AddDeclaration(location, reference, preferAsPrimary);
-
     internal void SetExplicitInterfaceImplementations(ImmutableArray<IPropertySymbol> implementations)
     {
         _explicitInterfaceImplementations = implementations;

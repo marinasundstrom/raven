@@ -270,9 +270,6 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _containsAwait = containsAwait;
     }
 
-    internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
-        => base.AddDeclaration(location, reference, preferAsPrimary);
-
     internal void MarkDeclaredInExtension()
     {
         _declaredInExtension = true;
