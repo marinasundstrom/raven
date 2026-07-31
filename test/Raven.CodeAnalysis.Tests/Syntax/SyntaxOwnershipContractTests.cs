@@ -23,6 +23,18 @@ public sealed class SyntaxOwnershipContractTests
     }
 
     [Fact]
+    public void SyntaxNode_EqualityAcceptsNullableOperands()
+    {
+        SyntaxNode? missing = null;
+        var block = SyntaxFactory.Block();
+
+        Assert.True(missing == null);
+        Assert.False(missing != null);
+        Assert.False(missing == block);
+        Assert.True(missing != block);
+    }
+
+    [Fact]
     public void SyntaxToken_DistinguishesDetachedAndAttachedTokens()
     {
         var detachedToken = SyntaxFactory.Identifier("value");

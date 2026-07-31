@@ -220,9 +220,9 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         return SyntaxTree!.GetLocation(Span);
     }
 
-    public static bool operator ==(SyntaxNode left, SyntaxNode? right) => Equals(left, right);
+    public static bool operator ==(SyntaxNode? left, SyntaxNode? right) => Equals(left, right);
 
-    public static bool operator !=(SyntaxNode left, SyntaxNode? right) => !Equals(left, right);
+    public static bool operator !=(SyntaxNode? left, SyntaxNode? right) => !Equals(left, right);
 
     public bool Equals(SyntaxNode? other)
     {
