@@ -2595,7 +2595,7 @@ public partial class Compilation
                     {
                         return null;
                     }
-                }).Where(x => x is not null).ToArray()));
+                }).OfType<IAssemblySymbol>()));
 
         _assemblySymbols[assembly] = assemblySymbol;
 
