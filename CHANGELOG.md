@@ -6,7 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Control-flow analysis now models unconditional `loop` statements, reachable
   `break` exits, literal-true `while` loops, `unsafe` blocks, and `finally`
-  execution consistently.
+  execution consistently. Exhaustive match statements now make their endpoint
+  unreachable when every arm returns or throws; missing coverage, guards, and
+  completing arms remain reachable.
   Missing-return, unreachable-code, and `let ... else` diagnostics no longer
   disappear behind blanket exception suppression when a body contains an
   independent binding error.

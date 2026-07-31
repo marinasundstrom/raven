@@ -4149,13 +4149,13 @@ partial class BlockBinder : Binder
         // method body's implicit-return logic can emit `ret` for it.
         if (isImplicitReturn)
         {
-            var hasContributingArm = arms.Any(arm => !IsAbruptMatchArmExpression(arm.Expression));
+            var hasContributingArm = arms.Any(arm => !BoundNodeFacts.IsAbruptExpression(arm.Expression));
 
             if (hasContributingArm)
             {
                 var contributingArmTypes = arms
                     .Select(arm => arm.Expression)
-                    .Where(static expression => !IsAbruptMatchArmExpression(expression))
+                    .Where(static expression => !BoundNodeFacts.IsAbruptExpression(expression))
                     .Select(expression => expression.Type ?? Compilation.ErrorTypeSymbol)
                     .ToArray();
 
@@ -4213,35 +4213,12 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static bool IsAbruptMatchArmExpression(BoundExpression expression)
-    {
-        switch (expression)
-        {
-            case BoundReturnExpression:
-            case BoundThrowExpression:
-            case BoundRequiredResultExpression { Operand: BoundReturnExpression }:
-            case BoundRequiredResultExpression { Operand: BoundThrowExpression }:
-                return true;
-            case BoundBlockExpression block:
-                {
-                    var last = block.Statements.LastOrDefault();
-                    if (last is BoundReturnStatement or BoundThrowStatement)
-                        return true;
-                    if (last is BoundExpressionStatement exprStmt)
-                        return IsAbruptMatchArmExpression(exprStmt.Expression);
-                    return false;
-                }
-            default:
-                return false;
-        }
-    }
-
     private static bool HasIgnoredValueProducingMatchArm(ImmutableArray<BoundMatchArm> arms)
     {
         foreach (var arm in arms)
         {
             var expression = arm.Expression;
-            if (IsAbruptMatchArmExpression(expression) || HasExpressionErrors(expression))
+            if (BoundNodeFacts.IsAbruptExpression(expression) || HasExpressionErrors(expression))
                 continue;
 
             var type = expression.Type;
@@ -4270,7 +4247,7 @@ partial class BlockBinder : Binder
             armTargetType: armTargetType);
         var contributingArmTypes = arms
             .Select(arm => arm.Expression)
-            .Where(static expression => !IsAbruptMatchArmExpression(expression))
+            .Where(static expression => !BoundNodeFacts.IsAbruptExpression(expression))
             .Select(expression => expression.Type ?? Compilation.ErrorTypeSymbol)
             .ToArray();
 

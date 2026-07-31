@@ -260,6 +260,37 @@ func Main() {
     }
 
     [Fact]
+    public void AnalyzeControlFlow_ExhaustiveAbruptMatch_MakesFollowingStatementUnreachable()
+    {
+        const string source = """
+func Compute(flag: bool) -> int {
+    match flag {
+        true => return 1
+        false => return 0
+    }
+
+    let unreachable = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+
+        var analysis = model.AnalyzeControlFlow(block);
+
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.ReturnStatements.Count().ShouldBe(2);
+        analysis.ReturnStatements.ShouldAllBe(static statement => statement is ReturnExpressionSyntax);
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+    }
+
+    [Fact]
     public void GetOperation_AssignmentStatement_ReturnsAssignmentOperation()
     {
         const string source = """

@@ -2,6 +2,29 @@ namespace Raven.CodeAnalysis;
 
 internal static class BoundNodeFacts
 {
+    public static bool IsAbruptExpression(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundReturnExpression:
+            case BoundThrowExpression:
+            case BoundRequiredResultExpression { Operand: BoundReturnExpression }:
+            case BoundRequiredResultExpression { Operand: BoundThrowExpression }:
+                return true;
+            case BoundBlockExpression block:
+                {
+                    var last = block.Statements.LastOrDefault();
+                    if (last is BoundReturnStatement or BoundThrowStatement)
+                        return true;
+                    if (last is BoundExpressionStatement expressionStatement)
+                        return IsAbruptExpression(expressionStatement.Expression);
+                    return false;
+                }
+            default:
+                return false;
+        }
+    }
+
     public static bool MatchArmGuardGuaranteesMatch(BoundExpression? guard)
     {
         if (guard is null)

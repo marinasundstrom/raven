@@ -170,17 +170,21 @@ silently dropping the secondary diagnostic. Body errors remain ordinary bound
 error states, so they do not prevent the walker from reporting independent
 flow diagnostics.
 
-The control-flow walker now models unconditional `loop` statements, reachable
-`break` exits, `unsafe` blocks, and `finally` execution explicitly. In
-particular, a completing `finally` preserves the completion state of the
-associated `try` and `catch` clauses, while an abrupt `finally` makes the whole
-statement abrupt. Focused tests cover these rules through public control-flow
-analysis, missing-return diagnostics, let-else validation, and bodies that
-already contain binding errors.
+The control-flow walker now models unconditional `loop` statements,
+literal-true `while` statements, reachable `break` exits, `unsafe` blocks,
+`finally` execution, and exhaustive match statements with abrupt arms
+explicitly. In particular, a completing `finally` preserves the completion
+state of the associated `try` and `catch` clauses, while an abrupt `finally`
+makes the whole statement abrupt. Match flow evaluates exhaustiveness from
+already-bound match facts and stays conservative for missing coverage, guards,
+and completing arms. Focused tests cover these rules through public control-flow
+analysis, missing-return diagnostics, let-else validation, macro functions,
+and bodies that already contain binding errors.
 
 This is the first flow-semantics slice rather than a complete flow model.
-Definite assignment, public nullability state, constant loop conditions,
-match-statement completion, and broader join behavior remain to be stabilized.
+Definite assignment, public nullability state, non-literal constant loop
+conditions, nested expression-level abrupt flow, and broader join behavior
+remain to be stabilized.
 
 ### Public nullability information is not fully flow-sensitive
 

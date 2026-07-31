@@ -172,6 +172,109 @@ func Main() -> int {
     }
 
     [Fact]
+    public void NonUnitFunction_WithExhaustiveAbruptMatch_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    match flag {
+        true => return 1
+        false => return 0
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithNonExhaustiveAbruptMatch_ReportsMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    match flag {
+        true => return 1
+    }
+}
+""";
+
+        var diagnostics = CreateVerifier(code).GetResult().Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RAV2100");
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithExhaustiveCompletingMatchArm_ReportsMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    match flag {
+        true => return 1
+        false => ()
+    }
+
+    let completed = 0
+}
+""";
+
+        CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.NotAllCodePathsReturnAValue.Id).WithSpan(1, 6, 1, 13)
+            ]).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithBreakInExhaustiveMatchInsideWhile_ReportsMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    while true {
+        match flag {
+            true => {
+                break
+            }
+            false => {
+                continue
+            }
+        }
+    }
+}
+""";
+
+        CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.NotAllCodePathsReturnAValue.Id).WithSpan(1, 6, 1, 13)
+            ]).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithOnlyContinueArmsInsideConstantTrueWhile_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    while true {
+        match flag {
+            true => {
+                continue
+            }
+            false => {
+                continue
+            }
+        }
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
     public void NonUnitFunction_WithReturnInsideUnsafeBlock_DoesNotReportMissingReturn()
     {
         var code = """

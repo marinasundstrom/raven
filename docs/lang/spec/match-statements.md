@@ -15,3 +15,9 @@ return.
 
 When a statement-form `match` produces values but is not in implicit-return
 position, the compiler reports warning `RAV2107`.
+
+An exhaustive match whose arms all leave the current control-flow region does
+not have a reachable endpoint. This includes arms that `return` or `throw`,
+either directly or as the final operation of an arm block. A match with missing
+coverage, a guard that can fail, or any arm that completes normally still has a
+reachable endpoint.

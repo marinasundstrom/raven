@@ -1692,6 +1692,35 @@ func Read(input: Choice) -> int {
     }
 
     [Fact]
+    public void LetElse_WithExhaustiveAbruptMatch_DoesNotReportDiagnostic()
+    {
+        const string source = """
+union Choice {
+    case Some(value: int)
+    case None
+}
+
+func Read(input: Choice, fallback: bool) -> int {
+    let Choice.Some(value) = input else {
+        match fallback {
+            true => return 1
+            false => return 0
+        }
+    }
+
+    return value
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.DoesNotContain(
+            result.Compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
     public void LetElse_WithBodyErrorBeforeReturn_DoesNotReportFallthrough()
     {
         const string source = """

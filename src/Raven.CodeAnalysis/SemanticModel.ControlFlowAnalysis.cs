@@ -216,6 +216,8 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 var hasReachableBreak = AnalyzeLoopBody(loopStatement.Statement, isReachable);
                 _endPointIsReachable = isReachable && hasReachableBreak;
                 return _endPointIsReachable;
+            case MatchStatementSyntax matchStatement:
+                return AnalyzeMatchStatement(matchStatement, isReachable);
             case LockStatementSyntax lockStatement:
                 Visit(lockStatement.Expression);
                 return AnalyzeStatement(lockStatement.Statement, isReachable);
@@ -297,6 +299,64 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
     private static bool IsConstantTrue(ExpressionSyntax expression)
         => ConstantValueEvaluator.TryEvaluate(expression, out var value) && value is true;
+
+    private bool AnalyzeMatchStatement(MatchStatementSyntax matchStatement, bool isReachable)
+    {
+        if (_semanticModel.TryGetCachedBoundNode(matchStatement) is not BoundMatchStatement boundMatch ||
+            boundMatch.Arms.IsDefaultOrEmpty ||
+            boundMatch.Arms.Length != matchStatement.Arms.Count)
+        {
+            base.VisitMatchStatement(matchStatement);
+            _endPointIsReachable = isReachable;
+            return isReachable;
+        }
+
+        Visit(matchStatement.Expression);
+
+        var anyArmCompletes = false;
+        for (var index = 0; index < matchStatement.Arms.Count; index++)
+        {
+            var arm = matchStatement.Arms[index];
+            Visit(arm.Pattern);
+            Visit(arm.WhenClause);
+            anyArmCompletes |= AnalyzeMatchArmExpression(
+                arm.Expression,
+                boundMatch.Arms[index].Expression,
+                isReachable);
+        }
+
+        var evaluator = new MatchExhaustivenessEvaluator(
+            _semanticModel.Compilation,
+            _semanticModel.TryGetCachedBoundNode);
+        var exhaustiveness = evaluator.Evaluate(matchStatement, boundMatch, default);
+
+        _endPointIsReachable = isReachable && (!exhaustiveness.IsExhaustive || anyArmCompletes);
+        return _endPointIsReachable;
+    }
+
+    private bool AnalyzeMatchArmExpression(
+        ExpressionSyntax expression,
+        BoundExpression boundExpression,
+        bool isReachable)
+    {
+        switch (expression)
+        {
+            case BlockSyntax block:
+                return AnalyzeBlockStatements(block.Statements, isReachable);
+            case ReturnExpressionSyntax returnExpression:
+                Visit(returnExpression.Expression);
+                _returnStatements.Add(returnExpression);
+                return false;
+            case ThrowExpressionSyntax throwExpression:
+                Visit(throwExpression.Expression);
+                return false;
+            case ParenthesizedExpressionSyntax parenthesized:
+                return AnalyzeMatchArmExpression(parenthesized.Expression, boundExpression, isReachable);
+            default:
+                Visit(expression);
+                return !BoundNodeFacts.IsAbruptExpression(boundExpression);
+        }
+    }
 
     private bool AnalyzeTryStatement(TryStatementSyntax tryStatement, bool isReachable)
     {

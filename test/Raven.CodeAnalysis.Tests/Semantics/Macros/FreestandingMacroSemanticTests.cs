@@ -565,6 +565,36 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void MacroFunction_LetElseWithExhaustiveAbruptMatch_UsesOrdinaryFlowAnalysis()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func Select(value: int?, fallback: bool) {
+                let actual: int = value else {
+                    match fallback {
+                        true => throw System.Exception()
+                        false => throw System.Exception()
+                    }
+                }
+
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(actual.ToString())
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionMatchFlowAnalysis",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDocumentDiagnostics(sourceTree);
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
     public void MarkedLocalMacroDeclaration_ConsumerDependencyReportsCycle()
     {
         var sourceTree = SyntaxTree.ParseText(
