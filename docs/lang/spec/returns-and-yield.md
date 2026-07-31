@@ -14,14 +14,21 @@ Raven supports both statement and expression forms:
 statement `return` is used in inline expression contexts (for example, expression
 `if`/`match` arms).
 
-`return` expression form is intentionally narrow. It models an abrupt exit from
-the enclosing callable while still fitting expression-oriented operators like
-`??`, `if` arms, and similar value positions. It does not turn expression blocks
-into statement-flow regions. In other words:
+`return` expression form models an abrupt exit from the enclosing callable
+while still fitting expression-oriented operators like `??`, `if` arms, and
+other value positions. It contributes no value to a type join because that
+control path never completes normally.
+
+Expression blocks project a leading `return` item as an expression statement
+containing `ReturnExpressionSyntax`, rather than as `ReturnStatementSyntax`.
+This keeps the same early-exit model available after setup statements without
+turning `break` or `continue` into expressions. In other words:
 
 * `let b = if (a) e else return -1` is valid (`else return -1` is a return expression).
-* `let b = if (a) e else { return -1 }` is invalid because `{ ... }` here is a
-  block expression, and `return` inside that block is parsed as a statement.
+* `let b = if (a) e else { return -1 }` is also valid; the expression block's
+  `return` item is projected as an abrupt expression.
+* A bare `return` in an expression block has an implicit `unit` payload, just
+  like statement-form `return` in a unit-returning callable.
 
 A `return` statement may omit its expression when the surrounding function or
 accessor returns `unit`. See [implementation notes](dotnet-implementation.md#return-statements)

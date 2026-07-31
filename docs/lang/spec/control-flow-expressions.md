@@ -262,8 +262,8 @@ loop pass. `break label` and `continue label` target the enclosing labeled loop
 with that name, allowing nested loops to exit or continue an outer loop directly.
 Both keywords are only valid inside loops; using them elsewhere produces
 diagnostics (`RAV2600` for `break`, `RAV2601` for `continue`). They are
-statements, not expressions, so placing them in an expression context also
-triggers an error.
+statements, not expressions, so placing them in an expression block reports
+`RAV1902` or `RAV1903` even when that block is nested lexically inside a loop.
 
 ```raven
 while cond {
@@ -340,11 +340,10 @@ start:
 
 `throw expression` aborts the current control path by raising an exception. The
 expression must be implicitly convertible to `System.Exception`; otherwise the
-compiler reports `RAV1020`. Statement `throw` is allowed inside block
-expressions used as scoped early-exit regions, but it remains disallowed in
-inline expression arms (for example, `if`/`match` expression arms), where it
-reports `RAV1907`. Use `throw` expression form (`?? throw ...`) when you need
-inline expression-level control flow.
+compiler reports `RAV1020`. Expression blocks project `throw` items as
+`ThrowExpressionSyntax`, so the same abrupt expression model works in scoped
+blocks and inline arms. A genuine `ThrowStatementSyntax` remains invalid in an
+expression context and reports `RAV1907`.
 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L529-L557】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L231-L240】
 
 ```raven

@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class BlockExpressionEarlyExitTests : DiagnosticTestBase
 {
     [Fact]
-    public void IfExpression_InitializerWithReturnStatements_ReportsDiagnostics_AndLeavesErrorType()
+    public void IfExpression_InitializerWithReturnExpressions_DoesNotContributeAbruptBranchesToValueType()
     {
         const string code = """
 class Foo {
@@ -29,8 +29,6 @@ class Foo {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1900").WithSpan(4, 13, 4, 22),
-                new DiagnosticResult("RAV1900").WithSpan(6, 13, 6, 22),
                 new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "()")
             ]);
 
@@ -39,13 +37,13 @@ class Foo {
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
         var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        Assert.Equal(SpecialType.None, local.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Unit, local.Type.SpecialType);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndLeavesErrorType()
+    public void IfExpression_GlobalInitializerWithReturnExpressions_HasUnitType()
     {
         const string code = """
 let x = if true {
@@ -59,8 +57,6 @@ let x = if true {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1900").WithSpan(2, 5, 2, 14),
-                new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 14),
                 new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("int", "()")
             ]);
 
@@ -75,7 +71,7 @@ let x = if true {
             IFieldSymbol field => field.Type,
             _ => throw new InvalidOperationException($"Unexpected symbol: {symbol.GetType().Name}")
         };
-        Assert.Equal(SpecialType.None, type.SpecialType);
+        Assert.Equal(SpecialType.System_Unit, type.SpecialType);
 
         verifier.Verify();
     }
@@ -142,7 +138,7 @@ class Foo {
     }
 
     [Fact]
-    public void MatchExpression_BlockArmWithReturnStatement_ReportsDiagnostic()
+    public void MatchExpression_BlockArmWithReturnExpression_IsAllowed()
     {
         const string code = """
 class C {
@@ -159,9 +155,14 @@ class C {
 }
 """;
 
-        var verifier = CreateVerifier(
-            code,
-            [new DiagnosticResult("RAV1900").WithAnySpan()]);
+        var verifier = CreateVerifier(code);
+
+        var result = verifier.GetResult();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
+        Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
 
         verifier.Verify();
     }

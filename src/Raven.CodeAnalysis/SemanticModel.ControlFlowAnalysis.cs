@@ -256,6 +256,14 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 base.VisitThrowStatement(throwStatement);
                 _endPointIsReachable = false;
                 return false;
+            case ExpressionStatementSyntax expressionStatement:
+                base.VisitExpressionStatement(expressionStatement);
+                if (expressionStatement.Expression is ReturnExpressionSyntax returnExpression)
+                    _returnStatements.Add(returnExpression);
+
+                var boundExpression = _semanticModel.TryGetCachedBoundNode(expressionStatement.Expression) as BoundExpression;
+                _endPointIsReachable = boundExpression is null || !BoundNodeFacts.IsAbruptExpression(boundExpression);
+                return _endPointIsReachable;
             case YieldBreakStatementSyntax yieldBreakStatement:
                 base.VisitYieldBreakStatement(yieldBreakStatement);
                 _endPointIsReachable = false;

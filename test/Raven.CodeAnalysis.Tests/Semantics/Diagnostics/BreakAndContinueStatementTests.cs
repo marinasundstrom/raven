@@ -41,8 +41,32 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.BreakStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 14),
+                new DiagnosticResult(CompilerDiagnostics.BreakStatementInExpression.Id).WithSpan(3, 9, 3, 14),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void BreakInExpressionContextWithinLoop_ReportsDiagnostic()
+    {
+        var code = """
+func Main() {
+    loop {
+        let value = {
+            break
+            ()
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.BreakStatementInExpression.Id).WithSpan(4, 13, 4, 18),
+                new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(5, 13, 5, 15)
             ]);
 
         verifier.Verify();
@@ -106,8 +130,32 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ContinueStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 17),
+                new DiagnosticResult(CompilerDiagnostics.ContinueStatementInExpression.Id).WithSpan(3, 9, 3, 17),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ContinueInExpressionContextWithinLoop_ReportsDiagnostic()
+    {
+        var code = """
+func Main() {
+    loop {
+        let value = {
+            continue
+            ()
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.ContinueStatementInExpression.Id).WithSpan(4, 13, 4, 21),
+                new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(5, 13, 5, 15)
             ]);
 
         verifier.Verify();

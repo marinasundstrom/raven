@@ -8,9 +8,13 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class StatementSyntaxParser : SyntaxParser
 {
-    public StatementSyntaxParser(ParseContext parent) : base(parent)
-    {
+    private readonly bool _parseAbruptTransfersAsExpressions;
 
+    public StatementSyntaxParser(ParseContext parent, bool? parseAbruptTransfersAsExpressions = null) : base(parent)
+    {
+        _parseAbruptTransfersAsExpressions = parseAbruptTransfersAsExpressions
+            ?? (parent as StatementSyntaxParser)?._parseAbruptTransfersAsExpressions
+            ?? false;
     }
 
     public StatementSyntax ParseStatement()
@@ -55,11 +59,15 @@ internal class StatementSyntaxParser : SyntaxParser
                     break;
 
                 case SyntaxKind.ReturnKeyword:
-                    statement = ParseReturnStatementSyntax();
+                    statement = _parseAbruptTransfersAsExpressions
+                        ? ParseDeclarationOrExpressionStatementSyntax()
+                        : ParseReturnStatementSyntax();
                     break;
 
                 case SyntaxKind.ThrowKeyword:
-                    statement = ParseThrowStatementSyntax();
+                    statement = _parseAbruptTransfersAsExpressions
+                        ? ParseDeclarationOrExpressionStatementSyntax()
+                        : ParseThrowStatementSyntax();
                     break;
 
                 case SyntaxKind.IfKeyword:
@@ -1325,7 +1333,9 @@ internal class StatementSyntaxParser : SyntaxParser
     private StatementSyntax ParseMatchStatementSyntax()
     {
         SetTreatNewlinesAsTokens(false);
-        var matchExpression = new ExpressionSyntaxParser(this).ParseMatchExpressionKeywordFirst();
+        var matchExpression = new ExpressionSyntaxParser(
+            this,
+            parseAbruptTransfersInBlocksAsExpressions: false).ParseMatchExpressionKeywordFirst();
         var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
         return MatchStatement(
             matchExpression.MatchKeyword,

@@ -70,4 +70,47 @@ match value {
         Assert.Equal(SyntaxKind.ExclamationToken, postfix.OperatorToken.Kind);
         Assert.IsType<IdentifierNameSyntax>(postfix.Expression);
     }
+
+    [Fact]
+    public void ExpressionBlock_ParsesReturnAsExpressionStatement()
+    {
+        var lexer = new Lexer(new StringReader("{ return -1 }"));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var block = Assert.IsType<BlockSyntax>(parser.ParseExpression().CreateRed());
+        var statement = Assert.IsType<ExpressionStatementSyntax>(Assert.Single(block.Statements));
+
+        Assert.IsType<ReturnExpressionSyntax>(statement.Expression);
+    }
+
+    [Fact]
+    public void ExpressionBlock_ParsesBareReturnWithImplicitUnitValue()
+    {
+        var lexer = new Lexer(new StringReader("{ return }"));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var block = Assert.IsType<BlockSyntax>(parser.ParseExpression().CreateRed());
+        var statement = Assert.IsType<ExpressionStatementSyntax>(Assert.Single(block.Statements));
+        var returnExpression = Assert.IsType<ReturnExpressionSyntax>(statement.Expression);
+
+        Assert.IsType<UnitExpressionSyntax>(returnExpression.Expression);
+        Assert.Empty(block.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData("func () { return 1 }")]
+    [InlineData("() => { return 1 }")]
+    public void CallableLambdaBlock_KeepsReturnAsStatement(string source)
+    {
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(parser.ParseExpression().CreateRed());
+        var block = lambda.Body ?? Assert.IsType<BlockSyntax>(lambda.ExpressionBody?.Expression);
+
+        Assert.IsType<ReturnStatementSyntax>(Assert.Single(block.Statements));
+    }
 }

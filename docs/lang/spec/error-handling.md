@@ -47,7 +47,10 @@ func requireName(name: string?) -> string {
 ### Rules
 
 * Statement-form `throw` is valid only in statement context.
-* Expression-form `throw` is valid anywhere an expression is valid.
+* Expression-form `throw` is valid anywhere an executable expression is valid
+  and contributes no value to a type join because its path never completes.
+* Within an expression block, a leading `throw` item is projected as an
+  expression statement containing `ThrowExpressionSyntax`.
 * Using statement-form `throw` in an inline expression context produces
   `RAV1907`.
 * `use` declarations in the current scope are disposed before the exception

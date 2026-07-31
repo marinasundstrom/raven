@@ -12,6 +12,34 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class MacroFunctionSymbolTests : CompilationTestBase
 {
     [Fact]
+    public void AuthoredMacroBody_RejectsBreakFromExpressionBlockWithinLoop()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func Broken() {
+                loop {
+                    let value = {
+                        break
+                        ()
+                    }
+                }
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionControlTransfer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDocumentDiagnostics(sourceTree);
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.BreakStatementInExpression);
+    }
+
+    [Fact]
     public void AuthoredConsumerPosition_BindsLocalReferenceAfterMacroInvocation()
     {
         const string source = """

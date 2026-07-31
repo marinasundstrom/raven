@@ -205,15 +205,17 @@ arguments, arrays, and by-reference parameters and returns. Raven-authored
 public APIs, including Raven.Core and Raven.Macros, are part of the same
 contract and need metadata round-trip tests from both Raven and C# consumers.
 
-### Control transfers need one expression-context policy
+### Control transfers have one expression-context policy
 
-Raven currently accepts some combinations of `return`, `throw`, `break`, and
-`continue` in expression-oriented syntax without one documented typing and
-placement rule. Stabilization should treat `return` and `throw` as useful
-non-completing expressions, while considering `break` and `continue` as
-statement-only loop control. The next audit must cover parsing, binding,
-bottom/never-style type joins, reachability, lowering, diagnostics, and parity
-between ordinary and macro function bodies before changing the accepted forms.
+`return` and `throw` are useful non-completing expressions. Expression blocks
+project their `return` and `throw` items as expression statements, and abrupt
+paths do not contribute a value to type joins. Bare expression-form `return`
+has an implicit `unit` payload.
+
+`break` and `continue` remain statement-only loop control. They report
+`RAV1902` and `RAV1903` from expression blocks even when a lexical loop exists.
+Focused parser, semantic, macro-body, analyzer, and runtime tests cover the
+projection, diagnostics, reachability, and lowering policy.
 
 ### Local initialization and `out` assignment are distinct rules
 

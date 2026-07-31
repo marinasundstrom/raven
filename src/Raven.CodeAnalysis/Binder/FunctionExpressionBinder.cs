@@ -62,6 +62,10 @@ class FunctionExpressionBinder : BlockBinder
         // Lambda bodies are rebound during target-typed replay; evict any cached nodes
         // (including descendants) so bindings reflect the current lambda parameter scope.
         ClearCachedBoundNodes(expression);
+
+        if (expression is BlockSyntax block)
+            return BindBlock(block, allowReturn: true, isExpressionContext: false);
+
         return base.BindExpression(expression);
     }
 

@@ -675,7 +675,7 @@ class MethodBodyBinder : BlockBinder
         if (node is BlockStatementSyntax blockStmt)
             return BindBlockStatement(blockStmt);
         if (node is BlockSyntax block)
-            return BindBlock(block, allowReturn: true);
+            return BindBlock(block, allowReturn: true, isExpressionContext: false);
         if (node is ArrowExpressionClauseSyntax arrow)
             return BindArrowExpressionClause(arrow);
 

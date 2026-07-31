@@ -35,4 +35,17 @@ public class ThrowExpressionParserTests
         var coalesce = Assert.IsType<NullCoalesceExpressionSyntax>(expression);
         Assert.IsType<ThrowExpressionSyntax>(coalesce.Right);
     }
+
+    [Fact]
+    public void ExpressionBlock_ParsesThrowAsExpressionStatement()
+    {
+        var lexer = new Lexer(new StringReader("{ throw Exception(\"missing\") }"));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var block = Assert.IsType<BlockSyntax>(parser.ParseExpression().CreateRed());
+        var statement = Assert.IsType<ExpressionStatementSyntax>(Assert.Single(block.Statements));
+
+        Assert.IsType<ThrowExpressionSyntax>(statement.Expression);
+    }
 }

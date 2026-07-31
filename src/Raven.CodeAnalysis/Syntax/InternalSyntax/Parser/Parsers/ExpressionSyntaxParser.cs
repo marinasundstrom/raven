@@ -19,6 +19,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _stopOnLeadingNewlineBinaryOperator;
     private readonly bool _stopAtDotDotToken;
     private readonly bool _stopAtLeadingMatchArmOperator;
+    private readonly bool _parseAbruptTransfersInBlocksAsExpressions;
     private bool _stopAfterPrimaryExpression;
     private const int RangeOperatorPrecedence = 4;
 
@@ -29,7 +30,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         bool allowLambdaExpressions = true,
         bool stopOnLeadingNewlineBinaryOperator = false,
         bool stopAtDotDotToken = false,
-        bool stopAtLeadingMatchArmOperator = false)
+        bool stopAtLeadingMatchArmOperator = false,
+        bool? parseAbruptTransfersInBlocksAsExpressions = null)
         : base(parent)
     {
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
@@ -38,6 +40,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         _stopOnLeadingNewlineBinaryOperator = stopOnLeadingNewlineBinaryOperator;
         _stopAtDotDotToken = stopAtDotDotToken;
         _stopAtLeadingMatchArmOperator = stopAtLeadingMatchArmOperator;
+        _parseAbruptTransfersInBlocksAsExpressions = parseAbruptTransfersInBlocksAsExpressions
+            ?? (parent as ExpressionSyntaxParser)?._parseAbruptTransfersInBlocksAsExpressions
+            ?? true;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -63,7 +68,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                !IsNextToken(SyntaxKind.EndOfFileToken, out _))
         {
             var statementStart = Position;
-            var stmt = new StatementSyntaxParser(this).ParseStatement();
+            var stmt = new StatementSyntaxParser(
+                this,
+                parseAbruptTransfersAsExpressions: _parseAbruptTransfersInBlocksAsExpressions).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
 
@@ -801,7 +808,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private ReturnExpressionSyntax ParseReturnExpression()
     {
         var returnKeyword = ReadToken();
-        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        var expression = PeekToken().Kind is
+            SyntaxKind.SemicolonToken or
+            SyntaxKind.CloseBraceToken or
+            SyntaxKind.EndOfFileToken or
+            SyntaxKind.ElseKeyword
+                ? UnitExpression(Token(SyntaxKind.None), Token(SyntaxKind.None))
+                : new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
         return ReturnExpression(returnKeyword, expression);
     }
 
@@ -1082,13 +1095,19 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (IsNextToken(SyntaxKind.FatArrowToken))
         {
             ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
-            var body = new ExpressionSyntaxParser(this).ParseExpression();
+            var body = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
+                ? new ExpressionSyntaxParser(
+                    this,
+                    parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
+                : new ExpressionSyntaxParser(this).ParseExpression();
             blockBody = null;
             expressionBody = ArrowExpressionClause(fatArrowToken, body);
         }
         else
         {
-            blockBody = ParseBlockSyntax();
+            blockBody = new ExpressionSyntaxParser(
+                this,
+                parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax();
             expressionBody = null;
         }
 
@@ -1177,7 +1196,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
 
-        var parsedBody = new ExpressionSyntaxParser(this).ParseExpression();
+        var parsedBody = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
+            ? new ExpressionSyntaxParser(
+                this,
+                parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
+            : new ExpressionSyntaxParser(this).ParseExpression();
         BlockSyntax? body;
         ArrowExpressionClauseSyntax? expressionBody;
         if (parsedBody is BlockSyntax block)
@@ -1327,13 +1350,19 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (IsNextToken(SyntaxKind.FatArrowToken))
         {
             ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
-            var body = new ExpressionSyntaxParser(this).ParseExpression();
+            var body = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
+                ? new ExpressionSyntaxParser(
+                    this,
+                    parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
+                : new ExpressionSyntaxParser(this).ParseExpression();
             blockBody = null;
             expressionBody = ArrowExpressionClause(fatArrowToken, body);
         }
         else
         {
-            blockBody = ParseBlockSyntax();
+            blockBody = new ExpressionSyntaxParser(
+                this,
+                parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax();
             expressionBody = null;
         }
 
@@ -2884,7 +2913,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     SetTreatNewlinesAsTokens(true);
                     expression = new ExpressionSyntaxParser(
                         this,
-                        stopAtLeadingMatchArmOperator: true).ParseExpression();
+                        stopAtLeadingMatchArmOperator: true,
+                        parseAbruptTransfersInBlocksAsExpressions: _parseAbruptTransfersInBlocksAsExpressions).ParseExpression();
                 }
 
                 SyntaxToken terminatorToken;

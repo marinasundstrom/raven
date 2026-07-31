@@ -588,7 +588,10 @@ partial class BlockBinder
         }
     }
 
-    public virtual BoundBlockExpression BindBlock(BlockSyntax block, bool allowReturn = true)
+    public virtual BoundBlockExpression BindBlock(
+        BlockSyntax block,
+        bool allowReturn = true,
+        bool isExpressionContext = true)
     {
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
             return (BoundBlockExpression)cached;
@@ -597,7 +600,7 @@ partial class BlockBinder
         _scopeDepth++;
         var depth = _scopeDepth;
 
-        if (!allowReturn)
+        if (isExpressionContext)
             _expressionContextDepth++;
 
         try
@@ -706,7 +709,7 @@ partial class BlockBinder
                 _localTypes.Remove(name);
 
             _scopeDepth--;
-            if (!allowReturn)
+            if (isExpressionContext)
                 _expressionContextDepth--;
         }
     }
@@ -1952,6 +1955,9 @@ partial class BlockBinder
 
     private BoundStatement BindReturnStatement(ReturnStatementSyntax returnStatement)
     {
+        if (_expressionContextDepth > 0)
+            _diagnostics.ReportReturnStatementInExpression(returnStatement.ReturnKeyword.GetLocation());
+
         if (returnStatement.Expression is null && IsSynthesizedTopLevelEntryPointContext())
         {
             _diagnostics.ReportExpressionExpected(returnStatement.ReturnKeyword.GetLocation());

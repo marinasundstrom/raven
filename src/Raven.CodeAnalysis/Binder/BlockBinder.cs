@@ -4314,10 +4314,12 @@ partial class BlockBinder : Binder
 
             var expressionTargetType = armTargetType;
 
-            var expression = BindExpressionWithTargetType(
-                arm.Expression,
-                expressionTargetType,
-                allowReturn: allowReturnInArmExpressions);
+            var expression = !requireArmValue && arm.Expression is BlockSyntax statementArmBlock
+                ? BindBlock(statementArmBlock, allowReturn: true, isExpressionContext: false)
+                : BindExpressionWithTargetType(
+                    arm.Expression,
+                    expressionTargetType,
+                    allowReturn: allowReturnInArmExpressions);
 
             // Case-only arm expressions like `None` can bind as open generic case carriers
             // (`Option<T>`) when no explicit target exists. If the arm pattern already

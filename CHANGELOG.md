@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Expression blocks now project `return` and `throw` items as abrupt expression
+  statements; bare expression-form `return` carries implicit `unit`. `break`
+  and `continue` remain statement-only and consistently report `RAV1902` or
+  `RAV1903` from expression blocks, including macro bodies and blocks nested in
+  loops.
 - Public `TypeInfo` nullability now keeps the declared nullable annotation while
   reporting the bound expression's narrowed flow state. Strict null-check
   branches and early null guards return the same result in cold and

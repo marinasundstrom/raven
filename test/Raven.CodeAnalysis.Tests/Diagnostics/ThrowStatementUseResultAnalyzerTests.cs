@@ -48,6 +48,30 @@ func Test(name: string?) -> string {
     }
 
     [Fact]
+    public void ThrowExpressionInExpressionBlock_ReportsDiagnosticOnEntireExpression()
+    {
+        const string code = """
+func Test(name: string?) -> string {
+    let value = name ?? {
+        throw Exception("missing")
+    }
+    value
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<ThrowStatementUseResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(ThrowStatementUseResultAnalyzer.DiagnosticId)
+                    .WithSpan(3, 9, 3, 35)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void NoThrowStatement_NoDiagnostic()
     {
         const string code = """
