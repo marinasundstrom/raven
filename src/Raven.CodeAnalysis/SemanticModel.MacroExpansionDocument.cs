@@ -215,12 +215,17 @@ public partial class SemanticModel
         var scopeReplacements = new Dictionary<GreenNode, GreenNode>(ReferenceEqualityComparer.Instance);
         foreach (var (_, entry) in scopes)
         {
-            var expressionReplacements = entry.Expressions.ToDictionary(
-                static expression => expression.Green,
-                expression => semanticModel.GetMacroExpansion(expression, cancellationToken)?.Expression is { } replacement
-                    ? PrepareExpandedExpression(replacement, expression).Green
-                    : expression.Green,
+            var expressionReplacements = new Dictionary<GreenNode, GreenNode>(
+                entry.Expressions.Count,
                 ReferenceEqualityComparer.Instance);
+            foreach (var expression in entry.Expressions)
+            {
+                var replacement = semanticModel.GetMacroExpansion(expression, cancellationToken)?.Expression is { } expandedExpression
+                    ? PrepareExpandedExpression(expandedExpression, expression).Green
+                    : expression.Green;
+                expressionReplacements.Add(expression.Green, replacement);
+            }
+
             var rewrittenScope = entry.Scope.Green.ReplaceNodes(
                 expressionReplacements.ContainsKey,
                 green => expressionReplacements[green]);
