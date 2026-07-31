@@ -35,6 +35,17 @@ public sealed class SyntaxOwnershipContractTests
     }
 
     [Fact]
+    public void EquivalentDetachedSyntaxNodes_CompareWithoutThrowing()
+    {
+        var block = SyntaxFactory.Block();
+        var equivalent = block.WithParent(parent: null, position: 0);
+
+        Assert.NotSame(block, equivalent);
+        Assert.Equal(block, equivalent);
+        Assert.True(block == equivalent);
+    }
+
+    [Fact]
     public void SyntaxToken_DistinguishesDetachedAndAttachedTokens()
     {
         var detachedToken = SyntaxFactory.Identifier("value");
