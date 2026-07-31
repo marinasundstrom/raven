@@ -52,6 +52,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Emitted source types now carry the conventional non-null nullable context, so
   unannotated reference signatures round-trip as non-null through both .NET
   reflection and Raven metadata import without redundant position attributes.
+  Synthesized nullable context and constraint attributes are emitted from raw
+  metadata blobs, avoiding unsupported constructor introspection when compiling
+  in the WebAssembly Playground.
 - Expression blocks now project `return` and `throw` items as abrupt expression
   statements; bare expression-form `return` carries implicit `unit`. `break`
   and `continue` remain statement-only and consistently report `RAV1902` or

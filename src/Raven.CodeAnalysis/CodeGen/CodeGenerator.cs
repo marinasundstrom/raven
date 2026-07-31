@@ -229,7 +229,7 @@ internal class CodeGenerator
         builder.SetGenericParameterAttributes(attributes);
 
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
-            builder.SetCustomAttribute(CreateNullableAnnotationAttribute(isNullable: false));
+            ApplyNullableAnnotationAttribute(isNullable: false, builder.SetCustomAttribute);
 
         if (parameter.ConstraintTypes.IsDefaultOrEmpty)
             return;
@@ -523,7 +523,7 @@ internal class CodeGenerator
         EnsureNullableAttributeType();
         if (flags.Count == 1)
         {
-            apply(_nullableCtor!, [0x01, 0x00, flags[0], 0x00, 0x00]);
+            apply(_nullableCtor!, CreateNullableByteAttributeBlob(flags[0]));
             return;
         }
 
@@ -617,16 +617,21 @@ internal class CodeGenerator
         return stream.ToArray();
     }
 
-    internal CustomAttributeBuilder CreateNullableAnnotationAttribute(bool isNullable)
+    private static byte[] CreateNullableByteAttributeBlob(byte flag)
+        => [0x01, 0x00, flag, 0x00, 0x00];
+
+    internal void ApplyNullableAnnotationAttribute(
+        bool isNullable,
+        Action<ConstructorInfo, byte[]> apply)
     {
         EnsureNullableAttributeType();
-        return new CustomAttributeBuilder(_nullableCtor!, new object[] { isNullable ? (byte)2 : (byte)1 });
+        apply(_nullableCtor!, CreateNullableByteAttributeBlob(isNullable ? (byte)2 : (byte)1));
     }
 
-    internal CustomAttributeBuilder CreateNullableContextAttribute()
+    internal void ApplyNullableContextAttribute(Action<ConstructorInfo, byte[]> apply)
     {
         EnsureNullableContextAttributeType();
-        return new CustomAttributeBuilder(_nullableContextCtor!, new object[] { (byte)1 });
+        apply(_nullableContextCtor!, CreateNullableByteAttributeBlob(1));
     }
 
     internal CustomAttributeBuilder? CreateTupleElementNamesAttribute(ITypeSymbol type)

@@ -1301,7 +1301,7 @@ internal class TypeGenerator
     private void ApplyTypeCustomAttributes()
     {
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
-        TypeBuilder!.SetCustomAttribute(CodeGen.CreateNullableContextAttribute());
+        CodeGen.ApplyNullableContextAttribute(TypeBuilder!.SetCustomAttribute);
     }
 
     private void EnsureExtensionGroupingType()
