@@ -73,7 +73,7 @@ static class BoundTreeRewriterGenerator
         var patternNodes = concreteNodes.Where(n => IsDerivedFrom(n, "BoundPattern", byName)).OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
         var designatorNodes = concreteNodes.Where(n => IsDerivedFrom(n, "BoundDesignator", byName)).OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
 
-        builder.AppendLine("    public virtual BoundStatement VisitStatement(BoundStatement statement)");
+        builder.AppendLine("    public override BoundStatement VisitStatement(BoundStatement statement)");
         builder.AppendLine("    {");
         builder.AppendLine("        return statement switch");
         builder.AppendLine("        {");
@@ -84,7 +84,7 @@ static class BoundTreeRewriterGenerator
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        builder.AppendLine("    public virtual BoundExpression? VisitExpression(BoundExpression? node)");
+        builder.AppendLine("    public override BoundExpression? VisitExpression(BoundExpression? node)");
         builder.AppendLine("    {");
         builder.AppendLine("        if (node is null)");
         builder.AppendLine("            return null;");
@@ -100,7 +100,7 @@ static class BoundTreeRewriterGenerator
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        builder.AppendLine("    public virtual BoundNode VisitPattern(BoundPattern pattern)");
+        builder.AppendLine("    public override BoundNode VisitPattern(BoundPattern pattern)");
         builder.AppendLine("    {");
         builder.AppendLine("        return pattern switch");
         builder.AppendLine("        {");
@@ -111,7 +111,7 @@ static class BoundTreeRewriterGenerator
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        builder.AppendLine("    public virtual BoundNode VisitDesignator(BoundDesignator designator)");
+        builder.AppendLine("    public override BoundNode VisitDesignator(BoundDesignator designator)");
         builder.AppendLine("    {");
         builder.AppendLine("        return designator switch");
         builder.AppendLine("        {");
@@ -143,44 +143,44 @@ static class BoundTreeRewriterGenerator
                 switch (parameter.Kind)
                 {
                     case ParameterKind.BoundNode:
-                    {
-                        var visitCall = $"Visit({propertyAccess})" + (parameter.IsNullable ? string.Empty : "!");
-                        var assignment = $"({parameter.TypeName}){visitCall}";
-                        statements.Add($"        var {parameter.ParameterName} = {assignment};");
-                        arguments.Add(parameter.ParameterName);
-                        break;
-                    }
-
-                    case ParameterKind.BoundNodeList:
-                    {
-                        var visitListCall = $"VisitList({propertyAccess})";
-                        if (parameter.TypeName.StartsWith("ImmutableArray<", StringComparison.Ordinal))
                         {
-                            visitListCall += ".ToImmutableArray()";
+                            var visitCall = $"Visit({propertyAccess})" + (parameter.IsNullable ? string.Empty : "!");
+                            var assignment = $"({parameter.TypeName}){visitCall}";
+                            statements.Add($"        var {parameter.ParameterName} = {assignment};");
+                            arguments.Add(parameter.ParameterName);
+                            break;
                         }
 
-                        statements.Add($"        var {parameter.ParameterName} = {visitListCall};");
-                        arguments.Add(parameter.ParameterName);
-                        break;
-                    }
+                    case ParameterKind.BoundNodeList:
+                        {
+                            var visitListCall = $"VisitList({propertyAccess})";
+                            if (parameter.TypeName.StartsWith("ImmutableArray<", StringComparison.Ordinal))
+                            {
+                                visitListCall += ".ToImmutableArray()";
+                            }
+
+                            statements.Add($"        var {parameter.ParameterName} = {visitListCall};");
+                            arguments.Add(parameter.ParameterName);
+                            break;
+                        }
 
                     case ParameterKind.Symbol:
-                    {
-                        var visitCall = $"VisitSymbol({propertyAccess})" + (parameter.IsNullable ? string.Empty : "!");
-                        var assignment = $"({parameter.TypeName}){visitCall}";
-                        statements.Add($"        var {parameter.ParameterName} = {assignment};");
-                        arguments.Add(parameter.ParameterName);
-                        break;
-                    }
+                        {
+                            var visitCall = $"VisitSymbol({propertyAccess})" + (parameter.IsNullable ? string.Empty : "!");
+                            var assignment = $"({parameter.TypeName}){visitCall}";
+                            statements.Add($"        var {parameter.ParameterName} = {assignment};");
+                            arguments.Add(parameter.ParameterName);
+                            break;
+                        }
 
                     case ParameterKind.SymbolList:
-                    {
-                        var typeArgument = parameter.ElementTypeName ?? "ISymbol";
-                        var visitCall = $"VisitSymbolList<{typeArgument}>({propertyAccess})";
-                        statements.Add($"        var {parameter.ParameterName} = {visitCall};");
-                        arguments.Add(parameter.ParameterName);
-                        break;
-                    }
+                        {
+                            var typeArgument = parameter.ElementTypeName ?? "ISymbol";
+                            var visitCall = $"VisitSymbolList<{typeArgument}>({propertyAccess})";
+                            statements.Add($"        var {parameter.ParameterName} = {visitCall};");
+                            arguments.Add(parameter.ParameterName);
+                            break;
+                        }
 
                     default:
                         arguments.Add(propertyAccess);

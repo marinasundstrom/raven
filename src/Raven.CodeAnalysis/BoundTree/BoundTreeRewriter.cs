@@ -51,9 +51,9 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
 
     public virtual BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node) => node;
 
-    public virtual BoundNode? VisitBreakStatement(BoundBreakStatement node) => node;
+    public override BoundNode? VisitBreakStatement(BoundBreakStatement node) => node;
 
-    public virtual BoundNode? VisitContinueStatement(BoundContinueStatement node) => node;
+    public override BoundNode? VisitContinueStatement(BoundContinueStatement node) => node;
 
     public override BoundNode? VisitCollectionComprehensionExpression(BoundCollectionComprehensionExpression node)
     {

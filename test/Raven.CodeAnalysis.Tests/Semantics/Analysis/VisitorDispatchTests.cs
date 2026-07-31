@@ -45,6 +45,27 @@ public sealed class VisitorDispatchTests : CompilationTestBase
     }
 
     [Fact]
+    public void BoundRewriter_BaseVisitorReference_PreservesSpecialDispatch()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var pattern = new BoundDeclarationPattern(intType, new BoundDiscardDesignator(intType));
+        var breakStatement = new BoundBreakStatement();
+        var continueStatement = new BoundContinueStatement();
+        var rewriter = new RecordingBoundRewriter();
+        BoundTreeVisitor<BoundNode?> visitor = rewriter;
+
+        var rewrittenPattern = visitor.VisitExpression(pattern);
+        var rewrittenBreak = visitor.VisitStatement(breakStatement);
+        var rewrittenContinue = visitor.VisitStatement(continueStatement);
+
+        Assert.True(rewriter.SawDeclarationPattern);
+        Assert.Same(pattern, rewrittenPattern);
+        Assert.Same(breakStatement, rewrittenBreak);
+        Assert.Same(continueStatement, rewrittenContinue);
+    }
+
+    [Fact]
     public void SyntaxVisitor_VisitExpression_DispatchesToBinaryHandler()
     {
         var tree = SyntaxTree.ParseText("let x = 1 + 2;");
