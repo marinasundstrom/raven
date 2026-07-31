@@ -263,13 +263,19 @@ partial class BlockBinder
             }
 
             if (_binder.ReportTypeArgumentConstraintFailureIfPresent(resolution, syntax.GetLocation()))
-                return _binder.ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+            {
+                return _binder.ErrorExpression(
+                    reason: BoundExpressionReason.OverloadResolutionFailed,
+                    candidates: AsSymbolCandidates(methodGroup.Methods));
+            }
 
             _binder.ReportSuppressedLambdaDiagnostics(boundArguments);
             if (!HasArgumentBindingErrors(boundArguments) &&
                 !_binder.HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
                 _binder._diagnostics.ReportNoOverloadForMethod("method", preparation.MethodName, boundArguments.Length, syntax.GetLocation());
-            return _binder.ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+            return _binder.ErrorExpression(
+                reason: BoundExpressionReason.OverloadResolutionFailed,
+                candidates: AsSymbolCandidates(methodGroup.Methods));
         }
 
         private InvocationCandidatePreparation PrepareInvocationCandidates(

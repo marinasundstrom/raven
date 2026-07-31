@@ -336,6 +336,8 @@ Available-state invocation lookup only publishes a result when it can select a
 sound candidate. Ambiguous calls fall back to ordinary binding, and the bound
 error retains its candidate set so `GetSymbolInfo` agrees with the ambiguity
 diagnostic rather than reporting a generic overload-resolution failure.
+Inapplicable overload sets likewise remain attached to the bound error for
+language-service inspection.
 
 Tests should cover inference, constraints, variance, extension methods, method
 groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each

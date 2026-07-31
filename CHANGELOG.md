@@ -96,6 +96,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Ambiguous invocations now publish `CandidateReason.Ambiguous` and the complete
   candidate set through `SemanticModel.GetSymbolInfo`. Opportunistic invocation
   lookup falls back to authoritative binding when it cannot select a method.
+- Failed invocation binding now retains every considered method candidate, so
+  `GetSymbolInfo` exposes useful candidates with
+  `CandidateReason.OverloadResolutionFailure`.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

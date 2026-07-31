@@ -272,6 +272,32 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void InapplicableOverloads_PublishAllCandidates()
+    {
+        const string source = """
+            func Select(value: int) -> string { "int" }
+            func Select(value: string) -> string { "string" }
+
+            func Test() -> string {
+                Select(true)
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbolInfo = model.GetSymbolInfo(invocation);
+
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.OverloadResolutionFailure, symbolInfo.CandidateReason);
+        Assert.Equal(2, symbolInfo.CandidateSymbols.Length);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+    }
+
+    [Fact]
     public void LambdaArgument_CanBindToSystemDelegateParameter()
     {
         var source = """
