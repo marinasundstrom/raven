@@ -11,6 +11,29 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class PESymbolRegressionTests : CompilationTestBase
 {
     [Fact]
+    public void ReflectionArrayType_LoadsStableElementSymbol()
+    {
+        var compilation = Compilation.Create("pe_array_element")
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var module = Assert.IsType<PEModuleSymbol>(intType.ContainingModule);
+        var assembly = Assert.IsType<PEAssemblySymbol>(module.ContainingAssembly);
+        var runtimeIntType = Assert.IsAssignableFrom<Type>(assembly.GetAssemblyInfo().GetType("System.Int32"));
+        var arrayType = Assert.IsType<PEArrayTypeSymbol>(module.GetType(runtimeIntType.MakeArrayType()));
+        var pointerArrayType = Assert.IsType<PEArrayTypeSymbol>(
+            module.GetType(runtimeIntType.MakePointerType().MakeArrayType()));
+        var pointerElementType = Assert.IsAssignableFrom<IPointerTypeSymbol>(pointerArrayType.ElementType);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, arrayType.ElementType));
+        Assert.Same(arrayType.ElementType, arrayType.ElementType);
+        Assert.Equal(1, arrayType.Rank);
+        Assert.NotNull(arrayType.ContainingAssembly);
+        Assert.NotNull(arrayType.ContainingModule);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, pointerElementType.PointedAtType));
+    }
+
+    [Fact]
     public void MetadataEnums_ReportEnumTypeKind()
     {
         var compilation = Compilation.Create("pe_enum_kind")

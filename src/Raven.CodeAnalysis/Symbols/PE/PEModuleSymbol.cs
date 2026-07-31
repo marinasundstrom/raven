@@ -60,6 +60,9 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     public ITypeSymbol? GetType(Type type)
     {
+        if (type.IsPointer || type.IsByRef)
+            return _reflectionTypeLoader.ResolveType(type);
+
         if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var typeSymbol))
             return typeSymbol;
 
