@@ -12,23 +12,63 @@ This guide presents starting points, not mechanical rewrite rules. Raven fully
 supports classes, interfaces, methods, properties, and mutable objects when they
 fit the problem.
 
-## A quick translation table
+## Start with the style you already use
 
-| Common C# starting point | Raven starting point |
-| --- | --- |
-| `Program.Main` | Top-level statements or a plain `Main` function |
-| Static utility class | Top-level or namespace-level functions |
-| One-method service interface | Function parameter |
-| DTO class | Record class or record struct |
-| Primitive used for a domain concept | Record wrapper with validation |
-| `null` for domain absence | `Option<T>` |
-| Exception for an expected outcome | `Result<T, E>` |
-| Enum plus associated nullable fields | Union with case payloads |
-| `switch` plus type and null checks | Structural `match` |
-| Mutable local by default | `let`, with `var` when mutation is intentional |
-| Object hierarchy for a closed set of variants | Union |
-| Class with identity or resource lifecycle | Class |
-| Open implementation boundary | Interface, class, or struct implementation |
+Writing Raven does not require redesigning a program before you can benefit
+from the language. You can preserve an existing object-oriented or procedural
+structure—classes, interfaces, methods, loops, mutable objects, and familiar
+.NET APIs—and express that structure directly in Raven. Raven promotes forms
+that make its features compose well, but those forms can be adopted one useful
+change at a time.
+
+## A three-step comparison
+
+A useful comparison has three steps: how you would solve a problem in C#, how
+you can use the same approach in Raven, and the approach Raven promotes when its
+features express the intention more clearly. The direct translation is still
+valid Raven.
+
+**C# approach:** choose a value through assignment.
+
+```csharp
+var description = "Standard shipment";
+if (shipment.IsPriority)
+    description = "Priority shipment";
+```
+
+**The same approach in Raven:** keep the imperative shape.
+
+```raven
+var description = "Standard shipment"
+if shipment.IsPriority {
+    description = "Priority shipment"
+}
+```
+
+**The approach Raven promotes here:** make the condition produce the value.
+
+```raven
+let description = if shipment.IsPriority {
+    "Priority shipment"
+} else {
+    "Standard shipment"
+}
+```
+
+The same progression applies to other common problems:
+
+| Problem | Same approach in Raven | Approach Raven promotes when appropriate |
+| --- | --- | --- |
+| Choose a value conditionally | `var`, `if`, and assignment | An `if` expression bound with `let` |
+| Organize stateless helpers | A type with static methods | Plain functions |
+| Represent data | An ordinary class with properties | A record class or record struct |
+| Pass one operation | A one-method interface | A function parameter |
+| Represent expected absence or failure | Nullable values, exceptions, or .NET interop shapes | `Option<T>` or `Result<T, E>` |
+| Represent a closed set of states | An enum or class hierarchy | A union with `match` |
+| Test several aspects of a value | Boolean conditions and local extraction | Composed property patterns and bindings |
+
+Raven's promoted style is not its only valid style. It is the style for which
+the language's features are designed to compose most naturally.
 
 ## Entry points do not require a `Program` class
 
