@@ -829,6 +829,19 @@ func Describe(color: Color) -> string {
         Assert.Contains(
             updatedCompilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(source)));
+
+        var restoredCompilation = workspace.GetCompilation(projectId);
+        var restoredTree = restoredCompilation.SyntaxTrees.Single();
+        var restoredMatch = restoredTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.True(restoredCompilation.GetSemanticModel(restoredTree).GetMatchExhaustiveness(restoredMatch).IsExhaustive);
+        Assert.DoesNotContain(
+            restoredCompilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
     }
 
     [Fact]
