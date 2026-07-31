@@ -105,6 +105,36 @@ public class ParserTokenInsertionFuzzTests
         }
     }
 
+    [Fact]
+    public void EveryMacroFunctionDeclarationPrefix_DoesNotHangOrThrow()
+    {
+        const string source = """
+macro func Inspect(expression: ExpressionSyntax) {
+    match expression {
+        IdentifierNameSyntax identifier => identifier
+        LiteralExpressionSyntax literal => literal
+        _ => expression
+    }
+    expand expression
+}
+""";
+
+        var parseTask = Task.Run(() =>
+        {
+            for (var length = 0; length <= source.Length; length++)
+            {
+                var tree = SyntaxTree.ParseText(source[..length]);
+                var eof = tree.GetRoot().GetLastToken(includeZeroWidth: true);
+                Assert.Equal(SyntaxKind.EndOfFileToken, eof.Kind);
+            }
+        });
+
+        Assert.True(
+            parseTask.Wait(TimeSpan.FromSeconds(5)),
+            "Parser timed out while recovering an incomplete macro function declaration.");
+        parseTask.GetAwaiter().GetResult();
+    }
+
     private static string Mutate(string source, int seed, bool insertMode)
     {
         var random = new Random(seed);
