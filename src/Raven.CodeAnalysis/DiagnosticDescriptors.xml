@@ -88,9 +88,6 @@
   <Descriptor Id="RAV0149" Identifier="MethodNameExpected" Title="Method name expected"
     Message="Method name expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0165" Identifier="UseOfUnassignedVariable" Title="Use before assignment"
-    Message="'{name}' is used before it is assigned." Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0174" Identifier="VariableUsedBeforeDeclaration" Title="Use before declaration"
     Message="'{name}' is used before it is declared." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

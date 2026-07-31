@@ -9,6 +9,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   execution consistently. Exhaustive match statements now make their endpoint
   unreachable when every arm returns or throws; missing coverage, guards, and
   completing arms remain reachable.
+- `out`-parameter definite assignment now joins exhaustive match arms and
+  respects proven non-terminating loops. Raven locals continue to require an
+  initializer at declaration; the unused `RAV0165` use-before-assignment
+  descriptor has been removed instead of advertising an inactive rule.
   Missing-return, unreachable-code, and `let ... else` diagnostics no longer
   disappear behind blanket exception suppression when a body contains an
   independent binding error.

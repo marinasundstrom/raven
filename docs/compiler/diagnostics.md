@@ -61,7 +61,6 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0135` | Error | Assignment is statement-only | Assignments can only appear as statements. | — |
 | `RAV0149` | Error | Method name expected | Method name expected | — |
 | `RAV0162` | Warning | Unreachable code | Unreachable code | — |
-| `RAV0165` | Error | Use before assignment | '{name}' is used before it is assigned. | — |
 | `RAV0166` | Error | Missing initializer | '{name}' must be initialized. | — |
 | `RAV0167` | Error | Variable already defined | '{name}' is already defined in this scope. | — |
 | `RAV0168` | Warning | Variable shadows earlier name | '{name}' shadows a previous declaration. | — |

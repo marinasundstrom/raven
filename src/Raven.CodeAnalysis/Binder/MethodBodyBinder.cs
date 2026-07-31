@@ -383,7 +383,7 @@ class MethodBodyBinder : BlockBinder
                 case BoundBlockStatement block:
                     return AnalyzeBlock(block, assigned);
                 case BoundExpressionStatement expressionStatement:
-                    return new AnalysisState(MarkAssignedExpression(expressionStatement.Expression, assigned), true);
+                    return AnalyzeExpression(expressionStatement.Expression, assigned);
                 case BoundAssignmentStatement assignmentStatement:
                     return new AnalysisState(MarkAssignedExpression(assignmentStatement.Expression, assigned), true);
                 case BoundReturnStatement:
@@ -397,13 +397,15 @@ class MethodBodyBinder : BlockBinder
                     return AnalyzeIf(ifStatement, assigned);
                 case BoundWhileStatement whileStatement:
                     _ = AnalyzeStatement(whileStatement.Body, assigned);
-                    return new AnalysisState(assigned, true);
+                    return new AnalysisState(assigned, CanCompleteNormally(whileStatement));
                 case BoundLoopStatement loopStatement:
                     _ = AnalyzeStatement(loopStatement.Body, assigned);
-                    return new AnalysisState(assigned, true);
+                    return new AnalysisState(assigned, CanCompleteNormally(loopStatement));
                 case BoundForStatement forStatement:
                     _ = AnalyzeStatement(forStatement.Body, assigned);
                     return new AnalysisState(assigned, true);
+                case BoundMatchStatement matchStatement:
+                    return AnalyzeMatch(matchStatement, assigned);
                 case BoundLockStatement lockStatement:
                     return AnalyzeStatement(
                         lockStatement.Body,
@@ -456,6 +458,89 @@ class MethodBodyBinder : BlockBinder
 
             var finallyState = AnalyzeBlock(tryStatement.FinallyBlock, afterTry);
             return new AnalysisState(finallyState.Assigned, completesNormally && finallyState.CompletesNormally);
+        }
+
+        private AnalysisState AnalyzeMatch(
+            BoundMatchStatement matchStatement,
+            ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            var beforeArms = MarkAssignedExpression(matchStatement.Expression, assigned);
+            var completingStates = new List<ImmutableHashSet<IParameterSymbol>>();
+
+            foreach (var arm in matchStatement.Arms)
+            {
+                var armState = AnalyzeExpression(arm.Expression, beforeArms);
+                if (armState.CompletesNormally)
+                    completingStates.Add(armState.Assigned);
+            }
+
+            if (!IsExhaustive(matchStatement))
+                completingStates.Add(beforeArms);
+
+            return completingStates.Count == 0
+                ? new AnalysisState(beforeArms, false)
+                : new AnalysisState(completingStates.Aggregate(Intersect), true);
+        }
+
+        private AnalysisState AnalyzeExpression(
+            BoundExpression expression,
+            ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            switch (expression)
+            {
+                case BoundBlockExpression block:
+                    return AnalyzeStatements(block.Statements, assigned);
+                case BoundReturnExpression:
+                    ReportMissing(assigned, _binder._methodSymbol.Locations.FirstOrDefault() ?? Location.None);
+                    return new AnalysisState(assigned, false);
+                case BoundThrowExpression:
+                    return new AnalysisState(assigned, false);
+                case BoundRequiredResultExpression required:
+                    return AnalyzeExpression(required.Operand, assigned);
+                default:
+                    return new AnalysisState(MarkAssignedExpression(expression, assigned), true);
+            }
+        }
+
+        private AnalysisState AnalyzeStatements(
+            IEnumerable<BoundStatement> statements,
+            ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            var current = new AnalysisState(assigned, true);
+            foreach (var statement in statements)
+            {
+                if (!current.CompletesNormally)
+                    break;
+
+                current = AnalyzeStatement(statement, current.Assigned);
+            }
+
+            return current;
+        }
+
+        private bool IsExhaustive(BoundMatchStatement matchStatement)
+        {
+            var semanticModel = _binder.SemanticModel;
+            if (semanticModel?.GetSyntax(matchStatement) is not MatchStatementSyntax syntax)
+                return false;
+
+            var evaluator = new MatchExhaustivenessEvaluator(
+                _binder.Compilation,
+                semanticModel.TryGetCachedBoundNode);
+            return evaluator.Evaluate(syntax, matchStatement, default).IsExhaustive;
+        }
+
+        private bool CanCompleteNormally(BoundStatement statement)
+        {
+            var semanticModel = _binder.SemanticModel;
+            if (semanticModel?.GetSyntax(statement) is not StatementSyntax syntax)
+                return true;
+
+            var flow = semanticModel.AnalyzeControlFlowInternal(
+                new ControlFlowRegion(syntax),
+                syntax,
+                analyzeJumpPoints: false);
+            return flow.EndPointIsReachable;
         }
 
         private ImmutableHashSet<IParameterSymbol> MarkAssignedExpression(BoundExpression? expression, ImmutableHashSet<IParameterSymbol> assigned)

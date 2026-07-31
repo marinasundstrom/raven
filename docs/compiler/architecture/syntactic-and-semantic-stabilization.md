@@ -196,16 +196,19 @@ observe one coherent flow result.
 This needs tests for narrowing, joins, loops, early exits, pattern tests,
 nullable unions, and incremental edits that change control flow.
 
-### Definite-assignment coverage needs verification
+### Local initialization and `out` assignment are distinct rules
 
-Diagnostics exist for an unassigned local and an unassigned `out` parameter,
-but the local diagnostic does not have an obvious reporting path comparable to
-the `out`-parameter analysis. A focused conformance matrix must determine
-whether this is an implementation gap, unreachable legacy infrastructure, or
-an intentionally permissive rule.
+Raven locals must be initialized where they are declared. An initializer-less
+local reports `RAV0166`, so there is no intermediate local state for a separate
+use-before-assignment diagnostic to analyze. The unused `RAV0165` descriptor was
+removed rather than presenting a rule the compiler never reported.
 
-The decision must then be documented. Compiler code cannot safely rely on a
-rule that is present only as an unused diagnostic definition.
+`out` parameters are different because the caller supplies their storage. The
+callee must assign each `out` parameter on every normal exit. The focused
+conformance matrix covers straight-line exits, `if` joins, exhaustive and
+non-exhaustive matches, return and throw arms, and terminating versus breakable
+loops. Match joins use bound exhaustiveness facts, while proven non-terminating
+loops reuse ordinary control-flow completion.
 
 ### Reachable symbol contracts contain incomplete members
 

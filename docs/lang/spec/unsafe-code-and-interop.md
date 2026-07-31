@@ -208,12 +208,10 @@ by-reference parameter is passed **into** a function, it behaves just
 like a by-reference local: the callee receives an alias to the caller's
 storage and can both read and write through that reference. To mark a
 parameter that must be assigned by the callee before returning, place
-`out` before the parameter name. Parameters are immutable by default, so
-add the `var` modifier when you need to reassign the alias—for example
-to satisfy an `out` contract or to reuse a ref parameter as scratch
-storage. At call sites, pass the argument with the address operator
-`&`. (Exact rules are contextual; the binder enforces that the target is
-assignable.)
+`out` before the parameter name. `ref` and `out` parameters are writable
+aliases; `in` parameters are read-only. At call sites, pass the argument with
+the address operator `&`. (Exact rules are contextual; the binder enforces that
+the target is assignable.)
 
 By-reference locals and fields never use the `out` modifier—`out` is
 only meaningful at the call boundary to signal definite assignment
@@ -221,6 +219,13 @@ responsibilities between caller and callee. Declaring a local with
 `ref`, `out`, and `in` parameters immediately alias existing storage
 locations. The caller provides that storage with `&expr`; `out`
 requires the callee to assign the aliased storage before returning.
+
+Every local declaration has an initializer, so local initialization is checked
+at the declaration itself. An `out` parameter instead must be assigned on every
+normal exit from its callable. Exhaustive `if` and `match` branches join their
+assignment state. A branch that throws, or a callable that cannot complete
+because it remains in a non-terminating loop, has no normal exit and therefore
+does not need to assign the parameter.
 
 ```raven
 func TryParse(text: string, out result: int) -> bool { /* ... */ }

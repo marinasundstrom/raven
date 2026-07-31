@@ -49,6 +49,223 @@ class C {
     }
 
     [Fact]
+    public void OutParameter_UnassignedOnNormalExit_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(out value: int) {
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_AssignedOnBothIfBranches_DoesNotReportDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        if flag {
+            value = 1
+        }
+        else {
+            value = 0
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_AssignedOnEveryExhaustiveMatchArm_DoesNotReportDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        match flag {
+            true => {
+                value = 1
+            }
+            false => {
+                value = 0
+            }
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_AssignedOnOnlyOneMatchArm_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        match flag {
+            true => {
+                value = 1
+            }
+            false => ()
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_AssignedInEveryPresentNonExhaustiveMatchArm_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        match flag {
+            true => {
+                value = 1
+            }
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_ExhaustiveMatchReturnBeforeAssignment_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        match flag {
+            true => return
+            false => {
+                value = 0
+            }
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_ExhaustiveMatchThrowOrAssignment_DoesNotReportDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        match flag {
+            true => throw System.Exception()
+            false => {
+                value = 0
+            }
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_NonTerminatingLoop_DoesNotReportDiagnostic()
+    {
+        const string source = """
+class C {
+    func Wait(out value: int) {
+        loop {
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_BreakableLoop_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Wait(out value: int) {
+        loop {
+            break
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_ReturnBeforeAssignment_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        if flag {
+            return
+        }
+
+        value = 1
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
     public void ConstructorParameter_WithRefKeyword_HasRefKindRef()
     {
         var source = """
