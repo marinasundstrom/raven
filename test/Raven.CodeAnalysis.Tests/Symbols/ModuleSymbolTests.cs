@@ -69,4 +69,27 @@ public class ModuleSymbolTests
         Assert.Null(metadataModule.GetModuleNamespace(projectNamespace));
         Assert.Same(metadataModule.GlobalNamespace, metadataModule.GetModuleNamespace(compilation.GlobalNamespace));
     }
+
+    [Fact]
+    public async Task SourceGlobalNamespaces_AreStableAcrossConcurrentAccess()
+    {
+        var compilation = Compilation.Create(
+            "test",
+            [SyntaxTree.ParseText("class Widget {}")],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        _ = compilation.GetSourceGlobalNamespace();
+        var module = Assert.Single(compilation.Assembly.Modules);
+
+        var moduleTasks = Enumerable.Range(0, 16)
+            .Select(_ => Task.Run(() => module.GlobalNamespace))
+            .ToArray();
+        var assemblyTasks = Enumerable.Range(0, 16)
+            .Select(_ => Task.Run(() => compilation.Assembly.GlobalNamespace))
+            .ToArray();
+        await Task.WhenAll([.. moduleTasks, .. assemblyTasks]);
+
+        Assert.All(moduleTasks, task => Assert.Same(module.GlobalNamespace, task.Result));
+        Assert.All(assemblyTasks, task => Assert.Same(compilation.Assembly.GlobalNamespace, task.Result));
+    }
 }

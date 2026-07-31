@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Threading;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -7,7 +8,7 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
 {
     private readonly SourceAssemblySymbol _containingAssembly;
     private readonly ImmutableArray<IAssemblySymbol> _referencedAssemblySymbols;
-    private SourceNamespaceSymbol _globalNamespace;
+    private SourceNamespaceSymbol? _globalNamespace;
 
     public SourceModuleSymbol(
         string name,
@@ -26,10 +27,11 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
 
     public override SymbolKind Kind => SymbolKind.Module;
 
-    public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new SourceNamespaceSymbol(this,
+    public INamespaceSymbol GlobalNamespace => LazyInitializer.EnsureInitialized(
+        ref _globalNamespace,
+        () => new SourceNamespaceSymbol(this,
             "", this, null, null,
-            [], []);
+            [], []));
 
 
     public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols => _referencedAssemblySymbols;

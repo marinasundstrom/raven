@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 using Raven.CodeAnalysis;
 
@@ -8,7 +9,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
 {
     private readonly List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
-    private INamespaceSymbol _globalNamespace;
+    private INamespaceSymbol? _globalNamespace;
 
     public SourceAssemblySymbol(
         Compilation compilation,
@@ -24,8 +25,9 @@ internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
 
     public string FullName => Name;
 
-    public INamespaceSymbol GlobalNamespace => _globalNamespace ??= (
-        _modules.Count == 1
+    public INamespaceSymbol GlobalNamespace => LazyInitializer.EnsureInitialized(
+        ref _globalNamespace,
+        () => _modules.Count == 1
             ? _modules[0].GlobalNamespace
             : new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace), null));
 
