@@ -7,7 +7,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PropertyInfo _propertyInfo;
-    private ITypeSymbol _type;
+    private ITypeSymbol? _type;
     private Accessibility? _accessibility;
     private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
     private string? _name;
@@ -46,22 +46,24 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     {
         get
         {
-            return _type ??= _reflectionTypeLoader.ResolveType(_propertyInfo);
+            return _type ??= _reflectionTypeLoader.ResolveType(_propertyInfo)
+                ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
         }
     }
 
     public IMethodSymbol? GetMethod { get; set; }
     public IMethodSymbol? SetMethod { get; set; }
 
-    public IPropertySymbol OriginalDefinition { get; }
+    public IPropertySymbol OriginalDefinition => this;
 
-    bool? _isRequired = null;
+    private bool? _isRequired;
 
     public bool IsRequired
     {
         get
         {
-            return _isRequired ??= _propertyInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName != "System.Runtime.CompilerServices.RequiredMemberAttribute");
+            return _isRequired ??= _propertyInfo.GetCustomAttributesData().Any(attribute =>
+                attribute.AttributeType.FullName == "System.Runtime.CompilerServices.RequiredMemberAttribute");
         }
     }
 

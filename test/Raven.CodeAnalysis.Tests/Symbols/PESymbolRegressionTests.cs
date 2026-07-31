@@ -334,6 +334,27 @@ public class MemberContainer {
     }
 
     [Fact]
+    public void MetadataProperty_PreservesDefinitionTypeAndRequiredState()
+    {
+        var compilation = Compilation.Create("pe_property_contract")
+            .AddReferences([
+                .. TestMetadataReferences.Default,
+                MetadataReference.CreateFromFile(typeof(RequiredPropertyFixture).Assembly.Location),
+            ]);
+        var fixture = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName(
+                "Raven.CodeAnalysis.Tests.PESymbolRegressionTests+RequiredPropertyFixture"));
+        var required = Assert.Single(fixture.GetMembers("Required").OfType<IPropertySymbol>());
+        var optional = Assert.Single(fixture.GetMembers("Optional").OfType<IPropertySymbol>());
+
+        Assert.Same(required, required.OriginalDefinition);
+        Assert.Same(required.Type, required.Type);
+        Assert.Equal(SpecialType.System_String, required.Type.SpecialType);
+        Assert.True(required.IsRequired);
+        Assert.False(optional.IsRequired);
+    }
+
+    [Fact]
     public void MetadataType_AndReflectionType_ResolveToSameSymbol()
     {
         var compilation = Compilation.Create("pe_identity_single", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -531,6 +552,14 @@ public class MemberContainer {
                 .Where(field => field.Name == "Empty"));
 
         Assert.Equal("Empty", emptyField.MetadataName);
+    }
+
+    public sealed class RequiredPropertyFixture
+    {
+        public required string Required { get; set; }
+
+        [Obsolete]
+        public string Optional { get; set; } = string.Empty;
     }
 
     private static bool IsFullyLoaded(PENamedTypeSymbol type)
