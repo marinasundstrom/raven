@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Syntax;
 public struct SyntaxToken : IEquatable<SyntaxToken>
 {
     internal readonly InternalSyntax.SyntaxToken Green;
-    private readonly SyntaxNode _parent;
+    private readonly SyntaxNode? _parent;
 
     public string Text => Green?.Text ?? string.Empty;
 
@@ -51,7 +51,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public string ValueText => Green?.GetValueText() ?? Text;
 
-    public SyntaxNode Parent => _parent;
+    public SyntaxNode? Parent => _parent;
 
     public SyntaxTree? SyntaxTree
     {

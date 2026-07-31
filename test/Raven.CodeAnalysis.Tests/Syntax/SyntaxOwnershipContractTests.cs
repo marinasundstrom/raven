@@ -22,4 +22,22 @@ public sealed class SyntaxOwnershipContractTests
         Assert.Same(tree, function.SyntaxTree);
     }
 
+    [Fact]
+    public void SyntaxToken_DistinguishesDetachedAndAttachedTokens()
+    {
+        var detachedToken = SyntaxFactory.Identifier("value");
+        var defaultToken = default(SyntaxToken);
+
+        Assert.Null(detachedToken.Parent);
+        Assert.Null(detachedToken.SyntaxTree);
+        Assert.Null(defaultToken.Parent);
+        Assert.Null(defaultToken.SyntaxTree);
+
+        var tree = SyntaxTree.ParseText("func Main() {}");
+        var token = tree.GetRoot().GetFirstToken();
+
+        Assert.NotNull(token.Parent);
+        Assert.Same(tree, token.SyntaxTree);
+    }
+
 }
