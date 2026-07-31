@@ -81,7 +81,8 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
             throw new IndexOutOfRangeException($"Invalid separator index: {index}");
 
         var separator = Green![index * 2 + 1] as InternalSyntax.SyntaxToken;
-        return separator != null ? new SyntaxToken(separator, _parent) : default;
+        var position = _position + Green.GetChildStartPosition(index * 2 + 1);
+        return separator != null ? new SyntaxToken(separator, _parent, position) : default;
     }
 
     public IEnumerator<TNode> GetEnumerator()

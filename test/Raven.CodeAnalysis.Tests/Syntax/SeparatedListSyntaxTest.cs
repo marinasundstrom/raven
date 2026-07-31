@@ -61,4 +61,19 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
         separatedSyntaxList.GetSeparators().Count().ShouldBe(1);
         separatedSyntaxList.GetWithSeparators().Count().ShouldBe(3);
     }
+
+    [Fact]
+    public void ParsedSeparator_PreservesParentAndSourcePosition()
+    {
+        const string source = "func Measure(first: int, second: int) {}";
+        var tree = SyntaxTree.ParseText(source);
+        var parameterList = tree.GetRoot().DescendantNodes().OfType<ParameterListSyntax>().Single();
+
+        var separator = parameterList.Parameters.GetSeparator(0);
+
+        separator.Text.ShouldBe(",");
+        separator.SpanStart.ShouldBe(source.IndexOf(',', StringComparison.Ordinal));
+        separator.Parent.ShouldBeSameAs(parameterList);
+        separator.SyntaxTree.ShouldBeSameAs(tree);
+    }
 }
