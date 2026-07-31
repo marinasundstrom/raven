@@ -44,7 +44,7 @@ public struct LinePosition : IComparable<LinePosition>, IEquatable<LinePosition>
     }
 
     // Override Equals for object comparison
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is LinePosition other && Equals(other);
     }
