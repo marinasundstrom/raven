@@ -53,6 +53,34 @@ public class TupleTypeSemanticTests
     }
 
     [Fact]
+    public void TupleElements_AreCompleteProjectedFieldSymbols()
+    {
+        var source = "let t: (id: int, name: string) = (1, \"Raven\")";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+        var id = Assert.IsType<TupleFieldSymbol>(tuple.TupleElements[0]);
+
+        Assert.IsNotType<PEFieldSymbol>(id);
+        Assert.StartsWith("ValueTuple", id.ContainingType.Name, StringComparison.Ordinal);
+        Assert.Same(id.ContainingType, id.ContainingSymbol);
+        Assert.NotNull(id.ContainingAssembly);
+        Assert.NotNull(id.ContainingModule);
+        Assert.NotNull(id.ContainingNamespace);
+        Assert.Equal("Item1", id.MetadataName);
+        Assert.Equal(RefKind.None, id.RefKind);
+        Assert.False(id.IsConst);
+        Assert.False(id.IsRequired);
+        Assert.False(id.IsReadOnly);
+        Assert.False(id.IsStatic);
+        Assert.Null(id.GetConstantValue());
+        Assert.Empty(id.GetAttributes());
+    }
+
+    [Fact]
     public void TupleExpression_TargetTyped_UsesDeclaredType_IgnoringNames()
     {
         var source = """
