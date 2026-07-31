@@ -80,7 +80,7 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
         if (type is not INamedTypeSymbol namedType)
             return false;
 
-        var definition = namedType.OriginalDefinition;
+        var definition = namedType.OriginalDefinition as INamedTypeSymbol ?? namedType;
         var ns = definition.ContainingNamespace?.ToMetadataName();
         return string.Equals(ns, "System.Collections.Immutable", StringComparison.Ordinal) &&
                ImmutableCollectionTypeNames.Contains(definition.Name);
@@ -88,7 +88,7 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
 
     private static bool IsImplicitValueReturnTarget(ExpressionStatementSyntax expressionStatement, SemanticModel semanticModel)
     {
-        SyntaxNode blockNode = expressionStatement.Parent;
+        SyntaxNode? blockNode = expressionStatement.Parent;
         SyntaxList<StatementSyntax> statements;
 
         switch (blockNode)
