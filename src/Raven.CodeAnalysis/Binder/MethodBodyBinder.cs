@@ -69,7 +69,7 @@ class MethodBodyBinder : BlockBinder
         };
     }
 
-    private BoundBlockStatement BindArrowExpressionClause(ArrowExpressionClauseSyntax clause)
+    protected override BoundNode BindArrowExpressionClause(ArrowExpressionClauseSyntax clause)
     {
         if (TryGetCachedBoundNode(clause) is BoundBlockStatement cached)
             return cached;
