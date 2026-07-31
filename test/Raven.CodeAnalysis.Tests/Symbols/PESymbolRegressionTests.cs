@@ -568,6 +568,20 @@ public class MemberContainer {
         Assert.Same(emptyField.Type, emptyField.Type);
     }
 
+    [Fact]
+    public void MetadataEvent_AlwaysHasContainingTypeAndEventType()
+    {
+        var compilation = Compilation.Create("pe_event_contract")
+            .AddReferences(TestMetadataReferences.Default);
+        var appDomainType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.AppDomain"));
+        var processExitEvent = Assert.Single(appDomainType.GetMembers("ProcessExit").OfType<IEventSymbol>());
+
+        Assert.Same(appDomainType, processExitEvent.ContainingType);
+        Assert.NotNull(processExitEvent.Type);
+        Assert.Same(processExitEvent.Type, processExitEvent.Type);
+    }
+
     public sealed class RequiredPropertyFixture
     {
         public required string Required { get; set; }

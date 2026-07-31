@@ -13,7 +13,7 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
     private ImmutableArray<IEventSymbol>? _explicitInterfaceImplementations;
     private string? _name;
 
-    public PEEventSymbol(ReflectionTypeLoader reflectionTypeLoader, EventInfo eventInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEEventSymbol(ReflectionTypeLoader reflectionTypeLoader, EventInfo eventInfo, INamedTypeSymbol containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -44,7 +44,8 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
         }
     }
 
-    public ITypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_eventInfo) ?? _reflectionTypeLoader.ResolveType(_eventInfo.EventHandlerType!);
+    public ITypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_eventInfo)
+        ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
 
     public IMethodSymbol? AddMethod { get; set; }
 
