@@ -16,10 +16,10 @@ internal sealed class SyntaxReplacer : SyntaxRewriter
         _triviaMap = triviaMap;
     }
 
-    public override SyntaxNode Visit(SyntaxNode node)
+    public override SyntaxNode? Visit(SyntaxNode? node)
     {
-        if (node == null)
-            return null!;
+        if (node is null)
+            return null;
 
         if (_nodeMap != null && _nodeMap.TryGetValue(node, out var replacement))
         {

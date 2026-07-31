@@ -118,6 +118,18 @@ public sealed class VisitorDispatchTests : CompilationTestBase
     }
 
     [Fact]
+    public void SyntaxRewriter_NonNullNodeMayBeRemoved()
+    {
+        var tree = SyntaxTree.ParseText("if true { }");
+        var statement = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().Single();
+        var rewriter = new RemovingSyntaxRewriter();
+
+        var rewritten = rewriter.Visit(statement);
+
+        Assert.Null(rewritten);
+    }
+
+    [Fact]
     public void GreenSyntaxRewriter_NodeVisit_UsesConcreteTokenRewriteHook()
     {
         var tree = SyntaxTree.ParseText("let value = 42");
@@ -187,6 +199,14 @@ public sealed class VisitorDispatchTests : CompilationTestBase
         {
             TokenCount++;
             return token;
+        }
+    }
+
+    private sealed class RemovingSyntaxRewriter : SyntaxRewriter
+    {
+        public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+        {
+            return null;
         }
     }
 }
