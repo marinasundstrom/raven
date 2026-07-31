@@ -554,6 +554,20 @@ public class MemberContainer {
         Assert.Equal("Empty", emptyField.MetadataName);
     }
 
+    [Fact]
+    public void MetadataField_AlwaysHasContainingTypeAndFieldType()
+    {
+        var compilation = Compilation.Create("pe_field_contract")
+            .AddReferences(TestMetadataReferences.Default);
+        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+        var emptyField = Assert.Single(stringType.GetMembers("Empty").OfType<IFieldSymbol>());
+
+        Assert.Same(stringType, emptyField.ContainingType);
+        Assert.NotNull(emptyField.Type);
+        Assert.Same(emptyField.Type, emptyField.Type);
+    }
+
     public sealed class RequiredPropertyFixture
     {
         public required string Required { get; set; }

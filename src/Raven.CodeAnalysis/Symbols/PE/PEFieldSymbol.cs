@@ -10,7 +10,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     private Accessibility? _accessibility;
     private FieldInfo? _runtimeFieldInfo;
 
-    public PEFieldSymbol(ReflectionTypeLoader reflectionTypeLoader, FieldInfo fieldInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEFieldSymbol(ReflectionTypeLoader reflectionTypeLoader, FieldInfo fieldInfo, INamedTypeSymbol containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -25,7 +25,8 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     {
         get
         {
-            return _type ??= _reflectionTypeLoader.ResolveType(_fieldInfo);
+            return _type ??= _reflectionTypeLoader.ResolveType(_fieldInfo)
+                ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
         }
     }
     public RefKind RefKind => _fieldInfo.FieldType.IsByRef ? RefKind.Ref : RefKind.None;
