@@ -27,6 +27,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
   full or span-based writes without creating substring values.
+- Async lambda return-target and iterator signature recognition no longer
+  assumes that every named type exposes an original definition or a complete
+  namespace-parent chain, preventing malformed or custom symbols from causing
+  binding failures.
 - Nullable metadata now uses the .NET transform-flag convention for nested
   generic arguments, arrays, generic value types, and by-reference positions.
   Raven also imports both uniform and positional nullable annotations without
