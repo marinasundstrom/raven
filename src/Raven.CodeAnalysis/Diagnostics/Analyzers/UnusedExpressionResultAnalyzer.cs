@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
@@ -113,7 +114,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
     private static bool IsImplicitValueReturnTarget(ExpressionStatementSyntax expressionStatement, SemanticModel semanticModel)
     {
-        SyntaxNode blockNode = expressionStatement.Parent;
+        SyntaxNode? blockNode = expressionStatement.Parent;
         SyntaxList<StatementSyntax> statements;
 
         switch (blockNode)
@@ -184,7 +185,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
     private static bool TryGetTrailingBlock(
         ExpressionStatementSyntax expressionStatement,
-        out SyntaxNode blockNode)
+        [NotNullWhen(true)] out SyntaxNode? blockNode)
     {
         blockNode = expressionStatement.Parent;
         var statements = blockNode switch
