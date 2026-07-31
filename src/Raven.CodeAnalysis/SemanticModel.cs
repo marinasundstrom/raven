@@ -13331,6 +13331,13 @@ public partial class SemanticModel
             return true;
         }
 
+        var enclosingWhile = node.AncestorsAndSelf().OfType<WhileStatementSyntax>().FirstOrDefault();
+        if (enclosingWhile is not null)
+        {
+            root = enclosingWhile;
+            return true;
+        }
+
         var enclosingWhilePattern = node.AncestorsAndSelf().OfType<WhilePatternStatementSyntax>().FirstOrDefault();
         if (enclosingWhilePattern is not null)
         {

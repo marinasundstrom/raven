@@ -261,6 +261,11 @@ by binding and nullable-access diagnostics.
 The remaining conformance matrix needs joins, loops, richer pattern tests,
 nullable unions, and incremental edits that change control flow.
 
+Branch-join coverage now distinguishes facts established on every completing
+path from facts established on only one path. Ordinary `while` bodies also bind
+under the condition's true-state nullability facts, while post-loop state stays
+conservative; cold queries bind the enclosing loop to preserve that context.
+
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
 every relevant signature position, including nullable context/annotation

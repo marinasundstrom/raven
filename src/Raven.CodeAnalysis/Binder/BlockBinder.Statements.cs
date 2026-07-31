@@ -316,9 +316,25 @@ partial class BlockBinder
 
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
     {
+        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         var condition = BindExpression(whileStmt.Condition);
+        var bodyEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+
+        if (TryGetNullCheckFlow(condition, out var symbol, out var nonNullWhenTrue, out _))
+        {
+            if (nonNullWhenTrue)
+                bodyEntryState.Add(symbol);
+            else
+                bodyEntryState.Remove(symbol);
+        }
+
+        _nonNullSymbols.Clear();
+        _nonNullSymbols.UnionWith(bodyEntryState);
 
         var body = BindStatementInLoop(whileStmt.Statement);
+
+        _nonNullSymbols.Clear();
+        _nonNullSymbols.UnionWith(entryState);
 
         return new BoundWhileStatement(condition, body);
     }

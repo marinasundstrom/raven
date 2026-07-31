@@ -102,6 +102,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Incremental match exhaustiveness now has add-and-restore coverage for source
   enums, Raven union cases, and sealed-hierarchy permitted subtypes, including
   agreement between diagnostics and `GetMatchExhaustiveness` across snapshots.
+- Ordinary `while` bodies now inherit nullability facts established by their
+  condition, and cold semantic queries bind the enclosing loop so public flow
+  information agrees with diagnostics-first binding.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser
