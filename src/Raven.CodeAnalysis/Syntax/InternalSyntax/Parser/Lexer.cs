@@ -1532,6 +1532,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
 
                 bool sawDigit = false;
                 ulong value = 0;
+                bool valueOverflowed = false;
 
                 // Read base digits and separators.
                 while (PeekChar(out var digitCh))
@@ -1549,7 +1550,14 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         _stringBuilder.Append(digitCh);
                         sawDigit = true;
 
-                        value = (value << 1) | (ulong)(digitCh - '0');
+                        var digitValue = (uint)(digitCh - '0');
+                        if (!valueOverflowed)
+                        {
+                            if (value > ((ulong)long.MaxValue - digitValue) / 2)
+                                valueOverflowed = true;
+                            else
+                                value = (value << 1) | digitValue;
+                        }
                         continue;
                     }
 
@@ -1559,7 +1567,14 @@ internal class Lexer : ILexer, IMacroBodyScanner
                         _stringBuilder.Append(digitCh);
                         sawDigit = true;
 
-                        value = (value << 4) | (ulong)GetHexDigitValueForNumericLiteral(digitCh);
+                        var digitValue = (uint)GetHexDigitValueForNumericLiteral(digitCh);
+                        if (!valueOverflowed)
+                        {
+                            if (value > ((ulong)long.MaxValue - digitValue) / 16)
+                                valueOverflowed = true;
+                            else
+                                value = (value << 4) | digitValue;
+                        }
                         continue;
                     }
 
@@ -1595,7 +1610,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
 
                 if (prefixIsByte)
                 {
-                    if (value <= byte.MaxValue)
+                    if (!valueOverflowed && value <= byte.MaxValue)
                         return new Token(SyntaxKind.NumericLiteralToken, text2, (byte)value, text2.Length);
 
                     ReportDiagnostic(DiagnosticInfo.Create(
@@ -1607,7 +1622,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
 
                 if (prefixIsLong)
                 {
-                    if (value <= (ulong)long.MaxValue)
+                    if (!valueOverflowed && value <= (ulong)long.MaxValue)
                         return new Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length);
 
                     ReportDiagnostic(DiagnosticInfo.Create(
@@ -1618,10 +1633,10 @@ internal class Lexer : ILexer, IMacroBodyScanner
                 }
 
                 // Default: choose int if it fits, else long if it fits.
-                if (value <= int.MaxValue)
+                if (!valueOverflowed && value <= int.MaxValue)
                     return new Token(SyntaxKind.NumericLiteralToken, text2, (int)value, text2.Length);
 
-                if (value <= (ulong)long.MaxValue)
+                if (!valueOverflowed && value <= (ulong)long.MaxValue)
                     return new Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length);
 
                 ReportDiagnostic(DiagnosticInfo.Create(

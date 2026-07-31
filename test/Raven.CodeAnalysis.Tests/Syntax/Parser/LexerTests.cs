@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 using Raven.CodeAnalysis.Text;
 
@@ -143,6 +146,7 @@ public class LexerTests
     [InlineData("0X7FFF_FFFF", typeof(int), int.MaxValue)]
     [InlineData("0x8000_0000", typeof(long), 2147483648L)]
     [InlineData("0x1_0000_0000L", typeof(long), 4294967296L)]
+    [InlineData("0x7FFF_FFFF_FFFF_FFFF", typeof(long), long.MaxValue)]
     public void HexIntegerLiteral_IsParsedWithExpectedValue(string text, Type expectedType, object expectedValue)
     {
         var lexer = new Lexer(new StringReader(text));
@@ -152,6 +156,27 @@ public class LexerTests
         Assert.Equal(text, token.Text);
         Assert.Equal(expectedType, token.Value?.GetType());
         Assert.Equal(expectedValue, token.Value);
+    }
+
+    [Theory]
+    [InlineData("0x8000_0000_0000_0000")]
+    [InlineData("0x1_0000_0000_0000_0000")]
+    [InlineData("0b1000000000000000000000000000000000000000000000000000000000000000")]
+    [InlineData("0b1_0000000000000000000000000000000000000000000000000000000000000000")]
+    public void BasePrefixedIntegerLiteral_AboveLongMax_ReportsOverflow(string text)
+    {
+        var diagnostics = new List<DiagnosticInfo>();
+        var lexer = new Lexer(new StringReader(text))
+        {
+            DiagnosticSink = diagnostics.Add,
+        };
+
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NumericLiteralToken, token.Kind);
+        Assert.Equal(0, token.Value);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(CompilerDiagnostics.NumericLiteralOutOfRange.Id, diagnostic.Descriptor.Id);
     }
 
     [Theory]

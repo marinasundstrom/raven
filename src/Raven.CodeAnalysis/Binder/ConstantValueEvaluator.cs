@@ -269,8 +269,6 @@ internal static class ConstantValueEvaluator
                 result = i;
                 return result >= min && result <= max;
             case uint ui:
-                if (ui > long.MaxValue)
-                    break;
                 result = (long)ui;
                 return result >= min && result <= max;
             case long l:
