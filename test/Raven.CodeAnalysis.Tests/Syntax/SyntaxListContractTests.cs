@@ -39,4 +39,18 @@ public sealed class SyntaxListContractTests
             firstEnumeration.Zip(secondEnumeration),
             pair => Assert.Same(pair.First, pair.Second));
     }
+
+    [Fact]
+    public void ReflectedNodeProperties_CacheMaterializedGroupsAndSlots()
+    {
+        var root = SyntaxTree.ParseText("func Main() {}").GetRoot();
+        var properties = root.GetChildrenGroupedByProperty();
+
+        var firstGroups = properties.Properties;
+        var secondGroups = properties.Properties;
+
+        Assert.Same(firstGroups, secondGroups);
+        Assert.True(properties.SlotCount > 0);
+        Assert.Same(properties[0], properties[0]);
+    }
 }

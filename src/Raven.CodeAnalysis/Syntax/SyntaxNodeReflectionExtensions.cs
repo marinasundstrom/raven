@@ -215,9 +215,9 @@ public static class SyntaxNodeReflectionExtensions
     public sealed class NodeProperties
     {
         private readonly IEnumerable<ChildGroup> _lazy;
-        private IReadOnlyList<ChildGroup> _properties;
+        private IReadOnlyList<ChildGroup>? _properties;
         private int? _slotCount;
-        private IDictionary<int, Child> _map;
+        private IDictionary<int, Child>? _map;
 
         public NodeProperties(IEnumerable<ChildGroup> properties)
         {
