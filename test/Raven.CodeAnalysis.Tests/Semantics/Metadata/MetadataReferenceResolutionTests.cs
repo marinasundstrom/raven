@@ -156,7 +156,9 @@ WriteLine(message)
 
             var unreadable = Assert.Single(hostType!.GetMembers("M").OfType<IMethodSymbol>());
             Assert.Single(unreadable.Parameters);
-            Assert.Equal(TypeKind.Error, unreadable.Parameters[0].Type.TypeKind);
+            var unreadableParameter = unreadable.Parameters[0];
+            Assert.Equal(TypeKind.Error, unreadableParameter.Type.TypeKind);
+            Assert.Same(unreadableParameter.Type, unreadableParameter.Type);
             var fallback = Assert.Single(hostType.GetMembers("N").OfType<IMethodSymbol>());
             Assert.Empty(fallback.Parameters);
         }

@@ -13,7 +13,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     private readonly bool _isOut;
     private readonly bool _isByRef;
     private readonly bool _isParams;
-    private ITypeSymbol _type;
+    private ITypeSymbol? _type;
     private bool _defaultValueComputed;
     private bool _hasExplicitDefaultValue;
     private object? _explicitDefaultValue;
@@ -80,7 +80,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         if (RefKind.IsByRef && resolved is RefTypeSymbol refType)
             return refType.ElementType;
 
-        return resolved;
+        return resolved ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
     }
 
     public ParameterInfo GetParameterInfo() => _parameterInfo;
