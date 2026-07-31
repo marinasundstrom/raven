@@ -486,6 +486,28 @@ let value: List<MissingType> = null
     }
 
     [Fact]
+    public void MapResolveResultToDiagnostics_FailedResultWithoutIssues_UsesLocationlessFallback()
+    {
+        const string source = "let value: int = 0";
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(declarator));
+        var resolveResult = new Binder.ResolveTypeResult
+        {
+            ResolvedType = compilation.ErrorTypeSymbol,
+            Failed = true
+        };
+
+        var diagnostic = Assert.Single(binder.MapResolveResultToDiagnostics(resolveResult));
+
+        Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
+        Assert.Equal(Location.None, diagnostic.Location);
+    }
+
+    [Fact]
     public void BindType_BindsMethodTypeParameterInScope()
     {
         const string source = """

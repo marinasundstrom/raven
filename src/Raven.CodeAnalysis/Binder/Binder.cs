@@ -1676,7 +1676,7 @@ internal abstract partial class Binder
 
     internal IEnumerable<Diagnostic> MapResolveResultToDiagnostics(ResolveTypeResult result, TypeSyntax? rootSyntax = null)
     {
-        var fallbackSyntax = rootSyntax ?? result.Issues.FirstOrDefault().Syntax;
+        var fallbackSyntax = rootSyntax ?? (result.Issues.IsDefaultOrEmpty ? null : result.Issues[0].Syntax);
         var fallbackLocation = fallbackSyntax?.GetLocation() ?? Location.None;
         var fallbackName = fallbackSyntax?.ToString() ?? "type";
 
