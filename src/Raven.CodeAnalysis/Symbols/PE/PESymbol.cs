@@ -17,13 +17,15 @@ internal abstract class PESymbol : Symbol
 
     }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly!;
+    public override IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
-    public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule!;
+    public override IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
-    protected PEAssemblySymbol PEContainingAssembly => (PEAssemblySymbol)ContainingAssembly;
+    protected PEAssemblySymbol PEContainingAssembly => ContainingAssembly as PEAssemblySymbol
+        ?? throw new InvalidOperationException($"Symbol '{MetadataName}' is not contained in a PE assembly.");
 
-    protected PEModuleSymbol PEContainingModule => (PEModuleSymbol)ContainingModule;
+    protected PEModuleSymbol PEContainingModule => ContainingModule as PEModuleSymbol
+        ?? throw new InvalidOperationException($"Symbol '{MetadataName}' is not contained in a PE module.");
 
     protected Accessibility MapAccessibility(MemberInfo memberInfo)
     {

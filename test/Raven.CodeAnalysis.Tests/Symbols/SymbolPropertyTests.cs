@@ -2,6 +2,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Semantics.Tests;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -10,6 +11,24 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class SymbolPropertyTests : CompilationTestBase
 {
+    [Fact]
+    public void DetachedTypeSymbol_HasNullableContainmentAndStableMetadataName()
+    {
+        var compilation = Compilation.Create("detached-symbol")
+            .AddReferences(TestMetadataReferences.Default);
+        var detached = new NullableTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_Int32),
+            containingSymbol: null,
+            containingType: null,
+            containingNamespace: null,
+            locations: []);
+
+        Assert.Null(detached.ContainingSymbol);
+        Assert.Null(detached.ContainingAssembly);
+        Assert.Null(detached.ContainingModule);
+        Assert.Equal(detached.Name, detached.MetadataName);
+    }
+
     [Fact]
     public void CanBeReferencedByName_IsTrueForNamedSymbols()
     {

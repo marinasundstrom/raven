@@ -20,7 +20,7 @@ internal abstract class SourceSymbol : Symbol
     protected SourceSymbol(
         SymbolKind kind,
         string name,
-        ISymbol containingSymbol,
+        ISymbol? containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
@@ -33,9 +33,9 @@ internal abstract class SourceSymbol : Symbol
         DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(declaringSyntaxReferences, parseOptions);
     }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+    public override IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
-    public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule;
+    public override IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
     public override DocumentationComment? GetDocumentationComment()
     {

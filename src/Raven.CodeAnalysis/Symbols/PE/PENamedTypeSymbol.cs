@@ -1118,8 +1118,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
                 // Always intern nested types via the module's Type-based cache to avoid creating duplicate symbols.
                 // The module is responsible for placing nested types under the correct containing type.
-                var module = (PEModuleSymbol)ContainingModule;
-                _ = module.GetType(nestedTypeInfo.AsType());
+                _ = PEContainingModule.GetType(nestedTypeInfo.AsType());
             }
         }
     }
@@ -1299,8 +1298,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 if (!string.Equals(nestedTypeInfo.Name, name, StringComparison.Ordinal))
                     continue;
 
-                var module = (PEModuleSymbol)ContainingModule;
-                _ = module.GetType(nestedTypeInfo.AsType());
+                _ = PEContainingModule.GetType(nestedTypeInfo.AsType());
             }
         }
     }

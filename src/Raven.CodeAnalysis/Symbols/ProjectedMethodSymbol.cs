@@ -24,8 +24,8 @@ internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => AdapterMethod.Name;
     public override string MetadataName => AdapterMethod.MetadataName;
-    public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly;
-    public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule;
+    public override IAssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
+    public override IModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
     public override bool IsImplicitlyDeclared => true;
     public override bool IsStatic => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Static;
     public override ISymbol UnderlyingSymbol => AdapterMethod;

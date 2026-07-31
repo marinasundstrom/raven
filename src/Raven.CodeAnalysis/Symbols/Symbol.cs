@@ -99,12 +99,9 @@ internal abstract class Symbol : ISymbol
     public virtual string Name
     {
         get;
-    }
+    } = string.Empty;
 
-    public virtual string MetadataName
-    {
-        get;
-    }
+    public virtual string MetadataName => Name;
 
     public ISymbol? ContainingSymbol
     {
@@ -112,12 +109,12 @@ internal abstract class Symbol : ISymbol
         private set;
     }
 
-    public virtual IAssemblySymbol ContainingAssembly
+    public virtual IAssemblySymbol? ContainingAssembly
     {
         get;
     }
 
-    public virtual IModuleSymbol ContainingModule
+    public virtual IModuleSymbol? ContainingModule
     {
         get;
     }
