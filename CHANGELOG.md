@@ -110,6 +110,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Nested-loop `break` statements no longer suppress nullability facts inferred
   from normal exit of an enclosing `while`; only exits targeting that loop (or
   conservatively unresolved labeled/goto exits) block the inference.
+- Workspace edits that change a `while` null check now invalidate and restore
+  body flow state together with possible-null diagnostics.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

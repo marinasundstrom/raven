@@ -270,6 +270,10 @@ Break ownership follows the nearest loop, so a nested loop's break does not
 erase facts from the enclosing loop. Cold queries bind the enclosing loop to
 preserve the same context.
 
+Incremental workspace coverage changes a `while` condition between `is not
+null` and `is null`, then restores it. Public `TypeInfo` flow state and
+possible-null diagnostics must update together in all three snapshots.
+
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
 every relevant signature position, including nullable context/annotation
