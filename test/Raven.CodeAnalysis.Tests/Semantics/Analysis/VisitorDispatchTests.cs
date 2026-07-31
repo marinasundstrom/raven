@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -63,6 +64,28 @@ public sealed class VisitorDispatchTests : CompilationTestBase
         Assert.Same(pattern, rewrittenPattern);
         Assert.Same(breakStatement, rewrittenBreak);
         Assert.Same(continueStatement, rewrittenContinue);
+    }
+
+    [Fact]
+    public void BoundTreeWalker_VisitHooksOverrideVisitorContract()
+    {
+        var visitorMethods = typeof(BoundTreeVisitor)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+            .Where(static method => method.Name.StartsWith("Visit", StringComparison.Ordinal))
+            .ToDictionary(
+                static method => (method.Name, ParameterType: method.GetParameters().Single().ParameterType));
+        var walkerMethods = typeof(BoundTreeWalker)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+            .Where(static method => method.Name.StartsWith("Visit", StringComparison.Ordinal));
+
+        foreach (var walkerMethod in walkerMethods)
+        {
+            var parameterType = walkerMethod.GetParameters().Single().ParameterType;
+            if (!visitorMethods.TryGetValue((walkerMethod.Name, parameterType), out var visitorMethod))
+                continue;
+
+            Assert.Equal(visitorMethod, walkerMethod.GetBaseDefinition());
+        }
     }
 
     [Fact]

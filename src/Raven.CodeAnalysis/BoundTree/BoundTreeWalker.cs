@@ -19,7 +19,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
         }
     }
 
-    public virtual void VisitExpression(BoundExpression node)
+    public override void VisitExpression(BoundExpression node)
     {
         switch (node)
         {
@@ -163,7 +163,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitSelfExpression(BoundSelfExpression self) { }
 
 
-    public virtual void VisitStatement(BoundStatement statement)
+    public override void VisitStatement(BoundStatement statement)
     {
         switch (statement)
         {
@@ -233,23 +233,23 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(node.Expression);
     }
 
-    public virtual void VisitThrowStatement(BoundThrowStatement node)
+    public override void VisitThrowStatement(BoundThrowStatement node)
     {
         VisitExpression(node.Expression);
     }
 
-    public virtual void VisitThrowExpression(BoundThrowExpression node)
+    public override void VisitThrowExpression(BoundThrowExpression node)
     {
         VisitExpression(node.Expression);
     }
 
-    public virtual void VisitReturnExpression(BoundReturnExpression node)
+    public override void VisitReturnExpression(BoundReturnExpression node)
     {
         if (node.Expression is not null)
             VisitExpression(node.Expression);
     }
 
-    public virtual void VisitNullCoalesceExpression(BoundNullCoalesceExpression node)
+    public override void VisitNullCoalesceExpression(BoundNullCoalesceExpression node)
     {
         VisitExpression(node.Left);
         VisitExpression(node.Right);
@@ -266,7 +266,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitVariableDeclarator(declarator);
     }
 
-    public virtual void VisitMatchStatement(BoundMatchStatement node)
+    public override void VisitMatchStatement(BoundMatchStatement node)
     {
         VisitExpression(node.Expression);
         foreach (var arm in node.Arms)
@@ -289,29 +289,29 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(node.Initializer);
     }
 
-    public virtual void VisitExpressionStatement(BoundExpressionStatement node)
+    public override void VisitExpressionStatement(BoundExpressionStatement node)
     {
         VisitExpression(node.Expression);
     }
 
-    public virtual void VisitBreakStatement(BoundBreakStatement node)
+    public override void VisitBreakStatement(BoundBreakStatement node)
     {
     }
 
-    public virtual void VisitContinueStatement(BoundContinueStatement node)
+    public override void VisitContinueStatement(BoundContinueStatement node)
     {
     }
 
-    public virtual void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+    public override void VisitYieldReturnStatement(BoundYieldReturnStatement node)
     {
         VisitExpression(node.Expression);
     }
 
-    public virtual void VisitYieldBreakStatement(BoundYieldBreakStatement node)
+    public override void VisitYieldBreakStatement(BoundYieldBreakStatement node)
     {
     }
 
-    public virtual void VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
+    public override void VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
     {
         VisitExpression(node.Condition);
     }
@@ -332,7 +332,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(arg);
     }
 
-    public virtual void VisitAwaitExpression(BoundAwaitExpression node)
+    public override void VisitAwaitExpression(BoundAwaitExpression node)
     {
         VisitExpression(node.Expression);
     }
@@ -350,12 +350,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
         }
     }
 
-    public virtual void VisitTryExpression(BoundTryExpression node)
+    public override void VisitTryExpression(BoundTryExpression node)
     {
         VisitExpression(node.Expression);
     }
 
-    public virtual void VisitPropagateExpression(BoundPropagateExpression node)
+    public override void VisitPropagateExpression(BoundPropagateExpression node)
     {
         VisitExpression(node.Operand);
     }
@@ -384,26 +384,26 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
     }
 
-    public virtual void VisitTypeOfExpression(BoundTypeOfExpression node) { }
+    public override void VisitTypeOfExpression(BoundTypeOfExpression node) { }
 
-    public virtual void VisitDelegateCreationExpression(BoundDelegateCreationExpression node)
+    public override void VisitDelegateCreationExpression(BoundDelegateCreationExpression node)
     {
         VisitMethodGroupExpression(node.MethodGroup);
     }
 
-    public virtual void VisitConditionalAccessExpression(BoundConditionalAccessExpression node)
+    public override void VisitConditionalAccessExpression(BoundConditionalAccessExpression node)
     {
         VisitExpression(node.Receiver);
         VisitExpression(node.WhenNotNull);
     }
 
-    public virtual void VisitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression node)
+    public override void VisitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression node)
     {
         VisitExpression(node.Receiver);
         VisitExpression(node.WhenPresent);
     }
 
-    public virtual void VisitIfExpression(BoundIfExpression node)
+    public override void VisitIfExpression(BoundIfExpression node)
     {
         VisitExpression(node.Condition);
         VisitExpression(node.ThenBranch);
@@ -411,27 +411,27 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(node.ElseBranch);
     }
 
-    public virtual void VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
+    public override void VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
     {
         VisitExpression(node.Receiver);
         foreach (var argument in node.Arguments)
             VisitExpression(argument);
     }
 
-    public virtual void VisitArrayAccessExpression(BoundArrayAccessExpression node)
+    public override void VisitArrayAccessExpression(BoundArrayAccessExpression node)
     {
         VisitExpression(node.Receiver);
         foreach (var index in node.Indices)
             VisitExpression(index);
     }
 
-    public virtual void VisitCollectionExpression(BoundCollectionExpression node)
+    public override void VisitCollectionExpression(BoundCollectionExpression node)
     {
         foreach (var element in node.Elements)
             VisitExpression(element);
     }
 
-    public virtual void VisitDictionaryExpression(BoundDictionaryExpression node)
+    public override void VisitDictionaryExpression(BoundDictionaryExpression node)
     {
         foreach (var element in node.Elements)
         {
@@ -463,18 +463,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Selector);
     }
 
-    public virtual void VisitSpreadElement(BoundSpreadElement node)
+    public override void VisitSpreadElement(BoundSpreadElement node)
     {
         VisitExpression(node.Expression);
     }
 
-    public virtual void VisitIsPatternExpression(BoundIsPatternExpression node)
+    public override void VisitIsPatternExpression(BoundIsPatternExpression node)
     {
         VisitExpression(node.Expression);
         VisitPattern(node.Pattern);
     }
 
-    public virtual void VisitMatchExpression(BoundMatchExpression node)
+    public override void VisitMatchExpression(BoundMatchExpression node)
     {
         VisitExpression(node.Expression);
         foreach (var arm in node.Arms)
@@ -585,7 +585,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitPattern(element);
     }
 
-    public virtual void VisitDictionaryPattern(BoundDictionaryPattern node)
+    public override void VisitDictionaryPattern(BoundDictionaryPattern node)
     {
         if (node.Designator is not null)
             VisitDesignator(node.Designator);
@@ -611,36 +611,36 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Value);
     }
 
-    public virtual void VisitAddressOfExpression(BoundAddressOfExpression node)
+    public override void VisitAddressOfExpression(BoundAddressOfExpression node)
     {
         if (node.Receiver is not null)
             VisitExpression(node.Receiver);
     }
 
-    public virtual void VisitMethodGroupExpression(BoundMethodGroupExpression node)
+    public override void VisitMethodGroupExpression(BoundMethodGroupExpression node)
     {
         if (node.Receiver is not null)
             VisitExpression(node.Receiver);
     }
 
-    public virtual void VisitFieldAccess(BoundFieldAccess node)
+    public override void VisitFieldAccess(BoundFieldAccess node)
     {
         if (node.Receiver is not null)
             VisitExpression(node.Receiver);
     }
 
-    public virtual void VisitMemberAccessExpression(BoundMemberAccessExpression node)
+    public override void VisitMemberAccessExpression(BoundMemberAccessExpression node)
     {
         if (node.Receiver is not null)
             VisitExpression(node.Receiver);
     }
 
-    public virtual void VisitPointerMemberAccessExpression(BoundPointerMemberAccessExpression node)
+    public override void VisitPointerMemberAccessExpression(BoundPointerMemberAccessExpression node)
     {
         VisitExpression(node.PointerReceiver);
     }
 
-    public virtual void VisitIfStatement(BoundIfStatement node)
+    public override void VisitIfStatement(BoundIfStatement node)
     {
         VisitExpression(node.Condition);
         VisitStatement(node.ThenNode);
@@ -648,19 +648,19 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitStatement(node.ElseNode);
     }
 
-    public virtual void VisitWhileStatement(BoundWhileStatement node)
+    public override void VisitWhileStatement(BoundWhileStatement node)
     {
         VisitExpression(node.Condition);
         VisitStatement(node.Body);
     }
 
-    public virtual void VisitForStatement(BoundForStatement node)
+    public override void VisitForStatement(BoundForStatement node)
     {
         VisitExpression(node.Collection);
         VisitStatement(node.Body);
     }
 
-    public virtual void VisitTryStatement(BoundTryStatement node)
+    public override void VisitTryStatement(BoundTryStatement node)
     {
         VisitBlockStatement(node.TryBlock);
 
@@ -671,12 +671,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitBlockStatement(node.FinallyBlock);
     }
 
-    public virtual void VisitCatchClause(BoundCatchClause node)
+    public override void VisitCatchClause(BoundCatchClause node)
     {
         VisitBlockStatement(node.Block);
     }
 
-    public virtual void VisitBlockStatement(BoundBlockStatement node)
+    public override void VisitBlockStatement(BoundBlockStatement node)
     {
         foreach (var s in node.Statements)
             VisitStatement(s);
