@@ -47,7 +47,7 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public int Arity => 0;
 
-    public INamedTypeSymbol UnderlyingTupleType => null;
+    public INamedTypeSymbol? UnderlyingTupleType => null;
     public ImmutableArray<IFieldSymbol> TupleElements => [];
 
     public ImmutableArray<ISymbol> GetMembers() => [];

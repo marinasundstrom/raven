@@ -12,6 +12,37 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class TupleTypeSemanticTests
 {
     [Fact]
+    public void UnderlyingTupleType_IsOnlyPresentForTupleSymbols()
+    {
+        var source = """
+class Widget {}
+let value: (id: int, name: string) = (1, "Raven")
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var widget = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(
+            model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetSpecialType(SpecialType.System_String));
+        var unitType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetSpecialType(SpecialType.System_Unit));
+
+        Assert.Null(widget.UnderlyingTupleType);
+        Assert.Null(stringType.UnderlyingTupleType);
+        Assert.Null(unitType.UnderlyingTupleType);
+        Assert.NotNull(tuple.UnderlyingTupleType);
+        Assert.True(tuple.IsTupleType);
+        Assert.StartsWith("ValueTuple", tuple.UnderlyingTupleType.MetadataName, StringComparison.Ordinal);
+        Assert.Null(tuple.UnderlyingTupleType.UnderlyingTupleType);
+    }
+
+    [Fact]
     public void TupleTypeSyntax_BindsToTupleTypeSymbol_WithNames()
     {
         var source = """

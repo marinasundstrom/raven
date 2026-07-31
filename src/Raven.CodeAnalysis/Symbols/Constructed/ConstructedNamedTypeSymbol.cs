@@ -1085,13 +1085,13 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
     public int Ordinal => TryGetCaseDefinition(out var caseDefinition) ? caseDefinition.Ordinal : 0;
 
-    public INamedTypeSymbol UnderlyingTupleType
+    public INamedTypeSymbol? UnderlyingTupleType
     {
         get
         {
             var underlying = _originalDefinition.UnderlyingTupleType;
             if (underlying is null)
-                return null!;
+                return null;
 
             if (AreNamedTypesEquivalentShallow(underlying, _originalDefinition))
                 return this;

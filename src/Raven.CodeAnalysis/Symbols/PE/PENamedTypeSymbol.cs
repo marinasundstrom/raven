@@ -866,7 +866,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     private ImmutableArray<IFieldSymbol>? _tupleElements;
 
-    public INamedTypeSymbol UnderlyingTupleType => this;
+    public INamedTypeSymbol? UnderlyingTupleType => null;
 
     public ImmutableArray<IFieldSymbol> TupleElements
     {

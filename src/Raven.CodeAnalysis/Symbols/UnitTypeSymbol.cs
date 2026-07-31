@@ -53,7 +53,7 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public IMethodSymbol? StaticConstructor => null;
 
-    public INamedTypeSymbol UnderlyingTupleType => this;
+    public INamedTypeSymbol? UnderlyingTupleType => null;
 
     public ImmutableArray<IFieldSymbol> TupleElements => [];
 

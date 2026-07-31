@@ -138,7 +138,7 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public IMethodSymbol? StaticConstructor => _type.StaticConstructor;
 
-    public INamedTypeSymbol UnderlyingTupleType => _type.UnderlyingTupleType;
+    public INamedTypeSymbol? UnderlyingTupleType => _type.UnderlyingTupleType;
 
     public ImmutableArray<IFieldSymbol> TupleElements => _type.TupleElements;
 

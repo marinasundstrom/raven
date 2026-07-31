@@ -560,9 +560,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsInterface => false;
 
-    bool IsTupleType =>
-        !string.IsNullOrEmpty(MetadataName) &&
-        MetadataName.Contains("System.ValueTuple", StringComparison.Ordinal);
+    bool IsTupleType => TypeKind == TypeKind.Tuple || this is ITupleTypeSymbol;
 
     bool IsTypeUnion => TypeKind == TypeKind.TypeUnion;
 
@@ -663,7 +661,11 @@ public interface INamedTypeSymbol : ITypeSymbol
     IMethodSymbol? StaticConstructor { get; }
 
     ITypeSymbol? EnumUnderlyingType => null;
-    INamedTypeSymbol UnderlyingTupleType { get; }
+    /// <summary>
+    /// Gets the underlying <c>System.ValueTuple</c> type for a tuple projection,
+    /// or <see langword="null"/> when this symbol is not a tuple type.
+    /// </summary>
+    INamedTypeSymbol? UnderlyingTupleType { get; }
     ImmutableArray<IFieldSymbol> TupleElements { get; }
     ImmutableArray<ITypeSymbol> TypeArguments { get; }
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }

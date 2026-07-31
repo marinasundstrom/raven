@@ -179,7 +179,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ITypeSymbol? EnumUnderlyingType { get; private set; }
 
-    public INamedTypeSymbol UnderlyingTupleType => null!;
+    public INamedTypeSymbol? UnderlyingTupleType => null;
 
     public ImmutableArray<IFieldSymbol> TupleElements => [];
 
