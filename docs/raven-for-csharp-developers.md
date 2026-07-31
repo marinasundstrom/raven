@@ -12,77 +12,37 @@ This guide presents starting points, not mechanical rewrite rules. Raven fully
 supports classes, interfaces, methods, properties, and mutable objects when they
 fit the problem.
 
-## Start with the style you already use
+## Gradual adoption
 
-Raven supports gradual adoption through constructs that are already familiar
-from C#. You can preserve an existing object-oriented or procedural
-structure—classes, interfaces, methods, loops, mutable objects, and familiar
-.NET APIs—and express it directly in Raven without changing the way you write
-code very much. As you learn the language, you can introduce Raven's features
-and programming patterns one useful change at a time. Raven is designed so
-those features compose well, but they are not prerequisites for getting
-started.
+Familiar C# structures—classes, interfaces, methods, loops, mutable objects,
+nullable values, exceptions, and ordinary .NET APIs—can be expressed directly
+in Raven. You can start with a close translation and introduce Raven features
+as you learn them.
 
-## The core recommendation
+The comparisons below therefore use a gradual lens: the common C# approach,
+the same approach in Raven when useful, and a Raven feature to consider when it
+expresses the problem better. No third step is mandatory. For domain code,
+Raven generally prefers `Option<T>` for expected absence and `Result<T, E>` for
+expected failure; nullable values remain useful at .NET boundaries, and
+exceptions remain appropriate for unexpected faults.
 
-For Raven domain code, prefer:
+## A quick translation table
 
-- `Option<T>` over `T?` or `null` when absence is expected
-- `Result<T, E>` over throwing an exception when failure is expected
-
-This does not ban nullable values or exceptions. Keep nullable shapes where
-.NET interop requires them, and reserve exceptions for unexpected faults.
-
-## A three-step comparison
-
-A useful comparison has three steps: how you would solve a problem in C#, how
-you can use the same approach in Raven, and a Raven-oriented alternative that
-may express the intention more clearly. The direct translation is still valid
-Raven.
-
-**C# approach:** choose a value through assignment.
-
-```csharp
-var description = "Standard shipment";
-if (shipment.IsPriority)
-    description = "Priority shipment";
-```
-
-**The same approach in Raven:** keep the imperative shape.
-
-```raven
-var description = "Standard shipment"
-if shipment.IsPriority {
-    description = "Priority shipment"
-}
-```
-
-**A Raven-oriented alternative:** make the condition produce the value.
-
-```raven
-let description = if shipment.IsPriority {
-    "Priority shipment"
-} else {
-    "Standard shipment"
-}
-```
-
-The same progression applies to other common problems:
-
-| Problem | Same approach in Raven | Raven features to consider |
-| --- | --- | --- |
-| Choose a value conditionally | `var`, `if`, and assignment | An `if` expression bound with `let` |
-| Organize stateless helpers | A type with static methods | Plain functions |
-| Represent data | An ordinary class with properties | A record class or record struct |
-| Pass one operation | A one-method interface | A function parameter |
-| Represent expected absence | Nullable values or .NET interop shapes | `Option<T>` |
-| Represent expected failure | Exceptions | `Result<T, E>` |
-| Represent a closed set of states | An enum or class hierarchy | A union with `match` |
-| Test several aspects of a value | Boolean conditions and local extraction | Composed property patterns and bindings |
-
-The third column is not universally preferred. Choose the form that best
-expresses the problem and its solution; Raven's features are options that
-compose well when they fit.
+| Common C# starting point | Raven starting point |
+| --- | --- |
+| `Program.Main` | Top-level statements or a plain `Main` function |
+| Static utility class | Top-level or namespace-level functions |
+| One-method service interface | Function parameter |
+| DTO class | Record class or record struct |
+| Primitive used for a domain concept | Record wrapper with validation |
+| `null` as expected domain absence | `Option<T>` |
+| Exception for an expected outcome | `Result<T, E>` |
+| Enum plus associated nullable fields | Union with case payloads |
+| `switch` plus type and null checks | Structural `match` |
+| Mutable local by default | `let`, with `var` when mutation is intentional |
+| Object hierarchy for a closed set of variants | Union |
+| Class with identity or resource lifecycle | Class |
+| Open implementation boundary | Interface, class, or struct implementation |
 
 ## Entry points do not require a `Program` class
 
@@ -119,7 +79,7 @@ func Main() -> () {
 Create an application class only if the application itself has meaningful state
 or behavior to encapsulate—not because the runtime entry point needs a home.
 
-## Plain functions for stateless helpers
+## Utility classes can become plain functions
 
 C# frequently uses static classes as namespaces for behavior:
 
@@ -177,7 +137,7 @@ deterministic function. Use an interface when the dependency is genuinely an
 open protocol with several related operations or implementations. Use a class
 when it owns state, disposal, or a resource lifecycle.
 
-## Records for data shapes
+## DTOs can become explicit data shapes
 
 A record expresses immutable domain data without a handwritten property and
 constructor shell:
@@ -200,7 +160,7 @@ Choose a record struct for value semantics and a record class for reference
 semantics. Choose an ordinary class when identity or encapsulated mutable state
 matters more than structural value behavior.
 
-## Domain types for domain concepts
+## Domain primitives can become domain types
 
 C# applications often pass primitive values whose meaning exists only in names
 and conventions:
@@ -230,7 +190,7 @@ record struct Year private (Value: int) {
 This is an ordinary record with a restricted constructor, not special compiler
 support for opaque aliases. A `Year` cannot be confused with every other `int`.
 
-## `Option` for expected absence
+## Prefer `Option` for expected absence
 
 Nullable references commonly make absence implicit in C#:
 
@@ -272,7 +232,7 @@ projects selected framework APIs such as `TryParse` and `TryGetValue` into
 `Option` or `Result`; projects can disable those projections when they need the
 ordinary CLR signatures.
 
-## `Result` for expected failure
+## Prefer `Result` for expected failure
 
 Exceptions are useful for unexpected faults. They are less useful when callers
 are expected to branch on validation or lookup outcomes.
@@ -321,7 +281,7 @@ The `?` expression keeps the successful path linear while preserving the typed
 failure in the function signature. Use `match` when recovery deserves to be
 shown explicitly.
 
-## Unions for closed states with payloads
+## State plus payload can become a union
 
 C# models sometimes combine an enum with fields that are valid only for some
 states:
@@ -402,9 +362,12 @@ Use `let` for a lexical binding that does not change and `var` when mutation is 
 the algorithm. Mutable objects and fields remain available when stateful
 modeling is appropriate.
 
-## Property patterns for structural decisions
+## Pattern matching can replace scattered inspection
 
-C# commonly classifies an object with boolean conditions:
+Raven patterns work across unions, options, results, records, tuples,
+sequences, and other structural values. One gradual starting point is to carry
+familiar boolean conditions across directly. C# commonly classifies an object
+like this:
 
 ```csharp
 static string Describe(Shipment shipment)
@@ -446,10 +409,9 @@ func Describe(shipment: Shipment) -> string {
 
 Neither Raven version is inherently better. Use conditions when the branching
 process is clearest; use property patterns when the shapes being recognized are
-the important part of the problem. Raven patterns also compose across unions,
-options, results, records, tuples, sequences, and other structural values.
+the important part of the problem.
 
-## Classes for identity and lifecycle
+## Classes are still the Raven way when the domain has objects
 
 Not every C# class needs to become a collection of functions. A stateful
 connection, aggregate with identity, actor, cache, UI component, or resource
