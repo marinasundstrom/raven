@@ -40,4 +40,23 @@ public sealed class SyntaxOwnershipContractTests
         Assert.Same(tree, token.SyntaxTree);
     }
 
+    [Fact]
+    public void SyntaxNodeOrToken_PreservesDefaultAndDetachedOwnership()
+    {
+        var empty = default(SyntaxNodeOrToken);
+        var detachedNode = new SyntaxNodeOrToken(SyntaxFactory.Block());
+        var detachedToken = new SyntaxNodeOrToken(SyntaxFactory.Identifier("value"));
+
+        Assert.False(empty.IsNode);
+        Assert.False(empty.IsToken);
+        Assert.Null(empty.Parent);
+        Assert.Null(empty.AsNode());
+        Assert.Equal(default, empty.AsToken());
+
+        Assert.True(detachedNode.IsNode);
+        Assert.Null(detachedNode.Parent);
+        Assert.True(detachedToken.IsToken);
+        Assert.Null(detachedToken.Parent);
+    }
+
 }
