@@ -9,8 +9,8 @@ public class SyntaxTree
 {
     internal const int IncrementalParseMaxChangeLength = 4096;
 
-    private CompilationUnitSyntax _compilationUnit;
-    private SourceText _sourceText;
+    private CompilationUnitSyntax? _compilationUnit;
+    private readonly SourceText _sourceText;
     private readonly ParseOptions _options;
     private IReadOnlyList<Diagnostic>? _diagnostics;
 
@@ -27,7 +27,8 @@ public class SyntaxTree
     public int Length => _sourceText.Length;
     public ParseOptions Options => _options;
 
-    public CompilationUnitSyntax GetRoot(CancellationToken cancellationToken = default) => _compilationUnit;
+    public CompilationUnitSyntax GetRoot(CancellationToken cancellationToken = default) =>
+        _compilationUnit ?? throw new InvalidOperationException("The syntax root has not been attached.");
 
     public static SyntaxTree ParseText(string text, ParseOptions? options = null, Encoding? encoding = null, string? path = null)
     {
@@ -43,7 +44,7 @@ public class SyntaxTree
         var parseResult = parser.Parse(sourceText);
         var compilationUnit = (CompilationUnitSyntax)parseResult.Root.CreateRed();
 
-        var sourceTree = new SyntaxTree(sourceText, path, options);
+        var sourceTree = new SyntaxTree(sourceText, path ?? "file", options);
 
         compilationUnit = compilationUnit
             .WithSyntaxTree(sourceTree);
@@ -92,7 +93,7 @@ public class SyntaxTree
     {
         var sourceText = SourceText.From(compilationUnit.ToFullString(), encoding);
 
-        var syntaxTree = new SyntaxTree(sourceText, filePath, options);
+        var syntaxTree = new SyntaxTree(sourceText, filePath ?? "file", options);
 
         compilationUnit = compilationUnit
             .WithSyntaxTree(syntaxTree);
@@ -138,37 +139,17 @@ public class SyntaxTree
     {
         var sourceText = GetText();
 
-        if (sourceText is null)
-            return Location.None;
-
         var (line, col) = sourceText.GetLineAndColumn(span);
 
         return Location.Create(this, span);
     }
 
-    public SourceText? GetText()
-    {
-        if (_sourceText is null)
-        {
-            _sourceText = SourceText.From(GetRoot().ToFullString());
-        }
-        return _sourceText;
-    }
+    public SourceText GetText() => _sourceText;
 
     public bool TryGetText([NotNullWhen(true)] out SourceText? text)
     {
-        if (_sourceText is not null)
-        {
-            text = _sourceText;
-            return true;
-        }
-        if (_sourceText is null)
-        {
-            text = _sourceText = SourceText.From(GetRoot().ToFullString());
-            return true;
-        }
-        text = null;
-        return false;
+        text = _sourceText;
+        return true;
     }
 
     /// <summary>
