@@ -12,12 +12,6 @@ internal class SyntaxParser : ParseContext
 
     }
 
-    private int _parenDepth = 0;
-
-    public void EnterParens() => _parenDepth++;
-    public void ExitParens() => _parenDepth--;
-    public bool IsInsideParens => _parenDepth > 0;
-
     protected static bool IsIdentifierToken(SyntaxToken token)
     {
         return token.Kind == SyntaxKind.IdentifierToken;

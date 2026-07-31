@@ -400,9 +400,10 @@ public class ParserNewlineTests
 
         var block = (BlockSyntax)parser.ParseBlockSyntax().CreateRed();
 
-        var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().Single();
+        var statement = Assert.IsType<ExpressionStatementSyntax>(Assert.Single(block.Statements));
+        Assert.IsType<ReturnExpressionSyntax>(statement.Expression);
 
-        var terminator = returnStatement.TerminatorToken;
+        var terminator = statement.TerminatorToken;
         Assert.Equal(SyntaxKind.None, terminator.Kind);
     }
 
