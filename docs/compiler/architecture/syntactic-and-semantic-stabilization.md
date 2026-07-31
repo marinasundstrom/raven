@@ -52,6 +52,37 @@ surface needed to write the compiler:
 These are correctness boundaries. Implementation language, internal class
 layout, and the exact cache representation are not.
 
+## Bootstrap compiler and port boundary
+
+The current C# compiler is the bootstrap compiler and must become a trusted
+reference implementation before a Raven compiler port starts. The port must
+not be the first compiler-shaped Raven workload. Raven-written libraries,
+macros, tools, generators, and reduced binder/semantic workloads should first
+exercise the compiler-writing subset and establish that the C# compiler can
+compile it reliably.
+
+Future port failures must be distinguishable between a bootstrap-compiler
+miscompilation, an error in the Raven-authored compiler, and an unspecified
+language rule. Keep deterministic compiler-shaped fixtures and, once a second
+implementation exists, run differential tests over public diagnostics, symbol
+and operation shapes, emitted metadata, and observable runtime behavior. Exact
+internal lowering or instruction sequences are not the compatibility oracle.
+
+## Project-system boundary
+
+Workspace projects must remain constructible without MSBuild. The workspace
+API owns the host-independent project, document, reference, option, and
+diagnostic model; MSBuild is a production adapter over that model rather than
+the model itself. Single-file execution, tests, custom hosts, and future project
+systems must be able to provide equivalent inputs directly.
+
+The MSBuild integration should nevertheless behave like normal .NET tooling:
+standard targets and reference conventions, reliable incremental inputs and
+outputs, design-time build support, and diagnostics that identify the owning
+project and source. Add equivalence tests that load the same project through
+MSBuild and direct workspace construction and compare documents, references,
+options, target framework, and resulting diagnostics.
+
 ## Stabilization levels
 
 ### Crucial before porting
@@ -438,6 +469,8 @@ contracts are already established.
 The port can begin incrementally when:
 
 - the compiler-writing subset has an explicit supported-feature inventory;
+- the C# bootstrap compiler builds representative Raven-written
+  compiler-shaped workloads deterministically;
 - no source edit in that subset reaches a generic exception or an unimplemented
   semantic contract;
 - full and incremental syntax and semantic equivalence suites pass;
@@ -445,6 +478,8 @@ The port can begin incrementally when:
 - error recovery preserves unrelated declarations;
 - flow, conversions, overloads, generics, and patterns have conformance
   coverage sufficient for compiler code;
+- direct workspace construction and MSBuild loading agree on equivalent project
+  inputs, while the workspace remains usable without MSBuild;
 - remaining gaps are documented as intentionally out of the compiler-writing
   subset or safe to address during the port.
 
