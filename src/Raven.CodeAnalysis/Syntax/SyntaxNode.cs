@@ -8,10 +8,10 @@ namespace Raven.CodeAnalysis.Syntax;
 public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 {
     internal readonly GreenNode Green;
-    private readonly SyntaxTree _syntaxTree;
-    private readonly SyntaxNode _parent;
+    private readonly SyntaxTree? _syntaxTree;
+    private readonly SyntaxNode? _parent;
 
-    public SyntaxNode Parent => _parent;
+    public SyntaxNode? Parent => _parent;
 
     public bool IsMissing => Green.IsMissing;
 
