@@ -63,6 +63,20 @@ public sealed class SyntaxOwnershipContractTests
     }
 
     [Fact]
+    public void ReplaceSyntax_NullRootReplacementPreservesTheRootNode()
+    {
+        var block = SyntaxFactory.Block();
+        var replacements = new Dictionary<SyntaxNode, SyntaxNode?>
+        {
+            [block] = null,
+        };
+
+        var result = block.ReplaceSyntax(replacements, tokenMap: null, triviaMap: null);
+
+        Assert.Same(block, result);
+    }
+
+    [Fact]
     public void SyntaxToken_DistinguishesDetachedAndAttachedTokens()
     {
         var detachedToken = SyntaxFactory.Identifier("value");

@@ -85,9 +85,9 @@ public partial class SyntaxNode
                 if (trivia.FullSpan.Contains(position))
                     return trivia;
 
-                if (descendIntoTrivia && trivia.HasStructure)
+                if (descendIntoTrivia && trivia.GetStructure() is { } structure)
                 {
-                    var result = trivia.GetStructure().FindTrivia(position, true);
+                    var result = structure.FindTrivia(position, true);
                     //if (result.RawKind != 0)
                     return result;
                 }
@@ -104,9 +104,9 @@ public partial class SyntaxNode
                 if (trivia.FullSpan.Contains(position))
                     return trivia;
 
-                if (descendIntoTrivia && trivia.HasStructure)
+                if (descendIntoTrivia && trivia.GetStructure() is { } structure)
                 {
-                    var result = trivia.GetStructure().FindTrivia(position, true);
+                    var result = structure.FindTrivia(position, true);
                     //if (result.RawKind != 0)
                     return result;
                 }
@@ -214,18 +214,18 @@ public partial class SyntaxNode
                 {
                     foreach (var trivia in token.LeadingTrivia)
                     {
-                        if (trivia.HasStructure)
+                        if (trivia.GetStructure() is { } structure)
                         {
-                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
+                            foreach (var t in structure.DescendantTokens(true))
                                 yield return t;
                         }
                     }
 
                     foreach (var trivia in token.TrailingTrivia)
                     {
-                        if (trivia.HasStructure)
+                        if (trivia.GetStructure() is { } structure)
                         {
-                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
+                            foreach (var t in structure.DescendantTokens(true))
                                 yield return t;
                         }
                     }
@@ -247,9 +247,9 @@ public partial class SyntaxNode
             foreach (var trivia in token.LeadingTrivia)
             {
                 yield return trivia;
-                if (descendIntoStructuredTrivia && trivia.HasStructure)
+                if (descendIntoStructuredTrivia && trivia.GetStructure() is { } structure)
                 {
-                    foreach (var t in trivia.GetStructure().DescendantTrivia(true))
+                    foreach (var t in structure.DescendantTrivia(true))
                         yield return t;
                 }
             }
@@ -257,9 +257,9 @@ public partial class SyntaxNode
             foreach (var trivia in token.TrailingTrivia)
             {
                 yield return trivia;
-                if (descendIntoStructuredTrivia && trivia.HasStructure)
+                if (descendIntoStructuredTrivia && trivia.GetStructure() is { } structure)
                 {
-                    foreach (var t in trivia.GetStructure().DescendantTrivia(true))
+                    foreach (var t in structure.DescendantTrivia(true))
                         yield return t;
                 }
             }
@@ -331,6 +331,6 @@ public partial class SyntaxNode
         IReadOnlyDictionary<SyntaxTrivia, SyntaxTrivia?>? triviaMap)
     {
         var replacer = new SyntaxReplacer(nodeMap, tokenMap, triviaMap);
-        return replacer.Visit(this);
+        return replacer.Visit(this) ?? this;
     }
 }
