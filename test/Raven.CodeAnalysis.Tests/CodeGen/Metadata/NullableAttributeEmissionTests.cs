@@ -1,10 +1,12 @@
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
 
@@ -78,6 +80,94 @@ class C {
 
         Assert.DoesNotContain(md.GetCustomAttributes(param), h => IsNullableAttribute(md, h));
         Assert.DoesNotContain(md.GetCustomAttributes(returnParam), h => IsNullableAttribute(md, h));
+    }
+
+    [Fact]
+    public void NestedNullableReferenceTypes_RoundTripThroughDotNetAndRavenMetadataConsumers()
+    {
+        var source = """
+import System.Collections.Generic.*
+
+class C {
+    func M(values: List<string?>?) -> Dictionary<string, string?[]>? { return null }
+    func R(ref values: List<string?>?) {}
+    func V(value: KeyValuePair<string?, int>) {}
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("nullable-nested", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
+
+        peStream.Position = 0;
+        using (var loaded = TestAssemblyLoader.LoadFromStream(peStream, references))
+        {
+            var nullableAttributeType = loaded.Assembly.GetType(
+                "System.Runtime.CompilerServices.NullableAttribute",
+                throwOnError: true)!;
+            var nullableFlagsField = nullableAttributeType.GetField("NullableFlags")!;
+            Assert.False(nullableAttributeType.IsPublic);
+            Assert.True(nullableAttributeType.IsSealed);
+            Assert.True(nullableFlagsField.IsPublic);
+            Assert.True(nullableFlagsField.IsInitOnly);
+
+            var method = loaded.Assembly.GetType("C", throwOnError: true)!.GetMethod("M")!;
+            var nullability = new NullabilityInfoContext();
+            var parameterInfo = nullability.Create(Assert.Single(method.GetParameters()));
+            var returnInfo = nullability.Create(method.ReturnParameter);
+
+            Assert.Equal(NullabilityState.Nullable, parameterInfo.ReadState);
+            Assert.Equal(NullabilityState.Nullable, Assert.Single(parameterInfo.GenericTypeArguments).ReadState);
+
+            Assert.Equal(NullabilityState.Nullable, returnInfo.ReadState);
+            Assert.Equal(NullabilityState.NotNull, returnInfo.GenericTypeArguments[0].ReadState);
+            Assert.Equal(NullabilityState.NotNull, returnInfo.GenericTypeArguments[1].ReadState);
+            Assert.Equal(NullabilityState.Nullable, returnInfo.GenericTypeArguments[1].ElementType!.ReadState);
+
+            var byRefInfo = nullability.Create(Assert.Single(loaded.Assembly.GetType("C")!.GetMethod("R")!.GetParameters()));
+            Assert.Equal(NullabilityState.Nullable, byRefInfo.ReadState);
+            Assert.Equal(NullabilityState.Nullable, Assert.Single(byRefInfo.GenericTypeArguments).ReadState);
+
+            var valueInfo = nullability.Create(Assert.Single(loaded.Assembly.GetType("C")!.GetMethod("V")!.GetParameters()));
+            Assert.Equal(NullabilityState.NotNull, valueInfo.ReadState);
+            Assert.Equal(NullabilityState.Nullable, valueInfo.GenericTypeArguments[0].ReadState);
+            Assert.Equal(NullabilityState.NotNull, valueInfo.GenericTypeArguments[1].ReadState);
+        }
+
+        var reference = MetadataReference.CreateFromImage(peStream.ToArray());
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, reference]);
+        var methodSymbol = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<IMethodSymbol>());
+
+        var nullableParameter = Assert.IsType<NullableTypeSymbol>(Assert.Single(methodSymbol.Parameters).Type);
+        var parameterType = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableParameter.UnderlyingType);
+        Assert.IsType<NullableTypeSymbol>(Assert.Single(parameterType.TypeArguments));
+
+        var nullableReturn = Assert.IsType<NullableTypeSymbol>(methodSymbol.ReturnType);
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableReturn.UnderlyingType);
+        Assert.False(returnType.TypeArguments[0].IsNullable);
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(returnType.TypeArguments[1]);
+        Assert.True(arrayType.ElementType.IsNullable);
+
+        var byRefMethod = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("R").OfType<IMethodSymbol>());
+        var byRefParameter = Assert.Single(byRefMethod.Parameters);
+        Assert.Equal(RefKind.Ref, byRefParameter.RefKind);
+        var nullableByRefType = Assert.IsType<NullableTypeSymbol>(byRefParameter.Type);
+        var byRefType = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableByRefType.UnderlyingType);
+        Assert.IsType<NullableTypeSymbol>(Assert.Single(byRefType.TypeArguments));
+
+        var valueMethod = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("V").OfType<IMethodSymbol>());
+        var valueType = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(valueMethod.Parameters).Type);
+        Assert.IsType<NullableTypeSymbol>(valueType.TypeArguments[0]);
+        Assert.False(valueType.TypeArguments[1].IsNullable);
     }
 
     private static bool IsNullableAttribute(MetadataReader md, CustomAttributeHandle handle)

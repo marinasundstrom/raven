@@ -15,6 +15,12 @@ breaking changes. Raven is still free to revise syntax and semantics. It means
 that changes are deliberate, documented, consistently implemented, and covered
 by tests across full and incremental compilation.
 
+Familiarity and interoperability are the default when established C# and .NET
+conventions carry observable meaning. Raven may intentionally diverge in source
+semantics where that produces an idiomatic Raven model, but its .NET ABI must
+preserve the platform convention so consumers do not need Raven-specific
+knowledge to interpret a public contract.
+
 ## What must be stable before a port
 
 A compiler port should begin only after these properties hold for the language
@@ -204,6 +210,13 @@ attributes, flow attributes such as `MaybeNull` and `NotNull`, generic type
 arguments, arrays, and by-reference parameters and returns. Raven-authored
 public APIs, including Raven.Core and Raven.Macros, are part of the same
 contract and need metadata round-trip tests from both Raven and C# consumers.
+
+Nullable annotation emission and import now use the .NET transform-flag walk
+for nested generic arguments, arrays, generic value-type placeholders, and
+by-reference positions. Both the uniform single-byte form and the positional
+byte-array form round-trip through `NullabilityInfoContext` and Raven metadata
+symbols. Flow attributes and nullable context placement remain separate ABI
+slices.
 
 ### Control transfers have one expression-context policy
 

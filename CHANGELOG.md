@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Nullable metadata now uses the .NET transform-flag convention for nested
+  generic arguments, arrays, generic value types, and by-reference positions.
+  Raven also imports both uniform and positional nullable annotations without
+  changing overload applicability based only on reference-type annotations.
 - Expression blocks now project `return` and `throw` items as abrupt expression
   statements; bare expression-form `return` carries implicit `unit`. `break`
   and `continue` remain statement-only and consistently report `RAV1902` or

@@ -285,6 +285,7 @@ internal class CodeGenerator
     public Type? ClosedHierarchyAttributeType { get; private set; }
     public Type? TopLevelAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
+    ConstructorInfo? _nullableArrayCtor;
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _ravenUnionCaseCtor;
@@ -512,28 +513,106 @@ internal class CodeGenerator
 
     internal void ApplyNullableAttribute(ITypeSymbol type, Action<ConstructorInfo, byte[]> apply)
     {
-        var needsNullable = false;
-
-        if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
-        {
-            needsNullable = true;
-        }
-        else if (type is ITypeUnionSymbol u)
-        {
-            var flat = Flatten(u.Types).ToArray();
-            if (flat.Any(t => t.TypeKind == TypeKind.Null))
-            {
-                var nonNull = flat.Where(t => t.TypeKind != TypeKind.Null).ToArray();
-                if (!(nonNull.Length == 1 && nonNull[0].IsValueType))
-                    needsNullable = true;
-            }
-        }
-
-        if (!needsNullable)
+        var flags = new List<byte>();
+        CollectNullableTransformFlags(type, flags);
+        if (!flags.Contains(2))
             return;
 
         EnsureNullableAttributeType();
-        apply(_nullableCtor!, [0x01, 0x00, 0x02, 0x00, 0x00]);
+        if (flags.Count == 1)
+        {
+            apply(_nullableCtor!, [0x01, 0x00, flags[0], 0x00, 0x00]);
+            return;
+        }
+
+        apply(_nullableArrayCtor!, CreateNullableAttributeBlob(flags));
+    }
+
+    private static void CollectNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    {
+        switch (type)
+        {
+            case RefTypeSymbol refType:
+                CollectNullableTransformFlags(refType.ElementType, flags);
+                return;
+            case IAddressTypeSymbol addressType:
+                CollectNullableTransformFlags(addressType.ReferencedType, flags);
+                return;
+            case IPointerTypeSymbol pointerType:
+                CollectNullableTransformFlags(pointerType.PointedAtType, flags);
+                return;
+            case NullableTypeSymbol nullable when nullable.UnderlyingType.IsValueType:
+                CollectValueTypeNullableTransformFlags(nullable.UnderlyingType, flags);
+                return;
+            case NullableTypeSymbol nullable:
+                flags.Add(2);
+                CollectNestedNullableTransformFlags(nullable.UnderlyingType, flags);
+                return;
+            case ITypeUnionSymbol union:
+                var flattened = Flatten(union.Types).ToArray();
+                var nonNull = flattened.Where(static candidate => candidate.TypeKind != TypeKind.Null).ToArray();
+                if (flattened.Length != nonNull.Length &&
+                    !(nonNull.Length == 1 && nonNull[0].IsValueType))
+                {
+                    flags.Add(2);
+                    if (nonNull.Length == 1)
+                        CollectNestedNullableTransformFlags(nonNull[0], flags);
+                    return;
+                }
+
+                CollectNonNullableTransformFlags(type, flags);
+                return;
+            default:
+                CollectNonNullableTransformFlags(type, flags);
+                return;
+        }
+    }
+
+    private static void CollectNonNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    {
+        if (type.IsValueType)
+        {
+            CollectValueTypeNullableTransformFlags(type, flags);
+            return;
+        }
+
+        flags.Add(1);
+        CollectNestedNullableTransformFlags(type, flags);
+    }
+
+    private static void CollectValueTypeNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    {
+        if (type is not INamedTypeSymbol { TypeArguments.Length: > 0 } namedType)
+            return;
+
+        flags.Add(0);
+        foreach (var typeArgument in namedType.TypeArguments)
+            CollectNullableTransformFlags(typeArgument, flags);
+    }
+
+    private static void CollectNestedNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol arrayType:
+                CollectNullableTransformFlags(arrayType.ElementType, flags);
+                break;
+            case INamedTypeSymbol namedType:
+                foreach (var typeArgument in namedType.TypeArguments)
+                    CollectNullableTransformFlags(typeArgument, flags);
+                break;
+        }
+    }
+
+    private static byte[] CreateNullableAttributeBlob(List<byte> flags)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write((ushort)1);
+        writer.Write(flags.Count);
+        writer.Write(flags.ToArray());
+        writer.Write((ushort)0);
+        return stream.ToArray();
     }
 
     internal CustomAttributeBuilder CreateNullableAnnotationAttribute(bool isNullable)
@@ -643,13 +722,23 @@ internal class CodeGenerator
 
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.NullableAttribute",
-            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            TypeAttributes.NotPublic | TypeAttributes.Class | TypeAttributes.Sealed,
             typeof(Attribute));
+
+        var flagsField = attrBuilder.DefineField(
+            "NullableFlags",
+            typeof(byte[]),
+            FieldAttributes.Public | FieldAttributes.InitOnly);
 
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
             CallingConventions.Standard,
             new[] { typeof(byte) });
+
+        var arrayCtorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeof(byte[]) });
 
         var il = ctorBuilder.GetILGenerator();
         var baseCtor = typeof(Attribute).GetConstructor(
@@ -662,12 +751,29 @@ internal class CodeGenerator
 
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldc_I4_1);
+        il.Emit(OpCodes.Newarr, typeof(byte));
+        il.Emit(OpCodes.Dup);
+        il.Emit(OpCodes.Ldc_I4_0);
+        il.Emit(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Stelem_I1);
+        il.Emit(OpCodes.Stfld, flagsField);
         il.Emit(OpCodes.Ret);
+
+        var arrayIl = arrayCtorBuilder.GetILGenerator();
+        arrayIl.Emit(OpCodes.Ldarg_0);
+        arrayIl.Emit(OpCodes.Call, baseCtor);
+        arrayIl.Emit(OpCodes.Ldarg_0);
+        arrayIl.Emit(OpCodes.Ldarg_1);
+        arrayIl.Emit(OpCodes.Stfld, flagsField);
+        arrayIl.Emit(OpCodes.Ret);
 
         // Keep the builder-backed constructor. Looking the constructor up again
         // through the emitted runtime type asks Reflection.Emit for parameter
         // metadata, which is not implemented by browser WebAssembly.
         _nullableCtor = ctorBuilder;
+        _nullableArrayCtor = arrayCtorBuilder;
         NullableAttributeType = attrBuilder.CreateType();
     }
 

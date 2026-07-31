@@ -411,22 +411,25 @@ internal class ReflectionTypeLoader(Compilation compilation)
         return typeSymbol;
     }
 
-    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, ImmutableArray<byte> flags)
+    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, NullableTransformFlags flags)
     {
         var index = 0;
         return ApplyExplicitNullableFlags(typeSymbol, flags, ref index);
     }
 
-    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, ImmutableArray<byte> flags, ref int index)
+    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, NullableTransformFlags flags, ref int index)
     {
-        byte flag = 0;
-        if (index < flags.Length)
-            flag = flags[index++];
-
-        if (flag == 2 && typeSymbol is not NullableTypeSymbol && !typeSymbol.IsValueType)
+        if (typeSymbol is NullableTypeSymbol { UnderlyingType.IsValueType: true } nullableValue)
         {
-            typeSymbol = typeSymbol.MakeNullable();
+            var underlying = ApplyExplicitNullableFlags(nullableValue.UnderlyingType, flags, ref index);
+            return ReferenceEquals(underlying, nullableValue.UnderlyingType)
+                ? typeSymbol
+                : underlying.MakeNullable();
         }
+
+        var consumesFlag = !typeSymbol.IsValueType ||
+            typeSymbol is INamedTypeSymbol { TypeArguments.Length: > 0 };
+        var flag = consumesFlag ? flags.GetValue(index++) : (byte)0;
 
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
@@ -457,10 +460,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
             }
         }
 
+        if (flag == 2 && typeSymbol is not NullableTypeSymbol && !typeSymbol.IsValueType)
+            typeSymbol = typeSymbol.MakeNullable();
+
         return typeSymbol;
     }
 
-    private static bool TryGetExplicitNullableFlags(IList<CustomAttributeData> attributes, out ImmutableArray<byte> flags)
+    private static bool TryGetExplicitNullableFlags(IList<CustomAttributeData> attributes, out NullableTransformFlags flags)
     {
         foreach (var attribute in attributes)
         {
@@ -473,19 +479,35 @@ internal class ReflectionTypeLoader(Compilation compilation)
             var argument = attribute.ConstructorArguments[0];
             if (argument.Value is byte single)
             {
-                flags = [single];
+                flags = new NullableTransformFlags([single], IsUniform: true);
                 return true;
             }
 
             if (argument.Value is IReadOnlyCollection<CustomAttributeTypedArgument> many)
             {
-                flags = many.Select(x => (byte)x.Value!).ToImmutableArray();
+                flags = new NullableTransformFlags(
+                    many.Select(x => (byte)x.Value!).ToImmutableArray(),
+                    IsUniform: false);
                 return true;
             }
         }
 
-        flags = [];
+        flags = default;
         return false;
+    }
+
+    private readonly record struct NullableTransformFlags(ImmutableArray<byte> Values, bool IsUniform)
+    {
+        public byte GetValue(int index)
+        {
+            if (Values.IsDefaultOrEmpty)
+                return 0;
+
+            if (IsUniform)
+                return Values[0];
+
+            return index < Values.Length ? Values[index] : (byte)0;
+        }
     }
 
     private ITypeSymbol ApplyFixedArrayMetadata(ITypeSymbol typeSymbol, int? fixedLength)

@@ -124,6 +124,32 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         Assert.False(conversion.Exists);
     }
 
+    [Fact]
+    public void ArrayElementNullability_DoesNotChangeRuntimeConversionIdentity()
+    {
+        var compilation = CreateCompilation();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var source = compilation.CreateArrayTypeSymbol(objectType);
+        var destination = compilation.CreateArrayTypeSymbol(objectType.MakeNullable());
+
+        var conversion = compilation.ClassifyConversion(source, destination);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+    }
+
+    [Fact]
+    public void ArrayValueElements_DoNotUseElementNumericConversions()
+    {
+        var compilation = CreateCompilation();
+        var source = compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
+        var destination = compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int64));
+
+        var conversion = compilation.ClassifyConversion(source, destination);
+
+        Assert.False(conversion.Exists);
+    }
+
     [Theory]
     [InlineData(SpecialType.System_Int32, SpecialType.System_Int64)]
     [InlineData(SpecialType.System_Int32, SpecialType.System_Double)]

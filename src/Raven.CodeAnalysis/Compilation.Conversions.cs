@@ -312,14 +312,39 @@ public partial class Compilation
 
         if (source is IArrayTypeSymbol sourceArray && destination is IArrayTypeSymbol destinationArray)
         {
-            if (sourceArray.Rank != destinationArray.Rank ||
-                !ElementTypesAreCompatible(sourceArray.ElementType, destinationArray.ElementType))
+            if (sourceArray.Rank != destinationArray.Rank)
             {
                 return Conversion.None;
             }
 
+            var elementConversionIsIdentity = false;
+            if (sourceArray.ElementType.IsValueType || destinationArray.ElementType.IsValueType)
+            {
+                if (!ElementTypesAreCompatible(sourceArray.ElementType, destinationArray.ElementType))
+                    return Conversion.None;
+
+                elementConversionIsIdentity = true;
+            }
+            else
+            {
+                var elementConversion = ClassifyConversion(
+                    sourceArray.ElementType,
+                    destinationArray.ElementType,
+                    includeUserDefined: false);
+                if (!elementConversion.IsImplicit ||
+                    !(elementConversion.IsIdentity || elementConversion.IsReference))
+                {
+                    return Conversion.None;
+                }
+
+                elementConversionIsIdentity = elementConversion.IsIdentity;
+            }
+
             if (sourceArray.FixedLength == destinationArray.FixedLength)
-                return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+                return Finalize(new Conversion(
+                    isImplicit: true,
+                    isIdentity: elementConversionIsIdentity,
+                    isReference: !elementConversionIsIdentity));
 
             if (sourceArray.FixedLength is not null && destinationArray.FixedLength is null)
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
