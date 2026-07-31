@@ -92,7 +92,7 @@ internal class TypeGenerator
                 }
 
                 DefineTypeGenericParameters(named);
-                CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+                ApplyTypeCustomAttributes();
                 return;
             }
 
@@ -159,7 +159,7 @@ internal class TypeGenerator
                 FieldAttributes.Public | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName
             );
 
-            CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+            ApplyTypeCustomAttributes();
             return;
         }
 
@@ -206,7 +206,7 @@ internal class TypeGenerator
                         TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
                 }
 
-                CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+                ApplyTypeCustomAttributes();
                 return;
             }
 
@@ -348,7 +348,7 @@ internal class TypeGenerator
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
 
-        CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        ApplyTypeCustomAttributes();
         if (TypeSymbol is INamedTypeSymbol { IsRefLikeType: true })
         {
             var isByRefLikeAttribute = CodeGen.CreateIsByRefLikeAttributeBuilder();
@@ -1288,7 +1288,7 @@ internal class TypeGenerator
                 baseClrType);
         }
 
-        CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        ApplyTypeCustomAttributes();
         ApplyCompilerGeneratedAttributeIfClosureFrame();
 
         var extensionAttribute = CodeGen.CreateExtensionAttributeBuilder();
@@ -1296,6 +1296,12 @@ internal class TypeGenerator
             TypeBuilder!.SetCustomAttribute(extensionAttribute);
 
         EnsureExtensionGroupingType();
+    }
+
+    private void ApplyTypeCustomAttributes()
+    {
+        CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        TypeBuilder!.SetCustomAttribute(CodeGen.CreateNullableContextAttribute());
     }
 
     private void EnsureExtensionGroupingType()

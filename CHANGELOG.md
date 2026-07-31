@@ -8,6 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   generic arguments, arrays, generic value types, and by-reference positions.
   Raven also imports both uniform and positional nullable annotations without
   changing overload applicability based only on reference-type annotations.
+  Emitted source types now carry the conventional non-null nullable context, so
+  unannotated reference signatures round-trip as non-null through both .NET
+  reflection and Raven metadata import without redundant position attributes.
 - Expression blocks now project `return` and `throw` items as abrupt expression
   statements; bare expression-form `return` carries implicit `unit`. `break`
   and `continue` remain statement-only and consistently report `RAV1902` or

@@ -50,7 +50,7 @@ class C {
     }
 
     [Fact]
-    public void NonNullableReferenceTypes_DoNotEmitNullableAttribute()
+    public void NonNullableReferenceTypes_UseNonNullContextWithoutPositionAttributes()
     {
         var source = """
 class C {
@@ -80,6 +80,53 @@ class C {
 
         Assert.DoesNotContain(md.GetCustomAttributes(param), h => IsNullableAttribute(md, h));
         Assert.DoesNotContain(md.GetCustomAttributes(returnParam), h => IsNullableAttribute(md, h));
+
+        var image = peStream.ToArray();
+        var references = TestMetadataReferences.Default;
+        using (var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(image), references))
+        {
+            var type = loaded.Assembly.GetType("C", throwOnError: true)!;
+            var contextAttribute = Assert.Single(
+                type.GetCustomAttributesData(),
+                attribute => attribute.AttributeType.FullName ==
+                    "System.Runtime.CompilerServices.NullableContextAttribute");
+            Assert.Equal((byte)1, Assert.Single(contextAttribute.ConstructorArguments).Value);
+
+            var contextAttributeType = contextAttribute.AttributeType;
+            var flagField = contextAttributeType.GetField("Flag")!;
+            Assert.False(contextAttributeType.IsPublic);
+            Assert.True(contextAttributeType.IsSealed);
+            Assert.True(flagField.IsPublic);
+            Assert.True(flagField.IsInitOnly);
+            var usage = contextAttributeType.GetCustomAttribute<AttributeUsageAttribute>()!;
+            Assert.False(usage.Inherited);
+            Assert.Equal(
+                AttributeTargets.Class |
+                AttributeTargets.Struct |
+                AttributeTargets.Method |
+                AttributeTargets.Interface |
+                AttributeTargets.Delegate,
+                usage.ValidOn);
+
+            var method = type.GetMethod("M")!;
+            var nullability = new NullabilityInfoContext();
+            Assert.Equal(
+                NullabilityState.NotNull,
+                nullability.Create(Assert.Single(method.GetParameters())).ReadState);
+            Assert.Equal(
+                NullabilityState.NotNull,
+                nullability.Create(method.ReturnParameter).ReadState);
+        }
+
+        var reference = MetadataReference.CreateFromImage(image);
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, reference]);
+        var methodSymbol = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<IMethodSymbol>());
+        Assert.False(Assert.Single(methodSymbol.Parameters).Type.IsNullable);
+        Assert.False(methodSymbol.ReturnType.IsNullable);
     }
 
     [Fact]

@@ -97,8 +97,9 @@ and consumed metadata should follow the established .NET representation:
 
 The compiler already has focused metadata coverage for many of these surfaces,
 including nullable transform flags, tuples, ref structs, attributes, namespace
-members, and generic variance. Missing nullable flow attributes and nullable
-context placement remain ABI work, not optional Raven semantics.
+members, and generic variance. Raven now emits and imports the conventional
+non-null nullable context for source types. Missing nullable flow attributes
+remain ABI work, not optional Raven semantics.
 
 ### Source semantics: familiarity is the default, not the ceiling
 
@@ -152,8 +153,8 @@ identity and should not be defended as such:
 
 - Generic overload resolution and conversion ranking still have explicit gaps.
   These need a conformance matrix before any mismatch can be called intentional.
-- Nullable transform flags now round-trip, but nullable flow attributes and
-  context emission/import are incomplete.
+- Nullable transform flags and the non-null source context now round-trip, but
+  nullable flow attributes are incomplete.
 - Raven unions are moving toward the standard C#/.NET recognition surface. Any
   remaining Raven-only public metadata needed for basic construction or
   extraction is an interop gap; Raven-specific metadata is acceptable only for

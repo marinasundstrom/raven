@@ -276,6 +276,7 @@ internal class CodeGenerator
     public Type? ExtensionMarkerNameAttributeType { get; private set; }
     public Type? FixedLengthArrayAttributeType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
+    public Type? NullableContextAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? DiscriminatedUnionAttributeType { get; private set; }
     public Type? UnionInterfaceType { get; private set; }
@@ -286,6 +287,7 @@ internal class CodeGenerator
     public Type? TopLevelAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _nullableArrayCtor;
+    ConstructorInfo? _nullableContextCtor;
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _ravenUnionCaseCtor;
@@ -621,6 +623,12 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_nullableCtor!, new object[] { isNullable ? (byte)2 : (byte)1 });
     }
 
+    internal CustomAttributeBuilder CreateNullableContextAttribute()
+    {
+        EnsureNullableContextAttributeType();
+        return new CustomAttributeBuilder(_nullableContextCtor!, new object[] { (byte)1 });
+    }
+
     internal CustomAttributeBuilder? CreateTupleElementNamesAttribute(ITypeSymbol type)
     {
         if (type is null)
@@ -775,6 +783,58 @@ internal class CodeGenerator
         _nullableCtor = ctorBuilder;
         _nullableArrayCtor = arrayCtorBuilder;
         NullableAttributeType = attrBuilder.CreateType();
+    }
+
+    void EnsureNullableContextAttributeType()
+    {
+        if (NullableContextAttributeType is not null)
+            return;
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.NullableContextAttribute",
+            TypeAttributes.NotPublic | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)]);
+        var attrUsageBuilder = new CustomAttributeBuilder(
+            attrUsageCtor!,
+            [AttributeTargets.Class |
+             AttributeTargets.Struct |
+             AttributeTargets.Method |
+             AttributeTargets.Interface |
+             AttributeTargets.Delegate],
+            [typeof(AttributeUsageAttribute).GetProperty(nameof(AttributeUsageAttribute.Inherited))!],
+            [false]);
+        attrBuilder.SetCustomAttribute(attrUsageBuilder);
+
+        var flagField = attrBuilder.DefineField(
+            "Flag",
+            typeof(byte),
+            FieldAttributes.Public | FieldAttributes.InitOnly);
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            [typeof(byte)]);
+
+        var baseCtor = typeof(Attribute).GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            null,
+            Type.EmptyTypes,
+            null);
+        if (baseCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        var il = ctorBuilder.GetILGenerator();
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Stfld, flagField);
+        il.Emit(OpCodes.Ret);
+
+        _nullableContextCtor = ctorBuilder;
+        NullableContextAttributeType = attrBuilder.CreateType();
     }
 
     void EnsureTupleElementNamesAttributeType()

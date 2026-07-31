@@ -69,6 +69,12 @@ Fix behavior that could make the current compiler an unreliable reference:
 9. Removal of reachable `NotImplementedException` and generic exception paths
    from syntax and semantic APIs.
 
+Nullable signature metadata now includes the conventional non-null context on
+emitted source types, while explicit nullable positions retain their transform
+flags. This preserves Raven's strict source model for both .NET reflection and
+Raven metadata consumers. Flow-direction attributes such as `MaybeNull` and
+`NotNullWhen` remain a separate ABI stabilization task.
+
 ### Improve in the current compiler, without necessarily blocking a port
 
 Some work makes this compiler substantially better but can proceed in parallel
