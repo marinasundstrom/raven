@@ -33,7 +33,7 @@ namespace Raven.Generators
             {
                 var fieldName = "_" + char.ToLowerInvariant(d.Identifier[0]) + d.Identifier[1..];
                 sb.AppendLine("    /// <summary>");
-                sb.AppendLine($"    /// {d.Id}: {d.Message}");
+                sb.AppendLine($"    /// {EscapeXmlDocumentationText(d.Id + ": " + d.Message)}");
                 sb.AppendLine("    /// </summary>");
                 sb.AppendLine($"    public static DiagnosticDescriptor {d.Identifier} => {fieldName} ??= DiagnosticDescriptor.Create(");
                 sb.AppendLine($"        id: {d.Identifier}Id,");
@@ -77,6 +77,12 @@ namespace Raven.Generators
             sb.AppendLine("}");
             return sb.ToString();
         }
+
+        private static string EscapeXmlDocumentationText(string text)
+            => text
+                .Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;");
 
         public static string GenerateDiagnosticBagExtensions(List<DiagnosticDescriptorModel> diagnostics)
         {
