@@ -88,7 +88,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
     private ITypeSymbol? _enumUnderlyingType;
-    private string _name;
+    private string? _name;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private readonly ITypeSymbol? _constructedFrom;
@@ -312,7 +312,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _isValueType = IsValueTypeLike(typeInfo);
 
-        if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
+        if (typeInfo.Name == "Object" || typeInfo.BaseType?.Name == "Object")
         {
             TypeKind = TypeKind.Class;
             (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();

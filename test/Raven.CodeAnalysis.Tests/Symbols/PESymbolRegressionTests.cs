@@ -46,6 +46,19 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataGenericType_NameLazilyStripsMetadataArity()
+    {
+        var compilation = Compilation.Create("pe_type_name")
+            .AddReferences(TestMetadataReferences.Default);
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        Assert.Equal("List", listDefinition.Name);
+        Assert.Equal("List", listDefinition.Name);
+        Assert.Equal("List`1", listDefinition.MetadataName);
+    }
+
+    [Fact]
     public void MetadataTypeParameters_ReportWhetherTheyAllowRefLikeArguments()
     {
         var compilation = Compilation.Create("pe_ref_like_generic_parameters")
