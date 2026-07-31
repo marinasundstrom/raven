@@ -85,7 +85,7 @@ public class AssignmentStatementSyntaxTest
         var tree = SyntaxTree.ParseText("let [first, second, _] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
-        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, assignment.BindingKeyword.Kind);
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
         Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenBracketToken.Kind);
         Assert.Equal(3, pattern.Elements.Count);
@@ -101,7 +101,7 @@ public class AssignmentStatementSyntaxTest
         var tree = SyntaxTree.ParseText("let [key: string, value: int] = entries");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
-        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, assignment.BindingKeyword.Kind);
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
 
         Assert.Collection(
@@ -130,7 +130,7 @@ public class AssignmentStatementSyntaxTest
         var tree = SyntaxTree.ParseText("let [head: string, ..tail: int] = entries");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
-        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, assignment.BindingKeyword.Kind);
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
 
         var head = Assert.IsType<VariablePatternSyntax>(pattern.Elements[0].Pattern);
@@ -149,7 +149,7 @@ public class AssignmentStatementSyntaxTest
     {
         var tree = SyntaxTree.ParseText("let [first, ..middle, last] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
-        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, assignment.BindingKeyword.Kind);
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
         Assert.Equal(3, pattern.Elements.Count);
 
@@ -168,7 +168,7 @@ public class AssignmentStatementSyntaxTest
     {
         var tree = SyntaxTree.ParseText("let [..2 start, tail] = numbers");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
-        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, assignment.BindingKeyword.Kind);
 
         var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
         Assert.Equal(2, pattern.Elements.Count);
@@ -187,7 +187,7 @@ public class AssignmentStatementSyntaxTest
         var tree = SyntaxTree.ParseText("let [\"a\": first, \"b\": second] = values");
         var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
 
-        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, assignment.BindingKeyword.Kind);
 
         var pattern = Assert.IsType<DictionaryPatternSyntax>(assignment.Left);
         Assert.Equal(SyntaxKind.OpenBracketToken, pattern.OpenBracketToken.Kind);

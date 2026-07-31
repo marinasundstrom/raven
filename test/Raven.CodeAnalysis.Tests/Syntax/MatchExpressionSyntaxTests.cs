@@ -152,11 +152,11 @@ let result = match option {
     }
 
     [Fact]
-    public void MatchExpression_WithOuterValSequencePatternArm_ParsesBindingKeyword()
+    public void MatchExpression_WithOuterLetSequencePatternArm_ParsesBindingKeyword()
     {
         var (arm, tree) = ParseFirstMatchArm("let [first, second, ...rest]");
 
-        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, arm.BindingKeyword.Kind);
         var sequence = Assert.IsType<SequencePatternSyntax>(arm.Pattern);
         Assert.Equal(3, sequence.Elements.Count);
 
@@ -164,22 +164,22 @@ let result = match option {
     }
 
     [Fact]
-    public void MatchExpression_WithOuterValNominalPatternArm_ParsesBindingKeyword()
+    public void MatchExpression_WithOuterLetNominalPatternArm_ParsesBindingKeyword()
     {
         var (arm, tree) = ParseFirstMatchArm("let Some((x, y))");
 
-        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, arm.BindingKeyword.Kind);
         Assert.IsType<NominalDeconstructionPatternSyntax>(arm.Pattern);
 
         AssertNoErrors(tree);
     }
 
     [Fact]
-    public void MatchExpression_WithOuterValImplicitTypedPositionalArm_ParsesTypedCaptures()
+    public void MatchExpression_WithOuterLetImplicitTypedPositionalArm_ParsesTypedCaptures()
     {
         var (arm, tree) = ParseFirstMatchArm("let (key: string, value: int)");
 
-        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, arm.BindingKeyword.Kind);
         var pattern = Assert.IsType<PositionalPatternSyntax>(arm.Pattern);
 
         Assert.Collection(
@@ -207,7 +207,7 @@ let result = match option {
     {
         var (arm, tree) = ParseFirstMatchArm("let Some((x, y)) pair");
 
-        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, arm.BindingKeyword.Kind);
         var pattern = Assert.IsType<NominalDeconstructionPatternSyntax>(arm.Pattern);
         var designation = Assert.IsType<SingleVariableDesignationSyntax>(pattern.Designation);
         Assert.Equal("pair", designation.Identifier.ValueText);

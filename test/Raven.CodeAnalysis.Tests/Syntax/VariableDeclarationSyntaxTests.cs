@@ -36,7 +36,7 @@ let a: int = 1, b: int = 2
         var root = tree.GetRoot();
         var local = Assert.IsType<LocalDeclarationStatementSyntax>(((GlobalStatementSyntax)root.Members[0]).Statement);
 
-        Assert.Equal(SyntaxKind.ValKeyword, local.Declaration.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, local.Declaration.BindingKeyword.Kind);
         Assert.Equal(2, local.Declaration.Declarators.Count);
         Assert.All(local.Declaration.Declarators, d => Assert.NotNull(d.TypeAnnotation));
         Assert.True(local.Declaration.Declarators.All(d => d.Initializer is not null));

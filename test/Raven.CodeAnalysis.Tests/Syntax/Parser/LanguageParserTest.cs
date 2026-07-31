@@ -130,7 +130,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         var target = Assert.IsType<IdentifierNameSyntax>(forStmt.Target);
         target.Identifier.Text.ShouldBe("x");
     }
@@ -168,7 +168,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         Assert.IsType<DiscardPatternSyntax>(forStmt.Target);
     }
 
@@ -307,7 +307,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
         forStmt.ShouldNotBeNull();
-        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStmt!.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         forStmt.Target.ShouldBeOfType<NominalDeconstructionPatternSyntax>();
     }
 

@@ -19,7 +19,7 @@ while let (.Ok, value) = Func() {
         var whileBinding = Assert.IsType<WhilePatternStatementSyntax>(statement);
         var pattern = Assert.IsType<PositionalPatternSyntax>(whileBinding.Pattern);
 
-        whileBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        whileBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         whileBinding.Expression.ShouldBeOfType<InvocationExpressionSyntax>();
         pattern.Elements.Count.ShouldBe(2);
         pattern.Elements[0].Pattern.ShouldBeOfType<MemberPatternSyntax>();

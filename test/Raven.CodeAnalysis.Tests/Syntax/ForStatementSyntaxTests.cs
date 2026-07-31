@@ -28,7 +28,7 @@ for x: int in items {
     }
 
     [Fact]
-    public void For_WithOuterValTypedIdentifierTarget_ParsesTargetAnnotation()
+    public void For_WithOuterLetTypedIdentifierTarget_ParsesTargetAnnotation()
     {
         const string source = """
 for let x: int in items {
@@ -42,14 +42,14 @@ for let x: int in items {
         var typed = Assert.IsType<TypedVariableDesignationSyntax>(target.Designation);
         var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
 
-        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         target.BindingKeyword.Kind.ShouldBe(SyntaxKind.None);
         single.Identifier.ValueText.ShouldBe("x");
         typed.TypeAnnotation.Type.ToString().ShouldBe("int");
     }
 
     [Fact]
-    public void For_WithOuterValImplicitTypedPositionalTarget_ParsesTargetAnnotations()
+    public void For_WithOuterLetImplicitTypedPositionalTarget_ParsesTargetAnnotations()
     {
         const string source = """
 for let (key: string, value: int) in items {
@@ -84,7 +84,7 @@ for let (key: string, value: int) in items {
     }
 
     [Fact]
-    public void For_WithOuterValImplicitTypedSequenceTarget_ParsesTargetAnnotations()
+    public void For_WithOuterLetImplicitTypedSequenceTarget_ParsesTargetAnnotations()
     {
         const string source = """
 for let [head: string, ..tail: string[]] in items {

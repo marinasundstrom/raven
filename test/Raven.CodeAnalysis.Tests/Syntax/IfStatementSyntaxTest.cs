@@ -113,7 +113,7 @@ if let (id, name) = person {
         var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
         var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
 
-        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         ifBinding.Pattern.ShouldBeOfType<PositionalPatternSyntax>();
         ifBinding.Expression.ShouldBeOfType<IdentifierNameSyntax>();
     }
@@ -198,7 +198,7 @@ if let x: int = input {
         var designation = Assert.IsType<TypedVariableDesignationSyntax>(pattern.Designation);
         var single = Assert.IsType<SingleVariableDesignationSyntax>(designation.Designation);
 
-        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         pattern.BindingKeyword.Kind.ShouldBe(SyntaxKind.None);
         single.Identifier.ValueText.ShouldBe("x");
         designation.TypeAnnotation.Type.ToString().ShouldBe("int");
@@ -317,7 +317,7 @@ if let (2, > 0.5) point = value {
         var pattern = Assert.IsType<PositionalPatternSyntax>(ifBinding.Pattern);
         var designation = Assert.IsType<SingleVariableDesignationSyntax>(pattern.Designation);
 
-        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         designation.Identifier.ValueText.ShouldBe("point");
     }
 
@@ -335,7 +335,7 @@ if let Person { Name: "Ada", Age: age } = person {
         var pattern = Assert.IsType<PropertyPatternSyntax>(ifBinding.Pattern);
         var properties = pattern.PropertyPatternClause.Properties;
 
-        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         pattern.Type.ShouldBeOfType<IdentifierNameSyntax>().Identifier.ValueText.ShouldBe("Person");
         properties.Count.ShouldBe(2);
         properties[0].NameColon.Name.Identifier.ValueText.ShouldBe("Name");
@@ -381,7 +381,7 @@ if let (id, amount when > 100) = order {
         var guarded = Assert.IsType<GuardedPatternSyntax>(pattern.Elements[1].Pattern);
         var variable = Assert.IsType<VariablePatternSyntax>(guarded.Pattern);
 
-        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        ifBinding.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
         variable.Designation.ShouldBeOfType<SingleVariableDesignationSyntax>().Identifier.ValueText.ShouldBe("amount");
         guarded.WhenClause.Guard.ShouldBeOfType<ComparisonPatternSyntax>();
     }

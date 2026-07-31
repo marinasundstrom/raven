@@ -129,7 +129,7 @@ public class CollectionComprehensionSyntaxTests
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, comprehension.BindingKeyword.Kind);
         var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
         Assert.Equal(2, target.Elements.Count);
     }
@@ -141,7 +141,7 @@ public class CollectionComprehensionSyntaxTests
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, comprehension.BindingKeyword.Kind);
         var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
 
         Assert.Collection(
@@ -169,7 +169,7 @@ public class CollectionComprehensionSyntaxTests
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, comprehension.BindingKeyword.Kind);
         var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
         Assert.Equal(2, target.Elements.Count);
     }
@@ -181,7 +181,7 @@ public class CollectionComprehensionSyntaxTests
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
-        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, comprehension.BindingKeyword.Kind);
         var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
 
         Assert.Collection(
