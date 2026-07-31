@@ -9185,7 +9185,7 @@ public partial class SemanticModel
 
     internal bool TryGetAvailableLocalDeclarationSymbol(
         VariableDeclaratorSyntax variableDeclarator,
-        out ILocalSymbol? localSymbol,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ILocalSymbol? localSymbol,
         bool allowErrorType = false,
         bool allowInitializerBinding = true,
         bool allowBindingFallback = true)
@@ -9220,7 +9220,7 @@ public partial class SemanticModel
 
     private bool TryBindLocalDeclarationForStableLocalSymbol(
         VariableDeclaratorSyntax variableDeclarator,
-        out ILocalSymbol? localSymbol,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ILocalSymbol? localSymbol,
         bool allowErrorType = false,
         bool allowInitializerBinding = true,
         bool allowBindingFallback = true,
@@ -9293,7 +9293,9 @@ public partial class SemanticModel
                 }
             }
 
-            bool TryGetLocalFromContextualBoundRoot(BoundNode boundRoot, out ILocalSymbol? contextualLocal)
+            bool TryGetLocalFromContextualBoundRoot(
+                BoundNode boundRoot,
+                [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ILocalSymbol? contextualLocal)
             {
                 if (TryFindBoundNodeBySyntax(boundRoot, variableDeclarator, out var boundNode) &&
                     boundNode is BoundVariableDeclarator contextualDeclarator &&
