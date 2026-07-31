@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Public `TypeInfo` nullability now keeps the declared nullable annotation while
+  reporting the bound expression's narrowed flow state. Strict null-check
+  branches and early null guards return the same result in cold and
+  diagnostics-first semantic query orders.
 - Control-flow analysis now models unconditional `loop` statements, reachable
   `break` exits, literal-true `while` loops, `unsafe` blocks, and `finally`
   execution consistently. Exhaustive match statements now make their endpoint

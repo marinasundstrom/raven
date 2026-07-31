@@ -11203,7 +11203,7 @@ partial class BlockBinder : Binder
             return expr;
 
         if (expr.Type is NullableTypeSymbol n && n.UnderlyingType.IsValueType)
-            return new BoundNullableValueExpression(expr, n.UnderlyingType);
+            return new BoundNullableValueExpression(expr, n.UnderlyingType, isNullabilityFlowNarrowing: true);
 
         if (expr.Type?.StripNullable() is { } underlyingType &&
             !SymbolEqualityComparer.Default.Equals(expr.Type, underlyingType))
@@ -11211,7 +11211,8 @@ partial class BlockBinder : Binder
             return new BoundConversionExpression(
                 expr,
                 underlyingType,
-                new Conversion(isImplicit: true, isReference: true));
+                new Conversion(isImplicit: true, isReference: true),
+                isNullabilityFlowNarrowing: true);
         }
 
         return expr;

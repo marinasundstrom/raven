@@ -4,12 +4,18 @@ internal partial class BoundConversionExpression : BoundExpression
 {
     public BoundExpression Expression { get; }
     public Conversion Conversion { get; }
+    public bool IsNullabilityFlowNarrowing { get; }
 
-    public BoundConversionExpression(BoundExpression expression, ITypeSymbol type, Conversion conversion)
+    public BoundConversionExpression(
+        BoundExpression expression,
+        ITypeSymbol type,
+        Conversion conversion,
+        bool isNullabilityFlowNarrowing = false)
         : base(type)
     {
         Expression = expression;
         Conversion = conversion;
+        IsNullabilityFlowNarrowing = isNullabilityFlowNarrowing;
     }
 
     public bool IsExplicit => Conversion.IsExplicit;

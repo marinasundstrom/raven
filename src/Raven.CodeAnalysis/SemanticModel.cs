@@ -9693,6 +9693,8 @@ public partial class SemanticModel
 
         TypeInfo Cache(TypeInfo info)
         {
+            info = ApplyAvailableFlowNullability(expr, info);
+
             if (HasTypeInfo(info))
                 StoreTypeMapping(expr, info);
 
@@ -9778,6 +9780,42 @@ public partial class SemanticModel
         };
 
         return Cache(new TypeInfo(naturalType, convertedType, conversion));
+    }
+
+    private TypeInfo ApplyAvailableFlowNullability(ExpressionSyntax expression, TypeInfo typeInfo)
+    {
+        if (typeInfo.Type?.IsNullable != true && typeInfo.ConvertedType?.IsNullable != true)
+            return typeInfo;
+
+        var boundExpression = TryGetCachedBoundNode(expression) as BoundExpression;
+        if (boundExpression is null || IsLikelyStaleFunctionBodyNode(boundExpression))
+        {
+            if (!TryBindInterestRegion(expression, out boundExpression))
+                return typeInfo;
+        }
+
+        var flowType = GetNullabilityFlowType(boundExpression, typeInfo.Type);
+        var convertedFlowType = GetNullabilityFlowType(boundExpression, typeInfo.ConvertedType);
+
+        return new TypeInfo(
+            typeInfo.Type,
+            typeInfo.ConvertedType,
+            typeInfo.Conversion,
+            flowType,
+            convertedFlowType);
+    }
+
+    private static ITypeSymbol? GetNullabilityFlowType(BoundExpression boundExpression, ITypeSymbol? declaredType)
+    {
+        if (boundExpression is BoundConversionExpression { IsNullabilityFlowNarrowing: true } or
+            BoundNullableValueExpression { IsNullabilityFlowNarrowing: true })
+        {
+            return boundExpression.Type;
+        }
+
+        return boundExpression.Type?.IsNullable == true
+            ? boundExpression.Type
+            : declaredType;
     }
 
     private bool TryGetContextualArgumentConvertedType(

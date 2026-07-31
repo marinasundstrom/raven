@@ -88,6 +88,13 @@ We need a reliable query path for external assemblies to determine whether nulla
 - When the context is unknown or missing, default to nullable (conservative).
 - Feed this into `EffectiveNullableType` and `GetTypeInfo` so external APIs without context flow as nullable.
 
+The same rules apply in the other direction. Raven emission must preserve the
+.NET nullable ABI for public Raven signatures, including context/annotation and
+flow attributes, nested generic and array positions, and by-reference
+parameters and returns. This includes the APIs shipped in Raven.Core and
+Raven.Macros; round-trip coverage should inspect metadata and consume it from
+both Raven and C#.
+
 ## Impact assessment on existing code
 The changes affect multiple layers of the compiler pipeline and public APIs:
 - **Symbol model**: `NullableTypeSymbol` becomes a strict decorator and consumers stop inspecting `Nullable<T>` directly. This impacts any code that currently branches on wrapper types.
@@ -117,6 +124,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 
 ## Progress
 - ✅ `SemanticModel.GetTypeInfo(ExpressionSyntax)` now surfaces the unconverted expression type as `TypeInfo.Type`, while leaving `ConvertedType` intact.
+- ✅ `TypeInfo` preserves the declared nullable annotation while reporting the bound expression's narrowed flow state for strict null-check branches and null guards, independent of whether diagnostics or the semantic query runs first.
 - ✅ Added `Conversion.IsNullable` and a `GetPlainType` helper to centralize nullability and plain-type access.
 - ✅ Began routing conversion identity checks through `Conversion.IsNullable` to centralize nullability logic.
 - ✅ Updated async return helpers to unwrap nullable decorators via `GetPlainType`.
@@ -124,7 +132,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 - ✅ Conditional access lookup now unwraps nullable decorators via `GetPlainType`.
 - ✅ Null-coalescing binding now unwraps nullable decorators via `GetPlainType`.
 - ✅ Extension-receiver unification now relies on `Conversion.IsNullable` and `GetPlainType`.
-- ⏳ `GetTypeInfo` still needs declared/flow/effective-nullable handling per the unified nullability model.
+- ⏳ Broader `GetTypeInfo` flow coverage remains for joins, loops, richer patterns, nullable unions, and incremental edits.
 - ⏳ `EffectiveNullableType`, metadata defaults, and flow diagnostics updates remain outstanding.
 
 ## Current state vs. proposed implementation checklist

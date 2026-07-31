@@ -90,6 +90,115 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void GetTypeInfo_ReportsFlowNarrowingInsideStrictNullCheck()
+    {
+        const string source = """
+            func Length(value: string?) -> int {
+                if value is not null {
+                    return value.Length
+                }
+
+                return 0
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var checkedValue = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IsPatternExpressionSyntax>()
+            .Single()
+            .Expression;
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+
+        var checkedTypeInfo = model.GetTypeInfo(checkedValue);
+        var typeInfo = model.GetTypeInfo(receiver);
+
+        Assert.True(checkedTypeInfo.Type?.IsNullable);
+        Assert.Equal(NullableAnnotation.Annotated, checkedTypeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, checkedTypeInfo.Nullability.FlowState);
+        Assert.True(typeInfo.Type?.IsNullable);
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.ConvertedNullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.ConvertedNullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void GetTypeInfo_ReportsFlowNarrowingAfterNullGuard_RegardlessOfQueryOrder()
+    {
+        const string source = """
+            func Length(value: string?) -> int {
+                if value is null {
+                    return 0
+                }
+
+                return value.Length
+            }
+            """;
+
+        TypeInfo GetReceiverTypeInfo(string source, bool collectDiagnosticsFirst)
+        {
+            var (compilation, tree) = CreateCompilation(source);
+            if (collectDiagnosticsFirst)
+                Assert.Empty(compilation.GetDiagnostics());
+
+            var receiver = tree.GetRoot()
+                .DescendantNodes()
+                .OfType<MemberAccessExpressionSyntax>()
+                .Single()
+                .Expression;
+
+            return compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+        }
+
+        var coldTypeInfo = GetReceiverTypeInfo(source, collectDiagnosticsFirst: false);
+        var diagnosticsFirstTypeInfo = GetReceiverTypeInfo(source, collectDiagnosticsFirst: true);
+
+        Assert.All([coldTypeInfo, diagnosticsFirstTypeInfo], typeInfo =>
+        {
+            Assert.True(typeInfo.Type?.IsNullable);
+            Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+            Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        });
+    }
+
+    [Fact]
+    public void GetTypeInfo_ReportsNullableValueTypeFlowNarrowing()
+    {
+        const string source = """
+            func Value(value: int?) -> int {
+                if value is not null {
+                    return value
+                }
+
+                return 0
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var returnedValue = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ReturnStatementSyntax>()
+            .First()
+            .Expression!;
+
+        var typeInfo = model.GetTypeInfo(returnedValue);
+
+        Assert.True(typeInfo.Type?.IsNullable);
+        Assert.Equal(SpecialType.System_Int32, typeInfo.Type.GetPlainType().SpecialType);
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void ExplicitNullableGenericSyntax_BindsToNamedNullableType()
     {
         var source = """

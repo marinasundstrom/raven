@@ -186,15 +186,34 @@ Definite assignment, public nullability state, non-literal constant loop
 conditions, nested expression-level abrupt flow, and broader join behavior
 remain to be stabilized.
 
-### Public nullability information is not fully flow-sensitive
+### Public nullability information is becoming flow-sensitive
 
-The public `TypeInfo` flow state is currently derived chiefly from the static
-nullable type. Binding separately tracks symbols known to be non-null in some
-branches. The public semantic model, diagnostics, hover, and lowering should
-observe one coherent flow result.
+`TypeInfo` now preserves an expression's declared nullable annotation while
+projecting the bound expression's current flow state. Strict null-check branches
+and null guards therefore report `NotNull` through the public semantic model in
+both cold and diagnostics-first query orders, matching the state already used
+by binding and nullable-access diagnostics.
 
-This needs tests for narrowing, joins, loops, early exits, pattern tests,
+The remaining conformance matrix needs joins, loops, richer pattern tests,
 nullable unions, and incremental edits that change control flow.
+
+The .NET boundary is an ABI contract rather than an implementation detail.
+Raven must consume and emit the platform's nullable metadata conventions in
+every relevant signature position, including nullable context/annotation
+attributes, flow attributes such as `MaybeNull` and `NotNull`, generic type
+arguments, arrays, and by-reference parameters and returns. Raven-authored
+public APIs, including Raven.Core and Raven.Macros, are part of the same
+contract and need metadata round-trip tests from both Raven and C# consumers.
+
+### Control transfers need one expression-context policy
+
+Raven currently accepts some combinations of `return`, `throw`, `break`, and
+`continue` in expression-oriented syntax without one documented typing and
+placement rule. Stabilization should treat `return` and `throw` as useful
+non-completing expressions, while considering `break` and `continue` as
+statement-only loop control. The next audit must cover parsing, binding,
+bottom/never-style type joins, reachability, lowering, diagnostics, and parity
+between ordinary and macro function bodies before changing the accepted forms.
 
 ### Local initialization and `out` assignment are distinct rules
 
