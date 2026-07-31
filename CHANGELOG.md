@@ -107,6 +107,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   information agrees with diagnostics-first binding.
 - Normal exits from `while` loops now project the condition's false-state
   nullability facts when no `break` or outward `goto` can bypass the condition.
+- Nested-loop `break` statements no longer suppress nullability facts inferred
+  from normal exit of an enclosing `while`; only exits targeting that loop (or
+  conservatively unresolved labeled/goto exits) block the inference.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

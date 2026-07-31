@@ -339,9 +339,7 @@ partial class BlockBinder
         var body = BindStatementInLoop(whileStmt.Statement);
 
         var exitState = entryState;
-        var canExitWithoutCondition = whileStmt.Statement
-            .DescendantNodesAndSelf()
-            .Any(static node => node is BreakStatementSyntax or GotoStatementSyntax);
+        var canExitWithoutCondition = CanExitWhileWithoutCondition(whileStmt);
         if (hasNullCheckFlow && !canExitWithoutCondition)
         {
             exitState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
@@ -355,6 +353,25 @@ partial class BlockBinder
         _nonNullSymbols.UnionWith(exitState);
 
         return new BoundWhileStatement(condition, body);
+    }
+
+    private static bool CanExitWhileWithoutCondition(WhileStatementSyntax whileStmt)
+    {
+        if (whileStmt.Statement.DescendantNodesAndSelf().OfType<GotoStatementSyntax>().Any())
+            return true;
+
+        foreach (var breakStatement in whileStmt.Statement.DescendantNodesAndSelf().OfType<BreakStatementSyntax>())
+        {
+            if (!breakStatement.Identifier.IsMissing && breakStatement.Identifier.Kind != SyntaxKind.None)
+                return true;
+
+            var nearestLoop = breakStatement.Ancestors().FirstOrDefault(static node =>
+                node is WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax or LoopStatementSyntax);
+            if (ReferenceEquals(nearestLoop, whileStmt))
+                return true;
+        }
+
+        return false;
     }
 
     private BoundStatement BindWhilePatternStatement(WhilePatternStatementSyntax whileStmt)
