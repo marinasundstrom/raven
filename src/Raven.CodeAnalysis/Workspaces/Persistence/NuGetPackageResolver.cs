@@ -453,7 +453,7 @@ internal static class NuGetPackageResolver
                 if (requestedPackIds.Any(x => string.Equals(x.PackId, packId, StringComparison.OrdinalIgnoreCase)))
                     continue;
 
-                requestedPackIds.Add((packId, sharedFrameworkName, version: null));
+                requestedPackIds.Add((packId, sharedFrameworkName, Version: null));
             }
         }
 
