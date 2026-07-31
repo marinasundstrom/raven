@@ -801,42 +801,6 @@ partial class BlockBinder
             return false;
         }
 
-        IParameterSymbol? TryGetCommonPositionalParameter(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
-        {
-            if (methods.IsDefaultOrEmpty)
-                return null;
-
-            IParameterSymbol? common = null;
-            var hasCommon = false;
-
-            foreach (var method in methods)
-            {
-                if (method is null)
-                    continue;
-
-                var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
-                    ? argumentIndex + 1
-                    : argumentIndex;
-
-                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
-                    return null;
-
-                var parameter = method.Parameters[parameterIndex];
-                if (!hasCommon)
-                {
-                    common = parameter;
-                    hasCommon = true;
-                    continue;
-                }
-
-                var commonType = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
-                if (!SymbolEqualityComparer.Default.Equals(common!.Type, commonType))
-                    return null;
-            }
-
-            return hasCommon ? common : null;
-        }
-
         RefKind TryGetCommonPositionalParameterRefKind(
             ImmutableArray<IMethodSymbol> methods,
             int argumentIndex,
