@@ -256,19 +256,19 @@ non-exhaustive matches, return and throw arms, and terminating versus breakable
 loops. Match joins use bound exhaustiveness facts, while proven non-terminating
 loops reuse ordinary control-flow completion.
 
-### Reachable symbol contracts contain incomplete members
+### Constructed and module symbol queries are total
 
-Array, tuple, type-union, and module symbol implementations contain
-`NotImplementedException` or unsupported lookup members. Each member should be
-classified as:
+Array, tuple, and type-union symbols now answer nested-type and member queries
+through their projected or common base types instead of throwing. Tuple symbols
+also expose projected element names alongside the underlying `ValueTuple`
+members and follow the ordinary non-generic `Construct()` contract. Source and
+metadata modules project an assembly namespace to their own namespace
+constituent by metadata path, returning `null` when that module has no such
+constituent.
 
-- reachable and required, in which case it must be implemented and tested;
-- intentionally unsupported, in which case the public contract should express
-  that without a runtime surprise; or
-- dead, in which case it should be removed.
-
-This audit matters before compiler code begins consuming the public API from
-Raven.
+The remaining unsupported construction member is confined to the error-type
+sentinel, which is not a constructible named type. New public symbol families
+should receive the same no-throw query coverage as part of their introduction.
 
 ### Generic overload resolution has explicit gaps
 
@@ -317,12 +317,16 @@ paths. They should follow the same principles as ordinary declarations:
 Special treatment should remain only where compile-time execution genuinely
 requires it.
 
-### Source text is both incomplete and allocation-heavy
+### Source text remains allocation-heavy
 
-`SourceText` currently rebuilds whole strings for edits, slices strings when
-creating positioned readers, and leaves line, copy, and write APIs
-unimplemented. This is primarily a quality and performance lane, but the
-unimplemented public surface is a correctness concern if reachable.
+`SourceText` now implements its public copy, line, and write APIs. Line
+collections are snapshot-owned and cached, preserve line-break spans, and do
+not recreate line objects on repeated queries. Writes use spans rather than
+creating substring values.
+
+Edits still rebuild whole strings, and positioned readers still slice strings.
+This is primarily a quality and performance lane now that the reachable public
+surface is complete.
 
 The eventual representation should support cheap snapshots and spans without
 creating strings in normal compiler paths. Caching should be snapshot-owned,

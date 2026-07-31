@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Public compiler-model queries no longer throw for array, tuple, type-union,
+  and module namespace symbols. `SourceText` now provides cached line
+  collections with line-break spans, validated copy operations, and cancellable
+  full or span-based writes without creating substring values.
 - Nullable metadata now uses the .NET transform-flag convention for nested
   generic arguments, arrays, generic value types, and by-reference positions.
   Raven also imports both uniform and positional nullable annotations without

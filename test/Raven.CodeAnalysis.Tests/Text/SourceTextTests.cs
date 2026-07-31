@@ -71,4 +71,75 @@ public class SourceTextTests
 
         Assert.Equal("aBcdEf", updated.ToString());
     }
+
+    [Fact]
+    public void CopyTo_CopiesRequestedCharacters()
+    {
+        var sourceText = SourceText.From("Raven");
+        var destination = ".....".ToCharArray();
+
+        sourceText.CopyTo(1, destination, 2, 3);
+
+        Assert.Equal("..ave", new string(destination));
+    }
+
+    [Fact]
+    public void GetLines_ReportsTextAndLineBreakSpans()
+    {
+        var sourceText = SourceText.From("first\r\nsecond\n");
+
+        var lines = sourceText.GetLines();
+
+        Assert.Same(lines, sourceText.GetLines());
+        Assert.Equal(3, lines.Count);
+        Assert.Collection(
+            lines,
+            line =>
+            {
+                Assert.Equal(0, line.LineNumber);
+                Assert.Equal(new TextSpan(0, 5), line.Span);
+                Assert.Equal(new TextSpan(0, 7), line.SpanIncludingLineBreak);
+                Assert.Equal("first", line.ToString());
+            },
+            line =>
+            {
+                Assert.Equal(1, line.LineNumber);
+                Assert.Equal(new TextSpan(7, 6), line.Span);
+                Assert.Equal(new TextSpan(7, 7), line.SpanIncludingLineBreak);
+                Assert.Equal("second", line.ToString());
+            },
+            line =>
+            {
+                Assert.Equal(2, line.LineNumber);
+                Assert.Equal(new TextSpan(14, 0), line.Span);
+                Assert.Equal(line.Span, line.SpanIncludingLineBreak);
+                Assert.Equal(string.Empty, line.ToString());
+            });
+    }
+
+    [Fact]
+    public void Write_WritesFullTextOrSpanWithoutChangingContent()
+    {
+        var sourceText = SourceText.From("Raven compiler");
+        using var fullWriter = new StringWriter();
+        using var spanWriter = new StringWriter();
+
+        sourceText.Write(fullWriter, CancellationToken.None);
+        sourceText.Write(spanWriter, new TextSpan(6, 8), CancellationToken.None);
+
+        Assert.Equal("Raven compiler", fullWriter.ToString());
+        Assert.Equal("compiler", spanWriter.ToString());
+    }
+
+    [Fact]
+    public void Write_ObservesCancellationBeforeWriting()
+    {
+        var sourceText = SourceText.From("Raven");
+        using var writer = new StringWriter();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() => sourceText.Write(writer, cancellation.Token));
+        Assert.Equal(string.Empty, writer.ToString());
+    }
 }

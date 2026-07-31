@@ -17,6 +17,7 @@ public class SourceText
     private readonly List<int> _lineStarts;
     private readonly WeakReference<SourceText>? _previousText;
     private readonly IReadOnlyList<TextChangeRange>? _changeRanges;
+    private TextLineCollection? _lines;
 
     public Encoding Encoding => _encoding;
 
@@ -279,7 +280,16 @@ public class SourceText
 
     public void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(destination);
+
+        if (sourceIndex < 0 || sourceIndex > Length)
+            throw new ArgumentOutOfRangeException(nameof(sourceIndex));
+        if (destinationIndex < 0 || destinationIndex > destination.Length)
+            throw new ArgumentOutOfRangeException(nameof(destinationIndex));
+        if (count < 0 || count > Length - sourceIndex || count > destination.Length - destinationIndex)
+            throw new ArgumentOutOfRangeException(nameof(count));
+
+        _text.CopyTo(sourceIndex, destination, destinationIndex, count);
     }
 
     public ImmutableArray<byte> GetChecksum()
@@ -310,17 +320,30 @@ public class SourceText
 
     public TextLineCollection GetLines()
     {
-        throw new NotImplementedException();
+        return LazyInitializer.EnsureInitialized(
+            ref _lines,
+            () => new TextLineCollection(this, _lineStarts));
     }
 
     public void Write(TextWriter textWriter, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(textWriter);
+        cancellationToken.ThrowIfCancellationRequested();
+        textWriter.Write(_text.AsSpan());
     }
 
     public void Write(TextWriter textWriter, TextSpan span, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(textWriter);
+        ValidateSpan(span);
+        cancellationToken.ThrowIfCancellationRequested();
+        textWriter.Write(_text.AsSpan(span.Start, span.Length));
+    }
+
+    private void ValidateSpan(TextSpan span)
+    {
+        if (span.Start > Length || span.Length > Length - span.Start)
+            throw new ArgumentOutOfRangeException(nameof(span));
     }
 
     public override string ToString()
