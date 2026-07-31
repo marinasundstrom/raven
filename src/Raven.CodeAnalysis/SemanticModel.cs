@@ -13040,7 +13040,8 @@ public partial class SemanticModel
     /// Get the bound node for a specific syntax node.
     /// </summary>
     /// <param name="node">The syntax node</param>
-    /// <returns>The bound node</returns>
+    /// <param name="boundNode">The bound node when the lookup succeeds.</param>
+    /// <returns><see langword="true"/> when a bound node is available; otherwise, <see langword="false"/>.</returns>
     private bool TryGetBoundNodeForSemanticQuery(SyntaxNode node, out BoundNode boundNode)
     {
         EnsureBindingReadyForSemanticQuery();
