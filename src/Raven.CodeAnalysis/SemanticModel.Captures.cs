@@ -96,10 +96,9 @@ public partial class SemanticModel
 
     public ImmutableArray<ISymbol> GetCapturedVariables(SyntaxNode node)
     {
-        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+        ValidateSyntaxNode(node, nameof(node));
 
-        if (node is null)
-            return ImmutableArray<ISymbol>.Empty;
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         if (node is FunctionStatementSyntax functionStatement &&
             !MayFunctionStatementCapture(functionStatement))

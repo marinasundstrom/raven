@@ -13777,6 +13777,8 @@ public partial class SemanticModel
 
     public IParameterSymbol? GetFunctionExpressionParameterSymbol(ParameterSyntax parameterSyntax)
     {
+        ValidateSyntaxNode(parameterSyntax, nameof(parameterSyntax));
+
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         return GetFunctionExpressionParameterSymbolCore(parameterSyntax, allowDeclaredSymbolFallback: true);

@@ -39,9 +39,9 @@ public partial class SemanticModel
         AttributeSyntax attribute,
         CancellationToken cancellationToken = default)
     {
-        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        ValidateSyntaxNode(attribute, nameof(attribute));
 
-        ArgumentNullException.ThrowIfNull(attribute);
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         EnsureDiagnosticBindingCompleted();
 
