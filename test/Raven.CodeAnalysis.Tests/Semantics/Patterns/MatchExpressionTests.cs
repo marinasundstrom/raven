@@ -819,6 +819,65 @@ func Describe(color: Color) -> string {
     }
 
     [Fact]
+    public void MatchExpression_AddingPermittedSubtypeInvalidatesIncrementalExhaustiveness()
+    {
+        const string source = """
+            sealed class Expr permits Lit {}
+            class Lit : Expr {}
+
+            func Evaluate(expr: Expr) -> int {
+                return match expr {
+                    Lit lit => 1
+                }
+            }
+            """;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "incremental-sealed-hierarchy-exhaustiveness",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "expressions.rav",
+            SourceText.From(source),
+            "/tmp/expressions.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single();
+        var initialMatch = initialTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.True(initialCompilation.GetSemanticModel(initialTree).GetMatchExhaustiveness(initialMatch).IsExhaustive);
+        Assert.DoesNotContain(
+            initialCompilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSource = source
+            .Replace("permits Lit", "permits Lit, Add", System.StringComparison.Ordinal)
+            .Replace("class Lit : Expr {}", "class Lit : Expr {}\nclass Add : Expr {}", System.StringComparison.Ordinal);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(updatedSource)));
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single();
+        var updatedMatch = updatedTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var updatedInfo = updatedCompilation.GetSemanticModel(updatedTree).GetMatchExhaustiveness(updatedMatch);
+
+        Assert.False(updatedInfo.IsExhaustive);
+        Assert.Contains("Add", updatedInfo.MissingCases);
+        Assert.Contains(
+            updatedCompilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+    }
+
+    [Fact]
     public void MatchExpression_WithEnumArms_MissingCase_ReportsDiagnostic()
     {
         const string code = """
