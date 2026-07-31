@@ -3719,18 +3719,11 @@ partial class BlockBinder
         if (statement is not BlockStatementSyntax block)
             return false;
 
-        try
-        {
-            var flow = SemanticModel.AnalyzeControlFlowInternal(
-                new ControlFlowRegion(block),
-                block,
-                analyzeJumpPoints: false);
-            return flow is { Succeeded: true, EndPointIsReachable: false };
-        }
-        catch (Exception)
-        {
-            return false;
-        }
+        var flow = SemanticModel.AnalyzeControlFlowInternal(
+            new ControlFlowRegion(block),
+            block,
+            analyzeJumpPoints: false);
+        return flow is { Succeeded: true, EndPointIsReachable: false };
     }
 
     private static SyntaxToken FindFirstInlinePatternBindingKeyword(PatternSyntax pattern)

@@ -1637,6 +1637,92 @@ func Read(input: Choice) -> int {
     }
 
     [Fact]
+    public void LetElse_WithNonTerminatingLoop_DoesNotReportDiagnostic()
+    {
+        const string source = """
+union Choice {
+    case Some(value: int)
+    case None
+}
+
+func Read(input: Choice) -> int {
+    let Choice.Some(value) = input else {
+        loop {
+        }
+    }
+
+    return value
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.DoesNotContain(
+            result.Compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
+    public void LetElse_WithBreakableLoop_ReportsDiagnostic()
+    {
+        const string source = """
+union Choice {
+    case Some(value: int)
+    case None
+}
+
+func Read(input: Choice) -> int {
+    let Choice.Some(value) = input else {
+        loop {
+            break
+        }
+    }
+
+    return value
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Contains(
+            result.Compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
+    public void LetElse_WithBodyErrorBeforeReturn_DoesNotReportFallthrough()
+    {
+        const string source = """
+union Choice {
+    case Some(value: int)
+    case None
+}
+
+func Read(input: Choice) -> int {
+    let Choice.Some(value) = input else {
+        let invalid: int = "not an int"
+        return 0
+    }
+
+    return value
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+        var diagnostics = result.Compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignFromTypeToType);
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
     public void LetElse_TypedPatternUnwrapsNullableValue()
     {
         const string source = """

@@ -185,6 +185,54 @@ func Main() {
     }
 
     [Fact]
+    public void GetDiagnostics_FinallyAfterReturn_IsReachable()
+    {
+        const string source = """
+func Main() -> int {
+    try {
+        return 1
+    }
+    finally {
+        let cleanup = 0
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetSemanticModel(tree).GetDiagnostics();
+
+        diagnostics.ShouldNotContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnreachableCodeDetected);
+    }
+
+    [Fact]
+    public void AnalyzeControlFlow_NonTerminatingLoop_MakesFollowingStatementUnreachable()
+    {
+        const string source = """
+func Main() {
+    loop {
+    }
+
+    let unreachable = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+
+        var analysis = model.AnalyzeControlFlow(block);
+
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+    }
+
+    [Fact]
     public void GetOperation_AssignmentStatement_ReturnsAssignmentOperation()
     {
         const string source = """

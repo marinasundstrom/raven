@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Control-flow analysis now models unconditional `loop` statements, reachable
+  `break` exits, `unsafe` blocks, and `finally` execution consistently.
+  Missing-return, unreachable-code, and `let ... else` diagnostics no longer
+  disappear behind blanket exception suppression when a body contains an
+  independent binding error.
 - Function declarations now have explicit isolation coverage proving that body
   errors retain the declared signature, stay confined to the broken
   declaration, and do not prevent valid sibling resolution after workspace

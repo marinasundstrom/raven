@@ -164,10 +164,23 @@ coverage includes an incremental workspace edit.
 the previous broad exception fallback to the enclosing binder could silently
 change lookup and diagnostic behavior.
 
-Control-flow, missing-return, and let-else paths still contain broad exception
-handlers that suppress secondary analysis. These belong to the flow-semantics
-slice: recovery should return explicit incomplete or unsuccessful analysis
-states rather than use exceptions as expected control flow.
+Missing-return, unreachable-code, and let-else validation now consume the
+control-flow result directly instead of suppressing every exception and
+silently dropping the secondary diagnostic. Body errors remain ordinary bound
+error states, so they do not prevent the walker from reporting independent
+flow diagnostics.
+
+The control-flow walker now models unconditional `loop` statements, reachable
+`break` exits, `unsafe` blocks, and `finally` execution explicitly. In
+particular, a completing `finally` preserves the completion state of the
+associated `try` and `catch` clauses, while an abrupt `finally` makes the whole
+statement abrupt. Focused tests cover these rules through public control-flow
+analysis, missing-return diagnostics, let-else validation, and bodies that
+already contain binding errors.
+
+This is the first flow-semantics slice rather than a complete flow model.
+Definite assignment, public nullability state, constant loop conditions,
+match-statement completion, and broader join behavior remain to be stabilized.
 
 ### Public nullability information is not fully flow-sensitive
 

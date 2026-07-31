@@ -215,18 +215,10 @@ class MethodBodyBinder : BlockBinder
         if (!ReferenceEquals(ImplicitReturnRewriter.RewriteIfNeeded(requiredReturnType, unitType, bound), bound))
             return;
 
-        ControlFlowAnalysis? controlFlow;
-        try
-        {
-            controlFlow = SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(blockSyntax), blockSyntax, analyzeJumpPoints: false);
-        }
-        catch (Exception)
-        {
-            // Missing-return reporting is a secondary flow diagnostic. If malformed syntax or
-            // earlier binding failures leave the body in a state flow analysis cannot handle yet,
-            // keep the primary diagnostics and avoid crashing semantic consumers.
-            return;
-        }
+        var controlFlow = SemanticModel.AnalyzeControlFlowInternal(
+            new ControlFlowRegion(blockSyntax),
+            blockSyntax,
+            analyzeJumpPoints: false);
 
         if (controlFlow is { Succeeded: true, EndPointIsReachable: true })
             _diagnostics.ReportNotAllCodePathsReturnAValue(GetMissingReturnDiagnosticLocation(blockSyntax));
