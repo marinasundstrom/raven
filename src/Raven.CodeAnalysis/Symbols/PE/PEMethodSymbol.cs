@@ -24,7 +24,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private ImmutableArray<AttributeData>? _attributes;
     private int? _parameterCount;
 
-    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
         : base(containingType, containingType, containingType.ContainingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -78,7 +78,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     }
 
     public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
-    : base(containingSymbol, containingType, containingType.ContainingNamespace, locations, addAsMember: addAsMember)
+    : base(containingSymbol, containingType, containingType?.ContainingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
         _methodInfo = methodBaseInfo;
@@ -171,13 +171,15 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             {
                 if (_methodInfo is MethodInfo methodInfo)
                 {
-                    _returnType = _reflectionTypeLoader.ResolveType(methodInfo.ReturnParameter)!;
+                    _returnType = _reflectionTypeLoader.ResolveType(methodInfo.ReturnParameter)
+                        ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
                     if (_returnType.SpecialType == SpecialType.System_Void)
                         _returnType = _reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Unit);
                 }
                 else if (MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
                 {
-                    _returnType = _reflectionTypeLoader.ResolveType(typeof(void));
+                    _returnType = _reflectionTypeLoader.ResolveType(typeof(void))
+                        ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
                 }
                 else
                 {

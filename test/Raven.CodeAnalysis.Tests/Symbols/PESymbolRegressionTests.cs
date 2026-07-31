@@ -582,6 +582,23 @@ public class MemberContainer {
         Assert.Same(processExitEvent.Type, processExitEvent.Type);
     }
 
+    [Fact]
+    public void MetadataMethod_AlwaysHasContainingTypeAndReturnType()
+    {
+        var compilation = Compilation.Create("pe_method_contract")
+            .AddReferences(TestMetadataReferences.Default);
+        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+        var containsMethod = Assert.Single(
+            stringType.GetMembers("Contains")
+                .OfType<IMethodSymbol>()
+                .Where(method => method.Parameters is [{ Type.SpecialType: SpecialType.System_Char }]));
+
+        Assert.Same(stringType, containsMethod.ContainingType);
+        Assert.Equal(SpecialType.System_Boolean, containsMethod.ReturnType.SpecialType);
+        Assert.Same(containsMethod.ReturnType, containsMethod.ReturnType);
+    }
+
     public sealed class RequiredPropertyFixture
     {
         public required string Required { get; set; }
