@@ -186,10 +186,10 @@ let second : Result<int, string> = .Error(2, "Bang!")
 
 func describe(result: Result<int, string>) -> string {
     return match result {
-        Success(42) => "Yay!"
-        Success(let value) => "Result: '$value'"
-        Error(2, let error) => "$error (!!!)"
-        Error(let code, let error) => "$error ($code)"
+        .Success(42) => "Yay!"
+        .Success(let value) => "Result: '$value'"
+        .Error(2, let error) => "$error (!!!)"
+        .Error(let code, let error) => "$error ($code)"
     }
 }
 
@@ -199,17 +199,30 @@ public union Result<TSuccess, TError> {
 }
 """;
 
-        var (compilation, _) = CreateCompilation(
+        var (compilation, tree) = CreateCompilation(
             source,
             options: new CompilationOptions(OutputKind.ConsoleApplication),
             references: [.. TestMetadataReferences.Default, metadataReference]);
 
         compilation.EnsureSetup();
 
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var unionDeclaration = root.DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        var functionDeclaration = root.DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var functionSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functionDeclaration));
+        var functionParameterType = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(functionSymbol.Parameters).Type);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(functionParameterType.OriginalDefinition, unionSymbol),
+            $"Expected source union '{unionSymbol.ToDisplayString()}', got '{functionParameterType.ToDisplayString()}'.");
+
         var diagnostics = compilation.GetDiagnostics()
             .Where(static d => d.Severity == DiagnosticSeverity.Error)
             .ToArray();
 
-        Assert.Empty(diagnostics);
+        Assert.True(
+            diagnostics.Length == 0,
+            string.Join(Environment.NewLine, diagnostics.Select(diagnostic => diagnostic.ToString())));
     }
 }
