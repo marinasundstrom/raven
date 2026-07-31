@@ -143,10 +143,13 @@ public partial class SemanticModel
         if (methodDeclaration.Body is null)
             return null;
 
+        if (methodDeclaration.Parent is not { } parentSyntax)
+            return null;
+
         var containingTypeSyntax = methodDeclaration.Parent as TypeDeclarationSyntax;
         var parentBinder = containingTypeSyntax is not null
             ? GetBinder(containingTypeSyntax)
-            : GetBinder(methodDeclaration.Parent);
+            : GetBinder(parentSyntax);
 
         var methodBinder = new MethodBinder(sourceMethod, parentBinder);
         CacheBinder(methodDeclaration, methodBinder);
