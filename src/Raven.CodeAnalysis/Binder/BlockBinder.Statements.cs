@@ -1823,7 +1823,10 @@ partial class BlockBinder
                 return namespaceSymbol.ContainingNamespace?.IsGlobalNamespace ?? false;
 
             remaining = remaining[..dot];
-            namespaceSymbol = namespaceSymbol.ContainingNamespace;
+            if (namespaceSymbol.ContainingNamespace is not { } containingNamespace)
+                return false;
+
+            namespaceSymbol = containingNamespace;
         }
 
         return false;
@@ -2705,7 +2708,9 @@ partial class BlockBinder
 
         if (lambda.IsAsync &&
             returnType is INamedTypeSymbol namedReturn &&
-            namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            (namedReturn.OriginalDefinition as INamedTypeSymbol
+                ?? namedReturn.ConstructedFrom as INamedTypeSymbol
+                ?? namedReturn).SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             namedReturn.TypeArguments.Length == 1 &&
             namedReturn.TypeArguments[0] is { } resultType)
         {
