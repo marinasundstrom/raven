@@ -23,6 +23,16 @@ and programming patterns one useful change at a time. Raven is designed so
 those features compose well, but they are not prerequisites for getting
 started.
 
+## The core recommendation
+
+For Raven domain code, prefer:
+
+- `Option<T>` over `T?` or `null` when absence is expected
+- `Result<T, E>` over throwing an exception when failure is expected
+
+This does not ban nullable values or exceptions. Keep nullable shapes where
+.NET interop requires them, and reserve exceptions for unexpected faults.
+
 ## A three-step comparison
 
 A useful comparison has three steps: how you would solve a problem in C#, how
@@ -65,7 +75,8 @@ The same progression applies to other common problems:
 | Organize stateless helpers | A type with static methods | Plain functions |
 | Represent data | An ordinary class with properties | A record class or record struct |
 | Pass one operation | A one-method interface | A function parameter |
-| Represent expected absence or failure | Nullable values, exceptions, or .NET interop shapes | `Option<T>` or `Result<T, E>` |
+| Represent expected absence | Nullable values or .NET interop shapes | `Option<T>` |
+| Represent expected failure | Exceptions | `Result<T, E>` |
 | Represent a closed set of states | An enum or class hierarchy | A union with `match` |
 | Test several aspects of a value | Boolean conditions and local extraction | Composed property patterns and bindings |
 
@@ -221,38 +232,23 @@ support for opaque aliases. A `Year` cannot be confused with every other `int`.
 
 ## `Option` for expected absence
 
-Raven also projects a curated set of familiar .NET APIs into this model. The
-underlying framework types remain the same, but their Raven-facing signatures
-express absence and expected failure directly:
-
-```raven
-import System.*
-import System.Collections.Generic.*
-
-let count = int.TryParse(text)          // Option<int>
-let item = values.TryGetValue(key)      // Option<TValue>
-let id = Guid.Parse(text)               // Result<Guid, FormatException>
-```
-
-These are compiler-validated projections backed by Raven.Core bridges, not a
-rule that rewrites every method named `Try*`. Each supported framework method
-has an exact, versioned mapping. Projections are enabled by default; set
-`RavenFrameworkProjections` to `None` in the project file when code needs the
-ordinary CLR methods and their `out` parameters.
-
-The channels retain distinct meanings. `None` means a lookup did not produce a
-value. If the collection's declared value type is nullable, `Some(null)` is
-still different from `None`. `Result.Error` contains failures expected under a
-well-typed call. An exception reachable only by forcing `null` through a
-non-null parameter remains a fault and propagates normally.
-
 Nullable references commonly make absence implicit in C#:
 
 ```csharp
 Customer? FindCustomer(string id);
 ```
 
-Raven domain APIs prefer to state absence in the return type:
+The same nullable shape is valid Raven:
+
+```raven
+func FindCustomer(id: string) -> Customer? {
+    // ...
+    return null
+}
+```
+
+When absence is an expected domain outcome, prefer to state it in the return
+type:
 
 ```raven
 func FindCustomer(id: string) -> Option<Customer> {
@@ -271,7 +267,10 @@ let message = FindCustomer("C-100") match {
 ```
 
 Raven still supports nullable values for .NET interop. `Option<T>` is the
-preferred domain shape when absence is expected and meaningful.
+preferred domain shape when absence is expected and meaningful. Raven also
+projects selected framework APIs such as `TryParse` and `TryGetValue` into
+`Option` or `Result`; projects can disable those projections when they need the
+ordinary CLR signatures.
 
 ## `Result` for expected failure
 
@@ -287,7 +286,18 @@ static Quote BuildQuote(string id)
 }
 ```
 
-A Raven API can expose the expected failure:
+The same exception-based approach is valid Raven:
+
+```raven
+func BuildQuote(id: string) -> Quote {
+    let request = FindRequestOrNull(id)
+        ?? throw RequestNotFoundException(id)
+    return CalculateQuote(request)
+}
+```
+
+When callers are expected to handle the failure, prefer to expose it in the
+return type:
 
 ```raven
 union QuoteError {
