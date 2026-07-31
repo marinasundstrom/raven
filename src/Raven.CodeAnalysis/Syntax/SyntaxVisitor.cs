@@ -22,4 +22,9 @@ public abstract partial class SyntaxVisitor
 
     }
 
+    public virtual void VisitSkippedTokensTrivia(SkippedTokensTrivia skippedTokens)
+    {
+        DefaultVisit(skippedTokens);
+    }
+
 }

@@ -4,6 +4,7 @@ internal sealed class SyntaxReplacer : SyntaxRewriter
 {
     private readonly IReadOnlyDictionary<SyntaxNode, SyntaxNode?>? _nodeMap;
     private readonly IReadOnlyDictionary<SyntaxToken, SyntaxToken?>? _tokenMap;
+    private readonly IReadOnlyDictionary<(InternalSyntax.SyntaxToken Green, int Position), SyntaxToken?>? _tokenMapByGreen;
     private readonly IReadOnlyDictionary<SyntaxTrivia, SyntaxTrivia?>? _triviaMap;
 
     public SyntaxReplacer(
@@ -13,6 +14,9 @@ internal sealed class SyntaxReplacer : SyntaxRewriter
     {
         _nodeMap = nodeMap;
         _tokenMap = tokenMap;
+        _tokenMapByGreen = tokenMap?.ToDictionary(
+            pair => (pair.Key.Green, pair.Key.Position),
+            pair => pair.Value);
         _triviaMap = triviaMap;
     }
 
@@ -31,7 +35,8 @@ internal sealed class SyntaxReplacer : SyntaxRewriter
 
     public override SyntaxToken VisitToken(SyntaxToken token)
     {
-        if (_tokenMap != null && _tokenMap.TryGetValue(token, out var replacement))
+        if ((_tokenMap != null && _tokenMap.TryGetValue(token, out var replacement)) ||
+            (_tokenMapByGreen != null && _tokenMapByGreen.TryGetValue((token.Green, token.Position), out replacement)))
         {
             return replacement ?? token;
         }
@@ -54,13 +59,12 @@ internal sealed class SyntaxReplacer : SyntaxRewriter
             return replacement ?? trivia;
         }
 
-        if (trivia.HasStructure)
+        if (trivia.GetStructure() is { } structure)
         {
-            var structure = trivia.GetStructure();
             var newStructure = Visit(structure);
 
-            if (structure != newStructure)
-                return SyntaxFactory.Trivia((StructuredTriviaSyntax)newStructure);
+            if (structure != newStructure && newStructure is StructuredTriviaSyntax structuredTrivia)
+                return SyntaxFactory.Trivia(structuredTrivia);
         }
 
         return trivia;

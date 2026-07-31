@@ -87,4 +87,25 @@ public partial class SyntaxNodeTest
         testOutputHelper.WriteLine(block.ToFullString());
         testOutputHelper.WriteLine(newBlock.ToFullString());
     }
+
+    [Fact]
+    public void ReplaceTokens_InsideStructuredTrivia()
+    {
+        var root = IdentifierName(TrueKeyword)
+            .WithTrailingTrivia(
+                Trivia(
+                    SkippedTokensTrivia(
+                        TokenList(Identifier("Original")))));
+        var structuredTrivia = Assert.Single(root.DescendantTrivia(), trivia => trivia.HasStructure);
+        var structure = Assert.IsAssignableFrom<StructuredTriviaSyntax>(structuredTrivia.GetStructure());
+        var originalToken = Assert.Single(structure.DescendantTokens());
+        var replacementToken = SyntaxFactory.Identifier("Updated");
+
+        var updatedRoot = root.ReplaceTokens(
+            [originalToken],
+            (_, _) => replacementToken);
+
+        Assert.Contains("Updated", updatedRoot.ToFullString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Original", updatedRoot.ToFullString(), StringComparison.Ordinal);
+    }
 }

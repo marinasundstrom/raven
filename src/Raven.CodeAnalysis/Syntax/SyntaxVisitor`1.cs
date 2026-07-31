@@ -21,4 +21,9 @@ public abstract partial class SyntaxVisitor<TResult>
     {
         return syntaxTrivia;
     }
+
+    public virtual TResult VisitSkippedTokensTrivia(SkippedTokensTrivia skippedTokens)
+    {
+        return DefaultVisit(skippedTokens);
+    }
 }

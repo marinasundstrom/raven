@@ -17,11 +17,11 @@ public sealed class SkippedTokensTrivia : StructuredTriviaSyntax
 
     public override void Accept(SyntaxVisitor visitor)
     {
-        visitor.Visit(this);
+        visitor.VisitSkippedTokensTrivia(this);
     }
 
     public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
     {
-        return visitor.Visit(this);
+        return visitor.VisitSkippedTokensTrivia(this);
     }
 }

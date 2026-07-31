@@ -89,6 +89,15 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return SyntaxFactory.TokenList(newList);
     }
 
+    public override SyntaxNode? VisitSkippedTokensTrivia(SkippedTokensTrivia skippedTokens)
+    {
+        var tokens = VisitTokenList(skippedTokens.Tokens);
+        var green = (InternalSyntax.SkippedTokensTrivia)skippedTokens.Green;
+        var updatedGreen = green.With([tokens.Green]);
+
+        return updatedGreen.CreateRed(skippedTokens.Parent, skippedTokens.Position);
+    }
+
     public virtual SyntaxTriviaList VisitList(SyntaxTriviaList list)
     {
         List<SyntaxTrivia> newList = [];
