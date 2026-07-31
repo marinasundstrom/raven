@@ -600,6 +600,21 @@ public class MemberContainer {
     }
 
     [Fact]
+    public void MetadataProperty_AlwaysHasContainingTypeAndPropertyType()
+    {
+        var compilation = Compilation.Create("pe_property_contract")
+            .AddReferences(TestMetadataReferences.Default);
+        var stringType = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+        var lengthProperty = Assert.IsType<PEPropertySymbol>(
+            Assert.Single(stringType.GetMembers("Length")));
+
+        Assert.Same(stringType, lengthProperty.ContainingType);
+        Assert.Equal(SpecialType.System_Int32, lengthProperty.Type.SpecialType);
+        Assert.Same(lengthProperty.Type, lengthProperty.Type);
+    }
+
+    [Fact]
     public void MetadataMembers_AreMaterializedAsPESymbols()
     {
         var compilation = Compilation.Create("pe_symbol_materialization")

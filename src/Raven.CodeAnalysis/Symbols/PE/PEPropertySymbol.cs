@@ -13,7 +13,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     private string? _name;
     private string? _extensionMarkerName;
 
-    public PEPropertySymbol(ReflectionTypeLoader reflectionTypeLoader, PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEPropertySymbol(ReflectionTypeLoader reflectionTypeLoader, PropertyInfo propertyInfo, INamedTypeSymbol containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
