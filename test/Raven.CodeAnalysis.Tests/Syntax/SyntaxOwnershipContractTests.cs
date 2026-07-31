@@ -46,6 +46,23 @@ public sealed class SyntaxOwnershipContractTests
     }
 
     [Fact]
+    public void DetachedSyntaxNode_HasNoSourceLocationOrReference()
+    {
+        var block = SyntaxFactory.Block();
+
+        Assert.Same(Location.None, block.GetLocation());
+        var exception = Assert.Throws<InvalidOperationException>(() => block.GetReference());
+        Assert.Contains("detached syntax node", exception.Message, StringComparison.OrdinalIgnoreCase);
+
+        var tree = SyntaxTree.ParseText("func Main() {}");
+        var root = tree.GetRoot();
+        var reference = root.GetReference();
+
+        Assert.Same(tree, reference.SyntaxTree);
+        Assert.Equal(root.Span, reference.Span);
+    }
+
+    [Fact]
     public void SyntaxToken_DistinguishesDetachedAndAttachedTokens()
     {
         var detachedToken = SyntaxFactory.Identifier("value");

@@ -215,9 +215,9 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
     {
         if (SyntaxTree is null)
         {
-            return default!;
+            return Location.None;
         }
-        return SyntaxTree!.GetLocation(Span);
+        return SyntaxTree.GetLocation(Span);
     }
 
     public static bool operator ==(SyntaxNode? left, SyntaxNode? right) => Equals(left, right);
@@ -296,5 +296,11 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         return Green.WithAdditionalAnnotations(annotations).CreateRed();
     }
 
-    public SyntaxReference GetReference() => new SyntaxReference(SyntaxTree!, this);
+    public SyntaxReference GetReference()
+    {
+        if (SyntaxTree is not { } syntaxTree)
+            throw new InvalidOperationException("A detached syntax node does not have a syntax reference.");
+
+        return new SyntaxReference(syntaxTree, this);
+    }
 }
