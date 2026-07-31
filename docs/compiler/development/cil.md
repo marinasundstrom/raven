@@ -34,6 +34,13 @@ When you need to verify which instructions the Raven compiler produces you can i
 
 4. **Online experiments** – For small snippets you can compare Raven’s output with C# by pasting equivalent code into [SharpLab](https://sharplab.io) and switching the right-hand pane to “IL”. This is useful when you want to confirm the general shape of the instructions without compiling locally.
 
-5. **Automated checks in tests** – Unit tests under `test/Raven.CodeAnalysis.Tests` can assert on emitted IL by compiling snippets with the testing helpers and inspecting the resulting method bodies. This is especially handy when you need repeatable verification for regressions.
+5. **Automated checks in tests** – Prefer runtime behavior, metadata shape,
+   reflection, and `ILVerify` for stable regression coverage. Exact opcode or
+   lowering-shape assertions are development scaffolding and belong under
+   `test/Raven.CodeAnalysis.Tests/CodeGen/Development` when temporarily useful.
 
 These techniques make it straightforward to capture and reason about the exact instructions Raven emits, whether you are debugging code generation or validating a new lowering.
+
+For the compatibility criteria, current Debug/Release gap, and rules for
+judging conventional IL shapes, see [.NET conformance, Raven divergences, and
+emitted IL](../architecture/dotnet-conformance-and-divergence.md).

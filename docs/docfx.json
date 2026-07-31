@@ -43,6 +43,7 @@
           "compiler/api/semantic-analysis.md",
           "compiler/api/symbol-resolution.md",
           "compiler/api/syntax-tree.md",
+          "compiler/architecture/dotnet-conformance-and-divergence.md",
           "api/*.yml"
         ],
         "exclude": [

@@ -13,6 +13,11 @@ Before porting compiler components to Raven, use
 [Syntactic and semantic stabilization](syntactic-and-semantic-stabilization.md)
 as the evidence-based stabilization plan and behavioral exit gate.
 
+Use [.NET conformance, Raven divergences, and emitted
+IL](dotnet-conformance-and-divergence.md) when deciding whether Raven should
+follow an established C#/.NET convention, retain a Raven-native semantic rule,
+or improve a noncanonical lowering shape.
+
 ## Raven-first development and bootstrap boundaries
 
 Raven increasingly builds its own language-facing infrastructure. New

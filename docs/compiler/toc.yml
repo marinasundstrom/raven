@@ -1,5 +1,7 @@
 - name: Tool overview
   href: index.md
+- name: .NET conformance and Raven divergences
+  href: architecture/dotnet-conformance-and-divergence.md
 - name: Compiler and command line
   href: raven-compiler.md
 - name: Project system

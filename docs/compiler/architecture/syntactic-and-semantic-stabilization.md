@@ -21,6 +21,12 @@ semantics where that produces an idiomatic Raven model, but its .NET ABI must
 preserve the platform convention so consumers do not need Raven-specific
 knowledge to interpret a public contract.
 
+The review criteria, current divergence inventory, and emitted-IL policy are
+recorded in [.NET conformance, Raven divergences, and emitted
+IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
+as a gap until it is fixed or earns an explicit Raven rationale with interop
+evidence.
+
 ## What must be stable before a port
 
 A compiler port should begin only after these properties hold for the language
