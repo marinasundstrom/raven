@@ -490,4 +490,74 @@ public class ParserRecoveryTests
         var root = tree.GetRoot();
         Assert.NotEmpty(root.Members.OfType<ExtensionDeclarationSyntax>());
     }
+
+    [Fact]
+    public void ConstructorDeclaration_MissingBody_RecoversAndPreservesFollowingMember()
+    {
+        var source = """
+            class C {
+                public init(value: int)
+                public func Next() {}
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.Single(tree.GetRoot().Members.OfType<ClassDeclarationSyntax>());
+
+        Assert.Collection(
+            declaration.Members,
+            member =>
+            {
+                var constructor = Assert.IsType<ConstructorDeclarationSyntax>(member);
+                Assert.NotNull(constructor.Body);
+                Assert.True(constructor.Body!.OpenBraceToken.IsMissing);
+                Assert.True(constructor.Body.CloseBraceToken.IsMissing);
+            },
+            member => Assert.IsType<MethodDeclarationSyntax>(member));
+        Assert.Contains(
+            tree.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ConstructorBodyExpected);
+    }
+
+    [Fact]
+    public void ParameterlessConstructorDeclaration_MissingBody_RecoversAndPreservesFollowingMember()
+    {
+        var source = """
+            class C {
+                init
+                public func Next() {}
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.Single(tree.GetRoot().Members.OfType<ClassDeclarationSyntax>());
+
+        Assert.Collection(
+            declaration.Members,
+            member =>
+            {
+                var constructor = Assert.IsType<ParameterlessConstructorDeclarationSyntax>(member);
+                Assert.NotNull(constructor.Body);
+                Assert.True(constructor.Body!.OpenBraceToken.IsMissing);
+                Assert.True(constructor.Body.CloseBraceToken.IsMissing);
+            },
+            member => Assert.IsType<MethodDeclarationSyntax>(member));
+        Assert.Contains(
+            tree.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ConstructorBodyExpected);
+    }
+
+    [Fact]
+    public void ConstructorDeclaration_MissingBodyAtEndOfFile_DoesNotThrow()
+    {
+        var tree = SyntaxTree.ParseText("class C { init(value: int)");
+        var constructor = Assert.Single(
+            tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>());
+
+        Assert.NotNull(constructor.Body);
+        Assert.True(constructor.Body!.OpenBraceToken.IsMissing);
+        Assert.Contains(
+            tree.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ConstructorBodyExpected);
+    }
 }

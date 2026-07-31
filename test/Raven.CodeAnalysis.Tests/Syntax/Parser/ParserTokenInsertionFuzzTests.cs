@@ -12,7 +12,42 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class ParserTokenInsertionFuzzTests
 {
-    private static readonly string[] BaseSamples = LoadBaseSamples();
+    private static readonly string[] BaseSamples =
+    [
+        .. LoadBaseSamples(),
+        """
+        class Counter {
+            init(value: int) {
+                self.value = value
+            }
+
+            func Increment() {
+                self.value += 1
+            }
+        }
+        """,
+        """
+        macro func Inspect(expression: ExpressionSyntax) {
+            match expression {
+                IdentifierNameSyntax => {}
+                > 0 => {}
+                _ => {}
+            }
+            expand expression
+        }
+        """,
+        """
+        #if DEBUG
+        func Main() {
+            let value = 1 + 2
+        }
+        #elif TRACE
+        func Main() {}
+        #else
+        func Main() {}
+        #endif
+        """
+    ];
 
     private static readonly string[] Insertions =
     [

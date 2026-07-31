@@ -2137,7 +2137,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 break;
 
             case SyntaxKind.NumericLiteralToken:
-                expr = ParseNumericLiteralExpressionSyntax();
+                ReadToken();
+                expr = LiteralExpression(SyntaxKind.NumericLiteralExpression, token);
                 break;
 
             case SyntaxKind.StringLiteralToken:
@@ -2788,17 +2789,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return ParenthesizedExpression(openParenToken, expr, closeParenToken);
-    }
-
-    private ExpressionSyntax ParseNumericLiteralExpressionSyntax()
-    {
-        var token = ReadToken();
-        if (token.IsKind(SyntaxKind.NumericLiteralToken))
-        {
-            return LiteralExpression(SyntaxKind.NumericLiteralExpression, token);
-        }
-
-        throw new Exception();
     }
 
     private ExpressionSyntax ParseMatchExpressionSuffixes(ExpressionSyntax expression)

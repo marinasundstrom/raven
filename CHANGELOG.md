@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Incomplete constructor declarations now recover with a missing block and a
+  targeted `RAV1028` diagnostic instead of throwing or silently accepting a
+  bodyless `init`. Recovery preserves following type members, and parser
+  mutation coverage now includes contemporary constructor and macro syntax.
+  Type-only declaration patterns now use their optional designation directly
+  instead of manufacturing a designation containing `None` tokens.
 - Incremental syntax updates now retain fragment parser diagnostics, discard
   stale diagnostics from replaced syntax, and shift unaffected diagnostic spans
   after edits. Green-node replacement also preserves unchanged sibling

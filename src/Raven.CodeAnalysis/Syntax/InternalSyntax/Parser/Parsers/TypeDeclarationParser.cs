@@ -797,18 +797,22 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
 
+        if (body is null && expressionBody is null)
+        {
+            body = CreateMissingConstructorBody();
+        }
+
         var terminatorToken = ConsumeMemberTerminator();
 
-        if (expressionBody is not null)
-        {
-            return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, initializer, null, expressionBody, terminatorToken);
-        }
-        else if (body is not null)
-        {
-            return ConstructorDeclaration(attributeLists, modifiers, initKeyword, parameterList, initializer, body, null, terminatorToken);
-        }
-
-        throw new Exception();
+        return ConstructorDeclaration(
+            attributeLists,
+            modifiers,
+            initKeyword,
+            parameterList,
+            initializer,
+            body,
+            expressionBody,
+            terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseInitDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
@@ -824,8 +828,26 @@ internal class TypeDeclarationParser : SyntaxParser
         else if (token.IsKind(SyntaxKind.FatArrowToken))
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
 
+        if (body is null && expressionBody is null)
+        {
+            body = CreateMissingConstructorBody();
+        }
+
         var terminatorToken = ConsumeMemberTerminator();
         return ParameterlessConstructorDeclaration(attributeLists, modifiers, initKeyword, body, expressionBody, terminatorToken);
+    }
+
+    private BlockStatementSyntax CreateMissingConstructorBody()
+    {
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.ConstructorBodyExpected,
+                GetInsertionSpanBeforePeekedToken()));
+
+        return BlockStatement(
+            MissingToken(SyntaxKind.OpenBraceToken),
+            SyntaxList.Empty,
+            MissingToken(SyntaxKind.CloseBraceToken));
     }
 
     private MemberDeclarationSyntax ParsePrimaryInitializerDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

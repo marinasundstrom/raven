@@ -131,14 +131,16 @@ alongside parser recovery coverage.
 
 ### Some malformed declarations can still throw
 
-Constructor parsing has a path that throws a generic exception when an `init`
-declaration has neither a block body nor an expression body. Incomplete code in
-an editor must instead produce missing syntax and a targeted diagnostic, then
-continue parsing later declarations.
+Constructor declarations with a missing block or expression body now produce a
+missing block and a targeted diagnostic, then continue parsing later
+declarations. This replaced a generic exception in the parameterized
+constructor path and silent acceptance in the parameterless path.
 
-Recovery also contains manufactured placeholder patterns and invariant
-exceptions that need an explicit audit. Genuine internal invariants may remain
-fail-fast in debug builds, but no user edit should reach them.
+Type-only declaration patterns now use the syntax model's optional designation
+instead of manufacturing a designation containing `None` tokens. The remaining
+parser exceptions are guarded construction and dispatch invariants; mutation
+coverage exercises the relevant directive, operator, relational-pattern, and
+macro boundaries so that no user edit reaches them.
 
 ### Context-sensitive binding depends on a manual cache classification
 

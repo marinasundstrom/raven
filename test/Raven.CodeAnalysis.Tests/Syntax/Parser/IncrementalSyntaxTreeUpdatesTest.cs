@@ -248,6 +248,22 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
+    public void DeletingConstructorBody_MatchesFullParseRecovery()
+    {
+        var original = SourceText.From(
+            """
+            class C {
+                init(value: int) {}
+                func Next() {}
+            }
+            """);
+        var bodyPosition = original.ToString().IndexOf("{}", StringComparison.Ordinal);
+        var updated = original.Replace(bodyPosition, 2, string.Empty);
+
+        AssertIncrementalParse(original, updated);
+    }
+
+    [Fact]
     public void EditingTreeWithMissingExpression_DoesNotFailIncrementalReplacement()
     {
         var original = SourceText.From(

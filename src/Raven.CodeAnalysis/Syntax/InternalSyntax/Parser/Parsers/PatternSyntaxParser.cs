@@ -176,17 +176,10 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseMemberPattern(type, dotToken);
         }
 
-        // Optionally consume a variable designation
-        VariableDesignationSyntax designation;
-        if (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken))
-        {
-            designation = ParseDesignation();
-        }
-        else
-        {
-            // TODO: Investigate
-            designation = SingleVariableDesignation(Token(SyntaxKind.None), Token(SyntaxKind.None));
-        }
+        var designation =
+            CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken)
+                ? ParseDesignation()
+                : null;
 
         return DeclarationPattern(type, designation);
     }

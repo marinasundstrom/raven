@@ -644,6 +644,10 @@
     Title="List separators are inconsistent"
     Message="Use either commas or newlines consistently to separate items in this list."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1028" Identifier="ConstructorBodyExpected"
+    Title="Constructor body expected"
+    Message="A constructor declaration must have a block or expression body" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1005" Identifier="ImportDirectiveOutOfOrder"
     Title="Import directives must come first"
     Message="'import' directives must appear before 'alias' and declarations." Category="compiler"

@@ -27,6 +27,20 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void DeclarationPattern_WithoutIdentifier_HasNoDesignation()
+    {
+        var (pattern, tree) = ParsePattern("int");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var declaration = Assert.IsType<DeclarationPatternSyntax>(pattern);
+        Assert.Equal("int", sourceText.ToString(declaration.Span));
+        Assert.Equal("int", declaration.Type.ToString());
+        Assert.Null(declaration.Designation);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void DiscardPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("_");
