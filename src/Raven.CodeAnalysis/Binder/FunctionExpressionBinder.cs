@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 class FunctionExpressionBinder : BlockBinder
 {
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
-    private readonly Dictionary<string, IMethodSymbol> _functions = new();
+    private readonly Dictionary<string, IMethodSymbol> _declaredFunctions = new();
     private readonly List<ILocalSymbol> _declaredLocals = [];
 
     public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
@@ -25,7 +25,7 @@ class FunctionExpressionBinder : BlockBinder
 
     public void DeclareFunction(string name, IMethodSymbol method)
     {
-        _functions[name] = method;
+        _declaredFunctions[name] = method;
     }
 
     protected override void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
@@ -39,7 +39,7 @@ class FunctionExpressionBinder : BlockBinder
         if (_parameters.TryGetValue(name, out var param))
             return param;
 
-        if (_functions.TryGetValue(name, out var function))
+        if (_declaredFunctions.TryGetValue(name, out var function))
             return function;
 
         return base.LookupSymbol(name);
