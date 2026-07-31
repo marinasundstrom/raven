@@ -7,7 +7,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 {
     private readonly List<ISymbol> _members = new();
     private readonly object _membersGate = new();
-    private readonly SourceModuleSymbol _containingModule;
+    private readonly SourceModuleSymbol? _containingModule;
 
     public SourceNamespaceSymbol(SourceModuleSymbol containingModule, string name, ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,

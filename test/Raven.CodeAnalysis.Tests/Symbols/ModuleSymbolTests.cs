@@ -31,6 +31,7 @@ public class ModuleSymbolTests
 
         Assert.NotNull(projected);
         Assert.Equal("Raven.Project", projected.ToMetadataName());
+        Assert.Same(module, projectNamespace.ContainingModule);
         Assert.Same(module.GlobalNamespace, module.GetModuleNamespace(compilation.GlobalNamespace));
     }
 
