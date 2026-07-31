@@ -105,6 +105,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Ordinary `while` bodies now inherit nullability facts established by their
   condition, and cold semantic queries bind the enclosing loop so public flow
   information agrees with diagnostics-first binding.
+- Normal exits from `while` loops now project the condition's false-state
+  nullability facts when no `break` or outward `goto` can bypass the condition.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

@@ -264,7 +264,9 @@ nullable unions, and incremental edits that change control flow.
 Branch-join coverage now distinguishes facts established on every completing
 path from facts established on only one path. Ordinary `while` bodies also bind
 under the condition's true-state nullability facts, while post-loop state stays
-conservative; cold queries bind the enclosing loop to preserve that context.
+conservative when a `break` or outward `goto` can bypass the condition. Without
+such an exit, normal completion projects the condition's false-state facts.
+Cold queries bind the enclosing loop to preserve the same context.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
