@@ -888,7 +888,8 @@ class Foo {
         var symbolInfo = model.GetSymbolInfo(invocation);
 
         Assert.Null(symbolInfo.Symbol);
-        Assert.Equal(CandidateReason.OverloadResolutionFailure, symbolInfo.CandidateReason);
+        Assert.Equal(CandidateReason.Ambiguous, symbolInfo.CandidateReason);
+        Assert.True(symbolInfo.CandidateSymbols.Length > 1);
 
         Assert.Contains(
             compilation.GetDiagnostics(),

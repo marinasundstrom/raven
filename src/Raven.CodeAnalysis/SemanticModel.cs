@@ -3802,9 +3802,10 @@ public partial class SemanticModel
                   TryChooseAvailableInvocationMethodCandidate(methods, invocation) ??
                   TryChooseInvocationMethodCandidate(methods, invocation, InvocationCandidateFallback.None);
 
-            info = preferred is null
-                ? new SymbolInfo(CandidateReason.OverloadResolutionFailure, candidates)
-                : new SymbolInfo(preferred, candidates);
+            if (preferred is null)
+                return false;
+
+            info = new SymbolInfo(preferred, candidates);
             CacheAvailableInvocationSymbolInfo(invocation, info);
             return true;
         }

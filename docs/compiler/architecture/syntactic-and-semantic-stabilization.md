@@ -332,6 +332,11 @@ overload identity, but distinct underlying types remain distinct; a null
 literal selects the more specific applicable reference parameter independently
 of candidate or declaration order.
 
+Available-state invocation lookup only publishes a result when it can select a
+sound candidate. Ambiguous calls fall back to ordinary binding, and the bound
+error retains its candidate set so `GetSymbolInfo` agrees with the ambiguity
+diagnostic rather than reporting a generic overload-resolution failure.
+
 Tests should cover inference, constraints, variance, extension methods, method
 groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each
 test should assert the chosen symbol or diagnostic, not an internal lowering

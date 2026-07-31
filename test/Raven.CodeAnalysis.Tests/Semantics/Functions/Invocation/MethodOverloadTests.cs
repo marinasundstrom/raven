@@ -233,6 +233,44 @@ public class MethodOverloadTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NullArgument_IsAmbiguousForUnrelatedReferenceOverloads(bool reverseDeclarations)
+    {
+        var overloads = reverseDeclarations
+            ? """
+                func Select(value: Second?) -> string { "second" }
+                func Select(value: First?) -> string { "first" }
+                """
+            : """
+                func Select(value: First?) -> string { "first" }
+                func Select(value: Second?) -> string { "second" }
+                """;
+        var source = $$"""
+            class First {}
+            class Second {}
+
+            {{overloads}}
+
+            func Test() -> string {
+                Select(null)
+            }
+            """;
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.Ambiguous, symbolInfo.CandidateReason);
+        Assert.Equal(2, symbolInfo.CandidateSymbols.Length);
+        Assert.Equal(CompilerDiagnostics.CallIsAmbiguous, diagnostic.Descriptor);
+    }
+
     [Fact]
     public void LambdaArgument_CanBindToSystemDelegateParameter()
     {

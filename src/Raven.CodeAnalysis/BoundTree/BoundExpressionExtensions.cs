@@ -6,6 +6,17 @@ static class BoundExpressionExtensions
 {
     public static SymbolInfo GetSymbolInfo(this BoundExpression expression)
     {
+        if (expression is BoundErrorExpression errorExpression)
+        {
+            var candidates = errorExpression.Candidates;
+            if (candidates.IsDefaultOrEmpty && errorExpression.Symbol is not null)
+                candidates = [errorExpression.Symbol];
+
+            return errorExpression.Reason is BoundExpressionReason.None
+                ? new SymbolInfo(errorExpression.Symbol, candidates)
+                : new SymbolInfo(Convert(errorExpression.Reason), candidates);
+        }
+
         if (expression is BoundDelegateCreationExpression delegateCreation)
         {
             var group = delegateCreation.MethodGroup;
