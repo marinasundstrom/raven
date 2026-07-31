@@ -233,6 +233,33 @@ func Main() {
     }
 
     [Fact]
+    public void AnalyzeControlFlow_ConstantTrueWhileLoop_MakesFollowingStatementUnreachable()
+    {
+        const string source = """
+func Main() {
+    while true {
+    }
+
+    let unreachable = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+
+        var analysis = model.AnalyzeControlFlow(block);
+
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+    }
+
+    [Fact]
     public void GetOperation_AssignmentStatement_ReturnsAssignmentOperation()
     {
         const string source = """

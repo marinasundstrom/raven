@@ -85,6 +85,93 @@ func Main() -> int {
     }
 
     [Fact]
+    public void NonUnitFunction_WithConstantTrueWhileLoop_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Main() -> int {
+    while true {
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithBreakableConstantTrueWhileLoop_ReportsMissingReturn()
+    {
+        var code = """
+func Main() -> int {
+    while true {
+        break
+    }
+}
+""";
+
+        CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.NotAllCodePathsReturnAValue.Id).WithSpan(1, 6, 1, 10)
+            ]).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithConditionallyBreakableConstantTrueWhileLoop_ReportsMissingReturn()
+    {
+        var code = """
+func Compute(shouldBreak: bool) -> int {
+    while true {
+        if shouldBreak {
+            break
+        }
+    }
+}
+""";
+
+        CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.NotAllCodePathsReturnAValue.Id).WithSpan(1, 6, 1, 13)
+            ]).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithBreakInNestedLoop_DoesNotMakeOuterWhileBreakable()
+    {
+        var code = """
+func Main() -> int {
+    while true {
+        loop {
+            break
+        }
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithConstantFalseWhileLoop_ReportsMissingReturn()
+    {
+        var code = """
+func Main() -> int {
+    while false {
+    }
+}
+""";
+
+        CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.NotAllCodePathsReturnAValue.Id).WithSpan(1, 6, 1, 10)
+            ]).Verify();
+    }
+
+    [Fact]
     public void NonUnitFunction_WithReturnInsideUnsafeBlock_DoesNotReportMissingReturn()
     {
         var code = """

@@ -537,6 +537,34 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void MacroFunction_LetElseWithConstantTrueWhileLoop_UsesOrdinaryFlowAnalysis()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro func Select(value: int?) {
+                let actual: int = value else {
+                    while true {
+                    }
+                }
+
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(actual.ToString())
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionWhileFlowAnalysis",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDocumentDiagnostics(sourceTree);
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
     public void MarkedLocalMacroDeclaration_ConsumerDependencyReportsCycle()
     {
         var sourceTree = SyntaxTree.ParseText(

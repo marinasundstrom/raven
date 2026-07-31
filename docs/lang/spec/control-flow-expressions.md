@@ -92,6 +92,12 @@ while i < list.Length {
 }
 ```
 
+A `while true` loop has no reachable endpoint unless its body contains a
+reachable `break`. It therefore satisfies flow requirements that require an
+abrupt exit, such as the body of `let ... else`, and does not require a
+following return in a value-returning function. Other `while` conditions remain
+conservative because they may be false before the first iteration.
+
 `while` also supports a pattern-binding condition:
 
 ```raven

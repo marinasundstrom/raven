@@ -197,8 +197,10 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return _endPointIsReachable;
             case WhileStatementSyntax whileStatement:
                 Visit(whileStatement.Condition);
-                AnalyzeLoopBody(whileStatement.Statement, isReachable);
-                _endPointIsReachable = isReachable;
+                var whileHasReachableBreak = AnalyzeLoopBody(whileStatement.Statement, isReachable);
+                _endPointIsReachable = IsConstantTrue(whileStatement.Condition)
+                    ? isReachable && whileHasReachableBreak
+                    : isReachable;
                 return _endPointIsReachable;
             case WhilePatternStatementSyntax whilePatternStatement:
                 Visit(whilePatternStatement.Expression);
@@ -292,6 +294,9 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             _loopContexts.Pop();
         }
     }
+
+    private static bool IsConstantTrue(ExpressionSyntax expression)
+        => ConstantValueEvaluator.TryEvaluate(expression, out var value) && value is true;
 
     private bool AnalyzeTryStatement(TryStatementSyntax tryStatement, bool isReachable)
     {
