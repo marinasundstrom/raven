@@ -29,6 +29,8 @@ internal static class ConstantValueEvaluator
                     return true;
                 }
                 break;
+            case InfixOperatorExpressionSyntax binary:
+                return TryEvaluateBinary(binary, out value);
             case ParenthesizedExpressionSyntax parenthesized:
                 return TryEvaluate(parenthesized.Expression, out value);
         }
@@ -36,6 +38,53 @@ internal static class ConstantValueEvaluator
         value = null;
         return false;
     }
+
+    private static bool TryEvaluateBinary(InfixOperatorExpressionSyntax binary, out object? value)
+    {
+        if (!TryEvaluate(binary.Left, out var left))
+        {
+            value = null;
+            return false;
+        }
+
+        switch (binary.OperatorToken.Kind)
+        {
+            case SyntaxKind.AmpersandAmpersandToken when left is false:
+                value = false;
+                return true;
+            case SyntaxKind.BarBarToken when left is true:
+                value = true;
+                return true;
+        }
+
+        if (!TryEvaluate(binary.Right, out var right))
+        {
+            value = null;
+            return false;
+        }
+
+        switch (binary.OperatorToken.Kind)
+        {
+            case SyntaxKind.AmpersandAmpersandToken when left is bool leftBoolean && right is bool rightBoolean:
+                value = leftBoolean && rightBoolean;
+                return true;
+            case SyntaxKind.BarBarToken when left is bool leftBoolean && right is bool rightBoolean:
+                value = leftBoolean || rightBoolean;
+                return true;
+            case SyntaxKind.EqualsEqualsToken when HaveComparableConstantTypes(left, right):
+                value = Equals(left, right);
+                return true;
+            case SyntaxKind.NotEqualsToken when HaveComparableConstantTypes(left, right):
+                value = !Equals(left, right);
+                return true;
+            default:
+                value = null;
+                return false;
+        }
+    }
+
+    private static bool HaveComparableConstantTypes(object? left, object? right)
+        => left is null || right is null || left.GetType() == right.GetType();
 
     public static bool TryConvert(ITypeSymbol targetType, object? value, out object? converted)
     {

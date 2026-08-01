@@ -138,6 +138,45 @@ func Main() -> int {
         CreateVerifier(code).Verify();
     }
 
+    [Theory]
+    [InlineData("true && !false")]
+    [InlineData("false || true")]
+    [InlineData("1 == 1")]
+    [InlineData("1 != 2")]
+    public void NonUnitFunction_WithFoldedBinaryTrueWhileLoop_DoesNotReportMissingReturn(string condition)
+    {
+        var code = $$"""
+func Main() -> int {
+    while {{condition}} {
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Theory]
+    [InlineData("true && false")]
+    [InlineData("false || false")]
+    [InlineData("1 == 2")]
+    [InlineData("1 != 1")]
+    public void NonUnitFunction_WithFoldedBinaryFalseWhileLoop_ReportsMissingReturn(string condition)
+    {
+        var code = $$"""
+func Main() -> int {
+    while {{condition}} {
+    }
+}
+""";
+
+        CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.NotAllCodePathsReturnAValue.Id).WithSpan(1, 6, 1, 10)
+            ]).Verify();
+    }
+
     [Fact]
     public void NonUnitFunction_WithBreakableConstantTrueWhileLoop_ReportsMissingReturn()
     {

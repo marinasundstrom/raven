@@ -17,7 +17,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   keeps semantic APIs total for edited or programmatically constructed trees.
 - Constant evaluation now folds logical negation of Boolean constants, so
   control-flow and missing-return analysis recognize loops such as
-  `while !false` as non-terminating unless a reachable break exists.
+  `while !false` as non-terminating unless a reachable break exists. Boolean
+  conjunction, disjunction, and same-type constant equality are folded as well.
 - Control-flow analysis now recognizes parenthesized, converted, and
   all-abrupt `if` expressions as non-completing, including when such an
   expression is nested in a local initializer.
