@@ -1241,7 +1241,7 @@ public class NullableTypeTests : CompilationTestBase
     [InlineData("string", "\"\"", SpecialType.System_String, true)]
     [InlineData("int", "0", SpecialType.System_Int32, false)]
     [InlineData("int", "0", SpecialType.System_Int32, true)]
-    public void GetTypeInfo_UsesUnifiedNullabilityForReferenceAndValueTypes(
+    public void GetTypeInfo_PreservesDeclaredNullabilityAndReportsReturnConversionForReferenceAndValueTypes(
         string typeName,
         string fallbackValue,
         SpecialType expectedUnderlyingType,
@@ -1274,7 +1274,9 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Equal(expectedUnderlyingType, typeInfo.Type?.GetNonNullableType().SpecialType);
         Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
         Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
-        Assert.Equal(NullableAnnotation.Annotated, typeInfo.ConvertedNullability.Annotation);
+        Assert.Equal(expectedUnderlyingType, typeInfo.ConvertedType?.SpecialType);
+        Assert.False(typeInfo.ConvertedType?.IsNullable);
+        Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.ConvertedNullability.Annotation);
         Assert.Equal(NullableFlowState.NotNull, typeInfo.ConvertedNullability.FlowState);
         Assert.Empty(compilation.GetDiagnostics());
 
