@@ -895,8 +895,10 @@ The highest remaining risks after the current stabilization batch are:
    a three-layer invariant and a shared local `MetadataName` contract.
    Constructed methods also preserve their own type-parameter ownership while
    substituting a containing type argument inside nested generic constraints
-   such as `IEnumerable<T>`. Continue boundary invariants before considering a
-   central construction redesign.
+   such as `IEnumerable<T>`. Equivalent source and emitted-metadata constructed
+   types now have equality and hash coverage across constructors, parameters,
+   properties, accessors, and generic methods. Continue boundary invariants
+   before considering a central construction redesign.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now

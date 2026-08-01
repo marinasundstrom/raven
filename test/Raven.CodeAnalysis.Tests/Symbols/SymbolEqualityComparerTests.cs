@@ -152,6 +152,8 @@ public class SymbolEqualityComparerTests
     {
         const string source = """
             public class Box<T> {
+                public init(value: T) { self.Value = value }
+                public var Value: T
                 public func Select<U>(value: U) -> T => throw System.Exception()
             }
             """;
@@ -167,6 +169,8 @@ public class SymbolEqualityComparerTests
         var sourceString = sourceCompilation.GetSpecialType(SpecialType.System_String);
         var sourceInt = sourceCompilation.GetSpecialType(SpecialType.System_Int32);
         var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(sourceDefinition.Construct(sourceString));
+        var sourceConstructor = Assert.Single(sourceBox.InstanceConstructors, constructor => constructor.Parameters.Length == 1);
+        var sourceProperty = Assert.Single(sourceBox.GetMembers("Value").OfType<IPropertySymbol>());
         var sourceMethod = Assert.Single(sourceBox.GetMembers("Select").OfType<IMethodSymbol>()).Construct(sourceInt);
 
         using var image = new MemoryStream();
@@ -185,6 +189,8 @@ public class SymbolEqualityComparerTests
         var metadataString = metadataCompilation.GetSpecialType(SpecialType.System_String);
         var metadataInt = metadataCompilation.GetSpecialType(SpecialType.System_Int32);
         var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataDefinition.Construct(metadataString));
+        var metadataConstructor = Assert.Single(metadataBox.InstanceConstructors, constructor => constructor.Parameters.Length == 1);
+        var metadataProperty = Assert.Single(metadataBox.GetMembers("Value").OfType<IPropertySymbol>());
         var metadataMethod = Assert.Single(metadataBox.GetMembers("Select").OfType<IMethodSymbol>()).Construct(metadataInt);
         var comparer = SymbolEqualityComparer.Default;
 
@@ -198,6 +204,14 @@ public class SymbolEqualityComparerTests
             "Source and metadata generic definitions differ");
         Assert.True(comparer.Equals(sourceBox, metadataBox));
         Assert.Equal(comparer.GetHashCode(sourceBox), comparer.GetHashCode(metadataBox));
+        Assert.True(comparer.Equals(sourceConstructor, metadataConstructor));
+        Assert.Equal(comparer.GetHashCode(sourceConstructor), comparer.GetHashCode(metadataConstructor));
+        Assert.True(comparer.Equals(sourceConstructor.Parameters[0], metadataConstructor.Parameters[0]));
+        Assert.True(comparer.Equals(sourceProperty.Type, metadataProperty.Type));
+        Assert.True(comparer.Equals(sourceProperty, metadataProperty));
+        Assert.Equal(comparer.GetHashCode(sourceProperty), comparer.GetHashCode(metadataProperty));
+        Assert.True(comparer.Equals(sourceProperty.GetMethod, metadataProperty.GetMethod));
+        Assert.Equal(comparer.GetHashCode(sourceProperty.GetMethod!), comparer.GetHashCode(metadataProperty.GetMethod!));
         Assert.True(comparer.Equals(sourceMethod.ContainingType, metadataMethod.ContainingType),
             "Constructed method containing types differ");
         Assert.True(comparer.Equals(sourceMethod.ContainingSymbol, metadataMethod.ContainingSymbol),
