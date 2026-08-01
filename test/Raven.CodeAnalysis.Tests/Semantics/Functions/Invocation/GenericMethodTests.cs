@@ -1,4 +1,5 @@
 using System.Linq;
+using System.IO;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -345,6 +346,65 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Empty(diagnostics);
     }
 
+    [Theory]
+    [InlineData("Constraints.Select<Base, Derived>(Base(), Derived())")]
+    [InlineData("Constraints.Select(Base(), Derived())")]
+    public void EmittedGenericMethod_DependentConstraint_IsSatisfied(string call)
+    {
+        var reference = CreateDependentConstraintLibrary();
+        var (compilation, tree) = CreateCompilation(
+            $"""
+            import ConstraintLibrary.*
+
+            let value = {call}
+            """,
+            references: [.. TestMetadataReferences.Default, reference]);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString().StartsWith("Constraints.Select", System.StringComparison.Ordinal));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(["Base", "Derived"], method.TypeArguments.Select(static argument => argument.Name));
+        var derivedParameter = Assert.Single(method.TypeParameters, static parameter => parameter.Name == "TDerived");
+        var baseConstraint = Assert.IsAssignableFrom<ITypeParameterSymbol>(Assert.Single(derivedParameter.ConstraintTypes));
+        Assert.Equal("TBase", baseConstraint.Name);
+        Assert.Equal(0, baseConstraint.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Constraints.Select<Derived, Base>(Derived(), Base())")]
+    [InlineData("Constraints.Select(Derived(), Base())")]
+    public void EmittedGenericMethod_DependentConstraint_IsRejected(string call)
+    {
+        var reference = CreateDependentConstraintLibrary();
+        var (compilation, tree) = CreateCompilation(
+            $"""
+            import ConstraintLibrary.*
+
+            let value = {call}
+            """,
+            references: [.. TestMetadataReferences.Default, reference]);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString().StartsWith("Constraints.Select", System.StringComparison.Ordinal));
+        var symbolInfo = compilation.GetSemanticModel(tree).GetSymbolInfo(invocation);
+
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.OverloadResolutionFailure, symbolInfo.CandidateReason);
+        Assert.Equal("Select", Assert.Single(symbolInfo.CandidateSymbols).Name);
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {
@@ -518,6 +578,33 @@ public sealed class GenericMethodTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
+
+    private static MetadataReference CreateDependentConstraintLibrary()
+    {
+        const string source = """
+            namespace ConstraintLibrary {
+                public open class Base {}
+                public class Derived : Base {}
+
+                public class Constraints {
+                    static func Select<TBase, TDerived>(fallback: TBase, value: TDerived) -> TDerived
+                        where TDerived: TBase
+                        => value
+                }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "ConstraintLibrary",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+
+        Assert.True(emitResult.Success, string.Join(System.Environment.NewLine, emitResult.Diagnostics));
+        return MetadataReference.CreateFromImage(image.ToArray());
     }
 
     [Fact]

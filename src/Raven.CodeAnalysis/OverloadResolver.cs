@@ -1419,7 +1419,7 @@ internal sealed class OverloadResolver
         return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
     }
 
-    private static bool SatisfiesMethodConstraints(
+    internal static bool SatisfiesMethodConstraints(
         IMethodSymbol method,
         ImmutableArray<ITypeSymbol> typeArguments,
         Binder? binder,

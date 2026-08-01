@@ -3815,6 +3815,38 @@ public partial class SemanticModel
                 }
             }
 
+            var rejectedByConstraints = ImmutableArray.CreateBuilder<IMethodSymbol>();
+            var applicableMethods = ImmutableArray.CreateBuilder<IMethodSymbol>(methods.Length);
+            var constraintBinder = GetBinderForIncrementalSemanticQuery(invocation);
+            foreach (var method in methods)
+            {
+                if (method.IsGenericMethod &&
+                    method.TypeArguments.Length == method.TypeParameters.Length &&
+                    method.TypeArguments.All(static argument => argument is not ITypeParameterSymbol) &&
+                    !OverloadResolver.SatisfiesMethodConstraints(
+                        method,
+                        method.TypeArguments,
+                        constraintBinder,
+                        out _))
+                {
+                    rejectedByConstraints.Add(method);
+                    continue;
+                }
+
+                applicableMethods.Add(method);
+            }
+
+            if (applicableMethods.Count == 0 && rejectedByConstraints.Count > 0)
+            {
+                info = new SymbolInfo(
+                    CandidateReason.OverloadResolutionFailure,
+                    rejectedByConstraints.Cast<ISymbol>().ToImmutableArray());
+                CacheAvailableInvocationSymbolInfo(invocation, info);
+                return true;
+            }
+
+            methods = applicableMethods.MoveToImmutable();
+
             var candidates = methods.Cast<ISymbol>().ToImmutableArray();
             var preferred = methods.Length == 1
                 ? methods[0]

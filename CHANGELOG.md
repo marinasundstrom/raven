@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fast semantic-model queries now apply generic method constraints before
+  publishing an invocation target. Dependent constraints such as
+  `TDerived: TBase` work for explicit and inferred calls through emitted Raven
+  libraries; invalid calls expose a failed candidate instead of a selected
+  method.
 - Name-based PE member lookup now resolves nested generic types by their
   Raven-facing name (for example, `Inner` as well as the CLI name `Inner`1`).
   Constructed nested generic types and their methods retain equal source/PE

@@ -542,6 +542,16 @@ therefore use a source declaration, emit it, load it as a reference in a second
 compilation, and repeat the public lookup and construction operations a normal
 third-party consumer would perform.
 
+Dependent method constraints now have that emitted-library coverage as well.
+For a method constrained with `TDerived: TBase`, both fully explicit and fully
+inferred valid calls select a constructed method, while the reversed type
+arguments report the constraint failure. The diagnostics and semantic-query
+paths agree: an invalid call has no selected symbol, reports
+`OverloadResolutionFailure`, and retains the rejected method as a candidate.
+Fast semantic queries must use the same constraint applicability check as full
+overload resolution rather than publishing the only visible method solely
+because lookup found one candidate.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks
