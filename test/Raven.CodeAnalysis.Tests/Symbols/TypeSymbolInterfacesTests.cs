@@ -107,30 +107,6 @@ public class TypeSymbolInterfacesTests
     }
 
     [Fact]
-    public void TypeUnion_MemberQueries_DelegateToCommonBaseType()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var environment = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Environment"));
-        var union = new TypeUnionSymbol(
-            [environment, environment],
-            compilation.Assembly,
-            containingType: null,
-            containingNamespace: null,
-            locations: []);
-
-        var specialFolder = union.LookupType("SpecialFolder");
-
-        Assert.NotNull(specialFolder);
-        Assert.Equal(TypeKind.Enum, specialFolder.TypeKind);
-        Assert.True(union.IsMemberDefined("NewLine", out var newLine));
-        Assert.Equal(SymbolKind.Property, newLine?.Kind);
-        Assert.Null(union.LookupType("DoesNotExist"));
-    }
-
-    [Fact]
     public void Interfaces_ExcludeInheritedInterfaces()
     {
         var source = @"interface IA {} interface IB : IA {} class C : IB {}";

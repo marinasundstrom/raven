@@ -2872,14 +2872,6 @@ internal partial class BlockBinder
         // Strip nullable reference wrapper (object? -> object)
         inputType = StripNullableReference(inputType);
 
-        // Collect required member names from the pattern: { Value: ..., Data: ... }
-        var requiredMembers = syntax.PropertyPatternClause.Properties
-            .Select(p => p.MemberPath.Count > 0
-                ? p.MemberPath[0].Identifier.ValueText
-                : p.NameColon.Name.Identifier.ValueText)
-            .Where(n => !string.IsNullOrEmpty(n))
-            .ToImmutableArray();
-
         // If the input is a concrete named type (and not object), use it directly
         if (inputType is INamedTypeSymbol named &&
             named.TypeKind != TypeKind.Error &&
@@ -2887,48 +2879,6 @@ internal partial class BlockBinder
         {
             return named;
         }
-
-        /*
-        // If it's a union, pick a unique candidate union member that satisfies all members
-        if (inputType.IsTypeUnion)
-        {
-            var unionTypes = inputType.GetTypeUnionTypes(); // <-- use your existing helper for union constituents
-            var candidates = new List<INamedTypeSymbol>();
-
-            foreach (var t in unionTypes)
-            {
-                var tt = StripNullableReference(t);
-
-                if (tt is not INamedTypeSymbol nt)
-                    continue;
-
-                if (nt.TypeKind == TypeKind.Error)
-                    continue;
-
-                if (nt.SpecialType == SpecialType.System_Object)
-                    continue;
-
-                if (HasAllPatternMembers(nt, requiredMembers))
-                    candidates.Add(nt);
-            }
-
-            if (candidates.Count == 1)
-                return candidates[0];
-
-            if (candidates.Count > 1)
-            {
-                // Ambiguous: multiple possible receiver types
-                // You can add a dedicated diagnostic if you want;
-                // using TypeMismatch keeps it simple.
-                _diagnostics.ReportPropertyPatternTypeMismatch(
-                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    "<inferred>",
-                    syntax.GetLocation());
-
-                return Compilation.ErrorTypeSymbol;
-            }
-        }
-        */
 
         // Otherwise: we can't infer from object / type parameter / etc.
         // This is where your "Should warn" case lands (x: object?).

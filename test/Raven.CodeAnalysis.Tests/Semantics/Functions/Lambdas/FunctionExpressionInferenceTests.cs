@@ -874,8 +874,6 @@ class Container {
         var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
 
-        Assert.IsNotType<ITypeUnionSymbol>(elementType);
-
         var expectedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Result`2"))
             .Construct(
@@ -924,8 +922,6 @@ class Container {
         var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
         var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
-
-        Assert.IsNotType<ITypeUnionSymbol>(elementType);
 
         var expectedResponse = Assert.IsAssignableFrom<INamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Response`2"))

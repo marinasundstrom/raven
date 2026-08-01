@@ -1608,14 +1608,6 @@ internal abstract partial class Binder
                 return ContainsTypeParameters(array.ElementType, visited);
             case NullableTypeSymbol nullable:
                 return ContainsTypeParameters(nullable.UnderlyingType, visited);
-            case ITypeUnionSymbol union:
-                foreach (var member in union.Types)
-                {
-                    if (ContainsTypeParameters(member, visited))
-                        return true;
-                }
-
-                return false;
             default:
                 return false;
         }

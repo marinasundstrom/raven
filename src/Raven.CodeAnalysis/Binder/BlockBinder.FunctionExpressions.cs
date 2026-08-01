@@ -44,7 +44,7 @@ partial class BlockBinder
             if (_yieldTypes.Count == 1)
                 return _yieldTypes[0];
 
-            return TypeSymbolNormalization.NormalizeUnion(_yieldTypes);
+            return TypeSymbolNormalization.GetBestCommonType(_yieldTypes);
         }
     }
 
@@ -478,24 +478,6 @@ partial class BlockBinder
         {
             if (collectedReturn is not null)
                 inferred = collectedReturn;
-        }
-
-        if (isAsyncLambda && inferred is ITypeUnionSymbol union)
-        {
-            var unionTypes = union.Types.ToImmutableArray();
-            if (!unionTypes.IsDefaultOrEmpty)
-            {
-                var nonUnitTypes = unionTypes
-                    .Where(t => !SymbolEqualityComparer.Default.Equals(t, unitType))
-                    .ToImmutableArray();
-
-                if (!nonUnitTypes.IsDefaultOrEmpty)
-                {
-                    inferred = nonUnitTypes.Length == 1
-                        ? nonUnitTypes[0]
-                        : TypeSymbolNormalization.NormalizeUnion(nonUnitTypes);
-                }
-            }
         }
 
         var inferredAsyncReturnInput = inferred;

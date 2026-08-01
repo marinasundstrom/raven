@@ -89,18 +89,6 @@ public static partial class SymbolExtensions
             case LiteralTypeSymbol leftLiteral when right is LiteralTypeSymbol rightLiteral:
                 return HaveEquivalentMetadataIdentity(leftLiteral.UnderlyingType, rightLiteral.UnderlyingType);
 
-            case ITypeUnionSymbol leftUnion when right is ITypeUnionSymbol rightUnion:
-                if (leftUnion.Types.Length != rightUnion.Types.Length)
-                    return false;
-
-                for (var i = 0; i < leftUnion.Types.Length; i++)
-                {
-                    if (!HaveEquivalentMetadataIdentity(leftUnion.Types[i], rightUnion.Types[i]))
-                        return false;
-                }
-
-                return true;
-
             default:
                 return false;
         }
@@ -198,9 +186,6 @@ public static partial class SymbolExtensions
             case LiteralTypeSymbol literalType:
                 return $"literal({GetStableMetadataIdentity(literalType.UnderlyingType)})";
 
-            case ITypeUnionSymbol unionType:
-                return $"union[{string.Join("|", unionType.Types.Select(GetStableMetadataIdentity))}]";
-
             case INamedTypeSymbol namedType:
                 var definitionIdentity = namedType.OriginalDefinition is INamedTypeSymbol originalDefinition
                     ? originalDefinition.ToFullyQualifiedMetadataName()
@@ -262,15 +247,6 @@ public static partial class SymbolExtensions
 
             case IAddressTypeSymbol address:
                 return ContainsErrorType(address.ReferencedType, visited);
-
-            case ITypeUnionSymbol union:
-                foreach (var member in union.Types)
-                {
-                    if (ContainsErrorType(member, visited))
-                        return true;
-                }
-
-                return false;
 
             case INamedTypeSymbol named:
                 if (!named.TypeArguments.IsDefaultOrEmpty)
@@ -951,8 +927,7 @@ public static partial class SymbolExtensions
             var underlying = nullable.UnderlyingType;
 
             // Nullable of function type => (A -> B)?
-            // Nullable of type union => (A | B)?
-            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion } &&
+            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
                 TryFormatFunctionType(underlying, format, out var funcDisplay))
             {
                 return $"({funcDisplay})?";
@@ -985,9 +960,8 @@ public static partial class SymbolExtensions
 
             var elementType = arrayType.ElementType;
 
-            // Array of of function type => (A -> B)[]
-            // Array of of type union => (A | B)[]
-            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion } ||
+            // Array of a function or standard union type requires grouping.
+            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } ||
                 IsStandardUnionType(elementType))
             {
                 elementDisplay = $"({elementDisplay})";
@@ -1038,13 +1012,6 @@ public static partial class SymbolExtensions
 
             var suffix = name["Item".Length..];
             return int.TryParse(suffix, out var ordinal) && ordinal == elementIndex + 1;
-        }
-
-        // Unions (if you want pipe-style display)
-        if (typeSymbol is ITypeUnionSymbol unionType)
-        {
-            var members = unionType.Types.Select(t => FormatType(t, format));
-            return string.Join(" | ", members);
         }
 
         if (IsStandardUnionType(typeSymbol) &&
@@ -1955,7 +1922,6 @@ public static partial class SymbolExtensions
             TypeKind.Interface => "interface",
             TypeKind.Enum => "enum",
             TypeKind.Delegate => "delegate",
-            //TypeKind.TypeUnion => "union",
             _ => null
         };
     }

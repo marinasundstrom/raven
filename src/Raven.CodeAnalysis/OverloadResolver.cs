@@ -2826,7 +2826,6 @@ internal sealed class OverloadResolver
     {
         NullableTypeSymbol nt => nt.UnderlyingType,
         LiteralTypeSymbol lt => lt.UnderlyingType,
-        ITypeUnionSymbol ut => TypeSymbolExtensionsForCodeGen.FindCommonDenominator(ut.Types) ?? type,
         _ => type,
     };
 

@@ -3353,7 +3353,6 @@ internal sealed class HoverHandler : IHoverHandler
                 TypeKind.Enum => "enum",
                 TypeKind.Delegate => "delegate",
                 TypeKind.Class when definition.IsUnion => "union class",
-                TypeKind.TypeUnion => "union",
                 _ => "class"
             };
 
@@ -3383,7 +3382,6 @@ internal sealed class HoverHandler : IHoverHandler
             TypeKind.Enum => "enum",
             TypeKind.Delegate => "delegate",
             TypeKind.Class when type.IsUnion => "union class",
-            TypeKind.TypeUnion => "union",
             _ => "class"
         };
 

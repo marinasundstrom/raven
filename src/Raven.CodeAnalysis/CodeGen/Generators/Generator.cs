@@ -277,25 +277,11 @@ internal abstract class Generator
             return;
         }
 
-        if (to is ITypeUnionSymbol unionTo)
-        {
-            EmitUnionConversion(from, unionTo);
-            return;
-        }
-
         if (from.SpecialType == SpecialType.System_Object &&
             to is INamedTypeSymbol destinationCarrierFromObject &&
             destinationCarrierFromObject.TryGetUnion() is IUnionSymbol destinationDiscriminatedUnion &&
             (conversion.IsUnboxing || conversion.IsReference) &&
             EmitObjectToDiscriminatedUnionConversion(destinationCarrierFromObject, destinationDiscriminatedUnion))
-        {
-            return;
-        }
-
-        if (from is ITypeUnionSymbol sourceTypeUnionForCarrier &&
-            to is INamedTypeSymbol destinationCarrier &&
-            destinationCarrier.TryGetUnion() is not null &&
-            EmitDiscriminatedUnionTypeUnionConversion(sourceTypeUnionForCarrier, destinationCarrier))
         {
             return;
         }
@@ -306,13 +292,6 @@ internal abstract class Generator
                 from is INamedTypeSymbol sourceNamedUnion &&
                 sourceNamedUnion.TryGetUnion() is not null &&
                 EmitExplicitUnionExtraction(sourceNamedUnion, to))
-            {
-                return;
-            }
-
-            if (from is ITypeUnionSymbol sourceTypeUnion &&
-                to is INamedTypeSymbol destinationNamedUnion &&
-                EmitDiscriminatedUnionTypeUnionConversion(sourceTypeUnion, destinationNamedUnion))
             {
                 return;
             }
@@ -514,127 +493,6 @@ internal abstract class Generator
         return true;
     }
 
-    private void EmitUnionConversion(ITypeSymbol from, ITypeUnionSymbol unionTo)
-    {
-        var emission = unionTo.GetUnionEmissionInfo(Compilation);
-        var targetClrType = ResolveClrType(unionTo);
-
-        if (emission.WrapInNullable)
-        {
-            EmitNullableUnionConversion(from, unionTo, emission.UnderlyingTypeSymbol, targetClrType);
-            return;
-        }
-
-        if (ShouldBoxForReferenceTarget(from, unionTo))
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
-    }
-
-    private bool EmitDiscriminatedUnionTypeUnionConversion(ITypeUnionSymbol sourceTypeUnion, INamedTypeSymbol destinationNamedUnion)
-    {
-        var sourceCases = new List<ITypeSymbol>();
-        foreach (var member in sourceTypeUnion.Types.SelectMany(FlattenUnionMembers))
-        {
-            if (sourceCases.Any(existing => SymbolEqualityComparer.Default.Equals(existing, member)))
-                continue;
-
-            sourceCases.Add(member);
-        }
-
-        if (sourceCases.Count == 0)
-            return false;
-
-        var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(sourceCases.Count);
-        foreach (var sourceCase in sourceCases)
-        {
-            var conversion = Compilation.ClassifyConversion(sourceCase, destinationNamedUnion);
-            if (!conversion.Exists || !conversion.IsImplicit)
-                return false;
-
-            caseConversions.Add((sourceCase, conversion));
-        }
-
-        var sourceClrType = ResolveClrType(sourceTypeUnion);
-        var destinationClrType = ResolveClrType(destinationNamedUnion);
-        var boxedSourceLocal = ILGenerator.DeclareLocal(typeof(object));
-        var endLabel = ILGenerator.DefineLabel();
-        var failedLabel = ILGenerator.DefineLabel();
-        if (sourceClrType.IsValueType)
-            ILGenerator.Emit(OpCodes.Box, sourceClrType);
-
-        ILGenerator.Emit(OpCodes.Stloc, boxedSourceLocal);
-
-        var objectGetType = typeof(object).GetMethod(nameof(object.GetType), Type.EmptyTypes)
-            ?? throw new InvalidOperationException("Missing System.Object.GetType method.");
-        var typeFromHandle = typeof(Type).GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(RuntimeTypeHandle)], modifiers: null)
-            ?? throw new InvalidOperationException("Missing System.Type.GetTypeFromHandle method.");
-        var typeEquality = typeof(Type).GetMethod("op_Equality", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(Type), typeof(Type)], modifiers: null)
-            ?? throw new InvalidOperationException("Missing System.Type.op_Equality method.");
-
-        var afterDestinationLabel = ILGenerator.DefineLabel();
-        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-        ILGenerator.Emit(OpCodes.Brfalse, afterDestinationLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
-        ILGenerator.Emit(OpCodes.Ldtoken, destinationClrType);
-        ILGenerator.Emit(OpCodes.Call, typeFromHandle);
-        ILGenerator.Emit(OpCodes.Call, typeEquality);
-        ILGenerator.Emit(OpCodes.Brfalse, afterDestinationLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-        ILGenerator.Emit(destinationClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, destinationClrType);
-        ILGenerator.Emit(OpCodes.Br, endLabel);
-        ILGenerator.MarkLabel(afterDestinationLabel);
-
-        for (var i = 0; i < caseConversions.Count; i++)
-        {
-            var (caseType, conversion) = caseConversions[i];
-            var caseClrType = ResolveClrType(caseType);
-            var nextCaseLabel = ILGenerator.DefineLabel();
-
-            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
-            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
-            ILGenerator.Emit(OpCodes.Ldtoken, caseClrType);
-            ILGenerator.Emit(OpCodes.Call, typeFromHandle);
-            ILGenerator.Emit(OpCodes.Call, typeEquality);
-            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
-
-            ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-            ILGenerator.Emit(caseClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, caseClrType);
-
-            EmitConversion(caseType, destinationNamedUnion, conversion);
-            ILGenerator.Emit(OpCodes.Br, endLabel);
-            ILGenerator.MarkLabel(nextCaseLabel);
-        }
-
-        ILGenerator.Emit(OpCodes.Br, failedLabel);
-        ILGenerator.MarkLabel(failedLabel);
-
-        var invalidCastCtor = typeof(InvalidCastException).GetConstructor(Type.EmptyTypes)
-            ?? throw new InvalidOperationException("Missing InvalidCastException default constructor.");
-        ILGenerator.Emit(OpCodes.Newobj, invalidCastCtor);
-        ILGenerator.Emit(OpCodes.Throw);
-
-        ILGenerator.MarkLabel(endLabel);
-        return true;
-
-        static IEnumerable<ITypeSymbol> FlattenUnionMembers(ITypeSymbol type)
-        {
-            if (type is ITypeUnionSymbol nested)
-            {
-                foreach (var nestedMember in nested.Types)
-                {
-                    foreach (var flattened in FlattenUnionMembers(nestedMember))
-                        yield return flattened;
-                }
-
-                yield break;
-            }
-
-            yield return type;
-        }
-    }
-
     private bool EmitObjectToDiscriminatedUnionConversion(INamedTypeSymbol destinationNamedUnion, IUnionSymbol destinationUnion)
     {
         var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(destinationUnion.CaseTypes.Length);
@@ -709,41 +567,6 @@ internal abstract class Generator
 
         ILGenerator.MarkLabel(endLabel);
         return true;
-    }
-
-    private void EmitNullableUnionConversion(
-        ITypeSymbol from,
-        ITypeUnionSymbol unionTo,
-        ITypeSymbol underlyingSymbol,
-        Type nullableClrType)
-    {
-        if (from.TypeKind == TypeKind.Null)
-        {
-            EmitDefaultValue(unionTo);
-            return;
-        }
-
-        if (!SymbolEqualityComparer.Default.Equals(from, underlyingSymbol))
-        {
-            var underlyingConversion = Compilation.ClassifyConversion(from, underlyingSymbol);
-            if (!underlyingConversion.Exists)
-                throw new NotSupportedException("Unsupported conversion to nullable union underlying type");
-
-            EmitConversion(from, underlyingSymbol, underlyingConversion);
-        }
-
-        var underlyingClrType = ResolveClrType(underlyingSymbol);
-        var valueLocal = ILGenerator.DeclareLocal(underlyingClrType);
-        var nullableLocal = ILGenerator.DeclareLocal(nullableClrType);
-
-        ILGenerator.Emit(OpCodes.Stloc, valueLocal);
-        ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
-
-        var ctor = GetNullableConstructor(nullableClrType, underlyingClrType);
-
-        ILGenerator.Emit(OpCodes.Call, ctor);
-        ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
     }
 
     private void EmitNullableConversion(ITypeSymbol from, NullableTypeSymbol nullableTo)

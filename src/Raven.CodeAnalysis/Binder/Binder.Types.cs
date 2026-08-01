@@ -776,14 +776,7 @@ internal abstract partial class Binder
             };
         }
 
-        return new ResolveTypeResult
-        {
-            ResolvedType = TypeSymbolNormalization.NormalizeUnion(
-                resolvedTypeArguments,
-                _diagnostics,
-                union.GetLocation(),
-                Compilation.ErrorTypeSymbol)
-        };
+        return Fail(union, TypeResolutionFailureKind.FrameworkTypeNotFound);
     }
 
     // -----------------------------

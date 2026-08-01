@@ -1,4 +1,5 @@
 using System;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -28,6 +29,6 @@ internal partial class BoundIfExpression : BoundExpression
         if (elseType is null || SymbolEqualityComparer.Default.Equals(elseType, thenType))
             return thenType;
 
-        return TypeSymbolNormalization.NormalizeUnion(new[] { thenType, elseType });
+        return TypeSymbolNormalization.GetBestCommonType(new[] { thenType, elseType });
     }
 }

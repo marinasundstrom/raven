@@ -108,10 +108,6 @@ internal sealed class MatchExhaustivenessEvaluator
             {
                 missingCases = GetMissingEnumCases(scrutineeType, arms, enumType, options);
             }
-            else if (scrutineeType is ITypeUnionSymbol typeUnion)
-            {
-                missingCases = GetMissingUnionCases(scrutineeType, arms, typeUnion, options);
-            }
             else if (TypeCoverageHelper.TryGetSealedHierarchy(scrutineeType, out var sealedRoot))
             {
                 missingCases = GetMissingSealedHierarchyCases(scrutineeType, arms, sealedRoot, options);
@@ -465,7 +461,6 @@ internal sealed class MatchExhaustivenessEvaluator
         payloadType = UnwrapAlias(payloadType);
         var allPayloads = payloadType switch
         {
-            ITypeUnionSymbol payloadUnion => GetUnionMembers(payloadUnion).ToImmutableArray(),
             _ when payloadType.TryGetUnion() is { } payloadUnion =>
                 UnionContentNullability.GetPatternDomainTypes(payloadUnion, _compilation.NullTypeSymbol),
             _ => ImmutableArray<ITypeSymbol>.Empty,
@@ -655,48 +650,6 @@ internal sealed class MatchExhaustivenessEvaluator
 
         return remaining
             .Select(field => field.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToImmutableArray();
-    }
-
-    private ImmutableArray<string> GetMissingUnionCases(
-        ITypeSymbol scrutineeType,
-        ImmutableArray<BoundMatchArm> arms,
-        ITypeUnionSymbol union,
-        MatchExhaustivenessOptions options)
-    {
-        var remaining = new HashSet<ITypeSymbol>(GetUnionMembers(union), TypeSymbolReferenceComparer.Instance);
-        var literalCoverage = CreateLiteralCoverage(remaining);
-
-        foreach (var arm in arms)
-        {
-            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
-                continue;
-
-            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(scrutineeType, arm.Pattern))
-                continue;
-
-            RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
-
-            if (remaining.Count == 0)
-                break;
-        }
-
-        if (literalCoverage is not null && literalCoverage.Count > 0)
-        {
-            foreach (var (type, constants) in literalCoverage)
-            {
-                if (remaining.Contains(type))
-                {
-                    var literalMissing = GetMissingLiteralCoverage(type, constants);
-                    if (!literalMissing.IsDefaultOrEmpty)
-                        return literalMissing;
-                }
-            }
-        }
-
-        return remaining
-            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToImmutableArray();
     }
@@ -1588,13 +1541,6 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
             }
 
-            if (patternType is ITypeUnionSymbol patternUnion &&
-                candidateType is ITypeUnionSymbol candidateUnion &&
-                TypeCoverageHelper.UnionIsCoveredByTypes(patternUnion, candidateUnion.Types))
-            {
-                remaining.Remove(candidate);
-                literalCoverage?.Remove(candidate);
-            }
         }
     }
 
@@ -1611,22 +1557,6 @@ internal sealed class MatchExhaustivenessEvaluator
 
             remaining.Remove(candidate);
             literalCoverage?.Remove(candidate);
-        }
-    }
-
-    private static IEnumerable<ITypeSymbol> GetUnionMembers(ITypeUnionSymbol union)
-    {
-        foreach (var member in union.Types)
-        {
-            if (member is ITypeUnionSymbol nested)
-            {
-                foreach (var nestedMember in GetUnionMembers(nested))
-                    yield return UnwrapAlias(nestedMember);
-            }
-            else
-            {
-                yield return UnwrapAlias(member);
-            }
         }
     }
 
@@ -1716,15 +1646,6 @@ internal sealed class MatchExhaustivenessEvaluator
 
         if (type.TryGetUnion() is { ContentMayBeNull: true })
             return true;
-
-        if (type is ITypeUnionSymbol union)
-        {
-            foreach (var member in union.Types)
-            {
-                if (CanBeNull(member))
-                    return true;
-            }
-        }
 
         return false;
     }

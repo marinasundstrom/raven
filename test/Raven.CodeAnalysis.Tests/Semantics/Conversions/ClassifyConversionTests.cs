@@ -48,20 +48,6 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     }
 
     [Fact]
-    public void Null_ConvertsToUnionContainingNull()
-    {
-        var compilation = CreateCompilation();
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
-
-        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsReference);
-    }
-
-    [Fact]
     public void ValueType_LiftsToNullableImplicitly()
     {
         var compilation = CreateCompilation();
@@ -480,37 +466,6 @@ class Comparer : IComparer<object>
         Assert.True(conversion.Exists);
         Assert.False(conversion.IsImplicit);
         Assert.True(conversion.IsUnboxing);
-    }
-
-    [Fact]
-    public void UnionConversion_ValueTypeBranch_Boxes()
-    {
-        var compilation = CreateCompilation();
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new TypeUnionSymbol([intType, stringType], compilation.Assembly, null, null, []);
-
-        var conversion = compilation.ClassifyConversion(intType, union);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsBoxing);
-        Assert.False(conversion.IsReference);
-    }
-
-    [Fact]
-    public void UnionConversion_ReferenceBranch_IsImplicit()
-    {
-        var compilation = CreateCompilation();
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new TypeUnionSymbol([intType, stringType], compilation.Assembly, null, null, []);
-
-        var conversion = compilation.ClassifyConversion(stringType, union);
-
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.False(conversion.IsBoxing);
     }
 
 }

@@ -278,20 +278,6 @@ public static class TypeSymbolExtensionsForCodeGen
                 throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
             }
 
-            if (typeSymbol is ITypeUnionSymbol union)
-            {
-                var emission = union.GetUnionEmissionInfo(compilation);
-                var underlyingClr = GetClrTypeInternal(emission.UnderlyingTypeSymbol, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-
-                if (emission.WrapInNullable)
-                {
-                    var nullableDefinition = GetNullableRuntimeType(compilation);
-                    return nullableDefinition.MakeGenericType(underlyingClr);
-                }
-
-                return underlyingClr;
-            }
-
             throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");
         }
         finally
@@ -620,59 +606,6 @@ public static class TypeSymbolExtensionsForCodeGen
         return false;
     }
 
-    internal static UnionEmissionInfo GetUnionEmissionInfo(this ITypeUnionSymbol union, Compilation compilation)
-    {
-        if (union is null)
-            throw new ArgumentNullException(nameof(union));
-        if (compilation is null)
-            throw new ArgumentNullException(nameof(compilation));
-
-        var flattened = FlattenUnionMembers(union).ToImmutableArray();
-        var includesNull = flattened.Any(t => t.TypeKind == TypeKind.Null);
-        var nonNull = flattened.Where(t => t.TypeKind != TypeKind.Null).ToImmutableArray();
-
-        var distinctNonNull = nonNull
-            .Distinct<ITypeSymbol>(SymbolEqualityComparer.Default)
-            .ToImmutableArray();
-
-        var declaredUnderlying = union.DeclaredUnderlyingType;
-        var wrapInNullable = false;
-        ITypeSymbol underlying;
-
-        if (declaredUnderlying is NullableTypeSymbol nullableDeclared)
-        {
-            underlying = nullableDeclared.UnderlyingType;
-            wrapInNullable = true;
-        }
-        else if (declaredUnderlying is not null)
-        {
-            underlying = declaredUnderlying;
-            if (includesNull && declaredUnderlying.IsValueType)
-            {
-                // Value types cannot represent null unless explicitly nullable.
-                // Fall back to wrapping in Nullable so that metadata signatures remain valid.
-                wrapInNullable = true;
-            }
-        }
-        else
-        {
-            var common = FindCommonDenominator(nonNull);
-            underlying = common ?? compilation.GetSpecialType(SpecialType.System_Object);
-
-            if (includesNull && distinctNonNull.Length == 1 && distinctNonNull[0].IsValueType)
-            {
-                underlying = distinctNonNull[0];
-                wrapInNullable = true;
-            }
-        }
-
-        return new UnionEmissionInfo(
-            underlying,
-            wrapInNullable,
-            includesNull,
-            distinctNonNull);
-    }
-
     internal static INamedTypeSymbol? FindCommonDenominator(IEnumerable<ITypeSymbol> types)
     {
         var namedTypes = types.Select(Unalias).OfType<INamedTypeSymbol>().ToArray();
@@ -713,22 +646,6 @@ public static class TypeSymbolExtensionsForCodeGen
         }
     }
 
-    private static IEnumerable<ITypeSymbol> FlattenUnionMembers(ITypeSymbol type)
-    {
-        if (type is ITypeUnionSymbol union)
-        {
-            foreach (var member in union.Types)
-            {
-                foreach (var nested in FlattenUnionMembers(member))
-                    yield return nested;
-            }
-
-            yield break;
-        }
-
-        yield return Unalias(type);
-    }
-
     private static ITypeSymbol Unalias(ITypeSymbol type)
     {
         while (true)
@@ -756,27 +673,4 @@ public static class TypeSymbolExtensionsForCodeGen
             depth++;
         return depth;
     }
-}
-
-internal readonly struct UnionEmissionInfo
-{
-    public UnionEmissionInfo(
-        ITypeSymbol underlyingTypeSymbol,
-        bool wrapInNullable,
-        bool includesNull,
-        ImmutableArray<ITypeSymbol> distinctNonNullMembers)
-    {
-        UnderlyingTypeSymbol = underlyingTypeSymbol;
-        WrapInNullable = wrapInNullable;
-        IncludesNull = includesNull;
-        DistinctNonNullMembers = distinctNonNullMembers;
-    }
-
-    public ITypeSymbol UnderlyingTypeSymbol { get; }
-
-    public bool WrapInNullable { get; }
-
-    public bool IncludesNull { get; }
-
-    public ImmutableArray<ITypeSymbol> DistinctNonNullMembers { get; }
 }

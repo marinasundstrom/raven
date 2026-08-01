@@ -274,9 +274,6 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
                 return FormatSealedHierarchyPattern(caseType, missingCase);
         }
 
-        if (scrutineeType is ITypeUnionSymbol)
-            return FormatTypedDeclarationPattern(missingCase);
-
         return missingCase;
     }
 

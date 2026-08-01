@@ -65,12 +65,6 @@ public static class TypeSymbolExtensions
             throw new InvalidOperationException($"Unable to resolve metadata type '{metadataName}' from the core assembly.");
         }
 
-        // Handle dynamic type
-        if (typeSymbol is ITypeUnionSymbol)
-        {
-            return GetFrameworkType(SpecialType.System_Object, compilation);
-        }
-
         /*
         // Handle dynamic type
         if (typeSymbol is IDynamicTypeSymbol)

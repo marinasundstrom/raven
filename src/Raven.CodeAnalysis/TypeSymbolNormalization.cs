@@ -16,16 +16,13 @@ internal static class TypeSymbolNormalization
             return new RefTypeSymbol(referenced);
         }
 
-        if (type is ITypeUnionSymbol union)
-            return NormalizeUnion(union.Types);
-
         if (type is LiteralTypeSymbol literal)
             return literal.UnderlyingType;
 
         return type;
     }
 
-    public static ITypeSymbol NormalizeUnion(
+    public static ITypeSymbol GetBestCommonType(
         IEnumerable<ITypeSymbol> types,
         DiagnosticBag? diagnostics = null,
         Location? location = null,
@@ -34,12 +31,12 @@ internal static class TypeSymbolNormalization
         var members = ImmutableArray.CreateBuilder<ITypeSymbol>();
 
         foreach (var member in types)
-            AddNormalizedUnionMember(members, member);
+            AddNormalizedCandidate(members, member);
 
-        var filtered = RemoveRedundantUnionMembers(members.ToImmutable());
+        var filtered = RemoveRedundantCandidates(members.ToImmutable());
 
         if (filtered.Length == 0)
-            return errorTypeSymbol ?? throw new ArgumentException("Union normalization requires at least one type.", nameof(types));
+            return errorTypeSymbol ?? throw new ArgumentException("Common-type inference requires at least one type.", nameof(types));
 
         if (TryCollapseToDiscriminatedUnion(filtered, out var discriminatedUnion))
             return NormalizeForInference(discriminatedUnion);
@@ -50,9 +47,8 @@ internal static class TypeSymbolNormalization
         if (filtered.Length == 1)
             return NormalizeForInference(filtered[0]);
 
-        // Type unions are being phased out. When multiple branches remain, pick the
-        // closest common nominal type (or object fallback) instead of materializing
-        // a TypeUnionSymbol.
+        // Inference across distinct branch types uses their closest common nominal
+        // type (or object fallback); it does not synthesize a new semantic type.
         var nonNullMembers = filtered
             .Where(static member => member.TypeKind != TypeKind.Null)
             .ToImmutableArray();
@@ -71,14 +67,10 @@ internal static class TypeSymbolNormalization
         return errorTypeSymbol ?? NormalizeForInference(filtered[0]);
     }
 
-    private static void AddNormalizedUnionMember(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)
+    private static void AddNormalizedCandidate(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)
     {
         switch (member)
         {
-            case ITypeUnionSymbol nested:
-                foreach (var nestedMember in nested.Types)
-                    AddNormalizedUnionMember(builder, nestedMember);
-                break;
             case LiteralTypeSymbol literal:
                 builder.Add(literal);
                 break;
@@ -88,7 +80,7 @@ internal static class TypeSymbolNormalization
         }
     }
 
-    private static ImmutableArray<ITypeSymbol> RemoveRedundantUnionMembers(ImmutableArray<ITypeSymbol> members)
+    private static ImmutableArray<ITypeSymbol> RemoveRedundantCandidates(ImmutableArray<ITypeSymbol> members)
     {
         var filtered = ImmutableArray.CreateBuilder<ITypeSymbol>();
         var hasNonLiteral = members.Any(member => member is not LiteralTypeSymbol);

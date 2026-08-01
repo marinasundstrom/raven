@@ -12,6 +12,24 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class StandardUnionTypeSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void UnionTypeSyntax_DoesNotFallBackToLegacyTypeUnionSemantics()
+    {
+        const string source = "func accept(value: int | string) -> () { }";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: TestMetadataReferences.Default);
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
+
+        var model = compilation.GetSemanticModel(tree);
+        var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
+        Assert.Null(model.GetTypeInfo(parameter.TypeAnnotation!.Type).Type);
+    }
+
+    [Fact]
     public void UnionTypeSyntax_BindsToRavenCoreUnion()
     {
         const string source = """

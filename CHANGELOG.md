@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
+  `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
+  exhaustiveness, emission, analyzer, and language-service behavior. Raven's
+  union feature remains independent; union syntax no longer falls back to a
+  synthesized or common-base type when its required union definition is absent.
 - `GetTypeInfo` now reports contextual conversions consistently for return,
   assignment, and argument expressions. In particular, explicit return values
   converted to a standard-union carrier retain their natural type while
@@ -52,7 +57,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   with the public compiler API while retaining stable names for presentation.
   PE array loading preserves pointer and by-reference element symbol kinds
   instead of projecting every wrapper element as a named type.
-- Public compiler-model queries no longer throw for array, tuple, type-union,
+- Public compiler-model queries no longer throw for array, tuple,
   and module namespace symbols. `SourceText` now provides cached line
   collections with line-break spans, validated copy operations, and cancellable
   full or span-based writes without creating substring values.

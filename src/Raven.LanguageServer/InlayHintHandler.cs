@@ -1570,13 +1570,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return false;
         }
 
-        display = type is ITypeUnionSymbol union
-            ? string.Join(
-                " | ",
-                union.Types
-                    .Select(FormatSingleType)
-                    .OrderBy(static value => value, StringComparer.Ordinal))
-            : FormatSingleType(type);
+        display = FormatSingleType(type);
 
         return !string.IsNullOrWhiteSpace(display);
     }
@@ -1595,8 +1589,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (type.GetNullableUnderlyingType() is { } nullableUnderlying)
         {
             var underlyingDisplay = FormatTypeForInsertion(nullableUnderlying);
-            if (nullableUnderlying is ITypeUnionSymbol ||
-                IsStandardUnionType(nullableUnderlying) ||
+            if (IsStandardUnionType(nullableUnderlying) ||
                 nullableUnderlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate })
             {
                 underlyingDisplay = $"({underlyingDisplay})";
@@ -1614,8 +1607,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (type is IArrayTypeSymbol arrayType)
         {
             var elementDisplay = FormatTypeForInsertion(arrayType.ElementType);
-            if (arrayType.ElementType is ITypeUnionSymbol ||
-                IsStandardUnionType(arrayType.ElementType) ||
+            if (IsStandardUnionType(arrayType.ElementType) ||
                 arrayType.ElementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate })
             {
                 elementDisplay = $"({elementDisplay})";
@@ -1646,13 +1638,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     : $"{element.Name}: {FormatTypeForInsertion(element.Type)}");
             return "(" + string.Join(", ", elements) + ")";
         }
-
-        if (type is ITypeUnionSymbol unionType)
-            return string.Join(
-                " | ",
-                unionType.Types
-                    .Select(FormatTypeForInsertion)
-                    .OrderBy(static value => value, StringComparer.Ordinal));
 
         if (IsStandardUnionType(type) &&
             type is INamedTypeSymbol standardUnion &&
@@ -1936,7 +1921,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         {
             0 => null,
             1 => types.First(),
-            _ => TypeSymbolNormalization.NormalizeUnion(types)
+            _ => TypeSymbolNormalization.GetBestCommonType(types)
         };
 
         if (isAsync)

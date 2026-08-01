@@ -54,27 +54,6 @@ public sealed class OverloadResolverTests : CompilationTestBase
     }
 
     [Fact]
-    public void ResolveOverload_UsesCommonDenominatorForUnionArguments()
-    {
-        var compilation = CreateInitializedCompilation();
-        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
-        var streamType = compilation.GetTypeByMetadataName("System.IO.Stream") ?? throw new InvalidOperationException("Missing System.IO.Stream");
-        var memoryStream = compilation.GetTypeByMetadataName("System.IO.MemoryStream") ?? throw new InvalidOperationException("Missing System.IO.MemoryStream");
-        var fileStream = compilation.GetTypeByMetadataName("System.IO.FileStream") ?? throw new InvalidOperationException("Missing System.IO.FileStream");
-
-        var union = new TypeUnionSymbol(new[] { memoryStream, fileStream }, compilation.Assembly, null, null, Array.Empty<Location>());
-        var stream = CreateMethod(compilation, "Stream", streamType);
-        var obj = CreateMethod(compilation, "Object", objectType);
-
-        var arguments = CreateArguments(new TestBoundExpression(union));
-
-        var result = OverloadResolver.ResolveOverload([stream, obj], arguments, compilation);
-
-        Assert.True(result.Success);
-        Assert.Same(stream, result.Method);
-    }
-
-    [Fact]
     public void ResolveOverload_LiteralArgumentPrefersUnderlyingPrimitive()
     {
         var compilation = CreateInitializedCompilation();

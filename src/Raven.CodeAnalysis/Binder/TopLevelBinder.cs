@@ -273,7 +273,7 @@ class TopLevelBinder : BlockBinder
         if (SymbolEqualityComparer.Default.Equals(current, incoming))
             return current;
 
-        return TypeSymbolNormalization.NormalizeUnion([current, incoming]);
+        return TypeSymbolNormalization.GetBestCommonType([current, incoming]);
     }
 
     public override ISymbol? LookupSymbol(string name)

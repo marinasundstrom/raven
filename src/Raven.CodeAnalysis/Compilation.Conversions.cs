@@ -359,26 +359,9 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
-        static bool UnionContainsNull(ITypeUnionSymbol union)
-        {
-            foreach (var member in union.Types)
-            {
-                if (member.TypeKind == TypeKind.Null)
-                    return true;
-
-                if (member is ITypeUnionSymbol nested && UnionContainsNull(nested))
-                    return true;
-            }
-
-            return false;
-        }
-
         if (source.TypeKind == TypeKind.Null)
         {
             if (destination.TypeKind == TypeKind.Nullable)
-                return Finalize(new Conversion(isImplicit: true, isReference: true));
-
-            if (destination is ITypeUnionSymbol unionDest && UnionContainsNull(unionDest))
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;
@@ -411,34 +394,6 @@ public partial class Compilation
                     }
                 }
 
-                if (destination is ITypeUnionSymbol unionDestination &&
-                    UnionContainsNull(unionDestination))
-                {
-                    foreach (var branch in unionDestination.Types)
-                    {
-                        if (branch.TypeKind == TypeKind.Null)
-                            continue;
-
-                        var conv = ClassifyConversion(nullableSource.UnderlyingType, branch, includeUserDefined);
-                        if (conv.Exists)
-                        {
-                            return Finalize(new Conversion(
-                                isImplicit: conv.IsImplicit,
-                                isIdentity: conv.IsIdentity,
-                                isNumeric: conv.IsNumeric,
-                                isReference: true,
-                                isBoxing: conv.IsBoxing,
-                                isUnboxing: conv.IsUnboxing,
-                                isPointer: conv.IsPointer,
-                                isDiscriminatedUnion: conv.IsUnion,
-                                isLifted: true,
-                                isUserDefined: conv.IsUserDefined,
-                                isAlias: conv.IsAlias,
-                            methodSymbol: conv.MethodSymbol,
-                            constructorSymbol: conv.ConstructorSymbol));
-                        }
-                    }
-                }
             }
             else
             {
@@ -490,14 +445,6 @@ public partial class Compilation
             }
             else
             {
-                if (source is ITypeUnionSymbol unionSource &&
-                    unionSource.Types.Count() == 2 &&
-                    unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
-                    unionSource.Types.Any(t => t.MetadataIdentityEquals(nullableDest.UnderlyingType)))
-                {
-                    return Finalize(new Conversion(isImplicit: true, isReference: true));
-                }
-
                 var conv = ClassifyConversion(source, nullableDest.UnderlyingType, includeUserDefined);
                 if (conv.Exists)
                 {
@@ -514,25 +461,6 @@ public partial class Compilation
                         methodSymbol: conv.MethodSymbol));
                 }
             }
-        }
-
-        if (source is ITypeUnionSymbol unionSource2)
-        {
-            var conversions = unionSource2.Types.Select(t => ClassifyConversion(t, destination, includeUserDefined)).ToArray();
-            if (conversions.All(c => c.Exists))
-            {
-                var isImplicit = conversions.All(c => c.IsImplicit);
-                var isAlias = conversions.Any(c => c.IsAlias);
-                var destinationIsValueType = destination.IsValueType;
-
-                return Finalize(new Conversion(
-                    isImplicit: isImplicit,
-                    isReference: !destinationIsValueType,
-                    isUnboxing: destinationIsValueType,
-                    isAlias: isAlias));
-            }
-
-            return Conversion.None;
         }
 
         if (source.SpecialType == SpecialType.System_Void)
@@ -554,31 +482,6 @@ public partial class Compilation
                 isImplicit: true,
                 isReference: !source.IsValueType,
                 isBoxing: source.IsValueType));
-        }
-
-        if (destination is ITypeUnionSymbol unionType)
-        {
-            Conversion matchConversion = default;
-            var foundMatch = false;
-
-            foreach (var branch in unionType.Types)
-            {
-                var branchConversion = ClassifyConversion(source, branch, includeUserDefined);
-                if (branchConversion.Exists)
-                {
-                    matchConversion = branchConversion;
-                    foundMatch = true;
-                    break;
-                }
-            }
-
-            if (!foundMatch)
-                return Conversion.None;
-
-            return Finalize(new Conversion(
-                isImplicit: true,
-                isBoxing: source.IsValueType,
-                isAlias: matchConversion.IsAlias));
         }
 
         if (source is LiteralTypeSymbol litSrc2)

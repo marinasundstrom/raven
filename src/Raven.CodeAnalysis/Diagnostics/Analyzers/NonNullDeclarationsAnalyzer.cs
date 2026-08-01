@@ -136,15 +136,6 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         if (type.IsNullable || type.TypeKind == TypeKind.Null)
             return true;
 
-        if (type is not ITypeUnionSymbol union)
-            return false;
-
-        foreach (var member in union.Types)
-        {
-            if (IsNullableDeclarationType(member))
-                return true;
-        }
-
         return false;
     }
 
@@ -176,14 +167,6 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         if (type.TypeKind == TypeKind.Null)
             return;
 
-        if (type is ITypeUnionSymbol union)
-        {
-            foreach (var member in union.Types)
-                Collect(member, items);
-
-            return;
-        }
-
         if (type.IsNullable)
         {
             Collect(type.GetNonNullableType(), items);
@@ -198,19 +181,6 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
 
     private static string FormatType(ITypeSymbol type)
     {
-        if (type is ITypeUnionSymbol union)
-        {
-            var parts = new List<string>();
-            foreach (var member in union.Types)
-            {
-                var memberDisplay = FormatType(member);
-                if (!parts.Contains(memberDisplay, StringComparer.Ordinal))
-                    parts.Add(memberDisplay);
-            }
-
-            return string.Join(" | ", parts);
-        }
-
         return type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 }

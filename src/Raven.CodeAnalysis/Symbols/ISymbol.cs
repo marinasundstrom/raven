@@ -562,8 +562,6 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsTupleType => TypeKind == TypeKind.Tuple || this is ITupleTypeSymbol;
 
-    bool IsTypeUnion => TypeKind == TypeKind.TypeUnion;
-
     bool IsNullable => TypeKind == TypeKind.Nullable;
 
     bool IsUnion
@@ -620,7 +618,6 @@ public enum TypeKind
     Struct,
     TypeParameter,
     FunctionPointer,
-    TypeUnion,
     Tuple,
     Nullable,
     Null,
@@ -708,33 +705,6 @@ public interface IAddressTypeSymbol : ITypeSymbol
 public interface ITupleTypeSymbol : INamedTypeSymbol
 {
 
-}
-
-public interface ITypeUnionSymbol : ITypeSymbol
-{
-    /// <summary>
-    /// Gets the types that make up this union.
-    /// </summary>
-    ImmutableArray<ITypeSymbol> Types { get; }
-
-    /// <summary>
-    /// Gets the types that make up this union (Alias for Types)
-    /// </summary>
-    ImmutableArray<ITypeSymbol> Elements => Types;
-
-    /// <summary>
-    /// Gets the compiler-computed common nominal type for the union.
-    /// This type is used for implicit widening conversions, inference, and diagnostics.
-    /// </summary>
-    ITypeSymbol UnderlyingType { get; }
-
-    /// <summary>
-    /// Gets the CLR type that originally declared the union, if any.
-    /// This is used when reading metadata from external assemblies so that
-    /// the runtime representation can remain compatible with the original
-    /// signature (e.g. object vs ValueType).
-    /// </summary>
-    ITypeSymbol? DeclaredUnderlyingType { get; }
 }
 
 public interface IUnionSymbol : INamedTypeSymbol

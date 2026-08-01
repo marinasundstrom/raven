@@ -550,20 +550,6 @@ internal class CodeGenerator
                 flags.Add(2);
                 CollectNestedNullableTransformFlags(nullable.UnderlyingType, flags);
                 return;
-            case ITypeUnionSymbol union:
-                var flattened = Flatten(union.Types).ToArray();
-                var nonNull = flattened.Where(static candidate => candidate.TypeKind != TypeKind.Null).ToArray();
-                if (flattened.Length != nonNull.Length &&
-                    !(nonNull.Length == 1 && nonNull[0].IsValueType))
-                {
-                    flags.Add(2);
-                    if (nonNull.Length == 1)
-                        CollectNestedNullableTransformFlags(nonNull[0], flags);
-                    return;
-                }
-
-                CollectNonNullableTransformFlags(type, flags);
-                return;
             default:
                 CollectNonNullableTransformFlags(type, flags);
                 return;
@@ -724,9 +710,6 @@ internal class CodeGenerator
             throw new ArgumentOutOfRangeException(nameof(value));
         }
     }
-
-    static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
-        => types.SelectMany(t => t is ITypeUnionSymbol u ? Flatten(u.Types) : new[] { t });
 
     void EnsureNullableAttributeType()
     {
@@ -1169,10 +1152,6 @@ internal class CodeGenerator
                     break;
                 case IAddressTypeSymbol addressType:
                     hasAnyNames |= TryCollectTupleElementNames(addressType.ReferencedType, transformNames, visiting);
-                    break;
-                case ITypeUnionSymbol unionType:
-                    foreach (var member in unionType.Types)
-                        hasAnyNames |= TryCollectTupleElementNames(member, transformNames, visiting);
                     break;
                 case INamedTypeSymbol namedType:
                     var typeArguments = namedType is ConstructedNamedTypeSymbol constructed
@@ -2005,10 +1984,6 @@ internal class CodeGenerator
                 break;
             case LiteralTypeSymbol literalType:
                 EnsureTypeDependencies(literalType.UnderlyingType, visited, visiting);
-                break;
-            case ITypeUnionSymbol unionType:
-                var emission = unionType.GetUnionEmissionInfo(Compilation);
-                EnsureTypeDependencies(emission.UnderlyingTypeSymbol, visited, visiting);
                 break;
         }
     }

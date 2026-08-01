@@ -69,14 +69,10 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
 public static class Ex
 {
     public static bool ContainsDelegateType(this ITypeSymbol type)
-        => type is ITypeUnionSymbol union
-            ? union.Types.Any(IsDelegateType)
-            : IsDelegateType(type);
+        => IsDelegateType(type);
 
     public static bool IsEffectivelyNullable(this ITypeSymbol type)
-        => type is ITypeUnionSymbol union
-            ? union.Types.All(IsNullable)
-            : IsNullable(type);
+        => IsNullable(type);
 
     public static bool IsDelegateType(ITypeSymbol type)
         => type is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate;

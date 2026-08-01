@@ -161,15 +161,7 @@ internal static class ReturnTypeCollector
             if (type is LiteralTypeSymbol literal)
                 type = literal.UnderlyingType;
 
-            if (type is ITypeUnionSymbol union)
-            {
-                foreach (var t in union.Types)
-                    AddType(t);
-            }
-            else
-            {
-                _types.Add(type);
-            }
+            _types.Add(type);
         }
 
         public void AddInferredType(ITypeSymbol type)
@@ -185,7 +177,7 @@ internal static class ReturnTypeCollector
             if (_types.Count == 1)
                 return TypeSymbolNormalization.NormalizeForInference(_types.First());
 
-            return TypeSymbolNormalization.NormalizeUnion(_types);
+            return TypeSymbolNormalization.GetBestCommonType(_types);
         }
     }
 }

@@ -1881,32 +1881,6 @@ class Foo {
     }
 
     [Fact]
-    public void NullLiteral_To_UnionWithNull_Conversion_IsImplicit()
-    {
-        var compilation = CreateCompilation();
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
-
-        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
-
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.Exists);
-    }
-
-    [Fact]
-    public void NullLiteral_To_UnionWithoutNull_Conversion_DoesNotExist()
-    {
-        var compilation = CreateCompilation();
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var union = new TypeUnionSymbol([stringType, intType], compilation.Assembly, null, null, []);
-
-        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
-
-        Assert.False(conversion.Exists);
-    }
-
-    [Fact]
     public void ObjectVariable_AssignedNull_RequiresNullable()
     {
         var (compilation, _) = CreateCompilation(
@@ -2108,18 +2082,6 @@ class Foo {
         Assert.DoesNotContain(
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
-    }
-
-    [Fact]
-    public void UnionWithNull_ImplicitlyConvertsToNullable()
-    {
-        var compilation = CreateCompilation();
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
-        var nullableString = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
-
-        var conv = compilation.ClassifyConversion(union, nullableString);
-        Assert.True(conv.IsImplicit);
     }
 
 }

@@ -1404,7 +1404,6 @@ public static class CompletionProvider
                 IArrayTypeSymbol array => ContainsTypeParameter(array.ElementType),
                 IPointerTypeSymbol pointer => ContainsTypeParameter(pointer.PointedAtType),
                 IAddressTypeSymbol address => ContainsTypeParameter(address.ReferencedType),
-                ITypeUnionSymbol union => union.Types.Any(ContainsTypeParameter),
                 _ => false
             };
         }
@@ -1827,21 +1826,6 @@ public static class CompletionProvider
                 case NullTypeSymbol nullType:
                     results.Add(nullType);
                     return true;
-
-                case ITypeUnionSymbol union:
-                    {
-                        var start = results.Count;
-                        foreach (var member in union.Types)
-                        {
-                            if (!TryCollectLiteralMembers(member, results))
-                            {
-                                results.RemoveRange(start, results.Count - start);
-                                return false;
-                            }
-                        }
-
-                        return results.Count > start;
-                    }
 
                 default:
                     return false;

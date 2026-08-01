@@ -137,65 +137,6 @@ internal static class TypeCoverageHelper
         return targetType.SpecialType == SpecialType.System_Boolean;
     }
 
-    public static bool UnionIsCoveredByTypes(ITypeUnionSymbol union, IEnumerable<ITypeSymbol> coveringTypes)
-    {
-        var remaining = new HashSet<ITypeSymbol>(GetUnionMembers(union), SymbolEqualityComparer.Default);
-        var literalBuckets = new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
-
-        foreach (var coveringType in coveringTypes)
-        {
-            var normalized = UnwrapAlias(coveringType);
-
-            if (normalized is LiteralTypeSymbol literal)
-            {
-                var underlying = UnwrapAlias(literal.UnderlyingType);
-
-                if (!LiteralBelongsToType(literal, underlying))
-                    continue;
-
-                if (!literalBuckets.TryGetValue(underlying, out var set))
-                {
-                    set = new HashSet<object?>();
-                    literalBuckets[underlying] = set;
-                }
-
-                set.Add(literal.ConstantValue);
-                continue;
-            }
-
-            remaining.RemoveWhere(member => SymbolEqualityComparer.Default.Equals(member, normalized));
-        }
-
-        foreach (var (underlying, constants) in literalBuckets)
-        {
-            if (!remaining.Contains(underlying))
-                continue;
-
-            if (LiteralsCoverType(underlying, constants))
-                remaining.Remove(underlying);
-        }
-
-        return remaining.Count == 0;
-    }
-
-    private static IEnumerable<ITypeSymbol> GetUnionMembers(ITypeUnionSymbol union)
-    {
-        foreach (var member in union.Types)
-        {
-            var normalized = UnwrapAlias(member);
-
-            if (normalized is ITypeUnionSymbol nested)
-            {
-                foreach (var nestedMember in GetUnionMembers(nested))
-                    yield return nestedMember;
-            }
-            else
-            {
-                yield return normalized;
-            }
-        }
-    }
-
     private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
     {
         while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)

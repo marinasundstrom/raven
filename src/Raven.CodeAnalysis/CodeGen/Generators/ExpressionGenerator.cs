@@ -1280,7 +1280,7 @@ internal partial class ExpressionGenerator : Generator
         if (symbol is ILocalSymbol localSymbol &&
             value.Type is { IsValueType: true } &&
             localSymbol.Type is not null &&
-            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
+            localSymbol.Type.SpecialType is SpecialType.System_Object)
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
         }
@@ -5977,7 +5977,7 @@ internal partial class ExpressionGenerator : Generator
             return false;
 
         if (single.Local.Type is not null &&
-            (single.Local.Type.SpecialType is SpecialType.System_Object || single.Local.Type is ITypeUnionSymbol))
+            single.Local.Type.SpecialType is SpecialType.System_Object)
         {
             return false;
         }
@@ -5998,7 +5998,7 @@ internal partial class ExpressionGenerator : Generator
 
             if (storedType is not null && storedType.IsValueType &&
                 localSymbol.Type is not null &&
-                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
+                localSymbol.Type.SpecialType is SpecialType.System_Object)
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(storedType));
             }
@@ -6015,7 +6015,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (finalType is not null && finalType.IsValueType &&
             localSymbol.Type is not null &&
-            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
+            localSymbol.Type.SpecialType is SpecialType.System_Object)
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
         }

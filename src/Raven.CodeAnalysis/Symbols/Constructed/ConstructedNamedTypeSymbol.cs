@@ -1993,7 +1993,6 @@ internal sealed class SubstitutedMethodTypeParameterSymbol : ITypeParameterSymbo
     public bool IsValueType => _original.IsValueType;
     public bool IsInterface => _original.IsInterface;
     public bool IsTupleType => _original.IsTupleType;
-    public bool IsTypeUnion => _original.IsTypeUnion;
     public bool IsUnion => _original.IsUnion;
     public bool IsUnionCase => _original.IsUnionCase;
     public INamedTypeSymbol? UnderlyingUnionType => _original.UnderlyingUnionType;

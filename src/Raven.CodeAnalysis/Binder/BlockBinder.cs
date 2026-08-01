@@ -2450,7 +2450,7 @@ partial class BlockBinder : Binder
 
         var resultType = rightNeverCompletes
             ? leftNonNullable
-            : TypeSymbolNormalization.NormalizeUnion(new[] { leftNonNullable, rightType });
+            : TypeSymbolNormalization.GetBestCommonType(new[] { leftNonNullable, rightType });
 
         // Ensure the RHS can be used as the result type.
         if (!rightNeverCompletes)
@@ -4164,7 +4164,7 @@ partial class BlockBinder : Binder
                     .Select(expression => expression.Type ?? Compilation.ErrorTypeSymbol)
                     .ToArray();
 
-                var resultType = TypeSymbolNormalization.NormalizeUnion(
+                var resultType = TypeSymbolNormalization.GetBestCommonType(
                     contributingArmTypes,
                     errorTypeSymbol: Compilation.ErrorTypeSymbol);
                 var matchExpr = new BoundMatchExpression(scrutinee, arms, resultType);
@@ -4264,7 +4264,7 @@ partial class BlockBinder : Binder
                 .ToArray();
         }
 
-        var resultType = TypeSymbolNormalization.NormalizeUnion(
+        var resultType = TypeSymbolNormalization.GetBestCommonType(
             contributingArmTypes,
             errorTypeSymbol: Compilation.ErrorTypeSymbol);
 
@@ -5181,17 +5181,6 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (scrutineeType is ITypeUnionSymbol scrutineeUnion)
-        {
-            foreach (var member in scrutineeUnion.Types)
-            {
-                if (PatternCanMatch(member, patternType))
-                    return true;
-            }
-
-            return false;
-        }
-
         if (scrutineeType.TryGetUnion() is { } nominalUnion &&
             !nominalUnion.MemberTypes.IsDefaultOrEmpty)
         {
@@ -5201,17 +5190,6 @@ partial class BlockBinder : Binder
                 if (PatternCanMatch(memberContentType, patternType))
                     return true;
             }
-        }
-
-        if (patternType is ITypeUnionSymbol patternUnion)
-        {
-            foreach (var member in patternUnion.Types)
-            {
-                if (PatternCanMatch(scrutineeType, member))
-                    return true;
-            }
-
-            return false;
         }
 
         if (patternType.TryGetUnionCase() is { } caseType)
@@ -5248,16 +5226,6 @@ partial class BlockBinder : Binder
 
         if (type.TryGetUnion() is { ContentMayBeNull: true })
             return true;
-
-        // Union can be null if any member can be null.
-        if (type is ITypeUnionSymbol union)
-        {
-            foreach (var member in union.Types)
-            {
-                if (CanBeNull(member))
-                    return true;
-            }
-        }
 
         return false;
     }
@@ -5587,34 +5555,6 @@ partial class BlockBinder : Binder
             return;
 
         var reported = new HashSet<string>(StringComparer.Ordinal);
-
-        if (scrutineeType is ITypeUnionSymbol union)
-        {
-            var remaining = new HashSet<ITypeSymbol>(
-                GetUnionMembers(union),
-                TypeSymbolReferenceComparer.Instance);
-
-            for (var i = 0; i < arms.Length; i++)
-            {
-                var arm = arms[i];
-                if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
-                    continue;
-
-                if (arm.Pattern is BoundCasePattern casePattern &&
-                    AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
-                    !CasePatternCoversAllArguments(casePattern) &&
-                    reported.Add(casePattern.CaseSymbol.Name))
-                {
-                    ReportMatchArmPatternNotFullyCovered(
-                        armSyntaxes[i].Pattern.GetLocation(),
-                        casePattern.CaseSymbol.Name);
-                }
-
-                RemoveCoveredUnionMembers(remaining, arm.Pattern);
-            }
-
-            return;
-        }
 
         if (!TypeCoverageHelper.TryGetSealedHierarchy(scrutineeType, out var sealedRoot))
             return;
@@ -6135,13 +6075,6 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (patternType is ITypeUnionSymbol patternUnion &&
-                candidateType is ITypeUnionSymbol candidateUnion &&
-                TypeCoverageHelper.UnionIsCoveredByTypes(patternUnion, candidateUnion.Types))
-            {
-                remaining.Remove(candidate);
-                literalCoverage?.Remove(candidate);
-            }
         }
     }
 
@@ -6158,22 +6091,6 @@ partial class BlockBinder : Binder
 
             remaining.Remove(candidate);
             literalCoverage?.Remove(candidate);
-        }
-    }
-
-    private static IEnumerable<ITypeSymbol> GetUnionMembers(ITypeUnionSymbol union)
-    {
-        foreach (var member in union.Types)
-        {
-            if (member is ITypeUnionSymbol nested)
-            {
-                foreach (var nestedMember in GetUnionMembers(nested))
-                    yield return UnwrapAlias(nestedMember);
-            }
-            else
-            {
-                yield return UnwrapAlias(member);
-            }
         }
     }
 
@@ -7783,15 +7700,6 @@ partial class BlockBinder : Binder
 
         if (type is LiteralTypeSymbol)
             return true;
-
-        if (type is not ITypeUnionSymbol union)
-            return false;
-
-        foreach (var element in union.Elements)
-        {
-            if (RequiresLiteralPrecision(element))
-                return true;
-        }
 
         return false;
     }
@@ -13983,9 +13891,7 @@ partial class BlockBinder : Binder
         targetType = Compilation.ErrorTypeSymbol;
         IEnumerable<ITypeSymbol> members;
 
-        if (unionType is ITypeUnionSymbol typeUnion)
-            members = GetUnionMembers(typeUnion);
-        else if (unionType.TryGetUnion() is IUnionSymbol discriminatedUnion)
+        if (unionType.TryGetUnion() is IUnionSymbol discriminatedUnion)
             members = discriminatedUnion.MemberTypes.Select(UnwrapAlias);
         else
             return false;
