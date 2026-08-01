@@ -17,6 +17,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Control-flow analysis now recognizes parenthesized, converted, and
   all-abrupt `if` expressions as non-completing, including when such an
   expression is nested in a local initializer.
+- Nullable type symbols now project the underlying type's declared members for
+  both reference and value types. Public `GetMembers` therefore agrees with
+  `LookupType` and `IsMemberDefined` instead of exposing only base-type members.
 - Nullable symbol APIs now distinguish structural inspection from total
   normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`

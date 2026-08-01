@@ -35,21 +35,9 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => UnderlyingType.AllInterfaces;
 
-    public ImmutableArray<ISymbol> GetMembers()
-    {
-        if (BaseType is not null)
-            return BaseType.GetMembers();
+    public ImmutableArray<ISymbol> GetMembers() => UnderlyingType.GetMembers();
 
-        return UnderlyingType.GetMembers();
-    }
-
-    public ImmutableArray<ISymbol> GetMembers(string name)
-    {
-        if (BaseType is not null)
-            return BaseType.GetMembers(name);
-
-        return UnderlyingType.GetMembers(name);
-    }
+    public ImmutableArray<ISymbol> GetMembers(string name) => UnderlyingType.GetMembers(name);
 
     public ITypeSymbol? LookupType(string name)
     {

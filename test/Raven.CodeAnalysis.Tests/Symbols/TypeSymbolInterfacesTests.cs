@@ -8,6 +8,30 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class TypeSymbolInterfacesTests
 {
+    [Theory]
+    [InlineData(SpecialType.System_String, "Length")]
+    [InlineData(SpecialType.System_Int32, "MaxValue")]
+    public void NullableType_MemberQueriesProjectUnderlyingTypeUniformly(
+        SpecialType specialType,
+        string memberName)
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+        var underlyingType = compilation.GetSpecialType(specialType);
+        var nullableType = underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+
+        var expectedMembers = underlyingType.GetMembers(memberName);
+        var actualMembers = nullableType.GetMembers(memberName);
+
+        Assert.NotEmpty(expectedMembers);
+        Assert.Equal(expectedMembers.Length, actualMembers.Length);
+        Assert.All(
+            expectedMembers.Zip(actualMembers),
+            pair => Assert.True(SymbolEqualityComparer.Default.Equals(pair.First, pair.Second)));
+        Assert.True(nullableType.IsMemberDefined(memberName, out var member));
+        Assert.Contains(expectedMembers, expected => SymbolEqualityComparer.Default.Equals(member, expected));
+    }
+
     [Fact]
     public void List_AllInterfaces_IncludesIEnumerableT()
     {

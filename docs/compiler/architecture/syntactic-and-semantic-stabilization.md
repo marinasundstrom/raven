@@ -381,6 +381,12 @@ that silently ignored newer expressions and threw when the general `Visit`
 entry point received an ordinary non-block statement. Walker traversal hooks
 remain explicit, but dispatch completeness now evolves with the bound model.
 
+Nullable symbol member queries now follow the same decorator rule as the rest
+of unified nullability. `GetMembers` projects the underlying declared members
+for nullable reference and value types alike, matching `LookupType` and
+`IsMemberDefined`; CLR wrapper/base representation does not replace the Raven
+semantic surface.
+
 The diagnostic factory no longer carries the obsolete untyped
 `MemberAccessOnUnit` overload. That overload survived removal of the associated
 language restriction and could only throw; all diagnostic construction now
