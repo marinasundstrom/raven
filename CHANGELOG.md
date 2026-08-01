@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Nullable flow now consumes metadata `MemberNotNull` and
+  `MemberNotNullWhen` contracts. Facts are keyed by receiver and member, so a
+  call narrows only that instance and conditional contracts apply only on their
+  declared Boolean branch.
 - Overload resolution now prefers an exact non-generic method over a generic
   candidate whose inferred construction produces the same parameter sequence,
   independent of declaration order. The same rule selects methods when a method

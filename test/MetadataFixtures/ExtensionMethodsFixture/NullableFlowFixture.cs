@@ -53,3 +53,20 @@ public static class NullableFlowFixture
 
     public static string OrdinaryName { get; set; } = string.Empty;
 }
+
+public sealed class MemberNullabilityFixture
+{
+    public string? Value { get; private set; }
+
+    [MemberNotNull(nameof(Value))]
+    public void Initialize() => Value = string.Empty;
+
+    [MemberNotNullWhen(true, nameof(Value))]
+    public bool EnsureValue(bool result)
+    {
+        if (result)
+            Value = string.Empty;
+
+        return result;
+    }
+}

@@ -926,9 +926,11 @@ ownership.
    by-reference postconditions without splitting reference and value semantics;
    `MaybeNullWhen` also updates already-nullable ref storage conditionally.
    Input conversion now consumes `AllowNull` and `DisallowNull` without changing
-   the read type. Flow downgrades of declared non-nullable symbols, member
-   postconditions, generic constraints, and Raven emit/C# consume round trips
-   still need equivalent coverage.
+   the read type. `MemberNotNull` and `MemberNotNullWhen` use receiver/member
+   flow slots rather than globally narrowing a property symbol, including
+   conditional branch and query-order coverage. Flow downgrades of declared
+   non-nullable symbols, generic constraints, and Raven emit/C# consume round
+   trips still need equivalent coverage.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage, but macro partitions and
    other declaration families remain less complete. Broken signatures and

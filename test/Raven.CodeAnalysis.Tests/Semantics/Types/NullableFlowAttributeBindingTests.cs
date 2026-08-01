@@ -9,6 +9,79 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class NullableFlowAttributeBindingTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MemberNotNull_NarrowsOnlyTheInvokedReceiver(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length(first: MemberNullabilityFixture, second: MemberNullabilityFixture) -> int {
+    first.Initialize()
+    let firstLength = first.Value.Length
+    let secondLength = second.Value.Length
+    return firstLength + secondLength
+}
+""";
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receivers = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Select(memberAccess => memberAccess.Expression)
+            .ToArray();
+        var model = compilation.GetSemanticModel(tree);
+
+        Assert.Equal(NullableFlowState.NotNull, model.GetTypeInfo(receivers[0]).Nullability.FlowState);
+        Assert.Equal(NullableFlowState.MaybeNull, model.GetTypeInfo(receivers[1]).Nullability.FlowState);
+        Assert.Single(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MemberNotNullWhen_NarrowsMemberOnlyOnMatchingBranch(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length(holder: MemberNullabilityFixture, result: bool) -> int {
+    if holder.EnsureValue(result) {
+        return holder.Value.Length
+    }
+
+    return holder.Value.Length
+}
+""";
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receivers = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Select(memberAccess => memberAccess.Expression)
+            .ToArray();
+        var model = compilation.GetSemanticModel(tree);
+
+        Assert.Equal(NullableFlowState.NotNull, model.GetTypeInfo(receivers[0]).Nullability.FlowState);
+        Assert.Equal(NullableFlowState.MaybeNull, model.GetTypeInfo(receivers[1]).Nullability.FlowState);
+        Assert.Single(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void NotNullWhenTrue_NarrowsEveryAnnotatedArgumentInTrueBranch()
     {

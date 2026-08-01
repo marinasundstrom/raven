@@ -69,6 +69,40 @@ internal static class NullableFlowAttributeFacts
     public static bool ParameterMayBeNullAfterCall(IParameterSymbol parameter)
         => HasAttribute(parameter.GetAttributes(), "MaybeNullAttribute");
 
+    public static ImmutableArray<string> GetNotNullMembers(IMethodSymbol method)
+    {
+        foreach (var attribute in method.GetAttributes())
+        {
+            if (IsAttribute(attribute, "MemberNotNullAttribute"))
+                return GetMemberNames(attribute, argumentOffset: 0);
+        }
+
+        return ImmutableArray<string>.Empty;
+    }
+
+    public static bool TryGetNotNullMembersWhen(
+        IMethodSymbol method,
+        out bool returnValue,
+        out ImmutableArray<string> memberNames)
+    {
+        foreach (var attribute in method.GetAttributes())
+        {
+            if (!IsAttribute(attribute, "MemberNotNullWhenAttribute") ||
+                attribute.ConstructorArguments is not [{ Value: bool value }, ..])
+            {
+                continue;
+            }
+
+            returnValue = value;
+            memberNames = GetMemberNames(attribute, argumentOffset: 1);
+            return !memberNames.IsDefaultOrEmpty;
+        }
+
+        returnValue = false;
+        memberNames = ImmutableArray<string>.Empty;
+        return false;
+    }
+
     public static bool ParameterAllowsNullInput(IParameterSymbol parameter)
         => SymbolAllowsNullInput(parameter, parameter.Type);
 
@@ -96,6 +130,29 @@ internal static class NullableFlowAttributeFacts
         }
 
         return HasAttribute(symbol.GetAttributes(), name);
+    }
+
+    private static ImmutableArray<string> GetMemberNames(AttributeData attribute, int argumentOffset)
+    {
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        for (var i = argumentOffset; i < attribute.ConstructorArguments.Length; i++)
+        {
+            var argument = attribute.ConstructorArguments[i];
+            if (argument.Value is string memberName)
+            {
+                builder.Add(memberName);
+                continue;
+            }
+
+            foreach (var value in argument.Values)
+            {
+                if (value.Value is string arrayMemberName)
+                    builder.Add(arrayMemberName);
+            }
+        }
+
+        return builder.ToImmutable();
     }
 
     private static bool HasAttribute(ImmutableArray<AttributeData> attributes, string name)

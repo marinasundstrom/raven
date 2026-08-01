@@ -3818,7 +3818,7 @@ partial class BlockBinder
 
         ReportPossibleNullReferenceAccess(receiver, memberAccess.Expression);
 
-        return BindMemberAccessOnReceiver(
+        var result = BindMemberAccessOnReceiver(
             receiver,
             memberAccess.Name,
             preferMethods,
@@ -3826,6 +3826,8 @@ partial class BlockBinder
             suppressNullWarning: true,
             receiverTypeForLookup: null,
             forceExtensionReceiver: false);
+
+        return UnwrapNullableIfFlowKnownNonNull(result);
     }
 
     private BoundExpression BindPointerMemberAccessExpression(

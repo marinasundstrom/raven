@@ -58,6 +58,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<ExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new ExpressionSyntaxStructuralComparer());
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<MemberFlowSlotKey, MemberFlowSlotSymbol> _memberFlowSlots = new(MemberFlowSlotKeyComparer.Instance);
     private readonly Stack<LoopNullFlowContext> _loopNullFlowContexts = new();
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
     private readonly InvocationResolver _invocationResolver;
@@ -8288,7 +8289,7 @@ partial class BlockBinder : Binder
         }
 
         if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out var memberExpr))
-            return memberExpr;
+            return applyFlowNarrowing ? UnwrapNullableIfFlowKnownNonNull(memberExpr) : memberExpr;
 
         if (symbol is null)
         {
@@ -8462,7 +8463,7 @@ partial class BlockBinder : Binder
 
                     ReportObsoleteIfNeeded(field, syntax.Identifier.GetLocation());
                     var f = new BoundFieldAccess(field);
-                    return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(f, field) : f;
+                    return applyFlowNarrowing ? UnwrapNullableIfFlowKnownNonNull(f) : f;
                 }
             case IPropertySymbol prop:
                 {
@@ -8474,11 +8475,11 @@ partial class BlockBinder : Binder
                     if (TryGetFieldOnlyPropertyBackingField(prop, out var fieldSymbol))
                     {
                         var f = new BoundFieldAccess(fieldSymbol);
-                        return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(f, fieldSymbol) : f;
+                        return applyFlowNarrowing ? UnwrapNullableIfFlowKnownNonNull(f) : f;
                     }
 
                     var p2 = new BoundPropertyAccess(prop);
-                    return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(p2, prop) : p2;
+                    return applyFlowNarrowing ? UnwrapNullableIfFlowKnownNonNull(p2) : p2;
                 }
             default:
                 {
@@ -11234,6 +11235,9 @@ partial class BlockBinder : Binder
         {
             BoundLocalAssignmentExpression localAssignment => localAssignment.Local,
             BoundParameterAssignmentExpression parameterAssignment => parameterAssignment.Parameter,
+            BoundPropertyAssignmentExpression propertyAssignment => GetMemberFlowSymbol(propertyAssignment.Receiver, propertyAssignment.Property),
+            BoundFieldAssignmentExpression fieldAssignment => GetMemberFlowSymbol(fieldAssignment.Receiver, fieldAssignment.Field),
+            BoundMemberAssignmentExpression memberAssignment => GetMemberFlowSymbol(memberAssignment.Receiver, memberAssignment.Member),
             _ => null
         };
 
@@ -11290,10 +11294,40 @@ partial class BlockBinder : Binder
             case BoundParameterAccess parameterAccess:
                 symbol = parameterAccess.Parameter;
                 return true;
+            case BoundSelfExpression:
+                symbol = _containingSymbol;
+                return true;
+            case BoundMemberAccessExpression memberAccess:
+                symbol = GetMemberFlowSymbol(memberAccess.Receiver, memberAccess.Member);
+                return true;
+            case BoundFieldAccess fieldAccess:
+                symbol = GetMemberFlowSymbol(fieldAccess.Receiver, fieldAccess.Field);
+                return true;
+            case BoundPropertyAccess propertyAccess:
+                symbol = GetMemberFlowSymbol(receiver: null, propertyAccess.Property);
+                return true;
             default:
                 symbol = null!;
                 return false;
         }
+    }
+
+    private ISymbol GetMemberFlowSymbol(BoundExpression? receiver, ISymbol member)
+    {
+        if (member.IsStatic)
+            return member;
+
+        var receiverSymbol = receiver is not null && TryGetFlowSymbol(receiver, out var explicitReceiver)
+            ? explicitReceiver
+            : _containingSymbol;
+        var key = new MemberFlowSlotKey(receiverSymbol, member);
+
+        if (_memberFlowSlots.TryGetValue(key, out var slot))
+            return slot;
+
+        slot = new MemberFlowSlotSymbol(receiverSymbol, member);
+        _memberFlowSlots.Add(key, slot);
+        return slot;
     }
 
     private void ApplyPostInvocationNullFlow(BoundInvocationExpression invocation)
@@ -11326,6 +11360,35 @@ partial class BlockBinder : Binder
                      NullableFlowAttributeFacts.ParameterMayBeNullAfterCall(parameter))
             {
                 _nonNullSymbols.Remove(symbol);
+            }
+        }
+
+        ApplyMemberPostcondition(
+            invocation,
+            NullableFlowAttributeFacts.GetNotNullMembers(invocation.Method),
+            isNonNull: true);
+    }
+
+    private void ApplyMemberPostcondition(
+        BoundInvocationExpression invocation,
+        ImmutableArray<string> memberNames,
+        bool isNonNull)
+    {
+        if (memberNames.IsDefaultOrEmpty || invocation.Method.ContainingType is not { } containingType)
+            return;
+
+        foreach (var memberName in memberNames)
+        {
+            foreach (var member in containingType.GetMembers(memberName))
+            {
+                if (member is not (IFieldSymbol or IPropertySymbol))
+                    continue;
+
+                var slot = GetMemberFlowSymbol(invocation.Receiver, member);
+                if (isNonNull)
+                    _nonNullSymbols.Add(slot);
+                else
+                    _nonNullSymbols.Remove(slot);
             }
         }
     }
@@ -11366,6 +11429,27 @@ partial class BlockBinder : Binder
                     builder.Add(maybeNullReturnValue
                         ? new NullCheckFlow(argumentSymbol, NonNullWhenTrue: false, NonNullWhenFalse: null)
                         : new NullCheckFlow(argumentSymbol, NonNullWhenTrue: null, NonNullWhenFalse: false));
+                }
+            }
+
+            if (NullableFlowAttributeFacts.TryGetNotNullMembersWhen(
+                invocation.Method,
+                out var memberNotNullReturnValue,
+                out var memberNames) &&
+                invocation.Method.ContainingType is { } containingType)
+            {
+                foreach (var memberName in memberNames)
+                {
+                    foreach (var member in containingType.GetMembers(memberName))
+                    {
+                        if (member is not (IFieldSymbol or IPropertySymbol))
+                            continue;
+
+                        var slot = GetMemberFlowSymbol(invocation.Receiver, member);
+                        builder.Add(memberNotNullReturnValue
+                            ? new NullCheckFlow(slot, NonNullWhenTrue: true, NonNullWhenFalse: null)
+                            : new NullCheckFlow(slot, NonNullWhenTrue: null, NonNullWhenFalse: true));
+                    }
                 }
             }
         }
@@ -11424,6 +11508,45 @@ partial class BlockBinder : Binder
         ISymbol Symbol,
         bool? NonNullWhenTrue,
         bool? NonNullWhenFalse);
+
+    private readonly record struct MemberFlowSlotKey(ISymbol Receiver, ISymbol Member);
+
+    private sealed class MemberFlowSlotKeyComparer : IEqualityComparer<MemberFlowSlotKey>
+    {
+        public static MemberFlowSlotKeyComparer Instance { get; } = new();
+
+        public bool Equals(MemberFlowSlotKey x, MemberFlowSlotKey y) =>
+            SymbolEqualityComparer.Default.Equals(x.Receiver, y.Receiver) &&
+            SymbolEqualityComparer.Default.Equals(x.Member, y.Member);
+
+        public int GetHashCode(MemberFlowSlotKey obj) => HashCode.Combine(
+            SymbolEqualityComparer.Default.GetHashCode(obj.Receiver),
+            SymbolEqualityComparer.Default.GetHashCode(obj.Member));
+    }
+
+    private sealed class MemberFlowSlotSymbol(ISymbol receiver, ISymbol member) : ISymbol
+    {
+        public SymbolKind Kind => member.Kind;
+        public string Name => member.Name;
+        public string MetadataName => member.MetadataName;
+        public ISymbol? ContainingSymbol => receiver;
+        public IAssemblySymbol? ContainingAssembly => member.ContainingAssembly;
+        public IModuleSymbol? ContainingModule => member.ContainingModule;
+        public INamedTypeSymbol? ContainingType => member.ContainingType;
+        public INamespaceSymbol? ContainingNamespace => member.ContainingNamespace;
+        public ImmutableArray<Location> Locations => member.Locations;
+        public Accessibility DeclaredAccessibility => member.DeclaredAccessibility;
+        public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => member.DeclaringSyntaxReferences;
+        public bool IsImplicitlyDeclared => true;
+        public bool IsStatic => member.IsStatic;
+        public ISymbol UnderlyingSymbol => this;
+        public bool IsAlias => false;
+        public ImmutableArray<AttributeData> GetAttributes() => member.GetAttributes();
+        public void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
+        public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
+        public bool Equals(ISymbol? other) => ReferenceEquals(this, other);
+    }
 
     private static bool TryGetNullPatternFlow(
         BoundPattern pattern,
