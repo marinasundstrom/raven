@@ -372,6 +372,11 @@ The diagnostic factory no longer carries the obsolete untyped
 language restriction and could only throw; all diagnostic construction now
 requires a descriptor.
 
+The unused `TypeParameterConstraintCollector` prototype was also removed. Its
+clause-name matcher was never implemented and no declaration path called it;
+active declaration binders use the complete analyzer and pre-index constraint
+clauses by `TypeParameter.Identifier.ValueText`.
+
 ### Generic overload resolution has explicit gaps
 
 Overload resolution now constructs open generic method-group candidates when
