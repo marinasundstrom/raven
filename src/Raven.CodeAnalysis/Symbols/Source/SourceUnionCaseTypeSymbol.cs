@@ -38,17 +38,6 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionC
             if (IsGenericType)
                 name = $"{name}`{Arity}";
 
-            if (ContainingType is INamedTypeSymbol containingType)
-                return $"{containingType.MetadataName}+{name}";
-
-            if (ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
-            {
-                var namespaceMetadata = containingNamespace.MetadataName;
-                return string.IsNullOrEmpty(namespaceMetadata)
-                    ? name
-                    : $"{namespaceMetadata}.{name}";
-            }
-
             return name;
         }
     }

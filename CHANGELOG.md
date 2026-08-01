@@ -23,6 +23,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Definitely non-null initializers and assignments establish a fact, assignments
   from narrowed values copy it, and null or maybe-null assignments remove it;
   cached declarations replay the same initialization state.
+- Source named types now expose the same local CLI `MetadataName` as PE named
+  types, including generic arity but excluding namespace and containing-type
+  paths. `ToFullyQualifiedMetadataName` owns complete identities, and emission
+  now uses it explicitly for top-level types while retaining nested builders.
 - PE by-reference parameters now retain their nullable element annotation,
   using write-state nullability for `out` parameters even when reflection
   exposes the annotation on the root by-ref node. Invocation flow applies

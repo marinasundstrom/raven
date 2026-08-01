@@ -86,7 +86,7 @@ internal class TypeGenerator
                 else
                 {
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                        named.MetadataName,
+                        named.ToFullyQualifiedMetadataName(),
                         delegateAttributes,
                         ResolveClrType(named.BaseType));
                 }
@@ -138,12 +138,27 @@ internal class TypeGenerator
 
         if (TypeSymbol.BaseType?.Name == "Enum")
         {
-            var accessibilityAttributes = GetTypeAccessibilityAttributes((INamedTypeSymbol)TypeSymbol);
-            TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                TypeSymbol.MetadataName,
-                accessibilityAttributes | TypeAttributes.Sealed | TypeAttributes.Serializable,
-                ResolveClrType(TypeSymbol.BaseType!) // bör vara System.Enum
-            );
+            var enumType = (INamedTypeSymbol)TypeSymbol;
+            var accessibilityAttributes = GetTypeAccessibilityAttributes(enumType);
+            var enumAttributes = accessibilityAttributes | TypeAttributes.Sealed | TypeAttributes.Serializable;
+            if (enumType.ContainingType is INamedTypeSymbol enumContainingType)
+            {
+                var containingGenerator = CodeGen.GetOrCreateTypeGenerator(enumContainingType);
+                if (containingGenerator.TypeBuilder is null)
+                    containingGenerator.DefineTypeBuilder();
+
+                TypeBuilder = containingGenerator.TypeBuilder!.DefineNestedType(
+                    GetNestedTypeMetadataName(enumType),
+                    enumAttributes,
+                    ResolveClrType(TypeSymbol.BaseType!));
+            }
+            else
+            {
+                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                    enumType.ToFullyQualifiedMetadataName(),
+                    enumAttributes,
+                    ResolveClrType(TypeSymbol.BaseType!));
+            }
 
             // Add value__ using the enum's bound underlying type
             // Defaults to Int32 if no explicit underlying type was specified
@@ -190,7 +205,7 @@ internal class TypeGenerator
                 {
                     var interfaceName = hoistNestedSealedHierarchyCase
                         ? GetHoistedNestedTypeMetadataName(nt)
-                        : TypeSymbol.MetadataName;
+                        : nt.ToFullyQualifiedMetadataName();
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                         interfaceName,
                         hoistNestedSealedHierarchyCase
@@ -235,7 +250,7 @@ internal class TypeGenerator
                 {
                     var structName = hoistNestedSealedHierarchyCase
                         ? GetHoistedNestedTypeMetadataName(namedForDefinition)
-                        : TypeSymbol.MetadataName;
+                        : namedForDefinition.ToFullyQualifiedMetadataName();
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                         structName,
                         hoistNestedSealedHierarchyCase
@@ -247,7 +262,7 @@ internal class TypeGenerator
                 {
                     var typeName = hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol hoistedNamed
                         ? GetHoistedNestedTypeMetadataName(hoistedNamed)
-                        : TypeSymbol.MetadataName;
+                        : ((INamedTypeSymbol)TypeSymbol).ToFullyQualifiedMetadataName();
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                         typeName,
                         hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol hoistedAccessibilityNamed

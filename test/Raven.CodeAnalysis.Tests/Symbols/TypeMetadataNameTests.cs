@@ -4,11 +4,59 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
 
 public class TypeMetadataNameTests
 {
+    [Fact]
+    public void SourceNamedType_MetadataNameIsLocalAndFullyQualifiedNameCarriesContainers()
+    {
+        const string source = """
+namespace Lib {
+    class Outer<T> {
+        class Inner<U> {}
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "source-metadata-names",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var declarations = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
+        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+
+        Assert.Equal("Outer`1", outer.MetadataName);
+        Assert.Equal("Lib.Outer`1", outer.ToFullyQualifiedMetadataName());
+        Assert.Equal("Inner`1", inner.MetadataName);
+        Assert.Equal("Lib.Outer`1+Inner`1", inner.ToFullyQualifiedMetadataName());
+
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        var metadataCompilation = Compilation.Create(
+                "source-metadata-names-consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([
+                .. TestMetadataReferences.Default,
+                MetadataReference.CreateFromImage(image.ToArray()),
+            ]);
+        var metadataOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            metadataCompilation.GetTypeByMetadataName("Lib.Outer`1"));
+        var metadataInner = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataOuter.LookupType("Inner"));
+
+        Assert.Equal(outer.MetadataName, metadataOuter.MetadataName);
+        Assert.Equal(outer.ToFullyQualifiedMetadataName(), metadataOuter.ToFullyQualifiedMetadataName());
+        Assert.Equal(inner.MetadataName, metadataInner.MetadataName);
+        Assert.Equal(inner.ToFullyQualifiedMetadataName(), metadataInner.ToFullyQualifiedMetadataName());
+    }
+
     [Fact]
     public void ToFullyQualifiedMetadataName_IncludesGenericArity()
     {

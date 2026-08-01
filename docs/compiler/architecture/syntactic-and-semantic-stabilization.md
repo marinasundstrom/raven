@@ -637,14 +637,13 @@ removes it. Rebinding a cached declaration replays its initializer state, so
 diagnostics-first and semantic-query-first paths start from the same fact before
 subsequent assignments are applied.
 
-Source named-type `MetadataName` currently includes its namespace and nesting
-path while PE symbols expose the unqualified CLI member name. The equality
-comparer now normalizes this known projection difference and separately checks
-the containing symbol, which restores the equality/hash contract without
-changing emission. A later API stabilization slice should choose one public
-`MetadataName` contract and migrate code generation to
-`ToFullyQualifiedMetadataName` where a complete CLI identity is actually
-required.
+Source and PE named types now share the Roslyn-like `MetadataName` contract: it
+is the local CLI name, including generic arity but excluding namespace and
+containing-type paths. `ToFullyQualifiedMetadataName` composes the complete
+identity. Top-level code generation asks for that complete identity explicitly,
+while nested types continue through `DefineNestedType`; public API consistency
+therefore no longer depends on code generation interpreting a source-only name
+shape.
 
 One unsafe shortcut has been removed from that chain:
 `ConstructedMethodSymbol.Equals(object)` and `GetHashCode()` no longer proxy to
@@ -861,9 +860,8 @@ The highest remaining risks after the current stabilization batch are:
 1. **Open-to-constructed generic symbols (high)** — wrapper ownership and
    substitution are still distributed across named types, methods, parameters,
    constraints, and metadata projection. Nested source/PE construction now has
-   a three-layer invariant, but the source/PE named-type `MetadataName` contract
-   remains inconsistent. Continue boundary invariants and settle that API
-   before considering a central construction redesign.
+   a three-layer invariant and a shared local `MetadataName` contract. Continue
+   boundary invariants before considering a central construction redesign.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
