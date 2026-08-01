@@ -255,6 +255,119 @@ func Main() -> int {
         AssertErrorsAreConfinedTo(updatedCompilation, methods["Broken"].Span);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingAccessorBody_DoesNotInvalidateSiblingMethod(bool diagnosticsFirst)
+    {
+        const string source = """
+class Container {
+    val Broken: int {
+        get => 42
+    }
+
+    func Stable(value: int) -> int {
+        value
+    }
+}
+
+func Main() -> int {
+    Container().Stable(21)
+}
+""";
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "accessor-isolation");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("get => 42", "get => missingValue", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var model = compilation.GetSemanticModel(tree);
+        var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var stable = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString().EndsWith(".Stable", StringComparison.Ordinal));
+        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
+        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(stable));
+
+        Assert.NotNull(propertySymbol.GetMethod);
+        Assert.Equal(SpecialType.System_Int32, propertySymbol.Type.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stableSymbol, model.GetSymbolInfo(invocation).Symbol));
+        AssertErrorsAreConfinedTo(compilation, property.Span);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingConstructorBody_DoesNotInvalidateSiblingMethod(bool diagnosticsFirst)
+    {
+        const string source = """
+class Container {
+    init(value: int) {
+        System.Console.WriteLine(value)
+    }
+
+    func Stable(value: int) -> int {
+        value
+    }
+}
+
+func Main() -> int {
+    Container(1).Stable(21)
+}
+""";
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "constructor-isolation");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("System.Console.WriteLine(value)", "missingValue", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var model = compilation.GetSemanticModel(tree);
+        var constructor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
+        var stable = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var stableInvocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString().EndsWith(".Stable", StringComparison.Ordinal));
+        var constructorSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(constructor));
+        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(stable));
+
+        Assert.Equal(MethodKind.Constructor, constructorSymbol.MethodKind);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(constructorSymbol.Parameters).Type.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stableSymbol, model.GetSymbolInfo(stableInvocation).Symbol));
+        AssertErrorsAreConfinedTo(compilation, constructor.Span);
+    }
+
+    private static (RavenWorkspace Workspace, ProjectId ProjectId, DocumentId DocumentId) CreateWorkspace(
+        string source,
+        string projectName)
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            projectName,
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "declarations.rav",
+            SourceText.From(source),
+            $"/tmp/{projectName}.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        return (workspace, projectId, project.Documents.Single().Id);
+    }
+
     private static void AssertErrorsAreConfinedTo(Compilation compilation, TextSpan brokenSpan)
     {
         var errors = compilation.GetDiagnostics()

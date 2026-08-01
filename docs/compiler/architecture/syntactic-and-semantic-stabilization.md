@@ -878,6 +878,12 @@ an invalid constraint clause naming a missing type parameter does not poison
 sibling lookup. Both diagnostics-first and symbol-first queries keep the
 selected constructed sibling and confine errors to the broken declaration.
 
+Accessor and constructor bodies have the same incremental invariant. Editing
+either body to contain an unresolved name preserves its declared signature and
+a sibling method's declaration and call-site resolution, regardless of whether
+diagnostics or semantic queries force binding first. Diagnostics remain within
+the edited declaration instead of contaminating the containing type.
+
 ### Behavioral conformance
 
 Prefer observable language behavior and public compiler APIs over assertions
