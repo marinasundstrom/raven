@@ -42,6 +42,12 @@ same way that tuple syntax projects to the corresponding constructed
 therefore operate on the ordinary named union symbol instead of a parallel
 anonymous-union mechanism.
 
+The compiler treats the carrier as a well-known runtime contract rather than a
+Raven.Core implementation detail. Raven.Core currently supplies compatibility
+definitions, but a compatible platform-provided `System.Union<...>` family
+should take precedence. This keeps the source and semantic model stable while
+allowing the runtime type provider to move to .NET.
+
 Some type symbols are specialized, exist in the language or only during semantic analysis, and thus have no direct equivalent in .NET. `TupleTypeSymbol`, for example, implements `INamedTypeSymbol` while projecting Raven tuple syntax over `System.ValueTuple`.
 
 Other constructed type symbols serve particular purposes:

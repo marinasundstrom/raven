@@ -436,12 +436,26 @@ groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each
 test should assert the chosen symbol or diagnostic, not an internal lowering
 shape.
 
-Standard-union target typing must be tested with the Raven.Core carrier in the
-reference set. Without `System.Union<T1, T2>`, the compiler currently falls back
-to a common nominal type; for `int | string`, that can be `IComparable`. Carrier
-coverage verifies alternative construction in assignment, argument, and return
-contexts. The no-carrier path should remain a separately diagnosed missing
-runtime capability rather than being mistaken for standard-union behavior.
+Ad-hoc-union target typing must be tested with an available `System.Union<...>`
+carrier. Carrier coverage verifies alternative construction in assignment,
+argument, and return contexts. If no compatible carrier exists, binding reports
+a missing runtime capability; it must not infer a common nominal type or revive
+an anonymous alternative-type mechanism.
+
+Raven.Core's current `System.Union<...>` definitions are compatibility shims.
+If .NET standardizes compatible platform union types, Raven should prefer the
+platform definitions and stop treating its own declarations as the canonical
+ABI. Selection must be based on a validated well-known-type contract—supported
+arities, construction surface, metadata shape, and runtime semantics—not only
+the metadata name.
+
+The assembly transition needs explicit compatibility handling because equal
+metadata names in Raven.Core and the platform assembly are not equal CLR type
+identities. Raven.Core should omit its definitions for target frameworks that
+provide the platform types and, where binary compatibility requires it, use
+type forwarding to the platform definitions. Tests must cover Raven and C#
+consumers, metadata round trips, mixed old/new referenced assemblies, and each
+supported target framework.
 
 ### Pattern semantics are a high-risk convergence point
 
