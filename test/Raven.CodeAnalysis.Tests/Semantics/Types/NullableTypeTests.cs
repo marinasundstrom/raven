@@ -783,6 +783,41 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_RemainsMaybeNullInsideNegatedRuntimeValuePattern(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Hash(value: object?, other: object?) -> int {
+                if value is not other {
+                    return value.GetHashCode()
+                }
+
+                return 0
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Contains(
+                compilation.GetDiagnostics(),
+                diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void EditingTypedPatternNegationInvalidatesBodyFlowState()
     {
