@@ -476,7 +476,15 @@ partial class BlockBinder
     private static bool TargetsLoopBody(BreakStatementSyntax breakStatement, StatementSyntax loopBody)
     {
         if (!breakStatement.Identifier.IsMissing && breakStatement.Identifier.Kind != SyntaxKind.None)
-            return false;
+        {
+            var targetName = breakStatement.Identifier.ValueText;
+            var labeledLoop = breakStatement.Ancestors()
+                .OfType<LabeledStatementSyntax>()
+                .FirstOrDefault(label =>
+                    label.Identifier.ValueText == targetName &&
+                    ReferenceEquals(UnwrapLabeledStatement(label.Statement), loopBody.Parent));
+            return labeledLoop is not null;
+        }
 
         var nearestLoop = breakStatement.Ancestors().FirstOrDefault(static node =>
             node is WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax or LoopStatementSyntax);
@@ -2581,12 +2589,33 @@ partial class BlockBinder
             _diagnostics.ReportBreakStatementNotWithinLoop(location);
         }
 
-        if (IsMissingControlFlowLabel(breakStatement.Identifier) && _loopNullFlowContexts.TryPeek(out var loopFlow))
+        var loopFlow = GetBreakNullFlowContext(breakStatement, targetLabel);
+        if (loopFlow is not null)
             loopFlow.BreakStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
 
         var bound = new BoundBreakStatement(targetLabel);
         CacheBoundNode(breakStatement, bound);
         return bound;
+    }
+
+    private LoopNullFlowContext? GetBreakNullFlowContext(BreakStatementSyntax breakStatement, ILabelSymbol? targetLabel)
+    {
+        if (IsMissingControlFlowLabel(breakStatement.Identifier))
+            return _loopNullFlowContexts.TryPeek(out var nearestLoop) ? nearestLoop : null;
+
+        if (targetLabel is null)
+            return null;
+
+        var targetName = breakStatement.Identifier.ValueText;
+        var labeledSyntax = breakStatement.Ancestors()
+            .OfType<LabeledStatementSyntax>()
+            .FirstOrDefault(label => label.Identifier.ValueText == targetName);
+        if (labeledSyntax is null)
+            return null;
+
+        var targetLoop = UnwrapLabeledStatement(labeledSyntax.Statement);
+        return _loopNullFlowContexts.FirstOrDefault(context =>
+            ReferenceEquals(context.LoopStatement, targetLoop));
     }
 
     private BoundStatement BindContinueStatement(ContinueStatementSyntax continueStatement)
@@ -2714,7 +2743,7 @@ partial class BlockBinder
     {
         using var _ = EnterExecutionScope();
 
-        loopFlow = new LoopNullFlowContext();
+        loopFlow = new LoopNullFlowContext(syntax.Parent as StatementSyntax);
         _loopNullFlowContexts.Push(loopFlow);
         var previous = EnterLoop();
         try

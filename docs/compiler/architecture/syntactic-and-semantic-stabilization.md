@@ -599,6 +599,13 @@ are removed from a possibly executing loop's exit state. This prevents both an
 unconditional `loop` and an ordinary `while` from carrying a first-iteration
 fact across an assignment to null.
 
+Labeled transfers use that same loop-owned flow state. A labeled `break` joins
+the exit state of the loop identified by its label rather than whichever loop
+was bound most recently, while a labeled `continue` remains a back-edge to its
+target. The mutation scan also recognizes a labeled break that prevents the
+target loop's back-edge, avoiding a different nullability result solely because
+the programmer made the transfer explicit.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks
@@ -828,9 +835,9 @@ The highest remaining risks after the current stabilization batch are:
    before considering a central construction redesign.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
-   yet a general control-flow fixed-point engine. Prioritize nested cycles,
-   labeled transfers, and joins that mix abrupt and completing exceptional
-   paths.
+   yet a general control-flow fixed-point engine. Labeled loop transfers now
+   share the ordinary loop-owned state; prioritize nested cycles and joins that
+   mix abrupt and completing exceptional paths.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage; conversion ranking and less common inference

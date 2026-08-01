@@ -76,8 +76,10 @@ partial class BlockBinder : Binder
     private int _semanticQueryScopeDepth;
     private SyntaxKind _ambientPatternDeclarationBindingKeyword;
 
-    private sealed class LoopNullFlowContext
+    private sealed class LoopNullFlowContext(StatementSyntax? loopStatement)
     {
+        public StatementSyntax? LoopStatement { get; } = loopStatement;
+
         public List<HashSet<ISymbol>> BreakStates { get; } = new();
     }
 

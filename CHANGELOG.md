@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Labeled loop transfers now participate in the same null-flow joins as their
+  unlabeled forms. A labeled `break` contributes its state to the target loop's
+  exit, and labeled `break`/`continue` paths are classified correctly when
+  determining whether a mutation can reach that loop's back-edge.
 - PE by-reference parameters now retain their nullable element annotation,
   using write-state nullability for `out` parameters even when reflection
   exposes the annotation on the root by-ref node. Invocation flow applies
