@@ -187,6 +187,34 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Fact]
+    public void GenericMethodGroup_WithUnsatisfiedConstraint_ReportsConstraintFailure()
+    {
+        const string source = """
+            import System.*
+
+            let result = Apply("value", Stringify)
+
+            func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> TResult {
+                transform(value)
+            }
+
+            func Stringify<T: struct>(value: T) -> string {
+                ""
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.Contains("Stringify", diagnostic.GetMessage());
+        Assert.Contains("struct", diagnostic.GetMessage());
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+    }
+
+    [Fact]
     public void GenericMethodInvocation_ConstraintFailure_DoesNotReportNameMissing()
     {
         var source = """

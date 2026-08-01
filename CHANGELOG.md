@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Higher-order generic calls now preserve constraint failures discovered while
+  constructing a method-group argument. Passing a constrained generic function
+  with incompatible inferred type arguments reports the constraint violation
+  instead of silently accepting the invocation.
 - Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
   `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
   exhaustiveness, emission, analyzer, and language-service behavior. Raven's

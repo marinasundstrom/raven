@@ -698,7 +698,14 @@ internal sealed class OverloadResolver
 
             if (expression is BoundMethodGroupExpression methodGroup)
             {
-                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method, binder))
+                if (!TryInferFromMethodGroup(
+                        compilation,
+                        parameters[parameterIndex].Type,
+                        methodGroup,
+                        substitutions,
+                        method,
+                        binder,
+                        out constraintFailure))
                     return null;
                 continue;
             }
@@ -806,7 +813,14 @@ internal sealed class OverloadResolver
 
             if (expression is BoundMethodGroupExpression methodGroup)
             {
-                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method, binder))
+                if (!TryInferFromMethodGroup(
+                        compilation,
+                        parameters[parameterIndex].Type,
+                        methodGroup,
+                        substitutions,
+                        method,
+                        binder,
+                        out constraintFailure))
                     return null;
 
                 continue;
@@ -1048,8 +1062,11 @@ internal sealed class OverloadResolver
         BoundMethodGroupExpression methodGroup,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
         IMethodSymbol? inferenceMethod,
-        Binder? binder)
+        Binder? binder,
+        out TypeArgumentConstraintFailure? constraintFailure)
     {
+        constraintFailure = null;
+
         // Method groups only participate in inference when the target parameter is a delegate type.
         if (parameterType is not INamedTypeSymbol delegateType ||
             delegateType.TypeKind != TypeKind.Delegate)
@@ -1075,9 +1092,13 @@ internal sealed class OverloadResolver
                 invoke,
                 compilation,
                 binder,
-                substitutions);
+                substitutions,
+                out var candidateConstraintFailure);
             if (constructedCandidate is null)
+            {
+                constraintFailure ??= candidateConstraintFailure;
                 continue;
+            }
 
             if (constructedCandidate.Parameters.Length != invoke.Parameters.Length)
                 continue;
@@ -1131,7 +1152,24 @@ internal sealed class OverloadResolver
         Compilation compilation,
         Binder? binder,
         IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? knownTargetSubstitutions = null)
+        => TryConstructMethodGroupCandidate(
+            candidate,
+            delegateInvoke,
+            compilation,
+            binder,
+            knownTargetSubstitutions,
+            out _);
+
+    private static IMethodSymbol? TryConstructMethodGroupCandidate(
+        IMethodSymbol candidate,
+        IMethodSymbol delegateInvoke,
+        Compilation compilation,
+        Binder? binder,
+        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? knownTargetSubstitutions,
+        out TypeArgumentConstraintFailure? constraintFailure)
     {
+        constraintFailure = null;
+
         if (!candidate.IsGenericMethod || candidate.TypeParameters.IsDefaultOrEmpty)
             return candidate;
 
@@ -1151,7 +1189,14 @@ internal sealed class OverloadResolver
                 name: null);
         }
 
-        return ApplyTypeArgumentInference(candidate, receiver: null, arguments, compilation, binder);
+        return ApplyTypeArgumentInference(
+            candidate,
+            receiver: null,
+            arguments,
+            compilation,
+            binder,
+            explicitTypeArguments: default,
+            out constraintFailure);
     }
 
     private static ImmutableArray<OverloadCandidateLog> MarkCandidates(
