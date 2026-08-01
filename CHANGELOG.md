@@ -117,6 +117,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Negated typed patterns now invert the same nullability fact, so a guard that
   exits on `is not T` narrows the scrutinee on the continuing path without
   regressing ordinary `is not null` flow.
+- Successful property patterns, including the empty `{ }` non-null pattern,
+  now narrow nullable scrutinees in public flow information and diagnostics.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

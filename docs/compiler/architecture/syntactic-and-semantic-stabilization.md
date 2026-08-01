@@ -282,6 +282,8 @@ Negation reverses any recognized pattern nullability fact rather than relying
 on a special case for `not null`; consequently, an early-exit `is not T` guard
 publishes the same non-null state on its continuing path as a positive typed
 pattern publishes inside its body.
+Property-pattern success also establishes a non-null scrutinee, matching the
+runtime meaning of both typed property patterns and the empty `{ }` pattern.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
