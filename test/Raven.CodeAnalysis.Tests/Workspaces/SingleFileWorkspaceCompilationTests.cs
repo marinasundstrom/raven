@@ -110,6 +110,76 @@ public sealed class SingleFileWorkspaceCompilationTests
         Assert.Equal(1, instrumentation.Macros.LocalPartitionReuses);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WorkspaceCompilation_BrokenMacroBodyRetainsDeclarationsAndValidSibling(bool diagnosticsFirst)
+    {
+        const string source = """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Inspect(expression: ExpressionSyntax) {
+                expand expression
+            }
+
+            macro func Answer() {
+                expand SyntaxFactory.ParseExpression("42")
+            }
+
+            func Main() -> int {
+                let inspected = Inspect!(40)
+                inspected + Answer!()
+            }
+            """;
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "macro-declaration-isolation",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenMacros)
+            project = project.AddMetadataReference(reference);
+
+        var document = project.AddDocument("main.rvn", SourceText.From(source), "/tmp/main.rvn");
+        workspace.TryApplyChanges(document.Project.Solution);
+        AssertNoErrors(workspace.GetCompilation(projectId));
+
+        var brokenSource = source.Replace(
+            "expand expression",
+            "match expression {\n    }\n    expand expression",
+            StringComparison.Ordinal);
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From(brokenSource)));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocations = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .ToArray();
+        var inspectInvocation = Assert.Single(
+            invocations,
+            expression => expression.Name.ToString() == "Inspect");
+        var answerInvocation = Assert.Single(
+            invocations,
+            expression => expression.Name.ToString() == "Answer");
+
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(consumerTree);
+        var inspectSymbol = model.GetSymbolInfo(inspectInvocation).Symbol;
+        var answerExpansion = model.GetMacroExpansion(answerInvocation);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.IsAssignableFrom<IMacroFunctionSymbol>(inspectSymbol);
+        Assert.Equal("Inspect", inspectSymbol.Name);
+        Assert.Equal("42", answerExpansion!.Expression!.ToString());
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV2100");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM010");
+    }
+
     [Fact]
     public void WorkspaceCompilation_RemapsReusedLocalMacroDiagnosticsToCurrentProjection()
     {

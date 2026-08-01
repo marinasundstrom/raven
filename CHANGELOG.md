@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reuse unchanged local macro partitions even when they contain authored
+  diagnostics, remapping those diagnostics after consumer-only workspace edits
+  instead of recompiling the macro partition.
+
 - Nullable flow now consumes metadata `MemberNotNull` and
   `MemberNotNullWhen` contracts. Facts are keyed by receiver and member, so a
   call narrows only that instance and conditional contracts apply only on their

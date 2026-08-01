@@ -884,6 +884,13 @@ a sibling method's declaration and call-site resolution, regardless of whether
 diagnostics or semantic queries force binding first. Diagnostics remain within
 the edited declaration instead of contaminating the containing type.
 
+Macro functions now carry that invariant through a workspace edit as well. An
+invalid match introduced into one macro body publishes its authored diagnostic,
+the macro invocation still resolves to the recognized declaration, and a valid
+sibling macro continues to expand. This is covered in both diagnostics-first
+and semantic-query-first request order so editor feedback cannot depend on
+which language-service request happened first.
+
 ### Behavioral conformance
 
 Prefer observable language behavior and public compiler APIs over assertions

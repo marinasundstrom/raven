@@ -39,6 +39,15 @@ public partial class Compilation
             references,
             _macroReferences,
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+
+        if (_localMacroPartitionArtifact is { } reusedArtifact)
+        {
+            _macroPartitionDiagnostics = RemapLocalMacroDiagnostics(reusedArtifact);
+            if (_hasReusedLocalMacroPartitionArtifact)
+                PerformanceInstrumentation.Macros.RecordLocalPartitionReuse();
+            return reusedArtifact.Reference;
+        }
+
         var signatureDiagnostics = RewriteLocalMacroDependencyCycles(
             _macroSignatureCompilation.GetDiagnostics());
         var macroTreesToCompile = _macroSyntaxTrees;
@@ -77,14 +86,6 @@ public partial class Compilation
             references,
             _macroReferences,
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
-
-        if (_localMacroPartitionArtifact is { } reusedArtifact)
-        {
-            _macroPartitionDiagnostics = RemapLocalMacroDiagnostics(reusedArtifact);
-            if (_hasReusedLocalMacroPartitionArtifact)
-                PerformanceInstrumentation.Macros.RecordLocalPartitionReuse();
-            return reusedArtifact.Reference;
-        }
 
         using var image = new MemoryStream();
         var emitResult = _macroPartitionCompilation.Emit(image);
@@ -300,8 +301,6 @@ public partial class Compilation
     internal void TryReuseLocalMacroPartitionFrom(Compilation previousCompilation)
     {
         if (previousCompilation._localMacroPartitionArtifact is not { } artifact ||
-            artifact.Diagnostics.Any(static diagnostic =>
-                diagnostic.Severity == DiagnosticSeverity.Error) ||
             !HasEquivalentLocalMacroPartition(previousCompilation))
         {
             return;
