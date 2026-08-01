@@ -170,4 +170,23 @@ class Test {
         Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(updatedInterface));
         Assert.IsType<BoundExpressionStatement>(model.GetBoundNode(updatedStatement));
     }
+
+    [Fact]
+    public void GetDiagnostics_UnsupportedConstructedLiteralKind_ProducesErrorExpression()
+    {
+        var tree = SyntaxTree.ParseText("let value = 1");
+        var root = tree.GetRoot();
+        var literal = root.DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+        var malformedLiteral = SyntaxFactory.LiteralExpression(SyntaxKind.None, SyntaxFactory.Literal(1));
+        var updatedRoot = (CompilationUnitSyntax)root.ReplaceNode(literal, malformedLiteral);
+        var updatedTree = SyntaxTree.Create(updatedRoot);
+        var compilation = CreateCompilation(updatedTree);
+        var model = compilation.GetSemanticModel(updatedTree);
+        var updatedLiteral = updatedTree.GetRoot().DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InvalidExpressionTerm);
+        Assert.IsType<BoundErrorExpression>(model.GetBoundNode(updatedLiteral));
+    }
 }

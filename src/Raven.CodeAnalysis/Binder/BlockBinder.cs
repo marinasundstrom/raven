@@ -7618,12 +7618,18 @@ partial class BlockBinder : Binder
             bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
             char => Compilation.GetSpecialType(SpecialType.System_Char),
             string => Compilation.GetSpecialType(SpecialType.System_String),
-            _ => throw new Exception("Unsupported literal type")
+            _ => null
         };
+
+        if (underlying is null)
+        {
+            _diagnostics.ReportInvalidExpressionTerm(syntax.Token.Text, syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
 
         ITypeSymbol type = underlying;
 
-        BoundLiteralExpressionKind kind = syntax.Kind switch
+        BoundLiteralExpressionKind? kind = syntax.Kind switch
         {
             SyntaxKind.NumericLiteralExpression => BoundLiteralExpressionKind.NumericLiteral,
             SyntaxKind.StringLiteralExpression => BoundLiteralExpressionKind.StringLiteral,
@@ -7631,11 +7637,16 @@ partial class BlockBinder : Binder
             SyntaxKind.TrueLiteralExpression => BoundLiteralExpressionKind.TrueLiteral,
             SyntaxKind.FalseLiteralExpression => BoundLiteralExpressionKind.FalseLiteral,
             SyntaxKind.NullLiteralExpression => BoundLiteralExpressionKind.NullLiteral,
-
-            _ => throw new Exception("Unsupported literal type")
+            _ => null
         };
 
-        return new BoundLiteralExpression(kind, value, type);
+        if (kind is null)
+        {
+            _diagnostics.ReportInvalidExpressionTerm(syntax.Token.Text, syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        return new BoundLiteralExpression(kind.Value, value, type);
     }
 
     private BoundExpression BindEncodedStringLiteral(

@@ -524,6 +524,10 @@ produce an invalid-term diagnostic and bound error pattern for unknown general,
 comparison, unary, and binary forms rather than reaching a
 `NotImplementedException`.
 
+Literal binding follows the same totality rule. Unsupported token values and
+programmatically constructed literal-expression kinds produce an invalid-term
+diagnostic and bound error expression rather than a generic exception.
+
 Pattern emission runs only after error diagnostics have prevented invalid bound
 trees from reaching code generation. Its remaining totality checks therefore
 name the unexpected bound pattern, designation, or operator kind as an internal
