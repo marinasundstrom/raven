@@ -142,6 +142,50 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Equal(SpecialType.System_Int32, Assert.Single(identityMethod.TypeArguments).SpecialType);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GenericMethodGroup_WithSatisfiedConstraint_IsQueryOrderIndependent(bool diagnosticsFirst)
+    {
+        const string source = """
+            import System.*
+
+            let result = Apply(21, Stringify)
+
+            func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> TResult {
+                transform(value)
+            }
+
+            func Stringify<T: struct>(value: T) -> string {
+                ""
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var applyInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString() == "Apply");
+        var stringifyReference = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Stringify");
+
+        var apply = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(applyInvocation).Symbol);
+        var stringify = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(stringifyReference).Symbol);
+
+        Assert.Equal(
+            [SpecialType.System_Int32, SpecialType.System_String],
+            apply.TypeArguments.Select(static type => type.SpecialType));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(stringify.TypeArguments).SpecialType);
+        Assert.True((Assert.Single(stringify.TypeParameters).ConstraintKind & TypeParameterConstraintKind.ValueType) != 0);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void GenericMethodInvocation_ConstraintFailure_DoesNotReportNameMissing()
     {

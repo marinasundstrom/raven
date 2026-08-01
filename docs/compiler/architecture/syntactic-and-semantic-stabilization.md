@@ -401,6 +401,11 @@ resolve both methods. Conversion ranking still uses coarse fallback scores in
 several cases, and the remaining generic inference forms need a conformance
 matrix before they can be treated as stable language rules.
 
+The method-group matrix now also covers a constrained generic transform passed
+to a separately generic higher-order function. Inference constructs both
+methods, preserves the transform's `struct` constraint, and publishes the same
+selected symbols when diagnostics or symbol information is requested first.
+
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR
 overload identity, but distinct underlying types remain distinct; a null
