@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Raven.Core's union JSON converters now preserve nullable payloads through
+  reflection by carrying the declared case/member type separately from the
+  possibly null value. Their Raven signatures also match the nullable .NET
+  contracts used by `JsonSerializer` and reflection invocation.
 - By-reference overload applicability now follows CLR signature identity for
   nullability: nullable reference annotations do not make an otherwise matching
   `ref`, `out`, or `in` argument inapplicable, while nullable value types remain

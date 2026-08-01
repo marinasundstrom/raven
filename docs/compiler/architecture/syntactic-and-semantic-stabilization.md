@@ -382,6 +382,10 @@ attributes, flow attributes such as `MaybeNull` and `NotNull`, generic type
 arguments, arrays, and by-reference parameters and returns. Raven-authored
 public APIs, including Raven.Core and Raven.Macros, are part of the same
 contract and need metadata round-trip tests from both Raven and C# consumers.
+Raven-authored infrastructure must also consume those contracts honestly: a
+nullable reflection or serializer result remains nullable until explicitly
+checked, and helpers that need runtime type identity carry the declared `Type`
+separately instead of calling `GetType()` on a potentially null value.
 
 Nullable annotation emission and import now use the .NET transform-flag walk
 for nested generic arguments, arrays, generic value-type placeholders, and

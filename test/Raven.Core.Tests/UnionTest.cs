@@ -138,6 +138,20 @@ public sealed class UnionTest : RavenCoreDiagnosticTestBase
         Assert.Equal("hello", text);
     }
 
+    [Fact]
+    public void TaggedSerialization_DeserializesNullPayloadUsingDeclaredCaseType()
+    {
+        var options = new JsonSerializerOptions();
+        options.Converters.Add(new RavenTaggedUnionJsonConverterFactory("kind"));
+
+        var parsed = JsonSerializer.Deserialize<Union<string, int>>(
+            """{"kind":"String","Value":null}""",
+            options);
+
+        Assert.True(parsed.TryGetValue(out string? text));
+        Assert.Null(text);
+    }
+
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)
     {
         var definition = assembly.GetType(metadataName, throwOnError: true)!;

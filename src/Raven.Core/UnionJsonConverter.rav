@@ -152,11 +152,11 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
                     options
                 )
 
-            return CreateUnion(directCaseValue)
+            return CreateUnion(caseType, directCaseValue)
         }
 
         val constructor = GetPrimaryConstructor(caseType)
-        val args = List<object>()
+        val args = List<object?>()
 
         for parameter in constructor.GetParameters() {
             val jsonName = GetPropertyName(parameter.Name ?? "", options)
@@ -175,7 +175,7 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
             constructor.Invoke(args.ToArray())
                 ?? throw JsonException("Could not create union case '$caseName'.")
 
-        return CreateUnion(caseValue)
+        return CreateUnion(caseType, caseValue)
     }
 
     /// Writes a tagged Raven union as JSON.
@@ -225,9 +225,9 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     }
 
     /// Wraps a deserialized case value in the target union type.
-    func CreateUnion(caseValue: object) -> TUnion {
-        val constructor = GetUnionConstructor(caseValue.GetType())
-        val args = List<object>()
+    func CreateUnion(caseType: Type, caseValue: object?) -> TUnion {
+        val constructor = GetUnionConstructor(caseType)
+        val args = List<object?>()
         args.Add(caseValue)
 
         return (TUnion)(
@@ -447,7 +447,7 @@ public class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion
         throw JsonException("Union type '$_unionType' does not expose payload field '$ordinal'.")
     }
 
-    private func CreateUnion(memberType: Type, memberValue: object) -> TUnion {
+    private func CreateUnion(memberType: Type, memberValue: object?) -> TUnion {
         for constructor in _unionType.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
             val parameters = constructor.GetParameters()
 
@@ -498,7 +498,7 @@ public class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion
 
     private static func WriteTypedObjectValue(
         writer: Utf8JsonWriter,
-        memberValue: object,
+        memberValue: object?,
         memberType: Type,
         options: JsonSerializerOptions
     ) -> () {
