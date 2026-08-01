@@ -726,7 +726,7 @@ partial class BlockBinder : Binder
             return existingDeclarator;
         }
 
-        var isShadowingExistingInScope = false;
+        var isDuplicateInScope = false;
 
         if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
         {
@@ -736,24 +736,25 @@ partial class BlockBinder : Binder
                 return new BoundVariableDeclarator(existing.Symbol, null);
 
             if (!isSameDeclarator)
-                isShadowingExistingInScope = true;
+                isDuplicateInScope = true;
         }
 
-        if (!isShadowingExistingInScope &&
+        if (!isDuplicateInScope &&
             _declarationState.TryGetDeclaredLocalInSameScope(name, variableDeclarator, out var sameScopeLocal) &&
             !IsSameDeclaringSyntax(sameScopeLocal, variableDeclarator))
         {
-            isShadowingExistingInScope = true;
+            isDuplicateInScope = true;
         }
 
-        if (!isShadowingExistingInScope &&
-            TryLookupDeclarationForShadowing(name, out var lookupSymbol))
+        if (isDuplicateInScope)
         {
-            isShadowingExistingInScope = !IsSameDeclaringSyntax(lookupSymbol, variableDeclarator);
+            _diagnostics.ReportVariableAlreadyDefined(name, variableDeclarator.Identifier.GetLocation());
         }
-
-        if (isShadowingExistingInScope)
+        else if (TryLookupDeclarationForShadowing(name, out var lookupSymbol) &&
+                 !IsSameDeclaringSyntax(lookupSymbol, variableDeclarator))
+        {
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, variableDeclarator.Identifier.GetLocation());
+        }
         var isConst = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isMutable = bindingKeyword.IsKind(SyntaxKind.VarKeyword);
         var shouldDispose = isUseDeclaration && !isFixedInitializer;

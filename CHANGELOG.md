@@ -15,6 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Constraint clauses that name undeclared type parameters now report `RAV0360`
   for functions, methods, function expressions, and macro functions instead of
   being silently ignored.
+- Duplicate lexical bindings in the same scope now report `RAV0167` as binding
+  errors. `RAV0168` remains a warning for intentional or accidental shadowing
+  across nested scopes.
 - Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
   `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
   exhaustiveness, emission, analyzer, and language-service behavior. Raven's

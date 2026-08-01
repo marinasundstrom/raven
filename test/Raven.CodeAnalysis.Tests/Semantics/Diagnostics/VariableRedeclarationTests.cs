@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class VariableRedeclarationTests : DiagnosticTestBase
 {
     [Fact]
-    public void DuplicateGlobalVariable_ReportsWarning()
+    public void DuplicateGlobalVariable_ReportsError()
     {
         var code = """
 let x: int = 1
@@ -16,13 +16,13 @@ let x: int = 2
 """;
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV0168").WithSpan(2, 5, 2, 6).WithArguments("x").WithSeverity(DiagnosticSeverity.Warning)
+                new DiagnosticResult("RAV0167").WithSpan(2, 5, 2, 6).WithArguments("x")
             ]);
         verifier.Verify();
     }
 
     [Fact]
-    public void DuplicateLocalVariable_ReportsWarning()
+    public void DuplicateLocalVariable_ReportsError()
     {
         var code = """
 func Main() {
@@ -32,7 +32,7 @@ func Main() {
 """;
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV0168").WithSpan(3, 9, 3, 10).WithArguments("x").WithSeverity(DiagnosticSeverity.Warning)
+                new DiagnosticResult("RAV0167").WithSpan(3, 9, 3, 10).WithArguments("x")
             ]);
         verifier.Verify();
     }
