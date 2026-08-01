@@ -414,6 +414,15 @@ postconditions to the referenced local or parameter, including attributes on an
 open generic `out T` after method construction. Cached invocations replay the
 same transition so diagnostics-first and cold semantic queries agree.
 
+By-reference overload applicability compares the CLR storage identity rather
+than Raven's reference-nullability projection. Consequently, `string` and
+`string?` can identify the same `ref`, `out`, or `in` signature position while
+input and output flow contracts still determine whether a call is safe and how
+the referenced storage changes afterward. This normalization is deliberately
+limited to reference annotations: `T` and `Nullable<T>` remain different
+runtime storage types. The same comparer contract is covered for equality,
+hashing, source calls, and constructed metadata methods.
+
 ### Control transfers have one expression-context policy
 
 `return` and `throw` are useful non-completing expressions. Expression blocks

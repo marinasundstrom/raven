@@ -2525,7 +2525,12 @@ internal sealed class OverloadResolver
             var referencedType = addressType.ReferencedType;
 
             var expectedByRefElementType = parameter.GetByRefElementType();
-            if (!SymbolEqualityComparer.Default.Equals(referencedType, expectedByRefElementType))
+            // Reference-type nullable annotations are not part of the CLR by-ref
+            // signature. They affect input/output contracts and flow, but must not
+            // make an otherwise identical ref/out/in storage location inapplicable.
+            // The comparer still distinguishes nullable value types because those
+            // have a different runtime representation.
+            if (!SymbolEqualityComparer.IgnoringNullability.Equals(referencedType, expectedByRefElementType))
             {
                 LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.RefKindMismatch, "address type does not match parameter type");
                 return false;

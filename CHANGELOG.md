@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- By-reference overload applicability now follows CLR signature identity for
+  nullability: nullable reference annotations do not make an otherwise matching
+  `ref`, `out`, or `in` argument inapplicable, while nullable value types remain
+  distinct. This also lets generic metadata `MaybeNull` output contracts update
+  Raven flow state after a successfully resolved call.
 - VS Code hover now presents the compiler's position-specific nullable flow
   state for nullable locals and parameters. The declared signature remains
   unchanged while the hover distinguishes `maybe null` from a value narrowed

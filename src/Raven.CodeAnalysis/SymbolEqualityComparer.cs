@@ -584,6 +584,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 continue;
             }
 
+            if (!_includeNullability &&
+                current is NullableTypeSymbol nullableType &&
+                !nullableType.UnderlyingType.IsValueType)
+            {
+                current = nullableType.UnderlyingType;
+                continue;
+            }
+
             return current;
         }
     }

@@ -501,8 +501,10 @@ func Length() -> int {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 
-    [Fact]
-    public void MaybeNullGenericOutParameter_InvalidatesArgumentFlowAfterCall()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MaybeNullGenericOutParameter_InvalidatesArgumentFlowAfterCall(bool diagnosticsFirst)
     {
         const string source = """
 import Raven.ExtensionMethodsFixture.*
@@ -517,16 +519,18 @@ func Length() -> int {
         var (compilation, tree) = CreateCompilation(
             source,
             references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
         var receiver = tree.GetRoot()
             .DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
             .Expression;
-        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
-
-        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
         Assert.Contains(
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
     }
 }

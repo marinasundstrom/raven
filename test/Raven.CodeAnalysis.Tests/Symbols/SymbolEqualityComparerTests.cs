@@ -52,6 +52,27 @@ public class SymbolEqualityComparerTests
     }
 
     [Fact]
+    public void IgnoringNullabilityComparer_EquatesNullableReferenceTypes()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var nullableString = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
+
+        var comparer = SymbolEqualityComparer.IgnoringNullability;
+        Assert.True(comparer.Equals(stringType, nullableString));
+        Assert.Equal(comparer.GetHashCode(stringType), comparer.GetHashCode(nullableString));
+
+        var dictionary = new Dictionary<ISymbol, int>(comparer)
+        {
+            [stringType] = 1,
+        };
+
+        Assert.True(dictionary.ContainsKey(nullableString));
+    }
+
+    [Fact]
     public void Comparer_UnwrapsAliasSymbols()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
