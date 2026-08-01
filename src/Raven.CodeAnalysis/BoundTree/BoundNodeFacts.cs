@@ -18,6 +18,8 @@ internal static class BoundNodeFacts
             case BoundIfExpression { ElseBranch: not null } ifExpression:
                 return IsAbruptExpression(ifExpression.ThenBranch) &&
                     IsAbruptExpression(ifExpression.ElseBranch);
+            case BoundMatchExpression { Arms.IsDefaultOrEmpty: false } matchExpression:
+                return matchExpression.Arms.All(static arm => IsAbruptExpression(arm.Expression));
             case BoundBlockExpression block:
                 {
                     var last = block.Statements.LastOrDefault();

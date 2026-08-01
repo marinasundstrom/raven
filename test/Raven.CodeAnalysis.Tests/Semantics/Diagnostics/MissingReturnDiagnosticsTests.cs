@@ -70,6 +70,21 @@ func Compute(flag: bool) -> int {
     }
 
     [Fact]
+    public void NonUnitFunction_WithAbruptMatchExpressionInitializer_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    let never = match flag {
+        true => return 1
+        false => return 2
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
     public void UnitFunction_WithEmptyBody_DoesNotReportMissingReturn()
     {
         var code = """

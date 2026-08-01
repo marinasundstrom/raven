@@ -20,8 +20,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `while !false` as non-terminating unless a reachable break exists. Boolean
   conjunction, disjunction, and same-type constant equality are folded as well.
 - Control-flow analysis now recognizes parenthesized, converted, and
-  all-abrupt `if` expressions as non-completing, including when such an
-  expression is nested in a local initializer.
+  all-abrupt `if` and `match` expressions as non-completing, including when
+  such an expression is nested in a local initializer.
 - Nullable type symbols now project the underlying type's declared members for
   both reference and value types. Public `GetMembers` therefore agrees with
   `LookupType` and `IsMemberDefined` instead of exposing only base-type members.
