@@ -910,8 +910,10 @@ ownership.
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
    share the ordinary loop-owned state, and abrupt `try`/`catch` branches are
-   excluded from normal joins; prioritize nested cycles and filtered/finally
-   exceptional paths.
+   excluded from normal joins. A completing `finally` is applied after the
+   exceptional join and can establish a definite non-null fact independent of
+   diagnostics query order; prioritize nested cycles and filtered exceptional
+   paths.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage. Equivalent constructed signatures now apply
