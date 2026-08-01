@@ -620,6 +620,70 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void EditingTypedPatternNegationInvalidatesBodyFlowState()
+    {
+        const string source = """
+            func Hash(value: object?) -> int {
+                if value is string text {
+                    return value.GetHashCode()
+                }
+
+                return 0
+            }
+            """;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "incremental-typed-pattern-nullability",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "flow.rav",
+            SourceText.From(source),
+            "/tmp/flow.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single();
+        var initialReceiver = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+
+        Assert.Equal(
+            NullableFlowState.NotNull,
+            initialCompilation.GetSemanticModel(initialTree).GetTypeInfo(initialReceiver).Nullability.FlowState);
+        Assert.Empty(initialCompilation.GetDiagnostics());
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSource = source.Replace("is string", "is not string", System.StringComparison.Ordinal);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(updatedSource)));
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single();
+        var updatedReceiver = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+
+        Assert.Equal(
+            NullableFlowState.MaybeNull,
+            updatedCompilation.GetSemanticModel(updatedTree).GetTypeInfo(updatedReceiver).Nullability.FlowState);
+        Assert.Contains(
+            updatedCompilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
     public void GetTypeInfo_ReportsNullableValueTypeFlowNarrowing()
     {
         const string source = """
