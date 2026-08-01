@@ -126,6 +126,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   semantic queries consistent across nested guards.
 - Conjunctive patterns now combine operand nullability guarantees, so a
   successful `not null and ...` pattern narrows its scrutinee.
+- Disjunctive patterns now narrow their success path only when every alternative
+  requires non-null, and combine failure-path guarantees conservatively.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

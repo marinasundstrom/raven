@@ -11381,6 +11381,29 @@ partial class BlockBinder : Binder
             }
         }
 
+        if (pattern is BoundOrPattern orPattern)
+        {
+            var hasLeftFlow = TryGetNullPatternFlow(
+                orPattern.Left,
+                out var leftNonNullWhenTrue,
+                out var leftNonNullWhenFalse);
+            var hasRightFlow = TryGetNullPatternFlow(
+                orPattern.Right,
+                out var rightNonNullWhenTrue,
+                out var rightNonNullWhenFalse);
+
+            if (hasLeftFlow || hasRightFlow)
+            {
+                nonNullWhenTrue = leftNonNullWhenTrue == rightNonNullWhenTrue
+                    ? leftNonNullWhenTrue
+                    : null;
+                nonNullWhenFalse = CombineRequiredPatternFlow(
+                    leftNonNullWhenFalse,
+                    rightNonNullWhenFalse);
+                return true;
+            }
+        }
+
         if (pattern is BoundDeclarationPattern declarationPattern &&
             !declarationPattern.DeclaredType.IsNullable)
         {
@@ -11399,6 +11422,14 @@ partial class BlockBinder : Binder
         nonNullWhenTrue = null;
         nonNullWhenFalse = null;
         return false;
+    }
+
+    private static bool? CombineRequiredPatternFlow(bool? left, bool? right)
+    {
+        if (left is not null && right is not null && left != right)
+            return null;
+
+        return left ?? right;
     }
 
     private static HashSet<ISymbol> IntersectFlowStates(HashSet<ISymbol> left, HashSet<ISymbol> right)

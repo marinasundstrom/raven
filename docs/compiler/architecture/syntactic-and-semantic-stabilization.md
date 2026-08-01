@@ -291,6 +291,9 @@ A type or shape mismatch does not make an already non-null scrutinee nullable;
 only a branch that proves a null match removes the fact.
 For conjunctive patterns, a successful operand that requires a non-null input
 establishes that fact for the successful combined pattern.
+For disjunctive patterns, every successful alternative must require non-null
+before the combined true path narrows; the false path may use a guarantee shared
+by the required operand failures.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
