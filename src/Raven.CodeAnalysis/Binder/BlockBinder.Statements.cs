@@ -291,7 +291,10 @@ partial class BlockBinder
             ThrowStatementSyntax => true,
             BreakStatementSyntax => true,
             ContinueStatementSyntax => true,
-            BlockStatementSyntax block when block.Statements.Count == 1 => IsEarlyExitStatement(block.Statements[0]),
+            BlockStatementSyntax block when block.Statements.Count > 0 => IsEarlyExitStatement(block.Statements[^1]),
+            IfStatementSyntax ifStatement when ifStatement.ElseClause is not null =>
+                IsEarlyExitStatement(ifStatement.ThenStatement) &&
+                IsEarlyExitStatement(ifStatement.ElseClause.Statement),
             _ => false
         };
     }

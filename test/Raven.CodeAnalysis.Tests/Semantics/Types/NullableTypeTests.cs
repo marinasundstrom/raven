@@ -311,6 +311,75 @@ public class NullableTypeTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GetTypeInfo_NarrowsAfterNullGuardWhoseBlockEndsAbruptly(bool diagnosticsFirst)
+    {
+        const string source = """
+            import System.Console.*
+
+            func Length(value: string?) -> int {
+                if value is null {
+                    WriteLine("missing")
+                    return 0
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_NarrowsAfterNullGuardWhoseNestedBranchesExit(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Length(value: string?, alternate: bool) -> int {
+                if value is null {
+                    if alternate {
+                        return 0
+                    } else {
+                        throw System.Exception()
+                    }
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Expression.ToString() == "value")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GetTypeInfo_ReportsNotNullInsideWhileNullCheck(bool diagnosticsFirst)
     {
         const string source = """

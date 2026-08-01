@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Null-flow analysis now recognizes guard blocks whose final statement exits,
+  as well as nested `if`/`else` guards whose branches all exit. Subsequent code
+  receives the same non-null narrowing as it does after a single-statement
+  guard.
 - Definite-assignment analysis for `out` parameters now joins the actual exits
   from `loop` statements. Assigning before every reachable `break` satisfies
   the contract, while any unassigned break path still reports `RAV0269`.

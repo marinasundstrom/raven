@@ -352,6 +352,14 @@ zero-iteration exit, so out-parameter assignment is now intersected across its
 reachable `break` states rather than discarded wholesale; one unassigned break
 continues to make the method exit invalid.
 
+Null-flow joins treat a branch as abrupt when its block ends in `return`,
+`throw`, `break`, or `continue`, even when ordinary statements precede that
+exit. Nested `if`/`else` statements are abrupt when both branches are abrupt.
+This allows a multi-statement null guard to narrow subsequent code without
+weakening the conservative loop rules: a direct `break` path still prevents a
+while-condition's false-state narrowing, while nested-loop breaks do not leak
+into the outer loop.
+
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
 every relevant signature position, including nullable context/annotation
