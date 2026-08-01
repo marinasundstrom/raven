@@ -567,6 +567,14 @@ Each substituted method type parameter remains owned by its own open method
 wrapper, while constraints that mention containing type parameters resolve to
 the constructed containing arguments.
 
+Incremental declaration isolation now covers generic members inside generic
+source types as well as namespace functions. Editing one member body from valid
+code to an unresolved name must leave a sibling's constructed containing type,
+method type argument, and original declaration identity available in either
+diagnostics-first or semantic-query-first order. The authored error remains
+confined to the edited member body; it does not invalidate the constructed
+sibling call.
+
 Nested construction now has the corresponding source-to-PE invariant across
 all three substitution layers. `Outer<int>.Inner<object>.Combine<string>` must
 retain the constructed outer and inner containers, substitute the method

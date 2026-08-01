@@ -190,6 +190,71 @@ func Main() -> int {
         AssertErrorsAreConfinedTo(compilation, functions["Broken"].Span);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingGenericTypeMemberBody_DoesNotInvalidateConstructedSibling(bool diagnosticsFirst)
+    {
+        const string source = """
+class Container<T> {
+    static func Broken<U>(value: U) -> T {
+        default(T)
+    }
+
+    static func Stable<U>(value: U) -> U {
+        value
+    }
+}
+
+func Main() -> int {
+    Container<string>.Stable<int>(21)
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "generic-member-declaration-isolation",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "declarations.rav",
+            SourceText.From(source),
+            "/tmp/generic-member-declarations.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSource = source.Replace("default(T)", "missingValue", StringComparison.Ordinal);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(updatedSource)));
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = updatedCompilation.GetDiagnostics();
+
+        var model = updatedCompilation.GetSemanticModel(updatedTree);
+        var methods = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .ToDictionary(static method => method.Identifier.ValueText);
+        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methods["Stable"]));
+        var invocation = updatedTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.OriginalDefinition));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, selected.ContainingType!.TypeArguments[0].SpecialType);
+        AssertErrorsAreConfinedTo(updatedCompilation, methods["Broken"].Span);
+    }
+
     private static void AssertErrorsAreConfinedTo(Compilation compilation, TextSpan brokenSpan)
     {
         var errors = compilation.GetDiagnostics()
