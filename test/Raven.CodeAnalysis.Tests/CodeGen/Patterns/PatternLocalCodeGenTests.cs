@@ -137,6 +137,40 @@ class Widget {}
     }
 
     [Fact]
+    public void NullableArraySequencePattern_FailsForNullAndMatchesNonNullInput()
+    {
+        var code = """
+class NullableSequencePatterns {
+    public static func Count(value: int[]?) -> int {
+        if value is [let first, ...] {
+            return value.Length
+        }
+
+        return -1
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("nullable_sequence_pattern", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("NullableSequencePatterns", throwOnError: true)!;
+        var method = type.GetMethod("Count")!;
+
+        Assert.Equal(-1, method.Invoke(null, [null]));
+        Assert.Equal(-1, method.Invoke(null, [Array.Empty<int>()]));
+        Assert.Equal(2, method.Invoke(null, [new[] { 1, 2 }]));
+    }
+
+    [Fact]
     public void RangePattern_LoweredToComparisonPatternsForIsAndMatchExpressions()
     {
         var code = """
