@@ -11414,6 +11414,7 @@ partial class BlockBinder : Binder
 
         if (pattern is BoundPropertyPattern or
             BoundDeconstructPattern or
+            BoundDictionaryPattern or
             BoundPositionalPattern { IsSequence: true })
         {
             nonNullWhenTrue = true;

@@ -764,7 +764,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundDictionaryPattern dictionaryPattern)
         {
-            EmitDictionaryPattern(dictionaryPattern, inputType, scope, scrutineeLocal2);
+            EmitDictionaryPattern(dictionaryPattern, inputType.StripNullable(), scope, scrutineeLocal2);
             return;
         }
 

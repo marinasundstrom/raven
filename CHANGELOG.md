@@ -130,6 +130,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   requires non-null, and combine failure-path guarantees conservatively.
 - Sequence patterns now accept nullable arrays and strings, fail normally for
   `null`, and publish a non-null scrutinee on successful matches.
+- Dictionary patterns now accept nullable dictionary inputs with the same
+  null-fail and successful non-null flow semantics.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

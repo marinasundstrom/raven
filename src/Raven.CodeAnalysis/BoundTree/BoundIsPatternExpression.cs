@@ -1095,7 +1095,7 @@ internal partial class BlockBinder
         var keyType = Compilation.ErrorTypeSymbol;
         var valueType = Compilation.ErrorTypeSymbol;
 
-        if (inputType is INamedTypeSymbol namedInput &&
+        if (inputType.StripNullable() is INamedTypeSymbol namedInput &&
             TryGetDictionaryInterfaceInfo(namedInput, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
         {
             receiverType = dictionaryReceiverType;

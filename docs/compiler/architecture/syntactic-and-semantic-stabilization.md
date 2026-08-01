@@ -297,6 +297,9 @@ by the required operand failures.
 Sequence patterns follow the same recursive-pattern rule as property and
 deconstruction patterns: nullable reference inputs are accepted, `null` does
 not match, and success establishes non-null flow.
+Dictionary patterns apply that rule to the underlying dictionary-compatible
+type while retaining the nullable annotation on the scrutinee outside a
+successful match.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
