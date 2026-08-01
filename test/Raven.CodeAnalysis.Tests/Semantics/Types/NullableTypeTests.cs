@@ -681,6 +681,23 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Contains(
             updatedCompilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(source)));
+
+        var restoredCompilation = workspace.GetCompilation(projectId);
+        var restoredTree = restoredCompilation.SyntaxTrees.Single();
+        var restoredReceiver = restoredTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+
+        Assert.Equal(
+            NullableFlowState.NotNull,
+            restoredCompilation.GetSemanticModel(restoredTree).GetTypeInfo(restoredReceiver).Nullability.FlowState);
+        Assert.Empty(restoredCompilation.GetDiagnostics());
     }
 
     [Fact]
