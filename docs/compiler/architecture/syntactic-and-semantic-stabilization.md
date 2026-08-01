@@ -236,6 +236,10 @@ target type affect later semantic answers.
 Focused permutation tests bind the same parenthesized expression under
 different target types in both orders. Additional binding context beyond target
 type, such as expression-return policy, still needs an explicit identity audit.
+Workspace coverage now also changes a collection expression's contextual array
+element type from `int` to `long` and back, alternating cold and
+diagnostics-first queries. The converted collection type must follow every
+snapshot without retaining the previous target.
 
 ### Broad exception suppression can hide semantic differences
 
