@@ -266,8 +266,11 @@ The same annotation and flow results are required whether diagnostics or type
 information is requested first, and repeated semantic queries must preserve
 both `Nullability` and `ConvertedNullability`.
 
-The remaining conformance matrix needs joins, loops, richer pattern tests,
-nullable unions, and incremental edits that change control flow.
+The remaining conformance matrix needs broader joins, loops, richer pattern
+tests, and incremental edits that change control flow. Nullable standard unions
+now have cold and diagnostics-first coverage proving that a null guard preserves
+the declared nullable union while publishing a non-null flow state for the
+continuing return expression.
 
 Branch-join coverage now distinguishes facts established on every completing
 path from facts established on only one path. Ordinary `while` bodies also bind

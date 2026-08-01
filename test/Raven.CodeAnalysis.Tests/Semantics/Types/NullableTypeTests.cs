@@ -1222,6 +1222,40 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Equal(typeInfo.ConvertedNullability, repeatedTypeInfo.ConvertedNullability);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_ReportsNullableStandardUnionFlowNarrowing(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Unwrap(value: (int | string)?) -> (int | string) {
+                if value is null {
+                    throw System.Exception()
+                }
+
+                return value
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var returnedValue = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ReturnStatementSyntax>()
+            .First()
+            .Expression!;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(returnedValue);
+
+        Assert.True(typeInfo.Type?.IsNullable);
+        Assert.False(typeInfo.Type?.GetNonNullableType().IsNullable);
+        Assert.NotEqual(TypeKind.Error, typeInfo.Type?.GetNonNullableType().TypeKind);
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void ExplicitNullableGenericSyntax_BindsToNamedNullableType()
     {
