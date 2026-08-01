@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- PE method and parameter symbols now project nullable flow attributes from
+  referenced assemblies, including return-level `MaybeNull` and parameter-level
+  `NotNullWhen` constructor values. The metadata decoder is shared across
+  method, return, and parameter attributes.
 - Higher-order generic calls now preserve constraint failures discovered while
   constructing a method-group argument. Passing a constrained generic function
   with incompatible inferred type arguments reports the constraint violation

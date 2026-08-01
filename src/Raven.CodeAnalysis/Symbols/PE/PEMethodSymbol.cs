@@ -22,6 +22,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private Accessibility? _accessibility;
     private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
     private ImmutableArray<AttributeData>? _attributes;
+    private ImmutableArray<AttributeData>? _returnTypeAttributes;
     private int? _parameterCount;
 
     public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
@@ -432,7 +433,31 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     private readonly record struct MetadataMethodKey(Guid ModuleVersionId, int MetadataToken);
 
-    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes()
+    {
+        if (_returnTypeAttributes.HasValue)
+            return _returnTypeAttributes.Value;
+
+        if (_methodInfo is not MethodInfo methodInfo)
+        {
+            _returnTypeAttributes = ImmutableArray<AttributeData>.Empty;
+            return _returnTypeAttributes.Value;
+        }
+
+        try
+        {
+            _returnTypeAttributes = ImmutableArray.CreateRange(
+                methodInfo.ReturnParameter.GetCustomAttributesData()
+                    .Select(attribute => PEAttributeDataFactory.Create(_reflectionTypeLoader, attribute))
+                    .OfType<AttributeData>());
+        }
+        catch
+        {
+            _returnTypeAttributes = ImmutableArray<AttributeData>.Empty;
+        }
+
+        return _returnTypeAttributes.Value;
+    }
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
@@ -445,7 +470,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
             foreach (var attribute in _methodInfo.GetCustomAttributesData())
             {
-                var data = TryCreateAttributeData(attribute);
+                var data = PEAttributeDataFactory.Create(_reflectionTypeLoader, attribute);
                 if (data is not null)
                     builder.Add(data);
             }
@@ -564,55 +589,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         }
 
         return false;
-    }
-
-    private AttributeData? TryCreateAttributeData(CustomAttributeData attribute)
-    {
-        if (_reflectionTypeLoader.ResolveType(attribute.AttributeType) is not INamedTypeSymbol attributeClass)
-            return null;
-
-        var attributeConstructor = attributeClass.GetMembers(".ctor")
-            .OfType<IMethodSymbol>()
-            .FirstOrDefault(ctor => ctor.Parameters.Length == attribute.ConstructorArguments.Count)
-            ?? attributeClass.GetMembers(".ctor").OfType<IMethodSymbol>().FirstOrDefault();
-
-        if (attributeConstructor is null)
-            return null;
-
-        var constructorArguments = ImmutableArray.CreateRange(attribute.ConstructorArguments.Select(CreateTypedConstant));
-        var namedArguments = ImmutableArray.CreateRange(
-            attribute.NamedArguments.Select(named =>
-                new KeyValuePair<string, TypedConstant>(named.MemberName, CreateTypedConstant(named.TypedValue))));
-
-        return new AttributeData(
-            attributeClass,
-            attributeConstructor,
-            constructorArguments,
-            namedArguments,
-            applicationSyntaxReference: null);
-    }
-
-    private TypedConstant CreateTypedConstant(CustomAttributeTypedArgument argument)
-    {
-        var type = _reflectionTypeLoader.ResolveType(argument.ArgumentType);
-
-        if (argument.Value is null)
-            return TypedConstant.CreateNull(type);
-
-        if (argument.ArgumentType.IsArray &&
-            argument.Value is IReadOnlyCollection<CustomAttributeTypedArgument> elements)
-        {
-            var values = ImmutableArray.CreateRange(elements.Select(CreateTypedConstant));
-            return TypedConstant.CreateArray(type, values);
-        }
-
-        if (argument.Value is Type typeValue &&
-            _reflectionTypeLoader.ResolveType(typeValue) is ITypeSymbol resolvedType)
-        {
-            return TypedConstant.CreateType(type, resolvedType);
-        }
-
-        return TypedConstant.CreatePrimitive(type, argument.Value);
     }
 
     public bool IsExtern => _methodInfo.IsAbstract || (_methodInfo.Attributes & MethodAttributes.PinvokeImpl) != 0;

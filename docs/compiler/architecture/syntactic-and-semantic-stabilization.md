@@ -121,8 +121,10 @@ Fix behavior that could make the current compiler an unreliable reference:
 Nullable signature metadata now includes the conventional non-null context on
 emitted source types, while explicit nullable positions retain their transform
 flags. This preserves Raven's strict source model for both .NET reflection and
-Raven metadata consumers. Flow-direction attributes such as `MaybeNull` and
-`NotNullWhen` remain a separate ABI stabilization task.
+Raven metadata consumers. PE symbols now project flow-direction attributes on
+method returns and parameters, including their typed constructor arguments.
+Applying those contracts to Raven's call-site null-state transitions remains a
+separate flow-analysis slice.
 
 ### Improve in the current compiler, without necessarily blocking a port
 
@@ -350,8 +352,9 @@ Nullable annotation emission and import now use the .NET transform-flag walk
 for nested generic arguments, arrays, generic value-type placeholders, and
 by-reference positions. Both the uniform single-byte form and the positional
 byte-array form round-trip through `NullabilityInfoContext` and Raven metadata
-symbols. Flow attributes and nullable context placement remain separate ABI
-slices.
+symbols. Metadata method returns and parameters also expose their flow
+attributes through the public symbol APIs. Nullable context placement and the
+call-site interpretation of those flow contracts remain separate ABI slices.
 
 ### Control transfers have one expression-context policy
 

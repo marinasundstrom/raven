@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -18,6 +19,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     private bool _hasExplicitDefaultValue;
     private object? _explicitDefaultValue;
     private bool _explicitDefaultValueIsTypeDefault;
+    private ImmutableArray<AttributeData>? _attributes;
 
     public PEParameterSymbol(ReflectionTypeLoader reflectionTypeLoader, ParameterInfo parameterInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -84,6 +86,26 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     }
 
     public ParameterInfo GetParameterInfo() => _parameterInfo;
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (_attributes.HasValue)
+            return _attributes.Value;
+
+        try
+        {
+            _attributes = ImmutableArray.CreateRange(
+                _parameterInfo.GetCustomAttributesData()
+                    .Select(attribute => PEAttributeDataFactory.Create(_reflectionTypeLoader, attribute))
+                    .OfType<AttributeData>());
+        }
+        catch
+        {
+            _attributes = ImmutableArray<AttributeData>.Empty;
+        }
+
+        return _attributes.Value;
+    }
 
     public bool HasExplicitDefaultValue
     {
