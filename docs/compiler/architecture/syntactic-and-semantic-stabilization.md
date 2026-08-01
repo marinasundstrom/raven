@@ -430,12 +430,12 @@ groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each
 test should assert the chosen symbol or diagnostic, not an internal lowering
 shape.
 
-A reduced nullable-standard-union flow test exposed a separate target-typing
-gap: returning an `int` expression from a function declared to return
-`(int | string)` attempted an `int`-to-`IComparable` conversion instead of
-constructing the standard union carrier. Keep this in the conversion lane; it
-must be reduced against ordinary assignment, argument, and return contexts
-before standard-union target typing is considered stable.
+Standard-union target typing must be tested with the Raven.Core carrier in the
+reference set. Without `System.Union<T1, T2>`, the compiler currently falls back
+to a common nominal type; for `int | string`, that can be `IComparable`. Carrier
+coverage verifies alternative construction in assignment, argument, and return
+contexts. The no-carrier path should remain a separately diagnosed missing
+runtime capability rather than being mistaken for standard-union behavior.
 
 ### Pattern semantics are a high-risk convergence point
 

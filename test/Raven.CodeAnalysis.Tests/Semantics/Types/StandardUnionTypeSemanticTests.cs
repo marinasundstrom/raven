@@ -88,6 +88,29 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void UnionTypeSyntax_ImplicitlyConvertsAlternativeInAllTargetTypedContexts()
+    {
+        const string source = """
+        import System.*
+
+        func consume(value: int | string) -> () { }
+
+        func create() -> (int | string) {
+            let assigned: int | string = 41
+            consume(assigned)
+            consume(42)
+            return 43
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithRavenCore);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void UnionTypeSyntax_DoesNotConvertNullLiteralToNullableContentUnion()
     {
         const string source = """
