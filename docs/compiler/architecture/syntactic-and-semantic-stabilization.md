@@ -52,6 +52,24 @@ surface needed to write the compiler:
 These are correctness boundaries. Implementation language, internal class
 layout, and the exact cache representation are not.
 
+### Bootstrap soundness gates
+
+Three semantic areas are explicit gates for porting compiler code:
+
+1. **Overload resolution and generics.** Candidate construction, inference,
+   constraints, conversion ranking, ambiguity, and selected symbols must agree
+   across ordinary binding, public semantic queries, and incremental edits.
+2. **Control-flow analysis.** Reachability, abrupt completion, joins, definite
+   assignment, return analysis, and loop ownership must be conservative and
+   internally consistent for every construct used by compiler code.
+3. **Unified null-state analysis.** Reference and value nullability must use
+   the same Raven semantic model while importing and emitting the correct .NET
+   ABI annotations. Branches, loops, patterns, calls, and metadata flow
+   attributes must publish the same state to diagnostics and `TypeInfo`.
+
+A serious unresolved inconsistency in one of these areas blocks a trusted
+bootstrap even if the affected program happens to emit runnable code.
+
 ## Bootstrap compiler and port boundary
 
 The current C# compiler is the bootstrap compiler and must become a trusted
@@ -170,6 +188,8 @@ to imply that every file must be rewritten before porting.
 | Parser recovery | `Syntax/InternalSyntax/Parser/LanguageParser.cs`, `Syntax/InternalSyntax/Parser/Parsers/*` | Reachable throws, missing-token construction, recovery boundaries, and fragment coverage |
 | Source snapshots | `Text/SourceText.cs`, `Text/TextLineCollection.cs` | Whole-string edits, substring readers, incomplete APIs, and snapshot identity |
 | Contextual binding | `Binder/BlockBinder.cs` | Target-type-sensitive cache identity and query-order dependence |
+| Semantic query orchestration | `SemanticModel.cs` | Specialized fast paths can bypass contextual binding and publish different symbols by query order |
+| Declaration validation | `MemberSignatureDeclarationPass.cs`, `Binder/TypeParameterInitializer.cs`, declaration binders | Repeated initialization paths must share one idempotent validation result |
 | Recovery during binding | `Binder/BlockBinder.Statements.cs`, `Binder/BlockBinder.MemberAccess.cs`, `Binder/MethodBodyBinder.cs` | Broad exception suppression and binder fallbacks |
 | Public flow information | `TypeInfo.cs`, `Binder/BlockBinder.cs`, `Binder/BlockBinder.Statements.cs` | Agreement between nullability diagnostics, narrowing, and semantic APIs |
 | Overload resolution | `OverloadResolver.cs`, `Binder/BlockBinder.MemberAccess.cs` | Generic method groups, inference, ambiguity, and conversion ranking |
@@ -354,6 +374,12 @@ local reports `RAV0166`, so there is no intermediate local state for a separate
 use-before-assignment diagnostic to analyze. The unused `RAV0165` descriptor was
 removed rather than presenting a rule the compiler never reported.
 
+Two declarations with the same name in one lexical scope report the binding
+error `RAV0167`. This is distinct from shadowing a declaration in an enclosing
+scope, which remains the configurable `RAV0168` warning. Treating a same-scope
+duplicate as ordinary shadowing leaves lookup and symbol ownership ambiguous
+and is therefore not suitable recovery for a bootstrap compiler.
+
 `out` parameters are different because the caller supplies their storage. The
 callee must assign each `out` parameter on every normal exit. The focused
 conformance matrix covers straight-line exits, `if` joins, exhaustive and
@@ -417,6 +443,16 @@ The method-group matrix now also covers a constrained generic transform passed
 to a separately generic higher-order function. Inference constructs both
 methods, preserves the transform's `struct` constraint, and publishes the same
 selected symbols when diagnostics or symbol information is requested first.
+An incompatible inferred transform now carries its structured constraint
+failure through the outer overload resolution instead of silently accepting
+the call. Workspace coverage edits the argument from a satisfying value type
+to a violating reference type and back, requiring both diagnostics and the
+contextually constructed method symbol to update.
+
+Constraint clauses are declaration contracts rather than optional binder
+hints. A clause naming an undeclared type parameter reports `RAV0360` for
+namespace functions, type members, function expressions, and macro functions;
+it is never silently discarded by whichever declaration path runs first.
 
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR
@@ -577,6 +613,15 @@ in multiple orders:
 
 Compare declared symbols, symbol and type information, conversions, constant
 values, operations, data-flow results, and diagnostics.
+
+Coverage is risk-based rather than combinatorial. Every fix should select
+representative paths that exercise distinct compiler ownership or projection
+mechanisms, then add boundary cases where a failure would contaminate later
+binding, flow, emission, metadata, or editor results. High-value seams include
+source versus metadata symbols, open versus constructed generics, declaration
+versus use sites, contextual versus uncontextual binding, full versus
+incremental snapshots, valid-to-invalid-to-valid edits, and ordinary versus
+macro declarations.
 
 ### Error isolation
 
