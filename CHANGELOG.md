@@ -8,6 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   accept every bound-node family without throwing on non-block statements.
   This prevents analysis and lowering walkers from silently skipping newly
   introduced bound expressions.
+- Pattern binding now recovers from unsupported synthetic pattern kinds with a
+  normal invalid-term diagnostic and error pattern instead of throwing. This
+  keeps semantic APIs total for edited or programmatically constructed trees.
 - Nullable symbol APIs now distinguish structural inspection from total
   normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`

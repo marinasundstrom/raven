@@ -430,6 +430,12 @@ enums, declared union cases, and explicit sealed-hierarchy permit lists. Each
 family is checked across the exhaustive, newly non-exhaustive, and restored
 snapshots, with diagnostics and `GetMatchExhaustiveness` required to agree.
 
+Pattern binding also treats unsupported pattern node kinds as recoverable
+semantic errors. Programmatically constructed or transient edited trees now
+produce an invalid-term diagnostic and bound error pattern for unknown general,
+comparison, unary, and binary forms rather than reaching a
+`NotImplementedException`.
+
 ### Macro functions need declaration parity
 
 Recent work has improved local macro partitioning and isolation, but macro

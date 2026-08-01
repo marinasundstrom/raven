@@ -608,7 +608,7 @@ internal partial class BlockBinder
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             ComparisonPatternSyntax r => BindComparisonPattern(r, inputType),
             RangePatternSyntax rp => BindRangePattern(rp, inputType?.GetNonNullableType()),
-            _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
+            _ => BindUnsupportedPattern(syntax)
         };
 
         CacheBoundNode(syntax, bound);
@@ -646,16 +646,30 @@ internal partial class BlockBinder
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetNonNullableType();
 
-        var @operator = syntax.Kind switch
+        BoundComparisonPatternOperator @operator;
+        switch (syntax.Kind)
         {
-            SyntaxKind.EqualsPattern => BoundComparisonPatternOperator.Equals,
-            SyntaxKind.NotEqualsPattern => BoundComparisonPatternOperator.NotEquals,
-            SyntaxKind.GreaterThanPattern => BoundComparisonPatternOperator.GreaterThan,
-            SyntaxKind.GreaterThanOrEqualPattern => BoundComparisonPatternOperator.GreaterThanOrEqual,
-            SyntaxKind.LessThanPattern => BoundComparisonPatternOperator.LessThan,
-            SyntaxKind.LessThanOrEqualPattern => BoundComparisonPatternOperator.LessThanOrEqual,
-            _ => throw new NotImplementedException($"Unsupported comparison pattern kind: {syntax.Kind}")
-        };
+            case SyntaxKind.EqualsPattern:
+                @operator = BoundComparisonPatternOperator.Equals;
+                break;
+            case SyntaxKind.NotEqualsPattern:
+                @operator = BoundComparisonPatternOperator.NotEquals;
+                break;
+            case SyntaxKind.GreaterThanPattern:
+                @operator = BoundComparisonPatternOperator.GreaterThan;
+                break;
+            case SyntaxKind.GreaterThanOrEqualPattern:
+                @operator = BoundComparisonPatternOperator.GreaterThanOrEqual;
+                break;
+            case SyntaxKind.LessThanPattern:
+                @operator = BoundComparisonPatternOperator.LessThan;
+                break;
+            case SyntaxKind.LessThanOrEqualPattern:
+                @operator = BoundComparisonPatternOperator.LessThanOrEqual;
+                break;
+            default:
+                return BindUnsupportedPattern(syntax);
+        }
 
         // RHS is an EXPRESSION (already parsed that way)
         var value = BindExpression(syntax.Expression);
@@ -1686,7 +1700,7 @@ internal partial class BlockBinder
         return syntax.Kind switch
         {
             SyntaxKind.NotPattern => new BoundNotPattern(operand),
-            _ => throw new NotImplementedException($"Unsupported unary pattern: {syntax.Kind}")
+            _ => BindUnsupportedPattern(syntax)
         };
     }
 
@@ -1699,8 +1713,14 @@ internal partial class BlockBinder
         {
             SyntaxKind.AndPattern => new BoundAndPattern(left, right),
             SyntaxKind.OrPattern => new BoundOrPattern(left, right),
-            _ => throw new NotImplementedException($"Unsupported binary pattern: {syntax.Kind}")
+            _ => BindUnsupportedPattern(syntax)
         };
+    }
+
+    private BoundPattern BindUnsupportedPattern(PatternSyntax syntax)
+    {
+        _diagnostics.ReportInvalidExpressionTerm(syntax.Kind, syntax.GetLocation());
+        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
     }
 
     private BoundPattern BindCasePattern(MemberPatternSyntax syntax, ITypeSymbol? inputType)
