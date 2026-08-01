@@ -110,6 +110,50 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_ReportsStandardUnionCarrierConversionRegardlessOfQueryOrder(bool diagnosticsFirst)
+    {
+        const string source = """
+        import System.*
+
+        func consume(value: int | string) -> () { }
+
+        func create() -> (int | string) {
+            let assigned: int | string = 41
+            consume(42)
+            return 43
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithRavenCore);
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var literals = tree.GetRoot().DescendantNodes().OfType<LiteralExpressionSyntax>().ToArray();
+
+        Assert.Collection(literals, AssertCarrierConversion, AssertCarrierConversion, AssertCarrierConversion);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        void AssertCarrierConversion(LiteralExpressionSyntax literal)
+        {
+            var typeInfo = model.GetTypeInfo(literal);
+
+            Assert.Equal(SpecialType.System_Int32, typeInfo.Type?.SpecialType);
+            var convertedType = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
+            Assert.Equal("System.Union`2", convertedType.OriginalDefinition.ToFullyQualifiedMetadataName());
+            Assert.True(typeInfo.Conversion.Exists);
+            Assert.True(typeInfo.Conversion.IsImplicit);
+            Assert.True(typeInfo.Conversion.IsUnion);
+            Assert.NotNull(typeInfo.Conversion.ConstructorSymbol);
+        }
+    }
+
     [Fact]
     public void UnionTypeSyntax_DoesNotConvertNullLiteralToNullableContentUnion()
     {

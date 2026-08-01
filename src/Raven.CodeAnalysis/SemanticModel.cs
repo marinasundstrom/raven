@@ -2942,6 +2942,19 @@ public partial class SemanticModel
         if (TryGetArgumentTargetTypeForExpression(expression, out targetType))
             return true;
 
+        if (expression.Parent is ReturnStatementSyntax &&
+            TryGetEnclosingSourceMethod(expression) is { } method)
+        {
+            targetType = method.ReturnType;
+            if (method.IsAsync &&
+                AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, targetType) is { } asyncResultType)
+            {
+                targetType = asyncResultType;
+            }
+
+            return targetType.TypeKind != TypeKind.Error;
+        }
+
         if (expression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax variableDeclarator } &&
             variableDeclarator.TypeAnnotation?.Type is { } annotationType)
         {
@@ -6429,7 +6442,7 @@ public partial class SemanticModel
         if (TryGetCachedTypeInfo(expression, out typeInfo) &&
             HasNonErrorTypeInfo(typeInfo))
         {
-            if (TryGetContextualArgumentConvertedType(expression, typeInfo.Type, out var contextualConvertedType) &&
+            if (TryGetContextualConvertedType(expression, typeInfo.Type, out var contextualConvertedType) &&
                 !SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, contextualConvertedType))
             {
                 typeInfo = new TypeInfo(
@@ -6535,7 +6548,7 @@ public partial class SemanticModel
         {
             var type = cachedExpression.Type;
             var convertedType = cachedExpression.GetConvertedType() ?? type;
-            if (TryGetContextualArgumentConvertedType(expression, type, out var contextualConvertedType))
+            if (TryGetContextualConvertedType(expression, type, out var contextualConvertedType))
                 convertedType = contextualConvertedType;
 
             if ((type is not null && type.TypeKind != TypeKind.Error) ||
@@ -6568,7 +6581,7 @@ public partial class SemanticModel
                 inferredType is not null)
             {
                 var convertedType = inferredType;
-                if (TryGetContextualArgumentConvertedType(expression, inferredType, out var contextualConvertedType))
+                if (TryGetContextualConvertedType(expression, inferredType, out var contextualConvertedType))
                     convertedType = contextualConvertedType;
 
                 typeInfo = new TypeInfo(inferredType, convertedType, ComputeConversion(inferredType, convertedType));
@@ -6580,7 +6593,7 @@ public partial class SemanticModel
                 inferredType is not null)
             {
                 var convertedType = inferredType;
-                if (TryGetContextualArgumentConvertedType(expression, inferredType, out var contextualConvertedType))
+                if (TryGetContextualConvertedType(expression, inferredType, out var contextualConvertedType))
                     convertedType = contextualConvertedType;
 
                 typeInfo = new TypeInfo(inferredType, convertedType, ComputeConversion(inferredType, convertedType));
@@ -6594,7 +6607,7 @@ public partial class SemanticModel
                 IsUsefulAvailableExpressionType(selectedReturnType))
             {
                 var convertedType = selectedReturnType;
-                if (TryGetContextualArgumentConvertedType(expression, selectedReturnType, out var contextualConvertedType))
+                if (TryGetContextualConvertedType(expression, selectedReturnType, out var contextualConvertedType))
                     convertedType = contextualConvertedType;
 
                 typeInfo = new TypeInfo(selectedReturnType, convertedType, ComputeConversion(selectedReturnType, convertedType));
@@ -9786,7 +9799,7 @@ public partial class SemanticModel
         ITypeSymbol? naturalType = boundExpr.Type;
 
         ITypeSymbol? convertedType = boundExpr.GetConvertedType() ?? boundExpr.Type;
-        if (TryGetContextualArgumentConvertedType(expr, naturalType, out var contextualConvertedType))
+        if (TryGetContextualConvertedType(expr, naturalType, out var contextualConvertedType))
             convertedType = contextualConvertedType;
 
         var conversion = boundExpr switch
@@ -9839,35 +9852,23 @@ public partial class SemanticModel
             : declaredType;
     }
 
-    private bool TryGetContextualArgumentConvertedType(
+    private bool TryGetContextualConvertedType(
         ExpressionSyntax expression,
         ITypeSymbol? naturalType,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? convertedType)
     {
         convertedType = null;
 
-        if (naturalType is null ||
-            naturalType.TypeKind == TypeKind.Error ||
-            expression.Parent is not ArgumentSyntax argument ||
-            !IsSameSyntaxNode(argument.Expression, expression) ||
-            argument.Parent is not ArgumentListSyntax argumentList ||
-            argumentList.Parent is not InvocationExpressionSyntax invocation ||
-            IsSameSyntaxNode(invocation, expression))
+        if (naturalType is null || naturalType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (!TryGetTargetTypeForExpression(expression, out var targetType) ||
+            targetType is not { TypeKind: not TypeKind.Error })
         {
             return false;
         }
 
-        if (_availableInvocationSymbolInfoInProgress.ContainsKey(invocation))
-            return false;
-
-        if (!TryGetInvocationMethodSymbol(invocation, out var method) || method is null)
-            return false;
-
-        var parameter = GetParameterForArgument(method, argumentList.Arguments, argument);
-        if (parameter?.Type is not { TypeKind: not TypeKind.Error } parameterType)
-            return false;
-
-        convertedType = ProjectContextualConvertedType(parameterType, naturalType);
+        convertedType = ProjectContextualConvertedType(targetType, naturalType);
         return true;
     }
 
