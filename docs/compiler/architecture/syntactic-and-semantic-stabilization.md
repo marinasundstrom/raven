@@ -630,6 +630,13 @@ same rule using the setter value parameter, which is where C# emits these
 attributes. PE properties now project their own metadata attributes as well;
 accessor-parameter contracts remain owned by the corresponding method symbol.
 
+Local flow facts now reflect values written by both declarations and later
+assignments. A non-null initializer or right-hand side establishes non-null
+state even when the storage type remains nullable; a null or maybe-null value
+removes it. Rebinding a cached declaration replays its initializer state, so
+diagnostics-first and semantic-query-first paths start from the same fact before
+subsequent assignments are applied.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks

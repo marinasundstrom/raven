@@ -3594,7 +3594,7 @@ partial class BlockBinder
     {
         var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
         if (bound is BoundAssignmentExpression assignment)
-            ClearNullableFlowOnAssignment(assignment);
+            UpdateNullableFlowOnAssignment(assignment);
 
         return bound;
     }
@@ -3620,7 +3620,7 @@ partial class BlockBinder
         var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
         if (bound is BoundAssignmentExpression assignment)
         {
-            ClearNullableFlowOnAssignment(assignment);
+            UpdateNullableFlowOnAssignment(assignment);
             return new BoundAssignmentStatement(assignment);
         }
 
@@ -3657,7 +3657,7 @@ partial class BlockBinder
         var bound = BindPatternAssignment(syntax.Left, right, syntax, syntax.BindingKeyword.Kind);
         if (bound is BoundAssignmentExpression assignment)
         {
-            ClearNullableFlowOnAssignment(assignment);
+            UpdateNullableFlowOnAssignment(assignment);
             return new BoundAssignmentStatement(assignment);
         }
 

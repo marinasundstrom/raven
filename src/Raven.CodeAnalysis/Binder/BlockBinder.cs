@@ -1010,6 +1010,9 @@ partial class BlockBinder : Binder
 
         var declarator = new BoundVariableDeclarator(localSymbol, boundInitializer, fixedAddressInitializer, fixedPinnedLocal);
 
+        if (boundInitializer is not null)
+            UpdateNullableFlowForValue(localSymbol, boundInitializer);
+
         if (shouldDispose)
             _localsToDispose.Add((declarator.Local, _scopeDepth));
 
@@ -1041,6 +1044,8 @@ partial class BlockBinder : Binder
             IsCompleteLocalDeclarationType(cachedDeclarator.Local.Type))
         {
             RegisterLocalForCurrentLookup(name, cachedDeclarator.Local);
+            if (cachedDeclarator.Initializer is not null)
+                UpdateNullableFlowForValue(cachedDeclarator.Local, cachedDeclarator.Initializer);
             declarator = cachedDeclarator;
             return true;
         }
@@ -11212,17 +11217,28 @@ partial class BlockBinder : Binder
             _nonNullSymbols.Remove(local);
     }
 
-    private void ClearNullableFlowOnAssignment(BoundAssignmentExpression assignment)
+    private void UpdateNullableFlowOnAssignment(BoundAssignmentExpression assignment)
     {
-        switch (assignment)
+        ISymbol? assignedSymbol = assignment switch
         {
-            case BoundLocalAssignmentExpression localAssignment:
-                _nonNullSymbols.Remove(localAssignment.Local);
-                break;
-            case BoundParameterAssignmentExpression parameterAssignment:
-                _nonNullSymbols.Remove(parameterAssignment.Parameter);
-                break;
-        }
+            BoundLocalAssignmentExpression localAssignment => localAssignment.Local,
+            BoundParameterAssignmentExpression parameterAssignment => parameterAssignment.Parameter,
+            _ => null
+        };
+
+        if (assignedSymbol is null)
+            return;
+
+        UpdateNullableFlowForValue(assignedSymbol, assignment.Right);
+    }
+
+    private void UpdateNullableFlowForValue(ISymbol symbol, BoundExpression value)
+    {
+        var valueFlowType = value.GetNullabilityFlowType();
+        if (valueFlowType.TypeKind != TypeKind.Null && !valueFlowType.IsNullable)
+            _nonNullSymbols.Add(symbol);
+        else
+            _nonNullSymbols.Remove(symbol);
     }
 
     private bool IsReceiverKnownNotNull(BoundExpression receiver)

@@ -19,6 +19,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   contracts. Non-nullable and `DisallowNull` inputs reject null or maybe-null
   values, `AllowNull` accepts them without changing the declared/read type, and
   PE property attributes are available through the public symbol model.
+- Nullable local and mutable-parameter flow now follows the assigned value.
+  Definitely non-null initializers and assignments establish a fact, assignments
+  from narrowed values copy it, and null or maybe-null assignments remove it;
+  cached declarations replay the same initialization state.
 - PE by-reference parameters now retain their nullable element annotation,
   using write-state nullability for `out` parameters even when reflection
   exposes the annotation on the root by-ref node. Invocation flow applies
