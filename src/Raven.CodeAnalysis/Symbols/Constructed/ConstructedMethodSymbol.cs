@@ -120,8 +120,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsConstructor => _definition.IsConstructor;
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _definition.GetReturnTypeAttributes();
-    public override bool Equals(object? obj) => _definition.Equals(obj);
-    public override int GetHashCode() => _definition.GetHashCode();
+    public override bool Equals(object? obj) => obj is ISymbol symbol && Equals(symbol);
+    public override int GetHashCode() => SymbolEqualityComparer.Default.GetHashCode(this);
 
     public MethodKind MethodKind => _definition.MethodKind;
     public IMethodSymbol? OriginalDefinition => _definition.OriginalDefinition ?? _definition;

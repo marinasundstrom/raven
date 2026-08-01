@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- `ConstructedMethodSymbol` object equality and hashing now use its constructed
+  signature identity instead of proxying to the open method definition.
+  Reflexive and independently reconstructed methods behave consistently in
+  ordinary sets as well as with `SymbolEqualityComparer`.
 - Source and PE symbols now retain stable identity across an emit/reload generic
   boundary. PE modules expose their scope name and containing assembly when
   reflection omits a module file name, and source generic method

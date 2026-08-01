@@ -10,6 +10,36 @@ namespace Raven.CodeAnalysis.Tests;
 public class ConstructedMethodSymbolTests
 {
     [Fact]
+    public void ConstructedMethod_ObjectEqualityUsesConstructedIdentity()
+    {
+        const string source = """
+class Factory {
+    public static func Identity<T>(value: T) -> T => value
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "constructed-method-object-equality",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var factory = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var definition = Assert.Single(factory.GetMembers("Identity").OfType<IMethodSymbol>());
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var firstInt = definition.Construct(intType);
+        var secondInt = definition.Construct(intType);
+        var constructedString = definition.Construct(stringType);
+
+        Assert.True(((object)firstInt).Equals(firstInt));
+        Assert.True(((object)firstInt).Equals(secondInt));
+        Assert.Equal(((object)firstInt).GetHashCode(), ((object)secondInt).GetHashCode());
+        Assert.False(((object)firstInt).Equals(constructedString));
+    }
+
+    [Fact]
     public void ConstructedMethod_SubstitutesArrayElementType()
     {
         var source = """

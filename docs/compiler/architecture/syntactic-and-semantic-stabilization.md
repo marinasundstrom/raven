@@ -520,6 +520,12 @@ continue adding source/PE and repeated-construction invariants, then evaluate a
 single substitution service or interned constructed-symbol factory as a
 separate design slice.
 
+One unsafe shortcut has been removed from that chain:
+`ConstructedMethodSymbol.Equals(object)` and `GetHashCode()` no longer proxy to
+the open definition. They use the same constructed signature identity as the
+symbol comparer, preserving reflexivity and distinguishing different type
+arguments without maintaining a second equality path.
+
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR
 overload identity, but distinct underlying types remain distinct; a null
