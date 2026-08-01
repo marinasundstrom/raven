@@ -8,6 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   constructing a method-group argument. Passing a constrained generic function
   with incompatible inferred type arguments reports the constraint violation
   instead of silently accepting the invocation.
+- Symbol queries for method-group arguments now use the enclosing invocation's
+  contextual binding before falling back to the visible open declaration. This
+  keeps inferred method symbols stable across cold queries, diagnostic queries,
+  and workspace edits.
 - Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
   `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
   exhaustiveness, emission, analyzer, and language-service behavior. Raven's

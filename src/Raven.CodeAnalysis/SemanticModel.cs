@@ -2134,6 +2134,13 @@ public partial class SemanticModel
             return earlyMemberBindingInfo;
         }
 
+        if (node is IdentifierNameSyntax contextualArgumentIdentifier &&
+            TryGetContextualArgumentSymbolInfo(contextualArgumentIdentifier, out var contextualArgumentInfo))
+        {
+            StoreSymbolMapping(node, contextualArgumentInfo);
+            return contextualArgumentInfo;
+        }
+
         if (node is IdentifierNameSyntax earlyValueIdentifier &&
             TryGetVisibleValueIdentifierSymbolInfo(earlyValueIdentifier, out var earlyValueInfo))
         {
@@ -6233,6 +6240,45 @@ public partial class SemanticModel
         }
 
         info = invokedInfo;
+        return true;
+    }
+
+    private bool TryGetContextualArgumentSymbolInfo(
+        IdentifierNameSyntax identifier,
+        out SymbolInfo info)
+    {
+        info = default;
+
+        if (identifier.Parent is not ArgumentSyntax argument ||
+            !IsSameSyntaxNode(argument.Expression, identifier) ||
+            argument.Parent is not ArgumentListSyntax argumentList ||
+            argumentList.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        if (!TryLookupAvailableFunctionDeclarations(
+                identifier,
+                identifier.Identifier.ValueText,
+                allowSourceDeclarationBinding: true,
+                out var methods) ||
+            methods.IsDefaultOrEmpty)
+        {
+            return false;
+        }
+
+        if (!TryBindInterestRegion(invocation, out var boundInvocation) ||
+            !TryFindBoundNodeBySyntax(boundInvocation, identifier, out var boundArgumentNode) ||
+            boundArgumentNode is not BoundExpression boundArgument)
+        {
+            return false;
+        }
+
+        var contextualInfo = boundArgument.GetSymbolInfo();
+        if (!HasSymbolInfo(contextualInfo))
+            return false;
+
+        info = contextualInfo;
         return true;
     }
 

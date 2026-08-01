@@ -3,6 +3,8 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -212,6 +214,86 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Contains("Stringify", diagnostic.GetMessage());
         Assert.Contains("struct", diagnostic.GetMessage());
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+    }
+
+    [Fact]
+    public void EditingMethodGroupArgument_RecomputesInferredConstraintsAndSymbolInfo()
+    {
+        const string validSource = """
+            import System.*
+
+            let result = Apply(21, Stringify)
+
+            func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> TResult {
+                transform(value)
+            }
+
+            func Stringify<T: struct>(value: T) -> string {
+                ""
+            }
+            """;
+        var invalidSource = validSource.Replace("Apply(21", "Apply(\"value\"", System.StringComparison.Ordinal);
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "generic-method-group-edit",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "method-group.rav",
+            SourceText.From(validSource),
+            "/tmp/generic-method-group-edit.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        AssertValidSnapshot();
+
+        var documentId = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single().Id;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(documentId, SourceText.From(invalidSource)));
+        AssertInvalidSnapshot();
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(documentId, SourceText.From(validSource)));
+        AssertValidSnapshot();
+
+        void AssertValidSnapshot()
+        {
+            var compilation = workspace.GetCompilation(projectId);
+            var tree = compilation.SyntaxTrees.Single();
+            var model = compilation.GetSemanticModel(tree);
+            var stringify = tree.GetRoot()
+                .DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Single(identifier => identifier.Identifier.ValueText == "Stringify");
+            var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(stringify).Symbol);
+
+            var typeArgument = Assert.Single(method.TypeArguments);
+            Assert.True(
+                typeArgument.SpecialType == SpecialType.System_Int32,
+                $"Expected int, got {typeArgument.ToDisplayString()} ({typeArgument.GetType().Name}) from {method.ToDisplayString()}");
+            Assert.Empty(compilation.GetDiagnostics());
+        }
+
+        void AssertInvalidSnapshot()
+        {
+            var compilation = workspace.GetCompilation(projectId);
+            var tree = compilation.SyntaxTrees.Single();
+            var model = compilation.GetSemanticModel(tree);
+            var stringify = tree.GetRoot()
+                .DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Single(identifier => identifier.Identifier.ValueText == "Stringify");
+            var symbolInfo = model.GetSymbolInfo(stringify);
+            var diagnostic = Assert.Single(
+                compilation.GetDiagnostics(),
+                diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+
+            var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+            Assert.IsAssignableFrom<ITypeParameterSymbol>(Assert.Single(method.TypeArguments));
+            Assert.Contains("Stringify", diagnostic.GetMessage());
+        }
     }
 
     [Fact]
