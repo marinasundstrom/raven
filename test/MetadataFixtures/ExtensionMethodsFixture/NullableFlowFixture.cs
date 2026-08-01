@@ -22,4 +22,14 @@ public static class NullableFlowFixture
     public static bool ArePresent(
         [NotNullWhen(true)] string? first,
         [NotNullWhen(true)] string? second) => first is not null && second is not null;
+
+    public static bool MaybeClear(
+        bool result,
+        [MaybeNullWhen(true)] ref string? value)
+    {
+        if (result)
+            value = null!;
+
+        return result;
+    }
 }

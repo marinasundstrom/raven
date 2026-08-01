@@ -81,6 +81,86 @@ func Length(value: string?) -> int {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MaybeNullWhenTrue_InvalidatesArgumentInTrueBranch(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length() -> int {
+    var value: string? = "raven"
+    if value is null {
+        return 0
+    }
+
+    if NullableFlowFixture.MaybeClear(true, ref value) {
+        return value.Length
+    }
+
+    return 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MaybeNullWhenTrue_PreservesArgumentInFalseBranch(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length() -> int {
+    var value: string? = "raven"
+    if value is null {
+        return 0
+    }
+
+    if NullableFlowFixture.MaybeClear(false, ref value) {
+        return 0
+    }
+
+    return value.Length
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void MaybeNullReturn_WarnsOnDirectDereference()
     {

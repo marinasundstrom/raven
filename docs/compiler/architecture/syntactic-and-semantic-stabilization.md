@@ -613,6 +613,15 @@ the completing `try` or sibling catches. Catch entry remains conservative about
 assignments that may have happened before an exception; excluding an abrupt
 exit does not make exception flow itself optimistic.
 
+Conditional output contracts now include `MaybeNullWhen` for nullable
+by-reference storage. The matching Boolean branch removes an established
+non-null fact and the opposite branch preserves it. Ref/out argument binding
+uses the writable declaration shape rather than a flow-narrowed read
+conversion, ensuring that post-call analysis updates the original symbol. The
+remaining harder case is an attribute that downgrades a declared non-nullable
+symbol: Raven still needs an explicit maybe-null flow fact independent of the
+declaration annotation before that case can be modeled faithfully.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks
@@ -852,10 +861,11 @@ The highest remaining risks after the current stabilization batch are:
    forms still need a matrix.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
-   by-reference postconditions without splitting reference and value semantics.
-   `AllowNull`, `DisallowNull`, `MaybeNullWhen`, member postconditions, generic
-   constraints, and Raven emit/C# consume round trips still need equivalent
-   coverage.
+   by-reference postconditions without splitting reference and value semantics;
+   `MaybeNullWhen` also updates already-nullable ref storage conditionally.
+   Flow downgrades of declared non-nullable symbols, `AllowNull`, `DisallowNull`,
+   member postconditions, generic constraints, and Raven emit/C# consume round
+   trips still need equivalent coverage.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage, but macro partitions and
    other declaration families remain less complete. Broken signatures and

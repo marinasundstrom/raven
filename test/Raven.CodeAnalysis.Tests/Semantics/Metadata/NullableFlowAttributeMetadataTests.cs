@@ -24,6 +24,24 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataParameter_ProjectsMaybeNullWhenAttributeAndArgument()
+    {
+        var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var method = fixtureType.GetMembers("MaybeClear")
+            .OfType<IMethodSymbol>()
+            .Single();
+        var parameter = method.Parameters[1];
+        var attribute = Assert.Single(
+            parameter.GetAttributes(),
+            attribute => attribute.AttributeClass?.Name == "MaybeNullWhenAttribute");
+
+        Assert.Equal(RefKind.Ref, parameter.RefKind);
+        Assert.Equal("System.Diagnostics.CodeAnalysis", attribute.AttributeClass.ContainingNamespace?.ToMetadataName());
+        Assert.True(Assert.IsType<bool>(Assert.Single(attribute.ConstructorArguments).Value));
+    }
+
+    [Fact]
     public void MetadataReturn_ProjectsMaybeNullAttribute()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);

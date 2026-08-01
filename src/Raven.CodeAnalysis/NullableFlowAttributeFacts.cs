@@ -45,6 +45,24 @@ internal static class NullableFlowAttributeFacts
         return false;
     }
 
+    public static bool TryGetMaybeNullWhen(IParameterSymbol parameter, out bool returnValue)
+    {
+        foreach (var attribute in parameter.GetAttributes())
+        {
+            if (!IsAttribute(attribute, "MaybeNullWhenAttribute") ||
+                attribute.ConstructorArguments is not [{ Value: bool value }])
+            {
+                continue;
+            }
+
+            returnValue = value;
+            return true;
+        }
+
+        returnValue = false;
+        return false;
+    }
+
     public static bool ParameterIsNotNullAfterCall(IParameterSymbol parameter)
         => HasAttribute(parameter.GetAttributes(), "NotNullAttribute");
 

@@ -3523,14 +3523,23 @@ partial class BlockBinder : Binder
             ? byRefTargetType.ElementType
             : targetType;
 
-        var boundExpression = expressionTargetType is null
-            ? BindExpression(syntax.Expression)
-            : BindExpressionWithTargetType(syntax.Expression, expressionTargetType);
+        BoundExpression boundExpression;
+        if (refKind.IsByRef && syntax.Expression is IdentifierNameSyntax identifier)
+        {
+            using var _ = PushTargetType(expressionTargetType);
+            boundExpression = BindIdentifierName(identifier, applyFlowNarrowing: false);
+        }
+        else
+        {
+            boundExpression = expressionTargetType is null
+                ? BindExpression(syntax.Expression)
+                : BindExpressionWithTargetType(syntax.Expression, expressionTargetType);
+        }
 
         if (refKind.IsByRef)
             boundExpression = BindByRefInvocationArgument(boundExpression, refKind, syntax.Expression);
-
-        boundExpression = UnwrapNullableIfFlowKnownNonNull(boundExpression);
+        else
+            boundExpression = UnwrapNullableIfFlowKnownNonNull(boundExpression);
 
         return boundExpression;
     }
@@ -11315,15 +11324,22 @@ partial class BlockBinder : Binder
 
             for (var i = 0; i < count; i++)
             {
-                if (!NullableFlowAttributeFacts.TryGetNotNullWhen(invocation.Method.Parameters[i], out var returnValue) ||
-                    !TryGetFlowSymbol(arguments[i], out var argumentSymbol))
-                {
+                var parameter = invocation.Method.Parameters[i];
+                if (!TryGetFlowSymbol(arguments[i], out var argumentSymbol))
                     continue;
-                }
 
-                builder.Add(returnValue
-                    ? new NullCheckFlow(argumentSymbol, NonNullWhenTrue: true, NonNullWhenFalse: null)
-                    : new NullCheckFlow(argumentSymbol, NonNullWhenTrue: null, NonNullWhenFalse: true));
+                if (NullableFlowAttributeFacts.TryGetNotNullWhen(parameter, out var notNullReturnValue))
+                {
+                    builder.Add(notNullReturnValue
+                        ? new NullCheckFlow(argumentSymbol, NonNullWhenTrue: true, NonNullWhenFalse: null)
+                        : new NullCheckFlow(argumentSymbol, NonNullWhenTrue: null, NonNullWhenFalse: true));
+                }
+                else if (NullableFlowAttributeFacts.TryGetMaybeNullWhen(parameter, out var maybeNullReturnValue))
+                {
+                    builder.Add(maybeNullReturnValue
+                        ? new NullCheckFlow(argumentSymbol, NonNullWhenTrue: false, NonNullWhenFalse: null)
+                        : new NullCheckFlow(argumentSymbol, NonNullWhenTrue: null, NonNullWhenFalse: false));
+                }
             }
         }
 

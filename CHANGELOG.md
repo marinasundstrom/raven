@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Null-flow joins after `try` now exclude `try` and `catch` branches that cannot
   complete normally. An abrupt branch no longer weakens facts established by
   the reachable continuation solely because it was bound before the join.
+- Metadata `MaybeNullWhen` contracts now invalidate a narrowed nullable
+  `ref` argument on the indicated Boolean branch while preserving the opposite
+  branch. By-reference arguments bind their writable declared storage shape,
+  so a prior flow conversion no longer hides the symbol from post-call flow.
 - PE by-reference parameters now retain their nullable element annotation,
   using write-state nullability for `out` parameters even when reflection
   exposes the annotation on the root by-ref node. Invocation flow applies
