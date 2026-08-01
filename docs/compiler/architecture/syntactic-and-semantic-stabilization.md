@@ -722,6 +722,35 @@ about internal bound nodes, lowering steps, or emitted instruction sequences.
 Where the specification and implementation disagree, reduce the case and make
 an explicit language decision before locking the test.
 
+## Current risk register
+
+The highest remaining risks after the current stabilization batch are:
+
+1. **Open-to-constructed generic symbols (high)** — wrapper ownership and
+   substitution are still distributed across named types, methods, parameters,
+   constraints, and metadata projection. Continue boundary invariants before
+   considering a central construction redesign.
+2. **Flow fixed points (high)** — branch and common loop exits are covered, but
+   the binder-owned non-null set is not yet a general control-flow fixed-point
+   engine. Prioritize mutation inside loops, exceptional edges, and joins that
+   mix abrupt and completing paths.
+3. **Generic overload conformance (high)** — explicit and inferred constraints,
+   higher-order method groups, metadata methods, candidates, and edit recovery
+   have representative coverage; conversion ranking and less common inference
+   forms still need a matrix.
+4. **Unified nullability contracts (high)** — declared annotation and flow state
+   now consume `MaybeNull` and `NotNullWhen` without splitting reference and
+   value semantics. Remaining .NET flow attributes, by-reference contracts,
+   generic constraints, and emit/consume round trips need equivalent coverage.
+5. **Incremental declaration isolation (high)** — ordinary declarations have
+   stronger query-order coverage than macro partitions. Broken signatures and
+   bodies must never contaminate unrelated declarations or replace local errors
+   with invocation-site resolution failures.
+
+These priorities describe correctness risk, not a request for a broad rewrite.
+Each slice should keep using the smallest failing semantic boundary and a
+public diagnostic, symbol, type, operation, metadata, or runtime assertion.
+
 ## Proposed order of work
 
 1. **Incremental syntax correctness** — preserve or recompute diagnostics and
