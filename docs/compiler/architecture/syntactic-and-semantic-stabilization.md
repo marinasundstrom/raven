@@ -899,6 +899,13 @@ The highest remaining risks after the current stabilization batch are:
    types now have equality and hash coverage across constructors, parameters,
    properties, accessors, and generic methods. Continue boundary invariants
    before considering a central construction redesign.
+
+Nested generic construction follows a definition/view split: an inner type
+parameter remains owned by its generic definition, while a lookup through a
+constructed outer type reanchors the inner view and substitutes outer and inner
+arguments into its members independently. Tests assert both halves so future
+construction work does not confuse definition identity with projected member
+ownership.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now

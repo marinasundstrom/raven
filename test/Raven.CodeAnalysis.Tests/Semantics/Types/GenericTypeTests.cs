@@ -1,7 +1,9 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -149,6 +151,45 @@ public class GenericTypeTests : CompilationTestBase
 
         Assert.Same(outer.TypeParameters[0], valueField.Type);
         Assert.Same(inner.TypeParameters[0], bField.Type);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ConstructedNestedGenericType_PreservesOuterAndInnerOwnership()
+    {
+        var source = """
+            class Outer<A>
+            {
+                class Inner<B>
+                {
+                    val outer: A
+                    val inner: B
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First()));
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(stringType));
+        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(outer.LookupType("Inner"));
+        var innerTypeParameter = Assert.Single(innerDefinition.TypeParameters);
+        var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(intType));
+        var outerProperty = Assert.Single(inner.GetMembers("outer").OfType<IPropertySymbol>());
+        var innerProperty = Assert.Single(inner.GetMembers("inner").OfType<IPropertySymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(outer, innerDefinition.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            innerDefinition.OriginalDefinition,
+            innerTypeParameter.DeclaringTypeParameterOwner));
+        Assert.True(SymbolEqualityComparer.Default.Equals(outer, inner.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, outerProperty.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, innerProperty.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(inner, outerProperty.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(inner, innerProperty.ContainingType));
         Assert.Empty(compilation.GetDiagnostics());
     }
 
