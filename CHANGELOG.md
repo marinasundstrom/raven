@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- PE by-reference parameters now retain their nullable element annotation,
+  using write-state nullability for `out` parameters even when reflection
+  exposes the annotation on the root by-ref node. Invocation flow applies
+  `NotNull` and `MaybeNull` postconditions to `ref`/`out` arguments, including
+  constructed generic methods, and replays them when the invocation is cached.
 - Metadata `NotNullIfNotNull` return contracts now affect invocation flow.
   Raven resolves the named parameter from the imported attribute and projects
   a non-null result only when the corresponding argument is non-null in the

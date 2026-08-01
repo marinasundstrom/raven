@@ -45,6 +45,12 @@ internal static class NullableFlowAttributeFacts
         return false;
     }
 
+    public static bool ParameterIsNotNullAfterCall(IParameterSymbol parameter)
+        => HasAttribute(parameter.GetAttributes(), "NotNullAttribute");
+
+    public static bool ParameterMayBeNullAfterCall(IParameterSymbol parameter)
+        => HasAttribute(parameter.GetAttributes(), "MaybeNullAttribute");
+
     private static bool HasAttribute(ImmutableArray<AttributeData> attributes, string name)
         => attributes.Any(attribute => IsAttribute(attribute, name));
 

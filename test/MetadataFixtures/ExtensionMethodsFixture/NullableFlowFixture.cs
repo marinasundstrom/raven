@@ -13,6 +13,10 @@ public static class NullableFlowFixture
     [return: NotNullIfNotNull(nameof(value))]
     public static string? Echo(string? value) => value;
 
+    public static void SetName([NotNull] out string? value) => value = "raven";
+
+    public static void SetDefault<T>([MaybeNull] out T value) => value = default;
+
     public static bool IsMissing([NotNullWhen(false)] string? value) => value is null;
 
     public static bool ArePresent(

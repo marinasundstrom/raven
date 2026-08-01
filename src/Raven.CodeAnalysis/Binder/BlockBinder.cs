@@ -2212,10 +2212,18 @@ partial class BlockBinder : Binder
         var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax;
 
         if (useContextualCache && TryGetCachedBoundNode(syntax, activeTargetType) is BoundExpression contextualCached)
+        {
+            if (contextualCached is BoundInvocationExpression contextualInvocation)
+                ApplyPostInvocationNullFlow(contextualInvocation);
             return contextualCached;
+        }
 
         if (!skipCache && !useContextualCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
+        {
+            if (cached is BoundInvocationExpression cachedInvocation)
+                ApplyPostInvocationNullFlow(cachedInvocation);
             return cached;
+        }
 
         var boundNode = syntax switch
         {
@@ -2274,6 +2282,9 @@ partial class BlockBinder : Binder
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
+
+        if (boundNode is BoundInvocationExpression postInvocation)
+            ApplyPostInvocationNullFlow(postInvocation);
 
         if (useContextualCache)
             CacheBoundNode(syntax, boundNode, activeTargetType);
@@ -11230,6 +11241,8 @@ partial class BlockBinder : Binder
 
         switch (expression)
         {
+            case BoundAddressOfExpression { Storage: { } storage }:
+                return TryGetFlowSymbol(storage, out symbol);
             case BoundLocalAccess localAccess:
                 symbol = localAccess.Local;
                 return true;
@@ -11242,6 +11255,40 @@ partial class BlockBinder : Binder
             default:
                 symbol = null!;
                 return false;
+        }
+    }
+
+    private void ApplyPostInvocationNullFlow(BoundInvocationExpression invocation)
+    {
+        var arguments = invocation.Arguments.ToArray();
+        var argumentOffset = invocation.Method.IsExtensionMethod && invocation.ExtensionReceiver is not null ? 1 : 0;
+
+        for (var parameterIndex = 0; parameterIndex < invocation.Method.Parameters.Length; parameterIndex++)
+        {
+            var parameter = invocation.Method.Parameters[parameterIndex];
+            if (parameter.RefKind is not (RefKind.Ref or RefKind.Out))
+                continue;
+
+            BoundExpression? argument;
+            if (argumentOffset == 1 && parameterIndex == 0)
+                argument = invocation.ExtensionReceiver;
+            else
+                argument = arguments.ElementAtOrDefault(parameterIndex - argumentOffset);
+
+            if (argument is null || !TryGetFlowSymbol(argument, out var symbol))
+                continue;
+
+            if (NullableFlowAttributeFacts.ParameterIsNotNullAfterCall(parameter) ||
+                parameter.RefKind == RefKind.Out && !parameter.Type.IsNullable &&
+                !NullableFlowAttributeFacts.ParameterMayBeNullAfterCall(parameter))
+            {
+                _nonNullSymbols.Add(symbol);
+            }
+            else if (parameter.RefKind == RefKind.Out ||
+                     NullableFlowAttributeFacts.ParameterMayBeNullAfterCall(parameter))
+            {
+                _nonNullSymbols.Remove(symbol);
+            }
         }
     }
 

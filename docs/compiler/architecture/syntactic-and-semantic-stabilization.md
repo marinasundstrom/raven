@@ -407,6 +407,13 @@ maybe-null argument preserves the declared nullable result. Metadata-symbol and
 call-site tests use a separately compiled C# fixture so attribute decoding and
 semantic interpretation cannot accidentally pass through a source-only path.
 
+By-reference metadata loading now reads an `out` parameter's write-state
+nullability and falls back to the root reflection node when no separate element
+node is available. Calls apply unconditional `NotNull` and `MaybeNull`
+postconditions to the referenced local or parameter, including attributes on an
+open generic `out T` after method construction. Cached invocations replay the
+same transition so diagnostics-first and cold semantic queries agree.
+
 ### Control transfers have one expression-context policy
 
 `return` and `throw` are useful non-completing expressions. Expression blocks

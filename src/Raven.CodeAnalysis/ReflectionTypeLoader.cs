@@ -24,7 +24,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
     {
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
-        var useWriteState = parameterInfo.Position < 0;
+        var useWriteState = parameterInfo.Position < 0 || parameterInfo.IsOut;
         if (IsRuntimeVoid(parameterType))
             return compilation.GetSpecialType(SpecialType.System_Unit);
 
@@ -38,11 +38,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
             if (TryGetExplicitNullableFlags(attributes, out var explicitFlags))
                 elementType = ApplyExplicitNullableFlags(elementType, explicitFlags);
-            if (TryCreateNullabilityInfo(parameterInfo, out var nullInfo) &&
-                nullInfo.ElementType is not null)
-            {
-                elementType = ApplyNullability(elementType, nullInfo.ElementType, useWriteState);
-            }
+            if (TryCreateNullabilityInfo(parameterInfo, out var nullInfo))
+                elementType = ApplyNullability(elementType, nullInfo.ElementType ?? nullInfo, useWriteState);
 
             return elementType;
         }
