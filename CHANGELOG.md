@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Source and PE symbols now retain stable identity across an emit/reload generic
+  boundary. PE modules expose their scope name and containing assembly when
+  reflection omits a module file name, and source generic method
+  `MetadataName` follows the CLI name rather than documentation-ID
+  double-backtick notation.
 - Null-flow analysis now recognizes guard blocks whose final statement exits,
   as well as nested `if`/`else` guards whose branches all exit. Subsequent code
   receives the same non-null narrowing as it does after a single-statement

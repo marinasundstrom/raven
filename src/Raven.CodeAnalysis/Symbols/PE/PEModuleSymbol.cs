@@ -23,7 +23,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         Module module,
         Location[] locations,
         IEnumerable<IAssemblySymbol> referencedAssemblySymbols)
-        : base(null!, null, null, locations)
+        : base(assembly, null, null, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
         _assembly = assembly;
@@ -33,7 +33,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     public override SymbolKind Kind => SymbolKind.Module;
 
-    public override string Name => _module.Name;
+    public override string Name => string.IsNullOrEmpty(_module.Name) ? _module.ScopeName : _module.Name;
 
     public override IAssemblySymbol ContainingAssembly => _assembly;
 

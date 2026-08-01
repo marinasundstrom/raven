@@ -503,6 +503,23 @@ back. Diagnostics-first and symbol-first queries must both discard the stale
 constructed method, publish the invalid candidate while broken, and restore
 the newly constructed valid symbol after the edit.
 
+Source-to-PE round-trip coverage now constructs the same generic type and
+method on both sides of emit and requires equal hashes and symbols. This found
+two projection inconsistencies rather than an overload bug: in-memory PE
+modules could lose both their scope name and containing-symbol edge, and source
+generic methods incorrectly placed documentation-ID double-backtick arity in
+`MetadataName`. The CLI stores generic method arity in the signature, so Raven
+now keeps `MetadataName` identical to the emitted method name.
+
+The broader open-to-constructed symbol path remains a stabilization risk.
+`ConstructedNamedTypeSymbol`, `SubstitutedMethodSymbol`, and
+`ConstructedMethodSymbol` form a wrapper chain whose containing symbols, type
+parameter owners, constraint substitutions, nullability, definitions, and
+hashes must agree. Do not replace that architecture during a focused bug fix;
+continue adding source/PE and repeated-construction invariants, then evaluate a
+single substitution service or interned constructed-symbol factory as a
+separate design slice.
+
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR
 overload identity, but distinct underlying types remain distinct; a null
