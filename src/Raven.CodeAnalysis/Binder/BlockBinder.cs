@@ -844,7 +844,9 @@ partial class BlockBinder : Binder
                 }
                 else if (boundInitializer?.Type is { } initType)
                 {
-                    type = TypeSymbolNormalization.NormalizeForInference(initType);
+                    var inferenceType = boundInitializer.GetNullabilityFlowType();
+                    type = TypeSymbolNormalization.NormalizeForInference(
+                        inferenceType.TypeKind == TypeKind.Error ? initType : inferenceType);
                 }
                 else
                 {
@@ -866,6 +868,16 @@ partial class BlockBinder : Binder
             ShouldAttemptConversion(boundInitializer))
         {
             boundInitializer = BindLambdaToDelegateIfNeeded(boundInitializer, type);
+            var initializerFlowType = boundInitializer.GetNullabilityFlowType();
+            if (!type.IsNullable &&
+                !boundInitializer.Type.IsNullable &&
+                initializerFlowType.IsNullable)
+            {
+                _diagnostics.ReportCannotAssignNullToType(
+                    type.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    initializer.Value.GetLocation());
+            }
+
             if (!IsAssignable(type, boundInitializer, out var conversion))
             {
                 if (initializer is not null &&
@@ -11124,7 +11136,7 @@ partial class BlockBinder : Binder
         if (receiver is BoundTypeExpression or BoundNamespaceExpression)
             return;
 
-        if (receiver.Type is null || !receiver.Type.IsNullable)
+        if (receiver.Type is null || !receiver.GetNullabilityFlowType().IsNullable)
             return;
 
         if (IsReceiverKnownNotNull(receiver))
@@ -11245,7 +11257,7 @@ partial class BlockBinder : Binder
 
             for (var i = 0; i < count; i++)
             {
-                if (!TryGetNotNullWhen(invocation.Method.Parameters[i], out var returnValue) ||
+                if (!NullableFlowAttributeFacts.TryGetNotNullWhen(invocation.Method.Parameters[i], out var returnValue) ||
                     !TryGetFlowSymbol(arguments[i], out var argumentSymbol))
                 {
                     continue;
@@ -11258,29 +11270,6 @@ partial class BlockBinder : Binder
         }
 
         return builder.ToImmutable();
-    }
-
-    private static bool TryGetNotNullWhen(IParameterSymbol parameter, out bool returnValue)
-    {
-        foreach (var attribute in parameter.GetAttributes())
-        {
-            if (attribute.AttributeClass is not
-                {
-                    Name: "NotNullWhenAttribute",
-                    ContainingNamespace: { } containingNamespace
-                } ||
-                containingNamespace.ToMetadataName() != "System.Diagnostics.CodeAnalysis" ||
-                attribute.ConstructorArguments is not [{ Value: bool value }])
-            {
-                continue;
-            }
-
-            returnValue = value;
-            return true;
-        }
-
-        returnValue = false;
-        return false;
     }
 
     private static void ApplyNullFlow(HashSet<ISymbol> state, ISymbol symbol, bool? isNonNull)

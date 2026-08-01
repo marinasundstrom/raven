@@ -9869,9 +9869,6 @@ public partial class SemanticModel
 
     private TypeInfo ApplyAvailableFlowNullability(ExpressionSyntax expression, TypeInfo typeInfo)
     {
-        if (typeInfo.Type?.IsNullable != true && typeInfo.ConvertedType?.IsNullable != true)
-            return typeInfo;
-
         BoundExpression? boundExpression = null;
         if (!TryBindInterestRegion(
                 expression,
@@ -9902,9 +9899,8 @@ public partial class SemanticModel
             return boundExpression.Type;
         }
 
-        return boundExpression.Type?.IsNullable == true
-            ? boundExpression.Type
-            : declaredType;
+        var flowType = boundExpression.GetNullabilityFlowType();
+        return flowType.IsNullable ? flowType : declaredType;
     }
 
     private bool TryGetContextualConvertedType(

@@ -363,6 +363,12 @@ remaining call-site interpretation of those flow contracts remain separate ABI
 slices. Conditional `NotNullWhen` parameter contracts now narrow all annotated
 arguments on the matching Boolean branch, including metadata methods with more
 than one flow-annotated parameter; the opposite branch remains conservative.
+`MaybeNull` return contracts likewise affect the call result's flow state
+without changing its declared return annotation. This applies uniformly to
+reference and generic results after construction, while a non-nullable value
+type remains definitely non-null because its runtime representation cannot
+carry `null`. Assignment and member-access diagnostics consume that flow view
+rather than mutating the public method signature.
 
 ### Control transfers have one expression-context policy
 

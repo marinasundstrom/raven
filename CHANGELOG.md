@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- `MaybeNull` return contracts now affect invocation flow without rewriting the
+  declared return annotation. Direct dereferences, inferred locals, and
+  explicitly non-nullable local assignments observe maybe-null reference and
+  constructed-generic results, while non-nullable value-type results remain
+  definitely non-null.
 - Conditional nullable metadata contracts now participate in Raven flow
   analysis. `NotNullWhen` narrows every annotated invocation argument on the
   matching Boolean branch without making an unsound claim on the opposite

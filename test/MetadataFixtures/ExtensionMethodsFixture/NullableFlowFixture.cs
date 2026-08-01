@@ -7,6 +7,9 @@ public static class NullableFlowFixture
     [return: MaybeNull]
     public static T FindOrDefault<T>() => default;
 
+    [return: MaybeNull]
+    public static string FindName() => null;
+
     public static bool IsMissing([NotNullWhen(false)] string? value) => value is null;
 
     public static bool ArePresent(

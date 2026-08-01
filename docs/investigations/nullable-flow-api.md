@@ -119,7 +119,11 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
   `TryGetNullableUnderlyingType`.
 - **Type info surface**: `GetTypeInfo` preserves declared symbols and reports
   annotation and flow through `NullabilityInfo`.
-- **Diagnostics & flow analysis**: use `ITypeSymbol.IsNullable` instead of concrete type checks, and introduce diagnostics for missing metadata assumptions.
+- **Diagnostics & flow analysis**: use `ITypeSymbol.IsNullable` instead of
+  concrete type checks. Imported `MaybeNull` returns now preserve the declared
+  annotation while producing maybe-null flow for reference-capable results;
+  imported `NotNullWhen` parameters narrow matching branches. Missing-metadata
+  assumptions still need dedicated guidance.
 - **Interop/metadata**: external symbol readers need to understand nullable context attributes to avoid accidental non-null defaults.
 
 ## Migration plan

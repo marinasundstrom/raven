@@ -24,6 +24,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
     {
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
+        var useWriteState = parameterInfo.Position < 0;
         if (IsRuntimeVoid(parameterType))
             return compilation.GetSpecialType(SpecialType.System_Unit);
 
@@ -40,7 +41,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (TryCreateNullabilityInfo(parameterInfo, out var nullInfo) &&
                 nullInfo.ElementType is not null)
             {
-                elementType = ApplyNullability(elementType, nullInfo.ElementType);
+                elementType = ApplyNullability(elementType, nullInfo.ElementType, useWriteState);
             }
 
             return elementType;
@@ -53,7 +54,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             type = ApplyExplicitNullableFlags(type!, parameterFlags);
 
         if (TryCreateNullabilityInfo(parameterInfo, out var parameterNullInfo))
-            type = ApplyNullability(type!, parameterNullInfo);
+            type = ApplyNullability(type!, parameterNullInfo, useWriteState);
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
@@ -371,11 +372,12 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     private ITypeSymbol ApplyNullability(
         ITypeSymbol typeSymbol,
-        System.Reflection.NullabilityInfo nullInfo)
+        System.Reflection.NullabilityInfo nullInfo,
+        bool useWriteState = false)
     {
         if (typeSymbol is IArrayTypeSymbol array && nullInfo.ElementType is not null)
         {
-            var element = ApplyNullability(array.ElementType, nullInfo.ElementType);
+            var element = ApplyNullability(array.ElementType, nullInfo.ElementType, useWriteState);
             if (!ReferenceEquals(element, array.ElementType))
                 typeSymbol = compilation.CreateArrayTypeSymbol(element);
         }
@@ -386,7 +388,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             var len = Math.Min(typeArgs.Length, nullInfo.GenericTypeArguments.Length);
             for (int i = 0; i < len; i++)
             {
-                var newArg = ApplyNullability(typeArgs[i], nullInfo.GenericTypeArguments[i]);
+                var newArg = ApplyNullability(typeArgs[i], nullInfo.GenericTypeArguments[i], useWriteState);
                 if (!ReferenceEquals(newArg, typeArgs[i]))
                 {
                     typeArgs[i] = newArg;
@@ -402,7 +404,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
             }
         }
 
-        if (nullInfo.ReadState == NullabilityState.Nullable
+        var declaredState = useWriteState ? nullInfo.WriteState : nullInfo.ReadState;
+        if (declaredState == NullabilityState.Nullable
             && typeSymbol is not NullableTypeSymbol
             && typeSymbol is not RefTypeSymbol
             && !typeSymbol.IsValueType
