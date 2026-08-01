@@ -7,7 +7,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - `GetTypeInfo` now reports contextual conversions consistently for return,
   assignment, and argument expressions. In particular, explicit return values
   converted to a standard-union carrier retain their natural type while
-  exposing the carrier as `ConvertedType`, independent of query order.
+  exposing the carrier as `ConvertedType`, independent of expression shape,
+  available-state path, and query order.
 - Bound-tree walkers now use generated expression and statement dispatch and
   accept every bound-node family without throwing on non-block statements.
   This prevents analysis and lowering walkers from silently skipping newly

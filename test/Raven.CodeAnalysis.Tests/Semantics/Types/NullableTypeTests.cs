@@ -133,6 +133,68 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void EditingNullableStandardUnionAlternativeInvalidatesFlowAndConvertedType()
+    {
+        const string source = """
+            func Unwrap(value: (int | string)?) -> (int | string) {
+                if value is null {
+                    throw System.Exception()
+                }
+
+                return value
+            }
+            """;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "incremental-nullable-standard-union",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenCore)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "flow.rav",
+            SourceText.From(source),
+            "/tmp/nullable-standard-union-flow.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        AssertSnapshot("int | string");
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSource = source.Replace("string", "bool", System.StringComparison.Ordinal);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(updatedSource)));
+
+        AssertSnapshot("int | bool");
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(source)));
+
+        AssertSnapshot("int | string");
+
+        void AssertSnapshot(string expectedUnionDisplay)
+        {
+            var compilation = workspace.GetCompilation(projectId);
+            var tree = compilation.SyntaxTrees.Single();
+            var returnedValue = tree.GetRoot()
+                .DescendantNodes()
+                .OfType<ReturnStatementSyntax>()
+                .Single()
+                .Expression!;
+            var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(returnedValue);
+
+            Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+            Assert.Equal(expectedUnionDisplay, typeInfo.ConvertedType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            Assert.Empty(compilation.GetDiagnostics());
+        }
+    }
+
+    [Fact]
     public void GetTypeInfo_ReportsFlowNarrowingAfterNullGuard_RegardlessOfQueryOrder()
     {
         const string source = """
@@ -1237,7 +1299,9 @@ public class NullableTypeTests : CompilationTestBase
             }
             """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithRavenCore);
         if (diagnosticsFirst)
             Assert.Empty(compilation.GetDiagnostics());
 

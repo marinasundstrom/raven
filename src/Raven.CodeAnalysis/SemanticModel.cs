@@ -9723,6 +9723,15 @@ public partial class SemanticModel
 
         TypeInfo Cache(TypeInfo info)
         {
+            if (TryGetContextualConvertedType(expr, info.Type, out var contextualConvertedType) &&
+                !SymbolEqualityComparer.Default.Equals(info.ConvertedType, contextualConvertedType))
+            {
+                info = new TypeInfo(
+                    info.Type,
+                    contextualConvertedType,
+                    ComputeConversion(info.Type, contextualConvertedType));
+            }
+
             info = ApplyAvailableFlowNullability(expr, info);
 
             if (HasTypeInfo(info))
