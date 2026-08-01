@@ -633,7 +633,7 @@ internal partial class ExpressionGenerator
         {
             var isSequencePattern = tuplePattern.IsSequence;
             if (isSequencePattern)
-                inputType = inputType.StripNullable();
+                inputType = inputType.GetPlainType();
 
             var positionalInputType = tuplePattern.Type;
             var recoversSequenceTypeFromObject =
@@ -764,7 +764,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundDictionaryPattern dictionaryPattern)
         {
-            EmitDictionaryPattern(dictionaryPattern, inputType.StripNullable(), scope, scrutineeLocal2);
+            EmitDictionaryPattern(dictionaryPattern, inputType.GetPlainType(), scope, scrutineeLocal2);
             return;
         }
 

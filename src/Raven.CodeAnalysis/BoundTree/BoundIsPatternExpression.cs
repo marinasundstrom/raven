@@ -1095,7 +1095,7 @@ internal partial class BlockBinder
         var keyType = Compilation.ErrorTypeSymbol;
         var valueType = Compilation.ErrorTypeSymbol;
 
-        if (inputType.StripNullable() is INamedTypeSymbol namedInput &&
+        if (inputType.GetPlainType() is INamedTypeSymbol namedInput &&
             TryGetDictionaryInterfaceInfo(namedInput, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
         {
             receiverType = dictionaryReceiverType;
@@ -1157,7 +1157,7 @@ internal partial class BlockBinder
     private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
-        inputType = inputType.StripNullable();
+        inputType = inputType.GetPlainType();
 
         if (inputType.TypeKind == TypeKind.Error)
             return false;
