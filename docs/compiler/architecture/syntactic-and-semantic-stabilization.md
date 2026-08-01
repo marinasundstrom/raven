@@ -378,6 +378,8 @@ should receive the same no-throw query coverage as part of their introduction.
 The obsolete anonymous alternative-type symbol family has since been removed.
 Raven unions are nominal union symbols, including the `System.Union<...>` carriers used
 by ad-hoc union syntax; branch inference never synthesizes a separate union type.
+This follows the familiar tuple projection model: syntax maps to a standard
+runtime generic type, and the semantic model exposes that constructed named type.
 
 Bound-tree walkers now delegate expression and statement dispatch to the
 generated visitor contract. This removes a manually maintained type allowlist

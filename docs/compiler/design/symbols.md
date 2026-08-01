@@ -35,6 +35,13 @@ The representation of an array type is `ArrayTypeSymbol`.
 
 Closed generic types are `ConstructedNamedTypeSymbols` that have "SubstituteMember" with the type parameters substituted by the type arguments.
 
+Ad-hoc union syntax does not introduce a specialized symbol family. The binder
+projects `A | B` to the constructed nominal type `System.Union<A, B>`, in the
+same way that tuple syntax projects to the corresponding constructed
+`System.ValueTuple<...>` type. Flow analysis, conversions, metadata, and tooling
+therefore operate on the ordinary named union symbol instead of a parallel
+anonymous-union mechanism.
+
 Some type symbols are specialized, exist in the language or only during semantic analysis, and thus have no direct equivalent in .NET. `TupleTypeSymbol`, for example, implements `INamedTypeSymbol` while projecting Raven tuple syntax over `System.ValueTuple`.
 
 Other constructed type symbols serve particular purposes:
