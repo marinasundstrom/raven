@@ -117,8 +117,8 @@ class BinderFactory
             return new MacroFunctionBodyBinder(macroFunctionBinder.GetMacroFunctionSymbol(), parentBinder);
 
         // A block directly under a method requires a MethodBodyBinder so the method body
-        // can bind parameters and local declarations. Nested blocks receive a
-        // LocalScopeBinder to track their own local scope.
+        // can bind parameters and local declarations. Nested blocks use a forwarding
+        // binder boundary; BlockBinder owns their lexical locals.
         var methodSymbol = GetMethodSymbol(parentBinder);
         return methodSymbol is not null
             ? new MethodBodyBinder(methodSymbol, parentBinder!)

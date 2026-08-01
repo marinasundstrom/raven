@@ -141,6 +141,11 @@ with later porting:
 - Replace internal recovery fallbacks with clearer result types and telemetry
   where the fallback is already semantically correct.
 
+The obsolete local table in `LocalScopeBinder` has been removed. It was never
+populated with valid symbols and duplicated the lexical ownership already held
+by `BlockBinder`; the remaining binder now serves only as a forwarding scope
+boundary for semantic queries.
+
 These items should not be ignored. They simply should not delay a port when
 their behavior is specified, tested, and can be preserved or improved during
 the port.

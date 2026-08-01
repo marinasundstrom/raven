@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Removed the unused placeholder local table and throwing declaration path from
+  `LocalScopeBinder`. Lexical locals remain owned by `BlockBinder`, leaving the
+  local-scope binder as the forwarding semantic boundary it actually provides.
 - `IForLoopOperation` now exposes source `for let` patterns and no longer
   reports the binder's synthetic iteration temporary as the loop local.
   `while let` and pattern-based `for` loops are covered as first-class public
