@@ -474,6 +474,11 @@ Constraint clauses are declaration contracts rather than optional binder
 hints. A clause naming an undeclared type parameter reports `RAV0360` for
 namespace functions, type members, function expressions, and macro functions;
 it is never silently discarded by whichever declaration path runs first.
+Metadata methods whose constraints refer to a containing type parameter are
+also covered at the constructed-symbol boundary. Both applicability and the
+public method type-parameter constraint view substitute the containing type's
+arguments, so `GenericContainer<object>.Coerce<string>` is accepted while the
+inverse `GenericContainer<string>.Coerce<object>` is rejected.
 
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR

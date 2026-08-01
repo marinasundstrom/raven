@@ -346,6 +346,47 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
+    {
+        const string source = """
+            import Raven.MetadataFixtures.Generics.*
+
+            let value = GenericContainer<object>.Coerce<string>("value")
+            """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var constraint = Assert.Single(Assert.Single(method.TypeParameters).ConstraintTypes);
+
+        Assert.Equal(SpecialType.System_Object, constraint.SpecialType);
+    }
+
+    [Fact]
+    public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsRejected()
+    {
+        const string source = """
+            import Raven.MetadataFixtures.Generics.*
+
+            let value = GenericContainer<string>.Coerce<object>("value")
+            """;
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
+
+    [Fact]
     public void GenericConstraintFailure_DoesNotCascadeToAmbiguousOverload()
     {
         var source = """
