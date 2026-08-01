@@ -645,14 +645,11 @@ internal sealed class OverloadResolver
 
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
-        // Seed substitutions with the fixed args.
-        for (int i = 0; i < arity; i++)
-        {
-            ThrowIfDiagnosticBindingCancellationRequested(binder);
-
-            if (fixedArgs[i] is { } fixedType && fixedType.TypeKind != TypeKind.Error)
-                substitutions[method.TypeParameters[i]] = fixedType;
-        }
+        // Infer every position independently. Explicit arguments win when the final
+        // constructed signature is produced, and ordinary applicability then checks
+        // arguments against those fixed types. Keeping fixed arguments out of the
+        // inference map lets the remaining type parameters collect and widen their
+        // bounds without accidentally rewriting an explicit argument.
 
         var parameters = method.Parameters;
         var parameterIndex = 0;
@@ -728,17 +725,6 @@ internal sealed class OverloadResolver
 
             if (fixedArgs[i] is { } fixedType)
             {
-                // If inference produced something conflicting, fail.
-                if (substitutions.TryGetValue(tp, out var inferred) &&
-                    inferred.TypeKind != TypeKind.Error &&
-                    fixedType.TypeKind != TypeKind.Error &&
-                    !SymbolEqualityComparer.Default.Equals(NormalizeType(inferred), NormalizeType(fixedType)))
-                {
-                    // Allow implicit identity-ish compatibility by preferring the fixed type.
-                    // If you later want to allow implicit conversions here, add a check.
-                    return null;
-                }
-
                 finalArgs[i] = NormalizeType(fixedType);
                 continue;
             }
@@ -1270,14 +1256,18 @@ internal sealed class OverloadResolver
                 if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
                     return true;
 
-                // If the existing substitution is a fixed/explicit type arg, don’t override it.
-                // Accept if the argument can convert to the fixed type.
+                // Keep the narrower inferred type when the new argument converts to it.
                 if (compilation.ClassifyConversion(argumentType, existing).IsImplicit)
                     return true;
 
-                // Otherwise, if the fixed type can convert to the argument type, keep the fixed one.
+                // Widen an inferred bound when the existing bound converts to the new
+                // argument type. This makes inference independent of argument order for
+                // a base/derived pair such as Choose(derived, baseValue).
                 if (compilation.ClassifyConversion(existing, argumentType).IsImplicit)
+                {
+                    substitutions[typeParameter] = argumentType;
                     return true;
+                }
 
                 return false;
             }

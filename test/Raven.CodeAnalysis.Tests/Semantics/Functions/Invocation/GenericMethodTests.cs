@@ -103,6 +103,66 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
     }
 
+    [Theory]
+    [InlineData("derived, baseValue")]
+    [InlineData("baseValue, derived")]
+    public void GenericMethodInvocation_MixedBaseAndDerivedArguments_InfersCommonBaseType(string arguments)
+    {
+        var source = $$"""
+            open class Base {}
+            class Derived : Base {}
+
+            func Choose<T>(first: T, second: T) -> T {
+                first
+            }
+
+            func Test(derived: Derived, baseValue: Base) -> Base {
+                Choose({{arguments}})
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(System.Environment.NewLine, diagnostics));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("Base", Assert.Single(method.TypeArguments).Name);
+    }
+
+    [Theory]
+    [InlineData("derived, baseValue")]
+    [InlineData("baseValue, derived")]
+    public void GenericMethodInvocation_PartialExplicitArguments_PreserveFixedTypeAndInferCommonBaseType(string arguments)
+    {
+        var source = $$"""
+            open class Base {}
+            class Derived : Base {}
+
+            func Project<TInput, TResult>(first: TInput, second: TInput, result: TResult) -> TInput {
+                first
+            }
+
+            func Test(derived: Derived, baseValue: Base) -> Base {
+                Project<string>({{arguments}}, "result")
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(System.Environment.NewLine, diagnostics));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(["Base", "String"], method.TypeArguments.Select(static type => type.Name));
+    }
+
     [Fact]
     public void GenericMethodInvocation_GenericMethodGroup_InfersBothMethods()
     {

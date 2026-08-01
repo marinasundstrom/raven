@@ -10052,6 +10052,17 @@ partial class BlockBinder : Binder
 
             if (!symbolCandidates.IsDefaultOrEmpty)
             {
+                // A partial explicit list leaves leading method type parameters open.
+                // Preserve the definitions so the shared invocation resolver can combine
+                // the explicit trailing arguments with inference from the call arguments.
+                // Fully explicit calls can still be constructed eagerly for precise
+                // constraint diagnostics and target typing.
+                if (symbolCandidates.Any(method => method.TypeParameters.Length > boundTypeArguments.Value.Length))
+                {
+                    var methodGroup = CreateMethodGroup(null, symbolCandidates);
+                    return BindInvocationOnMethodGroup(methodGroup, syntax);
+                }
+
                 var diagnosticCountBeforeInstantiation = _diagnostics.AsEnumerable().Count();
                 var instantiated = InstantiateMethodCandidates(symbolCandidates, boundTypeArguments.Value, generic, syntax.GetLocation());
                 if (!instantiated.IsDefaultOrEmpty)

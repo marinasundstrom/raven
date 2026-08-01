@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Generic method inference now widens repeated type-parameter bounds for a
+  base/derived argument pair instead of depending on argument order. Partial
+  explicit type arguments on namespace functions also remain open through
+  invocation binding, so trailing fixed arguments and leading inferred
+  arguments are combined by the shared overload resolver.
 - Labeled loop transfers now participate in the same null-flow joins as their
   unlabeled forms. A labeled `break` contributes its state to the target loop's
   exit, and labeled `break`/`continue` paths are classified correctly when

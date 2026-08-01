@@ -514,6 +514,17 @@ the call. Workspace coverage edits the argument from a satisfying value type
 to a violating reference type and back, requiring both diagnostics and the
 contextually constructed method symbol to update.
 
+Repeated inferences for the same method type parameter now have an
+argument-order invariant. Given a base value and a derived value,
+`Choose<T>(T, T)` widens the inferred bound to the base type regardless of
+which argument appears first; it no longer keeps a derived first bound and
+then rejects the base argument during applicability. The same rule applies
+when Raven's partial explicit type-argument form fixes trailing parameters:
+ordinary namespace-function calls preserve the open method until invocation
+resolution combines those fixed arguments with the inferred leading bounds.
+Explicit arguments do not live in the mutable inference map, so widening an
+inferred bound cannot rewrite a call-site type argument.
+
 Constraint clauses are declaration contracts rather than optional binder
 hints. A clause naming an undeclared type parameter reports `RAV0360` for
 namespace functions, type members, function expressions, and macro functions;
