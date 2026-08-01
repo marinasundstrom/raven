@@ -430,6 +430,13 @@ groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each
 test should assert the chosen symbol or diagnostic, not an internal lowering
 shape.
 
+A reduced nullable-standard-union flow test exposed a separate target-typing
+gap: returning an `int` expression from a function declared to return
+`(int | string)` attempted an `int`-to-`IComparable` conversion instead of
+constructing the standard union carrier. Keep this in the conversion lane; it
+must be reduced against ordinary assignment, argument, and return contexts
+before standard-union target typing is considered stable.
+
 ### Pattern semantics are a high-risk convergence point
 
 Pattern parsing, binding, flow narrowing, exhaustiveness, code fixes, and
