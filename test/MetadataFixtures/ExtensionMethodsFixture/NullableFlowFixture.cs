@@ -32,4 +32,24 @@ public static class NullableFlowFixture
 
         return result;
     }
+
+    public static void AcceptNull([AllowNull] string value)
+    {
+    }
+
+    public static void RejectNull([DisallowNull] string? value)
+    {
+    }
+
+    public static void RejectOrdinaryNull(string value)
+    {
+    }
+
+    [AllowNull]
+    public static string RequiredName { get; set; } = string.Empty;
+
+    [DisallowNull]
+    public static string? OptionalName { get; set; }
+
+    public static string OrdinaryName { get; set; } = string.Empty;
 }

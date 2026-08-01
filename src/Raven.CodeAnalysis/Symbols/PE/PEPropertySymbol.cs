@@ -10,6 +10,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     private ITypeSymbol? _type;
     private Accessibility? _accessibility;
     private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
+    private ImmutableArray<AttributeData>? _attributes;
     private string? _name;
     private string? _extensionMarkerName;
 
@@ -204,6 +205,26 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     public PropertyInfo GetPropertyInfo()
     {
         return _propertyInfo;
+    }
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (_attributes.HasValue)
+            return _attributes.Value;
+
+        try
+        {
+            _attributes = ImmutableArray.CreateRange(
+                _propertyInfo.GetCustomAttributesData()
+                    .Select(attribute => PEAttributeDataFactory.Create(_reflectionTypeLoader, attribute))
+                    .OfType<AttributeData>());
+        }
+        catch
+        {
+            _attributes = ImmutableArray<AttributeData>.Empty;
+        }
+
+        return _attributes.Value;
     }
 
     internal bool TryGetExtensionMarkerName(out string markerName)

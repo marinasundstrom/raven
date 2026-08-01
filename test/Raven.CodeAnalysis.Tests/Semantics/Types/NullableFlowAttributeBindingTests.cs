@@ -162,6 +162,136 @@ func Length() -> int {
     }
 
     [Fact]
+    public void AllowNullParameter_AcceptsNullInputWithoutChangingDeclaredType()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+NullableFlowFixture.AcceptNull(null)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.False(method.Parameters[0].Type.IsNullable);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
+    [Fact]
+    public void DisallowNullParameter_RejectsNullInputWithoutChangingDeclaredType()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+NullableFlowFixture.RejectNull(null)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(method.Parameters[0].Type.IsNullable);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
+    [Fact]
+    public void NonNullableParameter_RejectsNullInput()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+NullableFlowFixture.RejectOrdinaryNull(null)
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
+    [Fact]
+    public void NonNullableParameter_RejectsMaybeNullInput()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Pass(value: string?) -> unit {
+    NullableFlowFixture.RejectOrdinaryNull(value)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NonNullableParameter_AcceptsFlowNarrowedInput(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Pass(value: string?) -> unit {
+    if value is null {
+        return
+    }
+
+    NullableFlowFixture.RejectOrdinaryNull(value)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData("RequiredName", false)]
+    [InlineData("OptionalName", true)]
+    [InlineData("OrdinaryName", true)]
+    public void PropertyInputNullabilityContract_ControlsNullAssignment(
+        string propertyName,
+        bool expectDiagnostic)
+    {
+        var source = $$"""
+import Raven.ExtensionMethodsFixture.*
+
+NullableFlowFixture.{{propertyName}} = null
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(
+            expectDiagnostic,
+            diagnostics.Any(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType));
+    }
+
+    [Fact]
     public void MaybeNullReturn_WarnsOnDirectDereference()
     {
         const string source = """

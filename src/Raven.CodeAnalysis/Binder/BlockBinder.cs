@@ -13140,6 +13140,8 @@ partial class BlockBinder : Binder
                 _ => null
             };
 
+            ReportNullableArgumentIfNeeded(parameter, expression, syntaxNode);
+
             // --- BEGIN NEW BLOCK ---
             if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
@@ -13504,6 +13506,8 @@ partial class BlockBinder : Binder
 
     private BoundExpression ConvertSingleArgument(BoundExpression argument, IParameterSymbol parameter, SyntaxNode syntax)
     {
+        ReportNullableArgumentIfNeeded(parameter, argument, syntax);
+
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             return argument;
 
@@ -13530,6 +13534,35 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
 
         return ApplyConversion(argument, conversionTargetType, conversion, syntax);
+    }
+
+    private void ReportNullableArgumentIfNeeded(
+        IParameterSymbol parameter,
+        BoundExpression argument,
+        SyntaxNode? syntax)
+    {
+        if (parameter.RefKind == RefKind.Out ||
+            NullableFlowAttributeFacts.ParameterAllowsNullInput(parameter) ||
+            !ArgumentMayBeNull(argument))
+        {
+            return;
+        }
+
+        var targetType = parameter.Type is RefTypeSymbol refType
+            ? refType.ElementType
+            : parameter.Type;
+        _diagnostics.ReportCannotAssignNullToType(
+            targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            syntax?.GetLocation() ?? parameter.Locations.FirstOrDefault() ?? Location.None);
+    }
+
+    private static bool ArgumentMayBeNull(BoundExpression argument)
+    {
+        if (argument is BoundAddressOfExpression { Storage: { } storage })
+            argument = storage;
+
+        return argument.Type?.TypeKind == TypeKind.Null ||
+               argument.GetNullabilityFlowType().IsNullable;
     }
 
     protected static bool AreArgumentsCompatibleWithMethod(

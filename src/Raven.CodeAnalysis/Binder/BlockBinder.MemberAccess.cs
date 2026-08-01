@@ -3487,7 +3487,8 @@ partial class BlockBinder
 
             var receiver = GetReceiver(left);
 
-            var right2 = BindExpressionWithTargetType(rightSyntax, fieldSymbol.Type);
+            var fieldInputType = NullableFlowAttributeFacts.GetInputType(fieldSymbol, fieldSymbol.Type);
+            var right2 = BindExpressionWithTargetType(rightSyntax, fieldInputType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
@@ -3503,10 +3504,10 @@ partial class BlockBinder
             if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
-                right2 = BindLambdaToDelegateIfNeeded(right2, fieldSymbol.Type);
-                if (!IsAssignable(fieldSymbol.Type, right2.Type!, out var conversion))
+                right2 = BindLambdaToDelegateIfNeeded(right2, fieldInputType);
+                if (!IsAssignable(fieldInputType, right2.Type!, out var conversion))
                 {
-                    ReportCannotAssignFromTypeToType(right2.Type!, fieldSymbol.Type, rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right2.Type!, fieldInputType, rightSyntax.GetLocation());
                     return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
@@ -3541,7 +3542,8 @@ partial class BlockBinder
                 }
             }
 
-            var right2 = BindExpressionWithTargetType(rightSyntax, propertySymbol.Type);
+            var propertyInputType = NullableFlowAttributeFacts.GetInputType(propertySymbol, propertySymbol.Type);
+            var right2 = BindExpressionWithTargetType(rightSyntax, propertyInputType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
@@ -3564,10 +3566,10 @@ partial class BlockBinder
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
-                right2 = BindLambdaToDelegateIfNeeded(right2, propertySymbol.Type);
-                if (!IsAssignable(propertySymbol.Type, right2.Type!, out var conversion))
+                right2 = BindLambdaToDelegateIfNeeded(right2, propertyInputType);
+                if (!IsAssignable(propertyInputType, right2.Type!, out var conversion))
                 {
-                    ReportCannotAssignFromTypeToType(right2.Type!, propertySymbol.Type, rightSyntax.GetLocation());
+                    ReportCannotAssignFromTypeToType(right2.Type!, propertyInputType, rightSyntax.GetLocation());
                     return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 

@@ -15,6 +15,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `ref` argument on the indicated Boolean branch while preserving the opposite
   branch. By-reference arguments bind their writable declared storage shape,
   so a prior flow conversion no longer hides the symbol from post-call flow.
+- Invocation and property-assignment inputs now honor .NET nullability
+  contracts. Non-nullable and `DisallowNull` inputs reject null or maybe-null
+  values, `AllowNull` accepts them without changing the declared/read type, and
+  PE property attributes are available through the public symbol model.
 - PE by-reference parameters now retain their nullable element annotation,
   using write-state nullability for `out` parameters even when reflection
   exposes the annotation on the root by-ref node. Invocation flow applies

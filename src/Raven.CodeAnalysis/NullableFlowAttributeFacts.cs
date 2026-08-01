@@ -69,6 +69,35 @@ internal static class NullableFlowAttributeFacts
     public static bool ParameterMayBeNullAfterCall(IParameterSymbol parameter)
         => HasAttribute(parameter.GetAttributes(), "MaybeNullAttribute");
 
+    public static bool ParameterAllowsNullInput(IParameterSymbol parameter)
+        => SymbolAllowsNullInput(parameter, parameter.Type);
+
+    public static bool SymbolAllowsNullInput(ISymbol symbol, ITypeSymbol declaredType)
+    {
+        if (HasInputAttribute(symbol, "DisallowNullAttribute"))
+            return false;
+
+        return HasInputAttribute(symbol, "AllowNullAttribute") || declaredType.IsNullable;
+    }
+
+    public static ITypeSymbol GetInputType(ISymbol symbol, ITypeSymbol declaredType)
+        => declaredType.WithNullableAnnotation(
+            SymbolAllowsNullInput(symbol, declaredType)
+                ? NullableAnnotation.Annotated
+                : NullableAnnotation.NotAnnotated);
+
+    private static bool HasInputAttribute(ISymbol symbol, string name)
+    {
+        if (symbol is IPropertySymbol { SetMethod: { } setter } &&
+            setter.Parameters.LastOrDefault() is { } valueParameter &&
+            HasAttribute(valueParameter.GetAttributes(), name))
+        {
+            return true;
+        }
+
+        return HasAttribute(symbol.GetAttributes(), name);
+    }
+
     private static bool HasAttribute(ImmutableArray<AttributeData> attributes, string name)
         => attributes.Any(attribute => IsAttribute(attribute, name));
 

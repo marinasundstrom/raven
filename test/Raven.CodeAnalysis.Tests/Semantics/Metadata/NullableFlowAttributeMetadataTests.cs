@@ -41,6 +41,50 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
         Assert.True(Assert.IsType<bool>(Assert.Single(attribute.ConstructorArguments).Value));
     }
 
+    [Theory]
+    [InlineData("AcceptNull", "AllowNullAttribute", false)]
+    [InlineData("RejectNull", "DisallowNullAttribute", true)]
+    public void MetadataParameter_ProjectsInputNullabilityAttributeWithoutChangingDeclaredType(
+        string methodName,
+        string attributeName,
+        bool isNullable)
+    {
+        var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var method = fixtureType.GetMembers(methodName)
+            .OfType<IMethodSymbol>()
+            .Single();
+        var parameter = Assert.Single(method.Parameters);
+        var attribute = Assert.Single(
+            parameter.GetAttributes(),
+            attribute => attribute.AttributeClass?.Name == attributeName);
+
+        Assert.Equal(isNullable, parameter.Type.IsNullable);
+        Assert.Equal("System.Diagnostics.CodeAnalysis", attribute.AttributeClass.ContainingNamespace?.ToMetadataName());
+    }
+
+    [Theory]
+    [InlineData("RequiredName", "AllowNullAttribute", false)]
+    [InlineData("OptionalName", "DisallowNullAttribute", true)]
+    public void MetadataPropertySetter_ProjectsInputNullabilityAttributeWithoutChangingPropertyType(
+        string propertyName,
+        string attributeName,
+        bool isNullable)
+    {
+        var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var property = fixtureType.GetMembers(propertyName)
+            .OfType<IPropertySymbol>()
+            .Single();
+        var valueParameter = Assert.Single(Assert.IsAssignableFrom<IMethodSymbol>(property.SetMethod).Parameters);
+        var attribute = Assert.Single(
+            valueParameter.GetAttributes(),
+            attribute => attribute.AttributeClass?.Name == attributeName);
+
+        Assert.Equal(isNullable, property.Type.IsNullable);
+        Assert.Equal("System.Diagnostics.CodeAnalysis", attribute.AttributeClass.ContainingNamespace?.ToMetadataName());
+    }
+
     [Fact]
     public void MetadataReturn_ProjectsMaybeNullAttribute()
     {

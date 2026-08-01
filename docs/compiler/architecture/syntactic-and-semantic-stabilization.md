@@ -622,6 +622,14 @@ remaining harder case is an attribute that downgrades a declared non-nullable
 symbol: Raven still needs an explicit maybe-null flow fact independent of the
 declaration annotation before that case can be modeled faithfully.
 
+Input contracts are kept separate from those declared/read types. Ordinary
+non-nullable parameters reject null and maybe-null arguments, `AllowNull`
+permits such input without making reads nullable, and `DisallowNull` rejects it
+even when the declaration type is nullable. Property assignment follows the
+same rule using the setter value parameter, which is where C# emits these
+attributes. PE properties now project their own metadata attributes as well;
+accessor-parameter contracts remain owned by the corresponding method symbol.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks
@@ -863,9 +871,10 @@ The highest remaining risks after the current stabilization batch are:
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
    by-reference postconditions without splitting reference and value semantics;
    `MaybeNullWhen` also updates already-nullable ref storage conditionally.
-   Flow downgrades of declared non-nullable symbols, `AllowNull`, `DisallowNull`,
-   member postconditions, generic constraints, and Raven emit/C# consume round
-   trips still need equivalent coverage.
+   Input conversion now consumes `AllowNull` and `DisallowNull` without changing
+   the read type. Flow downgrades of declared non-nullable symbols, member
+   postconditions, generic constraints, and Raven emit/C# consume round trips
+   still need equivalent coverage.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage, but macro partitions and
    other declaration families remain less complete. Broken signatures and
