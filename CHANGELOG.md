@@ -21,6 +21,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Unsupported or programmatically constructed literal syntax now produces an
   invalid-expression diagnostic and bound error expression instead of throwing
   from semantic binding.
+- Incomplete interpolated strings remain bindable as strings during edits, and
+  unknown constructed content recovers through an invalid-expression
+  diagnostic instead of an exception.
 - Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
   `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
   exhaustiveness, emission, analyzer, and language-service behavior. Raven's

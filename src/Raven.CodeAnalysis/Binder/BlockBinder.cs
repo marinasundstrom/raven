@@ -7773,7 +7773,7 @@ partial class BlockBinder : Binder
                         text.Token.ValueText ?? string.Empty,
                         Compilation.GetSpecialType(SpecialType.System_String)),
                     InterpolationSyntax interpolation => BindExpression(interpolation.Expression),
-                    _ => throw new InvalidOperationException("Unknown interpolated string content")
+                    _ => BindInvalidContent(content)
                 };
 
                 result = ConcatOrFirst(result, expr);
@@ -7806,7 +7806,8 @@ partial class BlockBinder : Binder
                     break;
 
                 default:
-                    throw new InvalidOperationException("Unknown interpolated string content");
+                    _diagnostics.ReportInvalidExpressionTerm(content.ToString(), content.GetLocation());
+                    break;
             }
         }
 
@@ -7840,6 +7841,14 @@ partial class BlockBinder : Binder
             BoundLiteralExpressionKind.StringLiteral,
             string.Empty,
             Compilation.GetSpecialType(SpecialType.System_String));
+
+        BoundExpression BindInvalidContent(InterpolatedStringContentSyntax content)
+        {
+            _diagnostics.ReportInvalidExpressionTerm(content.ToString(), content.GetLocation());
+            return ErrorExpression(
+                Compilation.GetSpecialType(SpecialType.System_String),
+                reason: BoundExpressionReason.TypeMismatch);
+        }
 
         BoundExpression? ConcatOrFirst(BoundExpression? left, BoundExpression right)
         {

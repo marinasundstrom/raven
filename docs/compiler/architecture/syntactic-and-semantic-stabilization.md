@@ -527,6 +527,9 @@ comparison, unary, and binary forms rather than reaching a
 Literal binding follows the same totality rule. Unsupported token values and
 programmatically constructed literal-expression kinds produce an invalid-term
 diagnostic and bound error expression rather than a generic exception.
+Interpolated-string binding also treats incomplete edited content as a normal
+string-shaped recovery result and reports unknown constructed content rather
+than throwing.
 
 Pattern emission runs only after error diagnostics have prevented invalid bound
 trees from reaching code generation. Its remaining totality checks therefore
