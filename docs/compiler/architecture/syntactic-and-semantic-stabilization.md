@@ -345,6 +345,13 @@ Dictionary patterns apply that rule to the underlying dictionary-compatible
 type while retaining the nullable annotation on the scrutinee outside a
 successful match.
 
+Definite assignment joins only paths that can actually complete the construct.
+Exhaustive match arms are intersected across their completing exits, and
+non-exhaustive matches retain the unmodified incoming path. A `loop` has no
+zero-iteration exit, so out-parameter assignment is now intersected across its
+reachable `break` states rather than discarded wholesale; one unassigned break
+continues to make the method exit invalid.
+
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
 every relevant signature position, including nullable context/annotation

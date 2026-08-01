@@ -344,6 +344,7 @@ class MethodBodyBinder : BlockBinder
     {
         private readonly MethodBodyBinder _binder;
         private readonly ImmutableArray<IParameterSymbol> _outParameters;
+        private readonly Stack<List<ImmutableHashSet<IParameterSymbol>>> _breakExitStates = new();
 
         public OutParameterAssignmentAnalyzer(MethodBodyBinder binder, ImmutableArray<IParameterSymbol> outParameters)
         {
@@ -391,6 +392,10 @@ class MethodBodyBinder : BlockBinder
                     return new AnalysisState(assigned, false);
                 case BoundThrowStatement:
                 case BoundBreakStatement:
+                    if (_breakExitStates.TryPeek(out var breakExitStates))
+                        breakExitStates.Add(assigned);
+
+                    return new AnalysisState(assigned, false);
                 case BoundContinueStatement:
                     return new AnalysisState(assigned, false);
                 case BoundIfStatement ifStatement:
@@ -399,8 +404,7 @@ class MethodBodyBinder : BlockBinder
                     _ = AnalyzeStatement(whileStatement.Body, assigned);
                     return new AnalysisState(assigned, CanCompleteNormally(whileStatement));
                 case BoundLoopStatement loopStatement:
-                    _ = AnalyzeStatement(loopStatement.Body, assigned);
-                    return new AnalysisState(assigned, CanCompleteNormally(loopStatement));
+                    return AnalyzeLoop(loopStatement, assigned);
                 case BoundForStatement forStatement:
                     _ = AnalyzeStatement(forStatement.Body, assigned);
                     return new AnalysisState(assigned, true);
@@ -415,6 +419,26 @@ class MethodBodyBinder : BlockBinder
                 default:
                     return new AnalysisState(assigned, true);
             }
+        }
+
+        private AnalysisState AnalyzeLoop(
+            BoundLoopStatement loopStatement,
+            ImmutableHashSet<IParameterSymbol> assigned)
+        {
+            var breakExitStates = new List<ImmutableHashSet<IParameterSymbol>>();
+            _breakExitStates.Push(breakExitStates);
+            try
+            {
+                _ = AnalyzeStatement(loopStatement.Body, assigned);
+            }
+            finally
+            {
+                _breakExitStates.Pop();
+            }
+
+            return breakExitStates.Count == 0
+                ? new AnalysisState(assigned, false)
+                : new AnalysisState(breakExitStates.Aggregate(Intersect), true);
         }
 
         private AnalysisState AnalyzeIf(BoundIfStatement ifStatement, ImmutableHashSet<IParameterSymbol> assigned)

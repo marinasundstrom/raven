@@ -244,6 +244,52 @@ class C {
     }
 
     [Fact]
+    public void OutParameter_AssignedBeforeEveryLoopExit_DoesNotReportDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(out value: int) {
+        loop {
+            value = 1
+            break
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
+    public void OutParameter_UnassignedOnOneConditionalLoopExit_ReportsDiagnostic()
+    {
+        const string source = """
+class C {
+    func Assign(flag: bool, out value: int) {
+        loop {
+            if flag {
+                break
+            }
+
+            value = 1
+            break
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
+    [Fact]
     public void OutParameter_ReturnBeforeAssignment_ReportsDiagnostic()
     {
         const string source = """

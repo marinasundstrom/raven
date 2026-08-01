@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Definite-assignment analysis for `out` parameters now joins the actual exits
+  from `loop` statements. Assigning before every reachable `break` satisfies
+  the contract, while any unassigned break path still reports `RAV0269`.
 - `MaybeNull` return contracts now affect invocation flow without rewriting the
   declared return annotation. Direct dereferences, inferred locals, and
   explicitly non-nullable local assignments observe maybe-null reference and
