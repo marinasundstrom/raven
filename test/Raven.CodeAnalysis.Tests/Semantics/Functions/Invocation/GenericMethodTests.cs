@@ -397,6 +397,77 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Equal("Coerce", candidate.Name);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingConstructedMetadataMethodConstraint_RecomputesDiagnosticsAndSymbolInfo(bool diagnosticsFirst)
+    {
+        const string validSource = """
+            import Raven.MetadataFixtures.Generics.*
+
+            let value = GenericContainer<string>.Coerce<string>("value")
+            """;
+        var invalidSource = validSource.Replace("Coerce<string>", "Coerce<object>", System.StringComparison.Ordinal);
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "metadata-generic-constraint-edit",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.DefaultWithExtensionMethods)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "constraint.rav",
+            SourceText.From(validSource),
+            "/tmp/metadata-generic-constraint-edit.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        AssertValidSnapshot();
+
+        var documentId = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single().Id;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(documentId, SourceText.From(invalidSource)));
+        AssertInvalidSnapshot();
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(documentId, SourceText.From(validSource)));
+        AssertValidSnapshot();
+
+        void AssertValidSnapshot()
+        {
+            var compilation = workspace.GetCompilation(projectId);
+            var tree = compilation.SyntaxTrees.Single();
+            var model = compilation.GetSemanticModel(tree);
+            var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+            if (diagnosticsFirst)
+                Assert.Empty(compilation.GetDiagnostics());
+
+            var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+            Assert.Equal(SpecialType.System_String, Assert.Single(method.TypeArguments).SpecialType);
+            Assert.Empty(compilation.GetDiagnostics());
+        }
+
+        void AssertInvalidSnapshot()
+        {
+            var compilation = workspace.GetCompilation(projectId);
+            var tree = compilation.SyntaxTrees.Single();
+            var model = compilation.GetSemanticModel(tree);
+            var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+            var diagnostics = diagnosticsFirst ? compilation.GetDiagnostics() : default;
+            var symbolInfo = model.GetSymbolInfo(invocation);
+            if (!diagnosticsFirst)
+                diagnostics = compilation.GetDiagnostics();
+
+            Assert.Contains(
+                diagnostics,
+                diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+            Assert.Null(symbolInfo.Symbol);
+            Assert.Equal(CandidateReason.OverloadResolutionFailure, symbolInfo.CandidateReason);
+            Assert.Single(symbolInfo.CandidateSymbols.OfType<IMethodSymbol>());
+        }
+    }
+
     [Fact]
     public void GenericConstraintFailure_DoesNotCascadeToAmbiguousOverload()
     {

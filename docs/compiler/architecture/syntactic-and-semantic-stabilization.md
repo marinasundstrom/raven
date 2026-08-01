@@ -498,6 +498,10 @@ On rejection, the invocation publishes that method as an overload-resolution
 candidate and retains the constraint diagnostic; it does not degrade into an
 ambiguity or a missing-name result. This keeps IDE inspection useful even when
 an explicit constructed metadata call is invalid.
+Workspace coverage now edits such a call from valid to constraint-invalid and
+back. Diagnostics-first and symbol-first queries must both discard the stale
+constructed method, publish the invalid candidate while broken, and restore
+the newly constructed valid symbol after the edit.
 
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR
