@@ -3,7 +3,7 @@
 > ⚠️ 🧩 This proposal has been partly implemented
 
 This document outlines aliases - which allow you to define alternative names for
-namespaces, types (including closed generic types, tuples, and type unions), and static members.
+namespaces, types (including closed generic types, tuples, and ad-hoc unions), and static members.
 
 ## Syntax
 
@@ -32,7 +32,7 @@ The name `SB` will be an alias for `System.StringBuilder`.
 
 The type aliased is required to be specified in fully qualified form
 (`System.StringBuilder`) unless it is a type expression such as a tuple or
-type union. This is to resolve ambiguities.
+ad-hoc union expression. This is to resolve ambiguities.
 
 ### Member alias
 
@@ -45,4 +45,3 @@ alias PrintLine = System.Console.WriteLine
 
 PrintLine("Test")
 ```
-

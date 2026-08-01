@@ -363,8 +363,8 @@ loops reuse ordinary control-flow completion.
 
 ### Constructed and module symbol queries are total
 
-Array, tuple, and type-union symbols now answer nested-type and member queries
-through their projected or common base types instead of throwing. Tuple symbols
+Array and tuple symbols now answer nested-type and member queries through their
+projected runtime types instead of throwing. Tuple symbols
 also expose projected element names alongside the underlying `ValueTuple`
 members and follow the ordinary non-generic `Construct()` contract. Source and
 metadata modules project an assembly namespace to their own namespace
@@ -374,6 +374,10 @@ constituent.
 The remaining unsupported construction member is confined to the error-type
 sentinel, which is not a constructible named type. New public symbol families
 should receive the same no-throw query coverage as part of their introduction.
+
+The obsolete anonymous alternative-type symbol family has since been removed.
+Raven unions are nominal union symbols, including the `System.Union<...>` carriers used
+by ad-hoc union syntax; branch inference never synthesizes a separate union type.
 
 Bound-tree walkers now delegate expression and statement dispatch to the
 generated visitor contract. This removes a manually maintained type allowlist

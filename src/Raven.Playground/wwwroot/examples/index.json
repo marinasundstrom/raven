@@ -67,7 +67,7 @@
   },
   {
     "id": "shipment-lookup",
-    "title": "Shipment migration with type unions",
+    "title": "Shipment migration with ad-hoc unions",
     "file": "shipment-lookup.rvn",
     "category": "Unions and patterns"
   },

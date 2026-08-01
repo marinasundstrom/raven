@@ -91,7 +91,7 @@ combined: evaluating user-defined accessors or deconstruction methods across
 arms is not assumed to be stable or side-effect free.
 
 Boolean pattern combinators also participate directly in closed enum and
-discriminated-union domains, closed type unions, sealed hierarchies, and
+discriminated-union domains, closed ad-hoc union carriers, sealed hierarchies, and
 nullable domains. In particular, `not CasePattern` covers the complement of a
 fully covered case pattern, `null` and `not null` partition a nullable domain,
 and `and` covers the intersection of its operands. For closed type sets the

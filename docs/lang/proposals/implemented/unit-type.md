@@ -54,7 +54,7 @@ func Foo(ok: bool) -> int | unit {
 
 ### Control flow
 
-> **Note:** Type unions are not explained in this proposal. Just remember that `unit` is a type like any other.
+> **Note:** Ad-hoc unions are not explained in this proposal. Just remember that `unit` is a type like any other.
 
 ```raven
 let x = if true { 42 } // x : int | unit

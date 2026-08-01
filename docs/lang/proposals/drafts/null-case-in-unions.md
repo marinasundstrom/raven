@@ -469,9 +469,8 @@ Add focused tests in these areas:
   or `(A | B)?` in diagnostics?
 * How many standard union arities should Raven keep once .NET's union runtime
   surface stabilizes?
-* Should nullable standard union normalization produce `NullableTypeSymbol` over
-  `TypeUnionSymbol`, or should `TypeUnionSymbol` carry a nullable-content bit and
-  project as nullable only at display/conversion boundaries?
+* Nullable ad-hoc unions use the ordinary nullable-symbol model around their
+  nominal carrier. They do not introduce a separate anonymous union symbol.
 
 ## Migration and compatibility
 

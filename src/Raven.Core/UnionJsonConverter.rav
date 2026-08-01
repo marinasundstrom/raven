@@ -313,7 +313,7 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     }
 }
 
-/// Creates JSON converters for parenthesized type unions.
+/// Creates JSON converters for parenthesized ad-hoc unions.
 public class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
 
     /// Gets the JSON property used to preserve an ambiguous runtime type.
@@ -353,7 +353,7 @@ public class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory 
     }
 }
 
-/// Converts a parenthesized type union to and from JSON.
+/// Converts a parenthesized ad-hoc union to and from JSON.
 public class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _unionType: Type = typeof(TUnion)

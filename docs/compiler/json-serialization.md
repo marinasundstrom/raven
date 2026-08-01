@@ -20,7 +20,7 @@ maps its carrier to the JSON shape that best matches the carrier's role:
   `null`.
 - `Result<T, E>` needs an explicit success/error shape, so it uses its own
   tagged object format.
-- Standard type unions try to remain plain `T1` or `T2` JSON whenever the JSON
+- Ad-hoc `System.Union<...>` values try to remain plain `T1` or `T2` JSON whenever the JSON
   shape and declared target type make that possible. Complex member types need
   special treatment when their JSON shape cannot identify the member on read.
 

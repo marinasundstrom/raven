@@ -1,4 +1,4 @@
-// A type union combines existing types without declaring a named union.
+// An ad-hoc union combines existing types without declaring a named union.
 func Describe(value: int | string | bool) -> string {
     return value match {
         int number => "number: $number"

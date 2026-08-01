@@ -234,7 +234,7 @@ Note: `ReportInvalidInheritedBaseType` currently only receives the `baseList` an
 
 **File**: `src/Raven.CodeAnalysis/MatchExhaustivenessEvaluator.cs`
 
-In `Evaluate()`, after the type union check (~line 52) and before the else fallthrough:
+In `Evaluate()`, after the union-domain check (~line 52) and before the else fallthrough:
 
 ```csharp
 else if (scrutineeType is INamedTypeSymbol namedScrutinee && namedScrutinee.IsSealedHierarchy)

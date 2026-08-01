@@ -274,7 +274,7 @@ action. It chooses an intentionally editable pattern from the scrutinee:
   `IdentifierNameSyntax identifierName`;
 - sealed record hierarchies use positional bindings, such as
   `Case(let no)`;
-- parenthesized/type unions use typed bindings, such as `int v`;
+- ad-hoc unions use typed bindings, such as `int v`;
 - case-declared unions use target-typed case patterns, such as
   `.Success(let value)`;
 - enums use target-typed constants, such as `.None`;

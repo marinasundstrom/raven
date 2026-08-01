@@ -28,7 +28,7 @@ type Person = {
 
 Unified union syntax
 
-#### Type unions
+#### Ad-hoc unions
 
 ```raven
 type NonNull = int | null

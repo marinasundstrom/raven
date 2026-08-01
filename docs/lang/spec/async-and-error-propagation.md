@@ -229,7 +229,7 @@ carriers, so they use Raven's default struct-union representation and follow the
 conventional `.NET` union contract.
 
 Raven.Core also provides `System.Text.Json` converters for `Option<T>`,
-`Result<T, E>`, and standard type unions. These converters prefer plain JSON
+`Result<T, E>`, and ad-hoc `System.Union<...>` values. These converters prefer plain JSON
 when the JSON shape can be recovered from the declared target type. Parenthesized
 unions use value-union conversion because their members can be arbitrary types,
 including primitives; case-declaration unions may opt into a tagged case format.

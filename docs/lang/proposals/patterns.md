@@ -174,7 +174,9 @@ match value {
 Both forms share binding and diagnostics (including exhaustiveness checks). In
 statement position, the selected arm expression value is ignored.
 
-Literal-value types from [literal-type unions](literal-types.md) may be used directly in patterns, enabling exhaustive checks over finite sets of values.
+Literal-value union types were considered in a withdrawn proposal and are not
+part of Raven's active semantic model. Literal patterns remain available for
+matching ordinary values.
 
 When a subtype/case arm is only partially covered by subpatterns, Raven reports
 `RAV2110` unless a catch-all arm exists:
