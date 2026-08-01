@@ -527,6 +527,30 @@ Each substituted method type parameter remains owned by its own open method
 wrapper, while constraints that mention containing type parameters resolve to
 the constructed containing arguments.
 
+Nested construction now has the corresponding source-to-PE invariant across
+all three substitution layers. `Outer<int>.Inner<object>.Combine<string>` must
+retain the constructed outer and inner containers, substitute the method
+signature and its `V: U` constraint, and compare and hash equally after an
+emit/reload boundary. PE name-indexed lookup normalizes a nested generic CLI
+name such as `Inner`1` to the Raven-facing member name `Inner`; lazy lookup and
+full member loading therefore expose the same symbol set.
+
+This is an integration invariant, not only an internal symbol invariant. A
+source-only test can pass while the same API fails as soon as it is packaged in
+a library and consumed through metadata. Risky symbol-model coverage should
+therefore use a source declaration, emit it, load it as a reference in a second
+compilation, and repeat the public lookup and construction operations a normal
+third-party consumer would perform.
+
+Source named-type `MetadataName` currently includes its namespace and nesting
+path while PE symbols expose the unqualified CLI member name. The equality
+comparer now normalizes this known projection difference and separately checks
+the containing symbol, which restores the equality/hash contract without
+changing emission. A later API stabilization slice should choose one public
+`MetadataName` contract and migrate code generation to
+`ToFullyQualifiedMetadataName` where a complete CLI identity is actually
+required.
+
 One unsafe shortcut has been removed from that chain:
 `ConstructedMethodSymbol.Equals(object)` and `GetHashCode()` no longer proxy to
 the open definition. They use the same constructed signature identity as the
@@ -735,8 +759,10 @@ The highest remaining risks after the current stabilization batch are:
 
 1. **Open-to-constructed generic symbols (high)** — wrapper ownership and
    substitution are still distributed across named types, methods, parameters,
-   constraints, and metadata projection. Continue boundary invariants before
-   considering a central construction redesign.
+   constraints, and metadata projection. Nested source/PE construction now has
+   a three-layer invariant, but the source/PE named-type `MetadataName` contract
+   remains inconsistent. Continue boundary invariants and settle that API
+   before considering a central construction redesign.
 2. **Flow fixed points (high)** — branch and common loop exits are covered, but
    the binder-owned non-null set is not yet a general control-flow fixed-point
    engine. Prioritize mutation inside loops, exceptional edges, and joins that

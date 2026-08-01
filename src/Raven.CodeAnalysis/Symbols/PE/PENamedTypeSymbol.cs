@@ -616,7 +616,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             : _reflectionTypeLoader.ResolveType(valueField.FieldType);
     }
 
-    string StripArity(string name)
+    private static string StripArity(string name)
     {
         var index = name.IndexOf('`');
         return index >= 0 ? name.Substring(0, index) : name;
@@ -1113,7 +1113,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
             {
-                if (_memberNamesLoaded.Contains(nestedTypeInfo.Name))
+                if (_memberNamesLoaded.Contains(StripArity(nestedTypeInfo.Name)))
                     continue;
 
                 // Always intern nested types via the module's Type-based cache to avoid creating duplicate symbols.
@@ -1295,7 +1295,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
             {
-                if (!string.Equals(nestedTypeInfo.Name, name, StringComparison.Ordinal))
+                if (!string.Equals(StripArity(nestedTypeInfo.Name), name, StringComparison.Ordinal))
                     continue;
 
                 _ = PEContainingModule.GetType(nestedTypeInfo.AsType());

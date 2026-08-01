@@ -1,4 +1,5 @@
 using System.Linq;
+using System.IO;
 using System.Reflection;
 
 using Raven.CodeAnalysis;
@@ -413,6 +414,88 @@ class Outer<T> {
             makeIntString.Parameters,
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type)),
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(stringType, parameter.Type)));
+    }
+
+    [Fact]
+    public void ConstructedMethod_OnNestedGenericType_PreservesEverySubstitutionLayer()
+    {
+        const string source = """
+class Outer<T> {
+    public class Inner<U> {
+        public func Combine<V>(outer: T, inner: U, method: V) -> V
+            where V: U
+            => method
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "constructed-method-nested-container",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First()));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(outerInt.LookupType("Inner"));
+        var innerObject = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(objectType));
+        var combineDefinition = Assert.Single(innerObject.GetMembers("Combine").OfType<IMethodSymbol>());
+        var combineString = combineDefinition.Construct(stringType);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(innerObject, combineString.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, innerObject.ContainingType));
+        Assert.Collection(
+            combineString.Parameters,
+            parameter => Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType),
+            parameter => Assert.Equal(SpecialType.System_Object, parameter.Type.SpecialType),
+            parameter => Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType));
+        Assert.Equal(SpecialType.System_String, combineString.ReturnType.SpecialType);
+
+        var methodTypeParameter = Assert.Single(combineDefinition.TypeParameters);
+        Assert.Same(combineDefinition, methodTypeParameter.DeclaringMethodParameterOwner);
+        Assert.Equal(SpecialType.System_Object, Assert.Single(methodTypeParameter.ConstraintTypes).SpecialType);
+
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+        Assert.True(emitResult.Success, string.Join(System.Environment.NewLine, emitResult.Diagnostics));
+        var metadataCompilation = Compilation.Create(
+                "constructed-method-nested-container-consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([
+                .. TestMetadataReferences.Default,
+                MetadataReference.CreateFromImage(image.ToArray()),
+            ]);
+        var metadataOuterDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            metadataCompilation.GetTypeByMetadataName("Outer`1"));
+        var metadataOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            metadataOuterDefinition.Construct(metadataCompilation.GetSpecialType(SpecialType.System_Int32)));
+        var metadataInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataOuter.LookupType("Inner"));
+        var metadataInner = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            metadataInnerDefinition.Construct(metadataCompilation.GetSpecialType(SpecialType.System_Object)));
+        var metadataCombineDefinition = Assert.Single(metadataInner.GetMembers("Combine").OfType<IMethodSymbol>());
+        var metadataCombine = metadataCombineDefinition.Construct(
+            metadataCompilation.GetSpecialType(SpecialType.System_String));
+
+        var comparer = SymbolEqualityComparer.Default;
+        Assert.True(comparer.Equals(outerInt, metadataOuter), "Constructed outer types differ");
+        var sourceInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.OriginalDefinition);
+        var peInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataInnerDefinition.OriginalDefinition);
+        Assert.Equal(sourceInnerDefinition.Name, peInnerDefinition.Name);
+        Assert.Equal(sourceInnerDefinition.Arity, peInnerDefinition.Arity);
+        Assert.True(comparer.Equals(sourceInnerDefinition.ContainingType, peInnerDefinition.ContainingType),
+            $"Nested containing types differ: {sourceInnerDefinition.ContainingType} != {peInnerDefinition.ContainingType}");
+        Assert.True(comparer.Equals(sourceInnerDefinition, peInnerDefinition),
+            "Nested type definitions differ");
+        Assert.True(comparer.Equals(innerObject, metadataInner), "Constructed nested types differ");
+        Assert.True(comparer.Equals(combineString, metadataCombine), "Constructed nested methods differ");
+        Assert.Equal(
+            comparer.GetHashCode(combineString),
+            comparer.GetHashCode(metadataCombine));
     }
 
 }

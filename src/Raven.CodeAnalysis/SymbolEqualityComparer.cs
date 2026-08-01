@@ -205,7 +205,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
             return false;
 
-        if (!string.Equals(x.MetadataName, y.MetadataName, StringComparison.Ordinal))
+        if (!string.Equals(GetMetadataNameForIdentity(x), GetMetadataNameForIdentity(y), StringComparison.Ordinal))
             return false;
 
         if (!_ignoreContainingNamespaceOrType)
@@ -491,7 +491,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
 
         hash.Add(obj.Name, StringComparer.Ordinal);
-        hash.Add(obj.MetadataName, StringComparer.Ordinal);
+        hash.Add(GetMetadataNameForIdentity(obj), StringComparer.Ordinal);
 
         if (!_ignoreContainingNamespaceOrType && obj.ContainingNamespace is { } containingNamespace)
             hash.Add(containingNamespace.Name, StringComparer.Ordinal);
@@ -597,6 +597,18 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return original;
 
         return symbol;
+    }
+
+    private static string GetMetadataNameForIdentity(ISymbol symbol)
+    {
+        var metadataName = symbol.MetadataName;
+        if (symbol is not INamedTypeSymbol)
+            return metadataName;
+
+        var nestedSeparator = metadataName.LastIndexOf('+');
+        var namespaceSeparator = metadataName.LastIndexOf('.');
+        var separator = Math.Max(nestedSeparator, namespaceSeparator);
+        return separator >= 0 ? metadataName[(separator + 1)..] : metadataName;
     }
 
     private static ImmutableArray<ITypeSymbol> GetTypeArgumentsOrParameters(INamedTypeSymbol symbol)

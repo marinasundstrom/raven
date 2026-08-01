@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Name-based PE member lookup now resolves nested generic types by their
+  Raven-facing name (for example, `Inner` as well as the CLI name `Inner`1`).
+  Constructed nested generic types and their methods retain equal source/PE
+  identity across emit and reload, including inherited containing-type
+  substitutions.
 - `ConstructedMethodSymbol` object equality and hashing now use its constructed
   signature identity instead of proxying to the open method definition.
   Reflexive and independently reconstructed methods behave consistently in
