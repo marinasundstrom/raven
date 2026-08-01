@@ -367,6 +367,11 @@ that silently ignored newer expressions and threw when the general `Visit`
 entry point received an ordinary non-block statement. Walker traversal hooks
 remain explicit, but dispatch completeness now evolves with the bound model.
 
+The diagnostic factory no longer carries the obsolete untyped
+`MemberAccessOnUnit` overload. That overload survived removal of the associated
+language restriction and could only throw; all diagnostic construction now
+requires a descriptor.
+
 ### Generic overload resolution has explicit gaps
 
 Overload resolution now constructs open generic method-group candidates when
