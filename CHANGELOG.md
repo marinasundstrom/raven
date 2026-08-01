@@ -112,6 +112,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   conservatively unresolved labeled/goto exits) block the inference.
 - Workspace edits that change a `while` null check now invalidate and restore
   body flow state together with possible-null diagnostics.
+- Successful non-null typed patterns now narrow their nullable scrutinee inside
+  both `if ... is` and `while let` bodies, including cold semantic queries.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

@@ -11351,6 +11351,13 @@ partial class BlockBinder : Binder
             return true;
         }
 
+        if (pattern is BoundDeclarationPattern declarationPattern &&
+            !declarationPattern.DeclaredType.IsNullable)
+        {
+            nonNullWhenTrue = true;
+            return true;
+        }
+
         nonNullWhenTrue = false;
         return false;
     }

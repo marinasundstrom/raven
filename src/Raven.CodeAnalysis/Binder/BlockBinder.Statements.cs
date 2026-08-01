@@ -376,7 +376,20 @@ partial class BlockBinder
 
     private BoundStatement BindWhilePatternStatement(WhilePatternStatementSyntax whileStmt)
     {
+        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         var condition = BindWhilePatternCondition(whileStmt);
+        var bodyEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+        if (TryGetNullCheckFlow(condition, out var flowSymbol, out var nonNullWhenTrue, out _))
+        {
+            if (nonNullWhenTrue)
+                bodyEntryState.Add(flowSymbol);
+            else
+                bodyEntryState.Remove(flowSymbol);
+        }
+
+        _nonNullSymbols.Clear();
+        _nonNullSymbols.UnionWith(bodyEntryState);
+
         var patternLocals = condition is BoundIsPatternExpression isPattern
             ? CollectPatternDesignatorLocals(isPattern.Pattern)
             : ImmutableArray<ILocalSymbol>.Empty;
@@ -400,6 +413,9 @@ partial class BlockBinder
             else
                 _locals[local.Name] = shadowed.Value;
         }
+
+        _nonNullSymbols.Clear();
+        _nonNullSymbols.UnionWith(entryState);
 
         return new BoundWhileStatement(condition, body);
     }

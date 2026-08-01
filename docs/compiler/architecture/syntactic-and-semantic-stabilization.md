@@ -274,6 +274,11 @@ Incremental workspace coverage changes a `while` condition between `is not
 null` and `is null`, then restores it. Public `TypeInfo` flow state and
 possible-null diagnostics must update together in all three snapshots.
 
+Successful declaration patterns with a non-null declared type establish that
+their scrutinee is non-null on the true path. Ordinary `if ... is` and dedicated
+`while let` binding apply the same fact to their bodies, and cold semantic
+queries bind those enclosing constructs before publishing `TypeInfo`.
+
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
 every relevant signature position, including nullable context/annotation
