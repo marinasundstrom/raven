@@ -11358,6 +11358,29 @@ partial class BlockBinder : Binder
             return true;
         }
 
+        if (pattern is BoundAndPattern andPattern)
+        {
+            var hasLeftFlow = TryGetNullPatternFlow(
+                andPattern.Left,
+                out var leftNonNullWhenTrue,
+                out _);
+            var hasRightFlow = TryGetNullPatternFlow(
+                andPattern.Right,
+                out var rightNonNullWhenTrue,
+                out _);
+
+            if (hasLeftFlow || hasRightFlow)
+            {
+                nonNullWhenTrue = leftNonNullWhenTrue is true || rightNonNullWhenTrue is true
+                    ? true
+                    : leftNonNullWhenTrue is false || rightNonNullWhenTrue is false
+                        ? false
+                        : null;
+                nonNullWhenFalse = null;
+                return true;
+            }
+        }
+
         if (pattern is BoundDeclarationPattern declarationPattern &&
             !declarationPattern.DeclaredType.IsNullable)
         {

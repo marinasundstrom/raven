@@ -289,6 +289,8 @@ deconstruction method is invoked.
 Pattern flow distinguishes adding, removing, and preserving a nullability fact.
 A type or shape mismatch does not make an already non-null scrutinee nullable;
 only a branch that proves a null match removes the fact.
+For conjunctive patterns, a successful operand that requires a non-null input
+establishes that fact for the successful combined pattern.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
