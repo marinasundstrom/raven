@@ -914,8 +914,10 @@ ownership.
    exceptional paths.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
-   have representative coverage; conversion ranking and less common inference
-   forms still need a matrix.
+   have representative coverage. Equivalent constructed signatures now apply
+   the standard non-generic-over-generic tie-breaker independent of declaration
+   order; conversion ranking and less common inference forms still need a
+   matrix.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
    by-reference postconditions without splitting reference and value semantics;

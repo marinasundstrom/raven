@@ -1999,7 +1999,38 @@ internal sealed class OverloadResolver
                 return false;
         }
 
+        // When inference makes a generic candidate's parameter sequence
+        // equivalent to a non-generic candidate, the non-generic member is the
+        // more specific declaration. Conversion scores cannot distinguish this
+        // case because both constructed signatures accept the same argument
+        // types.
+        if (!better &&
+            candidate.IsGenericMethod != current.IsGenericMethod &&
+            HaveEquivalentParameterTypes(candidate.Parameters, current.Parameters))
+        {
+            return !candidate.IsGenericMethod;
+        }
+
         return better;
+    }
+
+    private static bool HaveEquivalentParameterTypes(
+        ImmutableArray<IParameterSymbol> left,
+        ImmutableArray<IParameterSymbol> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (left[i].RefKind != right[i].RefKind ||
+                !SymbolEqualityComparer.Default.Equals(left[i].Type, right[i].Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static int GetTaskDepth(ITypeSymbol? type)

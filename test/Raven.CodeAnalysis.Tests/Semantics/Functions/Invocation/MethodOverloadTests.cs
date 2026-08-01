@@ -200,6 +200,40 @@ public class MethodOverloadTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void ExactNonGenericOverload_WinsEquivalentGenericCandidate(bool reverseDeclarations)
+    {
+        var overloads = reverseDeclarations
+            ? """
+                func Select<T>(value: T) -> string { "generic" }
+                func Select(value: int) -> string { "int" }
+                """
+            : """
+                func Select(value: int) -> string { "int" }
+                func Select<T>(value: T) -> string { "generic" }
+                """;
+        var source = $$"""
+            {{overloads}}
+
+            func Test() -> string {
+                Select(1)
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.False(method.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(method.Parameters).Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void NullArgument_PrefersMoreSpecificReferenceOverload(bool reverseDeclarations)
     {
         var overloads = reverseDeclarations

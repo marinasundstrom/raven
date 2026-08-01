@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Overload resolution now prefers an exact non-generic method over a generic
+  candidate whose inferred construction produces the same parameter sequence,
+  independent of declaration order.
 - Raven.Core's union JSON converters now preserve nullable payloads through
   reflection by carrying the declared case/member type separately from the
   possibly null value. Their Raven signatures also match the nullable .NET
