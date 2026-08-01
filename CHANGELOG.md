@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Metadata `NotNullIfNotNull` return contracts now affect invocation flow.
+  Raven resolves the named parameter from the imported attribute and projects
+  a non-null result only when the corresponding argument is non-null in the
+  current flow state, without changing the method's declared return annotation.
 - Null-flow state now joins `try` and each `catch` from independent entry and
   exit states, then applies `finally` to the joined normal continuation. An
   assignment that may occur before an exception conservatively invalidates the

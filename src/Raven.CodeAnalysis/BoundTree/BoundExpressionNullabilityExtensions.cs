@@ -7,6 +7,10 @@ internal static class BoundExpressionNullabilityExtensions
         switch (expression)
         {
             case BoundInvocationExpression invocation
+                when InvocationReturnIsNotNull(invocation):
+                return invocation.Type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
+
+            case BoundInvocationExpression invocation
                 when NullableFlowAttributeFacts.ReturnMayBeNull(invocation.Method) &&
                     !invocation.Type.IsValueType:
                 return invocation.Type.WithNullableAnnotation(NullableAnnotation.Annotated);
@@ -23,6 +27,40 @@ internal static class BoundExpressionNullabilityExtensions
             default:
                 return expression.Type;
         }
+    }
+
+    private static bool InvocationReturnIsNotNull(BoundInvocationExpression invocation)
+    {
+        if (!NullableFlowAttributeFacts.TryGetNotNullIfNotNull(invocation.Method, out var parameterName))
+            return false;
+
+        var parameterIndex = -1;
+        for (var i = 0; i < invocation.Method.Parameters.Length; i++)
+        {
+            if (string.Equals(invocation.Method.Parameters[i].Name, parameterName, StringComparison.Ordinal))
+            {
+                parameterIndex = i;
+                break;
+            }
+        }
+
+        if (parameterIndex < 0)
+            return false;
+
+        BoundExpression? argument;
+        if (invocation.Method.IsExtensionMethod && invocation.ExtensionReceiver is not null)
+        {
+            if (parameterIndex == 0)
+                argument = invocation.ExtensionReceiver;
+            else
+                argument = invocation.Arguments.ElementAtOrDefault(parameterIndex - 1);
+        }
+        else
+        {
+            argument = invocation.Arguments.ElementAtOrDefault(parameterIndex);
+        }
+
+        return argument is not null && !argument.GetNullabilityFlowType().IsNullable;
     }
 
     private static ITypeSymbol PreserveNullableFlow(ITypeSymbol declaredType, ITypeSymbol operandFlowType)

@@ -37,4 +37,21 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
 
         Assert.Equal("System.Diagnostics.CodeAnalysis", attribute.AttributeClass.ContainingNamespace?.ToMetadataName());
     }
+
+    [Fact]
+    public void MetadataReturn_ProjectsNotNullIfNotNullAttributeAndParameterName()
+    {
+        var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
+        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var method = fixtureType.GetMembers("Echo")
+            .OfType<IMethodSymbol>()
+            .Single();
+
+        var attribute = Assert.Single(
+            method.GetReturnTypeAttributes(),
+            attribute => attribute.AttributeClass?.Name == "NotNullIfNotNullAttribute");
+
+        Assert.Equal("System.Diagnostics.CodeAnalysis", attribute.AttributeClass.ContainingNamespace?.ToMetadataName());
+        Assert.Equal("value", Assert.IsType<string>(Assert.Single(attribute.ConstructorArguments).Value));
+    }
 }

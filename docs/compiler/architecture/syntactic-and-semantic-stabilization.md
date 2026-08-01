@@ -400,6 +400,13 @@ type remains definitely non-null because its runtime representation cannot
 carry `null`. Assignment and member-access diagnostics consume that flow view
 rather than mutating the public method signature.
 
+Imported `NotNullIfNotNull` return contracts now resolve their named parameter
+and inspect the corresponding argument's Raven flow state. A non-null literal
+or narrowed nullable argument produces a non-null invocation result, while a
+maybe-null argument preserves the declared nullable result. Metadata-symbol and
+call-site tests use a separately compiled C# fixture so attribute decoding and
+semantic interpretation cannot accidentally pass through a source-only path.
+
 ### Control transfers have one expression-context policy
 
 `return` and `throw` are useful non-completing expressions. Expression blocks

@@ -9,6 +9,24 @@ internal static class NullableFlowAttributeFacts
     public static bool ReturnMayBeNull(IMethodSymbol method)
         => HasAttribute(method.GetReturnTypeAttributes(), "MaybeNullAttribute");
 
+    public static bool TryGetNotNullIfNotNull(IMethodSymbol method, out string parameterName)
+    {
+        foreach (var attribute in method.GetReturnTypeAttributes())
+        {
+            if (!IsAttribute(attribute, "NotNullIfNotNullAttribute") ||
+                attribute.ConstructorArguments is not [{ Value: string value }])
+            {
+                continue;
+            }
+
+            parameterName = value;
+            return true;
+        }
+
+        parameterName = string.Empty;
+        return false;
+    }
+
     public static bool TryGetNotNullWhen(IParameterSymbol parameter, out bool returnValue)
     {
         foreach (var attribute in parameter.GetAttributes())

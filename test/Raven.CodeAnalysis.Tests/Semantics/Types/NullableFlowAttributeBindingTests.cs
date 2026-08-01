@@ -197,4 +197,64 @@ let value = NullableFlowFixture.FindOrDefault<int>()
         Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.Nullability.Annotation);
         Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
     }
+
+    [Fact]
+    public void NotNullIfNotNullReturn_IsNotNullForNonNullArgument()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length() -> int => NullableFlowFixture.Echo("raven").Length
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NotNullIfNotNullReturn_RemainsMaybeNullForNullableArgument()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length(value: string?) -> int => NullableFlowFixture.Echo(value).Length
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.Single(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NotNullIfNotNullReturn_UsesNarrowedArgumentFlow()
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length(value: string?) -> int {
+    if value is null {
+        return 0
+    }
+
+    return NullableFlowFixture.Echo(value).Length
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
 }

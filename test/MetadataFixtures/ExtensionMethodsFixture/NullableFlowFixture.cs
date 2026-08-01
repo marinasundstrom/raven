@@ -10,6 +10,9 @@ public static class NullableFlowFixture
     [return: MaybeNull]
     public static string FindName() => null;
 
+    [return: NotNullIfNotNull(nameof(value))]
+    public static string? Echo(string? value) => value;
+
     public static bool IsMissing([NotNullWhen(false)] string? value) => value is null;
 
     public static bool ArePresent(
