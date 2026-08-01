@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Null-flow narrowing now accounts for assignments on loop back-edges. Values
+  mutated by a `loop` or `while` body are no longer assumed non-null on later
+  iterations or after a possibly executing loop, while a `while` condition can
+  reestablish its narrowing for each body entry.
 - Constrained generic overloads now participate in fast semantic-query ranking
   only when their constraints are satisfied. A generic identity conversion can
   beat an `object` fallback, while a rejected generic candidate leaves the

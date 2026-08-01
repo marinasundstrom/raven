@@ -561,6 +561,15 @@ order and whether diagnostics or symbol information is requested first. The
 semantic fast path scores every remaining applicable candidate together; it
 does not prefer a non-generic candidate before comparing conversions.
 
+Loop null flow now includes the mutation side of its fixed-point approximation.
+Before binding a repeated body, Raven removes entry narrowings for locals and
+parameters assigned anywhere on that loop back-edge. A `while` condition then
+applies its true-branch facts to this conservative header state, so a condition
+such as `value is not null` still narrows every iteration. The same mutations
+are removed from a possibly executing loop's exit state. This prevents both an
+unconditional `loop` and an ordinary `while` from carrying a first-iteration
+fact across an assignment to null.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks

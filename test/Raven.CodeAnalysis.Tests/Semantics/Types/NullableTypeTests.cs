@@ -411,6 +411,100 @@ public class NullableTypeTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GetTypeInfo_InvalidatesNarrowingAtLoopBackEdgeAfterAssignment(bool diagnosticsFirst)
+    {
+        const string source = """
+            func WriteLengths(value: string?) -> unit {
+                if value is null {
+                    return
+                }
+
+                loop {
+                    System.Console.WriteLine(value.Length)
+                    value = null
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void GetTypeInfo_InvalidatesNarrowingAfterWhileThatAssignsGuardedValue()
+    {
+        const string source = """
+            func LengthAfterLoop(value: string?, repeat: bool) -> int {
+                if value is null {
+                    return 0
+                }
+
+                while repeat {
+                    value = null
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void GetTypeInfo_WhileConditionReestablishesNarrowingAfterBodyAssignment()
+    {
+        const string source = """
+            func WriteLength(value: string?) -> unit {
+                while value is not null {
+                    System.Console.WriteLine(value.Length)
+                    value = null
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GetTypeInfo_ReportsNotNullAfterWhileNullGuardWithoutEarlyLoopExit(bool diagnosticsFirst)
     {
         const string source = """

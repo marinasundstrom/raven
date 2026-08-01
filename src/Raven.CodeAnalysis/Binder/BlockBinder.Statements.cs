@@ -317,8 +317,10 @@ partial class BlockBinder
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
     {
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
+        var assignedInBody = GetLoopAssignedFlowSymbols(whileStmt.Statement);
         var condition = BindExpression(whileStmt.Condition);
         var bodyEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+        bodyEntryState.ExceptWith(assignedInBody);
         var nullCheckFlows = GetNullCheckFlows(condition);
 
         foreach (var flow in nullCheckFlows)
@@ -339,6 +341,8 @@ partial class BlockBinder
             foreach (var flow in nullCheckFlows)
                 ApplyNullFlow(exitState, flow.Symbol, flow.NonNullWhenFalse);
         }
+
+        exitState.ExceptWith(assignedInBody);
 
         _nonNullSymbols.Clear();
         _nonNullSymbols.UnionWith(exitState);
@@ -368,8 +372,10 @@ partial class BlockBinder
     private BoundStatement BindWhilePatternStatement(WhilePatternStatementSyntax whileStmt)
     {
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
+        var assignedInBody = GetLoopAssignedFlowSymbols(whileStmt.Statement);
         var condition = BindWhilePatternCondition(whileStmt);
         var bodyEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+        bodyEntryState.ExceptWith(assignedInBody);
         foreach (var flow in GetNullCheckFlows(condition))
         {
             ApplyNullFlow(bodyEntryState, flow.Symbol, flow.NonNullWhenTrue);
@@ -403,6 +409,7 @@ partial class BlockBinder
         }
 
         _nonNullSymbols.Clear();
+        entryState.ExceptWith(assignedInBody);
         _nonNullSymbols.UnionWith(entryState);
 
         return new BoundWhileStatement(condition, body);
@@ -410,8 +417,58 @@ partial class BlockBinder
 
     private BoundStatement BindLoopStatement(LoopStatementSyntax loopStmt)
     {
+        _nonNullSymbols.ExceptWith(GetLoopAssignedFlowSymbols(loopStmt.Statement));
         var body = BindStatementInLoop(loopStmt.Statement);
         return new BoundLoopStatement(body);
+    }
+
+    private HashSet<ISymbol> GetLoopAssignedFlowSymbols(StatementSyntax body)
+    {
+        var assigned = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentStatementSyntax>())
+        {
+            if (!IsInNestedExecutableScope(assignment, body))
+                TryAddAssignedFlowSymbol(assignment.Left, assigned);
+        }
+
+        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentExpressionSyntax>())
+        {
+            if (!IsInNestedExecutableScope(assignment, body))
+                TryAddAssignedFlowSymbol(assignment.Left, assigned);
+        }
+
+        return assigned;
+    }
+
+    private static bool IsInNestedExecutableScope(SyntaxNode node, StatementSyntax loopBody)
+    {
+        for (var current = node.Parent; current is not null && !ReferenceEquals(current, loopBody); current = current.Parent)
+        {
+            if (current is FunctionStatementSyntax or FunctionExpressionSyntax or TypeDeclarationStatementSyntax)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void TryAddAssignedFlowSymbol(ExpressionOrPatternSyntax target, HashSet<ISymbol> assigned)
+    {
+        if (target is not IdentifierNameSyntax identifier)
+            return;
+
+        var name = identifier.Identifier.ValueText;
+        if (_locals.TryGetValue(name, out var local))
+        {
+            assigned.Add(local.Symbol);
+            return;
+        }
+
+        if (_containingSymbol is IMethodSymbol method &&
+            method.Parameters.FirstOrDefault(parameter => string.Equals(parameter.Name, name, StringComparison.Ordinal)) is { } parameter)
+        {
+            assigned.Add(parameter);
+        }
     }
 
     private BoundStatement BindLockStatement(LockStatementSyntax lockStmt)
