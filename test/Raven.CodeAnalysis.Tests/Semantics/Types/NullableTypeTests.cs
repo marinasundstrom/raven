@@ -714,6 +714,39 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_ReportsNotNullAfterNegatedDeconstructionPatternGuard(bool diagnosticsFirst)
+    {
+        const string source = """
+            record class Person(Name: string, Age: int)
+
+            func Hash(value: object?) -> int {
+                if value is not Person(let name, let age) {
+                    return 0
+                }
+
+                return value.GetHashCode()
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void EditingTypedPatternNegationInvalidatesBodyFlowState()
     {
