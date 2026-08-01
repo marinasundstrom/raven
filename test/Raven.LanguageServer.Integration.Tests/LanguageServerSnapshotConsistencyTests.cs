@@ -950,6 +950,36 @@ class Runner {
     }
 
     [Fact]
+    public async Task HoverHandler_NullableLocalReference_ShowsPositionSpecificFlowStateAsync()
+    {
+        const string text = """
+func Length(value: string?) -> int {
+    let copy: string? = value
+    if copy is not null {
+        return copy.Length
+    }
+
+    return 0
+}
+""";
+
+        var results = await ReplayInlineHoversAsync(
+            text,
+            new HoverReplayTarget(
+                "maybe-null local",
+                "copy is not null",
+                1,
+                "Nullable flow state: **maybe null** at this location."),
+            new HoverReplayTarget(
+                "narrowed local",
+                "copy.Length",
+                1,
+                "Nullable flow state: **not null** at this location."));
+
+        results.Count.ShouldBe(2);
+    }
+
+    [Fact]
     public async Task HoverHandler_EditCycle_AddedOverload_ResolvesNewSignatureHoverAsync()
     {
         var initialText = """

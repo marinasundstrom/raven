@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- VS Code hover now presents the compiler's position-specific nullable flow
+  state for nullable locals and parameters. The declared signature remains
+  unchanged while the hover distinguishes `maybe null` from a value narrowed
+  to `not null` at the selected reference.
 - Generic method inference now widens repeated type-parameter bounds for a
   base/derived argument pair instead of depending on argument order. Partial
   explicit type arguments on namespace functions also remain open through

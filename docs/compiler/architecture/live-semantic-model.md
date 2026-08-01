@@ -62,6 +62,13 @@ state needed to answer the requested symbol, type, constant, or operation, but
 they should not collect full binder diagnostics as a side effect. Full diagnostic
 collection belongs to diagnostic APIs and the diagnostic lanes.
 
+Hover presents nullability from `SemanticModel.GetTypeInfo` at the referenced
+expression. It keeps the symbol's declared nullable annotation in the Raven
+signature and, for nullable locals and parameters, adds the contextual flow
+state (`maybe null` or `not null`) for that exact program point. The language
+server does not reproduce branch analysis, and local-reference hover does not
+take a syntax-only shortcut that could hide a compiler-owned flow change.
+
 ## Binding And Incremental State
 
 Binders are cache-derived from syntax and semantic context. They can keep state
