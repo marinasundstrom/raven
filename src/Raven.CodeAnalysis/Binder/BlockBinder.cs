@@ -11359,7 +11359,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (pattern is BoundPropertyPattern)
+        if (pattern is BoundPropertyPattern or BoundDeconstructPattern)
         {
             nonNullWhenTrue = true;
             return true;
