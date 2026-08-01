@@ -278,6 +278,10 @@ Successful declaration patterns with a non-null declared type establish that
 their scrutinee is non-null on the true path. Ordinary `if ... is` and dedicated
 `while let` binding apply the same fact to their bodies, and cold semantic
 queries bind those enclosing constructs before publishing `TypeInfo`.
+Negation reverses any recognized pattern nullability fact rather than relying
+on a special case for `not null`; consequently, an early-exit `is not T` guard
+publishes the same non-null state on its continuing path as a positive typed
+pattern publishes inside its body.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in

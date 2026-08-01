@@ -11345,9 +11345,10 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (pattern is BoundNotPattern { Pattern: BoundConstantPattern constant } && constant.ConstantValue is null)
+        if (pattern is BoundNotPattern notPattern &&
+            TryGetNullPatternFlow(notPattern.Pattern, out var operandNonNullWhenTrue))
         {
-            nonNullWhenTrue = true;
+            nonNullWhenTrue = !operandNonNullWhenTrue;
             return true;
         }
 
