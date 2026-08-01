@@ -118,6 +118,53 @@ func Main() -> () {
         Assert.Equal("Logger.Log(string)", FormatSignature((IMethodSymbol)info.Symbol!));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void MethodGroupConversion_PrefersEquivalentNonGenericMethod(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        var methods = reverseDeclarations
+            ? """
+                static func Project<T>(value: T) -> T { value }
+                static func Project(value: int) -> int { value }
+                """
+            : """
+                static func Project(value: int) -> int { value }
+                static func Project<T>(value: T) -> T { value }
+                """;
+        var source = $$"""
+            import System.*
+
+            class Calculator {
+                {{methods}}
+            }
+
+            func Main() -> () {
+                let callback: Func<int, int> = Calculator.Project
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Calculator.Project");
+        var creation = Assert.IsType<BoundDelegateCreationExpression>(model.GetBoundNode(memberAccess));
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(memberAccess).Symbol);
+
+        Assert.Same(creation.Method, selected);
+        Assert.False(selected.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.Parameters).Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void MethodGroupWithSingleCandidate_InferredDelegateReturnsMethod()
     {
