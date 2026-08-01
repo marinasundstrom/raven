@@ -387,6 +387,8 @@ public interface IForLoopOperation : ILoopOperation
 {
     IOperation? Collection { get; }
 
+    IOperation? Pattern { get; }
+
     ILocalSymbol? Local { get; }
 
     ITypeSymbol ElementType { get; }

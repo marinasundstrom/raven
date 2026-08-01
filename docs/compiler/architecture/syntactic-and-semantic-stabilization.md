@@ -637,6 +637,12 @@ versus use sites, contextual versus uncontextual binding, full versus
 incremental snapshots, valid-to-invalid-to-valid edits, and ordinary versus
 macro declarations.
 
+Public operations must describe source semantics rather than lowering
+artifacts. Pattern-based `for` loops therefore expose their source pattern and
+do not publish the synthetic iteration temporary as a user local. Ordinary and
+pattern-based `while`, `for`, `loop`, and `match` forms have focused operation
+coverage so analyzers see the same accepted control-flow families as binding.
+
 ### Error isolation
 
 Each declaration family needs tests where its signature is valid and its body

@@ -1827,6 +1827,8 @@ internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
 {
     private readonly BoundForStatement _bound;
     private IOperation? _collection;
+    private IOperation? _pattern;
+    private bool _patternComputed;
 
     internal ForLoopOperation(SemanticModel semanticModel, BoundForStatement bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.ForLoop, syntax, isImplicit)
@@ -1834,11 +1836,36 @@ internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
         _bound = bound;
     }
 
-    public ILocalSymbol? Local => _bound.Local;
+    public ILocalSymbol? Local => ((ForStatementSyntax)Syntax).Target is IdentifierNameSyntax or
+        VariablePatternSyntax
+    {
+        BindingKeyword.Kind: SyntaxKind.None,
+        Designation: TypedVariableDesignationSyntax
+        {
+            Designation: SingleVariableDesignationSyntax
+        }
+    }
+        ? _bound.Local
+        : null;
 
     public ITypeSymbol ElementType => _bound.Iteration.ElementType;
 
     public IOperation? Collection => _collection ??= SemanticModel.GetOperation(((ForStatementSyntax)Syntax).Expression);
+
+    public IOperation? Pattern
+    {
+        get
+        {
+            if (_patternComputed)
+                return _pattern;
+
+            _pattern = ((ForStatementSyntax)Syntax).Target is PatternSyntax pattern
+                ? SemanticModel.GetOperation(pattern)
+                : null;
+            _patternComputed = true;
+            return _pattern;
+        }
+    }
 
     protected override StatementSyntax BodySyntax => ((ForStatementSyntax)Syntax).Body;
 
@@ -1846,6 +1873,7 @@ internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
     {
         return ImmutableArray.CreateBuilder<IOperation>()
             .AddIfNotNull(Collection)
+            .AddIfNotNull(Pattern)
             .AddIfNotNull(Body)
             .ToImmutable();
     }

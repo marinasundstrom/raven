@@ -270,6 +270,35 @@ class C {
     }
 
     [Fact]
+    public void GetOperation_WhilePatternStatement_ExposesPatternCondition()
+    {
+        const string source = """
+class C {
+    func Test(value: string?) {
+        while let text: string = value {
+            _ = text
+            break
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var whileSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<WhilePatternStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IWhileLoopOperation>(model.GetOperation(whileSyntax));
+        var condition = Assert.IsAssignableFrom<IIsPatternOperation>(operation.Condition);
+
+        condition.Value.ShouldBeAssignableTo<IParameterReferenceOperation>();
+        condition.Pattern.ShouldBeAssignableTo<IDeclarationPatternOperation>();
+        operation.Body.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void GetOperation_LockStatement_ReturnsLockedValueAndBody()
     {
         const string source = """
@@ -321,6 +350,35 @@ class C {
         operation.Collection.ShouldNotBeNull();
         operation.Body.ShouldNotBeNull();
         operation.Body!.Kind.ShouldBe(OperationKind.Return);
+    }
+
+    [Fact]
+    public void GetOperation_ForPatternStatement_ExposesSourcePatternWithoutSyntheticLocal()
+    {
+        const string source = """
+class C {
+    func Test(values: (int, string)[]) {
+        for let (1, name) in values {
+            _ = name
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var forSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ForStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IForLoopOperation>(model.GetOperation(forSyntax));
+        var pattern = Assert.IsAssignableFrom<IPositionalPatternOperation>(operation.Pattern);
+
+        operation.Local.ShouldBeNull();
+        pattern.Subpatterns[0].ShouldBeAssignableTo<IConstantPatternOperation>();
+        pattern.Subpatterns[1].ShouldBeAssignableTo<IDeclarationPatternOperation>();
+        operation.ChildOperations.ShouldContain(operation.Pattern!);
     }
 
     [Fact]

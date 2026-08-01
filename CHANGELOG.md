@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- `IForLoopOperation` now exposes source `for let` patterns and no longer
+  reports the binder's synthetic iteration temporary as the loop local.
+  `while let` and pattern-based `for` loops are covered as first-class public
+  operation shapes.
 - PE method and parameter symbols now project nullable flow attributes from
   referenced assemblies, including return-level `MaybeNull` and parameter-level
   `NotNullWhen` constructor values. The metadata decoder is shared across
