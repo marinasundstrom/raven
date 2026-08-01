@@ -11,6 +11,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Pattern binding now recovers from unsupported synthetic pattern kinds with a
   normal invalid-term diagnostic and error pattern instead of throwing. This
   keeps semantic APIs total for edited or programmatically constructed trees.
+- Constant evaluation now folds logical negation of Boolean constants, so
+  control-flow and missing-return analysis recognize loops such as
+  `while !false` as non-terminating unless a reachable break exists.
 - Nullable symbol APIs now distinguish structural inspection from total
   normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`

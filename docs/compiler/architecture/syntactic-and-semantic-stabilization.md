@@ -246,9 +246,11 @@ analysis, missing-return diagnostics, let-else validation, macro functions,
 and bodies that already contain binding errors.
 
 This is the first flow-semantics slice rather than a complete flow model.
-Definite assignment, public nullability state, non-literal constant loop
-conditions, nested expression-level abrupt flow, and broader join behavior
-remain to be stabilized.
+Definite assignment, public nullability state, broader constant-expression
+loops, nested expression-level abrupt flow, and broader join behavior remain to
+be stabilized. Boolean logical negation is now folded by the shared constant
+evaluator, so `while !false` has the same completion semantics as
+`while true`.
 
 ### Public nullability information is becoming flow-sensitive
 

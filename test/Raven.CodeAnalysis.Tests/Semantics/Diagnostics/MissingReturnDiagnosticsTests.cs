@@ -98,6 +98,19 @@ func Main() -> int {
     }
 
     [Fact]
+    public void NonUnitFunction_WithFoldedConstantTrueWhileLoop_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Main() -> int {
+    while !false {
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
     public void NonUnitFunction_WithBreakableConstantTrueWhileLoop_ReportsMissingReturn()
     {
         var code = """

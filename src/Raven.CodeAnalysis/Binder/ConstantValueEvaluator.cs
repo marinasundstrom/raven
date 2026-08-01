@@ -22,6 +22,13 @@ internal static class ConstantValueEvaluator
                 break;
             case PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryPlusExpression:
                 return TryEvaluate(unary.Expression, out value);
+            case PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.LogicalNotExpression:
+                if (TryEvaluate(unary.Expression, out var logicalOperand) && logicalOperand is bool boolean)
+                {
+                    value = !boolean;
+                    return true;
+                }
+                break;
             case ParenthesizedExpressionSyntax parenthesized:
                 return TryEvaluate(parenthesized.Expression, out value);
         }
