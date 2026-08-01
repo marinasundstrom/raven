@@ -479,6 +479,10 @@ also covered at the constructed-symbol boundary. Both applicability and the
 public method type-parameter constraint view substitute the containing type's
 arguments, so `GenericContainer<object>.Coerce<string>` is accepted while the
 inverse `GenericContainer<string>.Coerce<object>` is rejected.
+On rejection, the invocation publishes that method as an overload-resolution
+candidate and retains the constraint diagnostic; it does not degrade into an
+ambiguity or a missing-name result. This keeps IDE inspection useful even when
+an explicit constructed metadata call is invalid.
 
 Nullable parameter syntax is resolved in the declaration skeleton before
 duplicate-signature checks. Reference nullability remains excluded from CLR

@@ -377,13 +377,24 @@ public sealed class GenericMethodTests : CompilationTestBase
             let value = GenericContainer<string>.Coerce<object>("value")
             """;
 
-        var (compilation, _) = CreateCompilation(
+        var (compilation, tree) = CreateCompilation(
             source,
             references: TestMetadataReferences.DefaultWithExtensionMethods);
 
+        var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(
-            compilation.GetDiagnostics(),
+            diagnostics,
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbolInfo = compilation.GetSemanticModel(tree).GetSymbolInfo(invocation);
+
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.OverloadResolutionFailure, symbolInfo.CandidateReason);
+        var candidate = Assert.Single(symbolInfo.CandidateSymbols.OfType<IMethodSymbol>());
+        Assert.Equal("Coerce", candidate.Name);
     }
 
     [Fact]
