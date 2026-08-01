@@ -11224,7 +11224,74 @@ partial class BlockBinder : Binder
         }
     }
 
-    private bool TryGetNullCheckFlow(
+    private ImmutableArray<NullCheckFlow> GetNullCheckFlows(BoundExpression condition)
+    {
+        condition = UnwrapFlowExpression(condition);
+        var builder = ImmutableArray.CreateBuilder<NullCheckFlow>();
+
+        if (TryGetIntrinsicNullCheckFlow(
+            condition,
+            out var symbol,
+            out var nonNullWhenTrue,
+            out var nonNullWhenFalse))
+        {
+            builder.Add(new NullCheckFlow(symbol, nonNullWhenTrue, nonNullWhenFalse));
+        }
+
+        if (condition is BoundInvocationExpression invocation)
+        {
+            var arguments = invocation.Arguments.ToArray();
+            var count = Math.Min(invocation.Method.Parameters.Length, arguments.Length);
+
+            for (var i = 0; i < count; i++)
+            {
+                if (!TryGetNotNullWhen(invocation.Method.Parameters[i], out var returnValue) ||
+                    !TryGetFlowSymbol(arguments[i], out var argumentSymbol))
+                {
+                    continue;
+                }
+
+                builder.Add(returnValue
+                    ? new NullCheckFlow(argumentSymbol, NonNullWhenTrue: true, NonNullWhenFalse: null)
+                    : new NullCheckFlow(argumentSymbol, NonNullWhenTrue: null, NonNullWhenFalse: true));
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static bool TryGetNotNullWhen(IParameterSymbol parameter, out bool returnValue)
+    {
+        foreach (var attribute in parameter.GetAttributes())
+        {
+            if (attribute.AttributeClass is not
+                {
+                    Name: "NotNullWhenAttribute",
+                    ContainingNamespace: { } containingNamespace
+                } ||
+                containingNamespace.ToMetadataName() != "System.Diagnostics.CodeAnalysis" ||
+                attribute.ConstructorArguments is not [{ Value: bool value }])
+            {
+                continue;
+            }
+
+            returnValue = value;
+            return true;
+        }
+
+        returnValue = false;
+        return false;
+    }
+
+    private static void ApplyNullFlow(HashSet<ISymbol> state, ISymbol symbol, bool? isNonNull)
+    {
+        if (isNonNull is true)
+            state.Add(symbol);
+        else if (isNonNull is false)
+            state.Remove(symbol);
+    }
+
+    private bool TryGetIntrinsicNullCheckFlow(
         BoundExpression condition,
         out ISymbol symbol,
         out bool? nonNullWhenTrue,
@@ -11262,6 +11329,11 @@ partial class BlockBinder : Binder
         nonNullWhenFalse = null;
         return false;
     }
+
+    private readonly record struct NullCheckFlow(
+        ISymbol Symbol,
+        bool? NonNullWhenTrue,
+        bool? NonNullWhenFalse);
 
     private static bool TryGetNullPatternFlow(
         BoundPattern pattern,

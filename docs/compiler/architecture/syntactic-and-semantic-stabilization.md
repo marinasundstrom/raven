@@ -359,7 +359,10 @@ by-reference positions. Both the uniform single-byte form and the positional
 byte-array form round-trip through `NullabilityInfoContext` and Raven metadata
 symbols. Metadata method returns and parameters also expose their flow
 attributes through the public symbol APIs. Nullable context placement and the
-call-site interpretation of those flow contracts remain separate ABI slices.
+remaining call-site interpretation of those flow contracts remain separate ABI
+slices. Conditional `NotNullWhen` parameter contracts now narrow all annotated
+arguments on the matching Boolean branch, including metadata methods with more
+than one flow-annotated parameter; the opposite branch remains conservative.
 
 ### Control transfers have one expression-context policy
 

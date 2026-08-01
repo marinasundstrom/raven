@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Conditional nullable metadata contracts now participate in Raven flow
+  analysis. `NotNullWhen` narrows every annotated invocation argument on the
+  matching Boolean branch without making an unsound claim on the opposite
+  branch.
 - Removed the unused placeholder local table and throwing declaration path from
   `LocalScopeBinder`. Lexical locals remain owned by `BlockBinder`, leaving the
   local-scope binder as the forwarding semantic boundary it actually provides.

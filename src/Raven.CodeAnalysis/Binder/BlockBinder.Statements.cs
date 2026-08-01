@@ -98,20 +98,17 @@ partial class BlockBinder
             ReportCannotConvertFromTypeToType(condition.Type, boolType, conditionSyntax.GetLocation());
         }
 
-        if (TryGetNullCheckFlow(condition, out var symbol, out var nonNullWhenTrue, out var nonNullWhenFalse))
+        var nullCheckFlows = GetNullCheckFlows(condition);
+        if (!nullCheckFlows.IsDefaultOrEmpty)
         {
             thenEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
             elseEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
 
-            if (nonNullWhenTrue is true)
-                thenEntryState.Add(symbol);
-            else if (nonNullWhenTrue is false)
-                thenEntryState.Remove(symbol);
-
-            if (nonNullWhenFalse is true)
-                elseEntryState.Add(symbol);
-            else if (nonNullWhenFalse is false)
-                elseEntryState.Remove(symbol);
+            foreach (var flow in nullCheckFlows)
+            {
+                ApplyNullFlow(thenEntryState, flow.Symbol, flow.NonNullWhenTrue);
+                ApplyNullFlow(elseEntryState, flow.Symbol, flow.NonNullWhenFalse);
+            }
         }
 
         _nonNullSymbols.Clear();
@@ -319,18 +316,11 @@ partial class BlockBinder
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         var condition = BindExpression(whileStmt.Condition);
         var bodyEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-        var hasNullCheckFlow = TryGetNullCheckFlow(
-            condition,
-            out var symbol,
-            out var nonNullWhenTrue,
-            out var nonNullWhenFalse);
+        var nullCheckFlows = GetNullCheckFlows(condition);
 
-        if (hasNullCheckFlow)
+        foreach (var flow in nullCheckFlows)
         {
-            if (nonNullWhenTrue is true)
-                bodyEntryState.Add(symbol);
-            else if (nonNullWhenTrue is false)
-                bodyEntryState.Remove(symbol);
+            ApplyNullFlow(bodyEntryState, flow.Symbol, flow.NonNullWhenTrue);
         }
 
         _nonNullSymbols.Clear();
@@ -340,13 +330,11 @@ partial class BlockBinder
 
         var exitState = entryState;
         var canExitWithoutCondition = CanExitWhileWithoutCondition(whileStmt);
-        if (hasNullCheckFlow && !canExitWithoutCondition)
+        if (!nullCheckFlows.IsDefaultOrEmpty && !canExitWithoutCondition)
         {
             exitState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-            if (nonNullWhenFalse is true)
-                exitState.Add(symbol);
-            else if (nonNullWhenFalse is false)
-                exitState.Remove(symbol);
+            foreach (var flow in nullCheckFlows)
+                ApplyNullFlow(exitState, flow.Symbol, flow.NonNullWhenFalse);
         }
 
         _nonNullSymbols.Clear();
@@ -379,12 +367,9 @@ partial class BlockBinder
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         var condition = BindWhilePatternCondition(whileStmt);
         var bodyEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-        if (TryGetNullCheckFlow(condition, out var flowSymbol, out var nonNullWhenTrue, out _))
+        foreach (var flow in GetNullCheckFlows(condition))
         {
-            if (nonNullWhenTrue is true)
-                bodyEntryState.Add(flowSymbol);
-            else if (nonNullWhenTrue is false)
-                bodyEntryState.Remove(flowSymbol);
+            ApplyNullFlow(bodyEntryState, flow.Symbol, flow.NonNullWhenTrue);
         }
 
         _nonNullSymbols.Clear();
