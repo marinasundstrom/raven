@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Constrained generic overloads now participate in fast semantic-query ranking
+  only when their constraints are satisfied. A generic identity conversion can
+  beat an `object` fallback, while a rejected generic candidate leaves the
+  fallback selectable, independent of declaration and diagnostic query order.
 - Fast semantic-model queries now apply generic method constraints before
   publishing an invocation target. Dependent constraints such as
   `TDerived: TBase` work for explicit and inferred calls through emitted Raven

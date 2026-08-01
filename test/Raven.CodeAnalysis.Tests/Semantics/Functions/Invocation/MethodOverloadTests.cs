@@ -298,6 +298,46 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ConstrainedGenericOverload_OnlyParticipatesWhenConstraintIsSatisfied(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        var overloads = reverseDeclarations
+            ? """
+                func Select(value: object) -> string { "object" }
+                func Select<T: struct>(value: T) -> string { "struct" }
+                """
+            : """
+                func Select<T: struct>(value: T) -> string { "struct" }
+                func Select(value: object) -> string { "object" }
+                """;
+        var source = $$"""
+            {{overloads}}
+
+            func TestText() -> string { Select("text") }
+            func TestNumber() -> string { Select(1) }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
+        var textMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
+        var numberMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[1]).Symbol);
+
+        Assert.False(textMethod.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Object, Assert.Single(textMethod.Parameters).Type.SpecialType);
+        Assert.True(numberMethod.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(numberMethod.TypeArguments).SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void AmbiguousInvocationSymbolInfo_IsIndependentOfDiagnosticQueryOrder(bool diagnosticsFirst)

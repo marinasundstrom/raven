@@ -552,6 +552,15 @@ Fast semantic queries must use the same constraint applicability check as full
 overload resolution rather than publishing the only visible method solely
 because lookup found one candidate.
 
+Constraint filtering must also happen before conversion ranking without
+creating a separate preference rule for generic methods. Given a constrained
+generic overload and an `object` fallback, a value-type argument chooses the
+generic identity conversion, while a reference-type argument that violates the
+constraint chooses the fallback. This result is independent of declaration
+order and whether diagnostics or symbol information is requested first. The
+semantic fast path scores every remaining applicable candidate together; it
+does not prefer a non-generic candidate before comparing conversions.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks

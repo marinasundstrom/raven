@@ -3845,7 +3845,7 @@ public partial class SemanticModel
                 return true;
             }
 
-            methods = applicableMethods.MoveToImmutable();
+            methods = applicableMethods.ToImmutable();
 
             var candidates = methods.Cast<ISymbol>().ToImmutableArray();
             var preferred = methods.Length == 1
@@ -4185,13 +4185,6 @@ public partial class SemanticModel
                 return null;
 
             argumentTypes[i] = argumentType;
-        }
-
-        if (TryChooseAvailableInvocationMethodCandidateCore(
-                methods.Where(static method => method.TypeParameters.Length == 0),
-            out var resolvedCandidate))
-        {
-            return resolvedCandidate;
         }
 
         return TryChooseAvailableInvocationMethodCandidateCore(methods, out var candidate)
