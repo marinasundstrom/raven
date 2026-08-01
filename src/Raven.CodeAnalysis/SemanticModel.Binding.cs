@@ -4226,7 +4226,7 @@ public partial class SemanticModel
                 var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
                 return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
                     ? type
-                    : substituted.MakeNullable();
+                    : substituted.WithNullableAnnotation(NullableAnnotation.Annotated);
             }
 
             if (type is RefTypeSymbol refType)
@@ -4324,7 +4324,7 @@ public partial class SemanticModel
 
         var unionAccessibility = unionSymbol.DeclaredAccessibility;
         var knownUnionTypeParameters = new HashSet<ITypeParameterSymbol>(unionSymbol.TypeParameters, SymbolEqualityComparer.Default);
-        var unionValuePropertyType = objectType!.MakeNullable();
+        var unionValuePropertyType = objectType!.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         if (unionDecl.MemberTypes is { } memberTypeList)
         {
@@ -6489,7 +6489,7 @@ public partial class SemanticModel
         var equalsObject = objectType.GetMembers(nameof(object.Equals))
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Parameters.Length == 1 &&
-                m.Parameters[0].Type.GetPlainType().SpecialType == SpecialType.System_Object);
+                m.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
 
         var getHashCode = objectType.GetMembers(nameof(object.GetHashCode))
             .OfType<IMethodSymbol>()

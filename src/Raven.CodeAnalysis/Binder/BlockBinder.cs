@@ -2439,7 +2439,7 @@ partial class BlockBinder : Binder
 
         // If the left is nullable, the result is typically the non-nullable left type
         // combined with the right type.
-        var leftNonNullable = leftType.GetPlainType();
+        var leftNonNullable = leftType.GetNonNullableType();
         var right = BindExpressionWithTargetType(coalesce.Right, leftNonNullable);
 
         if (right is BoundErrorExpression)
@@ -2737,9 +2737,7 @@ partial class BlockBinder : Binder
         if (!operand.Type.IsNullable)
             return operand;
 
-        var unwrappedType = operand.Type.StripNullable();
-        if (unwrappedType is null)
-            return operand;
+        var unwrappedType = operand.Type.GetNonNullableType();
 
         _diagnostics.ReportNullableSuppressionUsed(postfixUnary.GetLocation());
 
@@ -4098,7 +4096,7 @@ partial class BlockBinder : Binder
         if (HasExpressionErrors(expression))
             return expression;
         if (targetType.ContainsErrorType())
-            return ErrorExpression(targetType.MakeNullable(), reason: BoundExpressionReason.NotFound);
+            return ErrorExpression(targetType.WithNullableAnnotation(NullableAnnotation.Annotated), reason: BoundExpressionReason.NotFound);
 
         if (expression.Type!.IsValueType || targetType.IsValueType)
         {
@@ -4106,7 +4104,7 @@ partial class BlockBinder : Binder
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
-            var errorType = targetType.MakeNullable();
+            var errorType = targetType.WithNullableAnnotation(NullableAnnotation.Annotated);
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
         }
 
@@ -4117,11 +4115,11 @@ partial class BlockBinder : Binder
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
-            var errorType = targetType.MakeNullable();
+            var errorType = targetType.WithNullableAnnotation(NullableAnnotation.Annotated);
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
         }
 
-        var resultType = targetType.MakeNullable();
+        var resultType = targetType.WithNullableAnnotation(NullableAnnotation.Annotated);
         return new BoundAsExpression(expression, resultType, conversion);
     }
 
@@ -4881,7 +4879,7 @@ partial class BlockBinder : Binder
                 }
             case BoundCasePattern casePattern:
                 {
-                    var scrutineePatternType = scrutineeType.GetPlainType();
+                    var scrutineePatternType = scrutineeType.GetNonNullableType();
                     var scrutineeUnion = scrutineePatternType.TryGetUnion()
                         ?? scrutineePatternType.TryGetUnionCase()?.Union;
 
@@ -5176,7 +5174,7 @@ partial class BlockBinder : Binder
         if (patternType is NullTypeSymbol)
             return CanBeNull(scrutineeType);
 
-        var nonNullableScrutineeType = scrutineeType.GetPlainType();
+        var nonNullableScrutineeType = scrutineeType.GetNonNullableType();
         if (!SymbolEqualityComparer.Default.Equals(nonNullableScrutineeType, scrutineeType) &&
             PatternCanMatch(nonNullableScrutineeType, patternType))
         {
@@ -6759,7 +6757,7 @@ partial class BlockBinder : Binder
         if (syntax is NullableTypeSyntax nullableTypeSyntax)
         {
             var type = BindTypeSyntaxAsExpression(nullableTypeSyntax.ElementType);
-            return new BoundTypeExpression(type.Type.MakeNullable());
+            return new BoundTypeExpression(type.Type.WithNullableAnnotation(NullableAnnotation.Annotated));
         }
 
         if (syntax is PointerTypeSyntax pointerTypeSyntax)
@@ -7070,7 +7068,7 @@ partial class BlockBinder : Binder
             var invocation = new BoundInvocationExpression(accessor, [converted], eventAccess.Receiver);
             var resultType = invocation.Type ?? Compilation.ErrorTypeSymbol;
             if (!resultType.IsNullable)
-                resultType = resultType.MakeNullable();
+                resultType = resultType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
             return new BoundConditionalAccessExpression(conditionalAccess.Receiver, invocation, resultType);
         }
@@ -9889,7 +9887,7 @@ partial class BlockBinder : Binder
                 var targetType = GetTargetType(syntax);
                 if (targetType is not null && targetType.TypeKind != TypeKind.Error)
                 {
-                    targetType = UnwrapTaskLikeTargetType(UnwrapAlias(targetType)).GetPlainType();
+                    targetType = UnwrapTaskLikeTargetType(UnwrapAlias(targetType)).GetNonNullableType();
                     if (targetType is INamedTypeSymbol targetNamedType)
                         return BindConstructorInvocation(targetNamedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
                 }
@@ -11214,8 +11212,9 @@ partial class BlockBinder : Binder
         if (expr.Type is NullableTypeSymbol n && n.UnderlyingType.IsValueType)
             return new BoundNullableValueExpression(expr, n.UnderlyingType, isNullabilityFlowNarrowing: true);
 
-        if (expr.Type?.StripNullable() is { } underlyingType &&
-            !SymbolEqualityComparer.Default.Equals(expr.Type, underlyingType))
+        if (expr.Type is { IsNullable: true } nullableType &&
+            nullableType.GetNonNullableType() is { } underlyingType &&
+            !SymbolEqualityComparer.Default.Equals(nullableType, underlyingType))
         {
             return new BoundConversionExpression(
                 expr,
@@ -12773,7 +12772,7 @@ partial class BlockBinder : Binder
         if (IsAssignable(underlyingParameterType, argumentType, out conversion))
             return true;
 
-        var plainArgumentType = argumentType.GetPlainType();
+        var plainArgumentType = argumentType.GetNonNullableType();
         if (SymbolEqualityComparer.Default.Equals(underlyingParameterType, plainArgumentType))
         {
             conversion = new Conversion(isImplicit: true, isIdentity: true);
@@ -13194,7 +13193,7 @@ partial class BlockBinder : Binder
 
     private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
     {
-        parameterType = parameterType.GetPlainType();
+        parameterType = parameterType.GetNonNullableType();
 
         if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
         {

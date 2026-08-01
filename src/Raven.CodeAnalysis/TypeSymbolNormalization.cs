@@ -421,7 +421,7 @@ internal static class TypeSymbolNormalization
             return false;
         }
 
-        result = other.MakeNullable();
+        result = other.WithNullableAnnotation(NullableAnnotation.Annotated);
         return true;
     }
 

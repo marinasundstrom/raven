@@ -186,9 +186,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
 
         if (type.IsNullable)
         {
-            var underlying = type.StripNullable();
-            if (underlying is not null)
-                Collect(underlying, items);
+            Collect(type.GetNonNullableType(), items);
 
             return;
         }

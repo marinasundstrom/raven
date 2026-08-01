@@ -290,7 +290,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 {
                     var result = underlyingType.IsNullable
                         ? underlyingType
-                        : underlyingType.MakeNullable();
+                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
                     cache[type] = result;
                     return result;
                 }

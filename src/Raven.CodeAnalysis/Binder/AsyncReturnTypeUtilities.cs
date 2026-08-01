@@ -60,7 +60,7 @@ internal static class AsyncReturnTypeUtilities
     public static string GetSuggestedAsyncReturnTypeDisplay(Compilation compilation, ITypeSymbol? returnType)
     {
         var taskType = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
-        var normalized = returnType?.GetPlainType();
+        var normalized = returnType?.GetNonNullableType();
 
         if (normalized is null ||
             normalized.TypeKind == TypeKind.Error ||
@@ -101,7 +101,7 @@ internal static class AsyncReturnTypeUtilities
         // If the body already produces a task-shaped value, keep it as-is instead of wrapping it
         // again. This prevents double-tasking async lambdas such as `async () => 42` when generic
         // delegate inference substitutes `Task<T>` into the body type.
-        normalized = normalized.GetPlainType();
+        normalized = normalized.GetNonNullableType();
 
         if (normalized.SpecialType == SpecialType.System_Threading_Tasks_Task ||
             normalized is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Threading_Tasks_Task_T } ||
@@ -134,7 +134,7 @@ internal static class AsyncReturnTypeUtilities
 
     public static ITypeSymbol? ExtractAsyncResultType(Compilation compilation, ITypeSymbol asyncReturnType)
     {
-        asyncReturnType = asyncReturnType.GetPlainType();
+        asyncReturnType = asyncReturnType.GetNonNullableType();
 
         if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return compilation.GetSpecialType(SpecialType.System_Unit);

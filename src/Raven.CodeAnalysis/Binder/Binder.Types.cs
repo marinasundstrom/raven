@@ -891,7 +891,7 @@ internal abstract partial class Binder
                 Issues = underlying.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(n.ElementType, TypeResolutionFailureKind.NullableUnderlyingFailed))
             };
 
-        return new ResolveTypeResult { ResolvedType = underlying.ResolvedType.MakeNullable() };
+        return new ResolveTypeResult { ResolvedType = underlying.ResolvedType.WithNullableAnnotation(NullableAnnotation.Annotated) };
     }
 
     // -----------------------------

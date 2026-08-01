@@ -157,7 +157,7 @@ internal static class UnionSymbolExtensions
         caseType = null!;
 
         var normalizedType = targetType.UnwrapLiteralType() ?? targetType;
-        normalizedType = normalizedType.GetPlainType();
+        normalizedType = normalizedType.GetNonNullableType();
         if (normalizedType is not INamedTypeSymbol namedType)
             return false;
 

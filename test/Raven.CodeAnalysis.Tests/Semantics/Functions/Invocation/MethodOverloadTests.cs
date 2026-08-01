@@ -34,9 +34,9 @@ public class MethodOverloadTests : CompilationTestBase
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         Assert.Equal("CreateInstance", boundInvocation.Method.Name);
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(boundInvocation.Method.Parameters[1].Type.GetPlainType());
+        Assert.IsAssignableFrom<IArrayTypeSymbol>(boundInvocation.Method.Parameters[1].Type.GetNonNullableType());
         var argument = Assert.IsType<BoundCollectionExpression>(boundInvocation.Arguments.ElementAt(1));
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(argument.Type.GetPlainType());
+        Assert.IsAssignableFrom<IArrayTypeSymbol>(argument.Type.GetNonNullableType());
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -228,8 +228,8 @@ public class MethodOverloadTests : CompilationTestBase
         var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal(2, methodGroup.Methods.Length);
-        Assert.Equal(SpecialType.System_String, Assert.Single(boundInvocation.Method.Parameters).Type.GetPlainType().SpecialType);
-        Assert.Equal(SpecialType.System_String, Assert.Single(method.Parameters).Type.GetPlainType().SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(boundInvocation.Method.Parameters).Type.GetNonNullableType().SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(method.Parameters).Type.GetNonNullableType().SpecialType);
         Assert.Empty(compilation.GetDiagnostics());
     }
 

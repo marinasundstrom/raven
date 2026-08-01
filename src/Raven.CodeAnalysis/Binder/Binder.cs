@@ -988,7 +988,7 @@ internal abstract partial class Binder
 
             if (Conversion.IsNullable(argumentType))
             {
-                var plainArgument = argumentType.GetPlainType();
+                var plainArgument = argumentType.GetNonNullableType();
 
                 if (TryUnifyNamedType(paramNamed, plainArgument as INamedTypeSymbol, substitutions))
                     return true;
@@ -1008,10 +1008,10 @@ internal abstract partial class Binder
 
         if (Conversion.IsNullable(parameterType))
         {
-            var plainParameter = parameterType.GetPlainType();
+            var plainParameter = parameterType.GetNonNullableType();
 
             if (Conversion.IsNullable(argumentType))
-                return TryUnifyExtensionReceiver(plainParameter, argumentType.GetPlainType(), substitutions);
+                return TryUnifyExtensionReceiver(plainParameter, argumentType.GetNonNullableType(), substitutions);
 
             if (!argumentType.IsValueType)
                 return TryUnifyExtensionReceiver(plainParameter, argumentType, substitutions);

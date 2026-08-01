@@ -3659,7 +3659,7 @@ union Status {
             reason =>
             {
                 Assert.Equal("Reason", reason.Name);
-                Assert.Equal(SpecialType.System_String, reason.Type.GetPlainType().SpecialType);
+                Assert.Equal(SpecialType.System_String, reason.Type.GetNonNullableType().SpecialType);
                 Assert.True(reason.Type.IsNullable);
                 Assert.True(reason.HasExplicitDefaultValue);
                 Assert.Null(reason.ExplicitDefaultValue);
@@ -3683,7 +3683,7 @@ union Status {
             {
                 Assert.Equal("Reason", reason.Name);
                 Assert.Equal(RefKind.Out, reason.RefKind);
-                Assert.Equal(SpecialType.System_String, reason.Type.GetPlainType().SpecialType);
+                Assert.Equal(SpecialType.System_String, reason.Type.GetNonNullableType().SpecialType);
                 Assert.True(reason.Type.IsNullable);
             });
     }

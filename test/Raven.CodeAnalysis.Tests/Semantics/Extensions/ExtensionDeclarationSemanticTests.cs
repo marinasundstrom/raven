@@ -134,7 +134,7 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
 
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
         Assert.Equal("CountItems", boundInvocation.Method.Name);
-        Assert.Equal(SpecialType.System_Boolean, boundInvocation.Method.ReturnType.GetPlainType().SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundInvocation.Method.ReturnType.GetNonNullableType().SpecialType);
     }
 
     [Fact]

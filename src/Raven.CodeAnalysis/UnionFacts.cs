@@ -28,7 +28,7 @@ internal static class UnionFacts
 
     public static bool UsesCarrierRepresentation(ITypeSymbol? type)
     {
-        var named = type?.GetPlainType() as INamedTypeSymbol;
+        var named = type?.GetNonNullableType() as INamedTypeSymbol;
         var union = named?.TryGetUnion();
         return named is not null && union is not null;
     }

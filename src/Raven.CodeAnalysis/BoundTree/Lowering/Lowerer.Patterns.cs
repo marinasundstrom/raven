@@ -274,7 +274,7 @@ internal sealed partial class Lowerer
         IUnionSymbol unionType,
         ITypeSymbol targetType)
     {
-        var targetCaseType = targetType.GetPlainType();
+        var targetCaseType = targetType.GetNonNullableType();
         var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
         var targetUnionCase = targetType.TryGetUnionCase();
 
@@ -287,7 +287,7 @@ internal sealed partial class Lowerer
             if (parameter.RefKind is not (RefKind.Out or RefKind.Ref))
                 return false;
 
-            var parameterType = parameter.GetByRefElementType().GetPlainType();
+            var parameterType = parameter.GetByRefElementType().GetNonNullableType();
             if (parameterType.MetadataIdentityEquals(targetCaseType))
                 return true;
 
@@ -349,8 +349,8 @@ internal sealed partial class Lowerer
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 
-        var leftPlain = left.GetPlainType();
-        var rightPlain = right.GetPlainType();
+        var leftPlain = left.GetNonNullableType();
+        var rightPlain = right.GetNonNullableType();
         if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
             return true;
 

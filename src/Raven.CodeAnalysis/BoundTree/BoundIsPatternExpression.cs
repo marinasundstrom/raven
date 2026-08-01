@@ -495,7 +495,7 @@ internal partial class BlockBinder
         {
             // Prefer DU-case interpretation for bare identifiers in pattern position.
             // Example: `match r { Ok => ...; Error(val e) => ... }`
-            var lookupType = inputType?.GetPlainType();
+            var lookupType = inputType?.GetNonNullableType();
             var unionType = lookupType?.TryGetUnion()
                 ?? lookupType?.TryGetUnionCase()?.Union;
 
@@ -607,7 +607,7 @@ internal partial class BlockBinder
             NominalDeconstructionPatternSyntax r => BindNominalDeconstructionPattern(r, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             ComparisonPatternSyntax r => BindComparisonPattern(r, inputType),
-            RangePatternSyntax rp => BindRangePattern(rp, inputType?.GetPlainType()),
+            RangePatternSyntax rp => BindRangePattern(rp, inputType?.GetNonNullableType()),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
 
@@ -644,7 +644,7 @@ internal partial class BlockBinder
     private BoundPattern BindComparisonPattern(ComparisonPatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
-        inputType = inputType.GetPlainType();
+        inputType = inputType.GetNonNullableType();
 
         var @operator = syntax.Kind switch
         {
@@ -671,7 +671,7 @@ internal partial class BlockBinder
             return new BoundComparisonPattern(inputType, @operator, value, BoundExpressionReason.MissingType);
         }
 
-        var valueType = value.Type.GetPlainType();
+        var valueType = value.Type.GetNonNullableType();
         if (!SymbolEqualityComparer.Default.Equals(valueType, inputType))
         {
             _diagnostics.Report(Diagnostic.Create(
@@ -702,7 +702,7 @@ internal partial class BlockBinder
     private BoundPattern BindRangePattern(RangePatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
-        inputType = inputType.GetPlainType();
+        inputType = inputType.GetNonNullableType();
 
         if (inputType.TypeKind == TypeKind.Error)
             return new BoundRangePattern(inputType, null, null, reason: BoundExpressionReason.TypeMismatch);
@@ -727,7 +727,7 @@ internal partial class BlockBinder
             lowerBound = BindExpression(syntax.LowerBound);
             if (lowerBound.Type is not null && lowerBound.Type.TypeKind != TypeKind.Error)
             {
-                var lowerType = lowerBound.Type.GetPlainType();
+                var lowerType = lowerBound.Type.GetNonNullableType();
                 if (!SymbolEqualityComparer.Default.Equals(lowerType, inputType))
                 {
                     _diagnostics.Report(Diagnostic.Create(
@@ -745,7 +745,7 @@ internal partial class BlockBinder
             upperBound = BindExpression(syntax.UpperBound);
             if (upperBound.Type is not null && upperBound.Type.TypeKind != TypeKind.Error)
             {
-                var upperType = upperBound.Type.GetPlainType();
+                var upperType = upperBound.Type.GetNonNullableType();
                 if (!SymbolEqualityComparer.Default.Equals(upperType, inputType))
                 {
                     _diagnostics.Report(Diagnostic.Create(
@@ -868,7 +868,7 @@ internal partial class BlockBinder
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, ITypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
-        inputType = inputType.GetPlainType();
+        inputType = inputType.GetNonNullableType();
 
         if (_ambientPatternDeclarationBindingKeyword is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
             syntax.Type is IdentifierNameSyntax identifier &&
@@ -1095,7 +1095,7 @@ internal partial class BlockBinder
         var keyType = Compilation.ErrorTypeSymbol;
         var valueType = Compilation.ErrorTypeSymbol;
 
-        if (inputType.GetPlainType() is INamedTypeSymbol namedInput &&
+        if (inputType.GetNonNullableType() is INamedTypeSymbol namedInput &&
             TryGetDictionaryInterfaceInfo(namedInput, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
         {
             receiverType = dictionaryReceiverType;
@@ -1157,7 +1157,7 @@ internal partial class BlockBinder
     private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
-        inputType = inputType.GetPlainType();
+        inputType = inputType.GetNonNullableType();
 
         if (inputType.TypeKind == TypeKind.Error)
             return false;
@@ -1512,9 +1512,9 @@ internal partial class BlockBinder
         var declaredType = BindTypeSyntaxAndReport(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
         expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
-        var normalizedExpectedType = TypeSymbolNormalization.NormalizeForInference(expectedType).GetPlainType();
+        var normalizedExpectedType = TypeSymbolNormalization.NormalizeForInference(expectedType).GetNonNullableType();
 
-        if (!PatternCanMatch(normalizedExpectedType, declaredType.GetPlainType()))
+        if (!PatternCanMatch(normalizedExpectedType, declaredType.GetNonNullableType()))
         {
             ReportCannotConvertFromTypeToType(
                 normalizedExpectedType,
@@ -1612,7 +1612,7 @@ internal partial class BlockBinder
 
     private ImmutableArray<PrimaryConstructorDeconstructionElement> GetPrimaryConstructorDeconstructionElements(ITypeSymbol inputType)
     {
-        var plainType = inputType.GetPlainType();
+        var plainType = inputType.GetNonNullableType();
         foreach (var reference in plainType.DeclaringSyntaxReferences)
         {
             if (reference.GetSyntax() is not TypeDeclarationSyntax { ParameterList: { } parameterList } typeDeclaration)
@@ -1936,7 +1936,7 @@ internal partial class BlockBinder
     {
         pattern = null;
 
-        var lookupInputType = inputType?.GetPlainType();
+        var lookupInputType = inputType?.GetNonNullableType();
 
         if (lookupInputType is not null &&
             (lookupInputType.TryGetUnion() ?? lookupInputType.TryGetUnionCase()?.Union) is IUnionSymbol union &&
@@ -2074,7 +2074,7 @@ internal partial class BlockBinder
 
         if (!canUseUnqualifiedUnionCase &&
             qualifierType is null &&
-            (inputType?.GetPlainType().TryGetUnion() ?? inputType?.GetPlainType().TryGetUnionCase()?.Union) is { } inputUnion &&
+            (inputType?.GetNonNullableType().TryGetUnion() ?? inputType?.GetNonNullableType().TryGetUnionCase()?.Union) is { } inputUnion &&
             inputUnion.DeclaredCaseTypes.Any(@case => string.Equals(@case.Name, caseName, StringComparison.Ordinal)))
         {
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(caseName!, caseNameLocation);
@@ -2133,7 +2133,7 @@ internal partial class BlockBinder
     {
         pattern = null;
 
-        var lookupType = (qualifierType ?? inputType)?.GetPlainType();
+        var lookupType = (qualifierType ?? inputType)?.GetNonNullableType();
         if (lookupType is null)
             return false;
 
@@ -2234,7 +2234,7 @@ internal partial class BlockBinder
     {
         pattern = null;
 
-        var lookupType = (qualifierType ?? inputType)?.GetPlainType();
+        var lookupType = (qualifierType ?? inputType)?.GetNonNullableType();
         if (lookupType is null)
             return false;
 
@@ -2489,7 +2489,7 @@ internal partial class BlockBinder
         IUnionSymbol unionType,
         ITypeSymbol targetType)
     {
-        var targetCaseType = targetType.GetPlainType();
+        var targetCaseType = targetType.GetNonNullableType();
         var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
         var targetUnionCase = targetType.TryGetUnionCase();
 
@@ -2502,7 +2502,7 @@ internal partial class BlockBinder
             if (parameter.RefKind is not (RefKind.Out or RefKind.Ref))
                 return false;
 
-            var parameterType = parameter.GetByRefElementType().GetPlainType();
+            var parameterType = parameter.GetByRefElementType().GetNonNullableType();
             if (parameterType.MetadataIdentityEquals(targetCaseType))
                 return true;
 
@@ -2571,7 +2571,7 @@ internal partial class BlockBinder
         if (inputType is null)
             return false;
 
-        var lookupInputType = inputType.GetPlainType();
+        var lookupInputType = inputType.GetNonNullableType();
         var unionType = lookupInputType.TryGetUnion()
             ?? lookupInputType.TryGetUnionCase()?.Union;
 
@@ -2603,8 +2603,8 @@ internal partial class BlockBinder
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 
-        var leftPlain = left.GetPlainType();
-        var rightPlain = right.GetPlainType();
+        var leftPlain = left.GetNonNullableType();
+        var rightPlain = right.GetNonNullableType();
         if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
             return true;
 

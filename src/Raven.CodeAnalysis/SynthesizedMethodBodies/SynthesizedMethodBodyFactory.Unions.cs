@@ -795,7 +795,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static bool CanRenderStructuredDisplay(ITypeSymbol type)
     {
-        var plainType = type.GetPlainType();
+        var plainType = type.GetNonNullableType();
 
         if (plainType.TypeKind == TypeKind.Enum ||
             plainType.IsUnion ||

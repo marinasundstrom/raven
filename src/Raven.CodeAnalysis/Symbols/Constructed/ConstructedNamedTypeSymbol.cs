@@ -253,7 +253,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 var underlyingType = SubstituteCore(nullableTypeSymbol.UnderlyingType, methodMap, inProgress, cache);
 
                 if (!IsEquivalentForSubstitution(underlyingType, nullableTypeSymbol.UnderlyingType))
-                    result = underlyingType.MakeNullable();
+                    result = underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
                 else
                     result = type;
 
@@ -615,7 +615,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             var underlying = SubstituteInterfaceTypeArgument(nullableArgument.UnderlyingType, cache, visiting);
             return IsEquivalentForSubstitution(underlying, nullableArgument.UnderlyingType)
                 ? argument
-                : underlying.MakeNullable();
+                : underlying.WithNullableAnnotation(NullableAnnotation.Annotated);
         }
 
         if (argument is IArrayTypeSymbol arrayArgument)

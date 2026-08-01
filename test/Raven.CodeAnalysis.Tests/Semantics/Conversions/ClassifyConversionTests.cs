@@ -37,7 +37,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var nullableString = stringType.MakeNullable();
+        var nullableString = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, nullableString);
 
@@ -66,7 +66,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var nullableInt = intType.MakeNullable();
+        var nullableInt = intType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         var conversion = compilation.ClassifyConversion(intType, nullableInt);
 
@@ -82,7 +82,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var nullableInt = intType.MakeNullable();
+        var nullableInt = intType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         var conversion = compilation.ClassifyConversion(nullableInt, intType);
 
@@ -98,8 +98,8 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var longType = compilation.GetSpecialType(SpecialType.System_Int64);
-        var nullableInt = intType.MakeNullable();
-        var nullableLong = longType.MakeNullable();
+        var nullableInt = intType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableLong = longType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         var conversion = compilation.ClassifyConversion(nullableInt, nullableLong);
 
@@ -116,8 +116,8 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var nullableInt = intType.MakeNullable();
-        var nullableString = stringType.MakeNullable();
+        var nullableInt = intType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableString = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         var conversion = compilation.ClassifyConversion(nullableInt, nullableString);
 
@@ -130,7 +130,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         var compilation = CreateCompilation();
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
         var source = compilation.CreateArrayTypeSymbol(objectType);
-        var destination = compilation.CreateArrayTypeSymbol(objectType.MakeNullable());
+        var destination = compilation.CreateArrayTypeSymbol(objectType.WithNullableAnnotation(NullableAnnotation.Annotated));
 
         var conversion = compilation.ClassifyConversion(source, destination);
 

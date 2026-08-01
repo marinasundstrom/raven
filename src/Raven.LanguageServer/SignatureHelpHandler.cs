@@ -1033,12 +1033,12 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         type = type.UnwrapLiteralType() ?? type;
         if (TryGetOptionPayloadType(type, out var optionPayload))
-            return optionPayload.GetPlainType();
+            return optionPayload.GetNonNullableType();
 
         if (TryGetResultPayloadType(type, out var resultPayload))
-            return resultPayload.GetPlainType();
+            return resultPayload.GetNonNullableType();
 
-        return type.GetPlainType();
+        return type.GetNonNullableType();
     }
 
     private static bool TryGetOptionPayloadType(ITypeSymbol? type, out ITypeSymbol payload)

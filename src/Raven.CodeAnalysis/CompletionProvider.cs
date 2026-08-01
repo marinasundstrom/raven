@@ -879,12 +879,12 @@ public static class CompletionProvider
 
             type = type.UnwrapLiteralType() ?? type;
             if (TryGetOptionPayloadType(type, out var optionPayload))
-                return optionPayload.GetPlainType();
+                return optionPayload.GetNonNullableType();
 
             if (TryGetResultPayloadType(type, out var resultPayload))
-                return resultPayload.GetPlainType();
+                return resultPayload.GetNonNullableType();
 
-            return type.GetPlainType();
+            return type.GetNonNullableType();
         }
 
         static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
@@ -1035,7 +1035,7 @@ public static class CompletionProvider
             if (operandType is null || operandType.TypeKind == TypeKind.Error)
                 return false;
 
-            receiverType = operandType.StripNullable() ?? operandType.GetPlainType();
+            receiverType = operandType.GetNonNullableType();
             return receiverType.TypeKind != TypeKind.Error;
         }
 
@@ -2062,7 +2062,7 @@ public static class CompletionProvider
 
         IEnumerable<ISymbol> GetReadablePropertyPatternMembers(ITypeSymbol type)
         {
-            type = UnwrapAliases(type).GetPlainType();
+            type = UnwrapAliases(type).GetNonNullableType();
             return GetTypeMembersIncludingBase(type, includeStatic: false)
                 .Where(member => member switch
                 {
@@ -2504,7 +2504,7 @@ public static class CompletionProvider
                 }
                 else if (conditionalAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
                 {
-                    var completionType = GetCarrierConditionalAccessLookupType(currentSelfType) ?? currentSelfType.GetPlainType();
+                    var completionType = GetCarrierConditionalAccessLookupType(currentSelfType) ?? currentSelfType.GetNonNullableType();
                     members = GetTypeMembersIncludingBase(completionType, includeStatic: false)
                         .Where(member => IsAccessibleOnSelf(member, completionType));
                     instanceTypeForExtensions = completionType switch
@@ -2521,7 +2521,7 @@ public static class CompletionProvider
                 }
                 else if (type is ITypeSymbol instanceType)
                 {
-                    var completionType = GetCarrierConditionalAccessLookupType(instanceType) ?? instanceType.GetPlainType();
+                    var completionType = GetCarrierConditionalAccessLookupType(instanceType) ?? instanceType.GetNonNullableType();
                     members = GetTypeMembersIncludingBase(completionType, includeStatic: false).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch
                     {
@@ -2634,7 +2634,7 @@ public static class CompletionProvider
                 }
                 else if (memberAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
                 {
-                    var completionType = currentSelfType.GetPlainType();
+                    var completionType = currentSelfType.GetNonNullableType();
                     members = GetTypeMembersIncludingBase(completionType, includeStatic: false)
                         .Where(member => IsAccessibleOnSelf(member, completionType));
                     instanceTypeForExtensions = completionType switch
@@ -2653,7 +2653,7 @@ public static class CompletionProvider
                 }
                 else if (type is ITypeSymbol instanceType)
                 {
-                    var completionType = instanceType.GetPlainType();
+                    var completionType = instanceType.GetNonNullableType();
                     // Accessing an instance: show instance members
                     members = GetTypeMembersIncludingBase(completionType, includeStatic: false).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch

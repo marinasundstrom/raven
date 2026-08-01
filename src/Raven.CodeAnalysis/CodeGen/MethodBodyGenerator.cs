@@ -1762,7 +1762,7 @@ internal class MethodBodyGenerator
 
     private static IMethodSymbol? ResolveCasePayloadGetter(ITypeSymbol caseSymbolType, string preferredPropertyName)
     {
-        var normalizedCaseType = caseSymbolType.GetPlainType();
+        var normalizedCaseType = caseSymbolType.GetNonNullableType();
         if (normalizedCaseType is RefTypeSymbol refType)
             normalizedCaseType = refType.ElementType;
 
@@ -1810,7 +1810,7 @@ internal class MethodBodyGenerator
         if (caseType is null)
             return null;
 
-        var caseTypePlain = caseType.GetPlainType();
+        var caseTypePlain = caseType.GetNonNullableType();
 
         return type.GetMembers("TryGetValue")
             .OfType<IMethodSymbol>()
@@ -1818,7 +1818,7 @@ internal class MethodBodyGenerator
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
-                method.Parameters[0].GetByRefElementType().GetPlainType().MetadataIdentityEquals(caseTypePlain));
+                method.Parameters[0].GetByRefElementType().GetNonNullableType().MetadataIdentityEquals(caseTypePlain));
     }
 
 

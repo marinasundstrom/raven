@@ -121,7 +121,7 @@ internal static partial class SynthesizedMethodBodyFactory
                         m.Parameters[2].Type.SpecialType == SpecialType.System_Boolean &&
                         m.ReturnType.SpecialType == SpecialType.System_String);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object)!;
-        var displayType = (declaredType ?? value.Type).GetPlainType();
+        var displayType = (declaredType ?? value.Type).GetNonNullableType();
         var plainType = displayType;
         var shouldRenderStructured = CanRenderStructuredDisplay(plainType);
 

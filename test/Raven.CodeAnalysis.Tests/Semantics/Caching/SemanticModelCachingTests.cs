@@ -2069,7 +2069,7 @@ func Main() -> unit {
         var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
         Assert.Equal("WriteLine", method.Name);
         var parameter = Assert.Single(method.Parameters);
-        Assert.Equal(SpecialType.System_String, parameter.Type.GetPlainType().SpecialType);
+        Assert.Equal(SpecialType.System_String, parameter.Type.GetNonNullableType().SpecialType);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);

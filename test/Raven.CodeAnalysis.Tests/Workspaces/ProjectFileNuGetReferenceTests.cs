@@ -682,7 +682,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.Contains(
             useNpgsqlMethod.Parameters,
             static parameter => parameter.Name == "connectionString" &&
-                parameter.Type.GetPlainType().SpecialType == SpecialType.System_String);
+                parameter.Type.GetNonNullableType().SpecialType == SpecialType.System_String);
 
         var afterUseNpgsql = instrumentation.SemanticQuery.CaptureSnapshot();
         var useNpgsqlDelta = SemanticQueryInstrumentation.Subtract(afterUseNpgsql, before);
@@ -692,7 +692,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.True(model.TryGetInvocationTargetSymbolInfo(getRequiredService, out var getRequiredServiceInfo));
         var getRequiredServiceMethod = Assert.IsAssignableFrom<IMethodSymbol>(getRequiredServiceInfo.Symbol);
         Assert.Equal("GetRequiredService", getRequiredServiceMethod.Name);
-        Assert.Equal("VehicleDbContext", getRequiredServiceMethod.ReturnType.GetPlainType().Name);
+        Assert.Equal("VehicleDbContext", getRequiredServiceMethod.ReturnType.GetNonNullableType().Name);
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -794,8 +794,8 @@ public sealed class ProjectFileNuGetReferenceTests
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
         var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
         Assert.Equal("Include", method.Name);
-        Assert.Equal("Expression", method.Parameters[1].Type.GetPlainType().Name);
-        Assert.NotEqual("String", method.Parameters[1].Type.GetPlainType().Name);
+        Assert.Equal("Expression", method.Parameters[1].Type.GetNonNullableType().Name);
+        Assert.NotEqual("String", method.Parameters[1].Type.GetNonNullableType().Name);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }

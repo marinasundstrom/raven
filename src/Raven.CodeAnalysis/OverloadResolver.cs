@@ -1637,7 +1637,7 @@ internal sealed class OverloadResolver
                     var underlyingType = SubstituteType(nullable.UnderlyingType, substitutions);
                     return SymbolEqualityComparer.Default.Equals(underlyingType, nullable.UnderlyingType)
                         ? type
-                        : underlyingType.MakeNullable();
+                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
                 }
 
             default:
@@ -2678,7 +2678,7 @@ internal sealed class OverloadResolver
             var lambdaAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaAsyncReturn)
                 ?? lambdaAsyncReturn;
 
-            delegateReturnType = delegateReturnType.GetPlainType();
+            delegateReturnType = delegateReturnType.GetNonNullableType();
 
             if (delegateReturnType.SpecialType == SpecialType.System_Void)
             {

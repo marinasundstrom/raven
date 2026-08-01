@@ -23,10 +23,18 @@ public class TypeInfo
 
     public Conversion Conversion { get; }
 
+    /// <summary>
+    /// Gets the declared nullable annotation and contextual flow state of
+    /// <see cref="ConvertedType"/>.
+    /// </summary>
     public NullabilityInfo ConvertedNullability { get; }
 
     public ITypeSymbol? ConvertedType { get; }
 
+    /// <summary>
+    /// Gets the declared nullable annotation and contextual flow state of
+    /// <see cref="Type"/>. Flow analysis does not mutate the declared type symbol.
+    /// </summary>
     public NullabilityInfo Nullability { get; }
 
     public ITypeSymbol? Type { get; }

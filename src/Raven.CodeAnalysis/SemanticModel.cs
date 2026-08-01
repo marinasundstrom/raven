@@ -2904,7 +2904,7 @@ public partial class SemanticModel
         caseType = null;
 
         var normalizedTargetType = targetType.UnwrapLiteralType() ?? targetType;
-        normalizedTargetType = normalizedTargetType.GetPlainType();
+        normalizedTargetType = normalizedTargetType.GetNonNullableType();
 
         return normalizedTargetType is INamedTypeSymbol targetNamedType &&
                targetNamedType.TryFindUnionCaseType(memberName, out caseType);
@@ -4343,7 +4343,7 @@ public partial class SemanticModel
 
     private static bool IsSystemDelegateType(ITypeSymbol type)
     {
-        var plainType = type.GetPlainType();
+        var plainType = type.GetNonNullableType();
         return string.Equals(plainType.ContainingNamespace?.ToDisplayString(), "System", StringComparison.Ordinal) &&
                (string.Equals(plainType.Name, "Delegate", StringComparison.Ordinal) ||
                 string.Equals(plainType.Name, "MulticastDelegate", StringComparison.Ordinal));
@@ -4360,7 +4360,7 @@ public partial class SemanticModel
 
         if (argumentType is null ||
             argumentType.TypeKind == TypeKind.Error ||
-            !TryGetSpecialTypeMetadataName(argumentType.GetPlainType(), out var argumentMetadataName) ||
+            !TryGetSpecialTypeMetadataName(argumentType.GetNonNullableType(), out var argumentMetadataName) ||
             !method.TryGetParameterRuntimeTypeMetadataName(parameterIndex, out var parameterMetadataName) ||
             string.IsNullOrWhiteSpace(parameterMetadataName))
         {
@@ -4392,7 +4392,7 @@ public partial class SemanticModel
     private static bool TryGetSpecialTypeMetadataName(ITypeSymbol type, out string metadataName)
     {
         if (type is IArrayTypeSymbol { Rank: 1, ElementType: { } elementType } &&
-            TryGetSpecialTypeMetadataName(elementType.GetPlainType(), out var elementMetadataName))
+            TryGetSpecialTypeMetadataName(elementType.GetNonNullableType(), out var elementMetadataName))
         {
             metadataName = elementMetadataName + "[]";
             return true;
@@ -4446,7 +4446,7 @@ public partial class SemanticModel
         }
 
         if (SymbolEqualityComparer.Default.Equals(argumentType, parameterType) ||
-            SymbolEqualityComparer.Default.Equals(argumentType.GetPlainType(), parameterType.GetPlainType()))
+            SymbolEqualityComparer.Default.Equals(argumentType.GetNonNullableType(), parameterType.GetNonNullableType()))
         {
             score += 8;
             return true;
@@ -4700,7 +4700,7 @@ public partial class SemanticModel
 
         if (invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax receiverMemberName } receiverMemberAccess &&
             TryGetAvailableTypeInfo(receiverMemberAccess.Expression, out var receiverTypeInfo) &&
-            (receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType)?.GetPlainType() is INamedTypeSymbol receiverType)
+            (receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType)?.GetNonNullableType() is INamedTypeSymbol receiverType)
         {
             foreach (var method in GetAvailableMethodMembers(receiverType, receiverMemberName.Identifier.ValueText))
                 AddIfNotPresent(method);
@@ -4806,14 +4806,14 @@ public partial class SemanticModel
 
         if (builder.Count == 0 &&
             TryResolveAvailableTypeExpression(invocation.Expression, out var constructorExpressionType) &&
-            constructorExpressionType?.GetPlainType() is INamedTypeSymbol expressionConstructorType)
+            constructorExpressionType?.GetNonNullableType() is INamedTypeSymbol expressionConstructorType)
         {
             AddAvailableConstructors(expressionConstructorType, AddIfNotPresent);
         }
 
         if (builder.Count == 0 &&
             TryGetAvailableTypeInfo(invocation.Expression, out var typeInfo) &&
-            (typeInfo.Type ?? typeInfo.ConvertedType)?.GetPlainType() is INamedTypeSymbol expressionType)
+            (typeInfo.Type ?? typeInfo.ConvertedType)?.GetNonNullableType() is INamedTypeSymbol expressionType)
         {
             if (expressionType.GetDelegateInvokeMethod() is { } invokeMethod)
                 AddIfNotPresent(invokeMethod);
@@ -5226,7 +5226,7 @@ public partial class SemanticModel
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
     {
         type = null;
-        if (receiverType.GetPlainType() is not INamedTypeSymbol namedReceiver)
+        if (receiverType.GetNonNullableType() is not INamedTypeSymbol namedReceiver)
             return false;
 
         var member = LookupAvailableMember(namedReceiver, memberName);
@@ -5255,7 +5255,7 @@ public partial class SemanticModel
         }
 
         var methodName = memberAccess.Name.Identifier.ValueText;
-        var candidates = receiverType.GetPlainType()
+        var candidates = receiverType.GetNonNullableType()
             .GetMembers(methodName)
             .OfType<IMethodSymbol>()
             .Where(method => method.Parameters.Length == invocation.ArgumentList.Arguments.Count)
@@ -6150,7 +6150,7 @@ public partial class SemanticModel
             return false;
         }
 
-        var memberReceiverType = receiverType.GetPlainType();
+        var memberReceiverType = receiverType.GetNonNullableType();
         if (memberReceiverType is null || memberReceiverType.TypeKind == TypeKind.Error)
         {
             info = default;
@@ -6717,7 +6717,7 @@ public partial class SemanticModel
             return false;
 
         var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
-        if (receiverType?.GetPlainType() is not INamedTypeSymbol namedReceiver ||
+        if (receiverType?.GetNonNullableType() is not INamedTypeSymbol namedReceiver ||
             namedReceiver.TypeKind == TypeKind.Error)
         {
             return false;
@@ -6816,7 +6816,7 @@ public partial class SemanticModel
         ensuredReceiverType = receiverType;
         methods = ImmutableArray<IMethodSymbol>.Empty;
 
-        var sourceType = receiverType.GetPlainType() as SourceNamedTypeSymbol ??
+        var sourceType = receiverType.GetNonNullableType() as SourceNamedTypeSymbol ??
             receiverType.ConstructedFrom as SourceNamedTypeSymbol;
         if (sourceType is null)
             return false;
@@ -6890,7 +6890,7 @@ public partial class SemanticModel
         ensuredReceiverType = receiverType;
         members = ImmutableArray<ISymbol>.Empty;
 
-        var sourceType = receiverType.GetPlainType() as SourceNamedTypeSymbol ??
+        var sourceType = receiverType.GetNonNullableType() as SourceNamedTypeSymbol ??
             receiverType.ConstructedFrom as SourceNamedTypeSymbol;
         if (sourceType is null)
             return false;
@@ -6995,7 +6995,7 @@ public partial class SemanticModel
     {
         ensuredReceiverType = receiverType;
 
-        var sourceType = receiverType.GetPlainType() as SourceNamedTypeSymbol ??
+        var sourceType = receiverType.GetNonNullableType() as SourceNamedTypeSymbol ??
             receiverType.ConstructedFrom as SourceNamedTypeSymbol;
         if (sourceType is null)
             return false;
@@ -7150,7 +7150,7 @@ public partial class SemanticModel
         if (!TryGetAvailableTypeInfo(propagateExpression.Expression, out var operandTypeInfo))
             return false;
 
-        var operandType = (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType)?.GetPlainType();
+        var operandType = (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType)?.GetNonNullableType();
         if (operandType is not INamedTypeSymbol operandNamed ||
             operandNamed.TypeKind == TypeKind.Error ||
             !UnionFacts.UsesCarrierRepresentation(operandNamed))
@@ -7208,7 +7208,7 @@ public partial class SemanticModel
             operandTypeInfo = GetTypeInfo(carrierExpression);
         }
 
-        var operandType = (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType)?.GetPlainType();
+        var operandType = (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType)?.GetNonNullableType();
         if (operandType is not INamedTypeSymbol operandNamed ||
             operandNamed.TypeKind == TypeKind.Error ||
             !UnionFacts.UsesCarrierRepresentation(operandNamed))
@@ -10518,7 +10518,7 @@ public partial class SemanticModel
             var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
             return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
                 ? type
-                : substituted.MakeNullable();
+                : substituted.WithNullableAnnotation(NullableAnnotation.Annotated);
         }
 
         if (type is IArrayTypeSymbol arrayType)
@@ -12659,7 +12659,7 @@ public partial class SemanticModel
         if (receiverType is NullableTypeSymbol nullableReceiver)
             receiverType = nullableReceiver.UnderlyingType;
 
-        if (receiverType?.GetPlainType() is not INamedTypeSymbol namedReceiverType ||
+        if (receiverType?.GetNonNullableType() is not INamedTypeSymbol namedReceiverType ||
             namedReceiverType.TypeKind == TypeKind.Error)
         {
             return false;

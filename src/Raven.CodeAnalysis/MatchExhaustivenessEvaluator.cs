@@ -56,7 +56,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
         ImmutableArray<string> missingCases;
 
-        var nullableUnderlyingType = scrutineeType.GetPlainType();
+        var nullableUnderlyingType = scrutineeType.GetNonNullableType();
         var nullableUnderlyingUnion = !SymbolEqualityComparer.Default.Equals(nullableUnderlyingType, scrutineeType)
             ? nullableUnderlyingType.TryGetUnion() ?? nullableUnderlyingType.TryGetUnionCase()?.Union
             : null;

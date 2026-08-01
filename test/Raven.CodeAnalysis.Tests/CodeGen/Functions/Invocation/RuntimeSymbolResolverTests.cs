@@ -147,8 +147,8 @@ async func Compute() -> ValueTask {
                         method.Parameters.Length == 1 &&
                         method.Parameters[0].RefKind == RefKind.Out &&
                         SymbolEqualityComparer.Default.Equals(
-                            method.Parameters[0].GetByRefElementType().GetPlainType(),
-                            okCase.GetPlainType())));
+                            method.Parameters[0].GetByRefElementType().GetNonNullableType(),
+                            okCase.GetNonNullableType())));
 
             var codeGenerator = new CodeGenerator(compilation)
             {

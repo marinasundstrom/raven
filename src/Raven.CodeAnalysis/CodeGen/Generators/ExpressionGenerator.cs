@@ -442,7 +442,7 @@ internal partial class ExpressionGenerator : Generator
         if (asyncHelpersType is null)
             return false;
 
-        var awaitedTypeSymbol = awaitExpression.Expression.Type.GetPlainType();
+        var awaitedTypeSymbol = awaitExpression.Expression.Type.GetNonNullableType();
         var helper = ResolveRuntimeAsyncAwaitHelper(asyncHelpersType, awaitedTypeSymbol, awaitExpression.ResultType);
         if (helper is null)
             return false;
@@ -507,7 +507,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (awaitedDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
         {
-            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var resultClrType = ResolveClrType(resultType.GetNonNullableType());
             var genericTaskAwait = methods.FirstOrDefault(m =>
                 m.IsGenericMethodDefinition &&
                 IsGenericParameterDefinitionMetadataName(m, "System.Threading.Tasks.Task`1"));
@@ -524,7 +524,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (string.Equals(awaitedMetadataName, "System.Threading.Tasks.ValueTask`1", StringComparison.Ordinal))
         {
-            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var resultClrType = ResolveClrType(resultType.GetNonNullableType());
             var genericValueTaskAwait = methods.FirstOrDefault(m =>
                 m.IsGenericMethodDefinition &&
                 IsGenericParameterDefinitionMetadataName(m, "System.Threading.Tasks.ValueTask`1"));
@@ -542,7 +542,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (string.Equals(awaitedMetadataName, "System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1", StringComparison.Ordinal))
         {
-            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var resultClrType = ResolveClrType(resultType.GetNonNullableType());
             var genericConfiguredTaskAwait = methods.FirstOrDefault(m =>
                 m.IsGenericMethodDefinition &&
                 IsGenericParameterDefinitionMetadataName(m, "System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1"));
@@ -559,7 +559,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (string.Equals(awaitedMetadataName, "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable`1", StringComparison.Ordinal))
         {
-            var resultClrType = ResolveClrType(resultType.GetPlainType());
+            var resultClrType = ResolveClrType(resultType.GetNonNullableType());
             var genericConfiguredValueTaskAwait = methods.FirstOrDefault(m =>
                 m.IsGenericMethodDefinition &&
                 IsGenericParameterDefinitionMetadataName(m, "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable`1"));
@@ -1633,8 +1633,8 @@ internal partial class ExpressionGenerator : Generator
             if (SymbolEqualityComparer.Default.Equals(left, right))
                 return true;
 
-            var leftPlain = left.GetPlainType();
-            var rightPlain = right.GetPlainType();
+            var leftPlain = left.GetNonNullableType();
+            var rightPlain = right.GetNonNullableType();
             if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
                 return true;
 
@@ -1647,8 +1647,8 @@ internal partial class ExpressionGenerator : Generator
             {
                 if (leftCase.Ordinal == rightCase.Ordinal)
                 {
-                    var leftUnion = leftCase.Union.GetPlainType();
-                    var rightUnion = rightCase.Union.GetPlainType();
+                    var leftUnion = leftCase.Union.GetNonNullableType();
+                    var rightUnion = rightCase.Union.GetNonNullableType();
                     if (SymbolEqualityComparer.Default.Equals(leftUnion, rightUnion))
                         return true;
 
@@ -1913,8 +1913,8 @@ internal partial class ExpressionGenerator : Generator
             if (expr.ErrorCaseType is { } expected)
             {
                 if (SymbolEqualityComparer.Default.Equals(candidate, expected) ||
-                    SymbolEqualityComparer.Default.Equals(candidate.GetPlainType(), expected.GetPlainType()) ||
-                    candidate.GetPlainType().MetadataIdentityEquals(expected.GetPlainType()))
+                    SymbolEqualityComparer.Default.Equals(candidate.GetNonNullableType(), expected.GetNonNullableType()) ||
+                    candidate.GetNonNullableType().MetadataIdentityEquals(expected.GetNonNullableType()))
                 {
                     return true;
                 }
@@ -2439,7 +2439,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitCollectionExpression(BoundCollectionExpression collectionExpression)
     {
-        var target = collectionExpression.Type.GetPlainType();
+        var target = collectionExpression.Type.GetNonNullableType();
 
         if (TryGetSpanCollectionElementType(target, out var spanElementType))
         {
@@ -7721,7 +7721,7 @@ internal partial class ExpressionGenerator : Generator
 
     private bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)
     {
-        paramsType = paramsType.GetPlainType();
+        paramsType = paramsType.GetNonNullableType();
 
         if (paramsType is IArrayTypeSymbol { Rank: 1 } arrayType)
         {

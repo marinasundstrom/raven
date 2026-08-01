@@ -107,8 +107,8 @@ internal partial class ExpressionGenerator
             if (SymbolEqualityComparer.Default.Equals(left, right))
                 return true;
 
-            var leftPlain = left.GetPlainType();
-            var rightPlain = right.GetPlainType();
+            var leftPlain = left.GetNonNullableType();
+            var rightPlain = right.GetNonNullableType();
             if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
                 return true;
 
@@ -633,7 +633,7 @@ internal partial class ExpressionGenerator
         {
             var isSequencePattern = tuplePattern.IsSequence;
             if (isSequencePattern)
-                inputType = inputType.GetPlainType();
+                inputType = inputType.GetNonNullableType();
 
             var positionalInputType = tuplePattern.Type;
             var recoversSequenceTypeFromObject =
@@ -764,7 +764,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundDictionaryPattern dictionaryPattern)
         {
-            EmitDictionaryPattern(dictionaryPattern, inputType.GetPlainType(), scope, scrutineeLocal2);
+            EmitDictionaryPattern(dictionaryPattern, inputType.GetNonNullableType(), scope, scrutineeLocal2);
             return;
         }
 

@@ -1113,7 +1113,7 @@ internal static class MethodSymbolCodeGenResolver
     {
         if (runtimeType.IsByRef)
         {
-            InferDeclaringTypeArguments(runtimeType.GetElementType()!, symbolType.GetPlainType(), inferredArguments, codeGen);
+            InferDeclaringTypeArguments(runtimeType.GetElementType()!, symbolType.GetNonNullableType(), inferredArguments, codeGen);
             return;
         }
 

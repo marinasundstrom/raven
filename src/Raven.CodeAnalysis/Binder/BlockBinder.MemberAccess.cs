@@ -788,7 +788,7 @@ partial class BlockBinder
 
         bool TryGetVarParamsElementTypeForArgumentBinding(ITypeSymbol parameterType, out ITypeSymbol elementType)
         {
-            parameterType = parameterType.GetPlainType();
+            parameterType = parameterType.GetNonNullableType();
 
             if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
             {
@@ -1086,7 +1086,7 @@ partial class BlockBinder
 
             if (Conversion.IsNullable(argumentType))
             {
-                var plainArgument = argumentType.GetPlainType();
+                var plainArgument = argumentType.GetNonNullableType();
                 if (plainArgument is INamedTypeSymbol plainNamed && TryUnifyNamedType(paramNamed, plainNamed, substitutions))
                     return true;
 
@@ -1105,10 +1105,10 @@ partial class BlockBinder
 
         if (Conversion.IsNullable(parameterType))
         {
-            var plainParameter = parameterType.GetPlainType();
+            var plainParameter = parameterType.GetNonNullableType();
 
             if (Conversion.IsNullable(argumentType))
-                return TryUnifyExtensionReceiverType(plainParameter, argumentType.GetPlainType(), substitutions);
+                return TryUnifyExtensionReceiverType(plainParameter, argumentType.GetNonNullableType(), substitutions);
 
             if (!argumentType.IsValueType)
                 return TryUnifyExtensionReceiverType(plainParameter, argumentType, substitutions);
@@ -1226,7 +1226,7 @@ partial class BlockBinder
             var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
             return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
                 ? type
-                : substituted.MakeNullable();
+                : substituted.WithNullableAnnotation(NullableAnnotation.Annotated);
         }
 
         if (type is RefTypeSymbol refTypeType)
@@ -1487,7 +1487,7 @@ partial class BlockBinder
                 continue;
 
             var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
-            var plainType = type.GetPlainType();
+            var plainType = type.GetNonNullableType();
 
             if (plainType is IArrayTypeSymbol { Rank: 1 })
                 return plainType;
@@ -1527,7 +1527,7 @@ partial class BlockBinder
                 receiver,
                 pipeReceiverType);
 
-            if (parameterType.GetPlainType() is INamedTypeSymbol namedType &&
+            if (parameterType.GetNonNullableType() is INamedTypeSymbol namedType &&
                 TryGetIEnumerableElementType(namedType, out var elementType) &&
                 ContainsAnyTypeParameter(elementType, method.TypeParameters))
             {
@@ -2361,13 +2361,13 @@ partial class BlockBinder
         // - Option<T>: look up on payload T
         // - Result<T,E>: look up on payload T
         if (TryGetOptionType(type, out _, out var optPayload))
-            return optPayload.GetPlainType();
+            return optPayload.GetNonNullableType();
 
         if (TryGetResultType(type, out _, out var resPayload, out _))
-            return resPayload.GetPlainType();
+            return resPayload.GetNonNullableType();
 
         // Raven nullable wrapper
-        return type.GetPlainType();
+        return type.GetNonNullableType();
     }
 
     private BoundExpression GetConditionalAccessWhenNotNullReceiver(BoundExpression receiver, ITypeSymbol? lookupType)
@@ -2379,7 +2379,7 @@ partial class BlockBinder
         if (SymbolEqualityComparer.Default.Equals(receiverType, lookupType))
             return receiver;
 
-        var plainReceiverType = receiverType.GetPlainType();
+        var plainReceiverType = receiverType.GetNonNullableType();
         if (!SymbolEqualityComparer.Default.Equals(plainReceiverType, lookupType))
             return receiver;
 
@@ -2471,7 +2471,7 @@ partial class BlockBinder
         whenPresent = IsErrorExpression(whenPresent) ? AsErrorExpression(whenPresent) : whenPresent;
 
         var accessType = whenPresent.Type ?? Compilation.ErrorTypeSymbol;
-        var u = (accessType.UnwrapLiteralType() ?? accessType).GetPlainType();
+        var u = (accessType.UnwrapLiteralType() ?? accessType).GetNonNullableType();
 
         ITypeSymbol resultType =
             kind == BoundCarrierKind.Option ? carrierGeneric.Construct(u) :
@@ -2681,14 +2681,14 @@ partial class BlockBinder
         var tryGetCase = carrier.GetMembers("TryGetValue")
             .OfType<IMethodSymbol>()
             .Where(method => method.Parameters.Length == 1)
-            .Select(method => method.Parameters[0].GetByRefElementType().GetPlainType() as INamedTypeSymbol)
+            .Select(method => method.Parameters[0].GetByRefElementType().GetNonNullableType() as INamedTypeSymbol)
             .FirstOrDefault(type => type is not null && IsUnionCaseNameMatch(carrier, type, name));
         if (tryGetCase is not null)
             return tryGetCase;
 
         var constructorCase = carrier.Constructors
             .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
-            .Select(ctor => ctor.Parameters[0].Type.GetPlainType() as INamedTypeSymbol)
+            .Select(ctor => ctor.Parameters[0].Type.GetNonNullableType() as INamedTypeSymbol)
             .FirstOrDefault(type => type is not null && IsUnionCaseNameMatch(carrier, type, name));
         if (constructorCase is not null)
             return constructorCase;
@@ -2743,7 +2743,7 @@ partial class BlockBinder
         if (caseType is null)
             return null;
 
-        var caseTypePlain = caseType.GetPlainType();
+        var caseTypePlain = caseType.GetNonNullableType();
 
         return receiverType.GetMembers("TryGetValue")
             .OfType<IMethodSymbol>()
@@ -2751,7 +2751,7 @@ partial class BlockBinder
                 m.Parameters.Length == 1 &&
                 m.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 (m.Parameters[0].RefKind == RefKind.Out || m.Parameters[0].RefKind == RefKind.Ref) &&
-                m.Parameters[0].GetByRefElementType().GetPlainType().MetadataIdentityEquals(caseTypePlain));
+                m.Parameters[0].GetByRefElementType().GetNonNullableType().MetadataIdentityEquals(caseTypePlain));
     }
 
     private static IMethodSymbol? FindPropertyGetter(INamedTypeSymbol type, string propertyName)
@@ -2892,7 +2892,7 @@ partial class BlockBinder
 
         var resultType = whenNotNull.Type;
         if (!resultType.IsNullable)
-            resultType = resultType.MakeNullable();
+            resultType = resultType.WithNullableAnnotation(NullableAnnotation.Annotated);
 
         return new BoundConditionalAccessExpression(receiver, whenNotNull, resultType);
     }

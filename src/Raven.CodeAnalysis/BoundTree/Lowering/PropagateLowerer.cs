@@ -168,7 +168,7 @@ internal static class PropagateLowerer
         private PropagateLowering? LowerPropagate(BoundPropagateExpression propagate)
         {
             var operandType = propagate.Operand.Type;
-            var operandNamedType = operandType?.GetPlainType() as INamedTypeSymbol;
+            var operandNamedType = operandType?.GetNonNullableType() as INamedTypeSymbol;
             if (operandType is null || operandType.TypeKind == TypeKind.Error || operandNamedType is null)
                 return null;
 
@@ -241,7 +241,7 @@ internal static class PropagateLowerer
             if (ctor.Parameters.Length != 1 || propagate.ErrorCaseType is not INamedTypeSymbol errorCaseType)
                 return null;
 
-            var operandNamedType = operandType.GetPlainType() as INamedTypeSymbol;
+            var operandNamedType = operandType.GetNonNullableType() as INamedTypeSymbol;
             var tryGetErrorMethod = operandNamedType is null
                 ? null
                 : FindTryGetMethodForCase(operandNamedType, errorCaseType);
@@ -310,7 +310,7 @@ internal static class PropagateLowerer
                 return new BoundErrorExpression(_compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
 
             var caseAccess = ApplyConversionIfNeeded(okAccess, okCaseType);
-            if (!SymbolEqualityComparer.Default.Equals(caseAccess.Type?.GetPlainType(), okCaseType.GetPlainType()))
+            if (!SymbolEqualityComparer.Default.Equals(caseAccess.Type?.GetNonNullableType(), okCaseType.GetNonNullableType()))
                 return new BoundErrorExpression(_compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
 
             var valueAccess = new BoundMemberAccessExpression(caseAccess, valueProperty);
@@ -326,12 +326,12 @@ internal static class PropagateLowerer
             if (candidates.Length == 0)
                 return null;
 
-            var okCaseType = propagate.OkCaseType?.GetPlainType();
+            var okCaseType = propagate.OkCaseType?.GetNonNullableType();
             if (okCaseType is not null)
             {
                 var caseMatch = candidates.FirstOrDefault(m =>
                 {
-                    var parameterType = m.Parameters[0].GetByRefElementType().GetPlainType();
+                    var parameterType = m.Parameters[0].GetByRefElementType().GetNonNullableType();
                     return SymbolEqualityComparer.Default.Equals(parameterType, okCaseType) ||
                         parameterType.MetadataIdentityEquals(okCaseType);
                 });
@@ -339,21 +339,21 @@ internal static class PropagateLowerer
                     return caseMatch;
             }
 
-            var okPayloadType = propagate.OkType.GetPlainType();
+            var okPayloadType = propagate.OkType.GetNonNullableType();
             var payloadMatch = candidates.FirstOrDefault(m =>
-                SymbolEqualityComparer.Default.Equals(m.Parameters[0].GetByRefElementType().GetPlainType(), okPayloadType));
+                SymbolEqualityComparer.Default.Equals(m.Parameters[0].GetByRefElementType().GetNonNullableType(), okPayloadType));
 
             return payloadMatch ?? candidates[0];
         }
 
         private static IMethodSymbol? FindTryGetMethodForCase(INamedTypeSymbol operandType, ITypeSymbol caseType)
         {
-            var expected = caseType.GetPlainType();
+            var expected = caseType.GetNonNullableType();
             return operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
                 .Where(method => method.Parameters.Length == 1 && method.Parameters[0].RefKind == RefKind.Out)
                 .FirstOrDefault(method =>
                 {
-                    var parameterType = method.Parameters[0].GetByRefElementType().GetPlainType();
+                    var parameterType = method.Parameters[0].GetByRefElementType().GetNonNullableType();
                     return SymbolEqualityComparer.Default.Equals(parameterType, expected) ||
                         parameterType.MetadataIdentityEquals(expected);
                 });

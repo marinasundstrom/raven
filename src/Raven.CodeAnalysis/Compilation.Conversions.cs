@@ -70,7 +70,7 @@ public partial class Compilation
                 named.TypeArguments.Length == 1)
             {
                 var underlying = named.TypeArguments[0];
-                return underlying.IsNullable ? underlying : underlying.MakeNullable();
+                return underlying.IsNullable ? underlying : underlying.WithNullableAnnotation(NullableAnnotation.Annotated);
             }
 
             return type;
@@ -865,7 +865,7 @@ public partial class Compilation
 
         static bool ContainsUnboundTypeParameter(ITypeSymbol type)
         {
-            type = type.GetPlainType();
+            type = type.GetNonNullableType();
 
             return type switch
             {

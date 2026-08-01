@@ -259,7 +259,7 @@ class TopLevelBinder : BlockBinder
         }
 
         var payloadExpression = BindExpression(invocation.ArgumentList.Arguments[0].Expression, allowReturn: false);
-        payloadType = payloadExpression.Type?.GetPlainType();
+        payloadType = payloadExpression.Type?.GetNonNullableType();
         return true;
     }
 
