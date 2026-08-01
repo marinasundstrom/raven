@@ -892,8 +892,11 @@ The highest remaining risks after the current stabilization batch are:
 1. **Open-to-constructed generic symbols (high)** — wrapper ownership and
    substitution are still distributed across named types, methods, parameters,
    constraints, and metadata projection. Nested source/PE construction now has
-   a three-layer invariant and a shared local `MetadataName` contract. Continue
-   boundary invariants before considering a central construction redesign.
+   a three-layer invariant and a shared local `MetadataName` contract.
+   Constructed methods also preserve their own type-parameter ownership while
+   substituting a containing type argument inside nested generic constraints
+   such as `IEnumerable<T>`. Continue boundary invariants before considering a
+   central construction redesign.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now

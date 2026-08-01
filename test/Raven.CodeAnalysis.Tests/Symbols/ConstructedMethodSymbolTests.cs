@@ -88,6 +88,38 @@ class Container<TBase> {
     }
 
     [Fact]
+    public void ConstructedMethod_SubstitutesContainingTypeInsideGenericConstraint()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+class Container<T> {
+    public func Copy<U>(value: U) -> U
+        where U: IEnumerable<T>
+        => value
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "constructed-method-nested-constraint",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var container = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(stringType));
+        var copy = Assert.Single(container.GetMembers("Copy").OfType<IMethodSymbol>());
+        var typeParameter = Assert.Single(copy.TypeParameters);
+        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(typeParameter.ConstraintTypes));
+
+        Assert.Same(copy, typeParameter.DeclaringMethodParameterOwner);
+        Assert.Equal("IEnumerable", constraint.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, Assert.Single(constraint.TypeArguments)));
+    }
+
+    [Fact]
     public void ConstructedMethod_SubstitutesArrayElementType()
     {
         var source = """
