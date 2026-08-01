@@ -42,6 +42,34 @@ func Main() -> int {
     }
 
     [Fact]
+    public void NonUnitFunction_WithParenthesizedReturnExpression_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Main() -> int {
+    (return 1)
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void NonUnitFunction_WithAbruptIfExpressionInitializer_DoesNotReportMissingReturn()
+    {
+        var code = """
+func Compute(flag: bool) -> int {
+    let never = if flag {
+        return 1
+    } else {
+        return 2
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
     public void UnitFunction_WithEmptyBody_DoesNotReportMissingReturn()
     {
         var code = """

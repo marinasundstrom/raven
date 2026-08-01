@@ -341,6 +341,12 @@ has an implicit `unit` payload.
 Focused parser, semantic, macro-body, analyzer, and runtime tests cover the
 projection, diagnostics, reachability, and lowering policy.
 
+Abrupt-expression classification now unwraps parentheses and conversions and
+recognizes an `if` expression as abrupt when both branches are abrupt. Control
+flow applies that classification to local initializers, so a declaration whose
+initializer returns on every path makes the enclosing endpoint unreachable in
+both cold and diagnostics-first semantic queries.
+
 ### Local initialization and `out` assignment are distinct rules
 
 Raven locals must be initialized where they are declared. An initializer-less

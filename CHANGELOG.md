@@ -14,6 +14,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Constant evaluation now folds logical negation of Boolean constants, so
   control-flow and missing-return analysis recognize loops such as
   `while !false` as non-terminating unless a reachable break exists.
+- Control-flow analysis now recognizes parenthesized, converted, and
+  all-abrupt `if` expressions as non-completing, including when such an
+  expression is nested in a local initializer.
 - Nullable symbol APIs now distinguish structural inspection from total
   normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`

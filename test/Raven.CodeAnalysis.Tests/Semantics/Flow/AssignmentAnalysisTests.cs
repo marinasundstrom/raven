@@ -259,6 +259,36 @@ func Main() {
             .ShouldBeOfType<LocalDeclarationStatementSyntax>();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnalyzeControlFlow_AbruptIfExpressionInitializer_MakesBlockEndUnreachable(bool diagnosticsFirst)
+    {
+        const string source = """
+func Compute(flag: bool) -> int {
+    let never = if flag {
+        return 1
+    } else {
+        return 2
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            compilation.GetDiagnostics().ShouldBeEmpty();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeFalse();
+    }
+
     [Fact]
     public void AnalyzeControlFlow_ExhaustiveAbruptMatch_MakesFollowingStatementUnreachable()
     {

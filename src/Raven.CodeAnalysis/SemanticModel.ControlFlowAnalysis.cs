@@ -294,6 +294,13 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 var boundExpression = _semanticModel.TryGetCachedBoundNode(expressionStatement.Expression) as BoundExpression;
                 _endPointIsReachable = boundExpression is null || !BoundNodeFacts.IsAbruptExpression(boundExpression);
                 return _endPointIsReachable;
+            case LocalDeclarationStatementSyntax localDeclaration:
+                base.VisitLocalDeclarationStatement(localDeclaration);
+                var boundDeclaration = _semanticModel.TryGetCachedBoundNode(localDeclaration) as BoundLocalDeclarationStatement;
+                _endPointIsReachable = boundDeclaration is null ||
+                    !boundDeclaration.Declarators.Any(static declarator =>
+                        declarator.Initializer is not null && BoundNodeFacts.IsAbruptExpression(declarator.Initializer));
+                return _endPointIsReachable;
             case YieldBreakStatementSyntax yieldBreakStatement:
                 base.VisitYieldBreakStatement(yieldBreakStatement);
                 _endPointIsReachable = false;

@@ -11,6 +11,13 @@ internal static class BoundNodeFacts
             case BoundRequiredResultExpression { Operand: BoundReturnExpression }:
             case BoundRequiredResultExpression { Operand: BoundThrowExpression }:
                 return true;
+            case BoundParenthesizedExpression parenthesized:
+                return IsAbruptExpression(parenthesized.Expression);
+            case BoundConversionExpression conversion:
+                return IsAbruptExpression(conversion.Expression);
+            case BoundIfExpression { ElseBranch: not null } ifExpression:
+                return IsAbruptExpression(ifExpression.ThenBranch) &&
+                    IsAbruptExpression(ifExpression.ElseBranch);
             case BoundBlockExpression block:
                 {
                     var last = block.Statements.LastOrDefault();
