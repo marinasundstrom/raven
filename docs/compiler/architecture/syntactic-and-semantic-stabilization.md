@@ -468,6 +468,12 @@ produce an invalid-term diagnostic and bound error pattern for unknown general,
 comparison, unary, and binary forms rather than reaching a
 `NotImplementedException`.
 
+The remaining root-binder function path is an ownership invariant, not an
+unimplemented language feature. Function statements are bound by their
+executable block binder; reaching the root now reports that invariant as an
+internal invalid operation. Ordinary top-level, namespace-level, and nested
+functions continue through block-owned declaration and body binding.
+
 ### Macro functions need declaration parity
 
 Recent work has improved local macro partitioning and isolation, but macro

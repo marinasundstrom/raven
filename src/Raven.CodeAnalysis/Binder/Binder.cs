@@ -1923,7 +1923,7 @@ internal abstract partial class Binder
     public virtual BoundFunctionStatement BindFunction(FunctionStatementSyntax function)
     {
         return ParentBinder?.BindFunction(function)
-             ?? throw new NotImplementedException("BindFunction not implemented in root binder.");
+             ?? throw new InvalidOperationException("Function statements require an enclosing executable block binder.");
     }
 
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
