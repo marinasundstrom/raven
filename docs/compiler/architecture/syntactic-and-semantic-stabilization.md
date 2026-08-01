@@ -361,6 +361,12 @@ The remaining unsupported construction member is confined to the error-type
 sentinel, which is not a constructible named type. New public symbol families
 should receive the same no-throw query coverage as part of their introduction.
 
+Bound-tree walkers now delegate expression and statement dispatch to the
+generated visitor contract. This removes a manually maintained type allowlist
+that silently ignored newer expressions and threw when the general `Visit`
+entry point received an ordinary non-block statement. Walker traversal hooks
+remain explicit, but dispatch completeness now evolves with the bound model.
+
 ### Generic overload resolution has explicit gaps
 
 Overload resolution now constructs open generic method-group candidates when

@@ -93,6 +93,22 @@ public sealed class VisitorDispatchTests : CompilationTestBase
     }
 
     [Fact]
+    public void BoundTreeWalker_Visit_DispatchesAllBoundNodeFamiliesThroughGeneratedVisitor()
+    {
+        var compilation = CreateCompilation();
+        var expression = new BoundDefaultValueExpression(
+            compilation.GetSpecialType(SpecialType.System_Int32));
+        var statement = new BoundReturnStatement(expression);
+        var walker = new RecordingBoundTreeWalker();
+
+        walker.Visit(expression);
+        walker.Visit(statement);
+
+        Assert.True(walker.SawDefaultValueExpression);
+        Assert.True(walker.SawReturnStatement);
+    }
+
+    [Fact]
     public void SyntaxVisitor_VisitExpression_DispatchesToBinaryHandler()
     {
         var tree = SyntaxTree.ParseText("let x = 1 + 2;");
@@ -167,6 +183,24 @@ public sealed class VisitorDispatchTests : CompilationTestBase
         {
             SawDeclarationPattern = true;
             return node;
+        }
+    }
+
+    private sealed class RecordingBoundTreeWalker : BoundTreeWalker
+    {
+        public bool SawDefaultValueExpression { get; private set; }
+
+        public bool SawReturnStatement { get; private set; }
+
+        public override void VisitDefaultValueExpression(BoundDefaultValueExpression node)
+        {
+            SawDefaultValueExpression = true;
+        }
+
+        public override void VisitReturnStatement(BoundReturnStatement node)
+        {
+            SawReturnStatement = true;
+            base.VisitReturnStatement(node);
         }
     }
 

@@ -11,148 +11,22 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundExpression expr:
                 VisitExpression(expr);
                 break;
-            case BoundBlockStatement statement:
-                VisitBlockStatement(statement);
+            case BoundStatement statement:
+                VisitStatement(statement);
+                break;
+            case BoundVariableDeclarator declarator:
+                VisitVariableDeclarator(declarator);
+                break;
+            case BoundMatchArm arm:
+                VisitMatchArm(arm);
                 break;
             default:
-                throw new NotImplementedException($"Unhandled node type: {node.GetType().Name}");
+                DefaultVisit(node);
+                break;
         }
     }
 
-    public override void VisitExpression(BoundExpression node)
-    {
-        switch (node)
-        {
-            case BoundUnitExpression self:
-                VisitUnitExpression(self);
-                break;
-            case BoundSelfExpression self:
-                VisitSelfExpression(self);
-                break;
-            case BoundLiteralExpression lit:
-                VisitLiteralExpression(lit);
-                break;
-            case BoundLocalAccess local:
-                VisitLocalAccess(local);
-                break;
-            case BoundFieldAccess field:
-                VisitFieldAccess(field);
-                break;
-            case BoundParameterAccess par:
-                VisitParameterAccess(par);
-                break;
-            case BoundBinaryExpression bin:
-                VisitBinaryExpression(bin);
-                break;
-            case BoundInvocationExpression call:
-                VisitInvocationExpression(call);
-                break;
-            case BoundFunctionExpression lambda:
-                VisitFunctionExpression(lambda);
-                break;
-            case BoundBlockExpression block:
-                VisitBlockExpression(block);
-                break;
-            case BoundTryExpression tryExpression:
-                VisitTryExpression(tryExpression);
-                break;
-            case BoundParenthesizedExpression paren:
-                VisitParenthesizedExpression(paren);
-                break;
-            case BoundConversionExpression cast:
-                VisitConversionExpression(cast);
-                break;
-            case BoundAsExpression asExpr:
-                VisitAsExpression(asExpr);
-                break;
-            case BoundDelegateCreationExpression delegateCreation:
-                VisitDelegateCreationExpression(delegateCreation);
-                break;
-            case BoundMethodGroupExpression methodGroup:
-                VisitMethodGroupExpression(methodGroup);
-                break;
-            case BoundMemberAccessExpression memberAccess:
-                VisitMemberAccessExpression(memberAccess);
-                break;
-            case BoundPointerMemberAccessExpression pointerMemberAccess:
-                VisitPointerMemberAccessExpression(pointerMemberAccess);
-                break;
-            case BoundObjectCreationExpression creation:
-                foreach (var arg in creation.Arguments)
-                    VisitExpression(arg);
-                break;
-            case BoundAssignmentExpression assign:
-                if (assign is BoundPatternAssignmentExpression patternAssignment)
-                    VisitPattern(patternAssignment.Pattern);
-                VisitExpression(assign.Left);
-                VisitExpression(assign.Right);
-                break;
-            case BoundUnaryExpression unary:
-                VisitExpression(unary.Operand);
-                break;
-            case BoundAwaitExpression awaitExpression:
-                VisitAwaitExpression(awaitExpression);
-                break;
-            case BoundTupleExpression tuple:
-                foreach (var e in tuple.Elements)
-                    VisitExpression(e);
-                break;
-            case BoundTypeOfExpression typeOfExpression:
-                VisitTypeOfExpression(typeOfExpression);
-                break;
-            case BoundConditionalAccessExpression conditionalAccess:
-                VisitConditionalAccessExpression(conditionalAccess);
-                break;
-            case BoundCarrierConditionalAccessExpression carrierConditionalAccess:
-                VisitCarrierConditionalAccessExpression(carrierConditionalAccess);
-                break;
-            case BoundIfExpression ifExpression:
-                VisitIfExpression(ifExpression);
-                break;
-            case BoundIndexerAccessExpression indexerAccess:
-                VisitIndexerAccessExpression(indexerAccess);
-                break;
-            case BoundArrayAccessExpression arrayAccess:
-                VisitArrayAccessExpression(arrayAccess);
-                break;
-            case BoundCollectionExpression collection:
-                VisitCollectionExpression(collection);
-                break;
-            case BoundDictionaryExpression dictionaryExpression:
-                VisitDictionaryExpression(dictionaryExpression);
-                break;
-            case BoundSpreadElement spread:
-                VisitSpreadElement(spread);
-                break;
-            case BoundIsPatternExpression isPattern:
-                VisitIsPatternExpression(isPattern);
-                break;
-            case BoundMatchExpression match:
-                VisitMatchExpression(match);
-                break;
-            case BoundAddressOfExpression addressOf:
-                VisitAddressOfExpression(addressOf);
-                break;
-            case BoundDereferenceExpression dereference:
-                VisitDereferenceExpression(dereference);
-                break;
-            case BoundNullCoalesceExpression nullCoalesceExpression:
-                VisitNullCoalesceExpression(nullCoalesceExpression);
-                break;
-            case BoundThrowExpression throwExpression:
-                VisitThrowExpression(throwExpression);
-                break;
-            case BoundReturnExpression returnExpression:
-                VisitReturnExpression(returnExpression);
-                break;
-            case BoundPropagateExpression propagateExpression:
-                VisitPropagateExpression(propagateExpression);
-                break;
-            // Add others as needed
-            default:
-                break;
-        }
-    }
+    public override void VisitExpression(BoundExpression node) => base.VisitExpression(node);
 
     // Override these in your tree walker
 
@@ -163,69 +37,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitSelfExpression(BoundSelfExpression self) { }
 
 
-    public override void VisitStatement(BoundStatement statement)
-    {
-        switch (statement)
-        {
-            case BoundFunctionStatement functionStatement:
-                VisitFunctionStatement(functionStatement);
-                break;
-            case BoundExpressionStatement expressionStatement:
-                VisitExpressionStatement(expressionStatement);
-                break;
-            case BoundAssignmentStatement assignmentStatement:
-                VisitAssignmentStatement(assignmentStatement);
-                break;
-            case BoundLocalDeclarationStatement localDeclaration:
-                VisitLocalDeclarationStatement(localDeclaration);
-                break;
-            case BoundMatchStatement matchStatement:
-                VisitMatchStatement(matchStatement);
-                break;
-            case BoundReturnStatement ret:
-                VisitReturnStatement(ret);
-                break;
-            case BoundThrowStatement throwStatement:
-                VisitThrowStatement(throwStatement);
-                break;
-            case BoundIfStatement ifStmt:
-                VisitIfStatement(ifStmt);
-                break;
-            case BoundLabeledStatement labeledStatement:
-                VisitLabeledStatement(labeledStatement);
-                break;
-            case BoundGotoStatement gotoStatement:
-                VisitGotoStatement(gotoStatement);
-                break;
-            case BoundConditionalGotoStatement conditionalGotoStatement:
-                VisitConditionalGotoStatement(conditionalGotoStatement);
-                break;
-            case BoundBreakStatement breakStatement:
-                VisitBreakStatement(breakStatement);
-                break;
-            case BoundContinueStatement continueStatement:
-                VisitContinueStatement(continueStatement);
-                break;
-            case BoundWhileStatement whileStmt:
-                VisitWhileStatement(whileStmt);
-                break;
-            case BoundForStatement forStmt:
-                VisitForStatement(forStmt);
-                break;
-            case BoundTryStatement tryStmt:
-                VisitTryStatement(tryStmt);
-                break;
-            case BoundBlockStatement blockStmt:
-                VisitBlockStatement(blockStmt);
-                break;
-            case BoundYieldReturnStatement yieldReturn:
-                VisitYieldReturnStatement(yieldReturn);
-                break;
-            case BoundYieldBreakStatement yieldBreak:
-                VisitYieldBreakStatement(yieldBreak);
-                break;
-        }
-    }
+    public override void VisitStatement(BoundStatement statement) => base.VisitStatement(statement);
 
     public override void VisitReturnStatement(BoundReturnStatement node)
     {

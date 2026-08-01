@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Bound-tree walkers now use generated expression and statement dispatch and
+  accept every bound-node family without throwing on non-block statements.
+  This prevents analysis and lowering walkers from silently skipping newly
+  introduced bound expressions.
 - Nullable symbol APIs now distinguish structural inspection from total
   normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`
