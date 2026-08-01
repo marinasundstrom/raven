@@ -262,6 +262,9 @@ This contract is deliberately uniform across reference and value types. Both
 `string?` and `int?` remain declared nullable symbols when narrowed, and both
 publish the contextual `NotNull` fact through `Nullability.FlowState`. Their
 different .NET runtime encodings must not leak into semantic analysis.
+The same annotation and flow results are required whether diagnostics or type
+information is requested first, and repeated semantic queries must preserve
+both `Nullability` and `ConvertedNullability`.
 
 The remaining conformance matrix needs joins, loops, richer pattern tests,
 nullable unions, and incremental edits that change control flow.

@@ -1175,12 +1175,15 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("string", "\"\"", SpecialType.System_String)]
-    [InlineData("int", "0", SpecialType.System_Int32)]
+    [InlineData("string", "\"\"", SpecialType.System_String, false)]
+    [InlineData("string", "\"\"", SpecialType.System_String, true)]
+    [InlineData("int", "0", SpecialType.System_Int32, false)]
+    [InlineData("int", "0", SpecialType.System_Int32, true)]
     public void GetTypeInfo_UsesUnifiedNullabilityForReferenceAndValueTypes(
         string typeName,
         string fallbackValue,
-        SpecialType expectedUnderlyingType)
+        SpecialType expectedUnderlyingType,
+        bool diagnosticsFirst)
     {
         var source = $$"""
             func Value(value: {{typeName}}?) -> {{typeName}} {
@@ -1199,13 +1202,24 @@ public class NullableTypeTests : CompilationTestBase
             .First()
             .Expression!;
 
-        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(returnedValue);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var semanticModel = compilation.GetSemanticModel(tree);
+        var typeInfo = semanticModel.GetTypeInfo(returnedValue);
 
         Assert.Equal(TypeKind.Nullable, typeInfo.Type?.TypeKind);
         Assert.Equal(expectedUnderlyingType, typeInfo.Type?.GetNonNullableType().SpecialType);
         Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
         Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.ConvertedNullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.ConvertedNullability.FlowState);
         Assert.Empty(compilation.GetDiagnostics());
+
+        var repeatedTypeInfo = semanticModel.GetTypeInfo(returnedValue);
+        Assert.Equal(typeInfo.Type, repeatedTypeInfo.Type, SymbolEqualityComparer.Default);
+        Assert.Equal(typeInfo.Nullability, repeatedTypeInfo.Nullability);
+        Assert.Equal(typeInfo.ConvertedNullability, repeatedTypeInfo.ConvertedNullability);
     }
 
     [Fact]
