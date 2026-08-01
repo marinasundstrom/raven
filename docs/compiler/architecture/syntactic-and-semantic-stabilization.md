@@ -606,6 +606,13 @@ target. The mutation scan also recognizes a labeled break that prevents the
 target loop's back-edge, avoiding a different nullability result solely because
 the programmer made the transfer explicit.
 
+Ordinary `try`/`catch` null-flow joins now contain only paths that can complete
+normally. A `try` ending in an abrupt transfer contributes no direct
+continuation, and a `catch` ending in one does not weaken the state produced by
+the completing `try` or sibling catches. Catch entry remains conservative about
+assignments that may have happened before an exception; excluding an abrupt
+exit does not make exception flow itself optimistic.
+
 Source named-type `MetadataName` currently includes its namespace and nesting
 path while PE symbols expose the unqualified CLI member name. The equality
 comparer now normalizes this known projection difference and separately checks
@@ -836,8 +843,9 @@ The highest remaining risks after the current stabilization batch are:
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
-   share the ordinary loop-owned state; prioritize nested cycles and joins that
-   mix abrupt and completing exceptional paths.
+   share the ordinary loop-owned state, and abrupt `try`/`catch` branches are
+   excluded from normal joins; prioritize nested cycles and filtered/finally
+   exceptional paths.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage; conversion ranking and less common inference

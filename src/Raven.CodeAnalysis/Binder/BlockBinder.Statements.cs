@@ -544,10 +544,9 @@ partial class BlockBinder
         catchEntryState.ExceptWith(GetPotentiallyAssignedFlowSymbols(tryStmt.Block));
 
         var tryBlock = BindBlockStatement(tryStmt.Block);
-        var completingStates = new List<HashSet<ISymbol>>
-        {
-            new(_nonNullSymbols, SymbolEqualityComparer.Default)
-        };
+        var completingStates = new List<HashSet<ISymbol>>();
+        if (!IsEarlyExitStatement(tryStmt.Block))
+            completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
 
         var catchBuilder = ImmutableArray.CreateBuilder<BoundCatchClause>();
         foreach (var catchClause in tryStmt.CatchClauses)
@@ -555,7 +554,8 @@ partial class BlockBinder
             _nonNullSymbols.Clear();
             _nonNullSymbols.UnionWith(catchEntryState);
             catchBuilder.Add(BindCatchClause(catchClause));
-            completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
+            if (!IsEarlyExitStatement(catchClause.Block))
+                completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
         }
 
         _nonNullSymbols.Clear();

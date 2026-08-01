@@ -796,6 +796,75 @@ public class NullableTypeTests : CompilationTestBase
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_AbruptTryDoesNotContributeToNormalJoin(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Length(input: string?) -> int {
+                var value: string? = input
+
+                try {
+                    return 0
+                } catch {
+                    if value is null {
+                        return 0
+                    }
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single().Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_AbruptCatchDoesNotContributeToNormalJoin(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Length(input: string?) -> int {
+                var value: string? = input
+                if value is null {
+                    return 0
+                }
+
+                try {
+                } catch {
+                    value = null
+                    return 0
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single().Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void GetTypeInfo_FinallyAssignmentInvalidatesJoinedFact()
     {
