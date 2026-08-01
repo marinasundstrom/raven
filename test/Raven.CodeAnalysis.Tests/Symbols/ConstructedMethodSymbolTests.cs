@@ -40,6 +40,53 @@ class Factory {
     }
 
     [Fact]
+    public void RepeatedConstruction_PreservesContainingSubstitutionAndConstraintOwnership()
+    {
+        const string source = """
+class Container<TBase> {
+    public static func Coerce<TDerived>(value: TDerived) -> TBase
+        where TDerived: TBase
+        => throw System.Exception()
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "repeated-constructed-method",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var firstContainer = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(objectType));
+        var secondContainer = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(objectType));
+        var firstOpenMethod = Assert.Single(firstContainer.GetMembers("Coerce").OfType<IMethodSymbol>());
+        var secondOpenMethod = Assert.Single(secondContainer.GetMembers("Coerce").OfType<IMethodSymbol>());
+        var firstMethod = firstOpenMethod.Construct(stringType);
+        var secondMethod = secondOpenMethod.Construct(stringType);
+        var comparer = SymbolEqualityComparer.Default;
+
+        Assert.NotSame(firstContainer, secondContainer);
+        Assert.True(comparer.Equals(firstContainer, secondContainer));
+        Assert.True(comparer.Equals(firstOpenMethod, secondOpenMethod));
+        Assert.True(comparer.Equals(firstMethod, secondMethod));
+        Assert.Equal(comparer.GetHashCode(firstMethod), comparer.GetHashCode(secondMethod));
+        Assert.True(((object)firstMethod).Equals(secondMethod));
+
+        var firstTypeParameter = Assert.Single(firstOpenMethod.TypeParameters);
+        var secondTypeParameter = Assert.Single(secondOpenMethod.TypeParameters);
+        Assert.Same(firstOpenMethod, firstTypeParameter.DeclaringMethodParameterOwner);
+        Assert.Same(secondOpenMethod, secondTypeParameter.DeclaringMethodParameterOwner);
+        Assert.Equal(SpecialType.System_Object, Assert.Single(firstTypeParameter.ConstraintTypes).SpecialType);
+        Assert.Equal(SpecialType.System_Object, Assert.Single(secondTypeParameter.ConstraintTypes).SpecialType);
+        Assert.Equal(SpecialType.System_Object, firstMethod.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(firstMethod.Parameters).Type.SpecialType);
+    }
+
+    [Fact]
     public void ConstructedMethod_SubstitutesArrayElementType()
     {
         var source = """

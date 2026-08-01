@@ -520,6 +520,13 @@ continue adding source/PE and repeated-construction invariants, then evaluate a
 single substitution service or interned constructed-symbol factory as a
 separate design slice.
 
+Repeated source construction now has an explicit ownership invariant. Two
+independent constructions of the same containing generic type may be distinct
+objects, but their open and constructed methods must compare and hash equally.
+Each substituted method type parameter remains owned by its own open method
+wrapper, while constraints that mention containing type parameters resolve to
+the constructed containing arguments.
+
 One unsafe shortcut has been removed from that chain:
 `ConstructedMethodSymbol.Equals(object)` and `GetHashCode()` no longer proxy to
 the open definition. They use the same constructed signature identity as the
