@@ -171,6 +171,44 @@ class NullableSequencePatterns {
     }
 
     [Fact]
+    public void NullableDictionaryPattern_FailsForNullAndMatchesNonNullInput()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class NullableDictionaryPatterns {
+    public static func Read(value: Dictionary<string, int>?) -> int {
+        if value is ["answer": let answer] {
+            return answer
+        }
+
+        return -1
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("nullable_dictionary_pattern", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("NullableDictionaryPatterns", throwOnError: true)!;
+        var method = type.GetMethod("Read")!;
+        var empty = new System.Collections.Generic.Dictionary<string, int>();
+        var populated = new System.Collections.Generic.Dictionary<string, int> { ["answer"] = 42 };
+
+        Assert.Equal(-1, method.Invoke(null, [null]));
+        Assert.Equal(-1, method.Invoke(null, [empty]));
+        Assert.Equal(42, method.Invoke(null, [populated]));
+    }
+
+    [Fact]
     public void RangePattern_LoweredToComparisonPatternsForIsAndMatchExpressions()
     {
         var code = """
