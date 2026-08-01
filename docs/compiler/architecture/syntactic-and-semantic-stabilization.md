@@ -322,6 +322,13 @@ uses the declared writable target rather than its flow-narrowed read shape; a
 narrowed nullable local can therefore be assigned `null`, after which both
 diagnostics and `TypeInfo` report it as maybe-null.
 
+Exception regions use the same path-sensitive join rule. A `catch` starts from
+the try-entry facts minus values that may have been assigned before an
+exception, each catch is bound independently, and the completing try/catch
+states are intersected before `finally` runs. This prevents a preceding catch
+from seeding a sibling and ensures a mutation in any completing path or in the
+finally block is visible after the statement.
+
 Incremental workspace coverage changes a `while` condition between `is not
 null` and `is null`, then restores it. Public `TypeInfo` flow state and
 possible-null diagnostics must update together in all three snapshots.

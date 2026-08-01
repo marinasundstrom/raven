@@ -483,9 +483,9 @@ partial class BlockBinder
         return ReferenceEquals(nearestLoop, loopBody.Parent);
     }
 
-    private static bool IsInNestedExecutableScope(SyntaxNode node, StatementSyntax loopBody)
+    private static bool IsInNestedExecutableScope(SyntaxNode node, SyntaxNode body)
     {
-        for (var current = node.Parent; current is not null && !ReferenceEquals(current, loopBody); current = current.Parent)
+        for (var current = node.Parent; current is not null && !ReferenceEquals(current, body); current = current.Parent)
         {
             if (current is FunctionStatementSyntax or FunctionExpressionSyntax or TypeDeclarationStatementSyntax)
                 return true;
@@ -531,13 +531,27 @@ partial class BlockBinder
 
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
+        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
+        var catchEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+        catchEntryState.ExceptWith(GetPotentiallyAssignedFlowSymbols(tryStmt.Block));
+
         var tryBlock = BindBlockStatement(tryStmt.Block);
+        var completingStates = new List<HashSet<ISymbol>>
+        {
+            new(_nonNullSymbols, SymbolEqualityComparer.Default)
+        };
 
         var catchBuilder = ImmutableArray.CreateBuilder<BoundCatchClause>();
         foreach (var catchClause in tryStmt.CatchClauses)
         {
+            _nonNullSymbols.Clear();
+            _nonNullSymbols.UnionWith(catchEntryState);
             catchBuilder.Add(BindCatchClause(catchClause));
+            completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
         }
+
+        _nonNullSymbols.Clear();
+        _nonNullSymbols.UnionWith(IntersectFlowStates(completingStates));
 
         BoundBlockStatement? finallyBlock = null;
         if (tryStmt.FinallyClause is { } finallyClause)
@@ -558,6 +572,25 @@ partial class BlockBinder
             return tryBlock;
 
         return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+    }
+
+    private HashSet<ISymbol> GetPotentiallyAssignedFlowSymbols(SyntaxNode body)
+    {
+        var assigned = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentStatementSyntax>())
+        {
+            if (!IsInNestedExecutableScope(assignment, body))
+                TryAddAssignedFlowSymbol(assignment.Left, assigned);
+        }
+
+        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentExpressionSyntax>())
+        {
+            if (!IsInNestedExecutableScope(assignment, body))
+                TryAddAssignedFlowSymbol(assignment.Left, assigned);
+        }
+
+        return assigned;
     }
 
     private bool AllCatchBlocksProduceIgnoredValues(ImmutableArray<BoundCatchClause>.Builder catchBuilder)

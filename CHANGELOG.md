@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Null-flow state now joins `try` and each `catch` from independent entry and
+  exit states, then applies `finally` to the joined normal continuation. An
+  assignment that may occur before an exception conservatively invalidates the
+  corresponding fact at catch entry, and one mutating catch no longer leaks
+  its state into the binding of a sibling catch.
 - Null-flow narrowing now accounts for assignments on loop back-edges,
   including paths reached through `continue`, and the states carried by
   `break`. Values mutated by a `loop` or `while` body are no longer assumed

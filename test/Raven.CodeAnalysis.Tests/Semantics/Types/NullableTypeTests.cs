@@ -673,6 +673,161 @@ public class NullableTypeTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GetTypeInfo_TryAndCatchJoinPreservesNonNullFact(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Length(input: string?) -> int {
+                var value: string? = input
+                if value is null {
+                    return 0
+                }
+
+                try {
+                } catch {
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single().Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void GetTypeInfo_MultipleCatchExitsAreJoinedIndependently()
+    {
+        const string source = """
+            import System.*
+
+            func Length(input: string?) -> int {
+                var value: string? = input
+                if value is null {
+                    return 0
+                }
+
+                try {
+                } catch FormatException formatError {
+                    value = null
+                } catch Exception error {
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single().Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+    }
+
+    [Fact]
+    public void GetTypeInfo_TryAssignmentInvalidatesCatchEntryFact()
+    {
+        const string source = """
+            func WriteLength(input: string?) -> unit {
+                var value: string? = input
+                if value is null {
+                    return
+                }
+
+                try {
+                    value = null
+                } catch {
+                    System.Console.WriteLine(value.Length)
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void GetTypeInfo_CatchAssignmentInvalidatesJoinedFact()
+    {
+        const string source = """
+            func Length(input: string?) -> int {
+                var value: string? = input
+                if value is null {
+                    return 0
+                }
+
+                try {
+                } catch {
+                    value = null
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single().Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void GetTypeInfo_FinallyAssignmentInvalidatesJoinedFact()
+    {
+        const string source = """
+            func Length(input: string?) -> int {
+                var value: string? = input
+                if value is null {
+                    return 0
+                }
+
+                try {
+                } finally {
+                    value = null
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single().Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GetTypeInfo_ReportsNotNullAfterWhileNullGuardWithoutEarlyLoopExit(bool diagnosticsFirst)
     {
         const string source = """
