@@ -11299,8 +11299,8 @@ partial class BlockBinder : Binder
     private bool TryGetNullCheckFlow(
         BoundExpression condition,
         out ISymbol symbol,
-        out bool nonNullWhenTrue,
-        out bool nonNullWhenFalse)
+        out bool? nonNullWhenTrue,
+        out bool? nonNullWhenFalse)
     {
         condition = UnwrapFlowExpression(condition);
 
@@ -11324,31 +11324,37 @@ partial class BlockBinder : Binder
 
         if (condition is BoundIsPatternExpression isPattern &&
             TryGetFlowSymbol(isPattern.Expression, out symbol) &&
-            TryGetNullPatternFlow(isPattern.Pattern, out var patternNonNullWhenTrue))
+            TryGetNullPatternFlow(isPattern.Pattern, out nonNullWhenTrue, out nonNullWhenFalse))
         {
-            nonNullWhenTrue = patternNonNullWhenTrue;
-            nonNullWhenFalse = !patternNonNullWhenTrue;
             return true;
         }
 
         symbol = null!;
-        nonNullWhenTrue = false;
-        nonNullWhenFalse = false;
+        nonNullWhenTrue = null;
+        nonNullWhenFalse = null;
         return false;
     }
 
-    private static bool TryGetNullPatternFlow(BoundPattern pattern, out bool nonNullWhenTrue)
+    private static bool TryGetNullPatternFlow(
+        BoundPattern pattern,
+        out bool? nonNullWhenTrue,
+        out bool? nonNullWhenFalse)
     {
         if (pattern is BoundConstantPattern constantPattern && constantPattern.ConstantValue is null)
         {
             nonNullWhenTrue = false;
+            nonNullWhenFalse = true;
             return true;
         }
 
         if (pattern is BoundNotPattern notPattern &&
-            TryGetNullPatternFlow(notPattern.Pattern, out var operandNonNullWhenTrue))
+            TryGetNullPatternFlow(
+                notPattern.Pattern,
+                out var operandNonNullWhenTrue,
+                out var operandNonNullWhenFalse))
         {
-            nonNullWhenTrue = !operandNonNullWhenTrue;
+            nonNullWhenTrue = operandNonNullWhenFalse;
+            nonNullWhenFalse = operandNonNullWhenTrue;
             return true;
         }
 
@@ -11356,16 +11362,19 @@ partial class BlockBinder : Binder
             !declarationPattern.DeclaredType.IsNullable)
         {
             nonNullWhenTrue = true;
+            nonNullWhenFalse = null;
             return true;
         }
 
         if (pattern is BoundPropertyPattern or BoundDeconstructPattern)
         {
             nonNullWhenTrue = true;
+            nonNullWhenFalse = null;
             return true;
         }
 
-        nonNullWhenTrue = false;
+        nonNullWhenTrue = null;
+        nonNullWhenFalse = null;
         return false;
     }
 

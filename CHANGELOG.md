@@ -121,6 +121,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   now narrow nullable scrutinees in public flow information and diagnostics.
 - Successful nominal deconstruction patterns now likewise publish a non-null
   scrutinee within their true branch.
+- Pattern mismatch now preserves a previously established non-null fact unless
+  the pattern proves the scrutinee null, keeping cold and diagnostics-first
+  semantic queries consistent across nested guards.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser

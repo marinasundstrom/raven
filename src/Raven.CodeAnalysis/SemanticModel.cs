@@ -9804,10 +9804,14 @@ public partial class SemanticModel
         if (typeInfo.Type?.IsNullable != true && typeInfo.ConvertedType?.IsNullable != true)
             return typeInfo;
 
-        var boundExpression = TryGetCachedBoundNode(expression) as BoundExpression;
-        if (boundExpression is null || IsLikelyStaleFunctionBodyNode(boundExpression))
+        BoundExpression? boundExpression = null;
+        if (!TryBindInterestRegion(
+                expression,
+                out boundExpression,
+                includeExtendedExecutableRoots: true))
         {
-            if (!TryBindInterestRegion(expression, out boundExpression))
+            boundExpression = TryGetCachedBoundNode(expression) as BoundExpression;
+            if (boundExpression is null || IsLikelyStaleFunctionBodyNode(boundExpression))
                 return typeInfo;
         }
 
@@ -12678,9 +12682,12 @@ public partial class SemanticModel
         return true;
     }
 
-    private bool TryBindInterestRegion(ExpressionSyntax expression, out BoundExpression boundExpression)
+    private bool TryBindInterestRegion(
+        ExpressionSyntax expression,
+        out BoundExpression boundExpression,
+        bool includeExtendedExecutableRoots = false)
     {
-        var regionRoot = GetInterestBindingRoot(expression, includeExtendedExecutableRoots: false);
+        var regionRoot = GetInterestBindingRoot(expression, includeExtendedExecutableRoots);
 
         if (regionRoot is not null)
         {

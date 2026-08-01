@@ -286,6 +286,9 @@ Property-pattern success also establishes a non-null scrutinee, matching the
 runtime meaning of both typed property patterns and the empty `{ }` pattern.
 Nominal deconstruction patterns establish the same fact before their
 deconstruction method is invoked.
+Pattern flow distinguishes adding, removing, and preserving a nullability fact.
+A type or shape mismatch does not make an already non-null scrutinee nullable;
+only a branch that proves a null match removes the fact.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
