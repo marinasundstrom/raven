@@ -632,6 +632,9 @@ internal partial class ExpressionGenerator
         if (pattern is BoundPositionalPattern tuplePattern)
         {
             var isSequencePattern = tuplePattern.IsSequence;
+            if (isSequencePattern)
+                inputType = inputType.StripNullable();
+
             var positionalInputType = tuplePattern.Type;
             var recoversSequenceTypeFromObject =
                 isSequencePattern &&

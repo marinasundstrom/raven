@@ -1157,6 +1157,7 @@ internal partial class BlockBinder
     private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
+        inputType = inputType.StripNullable();
 
         if (inputType.TypeKind == TypeKind.Error)
             return false;

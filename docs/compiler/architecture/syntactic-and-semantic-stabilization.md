@@ -294,6 +294,9 @@ establishes that fact for the successful combined pattern.
 For disjunctive patterns, every successful alternative must require non-null
 before the combined true path narrows; the false path may use a guarantee shared
 by the required operand failures.
+Sequence patterns follow the same recursive-pattern rule as property and
+deconstruction patterns: nullable reference inputs are accepted, `null` does
+not match, and success establishes non-null flow.
 
 The .NET boundary is an ABI contract rather than an implementation detail.
 Raven must consume and emit the platform's nullable metadata conventions in
