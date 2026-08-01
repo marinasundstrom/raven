@@ -332,7 +332,8 @@ public partial class SemanticModel
             symbol,
             declaration.TypeParameterList,
             declaration.ConstraintClauses,
-            declaration.SyntaxTree);
+            declaration.SyntaxTree,
+            _declarationDiagnostics);
         ResolveMacroFunctionConstraintTypes(symbol);
 
         if (declaration.ReturnType is { } returnTypeSyntax)

@@ -16,6 +16,8 @@ internal static class TypeParameterInitializer
         SyntaxTree syntaxTree,
         DiagnosticBag? diagnostics = null)
     {
+        ReportUnknownConstraintClauseTypeParameters(typeParameterList, constraintClauses, diagnostics);
+
         if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
             return;
 
@@ -88,6 +90,8 @@ internal static class TypeParameterInitializer
         SyntaxTree syntaxTree,
         DiagnosticBag? diagnostics = null)
     {
+        ReportUnknownConstraintClauseTypeParameters(typeParameterList, constraintClauses, diagnostics);
+
         if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
             return;
 
@@ -104,25 +108,6 @@ internal static class TypeParameterInitializer
                     clausesByName[name] = list = new List<TypeParameterConstraintClauseSyntax>();
 
                 list.Add(clause);
-            }
-        }
-
-        // Optional validation: clause refers to an unknown type parameter / duplicates etc.
-        if (diagnostics is not null && clausesByName is not null)
-        {
-            var declared = new HashSet<string>(
-                typeParameterList.Parameters.Select(p => p.Identifier.ValueText),
-                StringComparer.Ordinal);
-
-            foreach (var (name, list) in clausesByName)
-            {
-                if (!declared.Contains(name))
-                {
-                    // TODO: diagnostics.Report... UnknownTypeParameterInConstraintClause(...)
-                }
-
-                // If you want to forbid multiple clauses per parameter:
-                // if (list.Count > 1) diagnostics.Report... DuplicateConstraintClause(...)
             }
         }
 
@@ -176,8 +161,11 @@ internal static class TypeParameterInitializer
         SourceMacroFunctionSymbol macroFunctionSymbol,
         TypeParameterListSyntax? typeParameterList,
         SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
-        SyntaxTree syntaxTree)
+        SyntaxTree syntaxTree,
+        DiagnosticBag? diagnostics = null)
     {
+        ReportUnknownConstraintClauseTypeParameters(typeParameterList, constraintClauses, diagnostics);
+
         if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
             return;
 
@@ -234,6 +222,28 @@ internal static class TypeParameterInitializer
         }
 
         macroFunctionSymbol.SetTypeParameters(builder.ToImmutable());
+    }
+
+    internal static void ReportUnknownConstraintClauseTypeParameters(
+        TypeParameterListSyntax? typeParameterList,
+        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
+        DiagnosticBag? diagnostics)
+    {
+        if (diagnostics is null || constraintClauses.Count == 0)
+            return;
+
+        var declared = typeParameterList is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : new HashSet<string>(
+                typeParameterList.Parameters.Select(static parameter => parameter.Identifier.ValueText),
+                StringComparer.Ordinal);
+
+        foreach (var clause in constraintClauses)
+        {
+            var name = clause.TypeParameter.Identifier.ValueText;
+            if (!declared.Contains(name))
+                diagnostics.ReportUnknownTypeParameterInConstraintClause(name, clause.TypeParameter.GetLocation());
+        }
     }
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)

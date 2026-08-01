@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   contextual binding before falling back to the visible open declaration. This
   keeps inferred method symbols stable across cold queries, diagnostic queries,
   and workspace edits.
+- Constraint clauses that name undeclared type parameters now report `RAV0360`
+  for functions, methods, function expressions, and macro functions instead of
+  being silently ignored.
 - Removed the obsolete `TypeUnionSymbol`, `ITypeUnionSymbol`, and
   `TypeKind.TypeUnion` compiler API and all associated conversion, inference,
   exhaustiveness, emission, analyzer, and language-service behavior. Raven's

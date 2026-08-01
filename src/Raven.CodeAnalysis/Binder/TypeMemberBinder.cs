@@ -4539,6 +4539,11 @@ internal partial class TypeMemberBinder : Binder
         SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
         SyntaxTree syntaxTree)
     {
+        TypeParameterInitializer.ReportUnknownConstraintClauseTypeParameters(
+            typeParameterList,
+            constraintClauses,
+            _diagnostics);
+
         var hasDeclared = typeParameterList is { Parameters.Count: > 0 };
         var hasExtension = IsExtensionContainer && !_containingType.TypeParameters.IsDefaultOrEmpty;
 

@@ -283,6 +283,10 @@
     Title="Scoped parameter does not match partial definition"
     Message="The scoped modifier of parameter '{parameterName}' does not match the partial definition"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0360" Identifier="UnknownTypeParameterInConstraintClause"
+    Title="Constraint clause names an unknown type parameter"
+    Message="Type parameter '{typeParameterName}' is not declared by this function or member"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"
