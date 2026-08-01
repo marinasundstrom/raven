@@ -26,7 +26,9 @@ typeInfo.Nullability.FlowState
 `NullableTypeSymbol` represents a declared nullable type. Flow analysis may
 report that an expression is currently not null, but it does not replace or
 mutate that declared symbol. The same contract applies to `ConvertedType` and
-`ConvertedNullability`.
+`ConvertedNullability`. This public semantic shape is identical for nullable
+reference and value types. Their different CLR representations are only an ABI
+and code-generation concern.
 
 ### 2) Treat missing nullable metadata as nullable by default
 When a referenced symbol lacks nullable context, assume it is nullable for analysis:

@@ -9,7 +9,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`
   helpers, and `WithNullableAnnotation` provides an immutable, idempotent
   declared-annotation transform. `TypeInfo` continues to report contextual flow
-  separately from the declared type symbol.
+  separately from the declared type symbol, using the same semantic shape for
+  nullable reference and value types.
 - Metadata loading now preserves non-null owner and type contracts for PE field,
   property, event, and method symbols, using the compiler error type for
   unreadable referenced signatures. Non-constant PE fields now return no

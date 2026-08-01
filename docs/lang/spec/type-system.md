@@ -182,6 +182,16 @@ let count: int? = 1
 * Nullable and non-nullable forms are distinct for type identity and overload
   resolution.
 * `T?` is the canonical nullable form in Raven.
+* The semantic model represents `T?` uniformly for reference and value types:
+  `TypeInfo.Type` retains the declared nullable type, while
+  `TypeInfo.Nullability.FlowState` reports what is known about the current
+  value. Flow narrowing never replaces the declared type symbol.
+* Whether the underlying `T` is a reference type or value type affects the .NET
+  ABI representation, not Raven nullability analysis or its public semantic
+  shape.
+* Explicit `System.Nullable<T>` syntax remains an interop escape hatch for
+  accessing the CLR wrapper and its members. It is not the canonical Raven
+  representation of `T?`.
 * Postfix `expr!` treats the operand as non-null for the annotated expression
   and reports warning `RAV0403` on the full `<expr>!` expression.
 

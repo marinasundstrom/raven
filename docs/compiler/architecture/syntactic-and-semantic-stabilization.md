@@ -258,6 +258,11 @@ and null guards therefore report `NotNull` through the public semantic model in
 both cold and diagnostics-first query orders, matching the state already used
 by binding and nullable-access diagnostics.
 
+This contract is deliberately uniform across reference and value types. Both
+`string?` and `int?` remain declared nullable symbols when narrowed, and both
+publish the contextual `NotNull` fact through `Nullability.FlowState`. Their
+different .NET runtime encodings must not leak into semantic analysis.
+
 The remaining conformance matrix needs joins, loops, richer pattern tests,
 nullable unions, and incremental edits that change control flow.
 
