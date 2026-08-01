@@ -3590,7 +3590,11 @@ partial class BlockBinder
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
     {
-        return BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
+        var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
+        if (bound is BoundAssignmentExpression assignment)
+            ClearNullableFlowOnAssignment(assignment);
+
+        return bound;
     }
 
     private BoundExpression ConvertValueForAssignment(BoundExpression value, ITypeSymbol targetType, SyntaxNode syntax)

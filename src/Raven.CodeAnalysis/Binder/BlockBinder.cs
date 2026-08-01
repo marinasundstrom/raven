@@ -58,6 +58,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<ExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new ExpressionSyntaxStructuralComparer());
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
+    private readonly Stack<LoopNullFlowContext> _loopNullFlowContexts = new();
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
     private readonly InvocationResolver _invocationResolver;
     private readonly BlockDeclarationState _declarationState = new();
@@ -74,6 +75,11 @@ partial class BlockBinder : Binder
     private int _unsafeBlockDepth;
     private int _semanticQueryScopeDepth;
     private SyntaxKind _ambientPatternDeclarationBindingKeyword;
+
+    private sealed class LoopNullFlowContext
+    {
+        public List<HashSet<ISymbol>> BreakStates { get; } = new();
+    }
 
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
     private bool IsInWithInitializer => _withInitializerDepth > 0;
@@ -8189,7 +8195,10 @@ partial class BlockBinder : Binder
         return field is not null;
     }
 
-    private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax, bool allowEventAccess = false)
+    private BoundExpression BindIdentifierName(
+        IdentifierNameSyntax syntax,
+        bool allowEventAccess = false,
+        bool applyFlowNarrowing = true)
     {
         var name = syntax.Identifier.ValueText;
 
@@ -8242,13 +8251,13 @@ partial class BlockBinder : Binder
             }
 
             var b = new BoundLocalAccess(localEarly);
-            return UnwrapNullableIfKnownNonNull(b, localEarly);
+            return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(b, localEarly) : b;
         }
 
         if (symbol is IParameterSymbol paramEarly)
         {
             var p = new BoundParameterAccess(paramEarly);
-            return UnwrapNullableIfKnownNonNull(p, paramEarly);
+            return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(p, paramEarly) : p;
         }
 
         if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out var memberExpr))
@@ -8415,10 +8424,10 @@ partial class BlockBinder : Binder
                 return new BoundMemberAccessExpression(null, @event);
             case ILocalSymbol local:
                 var b = new BoundLocalAccess(local);
-                return UnwrapNullableIfKnownNonNull(b, local);
+                return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(b, local) : b;
             case IParameterSymbol param:
                 var p = new BoundParameterAccess(param);
-                return UnwrapNullableIfKnownNonNull(p, param);
+                return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(p, param) : p;
             case IFieldSymbol field:
                 {
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
@@ -8426,7 +8435,7 @@ partial class BlockBinder : Binder
 
                     ReportObsoleteIfNeeded(field, syntax.Identifier.GetLocation());
                     var f = new BoundFieldAccess(field);
-                    return UnwrapNullableIfKnownNonNull(f, field);
+                    return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(f, field) : f;
                 }
             case IPropertySymbol prop:
                 {
@@ -8438,11 +8447,11 @@ partial class BlockBinder : Binder
                     if (TryGetFieldOnlyPropertyBackingField(prop, out var fieldSymbol))
                     {
                         var f = new BoundFieldAccess(fieldSymbol);
-                        return UnwrapNullableIfKnownNonNull(f, fieldSymbol);
+                        return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(f, fieldSymbol) : f;
                     }
 
                     var p2 = new BoundPropertyAccess(prop);
-                    return UnwrapNullableIfKnownNonNull(p2, prop);
+                    return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(p2, prop) : p2;
                 }
             default:
                 {
@@ -11434,6 +11443,29 @@ partial class BlockBinder : Binder
         return result;
     }
 
+    private static HashSet<ISymbol> IntersectFlowStates(
+        HashSet<ISymbol> initial,
+        IReadOnlyList<HashSet<ISymbol>> additionalStates)
+    {
+        var result = new HashSet<ISymbol>(initial, SymbolEqualityComparer.Default);
+        foreach (var state in additionalStates)
+            result.IntersectWith(state);
+
+        return result;
+    }
+
+    private static HashSet<ISymbol> IntersectFlowStates(IReadOnlyList<HashSet<ISymbol>> states)
+    {
+        if (states.Count == 0)
+            return new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        var result = new HashSet<ISymbol>(states[0], SymbolEqualityComparer.Default);
+        for (var i = 1; i < states.Count; i++)
+            result.IntersectWith(states[i]);
+
+        return result;
+    }
+
     private static bool IsErrorExpression(BoundExpression expression)
         => expression is BoundErrorExpression;
 
@@ -12627,7 +12659,10 @@ partial class BlockBinder : Binder
     {
         var bound = syntax switch
         {
-            IdentifierNameSyntax identifier => BindIdentifierName(identifier, allowEventAccess: true),
+            IdentifierNameSyntax identifier => BindIdentifierName(
+                identifier,
+                allowEventAccess: true,
+                applyFlowNarrowing: false),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess, allowEventAccess: true),
             MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding, allowEventAccess: true),
             _ => BindExpression(syntax)

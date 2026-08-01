@@ -314,6 +314,14 @@ Break ownership follows the nearest loop, so a nested loop's break does not
 erase facts from the enclosing loop. Cold queries bind the enclosing loop to
 preserve the same context.
 
+Loop back-edges now invalidate facts for mutable locals and parameters assigned
+on a path that can continue iterating. `break` exits carry the null state at the
+transfer point and multiple exits are intersected, while mutations followed by
+an unconditional exit do not pollute an earlier body use. Assignment binding
+uses the declared writable target rather than its flow-narrowed read shape; a
+narrowed nullable local can therefore be assigned `null`, after which both
+diagnostics and `TypeInfo` report it as maybe-null.
+
 Incremental workspace coverage changes a `while` condition between `is not
 null` and `is null`, then restores it. Public `TypeInfo` flow state and
 possible-null diagnostics must update together in all three snapshots.
