@@ -803,6 +803,12 @@ is broken. Later declarations and uses must continue to bind. Repeat this for
 top-level functions, methods, accessors, constructors, local functions, macro
 functions, types, extensions, and union cases.
 
+Namespace-level generic functions now have focused isolation coverage. A body
+error does not prevent a valid sibling from being explicitly constructed, and
+an invalid constraint clause naming a missing type parameter does not poison
+sibling lookup. Both diagnostics-first and symbol-first queries keep the
+selected constructed sibling and confine errors to the broken declaration.
+
 ### Behavioral conformance
 
 Prefer observable language behavior and public compiler APIs over assertions
@@ -820,20 +826,24 @@ The highest remaining risks after the current stabilization batch are:
    a three-layer invariant, but the source/PE named-type `MetadataName` contract
    remains inconsistent. Continue boundary invariants and settle that API
    before considering a central construction redesign.
-2. **Flow fixed points (high)** — branch and common loop exits are covered, but
-   the binder-owned non-null set is not yet a general control-flow fixed-point
-   engine. Prioritize mutation inside loops, exceptional edges, and joins that
-   mix abrupt and completing paths.
+2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
+   try/catch/finally joins are covered, but the binder-owned non-null set is not
+   yet a general control-flow fixed-point engine. Prioritize nested cycles,
+   labeled transfers, and joins that mix abrupt and completing exceptional
+   paths.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage; conversion ranking and less common inference
    forms still need a matrix.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
-   now consume `MaybeNull` and `NotNullWhen` without splitting reference and
-   value semantics. Remaining .NET flow attributes, by-reference contracts,
-   generic constraints, and emit/consume round trips need equivalent coverage.
-5. **Incremental declaration isolation (high)** — ordinary declarations have
-   stronger query-order coverage than macro partitions. Broken signatures and
+   now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
+   by-reference postconditions without splitting reference and value semantics.
+   `AllowNull`, `DisallowNull`, `MaybeNullWhen`, member postconditions, generic
+   constraints, and Raven emit/C# consume round trips still need equivalent
+   coverage.
+5. **Incremental declaration isolation (high)** — ordinary and generic namespace
+   functions have body/signature query-order coverage, but macro partitions and
+   other declaration families remain less complete. Broken signatures and
    bodies must never contaminate unrelated declarations or replace local errors
    with invocation-site resolution failures.
 

@@ -118,6 +118,78 @@ func Main() -> int {
         AssertErrorsAreConfinedTo(updatedCompilation, functions["Broken"].Span);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BrokenGenericFunctionBody_DoesNotInvalidateConstructedSibling(bool diagnosticsFirst)
+    {
+        const string source = """
+func Broken<T>(value: T) -> T {
+    missingValue
+}
+
+func Stable<T>(value: T) -> T {
+    value
+}
+
+func Main() -> int {
+    Stable<int>(21)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var model = compilation.GetSemanticModel(tree);
+        var functions = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .ToDictionary(static function => function.Identifier.ValueText);
+        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.ConstructedFrom));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.TypeArguments).SpecialType);
+        AssertErrorsAreConfinedTo(compilation, functions["Broken"].Span);
+    }
+
+    [Fact]
+    public void BrokenGenericConstraintClause_DoesNotInvalidateSiblingLookup()
+    {
+        const string source = """
+func Broken<T>(value: T) -> T
+    where Missing: struct {
+    value
+}
+
+func Stable<T>(value: T) -> T {
+    value
+}
+
+func Main() -> int {
+    Stable<int>(21)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var functions = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .ToDictionary(static function => function.Identifier.ValueText);
+        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.ConstructedFrom));
+        AssertErrorsAreConfinedTo(compilation, functions["Broken"].Span);
+    }
+
     private static void AssertErrorsAreConfinedTo(Compilation compilation, TextSpan brokenSpan)
     {
         var errors = compilation.GetDiagnostics()
