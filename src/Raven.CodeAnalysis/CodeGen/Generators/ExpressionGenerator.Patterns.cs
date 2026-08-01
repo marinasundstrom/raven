@@ -574,7 +574,7 @@ internal partial class ExpressionGenerator
                 return;
             }
 
-            throw new NotSupportedException("Unsupported unary pattern kind");
+            throw new InvalidOperationException($"Unexpected bound unary pattern kind '{unaryPattern.Kind}'.");
         }
 
         if (pattern is BoundBinaryPattern binaryPattern)
@@ -626,7 +626,7 @@ internal partial class ExpressionGenerator
                 return;
             }
 
-            throw new NotSupportedException("Unsupported binary pattern kind");
+            throw new InvalidOperationException($"Unexpected bound binary pattern kind '{binaryPattern.Kind}'.");
         }
 
         if (pattern is BoundPositionalPattern tuplePattern)
@@ -768,7 +768,7 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        throw new NotSupportedException($"Unsupported pattern");
+        throw new InvalidOperationException($"Unexpected bound pattern type '{pattern.GetType().Name}'.");
     }
 
     private void EmitArrayCollectionPattern(BoundPositionalPattern pattern, IArrayTypeSymbol arrayType, Generator scope)
@@ -2680,7 +2680,7 @@ internal partial class ExpressionGenerator
         if (designation is BoundDiscardDesignator)
             return null;
 
-        throw new NotSupportedException("Unsupported designation");
+        throw new InvalidOperationException($"Unexpected bound designation type '{designation.GetType().Name}'.");
     }
 
     private void EmitPatternDesignator(BoundDesignator? designator, IILocal sourceLocal, Generator scope)
@@ -3204,7 +3204,7 @@ internal partial class ExpressionGenerator
                 return;
             }
 
-            throw new NotSupportedException("Unsupported unary pattern kind");
+            throw new InvalidOperationException($"Unexpected bound unary pattern kind '{unaryPattern.Kind}'.");
         }
 
         if (pattern is BoundBinaryPattern binaryPattern)
@@ -3240,7 +3240,7 @@ internal partial class ExpressionGenerator
                 return;
             }
 
-            throw new NotSupportedException("Unsupported binary pattern kind");
+            throw new InvalidOperationException($"Unexpected bound binary pattern kind '{binaryPattern.Kind}'.");
         }
 
         // Unary/binary/tuple/property/deconstruct: fall back to bool form for now.

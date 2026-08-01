@@ -468,6 +468,12 @@ produce an invalid-term diagnostic and bound error pattern for unknown general,
 comparison, unary, and binary forms rather than reaching a
 `NotImplementedException`.
 
+Pattern emission runs only after error diagnostics have prevented invalid bound
+trees from reaching code generation. Its remaining totality checks therefore
+name the unexpected bound pattern, designation, or operator kind as an internal
+invariant violation; they are not user-facing claims that a valid Raven pattern
+is unsupported.
+
 The remaining root-binder function path is an ownership invariant, not an
 unimplemented language feature. Function statements are bound by their
 executable block binder; reaching the root now reports that invariant as an
