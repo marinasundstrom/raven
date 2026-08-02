@@ -405,6 +405,14 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
     private bool AnalyzeTryStatement(TryStatementSyntax tryStatement, bool isReachable)
     {
+        List<(LoopContext Context, bool Before)>? loopBreakStates = null;
+        if (tryStatement.FinallyClause is not null && _loopContexts.Count > 0)
+        {
+            loopBreakStates = new List<(LoopContext Context, bool Before)>(_loopContexts.Count);
+            foreach (var context in _loopContexts)
+                loopBreakStates.Add((context, context.HasReachableBreak));
+        }
+
         var tryReachable = AnalyzeStatement(tryStatement.Block, isReachable);
         var reachesEnd = tryReachable;
 
@@ -419,9 +427,28 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
         if (tryStatement.FinallyClause is { } finallyClause)
         {
+            bool[]? pendingBreaks = null;
+            if (loopBreakStates is not null)
+            {
+                pendingBreaks = new bool[loopBreakStates.Count];
+                for (var index = 0; index < loopBreakStates.Count; index++)
+                {
+                    var (context, before) = loopBreakStates[index];
+                    pendingBreaks[index] = context.HasReachableBreak;
+                    context.HasReachableBreak = before;
+                }
+            }
+
             var finallyReachesEnd = AnalyzeStatement(finallyClause.Block, isReachable);
-            if (!finallyReachesEnd)
+            if (finallyReachesEnd && loopBreakStates is not null && pendingBreaks is not null)
+            {
+                for (var index = 0; index < loopBreakStates.Count; index++)
+                    loopBreakStates[index].Context.HasReachableBreak |= pendingBreaks[index];
+            }
+            else if (!finallyReachesEnd)
+            {
                 reachesEnd = false;
+            }
         }
 
         _endPointIsReachable = reachesEnd;

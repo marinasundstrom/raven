@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Control-flow analysis now lets an abrupt `finally` replace pending loop
+  transfers before publishing exits. A `continue` in `finally` therefore
+  suppresses an enclosed `break` instead of making a non-completing loop appear
+  to have a reachable endpoint.
 - An abrupt `finally` now suppresses enclosed loop transfers during null-flow
   back-edge analysis. Mutations before a `continue` that is replaced by a
   `return` or `throw` in `finally` no longer weaken an unreachable next

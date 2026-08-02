@@ -244,6 +244,45 @@ func Main() {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnreachableCodeDetected);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnalyzeControlFlow_FinallyContinueReplacesBreakAndKeepsLoopNonCompleting(bool diagnosticsFirst)
+    {
+        const string source = """
+func Main() {
+    loop {
+        try {
+            break
+        } finally {
+            continue
+        }
+    }
+
+    let unreachable = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+        var diagnostics = compilation.GetDiagnostics();
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+        diagnostics.ShouldContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnreachableCodeDetected);
+    }
+
     [Fact]
     public void AnalyzeControlFlow_NonTerminatingLoop_MakesFollowingStatementUnreachable()
     {
