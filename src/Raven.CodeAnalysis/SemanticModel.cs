@@ -10039,15 +10039,16 @@ public partial class SemanticModel
 
     private TypeInfo ApplyAvailableFlowNullability(ExpressionSyntax expression, TypeInfo typeInfo)
     {
-        BoundExpression? boundExpression = null;
-        if (!TryBindInterestRegion(
-                expression,
-                out boundExpression,
-                includeExtendedExecutableRoots: true))
+        var boundExpression = TryGetCachedBoundNode(expression) as BoundExpression;
+        if (boundExpression is null || IsLikelyStaleFunctionBodyNode(boundExpression))
         {
-            boundExpression = TryGetCachedBoundNode(expression) as BoundExpression;
-            if (boundExpression is null || IsLikelyStaleFunctionBodyNode(boundExpression))
+            if (!TryBindInterestRegion(
+                    expression,
+                    out boundExpression,
+                    includeExtendedExecutableRoots: true))
+            {
                 return typeInfo;
+            }
         }
 
         var flowType = GetNullabilityFlowType(boundExpression, typeInfo.Type);

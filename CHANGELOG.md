@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Type-info queries now reuse current bound expressions before rebinding an
+  enclosing executable region for null-flow state. This preserves lazy root
+  binding after document diagnostics while retaining contextual nullability.
 - Hover-shaped type queries now tolerate bound expressions without a published
   null-flow type, preserving the declared type instead of throwing while
   diagnostics are being produced incrementally.
