@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- User-defined conversion classification now selects an exact source or target
+  operator independently of declaration and semantic-query order instead of
+  returning the first applicable member. Competing candidates are compared on
+  both standard-conversion legs, while exact implicit operators retain a fast
+  path for reference-heavy builds.
 - Nullability-flow wrappers now lower through their underlying expression
   instead of disappearing during bound-tree rewriting. Narrowed values remain
   valid as invocation arguments and match scrutinees through emission, while

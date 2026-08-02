@@ -1207,6 +1207,13 @@ wrapper around the constructed `Box<string>` view in either query order.
    wrapper: `int?` selects `long?` over `double?`, independent of declaration
    and query order. Nullable wrapping does not introduce a second ranking
    policy.
+   User-defined conversion classification now compares every applicable
+   candidate on its standard source and target legs. Exact source and exact
+   target operators win independently of declaration and semantic-query order;
+   candidates that improve conflicting legs remain ambiguous instead of being
+   selected by member enumeration order. Exact implicit conversions retain a
+   bounded fast path so deterministic selection does not turn global extension
+   conversion discovery into a build-time penalty.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
    by-reference postconditions without splitting reference and value semantics;

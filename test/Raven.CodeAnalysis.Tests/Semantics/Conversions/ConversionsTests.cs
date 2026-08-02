@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -256,5 +257,181 @@ public class ConversionsTests : CompilationTestBase
         Assert.False(explicitConversion.IsImplicit);
         Assert.True(explicitConversion.IsUserDefined);
         Assert.NotNull(explicitConversion.MethodSymbol);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void UserDefinedConversion_PrefersExactTargetRegardlessOfDeclarationOrQueryOrder(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        const string targetDeclaration = """
+open class Target {
+    static func implicit(value: Source) -> Target { return default! }
+}
+
+class Specific : Target {}
+""";
+        const string sourceDeclaration = """
+class Source {
+    static func implicit(value: Source) -> Specific { return default! }
+}
+""";
+        var first = reverseDeclarations ? sourceDeclaration : targetDeclaration;
+        var second = reverseDeclarations ? targetDeclaration : sourceDeclaration;
+        var source = $$"""
+{{first}}
+{{second}}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var conversion = compilation.ClassifyConversion(sourceType, targetType);
+
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        Assert.True(SymbolEqualityComparer.Default.Equals(targetType, conversion.MethodSymbol?.ReturnType));
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void UserDefinedConversion_PrefersExactSourceRegardlessOfDeclarationOrQueryOrder(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        var first = reverseDeclarations
+            ? "static func implicit(value: Source) -> Target { return default! }"
+            : "static func implicit(value: BaseSource) -> Target { return default! }";
+        var second = reverseDeclarations
+            ? "static func implicit(value: BaseSource) -> Target { return default! }"
+            : "static func implicit(value: Source) -> Target { return default! }";
+        var source = $$"""
+open class BaseSource {}
+class Source : BaseSource {}
+
+class Target {
+    {{first}}
+    {{second}}
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var conversion = compilation.ClassifyConversion(sourceType, targetType);
+
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            sourceType,
+            conversion.MethodSymbol?.Parameters.Single().Type));
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void UserDefinedConversion_ConflictingSourceAndTargetAdvantagesAreAmbiguous(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        const string targetDeclarations = """
+open class Target {
+    static func implicit(value: BaseSource) -> Target { return default! }
+}
+
+class Specific : Target {}
+""";
+        const string sourceDeclarations = """
+open class BaseSource {}
+
+class Source : BaseSource {
+    static func implicit(value: Source) -> Specific { return default! }
+}
+""";
+        var first = reverseDeclarations ? sourceDeclarations : targetDeclarations;
+        var second = reverseDeclarations ? targetDeclarations : sourceDeclarations;
+        var source = $$"""
+{{first}}
+{{second}}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var conversion = compilation.ClassifyConversion(sourceType, targetType);
+
+        Assert.False(conversion.Exists);
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UserDefinedConversion_ExactTargetSelectionMatchesEmittedMetadata(bool diagnosticsFirst)
+    {
+        const string librarySource = """
+public open class Target {
+    static func implicit(value: Source) -> Target { return default! }
+}
+
+public class Specific : Target {}
+
+public class Source {
+    static func implicit(value: Source) -> Specific { return default! }
+}
+""";
+        var reference = TestMetadataFactory.CreateFromSource(
+            librarySource,
+            "user_defined_conversion_library");
+        var compilation = Compilation.Create(
+            "user_defined_conversion_consumer",
+            [],
+            [.. TestMetadataReferences.Default, reference],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var conversion = compilation.ClassifyConversion(sourceType, targetType);
+
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        Assert.True(SymbolEqualityComparer.Default.Equals(targetType, conversion.MethodSymbol?.ReturnType));
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 }

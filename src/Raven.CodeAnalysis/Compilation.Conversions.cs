@@ -558,6 +558,9 @@ public partial class Compilation
 
             candidateConversions = candidateConversions.Concat(GetExtensionConversionCandidates(source, destination));
 
+            var applicableConversions = ImmutableArray.CreateBuilder<IMethodSymbol>();
+            var seenConversions = new HashSet<IMethodSymbol>(ReferenceEqualityComparer.Instance);
+
             foreach (var method in candidateConversions)
             {
                 if (method.MethodKind is not MethodKind.Conversion ||
@@ -587,9 +590,25 @@ public partial class Compilation
                 if (sourceConvertible &&
                     ClassifyConversion(method.ReturnType, destination, includeUserDefined: false) is { Exists: true, IsImplicit: true })
                 {
-                    var isImplicit = method.Name == "op_Implicit";
-                    return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: method));
+                    if (method.Name == "op_Implicit" &&
+                        SymbolEqualityComparer.Default.Equals(source, method.Parameters[0].Type) &&
+                        SymbolEqualityComparer.Default.Equals(method.ReturnType, destination))
+                    {
+                        return Finalize(new Conversion(
+                            isImplicit: true,
+                            isUserDefined: true,
+                            methodSymbol: method));
+                    }
+
+                    if (seenConversions.Add(method))
+                        applicableConversions.Add(method);
                 }
+            }
+
+            if (SelectBestUserDefinedConversion(source, destination, applicableConversions) is { } bestConversion)
+            {
+                var isImplicit = bestConversion.Name == "op_Implicit";
+                return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: bestConversion));
             }
         }
 
@@ -821,6 +840,115 @@ public partial class Compilation
 
             return true;
         }
+    }
+
+    private IMethodSymbol? SelectBestUserDefinedConversion(
+        ITypeSymbol source,
+        ITypeSymbol destination,
+        ImmutableArray<IMethodSymbol>.Builder applicableConversions)
+    {
+        if (applicableConversions.Count == 0)
+            return null;
+
+        var implicitConversions = applicableConversions
+            .Where(static method => method.Name == "op_Implicit")
+            .ToImmutableArray();
+        var candidates = implicitConversions.IsEmpty
+            ? applicableConversions.ToImmutable()
+            : implicitConversions;
+
+        if (candidates.Length == 1)
+            return candidates[0];
+
+        IMethodSymbol? best = null;
+        foreach (var candidate in candidates)
+        {
+            var dominatesEveryOtherCandidate = true;
+            foreach (var other in candidates)
+            {
+                if (ReferenceEquals(candidate, other) ||
+                    SymbolEqualityComparer.Default.Equals(candidate, other))
+                {
+                    continue;
+                }
+
+                if (!IsBetterUserDefinedConversion(candidate, other, source, destination))
+                {
+                    dominatesEveryOtherCandidate = false;
+                    break;
+                }
+            }
+
+            if (!dominatesEveryOtherCandidate)
+                continue;
+
+            if (best is not null && !SymbolEqualityComparer.Default.Equals(best, candidate))
+                return null;
+
+            best = candidate;
+        }
+
+        return best;
+    }
+
+    private bool IsBetterUserDefinedConversion(
+        IMethodSymbol candidate,
+        IMethodSymbol other,
+        ITypeSymbol source,
+        ITypeSymbol destination)
+    {
+        var sourceComparison = CompareUserDefinedSourceTypes(
+            candidate.Parameters[0].Type,
+            other.Parameters[0].Type,
+            source);
+        var targetComparison = CompareUserDefinedTargetTypes(
+            candidate.ReturnType,
+            other.ReturnType,
+            destination);
+
+        return sourceComparison <= 0 &&
+            targetComparison <= 0 &&
+            (sourceComparison < 0 || targetComparison < 0);
+    }
+
+    private int CompareUserDefinedSourceTypes(
+        ITypeSymbol candidate,
+        ITypeSymbol other,
+        ITypeSymbol source)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidate, other))
+            return 0;
+        if (SymbolEqualityComparer.Default.Equals(candidate, source))
+            return -1;
+        if (SymbolEqualityComparer.Default.Equals(other, source))
+            return 1;
+
+        var candidateToOther = ClassifyConversion(candidate, other, includeUserDefined: false).IsImplicit;
+        var otherToCandidate = ClassifyConversion(other, candidate, includeUserDefined: false).IsImplicit;
+        if (candidateToOther != otherToCandidate)
+            return candidateToOther ? -1 : 1;
+
+        return 0;
+    }
+
+    private int CompareUserDefinedTargetTypes(
+        ITypeSymbol candidate,
+        ITypeSymbol other,
+        ITypeSymbol destination)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidate, other))
+            return 0;
+        if (SymbolEqualityComparer.Default.Equals(candidate, destination))
+            return -1;
+        if (SymbolEqualityComparer.Default.Equals(other, destination))
+            return 1;
+
+        var candidateToOther = ClassifyConversion(candidate, other, includeUserDefined: false).IsImplicit;
+        var otherToCandidate = ClassifyConversion(other, candidate, includeUserDefined: false).IsImplicit;
+        if (candidateToOther != otherToCandidate)
+            return otherToCandidate ? -1 : 1;
+
+        return 0;
     }
 
     private bool TryClassifyCovariantReadOnlySpanConversion(
