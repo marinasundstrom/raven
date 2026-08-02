@@ -508,6 +508,77 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Equal("42", expansion!.Expression!.ToString());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InvalidGenericMacroConstraint_DoesNotInvalidateDeclarationsOrValidSibling(bool diagnosticsFirst)
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro func Broken<T>(value: T)
+                where U: struct {
+                expand value
+            }
+
+            macro func Double(value: int) {
+                let doubled = value * 2
+                expand SyntaxFactory.ParseExpression(doubled.ToString())
+            }
+
+            func Main() -> int {
+                let broken = Broken<int>!(40)
+                Double!(21)
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "InvalidGenericMacroConstraintConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var consumerModel = compilation.GetSemanticModel(consumerTree);
+        var macroModel = compilation.GetSemanticModel(
+            sourceTree,
+            sourceTree.GetText()!.ToString().IndexOf("macro func Broken", StringComparison.Ordinal));
+        var declarations = macroModel.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .ToDictionary(static declaration => declaration.Identifier.ValueText);
+        var invocations = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .ToArray();
+        var brokenInvocation = Assert.Single(invocations, expression =>
+            expression.Name.ToString() == "Broken<int>");
+        var doubleInvocation = Assert.Single(invocations, expression =>
+            expression.Name.ToString() == "Double");
+
+        var brokenDeclaration = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            macroModel.GetDeclaredSymbol(declarations["Broken"]));
+        var doubleDeclaration = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            macroModel.GetDeclaredSymbol(declarations["Double"]));
+        var brokenInvocationSymbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            consumerModel.GetSymbolInfo(brokenInvocation).Symbol);
+        var expansion = consumerModel.GetMacroExpansion(doubleInvocation);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal("Broken", brokenDeclaration.Name);
+        Assert.Equal("Broken", brokenInvocationSymbol.Name);
+        Assert.Equal("Double", doubleDeclaration.Name);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnknownTypeParameterInConstraintClause);
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM010");
+    }
+
     [Fact]
     public void MacroFunction_LetElseWithNonTerminatingLoop_UsesOrdinaryFlowAnalysis()
     {

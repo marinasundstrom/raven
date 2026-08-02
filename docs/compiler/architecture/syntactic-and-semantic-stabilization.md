@@ -297,6 +297,13 @@ body retains its valid signature, does not invalidate a valid sibling, and
 confines body diagnostics to the broken declaration. The ordinary-function
 coverage includes an incremental workspace edit.
 
+Macro isolation also includes declaration-level generic errors. An unknown
+type parameter in one macro's constraint clause leaves both authored macro
+symbols queryable, keeps the broken macro invocation resolved to its
+declaration, and permits a valid sibling to compile and expand. The constraint
+diagnostic is published without a downstream `RAVM010`, independent of whether
+diagnostics or semantic symbols are requested first.
+
 `if` expression branches now always use their dedicated local-scope binders;
 the previous broad exception fallback to the enclosing binder could silently
 change lookup and diagnostic behavior.
