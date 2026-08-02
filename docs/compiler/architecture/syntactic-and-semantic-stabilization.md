@@ -1179,9 +1179,11 @@ wrapper around the constructed `Box<string>` view in either query order.
    `finally` replaces the pending transfer and prevents mutations in the
    abandoned path from weakening a nonexistent next iteration. The public
    reachability analysis independently recognizes that replacement and marks
-   code following the resulting non-completing loop unreachable. Continue with
-   mixed loop/exception cycles rather than rechecking the covered single-cycle
-   forms.
+   code following the resulting non-completing loop unreachable. A nested
+   labeled `continue` passing through `finally` now has an explicit outer-loop
+   invariant as well: mutations in the finalizer reach the target loop's back
+   edge in either semantic-query order. Continue with mixed loop/exception
+   cycles rather than rechecking the covered single-cycle forms.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage. Equivalent constructed signatures now apply
