@@ -1059,6 +1059,12 @@ constructed outer type reanchors the inner view and substitutes outer and inner
 arguments into its members independently. Tests assert both halves so future
 construction work does not confuse definition identity with projected member
 ownership.
+Constraint views now follow the same rule. An inner parameter declared as
+`TInner : IBox<TOuter>` remains owned by the inner definition, but a lookup
+through `Outer<string>.Inner<TInner>` publishes `IBox<string>`. Constructor
+binding validates the final constructed type as a backstop for member-access
+paths that defer generic construction; consequently an invalid nested
+construction is rejected consistently from source and emitted metadata.
 Independent reconstruction of the same outer, nested, and method layers now
 also has an equality/hash invariant, including the final method's containing
 type. This catches substitution views that look correct but lose stable symbol

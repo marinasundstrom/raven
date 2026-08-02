@@ -1044,6 +1044,120 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedConstructedGenericMethod_SubstitutesDependentTypeAndMethodConstraints(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+            namespace NestedDependentConstraintLibrary {
+                public interface IBox<T> {}
+                public class StringBox : IBox<string> {}
+
+                public class Outer<TOuter> {
+                    class Inner<TInner : IBox<TOuter>> {
+                        func Select<TValue>(value: TValue) -> TValue
+                            where TValue: TInner
+                            => value
+                    }
+                }
+            }
+            """;
+        const string consumerSource = """
+            import NestedDependentConstraintLibrary.*
+
+            let result = Outer<string>.Inner<StringBox>().Select<StringBox>(StringBox())
+            """;
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        var consumerTree = SyntaxTree.ParseText(consumerSource);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "NestedDependentConstraintLibrary")])
+            : CreateCompilation([libraryTree, consumerTree]);
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString().Contains(".Select", System.StringComparison.Ordinal));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Equal("StringBox", Assert.Single(method.TypeArguments).Name);
+        Assert.Equal("StringBox", Assert.Single(Assert.Single(method.TypeParameters).ConstraintTypes).Name);
+
+        var innerType = method.ContainingType!;
+        Assert.Equal("StringBox", Assert.Single(innerType.TypeArguments).Name);
+        var innerTypeParameter = Assert.Single(innerType.TypeParameters);
+        Assert.Equal(TypeParameterConstraintKind.TypeConstraint, innerTypeParameter.ConstraintKind);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            innerType.OriginalDefinition,
+            innerTypeParameter.DeclaringTypeParameterOwner));
+        var innerConstraint = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            Assert.Single(innerTypeParameter.ConstraintTypes));
+        Assert.Equal("IBox<string>", innerConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(SpecialType.System_String, Assert.Single(innerType.ContainingType!.TypeArguments).SpecialType);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedConstructedGenericType_RejectsDependentOuterConstraint(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+            namespace NestedDependentConstraintFailureLibrary {
+                public interface IBox<T> {}
+                public class StringBox : IBox<string> {}
+
+                public class Outer<TOuter> {
+                    class Inner<TInner : IBox<TOuter>> {}
+                }
+            }
+            """;
+        const string consumerSource = """
+            import NestedDependentConstraintFailureLibrary.*
+
+            let result = Outer<int>.Inner<StringBox>()
+            """;
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        var consumerTree = SyntaxTree.ParseText(consumerSource);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "NestedDependentConstraintFailureLibrary")])
+            : CreateCompilation([libraryTree, consumerTree]);
+        var construction = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var model = compilation.GetSemanticModel(consumerTree);
+
+        if (!diagnosticsFirst)
+            _ = model.GetSymbolInfo(construction);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.DoesNotContain(
+            diagnostics,
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+        Assert.DoesNotContain(
+            diagnostics,
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+
+        if (diagnosticsFirst)
+            _ = model.GetSymbolInfo(construction);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void EditingConstructedMetadataMethodConstraint_RecomputesDiagnosticsAndSymbolInfo(bool diagnosticsFirst)

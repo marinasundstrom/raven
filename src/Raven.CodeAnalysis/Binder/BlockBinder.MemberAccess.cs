@@ -1687,6 +1687,17 @@ partial class BlockBinder
         if (typeSymbol.TypeKind == TypeKind.Error)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
 
+        if (typeSymbol.IsGenericType &&
+            !IsUninstantiatedGenericType(typeSymbol) &&
+            !ValidateTypeArgumentConstraints(
+                typeSymbol,
+                typeSymbol.TypeArguments,
+                _ => GetReceiverLocation(),
+                typeSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+        {
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.TypeMismatch);
+        }
+
         if (typeSymbol.IsStatic)
         {
             _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, GetCallLocation());

@@ -712,8 +712,53 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
     private ImmutableArray<ITypeParameterSymbol> BuildTypeParameters()
     {
-        // Nested types do not implicitly inherit containing type parameters.
-        return _originalDefinition.TypeParameters;
+        // Nested types do not implicitly inherit containing type parameters, but
+        // their own constraints can mention parameters from a constructed outer
+        // type. Keep definition ownership while projecting those constraint uses.
+        var originalParameters = _originalDefinition.TypeParameters;
+        if (originalParameters.IsDefaultOrEmpty)
+            return originalParameters;
+
+        ImmutableArray<ITypeParameterSymbol>.Builder? builder = null;
+        for (var i = 0; i < originalParameters.Length; i++)
+        {
+            var parameter = originalParameters[i];
+            var constraints = parameter.ConstraintTypes;
+            if (constraints.IsDefaultOrEmpty)
+            {
+                builder?.Add(parameter);
+                continue;
+            }
+
+            var substitutedConstraints = ImmutableArray.CreateRange(
+                constraints.Select(constraint => Substitute(constraint)));
+            var changed = false;
+            for (var constraintIndex = 0; constraintIndex < constraints.Length; constraintIndex++)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(constraints[constraintIndex], substitutedConstraints[constraintIndex]))
+                {
+                    changed = true;
+                    break;
+                }
+            }
+
+            if (!changed)
+            {
+                builder?.Add(parameter);
+                continue;
+            }
+
+            if (builder is null)
+            {
+                builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(originalParameters.Length);
+                for (var previous = 0; previous < i; previous++)
+                    builder.Add(originalParameters[previous]);
+            }
+
+            builder.Add(new SubstitutedNamedTypeParameterSymbol(parameter, substitutedConstraints));
+        }
+
+        return builder?.MoveToImmutable() ?? originalParameters;
     }
 
     // Helper methods for chain-aware substitution of nested types
@@ -1442,6 +1487,120 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     public override string ToString()
     {
         return this.ToDisplayString();
+    }
+}
+
+internal sealed class SubstitutedNamedTypeParameterSymbol : ITypeParameterSymbol
+{
+    private readonly ITypeParameterSymbol _original;
+    private readonly ImmutableArray<ITypeSymbol> _constraintTypes;
+    private ImmutableArray<INamedTypeSymbol>? _interfaces;
+    private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
+
+    public SubstitutedNamedTypeParameterSymbol(
+        ITypeParameterSymbol original,
+        ImmutableArray<ITypeSymbol> constraintTypes)
+    {
+        _original = original;
+        _constraintTypes = constraintTypes;
+    }
+
+    public string Name => _original.Name;
+    public string MetadataName => _original.MetadataName;
+    public SymbolKind Kind => _original.Kind;
+    public ISymbol? ContainingSymbol => _original.ContainingSymbol;
+    public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
+    public IModuleSymbol? ContainingModule => _original.ContainingModule;
+    public INamedTypeSymbol? ContainingType => _original.ContainingType;
+    public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+    public ImmutableArray<Location> Locations => _original.Locations;
+    public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
+    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
+    public bool IsStatic => false;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
+    public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+    public int Ordinal => _original.Ordinal;
+    public TypeParameterOwnerKind OwnerKind => _original.OwnerKind;
+    public INamedTypeSymbol? DeclaringTypeParameterOwner => _original.DeclaringTypeParameterOwner;
+    public IMethodSymbol? DeclaringMethodParameterOwner => null;
+    public IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner => null;
+    public TypeParameterConstraintKind ConstraintKind => _original.ConstraintKind;
+    public ImmutableArray<ITypeSymbol> ConstraintTypes => _constraintTypes;
+    public VarianceKind Variance => _original.Variance;
+
+    public INamedTypeSymbol? BaseType => _constraintTypes
+        .OfType<INamedTypeSymbol>()
+        .FirstOrDefault(static constraint => constraint.TypeKind == TypeKind.Class) ?? _original.BaseType;
+    public ITypeSymbol? OriginalDefinition => _original.OriginalDefinition ?? _original;
+    public SpecialType SpecialType => _original.SpecialType;
+    public TypeKind TypeKind => _original.TypeKind;
+    public bool IsNamespace => false;
+    public bool IsType => true;
+    public bool IsReferenceType => _original.IsReferenceType;
+    public bool IsValueType => _original.IsValueType;
+    public bool IsInterface => _original.IsInterface;
+    public bool IsTupleType => _original.IsTupleType;
+    public bool IsUnion => _original.IsUnion;
+    public bool IsUnionCase => _original.IsUnionCase;
+    public INamedTypeSymbol? UnderlyingUnionType => _original.UnderlyingUnionType;
+
+    public ImmutableArray<INamedTypeSymbol> Interfaces =>
+        _interfaces ??= BuildInterfaces();
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces
+    {
+        get
+        {
+            if (_allInterfaces.HasValue)
+                return _allInterfaces.Value;
+
+            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var direct in Interfaces)
+            {
+                if (seen.Add(direct))
+                    builder.Add(direct);
+
+                foreach (var inherited in direct.AllInterfaces)
+                {
+                    if (seen.Add(inherited))
+                        builder.Add(inherited);
+                }
+            }
+
+            _allInterfaces = builder.MoveToImmutable();
+            return _allInterfaces.Value;
+        }
+    }
+
+    public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
+    public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+    public ITypeSymbol? LookupType(string name) => null;
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        symbol = null;
+        return false;
+    }
+
+    public void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
+    public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
+    public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
+
+    private ImmutableArray<INamedTypeSymbol> BuildInterfaces()
+    {
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var constraint in _constraintTypes.OfType<INamedTypeSymbol>())
+        {
+            if (constraint.TypeKind == TypeKind.Interface && seen.Add(constraint))
+                builder.Add(constraint);
+        }
+
+        return builder.MoveToImmutable();
     }
 }
 

@@ -8,6 +8,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   reloaded from metadata. Constraint round-trip coverage also locks `class`,
   `struct`, `new()`, base-class, and interface constraints across source and PE
   symbols.
+- Nested constructed generic types now substitute outer type arguments inside
+  their own parameter constraints for both source and metadata symbols.
+  Constructor binding validates the final constructed type, so dependent
+  constraints cannot be bypassed by using a generic nested type as a call
+  target.
 - Nullable match exhaustiveness now preserves the complete non-null pattern
   domain instead of reducing it to one opaque underlying-type case. Booleans,
   enums, and sealed hierarchies can be covered case by case alongside `null`;
