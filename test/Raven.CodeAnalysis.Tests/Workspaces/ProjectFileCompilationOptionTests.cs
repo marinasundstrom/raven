@@ -30,7 +30,7 @@ public sealed class ProjectFileCompilationOptionTests
     }
 
     [Fact]
-    public void OpenProject_ReadsExtendedNullFlowAnalysisAttribute()
+    public void OpenProject_ReadsNullFlowAnalysisAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var projectDir = Path.Combine(root, "project");
@@ -41,14 +41,14 @@ public sealed class ProjectFileCompilationOptionTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" EnableExtendedNullFlowAnalysis="false" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" EnableNullFlowAnalysis="false" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
         var project = workspace.CurrentSolution.GetProject(projectId)!;
 
-        Assert.False(project.CompilationOptions!.EnableExtendedNullFlowAnalysis);
+        Assert.False(project.CompilationOptions!.EnableNullFlowAnalysis);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class ProjectFileCompilationOptionTests
     }
 
     [Fact]
-    public void SaveProject_WritesExtendedNullFlowAnalysisAttribute()
+    public void SaveProject_WritesNullFlowAnalysisAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -153,12 +153,12 @@ public sealed class ProjectFileCompilationOptionTests
             "App",
             filePath: projectPath,
             compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithEnableExtendedNullFlowAnalysis(false));
+                .WithEnableNullFlowAnalysis(false));
 
         workspace.SaveProject(projectId, projectPath);
 
         var document = XDocument.Load(projectPath);
-        var value = (string?)document.Root?.Attribute("EnableExtendedNullFlowAnalysis");
+        var value = (string?)document.Root?.Attribute("EnableNullFlowAnalysis");
         Assert.Equal("false", value);
     }
 

@@ -2466,7 +2466,7 @@ class Foo {
     }
 
     [Fact]
-    public void ExtendedNullFlowAnalysis_CanBeDisabledWithoutChangingDeclaredNullability()
+    public void NullFlowAnalysis_CanBeDisabledWithoutChangingDeclaredNullability()
     {
         const string source = """
 func Length() -> int {
@@ -2476,7 +2476,7 @@ func Length() -> int {
 """;
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithEnableExtendedNullFlowAnalysis(false);
+            .WithEnableNullFlowAnalysis(false);
         var (compilation, tree) = CreateCompilation(source, options: options);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot()
@@ -2491,7 +2491,7 @@ func Length() -> int {
             .Expression;
         var typeInfo = model.GetTypeInfo(receiver);
 
-        Assert.False(compilation.Options.EnableExtendedNullFlowAnalysis);
+        Assert.False(compilation.Options.EnableNullFlowAnalysis);
         var nullableLocalType = Assert.IsType<NullableTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_String, nullableLocalType.UnderlyingType.SpecialType);
         var nullableExpressionType = Assert.IsType<NullableTypeSymbol>(typeInfo.Type);
@@ -2504,10 +2504,10 @@ func Length() -> int {
     }
 
     [Fact]
-    public void ExtendedNullFlowAnalysis_DisabledStillEnforcesDeclaredNullability()
+    public void NullFlowAnalysis_DisabledStillEnforcesDeclaredNullability()
     {
         var options = new CompilationOptions(OutputKind.ConsoleApplication)
-            .WithEnableExtendedNullFlowAnalysis(false);
+            .WithEnableNullFlowAnalysis(false);
         var (compilation, _) = CreateCompilation("let value: string = null", options: options);
 
         Assert.Contains(
@@ -2516,7 +2516,7 @@ func Length() -> int {
     }
 
     [Fact]
-    public void ExtendedNullFlowAnalysis_DisabledStillPublishesPatternRefinement()
+    public void NullFlowAnalysis_DisabledStillPublishesPatternRefinement()
     {
         const string source = """
 func Length(value: string?) -> int {
@@ -2528,7 +2528,7 @@ func Length(value: string?) -> int {
 """;
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithEnableExtendedNullFlowAnalysis(false);
+            .WithEnableNullFlowAnalysis(false);
         var (compilation, tree) = CreateCompilation(source, options: options);
         var receiver = tree.GetRoot()
             .DescendantNodes()

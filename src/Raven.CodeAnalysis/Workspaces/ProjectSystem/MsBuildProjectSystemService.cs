@@ -223,7 +223,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         UpdateProperty(root, "RavenFrameworkProjections", (project.CompilationOptions?.FrameworkProjectionMode ?? FrameworkProjectionMode.Standard).ToString());
         var compilationOptions = project.CompilationOptions;
         UpdateProperty(root, "RavenRunAnalyzers", (compilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
-        UpdateProperty(root, "RavenEnableExtendedNullFlowAnalysis", (compilationOptions?.EnableExtendedNullFlowAnalysis ?? true).ToString().ToLowerInvariant());
+        UpdateProperty(root, "EnableNullFlowAnalysis", (compilationOptions?.EnableNullFlowAnalysis ?? true).ToString().ToLowerInvariant());
         if (compilationOptions is not null && !compilationOptions.DisabledAnalyzers.IsEmpty)
             UpdateProperty(root, "RavenDisabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(compilationOptions.DisabledAnalyzers));
         else

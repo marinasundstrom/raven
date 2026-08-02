@@ -116,7 +116,7 @@ editors can discover the same SDK root.
 - `-h`, `--help` &ndash; show help
 
 MSBuild projects can set
-`<RavenEnableExtendedNullFlowAnalysis>false</RavenEnableExtendedNullFlowAnalysis>`
+`<EnableNullFlowAnalysis>false</EnableNullFlowAnalysis>`
 to suppress flow-derived possible-null-reference diagnostics while retaining
 declared nullable annotations, boundary conversion checks, metadata, and
 pattern refinement. The default is `true`.

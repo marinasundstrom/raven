@@ -267,28 +267,28 @@ Raven treats this as three separate responsibilities:
 2. **Pattern refinement is core semantics.** A successful non-null pattern must
    refine the value within that arm or branch. This is required for Raven's
    preferred exhaustive pattern style; it is not an optional warning pass.
-3. **Extended mutable null-flow diagnostics are tooling policy.** Following a
+3. **Null-flow diagnostics are tooling policy.** Following a
    nullable value through distant assignments, loops, exceptions, and metadata
    postconditions is most useful for .NET interop and gradual migration. The
    analysis is enabled by default, but can be disabled without weakening the
    language's declared-nullness rules or pattern semantics.
 
-For an MSBuild Raven project, disable the extended diagnostic layer with:
+For an MSBuild Raven project, disable null-flow analysis with:
 
 ```xml
 <PropertyGroup>
-  <RavenEnableExtendedNullFlowAnalysis>false</RavenEnableExtendedNullFlowAnalysis>
+  <EnableNullFlowAnalysis>false</EnableNullFlowAnalysis>
 </PropertyGroup>
 ```
 
 Hosts that construct compilations directly use
-`CompilationOptions.WithEnableExtendedNullFlowAnalysis(false)`. This currently
+`CompilationOptions.WithEnableNullFlowAnalysis(false)`. This currently
 suppresses the flow-derived possible-null-reference diagnostic (`RAV0402`). It
 does not change `T` versus `T?`, nullable conversions, imported or emitted .NET
 metadata, syntax-directed pattern refinement, or the nullability information
 published by `TypeInfo`.
 
-The purpose of that extended profile is defect discovery. It should identify
+The purpose of null-flow analysis is defect discovery. It should identify
 likely null-reference bugs in existing .NET-shaped code and make nullable state
 visible while a codebase is being migrated. The recommended response is not to
 build more domain logic around null, but to progressively shorten the nullable
