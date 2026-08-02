@@ -1053,8 +1053,11 @@ constructed receiver rather than the constructor's `unit` return type.
    inside a `try` also contributes its mutation to the enclosing loop's back
    edge despite a sibling catch exit, in either query order. A completing
    `finally` is applied before that transfer reaches the back edge, so its
-   mutations affect the next iteration as required. Continue with mixed
-   loop/exception cycles rather than rechecking the covered single-cycle forms.
+   mutations affect the next iteration as required. Conversely, an abrupt
+   `finally` replaces the pending transfer and prevents mutations in the
+   abandoned path from weakening a nonexistent next iteration. Continue with
+   mixed loop/exception cycles rather than rechecking the covered single-cycle
+   forms.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage. Equivalent constructed signatures now apply

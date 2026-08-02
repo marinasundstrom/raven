@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- An abrupt `finally` now suppresses enclosed loop transfers during null-flow
+  back-edge analysis. Mutations before a `continue` that is replaced by a
+  `return` or `throw` in `finally` no longer weaken an unreachable next
+  iteration.
 - Lazy source member declaration now preserves every constructed containing-type
   layer when rebuilding nested receivers. Rejected generic overload candidates
   consequently expose the same projected constraints and containing types as

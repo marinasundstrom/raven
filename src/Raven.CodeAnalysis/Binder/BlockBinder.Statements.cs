@@ -463,6 +463,14 @@ partial class BlockBinder
         SyntaxNode current = mutation;
         while (!ReferenceEquals(current, loopBody))
         {
+            if (current.Parent is TryStatementSyntax tryStatement &&
+                current is not FinallyClauseSyntax &&
+                tryStatement.FinallyClause is { } finallyClause &&
+                AlwaysPreventsLoopBackEdge(finallyClause.Block, loopBody))
+            {
+                return false;
+            }
+
             if (current.Parent is BlockStatementSyntax block)
             {
                 var containingStatement = current.AncestorsAndSelf()

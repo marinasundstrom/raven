@@ -1501,6 +1501,48 @@ public class NullableTypeTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GetTypeInfo_AbruptFinallySuppressesContinueLoopBackEdge(bool diagnosticsFirst)
+    {
+        const string source = """
+            func WriteLengths(value: string?) -> unit {
+                var local = value
+                if local is null {
+                    return
+                }
+
+                loop {
+                    System.Console.WriteLine(local.Length)
+                    try {
+                        local = null
+                        continue
+                    } finally {
+                        return
+                    }
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GetTypeInfo_NestedLoopBreakDoesNotSuppressOuterWhileExitNarrowing(bool diagnosticsFirst)
     {
         const string source = """
