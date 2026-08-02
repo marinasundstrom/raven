@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Semantic queries over object-initializer syntax no longer throw during edit
+  recovery. Attached initializers report their containing construction type,
+  while temporarily detached recovery nodes produce an error result.
 - Extended possible-null-reference reporting can now be disabled with
   `CompilationOptions.WithEnableExtendedNullFlowAnalysis(false)` or the MSBuild
   property `RavenEnableExtendedNullFlowAnalysis=false`. Declared nullability,

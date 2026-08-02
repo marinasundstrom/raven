@@ -259,6 +259,15 @@ parser exceptions are guarded construction and dispatch invariants; mutation
 coverage exercises the relevant directive, operator, relational-pattern, and
 macro boundaries so that no user edit reaches them.
 
+Semantic recovery now also treats object-initializer syntax as a queryable
+expression boundary. Token deletion can temporarily detach an initializer from
+an object construction; `GetTypeInfo` and `GetSymbolInfo` return an error result
+instead of reaching the binder's unsupported-expression invariant. When the
+initializer is attached to a valid construction, its type information projects
+the constructed type and its symbol information remains empty. A focused
+token-deletion matrix covers both diagnostics-first binding and direct semantic
+queries across representative flow and pattern syntax.
+
 ### Target-sensitive binding uses contextual cache identity
 
 Target-typed expression binding now caches every expression form by syntax and

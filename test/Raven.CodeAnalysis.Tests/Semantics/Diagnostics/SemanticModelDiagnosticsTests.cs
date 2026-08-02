@@ -10,6 +10,85 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class SemanticModelDiagnosticsTests : CompilationTestBase
 {
     [Fact]
+    public void DeletedTokens_AcrossFlowAndPatternSyntax_DoNotCrashSemanticQueries()
+    {
+        const string source = """
+func Evaluate(value: string?) -> int {
+    let length = if value is not null { value.Length } else { 0 }
+    return match length {
+        0 => 1
+        _ => length
+    }
+}
+""";
+
+        var originalTree = SyntaxTree.ParseText(source);
+        var tokens = originalTree.GetRoot().DescendantTokens()
+            .Where(static token => !token.IsMissing && token.Span.Length > 0)
+            .GroupBy(static token => token.Kind)
+            .SelectMany(static group => group.Where((_, index) => index == 0 || index == group.Count() - 1))
+            .ToArray();
+
+        foreach (var token in tokens)
+        {
+            var mutatedSource = source.Remove(token.Span.Start, token.Span.Length);
+            var exception = Record.Exception(() =>
+            {
+                var tree = SyntaxTree.ParseText(mutatedSource);
+                var compilation = CreateCompilation(tree);
+                var model = compilation.GetSemanticModel(tree);
+
+                _ = compilation.GetDiagnostics();
+                foreach (var expression in tree.GetRoot().DescendantNodes().OfType<ExpressionSyntax>())
+                {
+                    _ = model.GetTypeInfo(expression);
+                    _ = model.GetSymbolInfo(expression);
+                }
+            });
+
+            Assert.True(
+                exception is null,
+                $"Deleting token '{token.Text}' ({token.Kind}) caused {exception}");
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ObjectInitializer_HasContainingConstructionTypeForSemanticQueries(bool diagnosticsFirst)
+    {
+        const string source = """
+class Widget {
+    init() {}
+    var Name: string = ""
+}
+
+func Create() -> Widget {
+    return Widget() {
+        Name = "Raven"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var initializer = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ObjectInitializerExpressionSyntax>()
+            .Single();
+        var typeInfo = model.GetTypeInfo(initializer);
+        var symbolInfo = model.GetSymbolInfo(initializer);
+
+        Assert.Equal("Widget", typeInfo.Type?.Name);
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void GetDiagnostics_CollectsMethodBodyDiagnostics()
     {
         var source = """

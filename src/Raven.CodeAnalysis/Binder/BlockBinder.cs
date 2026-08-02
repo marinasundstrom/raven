@@ -2250,6 +2250,7 @@ partial class BlockBinder : Binder
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             ArrayExpressionSyntax arrayExpression => BindArrayExpression(arrayExpression),
+            ObjectInitializerExpressionSyntax objectInitializer => BindObjectInitializerExpressionForSemanticQuery(objectInitializer),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindConversionExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
@@ -2300,6 +2301,18 @@ partial class BlockBinder : Binder
             CacheBoundNode(syntax, boundNode);
 
         return boundNode;
+    }
+
+    private BoundExpression BindObjectInitializerExpressionForSemanticQuery(ObjectInitializerExpressionSyntax syntax)
+    {
+        if (syntax.Parent is InvocationExpressionSyntax invocation)
+        {
+            var boundInvocation = BindExpression(invocation);
+            if (boundInvocation.Type is { TypeKind: not TypeKind.Error } type)
+                return new BoundDefaultValueExpression(type);
+        }
+
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
     }
 
     public override BoundNode GetOrBind(SyntaxNode node)
