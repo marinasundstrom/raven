@@ -214,6 +214,13 @@ internal class CodeGenerator
     {
         var attributes = GenericParameterAttributes.None;
 
+        attributes |= parameter.Variance switch
+        {
+            VarianceKind.Out => GenericParameterAttributes.Covariant,
+            VarianceKind.In => GenericParameterAttributes.Contravariant,
+            _ => GenericParameterAttributes.None,
+        };
+
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0)
             attributes |= GenericParameterAttributes.ReferenceTypeConstraint;
 

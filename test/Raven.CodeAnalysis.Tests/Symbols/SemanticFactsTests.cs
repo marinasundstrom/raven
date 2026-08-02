@@ -287,11 +287,13 @@ union class Response<T> {
         Assert.True(SemanticFacts.ImplementsInterface(enumerableOfString, enumerableOfObject));
     }
 
-    [Fact]
-    public void ImplementsInterface_HandlesContravariantInterfaceArguments()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImplementsInterface_HandlesMetadataContravarianceRegardlessOfQueryOrder(bool diagnosticsFirst)
     {
         var source = """
-import System.Collections.Generic
+import System.Collections.Generic.*
 
 class Comparer : IComparer<object>
 {
@@ -306,13 +308,73 @@ class Comparer : IComparer<object>
             "test",
             [tree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
 
         var comparer = GetSourceType(compilation, "Comparer");
         var comparerDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
         var comparerOfString = (INamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
-        Assert.False(SemanticFacts.ImplementsInterface(comparer, comparerOfString));
+        Assert.True(SemanticFacts.ImplementsInterface(comparer, comparerOfString));
+
+        if (!diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ImplementsInterface_SourceVarianceMatchesEmittedMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+namespace VarianceLibrary {
+    public interface Producer<out T> {}
+    public interface Consumer<in T> {}
+    public class Provider : Producer<string> {}
+    public class Handler : Consumer<object> {}
+}
+""";
+
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        MetadataReference[] references = useMetadata
+            ? [.. TestMetadataReferences.Default,
+                TestMetadataFactory.CreateFromSource(librarySource, "variance_library")]
+            : TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "variance_consumer",
+            useMetadata ? [] : [libraryTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var producerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("VarianceLibrary.Producer`1"));
+        var consumerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("VarianceLibrary.Consumer`1"));
+        var provider = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("VarianceLibrary.Provider"));
+        var handler = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("VarianceLibrary.Handler"));
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var producerOfObject = Assert.IsAssignableFrom<INamedTypeSymbol>(producerDefinition.Construct(objectType));
+        var consumerOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(consumerDefinition.Construct(stringType));
+
+        Assert.Equal(VarianceKind.Out, Assert.Single(producerDefinition.TypeParameters).Variance);
+        Assert.Equal(VarianceKind.In, Assert.Single(consumerDefinition.TypeParameters).Variance);
+        Assert.True(SemanticFacts.ImplementsInterface(provider, producerOfObject));
+        Assert.True(SemanticFacts.ImplementsInterface(handler, consumerOfString));
+
+        if (!diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
