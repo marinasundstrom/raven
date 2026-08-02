@@ -395,6 +395,49 @@ func Main() -> int {
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void EditingFieldInitializer_DoesNotInvalidateSiblingMethod(bool diagnosticsFirst)
+    {
+        const string source = """
+            class Container {
+                private field broken: int = 42
+
+                func Stable(value: int) -> int {
+                    value
+                }
+            }
+
+            func Main() -> int {
+                Container().Stable(21)
+            }
+            """;
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "field-initializer-isolation");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("= 42", "= missingValue", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var model = compilation.GetSemanticModel(tree);
+        var field = tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
+        var fieldDeclarator = Assert.Single(field.Declaration.Declarators);
+        var stable = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var stableInvocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString().EndsWith(".Stable", StringComparison.Ordinal));
+        var fieldSymbol = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
+        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(stable));
+
+        Assert.Equal(SpecialType.System_Int32, fieldSymbol.Type.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stableSymbol, model.GetSymbolInfo(stableInvocation).Symbol));
+        AssertErrorsAreConfinedTo(compilation, field.Span);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void EditingGenericFunctionAcrossFiles_DoesNotInvalidateStableDocument(bool diagnosticsFirst)
     {
         const string brokenSource = """
