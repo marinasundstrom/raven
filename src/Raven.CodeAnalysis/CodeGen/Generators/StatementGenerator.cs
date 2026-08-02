@@ -27,7 +27,8 @@ internal class StatementGenerator : Generator
 
     public override void Emit()
     {
-        PrintDebug($"Emitting bound statement: {_statement}", () => CodeGenFlags.PrintEmittedBoundNodes);
+        if (CodeGenFlags.PrintDebug && CodeGenFlags.PrintEmittedBoundNodes)
+            PrintDebug($"Emitting bound statement: {_statement}");
 
         MethodBodyGenerator.EmitSequencePoint(_statement);
 

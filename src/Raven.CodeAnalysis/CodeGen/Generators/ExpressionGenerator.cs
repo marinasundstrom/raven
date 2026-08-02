@@ -107,7 +107,8 @@ internal partial class ExpressionGenerator : Generator
 
     private EmitInfo EmitExpression(BoundExpression expression, EmitContext context)
     {
-        PrintDebug($"Emitting bound expression: {expression}", () => CodeGenFlags.PrintEmittedBoundNodes);
+        if (CodeGenFlags.PrintDebug && CodeGenFlags.PrintEmittedBoundNodes)
+            PrintDebug($"Emitting bound expression: {expression}");
 
         if (context.ResultKind == EmitResultKind.Address)
         {
@@ -7530,6 +7531,12 @@ internal partial class ExpressionGenerator : Generator
         {
             var paramSymbol = paramSymbols[i];
             var argument = args[i];
+
+            if (argument is null)
+            {
+                throw new InvalidOperationException(
+                    $"Invocation '{target}' has a missing bound argument at index {i} during emission.");
+            }
 
             if (paramSymbol.IsVarParams &&
                 argument is BoundCollectionExpression paramsCollection)
