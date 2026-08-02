@@ -655,6 +655,58 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedConstructedGenericMethod_PreservesConstraintsAcrossSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+            namespace NestedConstraintLibrary {
+                public class Outer<TOuter> {
+                    class Inner<TInner> {
+                        func Select<TValue>(value: TValue) -> TOuter
+                            where TValue: System.Collections.Generic.IEnumerable<TInner>
+                            => throw System.Exception()
+                    }
+                }
+            }
+            """;
+        const string consumerSource = """
+            import System.Collections.Generic.*
+            import NestedConstraintLibrary.*
+
+            let result = Outer<string>.Inner<int>().Select<List<int>>(List<int>())
+            """;
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        var consumerTree = SyntaxTree.ParseText(consumerSource);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree)])
+            : CreateCompilation([libraryTree, consumerTree]);
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString().Contains(".Select", System.StringComparison.Ordinal));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
+        Assert.Equal("List<int>", Assert.Single(method.TypeArguments).ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            Assert.Single(Assert.Single(method.TypeParameters).ConstraintTypes));
+        Assert.Equal("IEnumerable<int>", constraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(method.ContainingType!.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(method.ContainingType.ContainingType!.TypeArguments).SpecialType);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void EditingConstructedMetadataMethodConstraint_RecomputesDiagnosticsAndSymbolInfo(bool diagnosticsFirst)
@@ -794,6 +846,20 @@ public sealed class GenericMethodTests : CompilationTestBase
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create(
             "ConstraintLibrary",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+
+        Assert.True(emitResult.Success, string.Join(System.Environment.NewLine, emitResult.Diagnostics));
+        return MetadataReference.CreateFromImage(image.ToArray());
+    }
+
+    private static MetadataReference CreateLibraryReference(SyntaxTree tree)
+    {
+        var compilation = Compilation.Create(
+            "NestedConstraintLibrary",
             [tree],
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
