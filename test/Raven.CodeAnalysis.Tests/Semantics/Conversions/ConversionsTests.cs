@@ -434,4 +434,60 @@ public class Source {
         if (!diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ConstructedGenericConversionOperator_SubstitutesSignatureAcrossMetadata(
+        bool consumeMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+public class Box<T> {
+    static func implicit(value: T) -> Box<T> {
+        return default!
+    }
+}
+""";
+
+        Compilation compilation;
+        if (consumeMetadata)
+        {
+            var reference = TestMetadataFactory.CreateFromSource(
+                librarySource,
+                "constructed_generic_conversion_library");
+            compilation = Compilation.Create(
+                "constructed_generic_conversion_consumer",
+                [],
+                [.. TestMetadataReferences.Default, reference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        }
+        else
+        {
+            (compilation, _) = CreateCompilation(
+                librarySource,
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        }
+
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var boxDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Box`1"));
+        var boxOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(boxDefinition.Construct(stringType));
+        var conversion = compilation.ClassifyConversion(stringType, boxOfString, includeUserDefined: true);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(conversion.MethodSymbol);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boxOfString, method.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, Assert.Single(method.Parameters).Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(boxOfString, method.ReturnType));
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
 }
