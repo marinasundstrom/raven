@@ -320,7 +320,10 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         }
     }
 
-    private bool AnalyzeRequiredExpression(ExpressionSyntax expression, bool isReachable)
+    private bool AnalyzeRequiredExpression(
+        ExpressionSyntax expression,
+        bool isReachable,
+        BoundExpression? knownBoundExpression = null)
     {
         Visit(expression);
         CollectReturnExpressions(expression);
@@ -328,7 +331,12 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         if (!isReachable)
             return false;
 
-        var boundExpression = _semanticModel.GetBoundNode(expression);
+        var boundExpression = knownBoundExpression ??
+            _semanticModel.TryGetCachedBoundNode(expression) as BoundExpression ??
+            _semanticModel.TryGetCachedBoundNode(
+                expression,
+                _semanticModel.Compilation.GetSpecialType(SpecialType.System_Boolean)) as BoundExpression ??
+            _semanticModel.GetBoundNode(expression);
         return !BoundNodeFacts.IsAbruptExpression(boundExpression);
     }
 
@@ -425,6 +433,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
     private bool AnalyzeTryStatement(TryStatementSyntax tryStatement, bool isReachable)
     {
+        var boundTryStatement = _semanticModel.TryGetCachedBoundNode(tryStatement) as BoundTryStatement;
         List<(LoopContext Context, bool Before)>? loopBreakStates = null;
         if (tryStatement.FinallyClause is not null && _loopContexts.Count > 0)
         {
@@ -436,12 +445,21 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         var tryReachable = AnalyzeStatement(tryStatement.Block, isReachable);
         var reachesEnd = tryReachable;
 
-        foreach (var catchClause in tryStatement.CatchClauses)
+        for (var index = 0; index < tryStatement.CatchClauses.Count; index++)
         {
-            var filterIsConstantFalse = catchClause.WhenClause?.Guard is ExpressionSyntax guard &&
-                ConstantValueEvaluator.TryEvaluate(guard, out var filterValue) &&
-                filterValue is false;
-            var catchReachable = AnalyzeStatement(catchClause.Block, isReachable && !filterIsConstantFalse);
+            var catchClause = tryStatement.CatchClauses[index];
+            var catchEntryReachable = isReachable;
+            if (catchClause.WhenClause?.Guard is ExpressionSyntax guard)
+            {
+                var boundGuard = boundTryStatement is not null && index < boundTryStatement.CatchClauses.Length
+                    ? boundTryStatement.CatchClauses[index].Guard
+                    : null;
+                catchEntryReachable = AnalyzeRequiredExpression(guard, catchEntryReachable, boundGuard);
+                if (ConstantValueEvaluator.TryEvaluate(guard, out var filterValue) && filterValue is false)
+                    catchEntryReachable = false;
+            }
+
+            var catchReachable = AnalyzeStatement(catchClause.Block, catchEntryReachable);
             reachesEnd |= catchReachable;
         }
 

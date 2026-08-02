@@ -518,6 +518,46 @@ func Compute() -> int {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnalyzeControlFlow_NestedReturnInCatchFilterMakesCatchAndFollowingCodeUnreachable(
+        bool diagnosticsFirst)
+    {
+        const string source = """
+func Identity(value: int) -> int => value
+
+func Compute() -> int {
+    try {
+        throw Exception()
+    } catch Exception error when Identity(return 1) == 0 {
+        let unreachableCatch = 0
+    }
+
+    let unreachableAfter = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "Compute")
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.ReturnStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<ReturnExpressionSyntax>();
+        analysis.UnreachableStatements.Count().ShouldBe(2);
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        compilation.GetDiagnostics().ShouldNotContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
+    }
+
     [Fact]
     public void AnalyzeControlFlow_ExhaustiveAbruptMatch_MakesFollowingStatementUnreachable()
     {

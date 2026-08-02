@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Catch filters now participate in public reachability analysis as required
+  expressions. Nested `return` expressions make the catch body unreachable
+  without re-entering method binding during diagnostic production.
 - Public control-flow analysis now recognizes abrupt expressions in required
   conditions, loop inputs, lock receivers, and match scrutinees. A nested
   `return` makes dependent branches and following statements unreachable in
