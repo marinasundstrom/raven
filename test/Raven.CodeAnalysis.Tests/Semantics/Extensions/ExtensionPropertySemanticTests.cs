@@ -11,6 +11,32 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class ExtensionPropertySemanticTests : CompilationTestBase
 {
     [Fact]
+    public void ExtensionProperty_AccessingReceiverMember_DoesNotInspectIncompleteSynthesizedProperty()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+let items = List<int>()
+items.CountPlusOne = 5
+let value = items.CountPlusOne
+
+extension ListExtensions for List<int> {
+    var CountPlusOne: int {
+        get => self.Count + 1
+        set => self.Add(value)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        var exception = Record.Exception(() => compilation.GetDiagnostics());
+
+        Assert.Null(exception);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void MemberAccess_OnValueTypeReceiver_BindsToExtensionProperty()
     {
         const string source = """

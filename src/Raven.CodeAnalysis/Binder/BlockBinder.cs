@@ -11736,12 +11736,12 @@ partial class BlockBinder : Binder
         public static MemberFlowSlotKeyComparer Instance { get; } = new();
 
         public bool Equals(MemberFlowSlotKey x, MemberFlowSlotKey y) =>
-            SymbolEqualityComparer.Default.Equals(x.Receiver, y.Receiver) &&
-            SymbolEqualityComparer.Default.Equals(x.Member, y.Member);
+            ReferenceEquals(x.Receiver, y.Receiver) &&
+            ReferenceEquals(x.Member, y.Member);
 
         public int GetHashCode(MemberFlowSlotKey obj) => HashCode.Combine(
-            SymbolEqualityComparer.Default.GetHashCode(obj.Receiver),
-            SymbolEqualityComparer.Default.GetHashCode(obj.Member));
+            RuntimeHelpers.GetHashCode(obj.Receiver),
+            RuntimeHelpers.GetHashCode(obj.Member));
     }
 
     private sealed class MemberFlowSlotSymbol(ISymbol receiver, ISymbol member) : ISymbol
