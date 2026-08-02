@@ -286,7 +286,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);
 
-                if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                if (!ReferenceEquals(underlyingType, nullableTypeSymbol.UnderlyingType))
                 {
                     var result = underlyingType.IsNullable
                         ? underlyingType
@@ -303,7 +303,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 var substitutedElement = Substitute(refType.ElementType, visiting, cache);
 
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, refType.ElementType))
+                if (!ReferenceEquals(substitutedElement, refType.ElementType))
                 {
                     var result = new RefTypeSymbol(substitutedElement);
                     cache[type] = result;
@@ -318,7 +318,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 var substitutedElement = Substitute(address.ReferencedType, visiting, cache);
 
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                if (!ReferenceEquals(substitutedElement, address.ReferencedType))
                 {
                     var result = new AddressTypeSymbol(substitutedElement);
                     cache[type] = result;
@@ -333,7 +333,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 var substitutedElement = Substitute(arrayType.ElementType, visiting, cache);
 
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                if (!ReferenceEquals(substitutedElement, arrayType.ElementType))
                 {
                     var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
                     cache[type] = result;
@@ -366,7 +366,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
                     substitutedArgs[i] = substitutedArg;
 
-                    if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
+                    if (!ReferenceEquals(substitutedArg, originalArg))
                         changed = true;
                 }
 

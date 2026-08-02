@@ -738,6 +738,13 @@ a prioritized symbol-model simplification. It must retain source/PE parity,
 tuple element names, nullable wrappers, array rank and fixed length, ref/address
 wrappers, nested containing-type re-anchoring, and type-parameter ownership.
 The existing integration matrix is the safety boundary for that refactoring.
+Structural substitution now uses child identity—not broad semantic equality—to
+decide whether an immutable parent must be rebuilt. This matters for source
+tuple projections: a tuple can remain ABI-equal to its original shape while
+its projected element types have changed from method parameters to inferred
+arguments. Tuple reconstruction also consumes the public field contract and
+carries the substituted element type explicitly rather than requiring one
+particular constructed-field wrapper used by only some symbol sources.
 
 Repeated source construction now has an explicit ownership invariant. Two
 independent constructions of the same containing generic type may be distinct

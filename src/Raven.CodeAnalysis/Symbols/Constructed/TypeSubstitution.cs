@@ -49,7 +49,7 @@ internal static class TypeSubstitution
         for (var i = 0; i < elements.Length; i++)
         {
             substitutedElements[i] = substitute(elements[i].Type);
-            changed |= !SymbolEqualityComparer.Default.Equals(substitutedElements[i], elements[i].Type);
+            changed |= !ReferenceEquals(substitutedElements[i], elements[i].Type);
         }
 
         if (!changed)
@@ -69,14 +69,26 @@ internal static class TypeSubstitution
             tuple.ContainingType,
             tuple.ContainingNamespace,
             []);
-        var underlyingFields = underlying.GetMembers()
-            .OfType<SubstitutedFieldSymbol>()
-            .ToImmutableArray();
-        if (underlyingFields.Length < elements.Length)
-            return tuple;
+        var underlyingFields = new IFieldSymbol[elements.Length];
+        for (var i = 0; i < underlyingFields.Length; i++)
+        {
+            var metadataName = $"Item{i + 1}";
+            var underlyingField = underlying.GetMembers(metadataName)
+                .OfType<IFieldSymbol>()
+                .FirstOrDefault(field => !field.IsStatic);
+            if (underlyingField is null)
+                return tuple;
+
+            underlyingFields[i] = underlyingField;
+        }
 
         substitutedTuple.SetTupleElements(elements.Select((element, index) =>
-            new TupleFieldSymbol(element.Name, underlyingFields[index], underlying, [])));
+            new TupleFieldSymbol(
+                element.Name,
+                underlyingFields[index],
+                underlying,
+                [],
+                substitutedElements[index])));
         return substitutedTuple;
     }
 

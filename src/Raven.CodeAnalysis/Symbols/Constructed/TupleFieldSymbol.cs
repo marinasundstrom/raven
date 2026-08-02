@@ -4,25 +4,28 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class TupleFieldSymbol : IFieldSymbol
 {
-    private readonly SubstitutedFieldSymbol _underlyingField;
+    private readonly IFieldSymbol _underlyingField;
     private readonly INamedTypeSymbol _containingType;
+    private readonly ITypeSymbol? _projectedType;
 
     public TupleFieldSymbol(
         string name,
-        SubstitutedFieldSymbol underlyingField,
+        IFieldSymbol underlyingField,
         INamedTypeSymbol containingType,
-        Location[] locations)
+        Location[] locations,
+        ITypeSymbol? projectedType = null)
     {
         Name = name;
         _underlyingField = underlyingField;
         _containingType = containingType;
+        _projectedType = projectedType;
         Locations = [.. locations];
     }
 
     public SymbolKind Kind => SymbolKind.Field;
     public string Name { get; }
     public string MetadataName => _underlyingField.MetadataName;
-    public ITypeSymbol Type => _underlyingField.Type;
+    public ITypeSymbol Type => _projectedType ?? _underlyingField.Type;
     public RefKind RefKind => _underlyingField.RefKind;
     public bool IsConst => _underlyingField.IsConst;
     public bool IsRequired => _underlyingField.IsRequired;
