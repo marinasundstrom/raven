@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Hover-shaped type queries now tolerate bound expressions without a published
+  null-flow type, preserving the declared type instead of throwing while
+  diagnostics are being produced incrementally.
 - Parenthesized simple lambdas such as `(value => value)` are now parsed as
   parenthesized expressions, while `(value) => value` remains the distinct
   parenthesized-parameter lambda form.

@@ -10097,7 +10097,7 @@ public partial class SemanticModel
         }
 
         var flowType = boundExpression.GetNullabilityFlowType();
-        return flowType.IsNullable ? flowType : declaredType;
+        return flowType is { IsNullable: true } ? flowType : declaredType;
     }
 
     private bool TryGetContextualConvertedType(
