@@ -2099,6 +2099,8 @@ partial class BlockBinder
         if (catchClause.WhenClause?.Guard is ExpressionSyntax guardSyntax)
         {
             guard = BindExpressionWithTargetType(guardSyntax, boolType);
+            foreach (var flow in GetNullCheckFlows(guard))
+                ApplyNullFlow(_nonNullSymbols, flow.Symbol, flow.NonNullWhenTrue);
         }
 
         var block = BindBlockStatement(catchClause.Block);

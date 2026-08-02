@@ -393,6 +393,13 @@ states are intersected before `finally` runs. This prevents a preceding catch
 from seeding a sibling and ensures a mutation in any completing path or in the
 finally block is visible after the statement.
 
+A catch filter contributes its true-path null facts to that catch body. The
+false path remains part of exception dispatch and does not seed or suppress a
+sibling catch. Flow-narrowing conversions cached during diagnostics also retain
+the nullable wrapper as the expression's declared `TypeInfo.Type`; only
+`Nullability.FlowState` changes to `NotNull`. This makes filtered catches agree
+in cold and diagnostics-first query orders.
+
 Incremental workspace coverage changes a `while` condition between `is not
 null` and `is null`, then restores it. Public `TypeInfo` flow state and
 possible-null diagnostics must update together in all three snapshots.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Catch filters now carry true-path null facts into their catch bodies without
+  leaking those facts to sibling catches. Diagnostics-first semantic queries
+  also retain the expression's declared nullable type while reporting its
+  narrowed flow state.
 - Null-state flow now preserves incoming facts across `while false` and ignores
   mutations in such unreachable nested loops when computing an enclosing loop's
   back-edge.

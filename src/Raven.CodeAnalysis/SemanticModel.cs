@@ -9907,6 +9907,19 @@ public partial class SemanticModel
 
         var flowType = GetNullabilityFlowType(boundExpression, typeInfo.Type);
         var convertedFlowType = GetNullabilityFlowType(boundExpression, typeInfo.ConvertedType);
+        if (TryGetDeclaredTypeBeforeFlowNarrowing(boundExpression, out var declaredType) &&
+            declaredType is not null &&
+            declaredType.IsNullable &&
+            typeInfo.Type is { IsNullable: false })
+        {
+            var convertedType = SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, boundExpression.Type)
+                ? declaredType
+                : typeInfo.ConvertedType;
+            typeInfo = new TypeInfo(
+                declaredType,
+                convertedType,
+                ComputeConversion(declaredType, convertedType));
+        }
 
         return new TypeInfo(
             typeInfo.Type,
@@ -9914,6 +9927,20 @@ public partial class SemanticModel
             typeInfo.Conversion,
             flowType,
             convertedFlowType);
+    }
+
+    private static bool TryGetDeclaredTypeBeforeFlowNarrowing(
+        BoundExpression expression,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? declaredType)
+    {
+        declaredType = expression switch
+        {
+            BoundConversionExpression { IsNullabilityFlowNarrowing: true } conversion => conversion.Expression.Type,
+            BoundNullableValueExpression { IsNullabilityFlowNarrowing: true } nullableValue => nullableValue.Operand.Type,
+            _ => null,
+        };
+
+        return declaredType is not null;
     }
 
     private static ITypeSymbol? GetNullabilityFlowType(BoundExpression boundExpression, ITypeSymbol? declaredType)

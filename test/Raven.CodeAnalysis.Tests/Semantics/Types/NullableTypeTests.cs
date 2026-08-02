@@ -857,6 +857,41 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_CatchFilterTruePathNarrowsCatchBody(bool diagnosticsFirst)
+    {
+        const string source = """
+            import System.*
+
+            func WriteLength(value: string?) -> unit {
+                try {
+                    throw Exception()
+                } catch Exception error when value is not null {
+                    Console.WriteLine(value.Length)
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void GetTypeInfo_TryAssignmentInvalidatesCatchEntryFact()
     {
