@@ -287,6 +287,10 @@
     Title="Constraint clause names an unknown type parameter"
     Message="Type parameter '{typeParameterName}' is not declared by this function or member"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0361" Identifier="TypeParameterConstraintExpected"
+    Title="Type parameter constraint expected"
+    Message="A type parameter constraint is expected after ':'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

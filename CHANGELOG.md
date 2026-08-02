@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   leak into enclosing scopes through their emitted container. Lexical function
   overload sets are restored on block exit, and semantic lookup admits local
   functions only through an enclosing block.
+- An incomplete generic constraint clause such as `where T:` now reports a
+  localized missing-constraint diagnostic while retaining the declaration and
+  later sibling declarations for semantic queries during edits.
 - Lexical function scopes now retain complete overload sets instead of replacing
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function

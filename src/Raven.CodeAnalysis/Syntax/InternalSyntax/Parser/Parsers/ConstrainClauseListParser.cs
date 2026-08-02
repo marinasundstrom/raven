@@ -110,6 +110,13 @@ internal class ConstrainClauseListParser : SyntaxParser
         }
 
         var constraints = List(constraintNodes);
+        if (constraintNodes.Count == 0)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.TypeParameterConstraintExpected,
+                GetSpanOfLastToken()));
+        }
+
         ValidateTypeParameterConstraints(constraintNodes);
 
         return TypeParameterConstraintClause(whereKeyword, typeParameter, colonToken, constraints);

@@ -193,6 +193,53 @@ func Main() -> int {
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void EditingGenericConstraintTypeToBeMissing_PreservesSiblingLookup(bool diagnosticsFirst)
+    {
+        const string source = """
+func Broken<T>(value: T) -> T
+    where T: struct {
+    value
+}
+
+func Stable<T>(value: T) -> T {
+    value
+}
+
+func Main() -> int {
+    Stable<int>(21)
+}
+""";
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "generic-constraint-recovery");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("where T: struct", "where T:", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var functions = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .ToDictionary(static function => function.Identifier.ValueText);
+        var broken = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Broken"]));
+        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(broken.IsGenericMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.ConstructedFrom));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.TypeArguments).SpecialType);
+        AssertErrorsAreConfinedTo(compilation, functions["Broken"].Span);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void EditingGenericTypeMemberBody_DoesNotInvalidateConstructedSibling(bool diagnosticsFirst)
     {
         const string source = """
