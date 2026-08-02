@@ -88,6 +88,43 @@ class C {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OutParameter_EarlyNullExitAlignsAssignmentAndNullState(bool diagnosticsFirst)
+    {
+        const string source = """
+class C {
+    func TryGetLength(value: string?, out length: int) -> bool {
+        if value is null {
+            length = 0
+            return false
+        }
+
+        length = value.Length
+        return true
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void OutParameter_AssignedOnEveryExhaustiveMatchArm_DoesNotReportDiagnostic()
     {

@@ -438,6 +438,12 @@ zero-iteration exit, so out-parameter assignment is now intersected across its
 reachable `break` states rather than discarded wholesale; one unassigned break
 continues to make the method exit invalid.
 
+Definite assignment and null-state flow now share an explicit early-exit guard
+invariant without sharing representations. In a nullable guard where the null
+branch assigns an `out` parameter and returns, the continuation sees the input
+as non-null and the later assignment satisfies the remaining normal exit. Both
+facts agree in diagnostics-first and semantic-query-first order.
+
 Null-flow joins treat a branch as abrupt when its block ends in `return`,
 `throw`, `break`, or `continue`, even when ordinary statements precede that
 exit. Nested `if`/`else` statements are abrupt when both branches are abrupt.
