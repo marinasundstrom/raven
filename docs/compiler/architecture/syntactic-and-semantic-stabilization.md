@@ -1035,11 +1035,12 @@ identity when rebuilt through a separate lookup path.
 Source and emitted-library invocation now also agree on successful nested
 construction and on rejecting a method constraint such as
 `TValue: IEnumerable<TInner>`, including diagnostics-first and symbol-first
-queries. One narrower public-symbol inconsistency remains: the rejected source
-candidate can retain the open `TOuter` in its containing-type chain even though
-its nested `TInner` constraint has been projected, while the equivalent PE
-candidate retains both constructed layers. Resolve that at candidate
-construction or semantic publication rather than compensating in editor code.
+queries. Rejected candidates retain both constructed containing-type layers in
+source and metadata. The source fix belongs to lazy declaration reconstruction:
+refreshing an inner type's member signatures must reanchor the refreshed type
+to its already-constructed outer receiver instead of manufacturing a shallow
+`Inner<TInner>` view. Public constructor type information likewise reports that
+constructed receiver rather than the constructor's `unit` return type.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
