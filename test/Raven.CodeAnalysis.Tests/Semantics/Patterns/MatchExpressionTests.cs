@@ -2293,12 +2293,37 @@ func Describe(value: BaseClass?) -> string {
         compilation.EnsureSetup();
         var diagnostics = diagnosticsFirst ? compilation.GetDiagnostics() : default;
         var match = consumerTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var info = compilation.GetSemanticModel(consumerTree).GetMatchExhaustiveness(match);
+        var model = compilation.GetSemanticModel(consumerTree);
+        var info = model.GetMatchExhaustiveness(match);
+        var scrutineeInfo = model.GetTypeInfo(match.Expression);
+        var designations = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToArray();
+        var locals = designations
+            .Select(designation => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation)))
+            .ToArray();
         if (!diagnosticsFirst)
             diagnostics = compilation.GetDiagnostics();
 
         Assert.True(info.IsExhaustive);
         Assert.Empty(info.MissingCases);
+        var nullableScrutinee = Assert.IsType<NullableTypeSymbol>(scrutineeInfo.Type);
+        Assert.Equal("BaseClass", nullableScrutinee.UnderlyingType.Name);
+        Assert.Equal(NullableAnnotation.Annotated, scrutineeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, scrutineeInfo.Nullability.FlowState);
+        Assert.Collection(
+            locals,
+            local =>
+            {
+                Assert.Equal("SubClassA", local.Type.Name);
+                Assert.False(local.Type.IsNullable);
+            },
+            local =>
+            {
+                Assert.Equal("SubClassB", local.Type.Name);
+                Assert.False(local.Type.IsNullable);
+            });
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 

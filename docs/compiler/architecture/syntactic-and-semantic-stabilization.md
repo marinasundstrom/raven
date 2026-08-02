@@ -873,6 +873,9 @@ diagnostics-first and semantic-query-first order. Incremental edits that add a
 permitted leaf invalidate the nullable match immediately, report only that new
 leaf when `null` was already handled, and restore the original exhaustive state
 without retaining stale diagnostics.
+The same query-order matrix preserves the scrutinee's declared nullable symbol
+and maybe-null flow state while publishing non-null leaf types for each typed
+arm binding, for both source and PE hierarchy symbols.
 
 Pattern binding also treats unsupported pattern node kinds as recoverable
 semantic errors. Programmatically constructed or transient edited trees now
