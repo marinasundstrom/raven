@@ -635,6 +635,47 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
     }
 
+    [Theory]
+    [InlineData("string", "\"fallback\"", SpecialType.System_String, false)]
+    [InlineData("string", "\"fallback\"", SpecialType.System_String, true)]
+    [InlineData("int", "0", SpecialType.System_Int32, false)]
+    [InlineData("int", "0", SpecialType.System_Int32, true)]
+    public void GenericInference_UnwrapsUnifiedNullableParameter(
+        string typeName,
+        string fallback,
+        SpecialType expectedType,
+        bool diagnosticsFirst)
+    {
+        var source = $$"""
+            func Coalesce<T>(value: T?, fallback: T) -> T {
+                if let present: T = value {
+                    return present
+                }
+
+                return fallback
+            }
+
+            let value: {{typeName}}? = null
+            let result = Coalesce(value, {{fallback}})
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Coalesce");
+        var model = compilation.GetSemanticModel(tree);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var invocationType = model.GetTypeInfo(invocation).Type;
+
+        Assert.Equal(expectedType, Assert.Single(method.TypeArguments).SpecialType);
+        Assert.Equal(expectedType, method.ReturnType.SpecialType);
+        var nullableParameter = Assert.IsType<NullableTypeSymbol>(method.Parameters[0].Type);
+        Assert.Equal(expectedType, nullableParameter.UnderlyingType.SpecialType);
+        Assert.Equal(expectedType, invocationType?.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {
