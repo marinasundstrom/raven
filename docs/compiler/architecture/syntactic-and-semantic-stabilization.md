@@ -21,6 +21,13 @@ semantics where that produces an idiomatic Raven model, but its .NET ABI must
 preserve the platform convention so consumers do not need Raven-specific
 knowledge to interpret a public contract.
 
+That ABI commitment does not delegate ownership of the type system to C#.
+Raven's semantic types, source projections, patterns, and analysis rules form a
+Raven-native model whose runtime representations remain compatible with the
+CLR. Stabilization must test both sides of that boundary: the Raven meaning
+must be internally consistent, and its imported/emitted metadata projection
+must be conventional. Unified nullability is a defining example of this split.
+
 The review criteria, current divergence inventory, and emitted-IL policy are
 recorded in [.NET conformance, Raven divergences, and emitted
 IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there

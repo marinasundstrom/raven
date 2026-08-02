@@ -29,6 +29,15 @@ representations differ, but that ABI detail does not create separate source or
 semantic rules. Public semantic APIs preserve the declared nullable type while
 reporting what is known about a particular use through its null-flow state.
 
+This is Raven's native type model, not a presentation layer over C# nullable
+reference types. .NET compatibility determines how Raven imports and emits the
+contract: a nullable reference uses the platform annotation metadata, while a
+nullable value type uses the conventional `System.Nullable<T>` representation.
+Inside Raven, both project to the same declared `T?` concept and participate in
+the same conversions, patterns, symbol APIs, and diagnostics. Raven code should
+therefore be designed in terms of Raven's types and modeling conventions even
+when those types cross a conventional .NET ABI unchanged.
+
 A flow fact does not mutate a declaration. If `name` is declared as `string?`,
 it remains declared as `string?` even at a position where analysis proves that
 its current value is not null.

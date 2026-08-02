@@ -5,6 +5,14 @@ does not mean reproducing C# source behavior everywhere, and language identity
 does not justify inventing a private runtime contract where .NET already has a
 standard one.
 
+Raven also owns its semantic type system. It is compatible with the CLR type
+system and standard .NET metadata, but it is not defined as a copy or subset of
+C#'s source type model. Interop types are projected into Raven concepts, used
+according to Raven's language conventions, and projected back to their standard
+ABI forms. Unified nullability across reference and value types is a deliberate
+Raven semantic rule; the distinct runtime encodings remain adapter concerns at
+the metadata and code-generation boundary.
+
 This document records the decision boundary used during stabilization. It is
 based on current compiler, lowering, metadata, and code-generation behavior,
 not only on the language specification. It should be updated when an intentional

@@ -4,6 +4,14 @@ Raven is statically typed, and every Raven type has a concrete CLR runtime
 representation. Types catch incompatible operations during compilation and make
 Raven code work directly with .NET libraries.
 
+Raven nevertheless has its own semantic type system. CLR identity and metadata
+define the interoperability boundary; they do not require Raven to expose the
+same source categories or analysis model as C#. Raven types may project a
+standard .NET representation while carrying Raven-native meaning in source,
+symbols, patterns, and diagnostics. Unified nullability is the clearest
+example: Raven treats nullable reference and value types as one semantic
+concept even though the CLR and metadata encode them differently.
+
 ## Core rules
 
 * Type identity follows CLR type identity unless Raven defines a language-level
