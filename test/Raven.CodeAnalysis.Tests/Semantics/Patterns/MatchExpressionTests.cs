@@ -2178,6 +2178,111 @@ func Describe(value: BaseClass?) -> string {
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NullableClosedHierarchyExhaustiveness_MatchesSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+namespace HierarchyLibrary {
+    public sealed class BaseClass permits SubClassA, SubClassB {}
+    public class SubClassA : BaseClass {}
+    public class SubClassB : BaseClass {}
+}
+""";
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        var consumerTree = SyntaxTree.ParseText("""
+import HierarchyLibrary.*
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+        SubClassB b => "B"
+        null => ""
+    }
+}
+""");
+        MetadataReference[] references = useMetadata
+            ? [.. TestMetadataReferences.Default,
+                TestMetadataFactory.CreateFromSource(librarySource, "nullable_hierarchy_library")]
+            : TestMetadataReferences.Default;
+        var trees = useMetadata ? new[] { consumerTree } : [libraryTree, consumerTree];
+        var compilation = Compilation.Create(
+            "nullable_hierarchy_consumer",
+            trees,
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        var diagnostics = diagnosticsFirst ? compilation.GetDiagnostics() : default;
+        var match = consumerTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(consumerTree).GetMatchExhaustiveness(match);
+        if (!diagnosticsFirst)
+            diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NullableClosedHierarchyMissingCases_MatchSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+namespace HierarchyLibrary {
+    public sealed class BaseClass permits SubClassA, SubClassB {}
+    public class SubClassA : BaseClass {}
+    public class SubClassB : BaseClass {}
+}
+""";
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        var consumerTree = SyntaxTree.ParseText("""
+import HierarchyLibrary.*
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+    }
+}
+""");
+        MetadataReference[] references = useMetadata
+            ? [.. TestMetadataReferences.Default,
+                TestMetadataFactory.CreateFromSource(librarySource, "nullable_hierarchy_missing_library")]
+            : TestMetadataReferences.Default;
+        var trees = useMetadata ? new[] { consumerTree } : [libraryTree, consumerTree];
+        var compilation = Compilation.Create(
+            "nullable_hierarchy_missing_consumer",
+            trees,
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        var diagnostics = diagnosticsFirst ? compilation.GetDiagnostics() : default;
+        var match = consumerTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(consumerTree).GetMatchExhaustiveness(match);
+        if (!diagnosticsFirst)
+            diagnostics = compilation.GetDiagnostics();
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(
+            info.MissingCases,
+            missing => Assert.Equal("SubClassB", missing),
+            missing => Assert.Equal("null", missing));
+        Assert.Equal(
+            2,
+            diagnostics.Count(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+    }
+
+    [Theory]
     [InlineData("BaseClass other => \"Other\"")]
     [InlineData("_ => \"Other\"")]
     public void MatchExpression_WithNullableOpenHierarchyFallbackAndNull_IsExhaustive(string fallbackArm)

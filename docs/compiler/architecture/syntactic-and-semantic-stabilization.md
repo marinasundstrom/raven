@@ -867,7 +867,9 @@ Focused coverage includes scalars, booleans, enums, sealed hierarchies, open
 hierarchies with base-type or discard fallbacks, match statements, and the
 missing-case code fix. A nullable sealed hierarchy therefore reports its
 specific missing leaves followed by `null`, while an open hierarchy reports `_`
-until a base-type or discard fallback is present.
+until a base-type or discard fallback is present. The same complete and missing
+case sets are now required from source and emitted-metadata hierarchies in both
+diagnostics-first and semantic-query-first order.
 
 Pattern binding also treats unsupported pattern node kinds as recoverable
 semantic errors. Programmatically constructed or transient edited trees now
