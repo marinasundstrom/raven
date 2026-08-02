@@ -77,7 +77,7 @@ assignment is lower priority than those accepted-code and interoperability
 paths.
 
 The architecture should separate declared nullness, pattern refinement, and
-extended flow diagnostics. Declared annotations and ABI projection remain
+null-flow diagnostics. Declared annotations and ABI projection remain
 mandatory. Syntax-directed refinement inside a successful pattern arm remains
 mandatory because it is part of the pattern's type meaning. Broader tracking of
 mutable null state should move toward a configurable built-in analyzer/profile
@@ -85,7 +85,7 @@ for interop and gradual migration. That move must preserve the public
 `TypeInfo` answer needed by editor tooling and must not duplicate semantic truth
 inside the language server.
 
-Extended flow analysis remains valuable as a defect detector. Its success
+Null flow analysis remains valuable as a defect detector. Its success
 criterion is finding likely null-reference bugs in .NET-shaped or gradually
 migrated code, while Raven guidance helps users replace recurring nullable
 domain states with exhaustive patterns and explicit sum types. Compiler
@@ -1031,14 +1031,26 @@ Independent reconstruction of the same outer, nested, and method layers now
 also has an equality/hash invariant, including the final method's containing
 type. This catches substitution views that look correct but lose stable symbol
 identity when rebuilt through a separate lookup path.
+
+Source and emitted-library invocation now also agree on successful nested
+construction and on rejecting a method constraint such as
+`TValue: IEnumerable<TInner>`, including diagnostics-first and symbol-first
+queries. One narrower public-symbol inconsistency remains: the rejected source
+candidate can retain the open `TOuter` in its containing-type chain even though
+its nested `TInner` constraint has been projected, while the equivalent PE
+candidate retains both constructed layers. Resolve that at candidate
+construction or semantic publication rather than compensating in editor code.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
    share the ordinary loop-owned state, and abrupt `try`/`catch` branches are
    excluded from normal joins. A completing `finally` is applied after the
    exceptional join and can establish a definite non-null fact independent of
-   diagnostics query order; prioritize nested cycles and filtered exceptional
-   paths.
+   diagnostics query order. Nested labeled `continue` transfers now contribute
+   to the target outer loop's back edge, and a filtered catch plus its fallback
+   catch join to the repaired post-state in either query order. Continue with
+   mixed loop/exception cycles rather than rechecking the covered single-cycle
+   forms.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage. Equivalent constructed signatures now apply
@@ -1053,6 +1065,9 @@ identity when rebuilt through a separate lookup path.
    `Dictionary<TKey, TValue>`, also in both query orders. Dependent constraints
    loaded from emitted metadata are likewise checked consistently whether
    diagnostics or the selected constructed method is requested first.
+   Raven's partially explicit generic calls also infer leading type parameters
+   through nested constructed arguments while right-aligning the explicit
+   arguments, in either query order.
    Lifted numeric conversions use that same ranking under Raven's nullable
    wrapper: `int?` selects `long?` over `double?`, independent of declaration
    and query order. Nullable wrapping does not introduce a second ranking
@@ -1064,8 +1079,10 @@ identity when rebuilt through a separate lookup path.
    Input conversion now consumes `AllowNull` and `DisallowNull` without changing
    the read type. `MemberNotNull` and `MemberNotNullWhen` use receiver/member
    flow slots rather than globally narrowing a property symbol, including
-   conditional branch and query-order coverage. Generic constraints and Raven
-   emit/C# consume round trips still need equivalent coverage. An explicit
+   conditional branch and query-order coverage. Reference-constrained type and
+   method parameters now both have Raven emit, .NET reflection, PE reload, and
+   construction round-trip coverage. Other constraint kinds and nested
+   constraint shapes still need equivalent coverage. An explicit
    maybe-null state for declared non-nullable storage remains useful for valid
    metadata postconditions; it should be introduced for that accepted-code
    boundary rather than to cascade diagnostics after an assignment Raven has
@@ -1082,12 +1099,15 @@ Conditional access is part of the mandatory refinement layer. Its synthesized
 receiver conversion from `T?` to `T` is explicitly marked as a non-null
 refinement, so extension receiver applicability sees `T` inside the `?.` path
 while the overall expression remains nullable. This avoids treating ordinary
-conditional access as extended mutable-flow analysis.
+conditional access as optional mutable null-flow analysis.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
-   functions have body/signature query-order coverage, but macro partitions and
-   other declaration families remain less complete. Broken signatures and
-   bodies must never contaminate unrelated declarations or replace local errors
-   with invocation-site resolution failures.
+   functions have body/signature query-order coverage. Accessors, constructors,
+   generic members, overloads, and field initializers now preserve sibling
+   resolution after body or initializer edits, and generic constraint syntax
+   recovers equivalently under incremental and full parsing. Macro partitions
+   and less common declaration families remain less complete. Broken signatures
+   and bodies must never contaminate unrelated declarations or replace local
+   errors with invocation-site resolution failures.
 
 These priorities describe correctness risk, not a request for a broad rewrite.
 Each slice should keep using the smallest failing semantic boundary and a
