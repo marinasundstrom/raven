@@ -275,8 +275,8 @@ if x is string str {
 }
 ```
 
-For .NET-shaped code, Raven also supports the compatibility form that refines
-the existing nullable value inside the successful branch:
+Raven also supports the familiar direct check, which currently refines the
+existing nullable value inside the successful branch:
 
 ```raven
 if x is not null {
@@ -284,11 +284,13 @@ if x is not null {
 }
 ```
 
-That last form is smart-cast-like in effect, but the semantic model keeps `x`
-declared as `string?` and publishes a non-null flow state only in the branch.
-The preferred binding forms instead introduce a new non-nullable `str: string`
-local. Raven retains .NET-compatible escape hatches such as postfix `!` for
-interop, but they do not replace explicit handling in idiomatic Raven code.
+That last form is perfectly valid Raven and is not discouraged. It is
+smart-cast-like in effect, but the semantic model keeps `x` declared as
+`string?` and publishes a non-null flow state only in the branch. Documentation
+and examples present the binding forms first because they introduce a distinct
+non-nullable `str: string` local and make the successful value explicit. Raven
+retains .NET-compatible escape hatches such as postfix `!` for interop, but
+they do not replace explicit handling in idiomatic Raven code.
 
 Raven treats flow and nullability as five separate responsibilities:
 

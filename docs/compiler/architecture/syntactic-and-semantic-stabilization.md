@@ -365,6 +365,19 @@ The same annotation and flow results are required whether diagnostics or type
 information is requested first, and repeated semantic queries must preserve
 both `Nullability` and `ConvertedNullability`.
 
+Typed conditional bindings now have reference/value parity and incremental
+edit coverage. A restored or renamed `if let value: T = nullableValue` binding
+publishes a fresh non-null local and stable reference identity before and after
+diagnostics. `value is not null` remains valid and currently refines the
+original local, but whether that smart-cast-like refinement should be enabled
+by default remains an open semantic decision. The choice must not be confused
+with the validity of the syntax or presented as discouraging direct checks.
+Before stabilization, choose explicitly among removing that automatic
+refinement, placing it behind a dedicated opt-in compiler policy, or retaining
+it. Do not silently make it a consequence of `EnableNullFlowAnalysis`: that
+option controls additional bug-finding diagnostics, while syntax-directed
+branch semantics are a separate language contract.
+
 The remaining conformance matrix needs broader joins, loops, richer pattern
 tests, and incremental edits that change control flow. Nullable standard unions
 now have cold and diagnostics-first coverage proving that a null guard preserves
@@ -1041,6 +1054,11 @@ refreshing an inner type's member signatures must reanchor the refreshed type
 to its already-constructed outer receiver instead of manufacturing a shallow
 `Inner<TInner>` view. Public constructor type information likewise reports that
 constructed receiver rather than the constructor's `unit` return type.
+Inferred calls rejected by a generic constraint now retain the constructed
+candidate for public semantic queries, including its inferred arguments,
+return type, and projected nullable parameter. Source `T?` and metadata
+`System.Nullable<T>` normalize to the same Raven nullable shape during
+inference and candidate construction.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
@@ -1112,11 +1130,15 @@ conditional access as optional mutable null-flow analysis.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage. Accessors, constructors,
    generic members, overloads, and field initializers now preserve sibling
-   resolution after body or initializer edits, and generic constraint syntax
-   recovers equivalently under incremental and full parsing. Macro partitions
-   and less common declaration families remain less complete. Broken signatures
-   and bodies must never contaminate unrelated declarations or replace local
-   errors with invocation-site resolution failures.
+   resolution after body or initializer edits. Event and property accessor edits
+   also reconstruct the accessor method/body binder through the incremental
+   semantic path, retaining parameters and fresh local symbols without forcing
+   complete declaration binding. Typed conditional bindings recover
+   equivalently under incremental and full parsing and publish fresh semantic
+   identities after a rename. Macro partitions and less common declaration
+   families remain less complete. Broken signatures and bodies must never
+   contaminate unrelated declarations or replace local errors with
+   invocation-site resolution failures.
 
 These priorities describe correctness risk, not a request for a broad rewrite.
 Each slice should keep using the smallest failing semantic boundary and a

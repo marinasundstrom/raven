@@ -198,11 +198,11 @@ let count: int? = 1
 #### Explicit nullable refinement and compatibility checks
 
 Raven treats `is null` and `is not null` as the strict null-check forms for
-flow analysis. These forms always participate in nullability narrowing, but
-they are compatibility forms for narrowing the original nullable symbol. Raven
-style prefers introducing an explicit successful binding with typed `if let`,
-or with a direct type pattern when that syntax better fits the surrounding
-code.
+flow analysis. They are ordinary valid Raven syntax, not discouraged
+compatibility-only constructs. Raven documentation nevertheless presents an
+explicit successful binding with typed `if let` first, or a direct type pattern
+when that syntax better fits the surrounding code, because those forms name the
+successful non-null value explicitly.
 
 ```raven
 func Inspect(x: string?) -> unit {
@@ -224,6 +224,14 @@ The typed `if let` and type-pattern forms introduce a new `str: string` binding
 only when the value matches. In the last branch, `x` retains its declared
 `string?` type while its flow state is non-null. Reference and value nullable
 types follow the same source-level refinement rule.
+
+The current implementation therefore narrows the original local for
+`is not null`. Whether that refinement should remain the default language
+behavior is still a stabilization decision; changing it would not make the
+check invalid, only require an explicit binding or assertion before nullable
+member access. An opt-in compiler policy is another possible outcome, but it
+must not be conflated with the broader `EnableNullFlowAnalysis` bug-finding
+policy until that design is settled.
 
 `== null` and `!= null` are also valid. Flow narrowing only applies when the
 comparison follows built-in null-comparison semantics.
