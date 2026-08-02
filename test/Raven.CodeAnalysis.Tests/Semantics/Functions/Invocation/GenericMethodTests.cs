@@ -602,6 +602,39 @@ public sealed class GenericMethodTests : CompilationTestBase
             static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PartiallyExplicitGenericCall_InfersLeadingTypeFromNestedConstructedArgument(bool diagnosticsFirst)
+    {
+        const string source = """
+            import System.Collections.Generic.*
+
+            func Select<TKey, TValue>(values: Dictionary<TKey, TValue>, fallback: TValue) -> TValue {
+                fallback
+            }
+
+            let values = Dictionary<int, string>()
+            let selected = Select<string>(values, "fallback")
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString().StartsWith("Select", System.StringComparison.Ordinal));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Collection(
+            method.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_String, argument.SpecialType));
+        Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {
