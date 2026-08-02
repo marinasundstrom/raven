@@ -1049,9 +1049,10 @@ constructed receiver rather than the constructor's `unit` return type.
    exceptional join and can establish a definite non-null fact independent of
    diagnostics query order. Nested labeled `continue` transfers now contribute
    to the target outer loop's back edge, and a filtered catch plus its fallback
-   catch join to the repaired post-state in either query order. Continue with
-   mixed loop/exception cycles rather than rechecking the covered single-cycle
-   forms.
+   catch join to the repaired post-state in either query order. A `continue`
+   inside a `try` also contributes its mutation to the enclosing loop's back
+   edge despite a sibling catch exit, in either query order. Continue with mixed
+   loop/exception cycles rather than rechecking the covered single-cycle forms.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage. Equivalent constructed signatures now apply
