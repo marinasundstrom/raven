@@ -945,6 +945,62 @@ enum Color {
         Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void MatchExpression_ExhaustivenessIsStableAcrossSemanticQueryOrder(int firstQuery)
+    {
+        const string code = """
+            enum Color {
+                Red
+                Blue
+            }
+
+            func Describe(color: Color) -> int {
+                return match color {
+                    .Red => 1
+                }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_expression_query_order",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        switch (firstQuery)
+        {
+            case 0:
+                _ = compilation.GetDiagnostics();
+                break;
+            case 1:
+                _ = model.GetTypeInfo(match);
+                break;
+            case 2:
+                _ = model.GetSymbolInfo(match.Expression);
+                break;
+            case 3:
+                _ = model.GetMatchExhaustiveness(match);
+                break;
+        }
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+        var info = model.GetMatchExhaustiveness(match);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Contains("'Blue'", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.False(info.IsExhaustive);
+        Assert.Equal("Blue", Assert.Single(info.MissingCases));
+        Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(match).Type?.SpecialType);
+    }
+
     [Fact]
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
