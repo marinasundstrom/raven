@@ -3,6 +3,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -10,6 +11,75 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class ExtensionDeclarationSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void OpenGenericReceiver_InvocationPreservesInferenceAcrossMetadata(
+        bool consumeMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+namespace ExtensionLibrary {
+    public extension SequenceExtensions<T> for System.Collections.Generic.IEnumerable<T> {
+        public func Echo(value: T) -> T {
+            return value
+        }
+    }
+}
+""";
+        const string consumerSource = """
+import System.Collections.Generic.*
+import ExtensionLibrary.*
+
+func Read(items: List<int>) -> int {
+    return items.Echo(42)
+}
+""";
+
+        Compilation compilation;
+        SyntaxTree consumerTree;
+        if (consumeMetadata)
+        {
+            var reference = TestMetadataFactory.CreateFromSource(
+                librarySource,
+                "generic_extension_library");
+            (compilation, consumerTree) = CreateCompilation(
+                consumerSource,
+                references: [.. TestMetadataReferences.Default, reference],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        }
+        else
+        {
+            var libraryTree = SyntaxTree.ParseText(librarySource);
+            consumerTree = SyntaxTree.ParseText(consumerSource);
+            compilation = Compilation.Create(
+                "generic_extension_source",
+                [libraryTree, consumerTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        }
+
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.ValueText == "Echo");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(method.IsExtensionMethod);
+        Assert.True(method.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(method.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, method.Parameters[1].Type.SpecialType);
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void ExtensionDeclaration_ClosedGenericReceiver_InjectsSelfParameter()
     {
