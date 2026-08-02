@@ -1024,6 +1024,10 @@ ownership.
    `Dictionary<TKey, TValue>`, also in both query orders. Dependent constraints
    loaded from emitted metadata are likewise checked consistently whether
    diagnostics or the selected constructed method is requested first.
+   Lifted numeric conversions use that same ranking under Raven's nullable
+   wrapper: `int?` selects `long?` over `double?`, independent of declaration
+   and query order. Nullable wrapping does not introduce a second ranking
+   policy.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
    by-reference postconditions without splitting reference and value semantics;
