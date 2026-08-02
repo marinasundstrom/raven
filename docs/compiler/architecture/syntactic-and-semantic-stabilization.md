@@ -67,6 +67,15 @@ Three semantic areas are explicit gates for porting compiler code:
    ABI annotations. Branches, loops, patterns, calls, and metadata flow
    attributes must publish the same state to diagnostics and `TypeInfo`.
 
+Null-state analysis is primarily a .NET-boundary soundness gate, not the
+preferred domain model for compiler code. Raven code should normally eliminate
+nullable states with patterns and project meaningful absence or failure into
+`Option`, `Result`, or a domain union. Stabilization therefore prioritizes
+sound imported/emitted contracts, valid narrowing paths, and consistent public
+flow information. Additional cascaded state after an already-rejected null
+assignment is lower priority than those accepted-code and interoperability
+paths.
+
 A serious unresolved inconsistency in one of these areas blocks a trusted
 bootstrap even if the affected program happens to emit runnable code.
 
@@ -941,9 +950,12 @@ ownership.
    Input conversion now consumes `AllowNull` and `DisallowNull` without changing
    the read type. `MemberNotNull` and `MemberNotNullWhen` use receiver/member
    flow slots rather than globally narrowing a property symbol, including
-   conditional branch and query-order coverage. Flow downgrades of declared
-   non-nullable symbols, generic constraints, and Raven emit/C# consume round
-   trips still need equivalent coverage.
+   conditional branch and query-order coverage. Generic constraints and Raven
+   emit/C# consume round trips still need equivalent coverage. An explicit
+   maybe-null state for declared non-nullable storage remains useful for valid
+   metadata postconditions; it should be introduced for that accepted-code
+   boundary rather than to cascade diagnostics after an assignment Raven has
+   already rejected.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage, but macro partitions and
    other declaration families remain less complete. Broken signatures and

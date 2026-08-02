@@ -228,6 +228,34 @@ outcome that callers should handle explicitly. Raven supports conversions at
 appropriate nullable interoperability boundaries; the two forms should not be
 treated as conceptually identical.
 
+### Nullability is an interoperability corridor
+
+Raven does not expect nullable flow to organize an application. At a .NET
+boundary, accept the platform signature faithfully, then eliminate the nullable
+state as close to that boundary as practical:
+
+```raven
+func FindRequiredCustomer(id: CustomerId) -> Result<Customer, LookupError> {
+    let customer = DotNetStore.Find(id)
+    match customer {
+        null => .Err(.MissingCustomer(id))
+        let value => .Ok(value)
+    }
+}
+```
+
+After that conversion, domain code should normally use exhaustive patterns over
+`Option`, `Result`, unions, or other explicit states. This keeps absence and
+failure visible in the model instead of carrying a nullable reference through
+unrelated code.
+
+Null-flow analysis complements that style. It must remain sound for code that
+cannot immediately leave the nullable corridor: platform callbacks, mutable
+object models, generated APIs, reflection, and gradual migrations. Its job is
+to publish the state established by patterns, branches, assignments, and .NET
+flow attributes through diagnostics and `TypeInfo`; it is not a reason to
+prefer null over Raven's explicit alternatives.
+
 `unit` has a different meaning again: it represents no meaningful return value,
 not an absent value.
 
