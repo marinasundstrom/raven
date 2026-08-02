@@ -478,6 +478,13 @@ class Outer<T> {
         var innerObject = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(objectType));
         var combineDefinition = Assert.Single(innerObject.GetMembers("Combine").OfType<IMethodSymbol>());
         var combineString = combineDefinition.Construct(stringType);
+        var independentlyConstructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+        var independentlyConstructedInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            independentlyConstructedOuter.LookupType("Inner"));
+        var independentlyConstructedInner = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            independentlyConstructedInnerDefinition.Construct(objectType));
+        var independentlyConstructedMethod = Assert.Single(
+            independentlyConstructedInner.GetMembers("Combine").OfType<IMethodSymbol>()).Construct(stringType);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(innerObject, combineString.ContainingType));
         Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, innerObject.ContainingType));
@@ -487,6 +494,13 @@ class Outer<T> {
             parameter => Assert.Equal(SpecialType.System_Object, parameter.Type.SpecialType),
             parameter => Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType));
         Assert.Equal(SpecialType.System_String, combineString.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(combineString, independentlyConstructedMethod));
+        Assert.Equal(
+            SymbolEqualityComparer.Default.GetHashCode(combineString),
+            SymbolEqualityComparer.Default.GetHashCode(independentlyConstructedMethod));
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            independentlyConstructedInner,
+            independentlyConstructedMethod.ContainingType));
 
         var methodTypeParameter = Assert.Single(combineDefinition.TypeParameters);
         Assert.Same(combineDefinition, methodTypeParameter.DeclaringMethodParameterOwner);

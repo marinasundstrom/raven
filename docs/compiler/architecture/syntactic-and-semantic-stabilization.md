@@ -1015,6 +1015,10 @@ constructed outer type reanchors the inner view and substitutes outer and inner
 arguments into its members independently. Tests assert both halves so future
 construction work does not confuse definition identity with projected member
 ownership.
+Independent reconstruction of the same outer, nested, and method layers now
+also has an equality/hash invariant, including the final method's containing
+type. This catches substitution views that look correct but lose stable symbol
+identity when rebuilt through a separate lookup path.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
