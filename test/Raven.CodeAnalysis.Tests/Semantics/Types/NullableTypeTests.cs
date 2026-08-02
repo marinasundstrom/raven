@@ -170,6 +170,51 @@ public class NullableTypeTests : CompilationTestBase
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 
+    [Theory]
+    [InlineData("string", "\"\"", SpecialType.System_String, false)]
+    [InlineData("string", "\"\"", SpecialType.System_String, true)]
+    [InlineData("int", "0", SpecialType.System_Int32, false)]
+    [InlineData("int", "0", SpecialType.System_Int32, true)]
+    public void TypedConditionalBinding_UnifiesReferenceAndValueNullability(
+        string typeName,
+        string fallback,
+        SpecialType expectedType,
+        bool diagnosticsFirst)
+    {
+        var source = $$"""
+            func Normalize(x: {{typeName}}?) -> {{typeName}} {
+                if let value: {{typeName}} = x {
+                    return value
+                }
+
+                return {{fallback}}
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var ifPattern = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().Single();
+        var designation = ifPattern.Pattern.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>().Single();
+        var reference = ifPattern.ThenStatement.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "value");
+        var scrutineeInfo = model.GetTypeInfo(ifPattern.Expression);
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var referenceInfo = model.GetTypeInfo(reference);
+
+        Assert.Equal(TypeKind.Nullable, scrutineeInfo.Type?.TypeKind);
+        Assert.Equal(expectedType, scrutineeInfo.Type?.GetNonNullableType().SpecialType);
+        Assert.Equal(NullableAnnotation.Annotated, scrutineeInfo.Nullability.Annotation);
+        Assert.Equal(expectedType, local.Type.SpecialType);
+        Assert.False(local.Type.IsNullable);
+        Assert.Equal(expectedType, referenceInfo.Type?.SpecialType);
+        Assert.Equal(NullableAnnotation.NotAnnotated, referenceInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, referenceInfo.Nullability.FlowState);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void EditingNullableStandardUnionAlternativeInvalidatesFlowAndConvertedType()
     {
