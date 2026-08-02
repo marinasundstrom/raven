@@ -171,6 +171,54 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData("string", SpecialType.System_String, false)]
+    [InlineData("string", SpecialType.System_String, true)]
+    [InlineData("int", SpecialType.System_Int32, false)]
+    [InlineData("int", SpecialType.System_Int32, true)]
+    public void IsNotNullStatement_NarrowsExistingSymbolOnlyInsideBranch(
+        string typeName,
+        SpecialType expectedType,
+        bool diagnosticsFirst)
+    {
+        var source = $$"""
+            func Inspect(x: {{typeName}}?) -> unit {
+                if x is not null {
+                    let inside = x
+                }
+
+                let after = x
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var insideExpression = declarators.Single(declarator => declarator.Identifier.ValueText == "inside").Initializer!.Value;
+        var afterExpression = declarators.Single(declarator => declarator.Identifier.ValueText == "after").Initializer!.Value;
+
+        var diagnostics = diagnosticsFirst ? compilation.GetDiagnostics() : default;
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        var insideSymbol = model.GetSymbolInfo(insideExpression).Symbol;
+        var insideInfo = model.GetTypeInfo(insideExpression);
+        var afterSymbol = model.GetSymbolInfo(afterExpression).Symbol;
+        var afterInfo = model.GetTypeInfo(afterExpression);
+        if (!diagnosticsFirst)
+            diagnostics = compilation.GetDiagnostics();
+
+        var declaredType = Assert.IsType<NullableTypeSymbol>(parameterSymbol.Type);
+        Assert.Equal(expectedType, declaredType.UnderlyingType.SpecialType);
+        Assert.Same(parameterSymbol, insideSymbol);
+        Assert.Same(parameterSymbol, afterSymbol);
+        Assert.Same(declaredType, insideInfo.Type);
+        Assert.Equal(NullableAnnotation.Annotated, insideInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, insideInfo.Nullability.FlowState);
+        Assert.Same(declaredType, afterInfo.Type);
+        Assert.Equal(NullableAnnotation.Annotated, afterInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, afterInfo.Nullability.FlowState);
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
     [InlineData("string", "\"\"", SpecialType.System_String, false)]
     [InlineData("string", "\"\"", SpecialType.System_String, true)]
     [InlineData("int", "0", SpecialType.System_Int32, false)]

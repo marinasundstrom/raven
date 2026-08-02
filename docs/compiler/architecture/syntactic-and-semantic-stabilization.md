@@ -372,6 +372,10 @@ diagnostics. `value is not null` remains valid and currently refines the
 original local, but whether that smart-cast-like refinement should be enabled
 by default remains an open semantic decision. The choice must not be confused
 with the validity of the syntax or presented as discouraging direct checks.
+The current contract is covered for reference and value nullable parameters in
+both semantic-query orders: the original symbol remains declared as `T?`, its
+flow state is non-null only inside the successful branch, and the fact does not
+leak past the branch.
 Before stabilization, choose explicitly among removing that automatic
 refinement, placing it behind a dedicated opt-in compiler policy, or retaining
 it. Do not silently make it a consequence of `EnableNullFlowAnalysis`: that
