@@ -24,11 +24,11 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => [];
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ITypeSymbol? ConstructedFrom { get; }
-    public bool IsAbstract { get; }
-    public bool IsClosed { get; }
-    public bool IsGenericType { get; }
-    public bool IsUnboundGenericType { get; }
+    public ITypeSymbol? ConstructedFrom => this;
+    public bool IsAbstract => false;
+    public bool IsClosed => true;
+    public bool IsGenericType => false;
+    public bool IsUnboundGenericType => false;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => [];
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
@@ -37,13 +37,13 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public bool IsNamespace => false;
 
-    public bool IsType => false;
+    public bool IsType => true;
 
     public INamedTypeSymbol? BaseType => null;
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition { get; }
+    public ITypeSymbol? OriginalDefinition => this;
 
     public int Arity => 0;
 

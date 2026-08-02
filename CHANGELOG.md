@@ -6,7 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Constructing an error type through the public named-type API now preserves the
   same recovery symbol instead of throwing `NotSupportedException`, keeping
-  semantic tooling total while source is incomplete.
+  semantic tooling total while source is incomplete. Error types also identify
+  themselves as closed type definitions through the ordinary symbol contract.
 - Lexical function scopes now retain complete overload sets instead of replacing
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function

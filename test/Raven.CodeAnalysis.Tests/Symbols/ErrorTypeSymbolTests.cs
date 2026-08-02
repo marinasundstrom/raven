@@ -11,6 +11,11 @@ public sealed class ErrorTypeSymbolTests
 
         Assert.Same(errorType, errorType.Construct());
         Assert.Same(errorType, errorType.Construct(intType));
+        Assert.Same(errorType, errorType.OriginalDefinition);
+        Assert.Same(errorType, errorType.ConstructedFrom);
+        Assert.True(errorType.IsType);
+        Assert.True(errorType.IsClosed);
+        Assert.False(errorType.IsGenericType);
         Assert.Equal(TypeKind.Error, errorType.TypeKind);
     }
 }
