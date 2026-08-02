@@ -430,6 +430,44 @@ func Compute(flag: bool) -> int {
             .ShouldBeOfType<LocalDeclarationStatementSyntax>();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnalyzeControlFlow_ExhaustiveNullableAbruptMatch_MakesFollowingStatementUnreachable(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Compute(input: string?) -> int {
+                match input {
+                    string text => return text.Length
+                    null => return 0
+                }
+
+                let unreachable = 0
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+        var match = block.DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var analysis = model.AnalyzeControlFlow(block);
+        var exhaustiveness = model.GetMatchExhaustiveness(match);
+
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.ReturnStatements.Count().ShouldBe(2);
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+        exhaustiveness.IsExhaustive.ShouldBeTrue();
+        exhaustiveness.MissingCases.ShouldBeEmpty();
+    }
+
     [Fact]
     public void GetOperation_AssignmentStatement_ReturnsAssignmentOperation()
     {

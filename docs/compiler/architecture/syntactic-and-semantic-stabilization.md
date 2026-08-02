@@ -475,6 +475,13 @@ branch assigns an `out` parameter and returns, the continuation sees the input
 as non-null and the later assignment satisfies the remaining normal exit. Both
 facts agree in diagnostics-first and semantic-query-first order.
 
+Nullable match exhaustiveness is also a shared control-flow boundary. A
+`string?` match with `string value` and `null` arms is exhaustive for definite
+assignment, so an `out` parameter assigned in both arms is assigned on every
+normal exit. If both arms return, the following statement is unreachable.
+Focused tests require the exhaustiveness query, assignment analysis, and public
+control-flow analysis to agree in both semantic-query orders.
+
 Null-flow joins treat a branch as abrupt when its block ends in `return`,
 `throw`, `break`, or `continue`, even when ordinary statements precede that
 exit. Nested `if`/`else` statements are abrupt when both branches are abrupt.

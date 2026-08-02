@@ -150,6 +150,43 @@ class C {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OutParameter_NullableExhaustiveMatchAssignmentAgreesWithExhaustivenessQuery(bool diagnosticsFirst)
+    {
+        const string source = """
+            class C {
+                func Assign(input: string?, out value: int) {
+                    match input {
+                        string text => {
+                            value = text.Length
+                        }
+                        null => {
+                            value = 0
+                        }
+                    }
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        else
+            _ = model.GetMatchExhaustiveness(match);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var info = model.GetMatchExhaustiveness(match);
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
     [Fact]
     public void OutParameter_AssignedOnOnlyOneMatchArm_ReportsDiagnostic()
     {
