@@ -21,7 +21,9 @@ partial class BlockBinder
             ifPatternStmt.IfKeyword.GetLocation());
     }
 
-    private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
+    private BoundStatement BindExpressionStatement(
+        ExpressionStatementSyntax expressionStmt,
+        ITypeSymbol? contextualTargetType = null)
     {
         var isImplicitReturnTarget =
             _containingSymbol is IMethodSymbol &&
@@ -32,16 +34,21 @@ partial class BlockBinder
                 _ => false
             };
 
-        if (isImplicitReturnTarget)
+        var expressionTargetType = contextualTargetType ??
+            (isImplicitReturnTarget && _containingSymbol is IMethodSymbol method
+                ? GetReturnTargetType(method)
+                : null);
+
+        if (expressionTargetType is not null)
         {
-            // Keep implicit-return binding consistent with explicit return: if the expression was
-            // previously cached without target type, force a rebind so target-typed union cases
-            // (e.g. trailing `Ok`) don't degrade into open-generic fallbacks.
+            // A value-bearing expression may already have been queried without its surrounding
+            // context. Force the contextual path so target-typed union cases don't degrade into
+            // open-generic fallbacks.
             RemoveCachedBoundNode(expressionStmt.Expression);
         }
 
-        var expr = isImplicitReturnTarget && _containingSymbol is IMethodSymbol method
-            ? BindExpressionWithTargetType(expressionStmt.Expression, GetReturnTargetType(method))
+        var expr = expressionTargetType is not null
+            ? BindExpressionWithTargetType(expressionStmt.Expression, expressionTargetType)
             : BindExpression(expressionStmt.Expression, allowReturn: true);
 
         if (isImplicitReturnTarget && _containingSymbol is IMethodSymbol implicitReturnMethod)
@@ -987,7 +994,11 @@ partial class BlockBinder
         bool allowReturn = true,
         bool isExpressionContext = true)
     {
-        if (TryGetCachedBoundNode(block) is BoundExpression cached)
+        var targetType = GetScopedTargetType(block);
+        var cachedNode = targetType is null
+            ? TryGetCachedBoundNode(block)
+            : TryGetCachedBoundNode(block, targetType);
+        if (cachedNode is BoundExpression cached)
             return (BoundBlockExpression)cached;
 
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
@@ -1045,9 +1056,10 @@ partial class BlockBinder
 
             var boundStatements = new List<BoundStatement>(block.Statements.Count);
             var hasDisallowedReturnInExpressionContext = false;
-            foreach (var stmt in block.Statements)
+            for (var statementIndex = 0; statementIndex < block.Statements.Count; statementIndex++)
             {
                 SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+                var stmt = block.Statements[statementIndex];
 
                 BoundStatement bound;
                 if (!allowReturn && stmt is ReturnStatementSyntax ret)
@@ -1058,6 +1070,13 @@ partial class BlockBinder
                         ? BoundFactory.UnitExpression()
                         : BindExpression(ret.Expression);
                     bound = new BoundExpressionStatement(expr);
+                }
+                else if (isExpressionContext &&
+                         targetType is not null &&
+                         statementIndex == block.Statements.Count - 1 &&
+                         stmt is ExpressionStatementSyntax valueStatement)
+                {
+                    bound = BindExpressionStatement(valueStatement, targetType);
                 }
                 else
                 {
@@ -1083,7 +1102,10 @@ partial class BlockBinder
                 _localsToDispose.RemoveAll(l => l.Depth == depth);
 
             var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
-            CacheBoundNode(block, blockExpr);
+            if (targetType is null)
+                CacheBoundNode(block, blockExpr);
+            else
+                CacheBoundNode(block, blockExpr, targetType);
 
             if (allowReturn || !hasDisallowedReturnInExpressionContext)
             {

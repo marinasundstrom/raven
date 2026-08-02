@@ -13,6 +13,46 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class UnionSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void TargetTypedMatchArms_PropagateThroughNestedIfAndBlockExpressions()
+    {
+        const string source = """
+namespace System
+
+import System.*
+import System.Option.*
+
+union Option<T> {
+    case Some(value: T)
+    case None
+
+    func Filter(predicate: T -> bool) -> Option<T> {
+        self match {
+            Some(let value) => if predicate(value) { Some(value) } else { None }
+            None => None
+        }
+    }
+
+    func Tap(action: T -> ()) -> Option<T> {
+        self match {
+            Some(let value) => {
+                action(value)
+                Some(value)
+            }
+            None => None
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var errors = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ReturnsCaseSymbol()
     {
         const string source = """

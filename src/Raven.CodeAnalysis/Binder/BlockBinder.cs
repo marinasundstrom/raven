@@ -6301,18 +6301,17 @@ partial class BlockBinder : Binder
         ElseExpressionClauseSyntax? elseClause,
         Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows)
     {
+        var targetType = GetTargetType(ifExpression);
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
         var thenBinder = SemanticModel.GetBinder(ifExpression, this);
         var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
         _allowReturnsInBlockExpressionsOnly = false;
         BoundExpression thenExpr;
         try
         {
-            thenExpr = thenBinder switch
-            {
-                BlockBinder bb => bb.BindExpression(thenExpression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
-                { } binder => binder.BindExpression(thenExpression),
-                _ => BindExpression(thenExpression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
-            };
+            thenExpr = BindBranchExpression(thenBinder, thenExpression);
         }
         finally
         {
@@ -6342,12 +6341,7 @@ partial class BlockBinder : Binder
         BoundExpression elseExpr;
         try
         {
-            elseExpr = elseBinder switch
-            {
-                BlockBinder ebb => ebb.BindExpression(elseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
-                { } binder => binder.BindExpression(elseClause.Expression),
-                _ => BindExpression(elseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
-            };
+            elseExpr = BindBranchExpression(elseBinder, elseClause.Expression);
         }
         finally
         {
@@ -6356,10 +6350,6 @@ partial class BlockBinder : Binder
 
         var thenType = thenExpr.Type ?? Compilation.ErrorTypeSymbol;
         var elseType = elseExpr.Type ?? Compilation.ErrorTypeSymbol;
-
-        var targetType = GetTargetType(ifExpression);
-        if (targetType is NullableTypeSymbol nullableTargetType)
-            targetType = nullableTargetType.UnderlyingType;
 
         var hasInferredResultType = TryInferBestCommonType(thenType, elseType, out var inferredResultType);
         var resultType = hasInferredResultType ? inferredResultType : Compilation.ErrorTypeSymbol;
@@ -6409,6 +6399,32 @@ partial class BlockBinder : Binder
         elseExpr = ConvertIfNeeded(resultType, elseExpr, elseClause.Expression);
 
         return new BoundIfExpression(condition, thenExpr, elseExpr);
+
+        BoundExpression BindBranchExpression(Binder? branchScope, ExpressionSyntax expression)
+        {
+            var blockBinder = FindEnclosingBlockBinder(branchScope) ?? this;
+            return targetType is null
+                ? blockBinder.BindExpression(
+                    expression,
+                    allowReturn: _allowReturnsInExpression,
+                    allowReturnInBlockExpressionsOnly: false)
+                : blockBinder.BindExpressionWithTargetType(
+                    expression,
+                    targetType,
+                    allowReturn: _allowReturnsInExpression,
+                    allowReturnInBlockExpressionsOnly: false);
+        }
+
+        static BlockBinder? FindEnclosingBlockBinder(Binder? binder)
+        {
+            for (var current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current is BlockBinder blockBinder)
+                    return blockBinder;
+            }
+
+            return null;
+        }
 
         BoundExpression ConvertIfNeeded(ITypeSymbol target, BoundExpression expression, ExpressionSyntax syntax)
         {

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Target typing now reaches only the value-producing branches of nested `if`
+  expressions and the trailing value of block expressions. Generic union cases
+  in nested match arms retain their constructed carrier type without restoring
+  ambient target-type leakage into unrelated descendants.
 - Missing closing parentheses in function and method parameter lists now
   recover at return annotations, constraint clauses, and body boundaries.
   Later declarations remain independently parseable and bindable during edits.
