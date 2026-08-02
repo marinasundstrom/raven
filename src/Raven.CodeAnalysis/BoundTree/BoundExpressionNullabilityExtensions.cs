@@ -6,6 +6,9 @@ internal static class BoundExpressionNullabilityExtensions
     {
         switch (expression)
         {
+            case BoundNullabilityFlowExpression flowExpression:
+                return flowExpression.FlowType;
+
             case BoundInvocationExpression invocation
                 when InvocationReturnIsNotNull(invocation):
                 return invocation.Type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);

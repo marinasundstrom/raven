@@ -234,6 +234,108 @@ func Length() -> int {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceMaybeNullWhenTrue_InvalidatesNonNullableArgumentInMatchingBranch(bool diagnosticsFirst)
+    {
+        const string source = """
+import System.Diagnostics.CodeAnalysis.*
+
+func MaybeClear(result: bool, [MaybeNullWhen(true)] ref value: string) -> bool => result
+
+func Length() -> int {
+    var value: string = "raven"
+    if MaybeClear(true, ref value) {
+        return value.Length
+    }
+
+    return 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "MaybeClear");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var attribute = Assert.Single(method.Parameters[1].GetAttributes());
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal("MaybeNullWhenAttribute", attribute.AttributeClass?.Name);
+        Assert.Equal(true, attribute.ConstructorArguments.Single().Value);
+        Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmittedRavenMaybeNullWhenTrue_RoundTripsIntoMatchingBranchFlow(bool diagnosticsFirst)
+    {
+        const string librarySource = """
+namespace FlowLibrary {
+    import System.Diagnostics.CodeAnalysis.*
+
+    public class Contracts {
+        public static func MaybeClear(result: bool, [MaybeNullWhen(true)] ref value: string) -> bool => result
+    }
+}
+""";
+        var libraryReference = CreateRavenLibraryReference(librarySource);
+        const string source = """
+import FlowLibrary.*
+
+func Length() -> int {
+    var value: string = "raven"
+    if Contracts.MaybeClear(true, ref value) {
+        return value.Length
+    }
+
+    return 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: [.. TestMetadataReferences.Default, libraryReference]);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var attribute = Assert.Single(method.Parameters[1].GetAttributes());
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal("MaybeNullWhenAttribute", attribute.AttributeClass?.Name);
+        Assert.Equal(true, attribute.ConstructorArguments.Single().Value);
+        Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void AllowNullParameter_AcceptsNullInputWithoutChangingDeclaredType()
     {
@@ -605,5 +707,128 @@ func Length() -> int {
         var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
 
         Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MaybeNullOutParameter_InvalidatesNonNullableArgumentFlowAfterCall(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length() -> int {
+    var value: string = "raven"
+    NullableFlowFixture.SetMaybeName(out value)
+    return value.Length
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MaybeNullOutParameter_CanBeRefinedWithoutChangingDeclaredType(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length() -> int {
+    var value: string = "raven"
+    NullableFlowFixture.SetMaybeName(out value)
+    if value is null {
+        return 0
+    }
+
+    return value.Length
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MaybeNullOutParameter_JoinsWithUntouchedNonNullableBranch(bool diagnosticsFirst)
+    {
+        const string source = """
+import Raven.ExtensionMethodsFixture.*
+
+func Length(change: bool) -> int {
+    var value: string = "raven"
+    if change {
+        NullableFlowFixture.SetMaybeName(out value)
+    }
+
+    return value.Length
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.NotAnnotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    private static MetadataReference CreateRavenLibraryReference(string source)
+    {
+        var compilation = Compilation.Create(
+            "FlowLibrary",
+            [SyntaxTree.ParseText(source)],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new System.IO.MemoryStream();
+        var emitResult = compilation.Emit(image);
+
+        Assert.True(emitResult.Success, string.Join(System.Environment.NewLine, emitResult.Diagnostics));
+        return MetadataReference.CreateFromImage(image.ToArray());
     }
 }

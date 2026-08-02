@@ -40,7 +40,11 @@ when those types cross a conventional .NET ABI unchanged.
 
 A flow fact does not mutate a declaration. If `name` is declared as `string?`,
 it remains declared as `string?` even at a position where analysis proves that
-its current value is not null.
+its current value is not null. The reverse is also true at an interoperability
+boundary: a .NET `[MaybeNull]` postcondition can make a value declared as
+`string` maybe-null at a particular program point without rewriting its Raven
+type. `TypeInfo` therefore reports the declared annotation and current flow
+state independently.
 
 ## Nullable values must be handled
 

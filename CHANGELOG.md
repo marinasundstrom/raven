@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Metadata `[MaybeNull]` output contracts can now place a declared non-nullable
+  reference in the maybe-null flow state. The declared Raven type remains
+  unchanged, null patterns can refine it again, and branch joins preserve the
+  possible-null diagnostic in either semantic-query order.
 - Null-flow state captured by `break` now passes through an enclosing
   `finally`: possible assignments invalidate pre-finally non-null facts, and an
   abrupt `finally` replaces pending protected-region breaks. Loop exits no

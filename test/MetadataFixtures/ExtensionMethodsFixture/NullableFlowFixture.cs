@@ -17,6 +17,8 @@ public static class NullableFlowFixture
 
     public static void SetDefault<T>([MaybeNull] out T value) => value = default;
 
+    public static void SetMaybeName([MaybeNull] out string value) => value = null;
+
     public static bool IsMissing([NotNullWhen(false)] string? value) => value is null;
 
     public static bool ArePresent(

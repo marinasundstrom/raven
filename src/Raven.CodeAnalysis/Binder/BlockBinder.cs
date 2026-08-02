@@ -58,6 +58,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<ExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new ExpressionSyntaxStructuralComparer());
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<ISymbol> _maybeNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<MemberFlowSlotKey, MemberFlowSlotSymbol> _memberFlowSlots = new(MemberFlowSlotKeyComparer.Instance);
     private readonly Stack<LoopNullFlowContext> _loopNullFlowContexts = new();
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
@@ -82,6 +83,8 @@ partial class BlockBinder : Binder
         public StatementSyntax? LoopStatement { get; } = loopStatement;
 
         public List<HashSet<ISymbol>> BreakStates { get; } = new();
+
+        public List<HashSet<ISymbol>> BreakMaybeNullStates { get; } = new();
     }
 
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
@@ -2416,6 +2419,7 @@ partial class BlockBinder : Binder
         private readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals;
         private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose;
         private readonly HashSet<ISymbol> _nonNullSymbols;
+        private readonly HashSet<ISymbol> _maybeNullSymbols;
         private readonly Dictionary<SyntaxReferenceKey, int> _statementDeclarationProgress;
         private readonly int _scopeDepth;
         private readonly SyntaxKind _ambientPatternDeclarationBindingKeyword;
@@ -2424,6 +2428,7 @@ partial class BlockBinder : Binder
             Dictionary<string, (ILocalSymbol Symbol, int Depth)> locals,
             List<(ILocalSymbol Local, int Depth)> localsToDispose,
             HashSet<ISymbol> nonNullSymbols,
+            HashSet<ISymbol> maybeNullSymbols,
             Dictionary<SyntaxReferenceKey, int> statementDeclarationProgress,
             int scopeDepth,
             SyntaxKind ambientPatternDeclarationBindingKeyword)
@@ -2431,6 +2436,7 @@ partial class BlockBinder : Binder
             _locals = locals;
             _localsToDispose = localsToDispose;
             _nonNullSymbols = nonNullSymbols;
+            _maybeNullSymbols = maybeNullSymbols;
             _statementDeclarationProgress = statementDeclarationProgress;
             _scopeDepth = scopeDepth;
             _ambientPatternDeclarationBindingKeyword = ambientPatternDeclarationBindingKeyword;
@@ -2441,6 +2447,7 @@ partial class BlockBinder : Binder
                 new Dictionary<string, (ILocalSymbol Symbol, int Depth)>(binder._locals, StringComparer.Ordinal),
                 new List<(ILocalSymbol Local, int Depth)>(binder._localsToDispose),
                 new HashSet<ISymbol>(binder._nonNullSymbols, SymbolEqualityComparer.Default),
+                new HashSet<ISymbol>(binder._maybeNullSymbols, SymbolEqualityComparer.Default),
                 binder._statementDeclarationProgress.CreateSnapshot(),
                 binder._scopeDepth,
                 binder._ambientPatternDeclarationBindingKeyword);
@@ -2456,6 +2463,8 @@ partial class BlockBinder : Binder
 
             binder._nonNullSymbols.Clear();
             binder._nonNullSymbols.UnionWith(_nonNullSymbols);
+            binder._maybeNullSymbols.Clear();
+            binder._maybeNullSymbols.UnionWith(_maybeNullSymbols);
 
             binder._statementDeclarationProgress.Restore(_statementDeclarationProgress);
             binder._scopeDepth = _scopeDepth;
@@ -8307,13 +8316,13 @@ partial class BlockBinder : Binder
             }
 
             var b = new BoundLocalAccess(localEarly);
-            return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(b, localEarly) : b;
+            return applyFlowNarrowing ? ApplyNullabilityFlowState(b, localEarly) : b;
         }
 
         if (symbol is IParameterSymbol paramEarly)
         {
             var p = new BoundParameterAccess(paramEarly);
-            return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(p, paramEarly) : p;
+            return applyFlowNarrowing ? ApplyNullabilityFlowState(p, paramEarly) : p;
         }
 
         if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out var memberExpr))
@@ -8480,10 +8489,10 @@ partial class BlockBinder : Binder
                 return new BoundMemberAccessExpression(null, @event);
             case ILocalSymbol local:
                 var b = new BoundLocalAccess(local);
-                return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(b, local) : b;
+                return applyFlowNarrowing ? ApplyNullabilityFlowState(b, local) : b;
             case IParameterSymbol param:
                 var p = new BoundParameterAccess(param);
-                return applyFlowNarrowing ? UnwrapNullableIfKnownNonNull(p, param) : p;
+                return applyFlowNarrowing ? ApplyNullabilityFlowState(p, param) : p;
             case IFieldSymbol field:
                 {
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
@@ -10329,6 +10338,7 @@ partial class BlockBinder : Binder
         {
             BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess => true,
             BoundConversionExpression { Expression: BoundExpression inner } => IsInvocableValueReceiver(inner),
+            BoundNullabilityFlowExpression { Expression: BoundExpression inner } => IsInvocableValueReceiver(inner),
             _ => false,
         };
     }
@@ -11215,7 +11225,9 @@ partial class BlockBinder : Binder
         if (receiver is BoundTypeExpression or BoundNamespaceExpression)
             return;
 
-        if (receiver.Type is null || !receiver.GetNullabilityFlowType().IsNullable)
+        if (receiver.Type is null ||
+            !receiver.GetNullabilityFlowType().IsNullable &&
+            !IsReceiverKnownMaybeNull(receiver))
             return;
 
         if (IsReceiverKnownNotNull(receiver))
@@ -11246,18 +11258,33 @@ partial class BlockBinder : Binder
         return expr;
     }
 
+    private BoundExpression ApplyNullabilityFlowState(BoundExpression expression, ISymbol symbol)
+    {
+        if (_maybeNullSymbols.Contains(symbol) && !expression.Type.IsValueType)
+        {
+            return new BoundNullabilityFlowExpression(
+                expression,
+                expression.Type.WithNullableAnnotation(NullableAnnotation.Annotated));
+        }
+
+        return UnwrapNullableIfKnownNonNull(expression, symbol);
+    }
+
     private BoundExpression UnwrapNullableIfFlowKnownNonNull(BoundExpression expr)
     {
         expr = UnwrapFlowExpression(expr);
         return TryGetFlowSymbol(expr, out var symbol)
-            ? UnwrapNullableIfKnownNonNull(expr, symbol)
+            ? ApplyNullabilityFlowState(expr, symbol)
             : expr;
     }
 
     private void ClearNonNullSymbolsAtDepth(int depth)
     {
         foreach (var local in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Value.Symbol).ToArray())
+        {
             _nonNullSymbols.Remove(local);
+            _maybeNullSymbols.Remove(local);
+        }
     }
 
     private void UpdateNullableFlowOnAssignment(BoundAssignmentExpression assignment)
@@ -11282,15 +11309,29 @@ partial class BlockBinder : Binder
     {
         var valueFlowType = value.GetNullabilityFlowType();
         if (valueFlowType.TypeKind != TypeKind.Null && !valueFlowType.IsNullable)
+        {
             _nonNullSymbols.Add(symbol);
+            _maybeNullSymbols.Remove(symbol);
+        }
         else
+        {
             _nonNullSymbols.Remove(symbol);
+            _maybeNullSymbols.Add(symbol);
+        }
     }
 
     private bool IsReceiverKnownNotNull(BoundExpression receiver)
     {
         if (TryGetFlowSymbol(receiver, out var symbol))
             return _nonNullSymbols.Contains(symbol);
+
+        return false;
+    }
+
+    private bool IsReceiverKnownMaybeNull(BoundExpression receiver)
+    {
+        if (TryGetFlowSymbol(receiver, out var symbol))
+            return _maybeNullSymbols.Contains(symbol);
 
         return false;
     }
@@ -11302,10 +11343,20 @@ partial class BlockBinder : Binder
 
     private static BoundExpression UnwrapFlowExpression(BoundExpression expression)
     {
-        while (expression is BoundParenthesizedExpression parenthesized)
-            expression = parenthesized.Expression;
-
-        return expression;
+        while (true)
+        {
+            switch (expression)
+            {
+                case BoundParenthesizedExpression parenthesized:
+                    expression = parenthesized.Expression;
+                    continue;
+                case BoundNullabilityFlowExpression flowExpression:
+                    expression = flowExpression.Expression;
+                    continue;
+                default:
+                    return expression;
+            }
+        }
     }
 
     private bool TryGetFlowSymbol(BoundExpression expression, out ISymbol symbol)
@@ -11386,11 +11437,13 @@ partial class BlockBinder : Binder
                 !NullableFlowAttributeFacts.ParameterMayBeNullAfterCall(parameter))
             {
                 _nonNullSymbols.Add(symbol);
+                _maybeNullSymbols.Remove(symbol);
             }
             else if (parameter.RefKind == RefKind.Out ||
                      NullableFlowAttributeFacts.ParameterMayBeNullAfterCall(parameter))
             {
                 _nonNullSymbols.Remove(symbol);
+                _maybeNullSymbols.Add(symbol);
             }
         }
 
@@ -11417,9 +11470,15 @@ partial class BlockBinder : Binder
 
                 var slot = GetMemberFlowSymbol(invocation.Receiver, member);
                 if (isNonNull)
+                {
                     _nonNullSymbols.Add(slot);
+                    _maybeNullSymbols.Remove(slot);
+                }
                 else
+                {
                     _nonNullSymbols.Remove(slot);
+                    _maybeNullSymbols.Add(slot);
+                }
             }
         }
     }
@@ -11488,12 +11547,22 @@ partial class BlockBinder : Binder
         return builder.ToImmutable();
     }
 
-    private static void ApplyNullFlow(HashSet<ISymbol> state, ISymbol symbol, bool? isNonNull)
+    private static void ApplyNullFlow(
+        HashSet<ISymbol> nonNullState,
+        HashSet<ISymbol> maybeNullState,
+        ISymbol symbol,
+        bool? isNonNull)
     {
         if (isNonNull is true)
-            state.Add(symbol);
+        {
+            nonNullState.Add(symbol);
+            maybeNullState.Remove(symbol);
+        }
         else if (isNonNull is false)
-            state.Remove(symbol);
+        {
+            nonNullState.Remove(symbol);
+            maybeNullState.Add(symbol);
+        }
     }
 
     private bool TryGetIntrinsicNullCheckFlow(
@@ -11708,6 +11777,33 @@ partial class BlockBinder : Binder
         var result = new HashSet<ISymbol>(states[0], SymbolEqualityComparer.Default);
         for (var i = 1; i < states.Count; i++)
             result.IntersectWith(states[i]);
+
+        return result;
+    }
+
+    private static HashSet<ISymbol> UnionFlowStates(HashSet<ISymbol> left, HashSet<ISymbol> right)
+    {
+        var result = new HashSet<ISymbol>(left, SymbolEqualityComparer.Default);
+        result.UnionWith(right);
+        return result;
+    }
+
+    private static HashSet<ISymbol> UnionFlowStates(
+        HashSet<ISymbol> initial,
+        IReadOnlyList<HashSet<ISymbol>> additionalStates)
+    {
+        var result = new HashSet<ISymbol>(initial, SymbolEqualityComparer.Default);
+        foreach (var state in additionalStates)
+            result.UnionWith(state);
+
+        return result;
+    }
+
+    private static HashSet<ISymbol> UnionFlowStates(IReadOnlyList<HashSet<ISymbol>> states)
+    {
+        var result = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        foreach (var state in states)
+            result.UnionWith(state);
 
         return result;
     }

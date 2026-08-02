@@ -539,6 +539,17 @@ node is available. Calls apply unconditional `NotNull` and `MaybeNull`
 postconditions to the referenced local or parameter, including attributes on an
 open generic `out T` after method construction. Cached invocations replay the
 same transition so diagnostics-first and cold semantic queries agree.
+An explicit maybe-null flow fact now also represents a metadata postcondition
+that downgrades declared non-nullable reference storage. The declaration stays
+non-nullable in Raven's symbol model, while dereference diagnostics and public
+`TypeInfo` observe the maybe-null program-point state. A successful null pattern
+can refine the value again, and branch joins retain the downgraded state if any
+completing path may have received null.
+`MaybeNullWhen` has the same invariant through all three relevant boundaries:
+a Raven source declaration affects its caller directly, the emitted declaration
+round-trips through a PE symbol and retains its Boolean constructor argument,
+and an independently compiled .NET declaration produces the same branch flow.
+Both cold and diagnostics-first semantic queries consume that one contract.
 
 By-reference overload applicability compares the CLR storage identity rather
 than Raven's reference-nullability projection. Consequently, `string` and
@@ -1195,10 +1206,9 @@ wrapper around the constructed `Box<string>` view in either query order.
    otherwise unconstrained `notnull` parameter instead of dropping that
    semantic constraint. Dependent and nested constraint shapes still need
    equivalent construction coverage. An explicit
-   maybe-null state for declared non-nullable storage remains useful for valid
-   metadata postconditions; it should be introduced for that accepted-code
-   boundary rather than to cascade diagnostics after an assignment Raven has
-   already rejected.
+   maybe-null state for declared non-nullable storage now covers valid metadata
+   postconditions without weakening ordinary Raven assignment rules or
+   rewriting the declared type.
 
 Raven-emitted nullable generic contracts now have an explicit round-trip
 invariant. For a reference-constrained `T`, nullable parameter and return uses
