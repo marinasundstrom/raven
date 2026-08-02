@@ -869,7 +869,10 @@ missing-case code fix. A nullable sealed hierarchy therefore reports its
 specific missing leaves followed by `null`, while an open hierarchy reports `_`
 until a base-type or discard fallback is present. The same complete and missing
 case sets are now required from source and emitted-metadata hierarchies in both
-diagnostics-first and semantic-query-first order.
+diagnostics-first and semantic-query-first order. Incremental edits that add a
+permitted leaf invalidate the nullable match immediately, report only that new
+leaf when `null` was already handled, and restore the original exhaustive state
+without retaining stale diagnostics.
 
 Pattern binding also treats unsupported pattern node kinds as recoverable
 semantic errors. Programmatically constructed or transient edited trees now

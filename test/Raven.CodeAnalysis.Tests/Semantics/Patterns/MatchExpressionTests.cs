@@ -917,6 +917,80 @@ func Describe(color: Color) -> string {
     }
 
     [Fact]
+    public void NullableMatchExpression_AddingPermittedSubtypeInvalidatesIncrementalExhaustiveness()
+    {
+        const string source = """
+            sealed class BaseClass permits SubClassA {}
+            class SubClassA : BaseClass {}
+
+            func Describe(value: BaseClass?) -> string {
+                return match value {
+                    SubClassA a => "A"
+                    null => ""
+                }
+            }
+            """;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "incremental-nullable-sealed-hierarchy-exhaustiveness",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "hierarchy.rvn",
+            SourceText.From(source),
+            "/tmp/hierarchy.rvn").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single();
+        var initialMatch = initialTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.DoesNotContain(
+            initialCompilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.True(initialCompilation.GetSemanticModel(initialTree).GetMatchExhaustiveness(initialMatch).IsExhaustive);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSource = source
+            .Replace("permits SubClassA", "permits SubClassA, SubClassB", StringComparison.Ordinal)
+            .Replace("class SubClassA : BaseClass {}", "class SubClassA : BaseClass {}\nclass SubClassB : BaseClass {}", StringComparison.Ordinal);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(updatedSource)));
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single();
+        var updatedMatch = updatedTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var updatedInfo = updatedCompilation.GetSemanticModel(updatedTree).GetMatchExhaustiveness(updatedMatch);
+        var updatedDiagnostics = updatedCompilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+
+        Assert.False(updatedInfo.IsExhaustive);
+        Assert.Equal("SubClassB", Assert.Single(updatedInfo.MissingCases));
+        Assert.Contains("'SubClassB'", Assert.Single(updatedDiagnostics).GetMessage(), StringComparison.Ordinal);
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(source)));
+
+        var restoredCompilation = workspace.GetCompilation(projectId);
+        var restoredTree = restoredCompilation.SyntaxTrees.Single();
+        var restoredMatch = restoredTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.True(restoredCompilation.GetSemanticModel(restoredTree).GetMatchExhaustiveness(restoredMatch).IsExhaustive);
+        Assert.DoesNotContain(
+            restoredCompilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+    }
+
+    [Fact]
     public void MatchExpression_WithEnumArms_MissingCase_ReportsDiagnostic()
     {
         const string code = """
