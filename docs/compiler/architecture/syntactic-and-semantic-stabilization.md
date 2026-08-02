@@ -1104,8 +1104,8 @@ wrapper around the constructed `Box<string>` view in either query order.
    arguments, in either query order.
    Generic by-reference calls now infer from the referenced storage element
    rather than constructing illegal address-shaped type arguments. Source and
-   metadata `ref T` methods agree in both query orders, while ordinary
-   applicability retains exact `ref`/`out`/`in` validation.
+   metadata `ref T`, `out T`, and `in T` methods agree in both query orders,
+   while ordinary applicability retains exact by-reference-kind validation.
    Lifted numeric conversions use that same ranking under Raven's nullable
    wrapper: `int?` selects `long?` over `double?`, independent of declaration
    and query order. Nullable wrapping does not introduce a second ranking

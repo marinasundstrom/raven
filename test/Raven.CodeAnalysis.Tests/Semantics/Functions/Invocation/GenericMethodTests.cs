@@ -825,26 +825,36 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
+    [InlineData("ref", RefKind.Ref, false, false)]
+    [InlineData("ref", RefKind.Ref, false, true)]
+    [InlineData("ref", RefKind.Ref, true, false)]
+    [InlineData("ref", RefKind.Ref, true, true)]
+    [InlineData("out", RefKind.Out, false, false)]
+    [InlineData("out", RefKind.Out, false, true)]
+    [InlineData("out", RefKind.Out, true, false)]
+    [InlineData("out", RefKind.Out, true, true)]
+    [InlineData("in", RefKind.In, false, false)]
+    [InlineData("in", RefKind.In, false, true)]
+    [InlineData("in", RefKind.In, true, false)]
+    [InlineData("in", RefKind.In, true, true)]
     public void ByRefParameterInference_MatchesSourceAndMetadata(
+        string modifier,
+        RefKind expectedRefKind,
         bool useMetadata,
         bool diagnosticsFirst)
     {
-        var libraryTree = SyntaxTree.ParseText("""
+        var libraryTree = SyntaxTree.ParseText($$"""
             namespace ByRefInferenceLibrary {
-                public func Read<T>(ref value: T) -> T {
-                    value
+                public func Read<T>({{modifier}} value: T) -> T {
+                    throw System.Exception()
                 }
             }
             """);
-        var consumerTree = SyntaxTree.ParseText("""
+        var consumerTree = SyntaxTree.ParseText($$"""
             import ByRefInferenceLibrary.*
 
             var value = "raven"
-            let result = Read(ref value)
+            let result = Read({{modifier}} value)
             """);
         var compilation = useMetadata
             ? CreateCompilation(
@@ -857,7 +867,7 @@ public sealed class GenericMethodTests : CompilationTestBase
             var openMethod = Assert.IsAssignableFrom<IMethodSymbol>(
                 compilation.GetSemanticModel(libraryTree).GetDeclaredSymbol(declaration));
             var openParameter = Assert.Single(openMethod.Parameters);
-            Assert.Equal(RefKind.Ref, openParameter.RefKind);
+            Assert.Equal(expectedRefKind, openParameter.RefKind);
             Assert.IsAssignableFrom<ITypeParameterSymbol>(openParameter.Type);
         }
         if (diagnosticsFirst)
@@ -870,7 +880,7 @@ public sealed class GenericMethodTests : CompilationTestBase
 
         Assert.Equal(SpecialType.System_String, Assert.Single(method.TypeArguments).SpecialType);
         Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
-        Assert.Equal(RefKind.Ref, parameter.RefKind);
+        Assert.Equal(expectedRefKind, parameter.RefKind);
         Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType);
         Assert.Empty(compilation.GetDiagnostics());
     }
