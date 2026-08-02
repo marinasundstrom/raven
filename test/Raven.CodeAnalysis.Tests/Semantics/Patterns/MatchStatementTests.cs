@@ -212,6 +212,58 @@ match pair {
         Assert.Empty(info.MissingCases);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void MatchStatement_ExhaustivenessIsStableAcrossSemanticQueryOrder(int firstQuery)
+    {
+        const string code = """
+            enum Color {
+                Red
+                Blue
+            }
+
+            func Print(color: Color) -> unit {
+                match color {
+                    .Red => {}
+                }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_statement_query_order",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+
+        switch (firstQuery)
+        {
+            case 0:
+                _ = compilation.GetDiagnostics();
+                break;
+            case 1:
+                _ = model.GetTypeInfo(statement.Expression);
+                break;
+            case 2:
+                _ = model.GetMatchExhaustiveness(statement);
+                break;
+        }
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        var info = model.GetMatchExhaustiveness(statement);
+
+        Assert.Contains("'Blue'", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.False(info.IsExhaustive);
+        Assert.Equal("Blue", Assert.Single(info.MissingCases));
+        Assert.Equal(SpecialType.None, model.GetTypeInfo(statement.Expression).Type?.SpecialType);
+        Assert.Equal("Color", model.GetTypeInfo(statement.Expression).Type?.Name);
+    }
+
     [Fact]
     public void MatchStatement_WithOpenGenericDeclarationPattern_InfersTypeArgumentsFromScrutinee()
     {
