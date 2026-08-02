@@ -604,6 +604,11 @@ the call. Workspace coverage edits the argument from a satisfying value type
 to a violating reference type and back, requiring both diagnostics and the
 contextually constructed method symbol to update.
 
+Dependent source constraints now have the same acceptance/rejection invariant
+as their emitted-metadata counterparts: `TDerived: TBase` accepts
+`<Base, Derived>`, rejects the reversed construction with the constrained method
+as a candidate, and is independent of diagnostics-versus-symbol query order.
+
 Lexical function lookup now retains an overload set per name rather than a
 single last-declared function. This matters at the higher-order boundary:
 generic and non-generic namespace-function overloads passed as a method group

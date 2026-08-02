@@ -558,6 +558,50 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Equal("Select", Assert.Single(symbolInfo.CandidateSymbols).Name);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceGenericMethod_DependentConstraint_MatchesMetadataBehavior(bool diagnosticsFirst)
+    {
+        const string source = """
+            class Base {}
+            class Derived: Base {}
+
+            func Select<TBase, TDerived>(baseValue: TBase, derivedValue: TDerived) -> TDerived
+                where TDerived: TBase
+            {
+                derivedValue
+            }
+
+            let accepted = Select(Base(), Derived())
+            let rejected = Select(Derived(), Base())
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(static invocation => invocation.Expression.ToString() == "Select")
+            .ToArray();
+        var accepted = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
+        var rejected = model.GetSymbolInfo(invocations[1]);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(["Base", "Derived"], accepted.TypeArguments.Select(static argument => argument.Name));
+        Assert.Null(rejected.Symbol);
+        Assert.Contains(
+            rejected.CandidateSymbols,
+            static candidate => candidate is IMethodSymbol { Name: "Select" });
+        Assert.Contains(
+            diagnostics,
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.DoesNotContain(
+            diagnostics,
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {
