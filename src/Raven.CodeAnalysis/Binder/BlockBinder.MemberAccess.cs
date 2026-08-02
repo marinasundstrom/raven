@@ -2389,7 +2389,11 @@ partial class BlockBinder
             isReference: !lookupType.IsValueType,
             isLifted: receiverType is NullableTypeSymbol);
 
-        return new BoundConversionExpression(receiver, lookupType, conversion);
+        return new BoundConversionExpression(
+            receiver,
+            lookupType,
+            conversion,
+            isNullabilityFlowNarrowing: true);
     }
 
     // ============================

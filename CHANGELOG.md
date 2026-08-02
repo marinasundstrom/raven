@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Conditional access now marks its synthesized non-null receiver conversion as
+  a refinement, preventing false nullable-input diagnostics when invoking
+  source extension methods through `?.`.
 - Reuse unchanged local macro partitions even when they contain authored
   diagnostics, remapping those diagnostics after consumer-only workspace edits
   instead of recompiling the macro partition.

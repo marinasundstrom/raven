@@ -975,6 +975,12 @@ are observed as nullable by .NET reflection, reload as nullable type-parameter
 uses through PE symbols, and remain nullable after constructing the containing
 type with `string`. This covers annotation emission, metadata loading, generic
 ownership, and substitution at the interop seam without expanding flow rules.
+
+Conditional access is part of the mandatory refinement layer. Its synthesized
+receiver conversion from `T?` to `T` is explicitly marked as a non-null
+refinement, so extension receiver applicability sees `T` inside the `?.` path
+while the overall expression remains nullable. This avoids treating ordinary
+conditional access as extended mutable-flow analysis.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage, but macro partitions and
    other declaration families remain less complete. Broken signatures and
