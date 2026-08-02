@@ -525,12 +525,10 @@ func Compute() -> int {
         bool diagnosticsFirst)
     {
         const string source = """
-func Identity(value: int) -> int => value
-
 func Compute() -> int {
     try {
         throw Exception()
-    } catch Exception error when Identity(return 1) == 0 {
+    } catch Exception error when (return 1) == 0 {
         let unreachableCatch = 0
     }
 
@@ -554,6 +552,8 @@ func Compute() -> int {
             .ShouldBeOfType<ReturnExpressionSyntax>();
         analysis.UnreachableStatements.Count().ShouldBe(2);
         analysis.EndPointIsReachable.ShouldBeFalse();
+        compilation.GetDiagnostics().ShouldNotContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
         compilation.GetDiagnostics().ShouldNotContain(
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
     }

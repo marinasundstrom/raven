@@ -8709,13 +8709,13 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindBinaryExpression(InfixOperatorExpressionSyntax syntax)
     {
-        var left = BindExpression(syntax.Left);
+        var left = BindExpressionWithoutTargetType(syntax.Left);
         var opKind = syntax.OperatorToken.Kind;
 
         if (opKind == SyntaxKind.PipeToken)
             return BindPipeExpression(left, syntax);
 
-        var right = BindExpression(syntax.Right);
+        var right = BindExpressionWithoutTargetType(syntax.Right);
 
         return BindBinaryExpression(
             opKind,

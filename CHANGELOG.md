@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Binary-expression result targets no longer flow into their operands. A
+  Boolean context such as a catch filter therefore preserves the method return
+  target of a nested `return` expression instead of coercing its value to
+  Boolean before operator binding.
 - Catch filters now participate in public reachability analysis as required
   expressions. Nested `return` expressions make the catch body unreachable
   without re-entering method binding during diagnostic production.
