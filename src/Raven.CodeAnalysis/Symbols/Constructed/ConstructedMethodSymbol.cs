@@ -255,20 +255,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     private ITypeSymbol Substitute(ITypeSymbol type)
     {
         var visiting = new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance);
-        var cache = new Dictionary<ITypeSymbol, ITypeSymbol>(ReferenceEqualityComparer.Instance);
-        return Substitute(type, visiting, cache);
+        var cache = new Dictionary<ITypeSymbol, SubstitutionResult>(ReferenceEqualityComparer.Instance);
+        return Substitute(type, visiting, cache).Type;
     }
 
-    private ITypeSymbol Substitute(
+    private SubstitutionResult Substitute(
         ITypeSymbol type,
         HashSet<ITypeSymbol> visiting,
-        Dictionary<ITypeSymbol, ITypeSymbol> cache)
+        Dictionary<ITypeSymbol, SubstitutionResult> cache)
     {
         if (cache.TryGetValue(type, out var cached))
             return cached;
 
         if (!visiting.Add(type))
-            return type;
+            return new SubstitutionResult(type, Changed: false);
 
         try
         {
@@ -277,80 +277,75 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 tp = CanonicalizeTypeParameter(tp);
                 if (_substitutionMap.TryGetValue(tp, out var replacement))
                 {
-                    cache[type] = replacement;
-                    return replacement;
+                    return cache[type] = new SubstitutionResult(
+                        replacement,
+                        Changed: !ReferenceEquals(replacement, type));
                 }
             }
 
             if (type is NullableTypeSymbol nullableTypeSymbol)
             {
-                var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);
+                var underlying = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);
 
-                if (!ReferenceEquals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                if (underlying.Changed)
                 {
+                    var underlyingType = underlying.Type;
                     var result = underlyingType.IsNullable
                         ? underlyingType
                         : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
-                    cache[type] = result;
-                    return result;
+                    return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
-                cache[type] = type;
-                return type;
+                return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
             if (type is RefTypeSymbol refType)
             {
-                var substitutedElement = Substitute(refType.ElementType, visiting, cache);
+                var element = Substitute(refType.ElementType, visiting, cache);
 
-                if (!ReferenceEquals(substitutedElement, refType.ElementType))
+                if (element.Changed)
                 {
-                    var result = new RefTypeSymbol(substitutedElement);
-                    cache[type] = result;
-                    return result;
+                    var result = new RefTypeSymbol(element.Type);
+                    return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
-                cache[type] = type;
-                return type;
+                return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
             if (type is IAddressTypeSymbol address)
             {
-                var substitutedElement = Substitute(address.ReferencedType, visiting, cache);
+                var element = Substitute(address.ReferencedType, visiting, cache);
 
-                if (!ReferenceEquals(substitutedElement, address.ReferencedType))
+                if (element.Changed)
                 {
-                    var result = new AddressTypeSymbol(substitutedElement);
-                    cache[type] = result;
-                    return result;
+                    var result = new AddressTypeSymbol(element.Type);
+                    return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
-                cache[type] = type;
-                return type;
+                return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
             if (type is IArrayTypeSymbol arrayType)
             {
-                var substitutedElement = Substitute(arrayType.ElementType, visiting, cache);
+                var element = Substitute(arrayType.ElementType, visiting, cache);
 
-                if (!ReferenceEquals(substitutedElement, arrayType.ElementType))
+                if (element.Changed)
                 {
-                    var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
-                    cache[type] = result;
-                    return result;
+                    var result = new ArrayTypeSymbol(arrayType.BaseType, element.Type, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
+                    return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
-                cache[type] = type;
-                return type;
+                return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
             if (type is ITupleTypeSymbol tupleType)
             {
                 var result = TypeSubstitution.SubstituteTupleElements(
                     tupleType,
-                    element => Substitute(element, visiting, cache));
-                cache[type] = result;
-                return result;
+                    element => Substitute(element, visiting, cache).Type);
+                return cache[type] = new SubstitutionResult(
+                    result,
+                    Changed: !ReferenceEquals(result, type));
             }
 
             if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
@@ -362,11 +357,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 for (int i = 0; i < typeArguments.Length; i++)
                 {
                     var originalArg = typeArguments[i];
-                    var substitutedArg = Substitute(originalArg, visiting, cache);
+                    var substitution = Substitute(originalArg, visiting, cache);
+                    var substitutedArg = substitution.Type;
 
                     substitutedArgs[i] = substitutedArg;
 
-                    if (!ReferenceEquals(substitutedArg, originalArg))
+                    if (substitution.Changed)
                         changed = true;
                 }
 
@@ -377,8 +373,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     var result = underlyingType.IsNullable
                         ? underlyingType
                         : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
-                    cache[type] = result;
-                    return result;
+                    return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
                 if (!changed)
@@ -388,14 +383,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
                     {
                         var constructedFromSame = TypeSubstitution.GetDefinitionForSubstitution(named);
-                        return TypeSubstitution.ReanchorNested(
+                        var reanchored = TypeSubstitution.ReanchorNested(
                             constructedFromSame,
                             containingOverride,
                             inheritedSubstitution: null,
                             typeArguments: typeArguments);
+                        return cache[type] = new SubstitutionResult(
+                            reanchored,
+                            Changed: !ReferenceEquals(reanchored, type));
                     }
 
-                    return named;
+                    return cache[type] = new SubstitutionResult(named, Changed: false);
                 }
 
                 // Avoid reusing a possibly already-constructed named
@@ -408,16 +406,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     if (TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
                         containingForNested = overrideContaining;
 
-                    return TypeSubstitution.ReanchorNested(
+                    var reanchored = TypeSubstitution.ReanchorNested(
                         constructedFrom,
                         containingForNested,
                         inheritedSubstitution: null,
                         typeArguments: immutableArguments);
+                    return cache[type] = new SubstitutionResult(reanchored, Changed: true);
                 }
 
                 var constructedResult = constructedFrom.Construct(substitutedArgs);
-                cache[type] = constructedResult;
-                return constructedResult;
+                return cache[type] = new SubstitutionResult(constructedResult, Changed: true);
             }
 
             // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
@@ -425,22 +423,26 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
                 {
-                    return TypeSubstitution.ReanchorNested(
+                    var reanchored = TypeSubstitution.ReanchorNested(
                         nestedNamed,
                         containingOverride,
                         inheritedSubstitution: null,
                         typeArguments: ImmutableArray<ITypeSymbol>.Empty);
+                    return cache[type] = new SubstitutionResult(
+                        reanchored,
+                        Changed: !ReferenceEquals(reanchored, type));
                 }
             }
 
-            cache[type] = type;
-            return type;
+            return cache[type] = new SubstitutionResult(type, Changed: false);
         }
         finally
         {
             visiting.Remove(type);
         }
     }
+
+    private readonly record struct SubstitutionResult(ITypeSymbol Type, bool Changed);
 
     private ITypeParameterSymbol CanonicalizeTypeParameter(ITypeParameterSymbol typeParameter)
     {
