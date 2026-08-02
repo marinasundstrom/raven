@@ -42,7 +42,7 @@ for _ in numbers {
     }
 
     [Fact]
-    public void For_WithExplicitValDiscardTarget_DoesNotCreateLocal()
+    public void For_WithExplicitLetDiscardTarget_DoesNotCreateLocal()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -63,7 +63,7 @@ for let _ in numbers {
         var model = compilation.GetSemanticModel(tree);
         var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
 
-        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
 
         var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
         boundFor.Local.ShouldBeNull();
@@ -98,7 +98,7 @@ for in numbers {
     }
 
     [Fact]
-    public void For_WithExplicitValIdentifierTarget_CreatesLocal()
+    public void For_WithExplicitLetIdentifierTarget_CreatesLocal()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -119,7 +119,7 @@ for let number in numbers {
         var model = compilation.GetSemanticModel(tree);
         var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
 
-        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
 
         var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
         boundFor.Local.ShouldNotBeNull();
@@ -159,7 +159,7 @@ for number: long in numbers {
     }
 
     [Fact]
-    public void For_WithOuterValTypedIdentifierTarget_UsesAnnotatedLocalType()
+    public void For_WithOuterLetTypedIdentifierTarget_UsesAnnotatedLocalType()
     {
         const string source = """
 let numbers = [|1, 2, 3|]
@@ -178,7 +178,7 @@ for let number: long in numbers {
         var model = compilation.GetSemanticModel(tree);
         var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
 
-        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.LetKeyword);
 
         var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
         boundFor.Local.ShouldNotBeNull();
@@ -204,7 +204,7 @@ for number: string in numbers {
     }
 
     [Fact]
-    public void For_WithOuterValPatternTarget_BindsImplicitPatternCaptures()
+    public void For_WithOuterLetPatternTarget_BindsImplicitPatternCaptures()
     {
         const string source = """
 let persons = [(1, "Ada", 20)]
