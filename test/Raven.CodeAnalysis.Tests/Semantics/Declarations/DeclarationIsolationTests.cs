@@ -417,6 +417,52 @@ func Main() -> int {
         Assert.All(errors, diagnostic => Assert.True(brokenFunction.Span.Contains(diagnostic.Location.SourceSpan)));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingGenericOverloadBody_PreservesSiblingOverloadResolution(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Convert<T>(value: T) -> string {
+                ""
+            }
+
+            func Convert(value: string) -> string {
+                value
+            }
+
+            func Main() -> int {
+                let converted = Convert("ok")
+                0
+            }
+            """;
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "overload-declaration-isolation");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("    \"\"\n", "    missingValue\n", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var functions = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>()
+            .Where(static function => function.Identifier.ValueText == "Convert")
+            .ToArray();
+        var genericFunction = Assert.Single(functions, static function => function.TypeParameterList is not null);
+        var nonGenericFunction = Assert.Single(functions, static function => function.TypeParameterList is null);
+        var nonGenericSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(nonGenericFunction));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Convert");
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(nonGenericSymbol, selected));
+        AssertErrorsAreConfinedTo(compilation, genericFunction.Span);
+    }
+
     private static (RavenWorkspace Workspace, ProjectId ProjectId, DocumentId DocumentId) CreateWorkspace(
         string source,
         string projectName)

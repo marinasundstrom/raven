@@ -986,6 +986,10 @@ body to an unresolved name in one file preserves that declaration's generic
 signature and leaves a constructed call to a valid generic function in another
 file fully resolved. Diagnostics remain attached to the edited tree in both
 diagnostics-first and semantic-query-first order.
+The same isolation now covers overload siblings in one document: introducing a
+body error into a generic overload preserves a valid non-generic overload and
+its selected call symbol, while diagnostics remain confined to the edited
+declaration.
 
 ### Behavioral conformance
 
