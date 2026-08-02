@@ -1199,6 +1199,11 @@ wrapper around the constructed `Box<string>` view in either query order.
    Raven's partially explicit generic calls also infer leading type parameters
    through nested constructed arguments while right-aligning the explicit
    arguments, in either query order.
+   Higher-order inference now has a source/PE parity invariant as well: a
+   generic static method group passed to a generic `Func<TInput, TResult>`
+   consumer constructs both methods with the same inferred input and result
+   types before and after the provider assembly is emitted, independent of
+   whether diagnostics or symbol information is requested first.
    Generic by-reference calls now infer from the referenced storage element
    rather than constructing illegal address-shaped type arguments. Source and
    metadata `ref T`, `out T`, and `in T` methods agree in both query orders,

@@ -239,6 +239,64 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void HigherOrderGenericInference_MatchesSourceAndMetadataMethodGroups(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+public class Transforms {
+    static func Identity<T>(value: T) -> T { value }
+}
+""";
+        const string consumerSource = """
+import System.*
+
+let result = Apply(21, Transforms.Identity)
+
+func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> TResult {
+    transform(value)
+}
+""";
+        var consumerTree = SyntaxTree.ParseText(consumerSource);
+        MetadataReference[] references = useMetadata
+            ? [.. TestMetadataReferences.Default,
+                TestMetadataFactory.CreateFromSource(librarySource, "higher_order_generic_library")]
+            : TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "higher_order_generic_consumer",
+            useMetadata ? [consumerTree] : [SyntaxTree.ParseText(librarySource), consumerTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(consumerTree);
+        var applyInvocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString() == "Apply");
+        var identityReference = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Identity");
+        var apply = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(applyInvocation).Symbol);
+        var identity = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(identityReference).Symbol);
+
+        Assert.Equal(
+            [SpecialType.System_Int32, SpecialType.System_Int32],
+            apply.TypeArguments.Select(static type => type.SpecialType));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(identity.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_Int32, identity.ReturnType.SpecialType);
+
+        if (!diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void GenericMethodGroup_WithSatisfiedConstraint_IsQueryOrderIndependent(bool diagnosticsFirst)
