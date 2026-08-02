@@ -1132,10 +1132,13 @@ wrapper around the constructed `Box<string>` view in either query order.
    Input conversion now consumes `AllowNull` and `DisallowNull` without changing
    the read type. `MemberNotNull` and `MemberNotNullWhen` use receiver/member
    flow slots rather than globally narrowing a property symbol, including
-   conditional branch and query-order coverage. Reference-constrained type and
-   method parameters now both have Raven emit, .NET reflection, PE reload, and
-   construction round-trip coverage. Other constraint kinds and nested
-   constraint shapes still need equivalent coverage. An explicit
+   conditional branch and query-order coverage. Generic type and method
+   parameters now preserve `class`, `struct`, `new()`, `notnull`, base-class,
+   and interface constraints across Raven source and emitted metadata. PE
+   loading recognizes Raven's standard `NullableAttribute(1)` encoding for an
+   otherwise unconstrained `notnull` parameter instead of dropping that
+   semantic constraint. Dependent and nested constraint shapes still need
+   equivalent construction coverage. An explicit
    maybe-null state for declared non-nullable storage remains useful for valid
    metadata postconditions; it should be introduced for that accepted-code
    boundary rather than to cascade diagnostics after an assignment Raven has

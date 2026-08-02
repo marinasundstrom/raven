@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Raven-emitted generic type and method parameters now preserve `notnull` when
+  reloaded from metadata. Constraint round-trip coverage also locks `class`,
+  `struct`, `new()`, base-class, and interface constraints across source and PE
+  symbols.
 - Nullable match exhaustiveness now preserves the complete non-null pattern
   domain instead of reducing it to one opaque underlying-type case. Booleans,
   enums, and sealed hierarchies can be covered case by case alongside `null`;

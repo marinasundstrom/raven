@@ -104,6 +104,12 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
             if (_constraintRuntimeTypes.Length > 0)
                 kind |= TypeParameterConstraintKind.TypeConstraint;
 
+            if ((kind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType)) == 0 &&
+                HasNotNullConstraint(_runtimeType.GetCustomAttributesData()))
+            {
+                kind |= TypeParameterConstraintKind.NotNull;
+            }
+
             _lazyConstraintKind = kind;
             return kind;
         }
@@ -210,6 +216,23 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         foreach (var inherited in interfaceSymbol.AllInterfaces)
             if (seen.Add(inherited))
                 builder.Add(inherited);
+    }
+
+    private static bool HasNotNullConstraint(IList<CustomAttributeData> attributes)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.NullableAttribute" ||
+                attribute.ConstructorArguments.Count != 1)
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments[0].Value is byte flag && flag == 1)
+                return true;
+        }
+
+        return false;
     }
 
     private static string GetOwnerIdentity(ISymbol containingSymbol)

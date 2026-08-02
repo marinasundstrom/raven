@@ -332,6 +332,107 @@ class C {
         Assert.Equal(SpecialType.System_String, constructedReturn.UnderlyingType.SpecialType);
     }
 
+    [Theory]
+    [InlineData("class", TypeParameterConstraintKind.ReferenceType)]
+    [InlineData("struct", TypeParameterConstraintKind.ValueType)]
+    [InlineData("new()", TypeParameterConstraintKind.Constructor)]
+    [InlineData("notnull", TypeParameterConstraintKind.NotNull)]
+    public void GenericParameterConstraintKinds_RoundTripThroughMetadata(
+        string constraint,
+        TypeParameterConstraintKind expectedConstraintKind)
+    {
+        var source = $$"""
+            class Box<T : {{constraint}}> {
+                func Echo<U : {{constraint}}>(value: U) -> U { value }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+                "generic-constraints",
+                [tree],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var sourceMethod = Assert.Single(sourceBox.GetMembers("Echo").OfType<IMethodSymbol>());
+
+        Assert.Equal(expectedConstraintKind, Assert.Single(sourceBox.TypeParameters).ConstraintKind);
+        Assert.Equal(expectedConstraintKind, Assert.Single(sourceMethod.TypeParameters).ConstraintKind);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
+
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, MetadataReference.CreateFromImage(peStream.ToArray())]);
+        var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
+        var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<IMethodSymbol>());
+
+        Assert.Equal(expectedConstraintKind, Assert.Single(metadataBox.TypeParameters).ConstraintKind);
+        Assert.Equal(expectedConstraintKind, Assert.Single(metadataMethod.TypeParameters).ConstraintKind);
+    }
+
+    [Theory]
+    [InlineData("Base", "Base", TypeKind.Class)]
+    [InlineData("IMarker", "IMarker", TypeKind.Interface)]
+    public void GenericParameterTypeConstraints_RoundTripThroughMetadata(
+        string constraint,
+        string expectedTypeName,
+        TypeKind expectedTypeKind)
+    {
+        var source = $$"""
+            open class Base {}
+            interface IMarker {}
+
+            class Box<T : {{constraint}}> {
+                func Echo<U : {{constraint}}>(value: U) -> U { value }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+                "generic-type-constraints",
+                [tree],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Single(x => x.Identifier.ValueText == "Box");
+        var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var sourceMethod = Assert.Single(sourceBox.GetMembers("Echo").OfType<IMethodSymbol>());
+
+        AssertTypeConstraint(Assert.Single(sourceBox.TypeParameters));
+        AssertTypeConstraint(Assert.Single(sourceMethod.TypeParameters));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
+
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, MetadataReference.CreateFromImage(peStream.ToArray())]);
+        var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
+        var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<IMethodSymbol>());
+
+        AssertTypeConstraint(Assert.Single(metadataBox.TypeParameters));
+        AssertTypeConstraint(Assert.Single(metadataMethod.TypeParameters));
+
+        void AssertTypeConstraint(ITypeParameterSymbol typeParameter)
+        {
+            Assert.Equal(TypeParameterConstraintKind.TypeConstraint, typeParameter.ConstraintKind);
+            var constraintType = Assert.Single(typeParameter.ConstraintTypes);
+            Assert.Equal(expectedTypeName, constraintType.Name);
+            Assert.Equal(expectedTypeKind, constraintType.TypeKind);
+        }
+    }
+
     private static bool IsNullableAttribute(MetadataReader md, CustomAttributeHandle handle)
     {
         var attr = md.GetCustomAttribute(handle);
