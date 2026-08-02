@@ -115,6 +115,12 @@ editors can discover the same SDK root.
 - `--no-emit` &ndash; analyze only; skip assembly emission
 - `-h`, `--help` &ndash; show help
 
+MSBuild projects can set
+`<RavenEnableExtendedNullFlowAnalysis>false</RavenEnableExtendedNullFlowAnalysis>`
+to suppress flow-derived possible-null-reference diagnostics while retaining
+declared nullable annotations, boundary conversion checks, metadata, and
+pattern refinement. The default is `true`.
+
 ## `rvn dev`
 
 `rvn dev` hosts internal debug views outside the compiler binary:

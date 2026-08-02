@@ -2311,6 +2311,85 @@ class Foo {
     }
 
     [Fact]
+    public void ExtendedNullFlowAnalysis_CanBeDisabledWithoutChangingDeclaredNullability()
+    {
+        const string source = """
+func Length() -> int {
+    let value: string? = null
+    return value.Length
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableExtendedNullFlowAnalysis(false);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = model.GetTypeInfo(receiver);
+
+        Assert.False(compilation.Options.EnableExtendedNullFlowAnalysis);
+        var nullableLocalType = Assert.IsType<NullableTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_String, nullableLocalType.UnderlyingType.SpecialType);
+        var nullableExpressionType = Assert.IsType<NullableTypeSymbol>(typeInfo.Type);
+        Assert.Equal(SpecialType.System_String, nullableExpressionType.UnderlyingType.SpecialType);
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void ExtendedNullFlowAnalysis_DisabledStillEnforcesDeclaredNullability()
+    {
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithEnableExtendedNullFlowAnalysis(false);
+        var (compilation, _) = CreateCompilation("let value: string = null", options: options);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
+    [Fact]
+    public void ExtendedNullFlowAnalysis_DisabledStillPublishesPatternRefinement()
+    {
+        const string source = """
+func Length(value: string?) -> int {
+    if value is not null {
+        return value.Length
+    }
+    return 0
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableExtendedNullFlowAnalysis(false);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
     public void NullableDelegateConditionalInvocation_SuppressesWarning()
     {
         var source = """

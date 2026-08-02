@@ -11178,6 +11178,9 @@ partial class BlockBinder : Binder
 
     private void ReportPossibleNullReferenceAccess(BoundExpression? receiver, SyntaxNode receiverSyntax)
     {
+        if (!Compilation.Options.EnableExtendedNullFlowAnalysis)
+            return;
+
         if (receiver is null)
             return;
 

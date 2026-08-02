@@ -113,7 +113,7 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0346` | Error | Records cannot declare secondary constructors | Record '{recordName}' cannot declare instance constructors; use the primary constructor and static factory methods. | — |
 | `RAV0400` | Error | Nullable type not allowed in union | Nullable types are not allowed in union types | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
 | `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
-| `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
+| `RAV0402` | Error | Possible null reference access | Possible null reference access | Extended null-flow diagnostic; disable project-wide with `RavenEnableExtendedNullFlowAnalysis=false`. Declared nullability remains enforced. |
 | `RAV0403` | Warning | Nullable suppression used | The '!' operator treats the operand as non-null | Reported on the full `<expr>!` nullable suppression expression. |
 | `RAV0404` | Error | Conditional access requires nullable receiver | Conditional access requires a nullable receiver; '{receiverType}' is not nullable | — |
 | `RAV0405` | Error | Struct union argument may be default | Struct union argument for parameter '{parameterName}' of type '{unionType}' may be the inactive default state | — |

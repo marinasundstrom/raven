@@ -258,17 +258,35 @@ prefer null over Raven's explicit alternatives.
 
 Raven treats this as three separate responsibilities:
 
-1. **Declared nullness and .NET metadata are core semantics.** The compiler
-   always preserves `T` versus `T?`, validates conversions and constraints, and
-   imports and emits the corresponding platform annotations.
+1. **Explicit nullness and .NET metadata are core semantics.** At every source
+   position where null is intentionally admitted—including locals and
+   parameters—the semantic type for `T?` remains a nullable wrapper around `T`.
+   The compiler preserves that unified representation, validates conversions
+   and constraints, and imports and emits the corresponding platform
+   annotations.
 2. **Pattern refinement is core semantics.** A successful non-null pattern must
    refine the value within that arm or branch. This is required for Raven's
    preferred exhaustive pattern style; it is not an optional warning pass.
 3. **Extended mutable null-flow diagnostics are tooling policy.** Following a
    nullable value through distant assignments, loops, exceptions, and metadata
    postconditions is most useful for .NET interop and gradual migration. The
-   intended direction is a configurable built-in analysis profile rather than
-   an ever-growing set of mandatory language restrictions.
+   analysis is enabled by default, but can be disabled without weakening the
+   language's declared-nullness rules or pattern semantics.
+
+For an MSBuild Raven project, disable the extended diagnostic layer with:
+
+```xml
+<PropertyGroup>
+  <RavenEnableExtendedNullFlowAnalysis>false</RavenEnableExtendedNullFlowAnalysis>
+</PropertyGroup>
+```
+
+Hosts that construct compilations directly use
+`CompilationOptions.WithEnableExtendedNullFlowAnalysis(false)`. This currently
+suppresses the flow-derived possible-null-reference diagnostic (`RAV0402`). It
+does not change `T` versus `T?`, nullable conversions, imported or emitted .NET
+metadata, syntax-directed pattern refinement, or the nullability information
+published by `TypeInfo`.
 
 The purpose of that extended profile is defect discovery. It should identify
 likely null-reference bugs in existing .NET-shaped code and make nullable state
@@ -285,10 +303,8 @@ A practical adoption sequence is:
 4. project recurring domain outcomes into `Option`, `Result`, or a union;
 5. leave extended flow tracking concentrated near the remaining interop edges.
 
-Moving the third layer behind analyzer configuration must not change declared
-types, pattern-arm types, overload resolution, emitted metadata, or runtime
-behavior. Until that separation is implemented, existing null-flow diagnostics
-remain part of the compiler's compatibility floor.
+Turning off the third layer must not change declared types, pattern-arm types,
+overload resolution, emitted metadata, or runtime behavior.
 
 `unit` has a different meaning again: it represents no meaningful return value,
 not an absent value.

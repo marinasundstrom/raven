@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Extended possible-null-reference reporting can now be disabled with
+  `CompilationOptions.WithEnableExtendedNullFlowAnalysis(false)` or the MSBuild
+  property `RavenEnableExtendedNullFlowAnalysis=false`. Declared nullability,
+  boundary checks, nullable metadata, pattern refinement, and flow-sensitive
+  semantic information remain active.
 - Conditional access now marks its synthesized non-null receiver conversion as
   a refinement, preventing false nullable-input diagnostics when invoking
   source extension methods through `?.`.

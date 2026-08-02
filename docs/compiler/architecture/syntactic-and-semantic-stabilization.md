@@ -311,6 +311,29 @@ evaluator, so `while !false` has the same completion semantics as
 
 ### Public nullability information is becoming flow-sensitive
 
+Extended possible-null-reference reporting is now an explicit compilation
+policy, enabled by default and configurable through
+`EnableExtendedNullFlowAnalysis` (or the MSBuild property
+`RavenEnableExtendedNullFlowAnalysis`). Disabling it affects diagnostic
+publication only: declared annotations, conversion checks, metadata, pattern
+refinement, and flow-sensitive `TypeInfo` remain compiler semantics. This keeps
+the semantic model useful to editors and analyzers without forcing applications
+to organize domain code around mutable null flow.
+
+The declaration/type layer remains independent of that policy. Raven represents
+an intentionally nullable type uniformly as `NullableTypeSymbol(T)` at every
+source position, including locals and parameters; disabling extended flow must
+never replace that symbol with its underlying `T`. Flow state describes what is
+known about a use at a point in the program, not what type was declared.
+
+Null-state flow belongs beside definite-assignment flow, not inside the type
+representation. Definite assignment asks whether storage has received a value
+on every relevant path; null-state flow asks what is known about that assigned
+value at the current point. They can share control-flow infrastructure, but
+their facts and diagnostics remain independent. In particular, disabling
+extended null-state diagnostics does not disable definite-assignment checking
+and neither analysis changes a nullable symbol into its underlying type.
+
 `TypeInfo` now preserves an expression's declared nullable annotation while
 projecting the bound expression's current flow state. Strict null-check branches
 and null guards therefore report `NotNull` through the public semantic model in

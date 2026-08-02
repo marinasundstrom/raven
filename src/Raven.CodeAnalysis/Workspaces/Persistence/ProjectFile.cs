@@ -61,6 +61,7 @@ internal static class ProjectFile
             projectElement.Add(new XAttribute("AllowNamespaceMembers", opts.AllowNamespaceMembers));
             projectElement.Add(new XAttribute("AllowNamespaceMemberImports", opts.AllowNamespaceMemberImports));
             projectElement.Add(new XAttribute("RunAnalyzers", opts.RunAnalyzers));
+            projectElement.Add(new XAttribute("EnableExtendedNullFlowAnalysis", opts.EnableExtendedNullFlowAnalysis));
             if (!opts.DisabledAnalyzers.IsEmpty)
                 projectElement.Add(new XAttribute("DisabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(opts.DisabledAnalyzers)));
             if (opts.ReturnedValueHandlingModeConfigured)
@@ -107,6 +108,8 @@ internal static class ProjectFile
         var allowNamespaceMemberImportsAttr = (string?)root.Attribute("AllowNamespaceMemberImports")
             ?? (string?)root.Attribute("AllowTopLevelMemberImports");
         var runAnalyzersAttr = (string?)root.Attribute("RunAnalyzers");
+        var enableExtendedNullFlowAnalysisAttr = (string?)root.Attribute("EnableExtendedNullFlowAnalysis")
+            ?? (string?)root.Attribute("RavenEnableExtendedNullFlowAnalysis");
         var disabledAnalyzersAttr = (string?)root.Attribute("DisabledAnalyzers")
             ?? (string?)root.Attribute("RavenDisabledAnalyzers");
         var returnedValueHandlingAttr = (string?)root.Attribute("ReturnedValueHandlingMode")
@@ -139,6 +142,9 @@ internal static class ProjectFile
 
         if (runAnalyzersAttr is string ra && bool.TryParse(ra, out var runAnalyzers))
             options = options.WithRunAnalyzers(runAnalyzers);
+
+        if (enableExtendedNullFlowAnalysisAttr is string enf && bool.TryParse(enf, out var enableExtendedNullFlowAnalysis))
+            options = options.WithEnableExtendedNullFlowAnalysis(enableExtendedNullFlowAnalysis);
 
         options = options.WithDisabledAnalyzers(AnalyzerOptionUtilities.ParseAnalyzerNameSet(disabledAnalyzersAttr));
 
