@@ -1112,6 +1112,11 @@ contracts are already established.
 
 ## Exit criteria for beginning the compiler port
 
+Error-type construction is now an absorbing recovery operation: calling the
+public named-type `Construct(...)` API on an `IErrorTypeSymbol` preserves that
+symbol for any supplied arguments rather than throwing. Tooling can therefore
+continue generic-shaped semantic inspection while declarations are incomplete.
+
 The port can begin incrementally when:
 
 - the compiler-writing subset has an explicit supported-feature inventory;
