@@ -76,6 +76,15 @@ flow information. Additional cascaded state after an already-rejected null
 assignment is lower priority than those accepted-code and interoperability
 paths.
 
+The architecture should separate declared nullness, pattern refinement, and
+extended flow diagnostics. Declared annotations and ABI projection remain
+mandatory. Syntax-directed refinement inside a successful pattern arm remains
+mandatory because it is part of the pattern's type meaning. Broader tracking of
+mutable null state should move toward a configurable built-in analyzer/profile
+for interop and gradual migration. That move must preserve the public
+`TypeInfo` answer needed by editor tooling and must not duplicate semantic truth
+inside the language server.
+
 A serious unresolved inconsistency in one of these areas blocks a trusted
 bootstrap even if the affected program happens to emit runnable code.
 

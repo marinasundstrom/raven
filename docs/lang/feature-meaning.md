@@ -256,6 +256,25 @@ to publish the state established by patterns, branches, assignments, and .NET
 flow attributes through diagnostics and `TypeInfo`; it is not a reason to
 prefer null over Raven's explicit alternatives.
 
+Raven treats this as three separate responsibilities:
+
+1. **Declared nullness and .NET metadata are core semantics.** The compiler
+   always preserves `T` versus `T?`, validates conversions and constraints, and
+   imports and emits the corresponding platform annotations.
+2. **Pattern refinement is core semantics.** A successful non-null pattern must
+   refine the value within that arm or branch. This is required for Raven's
+   preferred exhaustive pattern style; it is not an optional warning pass.
+3. **Extended mutable null-flow diagnostics are tooling policy.** Following a
+   nullable value through distant assignments, loops, exceptions, and metadata
+   postconditions is most useful for .NET interop and gradual migration. The
+   intended direction is a configurable built-in analysis profile rather than
+   an ever-growing set of mandatory language restrictions.
+
+Moving the third layer behind analyzer configuration must not change declared
+types, pattern-arm types, overload resolution, emitted metadata, or runtime
+behavior. Until that separation is implemented, existing null-flow diagnostics
+remain part of the compiler's compatibility floor.
+
 `unit` has a different meaning again: it represents no meaningful return value,
 not an absent value.
 
