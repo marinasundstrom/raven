@@ -917,6 +917,12 @@ sibling macro continues to expand. This is covered in both diagnostics-first
 and semantic-query-first request order so editor feedback cannot depend on
 which language-service request happened first.
 
+The isolation boundary also holds across documents. Editing a generic function
+body to an unresolved name in one file preserves that declaration's generic
+signature and leaves a constructed call to a valid generic function in another
+file fully resolved. Diagnostics remain attached to the edited tree in both
+diagnostics-first and semantic-query-first order.
+
 ### Behavioral conformance
 
 Prefer observable language behavior and public compiler APIs over assertions

@@ -345,6 +345,78 @@ func Main() -> int {
         AssertErrorsAreConfinedTo(compilation, constructor.Span);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingGenericFunctionAcrossFiles_DoesNotInvalidateStableDocument(bool diagnosticsFirst)
+    {
+        const string brokenSource = """
+            func Broken<T>(value: T) -> T {
+                value
+            }
+            """;
+        const string stableSource = """
+            func Stable<T>(value: T) -> T {
+                value
+            }
+
+            func Main() -> int {
+                Stable<int>(21)
+            }
+            """;
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "cross-file-declaration-isolation",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var brokenDocument = project.AddDocument(
+            "broken.rav",
+            SourceText.From(brokenSource),
+            "/tmp/broken.rav");
+        project = brokenDocument.Project.AddDocument(
+            "stable.rav",
+            SourceText.From(stableSource),
+            "/tmp/stable.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            brokenDocument.Id,
+            SourceText.From(brokenSource.Replace("    value\n", "    missingValue\n", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var brokenTree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/broken.rav");
+        var stableTree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/stable.rav");
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var brokenModel = compilation.GetSemanticModel(brokenTree);
+        var stableModel = compilation.GetSemanticModel(stableTree);
+        var brokenFunction = brokenTree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var stableFunction = stableTree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "Stable");
+        var invocation = stableTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var brokenSymbol = Assert.IsAssignableFrom<IMethodSymbol>(brokenModel.GetDeclaredSymbol(brokenFunction));
+        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(stableModel.GetDeclaredSymbol(stableFunction));
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(stableModel.GetSymbolInfo(invocation).Symbol);
+        var errors = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+
+        Assert.Equal("Broken", brokenSymbol.Name);
+        Assert.True(brokenSymbol.IsGenericMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stableSymbol, selected.ConstructedFrom));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.TypeArguments).SpecialType);
+        Assert.NotEmpty(errors);
+        Assert.All(errors, diagnostic => Assert.Same(brokenTree, diagnostic.Location.SourceTree));
+        Assert.All(errors, diagnostic => Assert.True(brokenFunction.Span.Contains(diagnostic.Location.SourceSpan)));
+    }
+
     private static (RavenWorkspace Workspace, ProjectId ProjectId, DocumentId DocumentId) CreateWorkspace(
         string source,
         string projectName)
