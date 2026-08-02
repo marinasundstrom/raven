@@ -228,10 +228,17 @@ class Number
         Assert.True(symbol.IsStatic);
     }
 
-    [Fact]
-    public void NullCheck_WithUserDefinedEquality_NarrowsLikeRoslyn()
+    [Theory]
+    [InlineData("x != null", false)]
+    [InlineData("null != x", false)]
+    [InlineData("x == null", true)]
+    [InlineData("null == x", true)]
+    public void NullCheck_WithUserDefinedEquality_NarrowsLikeRoslyn(string condition, bool dereferenceInElse)
     {
-        var source = """
+        var guardedDereference = dereferenceInElse
+            ? $"if {condition} {{ }} else {{ x.Ping() }}"
+            : $"if {condition} {{ x.Ping() }}";
+        var source = $$"""
 class Number
 {
     func Ping() -> unit { }
@@ -245,9 +252,7 @@ class C
     func Run() -> unit
     {
         let x: Number? = null
-        if x != null {
-            x.Ping()
-        }
+        {{guardedDereference}}
     }
 }
 """;

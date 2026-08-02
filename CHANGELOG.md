@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Null checks performed through user-defined equality operators now contribute
+  the same true/false branch narrowing as intrinsic `==` and `!=` checks.
 - Cold contextual semantic queries now seed preceding lexical declarations
   before binding their statement. Lambda parameters resolve against their
   contextual delegate instead of falling through to a later shadowing local.

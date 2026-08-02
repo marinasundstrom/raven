@@ -11645,17 +11645,31 @@ partial class BlockBinder : Binder
         if (condition is BoundBinaryExpression binary &&
             (binary.Operator.OperatorKind == BinaryOperatorKind.Equality || binary.Operator.OperatorKind == BinaryOperatorKind.Inequality))
         {
-            if (IsNullLiteral(binary.Left) && TryGetFlowSymbol(binary.Right, out symbol))
-            {
-                nonNullWhenTrue = binary.Operator.OperatorKind == BinaryOperatorKind.Inequality;
-                nonNullWhenFalse = binary.Operator.OperatorKind == BinaryOperatorKind.Equality;
-                return true;
-            }
+            return TryGetNullComparisonFlow(
+                binary.Left,
+                binary.Right,
+                binary.Operator.OperatorKind == BinaryOperatorKind.Inequality,
+                out symbol,
+                out nonNullWhenTrue,
+                out nonNullWhenFalse);
+        }
 
-            if (IsNullLiteral(binary.Right) && TryGetFlowSymbol(binary.Left, out symbol))
+        if (condition is BoundInvocationExpression
             {
-                nonNullWhenTrue = binary.Operator.OperatorKind == BinaryOperatorKind.Inequality;
-                nonNullWhenFalse = binary.Operator.OperatorKind == BinaryOperatorKind.Equality;
+                Method: { MethodKind: MethodKind.UserDefinedOperator } method
+            } invocation &&
+            method.Name is "op_Equality" or "op_Inequality")
+        {
+            var arguments = invocation.Arguments.ToArray();
+            if (arguments.Length == 2 &&
+                TryGetNullComparisonFlow(
+                    arguments[0],
+                    arguments[1],
+                    method.Name == "op_Inequality",
+                    out symbol,
+                    out nonNullWhenTrue,
+                    out nonNullWhenFalse))
+            {
                 return true;
             }
         }
@@ -11671,6 +11685,40 @@ partial class BlockBinder : Binder
         nonNullWhenTrue = null;
         nonNullWhenFalse = null;
         return false;
+    }
+
+    private bool TryGetNullComparisonFlow(
+        BoundExpression left,
+        BoundExpression right,
+        bool isInequality,
+        out ISymbol symbol,
+        out bool? nonNullWhenTrue,
+        out bool? nonNullWhenFalse)
+    {
+        left = UnwrapNullComparisonOperand(left);
+        right = UnwrapNullComparisonOperand(right);
+
+        var value = IsNullLiteral(left) ? right : IsNullLiteral(right) ? left : null;
+        if (value is not null && TryGetFlowSymbol(value, out symbol))
+        {
+            nonNullWhenTrue = isInequality;
+            nonNullWhenFalse = !isInequality;
+            return true;
+        }
+
+        symbol = null!;
+        nonNullWhenTrue = null;
+        nonNullWhenFalse = null;
+        return false;
+    }
+
+    private static BoundExpression UnwrapNullComparisonOperand(BoundExpression expression)
+    {
+        expression = UnwrapFlowExpression(expression);
+        while (expression is BoundConversionExpression conversion)
+            expression = UnwrapFlowExpression(conversion.Expression);
+
+        return expression;
     }
 
     private readonly record struct NullCheckFlow(
