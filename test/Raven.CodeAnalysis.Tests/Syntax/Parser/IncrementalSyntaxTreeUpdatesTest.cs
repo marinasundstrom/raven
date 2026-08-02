@@ -192,6 +192,41 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
+    public void EditingTypedConditionalBindingThroughMissingType_MatchesFullParse()
+    {
+        var original = SourceText.From(
+            """
+            func Length(value: string?) -> int {
+                if let text: string = value {
+                    return text.Length
+                }
+
+                return 0
+            }
+            """);
+        var tree = SyntaxTree.ParseText(original);
+        var missingType = SourceText.From(original.ToString().Replace(
+            "text: string =",
+            "text: =",
+            StringComparison.Ordinal));
+        AssertIncrementalStepMatchesFullParse(tree, missingType, "missing conditional-binding type", out tree);
+
+        var restored = SourceText.From(missingType.ToString().Replace(
+            "text: =",
+            "text: string =",
+            StringComparison.Ordinal));
+        AssertIncrementalStepMatchesFullParse(tree, restored, "restored conditional-binding type", out tree);
+
+        Assert.Empty(tree.GetDiagnostics());
+        var binding = tree.GetRoot().DescendantNodes().OfType<IfPatternStatementSyntax>().Single();
+        var variablePattern = Assert.IsType<VariablePatternSyntax>(binding.Pattern);
+        var typedDesignation = Assert.IsType<TypedVariableDesignationSyntax>(variablePattern.Designation);
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(typedDesignation.Designation);
+        Assert.Equal("text", designation.Identifier.ValueText);
+        Assert.Equal("string", typedDesignation.TypeAnnotation.Type.ToString());
+    }
+
+    [Fact]
     public void EditingValidTreeToMissingExpression_MatchesFullParseDiagnostics()
     {
         var original = SourceText.From(
