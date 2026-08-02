@@ -441,9 +441,11 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("Constraints.Select<Base, Derived>(Base(), Derived())")]
-    [InlineData("Constraints.Select(Base(), Derived())")]
-    public void EmittedGenericMethod_DependentConstraint_IsSatisfied(string call)
+    [InlineData("Constraints.Select<Base, Derived>(Base(), Derived())", false)]
+    [InlineData("Constraints.Select<Base, Derived>(Base(), Derived())", true)]
+    [InlineData("Constraints.Select(Base(), Derived())", false)]
+    [InlineData("Constraints.Select(Base(), Derived())", true)]
+    public void EmittedGenericMethod_DependentConstraint_IsSatisfied(string call, bool diagnosticsFirst)
     {
         var reference = CreateDependentConstraintLibrary();
         var (compilation, tree) = CreateCompilation(
@@ -453,6 +455,9 @@ public sealed class GenericMethodTests : CompilationTestBase
             let value = {call}
             """,
             references: [.. TestMetadataReferences.Default, reference]);
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
