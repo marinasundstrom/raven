@@ -1063,6 +1063,9 @@ candidate for public semantic queries, including its inferred arguments,
 return type, and projected nullable parameter. Source `T?` and metadata
 `System.Nullable<T>` normalize to the same Raven nullable shape during
 inference and candidate construction.
+Inference through a nullable constructed value parameter such as `Box<T>?`
+also agrees across source and emitted metadata, retaining Raven's nullable
+wrapper around the constructed `Box<string>` view in either query order.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now

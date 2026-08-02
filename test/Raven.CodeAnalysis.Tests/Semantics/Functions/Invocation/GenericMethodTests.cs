@@ -780,6 +780,51 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Equal(SpecialType.System_String, nullableParameter.UnderlyingType.SpecialType);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NullableConstructedValueParameterInference_MatchesSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        var libraryTree = SyntaxTree.ParseText("""
+            namespace NullableConstructedLibrary {
+                public struct Box<T> { }
+
+                public func Extract<T>(value: Box<T>?) -> T {
+                    throw System.Exception()
+                }
+            }
+            """);
+        var consumerTree = SyntaxTree.ParseText("""
+            import NullableConstructedLibrary.*
+
+            let box: Box<string>? = null
+            let result = Extract(box)
+            """);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "NullableConstructedLibrary")])
+            : CreateCompilation([libraryTree, consumerTree]);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(SpecialType.System_String, Assert.Single(method.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
+        var nullableParameter = Assert.IsType<NullableTypeSymbol>(Assert.Single(method.Parameters).Type);
+        var constructedBox = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableParameter.UnderlyingType);
+        Assert.Equal("Box", constructedBox.Name);
+        Assert.Equal(SpecialType.System_String, Assert.Single(constructedBox.TypeArguments).SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {
