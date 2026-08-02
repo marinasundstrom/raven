@@ -410,7 +410,10 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
         foreach (var catchClause in tryStatement.CatchClauses)
         {
-            var catchReachable = AnalyzeStatement(catchClause.Block, isReachable);
+            var filterIsConstantFalse = catchClause.WhenClause?.Guard is ExpressionSyntax guard &&
+                ConstantValueEvaluator.TryEvaluate(guard, out var filterValue) &&
+                filterValue is false;
+            var catchReachable = AnalyzeStatement(catchClause.Block, isReachable && !filterIsConstantFalse);
             reachesEnd |= catchReachable;
         }
 

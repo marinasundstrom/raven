@@ -18,6 +18,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Constant-false loops now have an explicit null-flow contract: mutations in
   their unreachable bodies do not weaken the state at the following reachable
   statement, independent of semantic-query order.
+- Constant-false catch filters likewise exclude their unreachable catch-body
+  mutations from the null-state joined after a `try` statement.
 - Lexical function scopes now retain complete overload sets instead of replacing
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function

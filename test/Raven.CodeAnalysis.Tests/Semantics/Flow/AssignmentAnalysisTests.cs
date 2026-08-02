@@ -262,6 +262,38 @@ func Main() {
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void AnalyzeControlFlow_ConstantFalseCatchFilterHasNoNormalSuccessor(bool diagnosticsFirst)
+    {
+        const string source = """
+import System.*
+
+func Compute() -> int {
+    try {
+        return 1
+    } catch Exception error when false {
+        let ignored = 0
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void AnalyzeControlFlow_AbruptIfExpressionInitializer_MakesBlockEndUnreachable(bool diagnosticsFirst)
     {
         const string source = """

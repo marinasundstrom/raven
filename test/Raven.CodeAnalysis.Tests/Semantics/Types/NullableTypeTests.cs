@@ -892,6 +892,47 @@ public class NullableTypeTests : CompilationTestBase
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_ConstantFalseCatchFilterDoesNotContributeBodyMutationToExit(bool diagnosticsFirst)
+    {
+        const string source = """
+            import System.*
+
+            func WriteLength(value: string?) -> unit {
+                var local = value
+                if local is null {
+                    return
+                }
+
+                try {
+                } catch Exception error when false {
+                    local = null
+                }
+
+                Console.WriteLine(local.Length)
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void GetTypeInfo_TryAssignmentInvalidatesCatchEntryFact()
     {

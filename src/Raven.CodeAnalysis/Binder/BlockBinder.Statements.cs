@@ -583,8 +583,12 @@ partial class BlockBinder
         {
             _nonNullSymbols.Clear();
             _nonNullSymbols.UnionWith(catchEntryState);
-            catchBuilder.Add(BindCatchClause(catchClause));
-            if (!IsEarlyExitStatement(catchClause.Block))
+            var boundCatchClause = BindCatchClause(catchClause);
+            catchBuilder.Add(boundCatchClause);
+            var filterIsConstantFalse = boundCatchClause.Guard is { } guard &&
+                TryGetExpressionConstantValue(guard, out var filterValue) &&
+                filterValue is false;
+            if (!filterIsConstantFalse && !IsEarlyExitStatement(catchClause.Block))
                 completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
         }
 
