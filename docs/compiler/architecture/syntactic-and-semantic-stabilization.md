@@ -380,6 +380,12 @@ uses the declared writable target rather than its flow-narrowed read shape; a
 narrowed nullable local can therefore be assigned `null`, after which both
 diagnostics and `TypeInfo` report it as maybe-null.
 
+A nested `while false` still binds its body for diagnostics, but its mutations
+do not participate in an enclosing loop's back-edge and its normal exit
+preserves the incoming state. Syntactically present assignments on a
+constant-unreachable path therefore no longer erase a valid outer-loop
+narrowing. Diagnostics-first and direct `TypeInfo` queries share this result.
+
 Exception regions use the same path-sensitive join rule. A `catch` starts from
 the try-entry facts minus values that may have been assigned before an
 exception, each catch is bound independently, and the completing try/catch

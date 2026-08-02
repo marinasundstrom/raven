@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Null-state flow now preserves incoming facts across `while false` and ignores
+  mutations in such unreachable nested loops when computing an enclosing loop's
+  back-edge.
 - Semantic queries over object-initializer syntax no longer throw during edit
   recovery. Attached initializers report their containing construction type,
   while temporarily detached recovery nodes produce an error result.

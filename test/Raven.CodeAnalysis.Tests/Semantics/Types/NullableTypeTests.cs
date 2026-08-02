@@ -1294,6 +1294,47 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetTypeInfo_UnreachableNestedLoopMutationDoesNotWeakenOuterLoopHeader(bool diagnosticsFirst)
+    {
+        const string source = """
+            func WriteLength(value: string?, repeat: bool) -> unit {
+                var local = value
+                if local is null {
+                    return
+                }
+
+                while repeat {
+                    while false {
+                        local = null
+                    }
+
+                    System.Console.WriteLine(local.Length)
+                    break
+                }
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void EditingWhileNullCheckInvalidatesBodyFlowState()
     {

@@ -317,6 +317,8 @@ partial class BlockBinder
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
     {
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
+        var conditionIsConstantFalse = ConstantValueEvaluator.TryEvaluate(whileStmt.Condition, out var constantCondition) &&
+            constantCondition is false;
         var assignedInBody = GetLoopAssignedFlowSymbols(whileStmt.Statement);
         var headerState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
         headerState.ExceptWith(assignedInBody);
@@ -336,10 +338,18 @@ partial class BlockBinder
 
         var body = BindStatementInLoop(whileStmt.Statement, out var loopFlow);
 
-        var exitState = new HashSet<ISymbol>(headerState, SymbolEqualityComparer.Default);
-        foreach (var flow in nullCheckFlows)
-            ApplyNullFlow(exitState, flow.Symbol, flow.NonNullWhenFalse);
-        exitState = IntersectFlowStates(exitState, loopFlow.BreakStates);
+        HashSet<ISymbol> exitState;
+        if (conditionIsConstantFalse)
+        {
+            exitState = entryState;
+        }
+        else
+        {
+            exitState = new HashSet<ISymbol>(headerState, SymbolEqualityComparer.Default);
+            foreach (var flow in nullCheckFlows)
+                ApplyNullFlow(exitState, flow.Symbol, flow.NonNullWhenFalse);
+            exitState = IntersectFlowStates(exitState, loopFlow.BreakStates);
+        }
 
         _nonNullSymbols.Clear();
         _nonNullSymbols.UnionWith(exitState);
@@ -415,17 +425,37 @@ partial class BlockBinder
 
         foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentStatementSyntax>())
         {
-            if (!IsInNestedExecutableScope(assignment, body) && CanReachLoopBackEdge(assignment, body))
+            if (!IsInNestedExecutableScope(assignment, body) &&
+                !IsInStaticallyUnreachableNestedLoop(assignment, body) &&
+                CanReachLoopBackEdge(assignment, body))
                 TryAddAssignedFlowSymbol(assignment.Left, assigned);
         }
 
         foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentExpressionSyntax>())
         {
-            if (!IsInNestedExecutableScope(assignment, body) && CanReachLoopBackEdge(assignment, body))
+            if (!IsInNestedExecutableScope(assignment, body) &&
+                !IsInStaticallyUnreachableNestedLoop(assignment, body) &&
+                CanReachLoopBackEdge(assignment, body))
                 TryAddAssignedFlowSymbol(assignment.Left, assigned);
         }
 
         return assigned;
+    }
+
+    private static bool IsInStaticallyUnreachableNestedLoop(SyntaxNode node, StatementSyntax outerBody)
+    {
+        for (var current = node; current is not null && !ReferenceEquals(current, outerBody); current = current.Parent)
+        {
+            if (current.Parent is WhileStatementSyntax whileStatement &&
+                ReferenceEquals(current, whileStatement.Statement) &&
+                ConstantValueEvaluator.TryEvaluate(whileStatement.Condition, out var value) &&
+                value is false)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool CanReachLoopBackEdge(SyntaxNode mutation, StatementSyntax loopBody)
