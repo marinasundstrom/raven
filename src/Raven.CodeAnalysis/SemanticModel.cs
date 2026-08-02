@@ -2151,6 +2151,13 @@ public partial class SemanticModel
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
+                if (node is ExpressionSyntax cachedExpression &&
+                    TryBindTargetTypedMethodGroup(cachedExpression, symbolInfo, out var targetTypedCachedInfo))
+                {
+                    StoreSymbolMapping(node, targetTypedCachedInfo);
+                    return targetTypedCachedInfo;
+                }
+
                 symbolInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, symbolInfo);
                 if (symbolInfo.Symbol is { } cachedSymbol)
                     StoreNodeInterestSymbolDescriptor(node, cachedSymbol);
@@ -2184,6 +2191,12 @@ public partial class SemanticModel
             var cachedBoundInfo = cachedBoundExpression.GetSymbolInfo();
             if (cachedBoundInfo.Symbol is not null || !cachedBoundInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
+                if (TryBindTargetTypedMethodGroup(cachedExpressionNode, cachedBoundInfo, out var targetTypedCachedBoundInfo))
+                {
+                    StoreSymbolMapping(node, targetTypedCachedBoundInfo);
+                    return targetTypedCachedBoundInfo;
+                }
+
                 cachedBoundInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, cachedBoundInfo);
                 StoreSymbolMapping(node, cachedBoundInfo);
                 return cachedBoundInfo;
@@ -2203,6 +2216,19 @@ public partial class SemanticModel
         if (TryGetAvailableSymbolInfo(node, out var availableSymbolInfo) &&
             (availableSymbolInfo.Symbol is not null || !availableSymbolInfo.CandidateSymbols.IsDefaultOrEmpty))
         {
+            if (node is ExpressionSyntax availableExpression &&
+                TryBindTargetTypedMethodGroup(availableExpression, availableSymbolInfo, out var targetTypedAvailableInfo))
+            {
+                StoreSymbolMapping(node, targetTypedAvailableInfo);
+                return targetTypedAvailableInfo;
+            }
+
+            if (node is ExpressionSyntax unresolvedAvailableExpression &&
+                IsTargetTypedMethodGroup(unresolvedAvailableExpression, availableSymbolInfo))
+            {
+                goto BindAfterDeclarations;
+            }
+
             if (availableSymbolInfo.Symbol is { } availableSymbol)
                 StoreNodeInterestSymbolDescriptor(node, availableSymbol);
 
@@ -2230,6 +2256,7 @@ public partial class SemanticModel
             return nodeInterestInfo;
         }
 
+    BindAfterDeclarations:
         EnsureDeclarations();
         EnsureMemberSignaturesDeclared();
         if (SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
@@ -2239,11 +2266,26 @@ public partial class SemanticModel
             (postDeclarationAvailableSymbolInfo.Symbol is not null ||
              !postDeclarationAvailableSymbolInfo.CandidateSymbols.IsDefaultOrEmpty))
         {
-            if (postDeclarationAvailableSymbolInfo.Symbol is { } postDeclarationAvailableSymbol)
-                StoreNodeInterestSymbolDescriptor(node, postDeclarationAvailableSymbol);
+            if (node is ExpressionSyntax postDeclarationExpression &&
+                TryBindTargetTypedMethodGroup(
+                    postDeclarationExpression,
+                    postDeclarationAvailableSymbolInfo,
+                    out var targetTypedPostDeclarationInfo))
+            {
+                StoreSymbolMapping(node, targetTypedPostDeclarationInfo);
+                return targetTypedPostDeclarationInfo;
+            }
 
-            StoreSymbolMapping(node, postDeclarationAvailableSymbolInfo);
-            return postDeclarationAvailableSymbolInfo;
+            if (node is not ExpressionSyntax unresolvedPostDeclarationExpression ||
+                !IsTargetTypedMethodGroup(unresolvedPostDeclarationExpression, postDeclarationAvailableSymbolInfo))
+            {
+                if (postDeclarationAvailableSymbolInfo.Symbol is { } postDeclarationAvailableSymbol)
+                    StoreNodeInterestSymbolDescriptor(node, postDeclarationAvailableSymbol);
+
+                StoreSymbolMapping(node, postDeclarationAvailableSymbolInfo);
+                return postDeclarationAvailableSymbolInfo;
+            }
+
         }
 
         SymbolInfo info;
@@ -2496,7 +2538,9 @@ public partial class SemanticModel
                 var regionInfo = regionBoundExpression.GetSymbolInfo();
                 if (regionInfo.Symbol is not null || !regionInfo.CandidateSymbols.IsDefaultOrEmpty)
                 {
-                    info = regionInfo;
+                    info = TryBindTargetTypedMethodGroup(expression, regionInfo, out var targetTypedRegionInfo)
+                        ? targetTypedRegionInfo
+                        : regionInfo;
                     goto Complete;
                 }
             }
@@ -2508,7 +2552,9 @@ public partial class SemanticModel
             var boundInfo = boundExpression?.GetSymbolInfo() ?? SymbolInfo.None;
             if (boundInfo.Symbol is not null || !boundInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                info = boundInfo;
+                info = TryBindTargetTypedMethodGroup(expression, boundInfo, out var targetTypedBoundInfo)
+                    ? targetTypedBoundInfo
+                    : boundInfo;
                 goto Complete;
             }
 
@@ -2597,6 +2643,12 @@ public partial class SemanticModel
         }
 
     Complete:
+        if (node is ExpressionSyntax completedExpression &&
+            TryBindTargetTypedMethodGroup(completedExpression, info, out var completedTargetTypedInfo))
+        {
+            info = completedTargetTypedInfo;
+        }
+
         info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
         if (info.Symbol is { } resolvedSymbol)
             StoreNodeInterestSymbolDescriptor(node, resolvedSymbol);
@@ -2604,6 +2656,39 @@ public partial class SemanticModel
         StoreSymbolMapping(node, info);
         return info;
     }
+
+    private bool TryBindTargetTypedMethodGroup(
+        ExpressionSyntax expression,
+        SymbolInfo currentInfo,
+        out SymbolInfo info)
+    {
+        info = default;
+        if (!IsTargetTypedMethodGroup(expression, currentInfo) ||
+            !TryGetTargetTypeForExpression(expression, out var targetType) ||
+            targetType is null)
+        {
+            return false;
+        }
+
+        var binder = GetBinderForIncrementalSemanticQuery(expression);
+        if (!TryGetNearestBlockBinder(binder, out var blockBinder))
+            return false;
+
+        var bound = blockBinder.BindExpressionWithTargetTypeForSemanticQuery(expression, targetType);
+        var resolvedInfo = bound.GetSymbolInfo();
+        if (resolvedInfo.Symbol is null)
+            return false;
+
+        info = resolvedInfo;
+        return true;
+    }
+
+    private bool IsTargetTypedMethodGroup(ExpressionSyntax expression, SymbolInfo info)
+        => info.Symbol is null &&
+           !info.CandidateSymbols.IsDefaultOrEmpty &&
+           info.CandidateSymbols.Any(static candidate => candidate is IMethodSymbol) &&
+           TryGetTargetTypeForExpression(expression, out var targetType) &&
+           targetType is { TypeKind: TypeKind.Delegate };
 
     private bool TryGetMacroFunctionParameterReference(
         IdentifierNameSyntax identifier,

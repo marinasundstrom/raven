@@ -20,6 +20,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   statement, independent of semantic-query order.
 - Constant-false catch filters likewise exclude their unreachable catch-body
   mutations from the null-state joined after a `try` statement.
+- Cold public symbol queries now apply a method group's contextual delegate
+  conversion instead of returning an unresolved candidate set. Imported
+  generic and non-generic namespace-function overloads therefore select the
+  same method before and after diagnostics are collected.
 - Lexical function scopes now retain complete overload sets instead of replacing
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function

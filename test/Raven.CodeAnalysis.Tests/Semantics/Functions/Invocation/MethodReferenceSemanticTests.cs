@@ -165,6 +165,47 @@ func Main() -> () {
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedNamespaceFunctionReference_RetainsGenericAndNonGenericOverloadSet(bool diagnosticsFirst)
+    {
+        var membersTree = SyntaxTree.ParseText("""
+            namespace Utilities
+
+            public func Project(value: int) -> int { value }
+            public func Project<T>(value: T) -> T { value }
+            """);
+        var consumerTree = SyntaxTree.ParseText("""
+            import System.*
+            import Utilities.*
+
+            func Main() -> unit {
+                let callback: Func<int, int> = Project
+            }
+            """);
+        var compilation = CreateCompilation(
+            [membersTree, consumerTree],
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(consumerTree);
+        var reference = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Project");
+        var info = model.GetSymbolInfo(reference);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var candidates = info.CandidateSymbols.OfType<IMethodSymbol>().ToArray();
+
+        Assert.False(selected.IsGenericMethod);
+        Assert.Equal(2, candidates.Length);
+        Assert.Single(candidates, static method => !method.IsGenericMethod);
+        Assert.Single(candidates, static method => method.IsGenericMethod);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void MethodGroupWithSingleCandidate_InferredDelegateReturnsMethod()
     {

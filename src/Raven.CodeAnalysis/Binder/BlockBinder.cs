@@ -2203,6 +2203,19 @@ partial class BlockBinder : Binder
         return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
     }
 
+    internal BoundExpression BindExpressionWithTargetTypeForSemanticQuery(
+        ExpressionSyntax syntax,
+        ITypeSymbol targetType)
+    {
+        var expression = BindExpressionWithTargetType(syntax, targetType);
+        if (expression is BoundMethodGroupExpression methodGroup)
+            return ConvertMethodGroupToDelegate(methodGroup, targetType, syntax);
+
+        return IsAssignable(targetType, expression, out var conversion)
+            ? ApplyConversion(expression, targetType, conversion, syntax)
+            : expression;
+    }
+
     private BoundExpression BindExpressionWithoutTargetType(
         ExpressionSyntax syntax,
         bool allowReturn = true,
