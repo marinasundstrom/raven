@@ -300,6 +300,15 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is ITupleTypeSymbol tupleType)
+            {
+                result = TypeSubstitution.SubstituteTupleElements(
+                    tupleType,
+                    element => SubstituteCore(element, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
             {
                 var typeArguments = GetShallowTypeArguments(named);

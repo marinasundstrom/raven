@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Generic inference and constructed signatures now preserve type parameters
+  nested through nullable arrays, tuples, and constructed generic arguments.
+  Raven tuple projections compare consistently with emitted
+  `System.ValueTuple` signatures, and incomplete available-state inference
+  falls back to authoritative binding instead of dropping a generic overload.
+  Mixed suffixes such as `T?[]`, `T[]?`, and `T?[]?` also retain their written
+  nesting order in the syntax tree.
 - Raven-emitted generic type and method parameters now preserve `notnull` when
   reloaded from metadata. Constraint round-trip coverage also locks `class`,
   `struct`, `new()`, base-class, and interface constraints across source and PE

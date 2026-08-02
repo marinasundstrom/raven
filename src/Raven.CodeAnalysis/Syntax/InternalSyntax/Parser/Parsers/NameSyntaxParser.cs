@@ -93,12 +93,18 @@ internal class NameSyntaxParser : SyntaxParser
             name = ParseNameCore();
         }
 
-        if (parseArraySuffix)
-            name = ParseArrayTypeSuffix(name);
-
-        if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
+        while (true)
         {
-            name = NullableType(name, questionToken);
+            var startPosition = Position;
+
+            if (parseArraySuffix && PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+                name = ParseArrayTypeSuffix(name);
+
+            if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
+                name = NullableType(name, questionToken);
+
+            if (Position == startPosition)
+                break;
         }
 
         if (allowImplicitFunctionTypeRecovery && ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))

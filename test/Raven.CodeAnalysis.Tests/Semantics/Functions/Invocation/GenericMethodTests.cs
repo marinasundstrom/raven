@@ -825,6 +825,69 @@ public sealed class GenericMethodTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedNullableArrayTupleInference_MatchesSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        var libraryTree = SyntaxTree.ParseText("""
+            namespace NestedInferenceLibrary {
+                public class Envelope<T> {}
+
+                public func Extract<T>(value: Envelope<(T?[], System.Collections.Generic.List<T?>)>) -> T {
+                    throw System.Exception()
+                }
+
+                public func Extract(value: object) -> object => value
+            }
+            """);
+        var consumerTree = SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+            import NestedInferenceLibrary.*
+
+            let value = Envelope<(string?[], List<string?>)>()
+            let result = Extract(value)
+            """);
+        using var logWriter = new System.IO.StringWriter();
+        using var overloadLog = new OverloadResolutionLog(logWriter, ownsWriter: false);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithOverloadResolutionLogger(overloadLog);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                options: options,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "NestedInferenceLibrary")])
+            : CreateCompilation([libraryTree, consumerTree], options: options);
+
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Extract");
+        var model = compilation.GetSemanticModel(consumerTree);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.True(method.IsGenericMethod);
+        Assert.Equal(SpecialType.System_String, Assert.Single(method.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
+        var envelopeType = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(method.Parameters).Type);
+        var tupleType = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(envelopeType.TypeArguments));
+        var tupleElements = tupleType.TypeArguments;
+        var nullableArray = Assert.IsAssignableFrom<IArrayTypeSymbol>(tupleElements[0]);
+        Assert.Equal(SpecialType.System_String, nullableArray.ElementType.GetNonNullableType().SpecialType);
+        Assert.True(nullableArray.ElementType.IsNullable);
+        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(tupleElements[1]);
+        var nullableListElement = Assert.Single(listType.TypeArguments);
+        Assert.Equal(SpecialType.System_String, nullableListElement.GetNonNullableType().SpecialType);
+        Assert.True(nullableListElement.IsNullable);
+        Assert.Equal(SpecialType.System_String, model.GetTypeInfo(invocation).Type?.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
     [InlineData("ref", RefKind.Ref, false, false)]
     [InlineData("ref", RefKind.Ref, false, true)]
     [InlineData("ref", RefKind.Ref, true, false)]

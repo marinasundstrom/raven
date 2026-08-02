@@ -94,4 +94,27 @@ public class ArrayTypeSyntaxTest
                 Assert.Empty(second.CommaTokens);
             });
     }
+
+    [Fact]
+    public void ArrayAndNullableSuffixes_PreserveSourceOrder()
+    {
+        var elementNullable = ParseType("T?[]");
+        var elementNullableArray = Assert.IsType<ArrayTypeSyntax>(elementNullable);
+        Assert.IsType<NullableTypeSyntax>(elementNullableArray.ElementType);
+
+        var nullableArray = Assert.IsType<NullableTypeSyntax>(ParseType("T[]?"));
+        Assert.IsType<ArrayTypeSyntax>(nullableArray.ElementType);
+
+        var nullableArrayWithNullableElements = Assert.IsType<NullableTypeSyntax>(ParseType("T?[]?"));
+        var array = Assert.IsType<ArrayTypeSyntax>(nullableArrayWithNullableElements.ElementType);
+        Assert.IsType<NullableTypeSyntax>(array.ElementType);
+
+        static TypeSyntax ParseType(string typeText)
+        {
+            var tree = SyntaxTree.ParseText($"let values: {typeText}");
+            var root = tree.GetRoot();
+            var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
+            return local.Declaration.Declarators[0].TypeAnnotation!.Type;
+        }
+    }
 }

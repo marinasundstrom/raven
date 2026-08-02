@@ -1291,6 +1291,28 @@ internal sealed class OverloadResolver
                 inferenceMethod);
         }
 
+        if (TryGetTupleInferenceElementTypes(parameterType, out var parameterTupleElements) &&
+            TryGetTupleInferenceElementTypes(argumentType, out var argumentTupleElements))
+        {
+            if (parameterTupleElements.Length != argumentTupleElements.Length)
+                return false;
+
+            for (var i = 0; i < parameterTupleElements.Length; i++)
+            {
+                if (!TryInferFromTypes(
+                        compilation,
+                        parameterTupleElements[i],
+                        argumentTupleElements[i],
+                        substitutions,
+                        inferenceMethod))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         if (parameterType is ITypeParameterSymbol typeParameter)
         {
             typeParameter = GetCanonicalTypeParameter(typeParameter, inferenceMethod);
@@ -1617,6 +1639,27 @@ internal sealed class OverloadResolver
             _ => type,
         };
 
+    private static bool TryGetTupleInferenceElementTypes(
+        ITypeSymbol type,
+        out ImmutableArray<ITypeSymbol> elementTypes)
+    {
+        if (type is ITupleTypeSymbol tuple)
+        {
+            elementTypes = tuple.TupleElements.Select(static element => element.Type).ToImmutableArray();
+            return true;
+        }
+
+        if (type is INamedTypeSymbol named &&
+            (named.ConstructedFrom ?? named).SpecialType is >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest)
+        {
+            elementTypes = TypeSubstitution.GetShallowTypeArguments(named);
+            return !elementTypes.IsDefaultOrEmpty;
+        }
+
+        elementTypes = default;
+        return false;
+    }
+
     private static bool TryGetNullableInferenceUnderlyingType(
         ITypeSymbol type,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? underlyingType)
@@ -1668,6 +1711,27 @@ internal sealed class OverloadResolver
                     return substitutedType;
 
                 return type;
+
+            case NullableTypeSymbol nullable:
+                {
+                    var underlyingType = SubstituteType(nullable.UnderlyingType, substitutions);
+                    return SymbolEqualityComparer.Default.Equals(underlyingType, nullable.UnderlyingType)
+                        ? type
+                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                }
+
+            case IArrayTypeSymbol array:
+                {
+                    var elementType = SubstituteType(array.ElementType, substitutions);
+                    return SymbolEqualityComparer.Default.Equals(elementType, array.ElementType)
+                        ? type
+                        : new ArrayTypeSymbol(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
+                }
+
+            case ITupleTypeSymbol tuple:
+                return TypeSubstitution.SubstituteTupleElements(
+                    tuple,
+                    element => SubstituteType(element, substitutions));
 
             case INamedTypeSymbol named:
                 {
@@ -1744,14 +1808,6 @@ internal sealed class OverloadResolver
                     return definition.Arity == rewritten.Length
                         ? definition.Construct(rewritten)
                         : type;
-                }
-
-            case NullableTypeSymbol nullable:
-                {
-                    var underlyingType = SubstituteType(nullable.UnderlyingType, substitutions);
-                    return SymbolEqualityComparer.Default.Equals(underlyingType, nullable.UnderlyingType)
-                        ? type
-                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
                 }
 
             default:

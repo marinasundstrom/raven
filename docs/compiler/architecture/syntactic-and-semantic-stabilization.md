@@ -227,7 +227,7 @@ to imply that every file must be rewritten before porting.
 | Public flow information | `TypeInfo.cs`, `Binder/BlockBinder.cs`, `Binder/BlockBinder.Statements.cs` | Agreement between nullability diagnostics, narrowing, and semantic APIs |
 | Overload resolution | `OverloadResolver.cs`, `Binder/BlockBinder.MemberAccess.cs` | Generic method groups, inference, ambiguity, and conversion ranking |
 | Pattern semantics | `BoundTree/BoundIsPatternExpression.cs`, pattern binding in `Binder/BlockBinder.cs`, `CodeGen/Generators/ExpressionGenerator.Patterns.cs` | Binding, flow, exhaustiveness, and lowering agreement |
-| Symbol contracts | `Symbols/Constructed/*`, `Symbols/Source/SourceModuleSymbol.cs`, `Symbols/PE/PEModuleSymbol.cs` | Reachable incomplete lookup and construction APIs |
+| Symbol contracts | `Symbols/Constructed/*`, `Symbols/Source/SourceModuleSymbol.cs`, `Symbols/PE/PEModuleSymbol.cs` | Reachable incomplete lookup and construction APIs; duplicated structural substitution across constructed wrappers |
 | Macro declarations | `Compilation.LocalMacros.cs`, macro-function declaration and binding paths | Signature/body isolation, diagnostics, and ordinary declaration parity |
 
 ### Incremental syntax diagnostics must remain equivalent
@@ -686,6 +686,26 @@ hashes must agree. Do not replace that architecture during a focused bug fix;
 continue adding source/PE and repeated-construction invariants, then evaluate a
 single substitution service or interned constructed-symbol factory as a
 separate design slice.
+
+Nested inference now descends structurally through nullable, array, tuple, and
+constructed named-type layers. Raven tuple symbols are source projections over
+`System.ValueTuple`; substitution preserves that public projection, while
+metadata identity treats the projection and its underlying runtime type as the
+same ABI shape. Source and emitted-library tests require identical inference
+for a type parameter nested in both `T?[]` and another constructed generic
+argument inside a tuple. The available-state semantic path also refuses to
+drop a generic candidate it cannot fully construct: it falls back to
+authoritative binding instead of allowing a weaker non-generic overload to win
+because of incomplete cached state.
+
+This fix deliberately centralizes tuple reconstruction in `TypeSubstitution`,
+but structural substitution is still duplicated by constructed named types,
+constructed methods, overload inference, and semantic fast paths. Converging
+those implementations onto one cycle-safe structural substitution service is
+a prioritized symbol-model simplification. It must retain source/PE parity,
+tuple element names, nullable wrappers, array rank and fixed length, ref/address
+wrappers, nested containing-type re-anchoring, and type-parameter ownership.
+The existing integration matrix is the safety boundary for that refactoring.
 
 Repeated source construction now has an explicit ownership invariant. Two
 independent constructions of the same containing generic type may be distinct

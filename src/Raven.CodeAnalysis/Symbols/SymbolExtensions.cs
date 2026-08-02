@@ -60,6 +60,12 @@ public static partial class SymbolExtensions
 
     private static bool HaveEquivalentMetadataIdentity(ITypeSymbol left, ITypeSymbol right)
     {
+        if (left is ITupleTypeSymbol leftTuple)
+            left = leftTuple.UnderlyingTupleType;
+
+        if (right is ITupleTypeSymbol rightTuple)
+            right = rightTuple.UnderlyingTupleType;
+
         if (left.TypeKind != right.TypeKind)
             return false;
 

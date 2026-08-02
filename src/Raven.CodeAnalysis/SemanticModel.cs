@@ -3891,12 +3891,21 @@ public partial class SemanticModel
                 }
                 else
                 {
-                    methods = methods
+                    var inferredMethods = methods
                         .Select(method => ConstructAvailableGenericInvocationCandidate(method, invocation))
-                        .Where(static method => method.TypeParameters.Length == 0 || !HasUnresolvedMethodTypeParameters(method))
                         .ToImmutableArray();
-                    if (methods.IsDefaultOrEmpty)
+
+                    // Available semantic state is only an optimization. If it cannot fully
+                    // infer one member of an overload set, do not silently remove that member
+                    // and let a less suitable overload win; let authoritative binding decide.
+                    if (inferredMethods.Any(static method =>
+                            method.TypeParameters.Length > 0 &&
+                            HasUnresolvedMethodTypeParameters(method)))
+                    {
                         return false;
+                    }
+
+                    methods = inferredMethods;
                 }
             }
 
@@ -10658,6 +10667,21 @@ public partial class SemanticModel
             return TryUnifyExtensionReceiver(parameterArray.ElementType, receiverArray.ElementType, substitutions);
         }
 
+        if (TryGetTupleElementTypes(parameterType, out var parameterElements) &&
+            TryGetTupleElementTypes(receiverType, out var receiverElements))
+        {
+            if (parameterElements.Length != receiverElements.Length)
+                return false;
+
+            for (var i = 0; i < parameterElements.Length; i++)
+            {
+                if (!TryUnifyExtensionReceiver(parameterElements[i], receiverElements[i], substitutions))
+                    return false;
+            }
+
+            return true;
+        }
+
         if (parameterType is not INamedTypeSymbol parameterNamed ||
             receiverType is not INamedTypeSymbol receiverNamed)
         {
@@ -10679,6 +10703,27 @@ public partial class SemanticModel
                 return true;
         }
 
+        return false;
+    }
+
+    private static bool TryGetTupleElementTypes(
+        ITypeSymbol type,
+        out ImmutableArray<ITypeSymbol> elementTypes)
+    {
+        if (type is ITupleTypeSymbol tuple)
+        {
+            elementTypes = tuple.TupleElements.Select(static element => element.Type).ToImmutableArray();
+            return true;
+        }
+
+        if (type is INamedTypeSymbol named &&
+            (named.ConstructedFrom ?? named).SpecialType is >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest)
+        {
+            elementTypes = TypeSubstitution.GetShallowTypeArguments(named);
+            return !elementTypes.IsDefaultOrEmpty;
+        }
+
+        elementTypes = default;
         return false;
     }
 
@@ -10744,6 +10789,13 @@ public partial class SemanticModel
             return SymbolEqualityComparer.Default.Equals(substituted, arrayType.ElementType)
                 ? type
                 : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
+        }
+
+        if (type is ITupleTypeSymbol tupleType)
+        {
+            return TypeSubstitution.SubstituteTupleElements(
+                tupleType,
+                element => SubstituteTypeParameters(element, substitutions));
         }
 
         if (type is INamedTypeSymbol namedType)

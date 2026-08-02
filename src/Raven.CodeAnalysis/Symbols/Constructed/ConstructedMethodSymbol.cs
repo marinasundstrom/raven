@@ -344,6 +344,15 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 return type;
             }
 
+            if (type is ITupleTypeSymbol tupleType)
+            {
+                var result = TypeSubstitution.SubstituteTupleElements(
+                    tupleType,
+                    element => Substitute(element, visiting, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
             {
                 var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);

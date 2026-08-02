@@ -36,6 +36,50 @@ internal static class TypeSubstitution
         return type.TypeArguments;
     }
 
+    internal static ITypeSymbol SubstituteTupleElements(
+        ITupleTypeSymbol tuple,
+        Func<ITypeSymbol, ITypeSymbol> substitute)
+    {
+        var elements = tuple.TupleElements;
+        if (elements.IsDefaultOrEmpty)
+            return tuple;
+
+        var substitutedElements = new ITypeSymbol[elements.Length];
+        var changed = false;
+        for (var i = 0; i < elements.Length; i++)
+        {
+            substitutedElements[i] = substitute(elements[i].Type);
+            changed |= !SymbolEqualityComparer.Default.Equals(substitutedElements[i], elements[i].Type);
+        }
+
+        if (!changed)
+            return tuple;
+
+        var underlyingDefinition = GetDefinitionForSubstitution(tuple.UnderlyingTupleType);
+        if (underlyingDefinition.Arity != substitutedElements.Length)
+            return tuple;
+
+        var underlying = underlyingDefinition.Construct(substitutedElements) as INamedTypeSymbol;
+        if (underlying is null)
+            return tuple;
+
+        var substitutedTuple = new TupleTypeSymbol(
+            underlying,
+            tuple.ContainingSymbol!,
+            tuple.ContainingType,
+            tuple.ContainingNamespace,
+            []);
+        var underlyingFields = underlying.GetMembers()
+            .OfType<SubstitutedFieldSymbol>()
+            .ToImmutableArray();
+        if (underlyingFields.Length < elements.Length)
+            return tuple;
+
+        substitutedTuple.SetTupleElements(elements.Select((element, index) =>
+            new TupleFieldSymbol(element.Name, underlyingFields[index], underlying, [])));
+        return substitutedTuple;
+    }
+
     internal static bool TryGetEquivalentTypeParameterSubstitution(
         ITypeParameterSymbol parameter,
         IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
