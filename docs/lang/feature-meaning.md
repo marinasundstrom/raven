@@ -284,8 +284,8 @@ if x is not null {
 }
 ```
 
-That last form is perfectly valid Raven and is not discouraged. It is
-smart-cast-like in effect, but the semantic model keeps `x` declared as
+That last form is a valid compatibility form and is not discouraged. It is
+narrowing in effect, but the semantic model keeps `x` declared as
 `string?` and publishes a non-null flow state only in the branch. Documentation
 and examples present the binding forms first because they introduce a distinct
 non-nullable `str: string` local and make the successful value explicit. Raven
@@ -347,6 +347,9 @@ A practical adoption sequence is:
 3. introduce local patterns that handle every nullable outcome;
 4. project recurring domain outcomes into `Option`, `Result`, or a union;
 5. leave null-flow tracking concentrated near the remaining interop edges.
+
+The canonical user-facing policy and configuration examples are in
+[Nullability, absence, and null flow](nullability.md).
 
 Turning off the fifth layer must not change reachability, assignment checks,
 declared types, pattern-arm types,

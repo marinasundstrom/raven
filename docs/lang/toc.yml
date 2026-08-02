@@ -58,6 +58,8 @@
           href: spec/types-and-unions.md#unions
         - name: Closed-shape types
           href: spec/types-and-unions.md#closed-shape-types
+    - name: Nullability and absence guide
+      href: nullability.md
     - name: Enum declarations
       href: spec/enum-declarations.md
     - name: Delegate declarations

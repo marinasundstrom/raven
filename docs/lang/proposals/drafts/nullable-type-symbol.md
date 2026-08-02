@@ -1,6 +1,10 @@
 # Proposal: Unified nullable type symbol
 
-> ℹ️ This proposal is under consideration
+> **Status:** Historical design record. The unified nullable symbol model is
+> implemented. Current policy is defined by
+> [Nullability, absence, and null flow](../../nullability.md). Any future strict
+> or migration profile may configure diagnostics, but must not make `?`
+> disappear or give Raven two symbol models.
 
 ## Summary
 
@@ -14,7 +18,7 @@ Nullable types are used across Raven's type system, binding, conversion, and cod
 * Allows consumers to check nullability without casting.
 * Makes nullable value types and nullable reference types behave consistently in conversions and member lookup.
 * Aligns emitted IL with the runtime representation: annotations for references, `Nullable<T>` for values.
-* Leaves room for a future compatibility mode where `?` is ignored on reference types.
+* Keeps nullable annotations explicit and stable across project policies.
 
 ## Goals
 
@@ -139,13 +143,15 @@ Likely touch points:
 
 * How should lifted conversions interact with user-defined conversions and union lowering?
 * Do we need a dedicated `Conversion.IsLifted` flag to avoid ambiguity in codegen?
-* Do we want a switch to disable reference-type `?` annotations for compatibility with .NET libraries, while keeping value-type nullability intact?
+* How should missing or oblivious nullable metadata be projected without
+  weakening an explicitly annotated Raven declaration?
 
 ## Migration / compatibility
 
 This proposal keeps syntax unchanged and preserves existing nullable semantics. The primary changes are internal to symbol behavior and conversion/codegen pipelines.
 
-The design also accommodates a future compatibility mode where `T?` on reference types is treated as `T` (annotation disabled), while still using `Nullable<T>` for value types.
+Diagnostic policy may be relaxed for gradual adoption, but `T?` remains a
+nullable Raven symbol for both reference and value types.
 
 ## Examples
 

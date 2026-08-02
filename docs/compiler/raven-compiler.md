@@ -121,6 +121,10 @@ to suppress flow-derived possible-null-reference diagnostics while retaining
 declared nullable annotations, boundary conversion checks, metadata, and
 pattern refinement. The default is `true`.
 
+This is a diagnostic switch, not a second nullable type system. See
+[Nullability, absence, and null flow](../lang/nullability.md) for what remains
+enforced, the preferred pattern forms, and the role of `Option<T>`.
+
 ## `rvn dev`
 
 `rvn dev` hosts internal debug views outside the compiler binary:

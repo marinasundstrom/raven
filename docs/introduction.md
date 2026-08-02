@@ -364,6 +364,12 @@ In Raven, `null` still exists for .NET interop, but it is not the preferred doma
 - use `Result<T, E>` for expected failure
 - use nullable types primarily where .NET APIs already speak in those terms
 
+Nullable types remain strict and uniform across reference and value types.
+Raven uses null-flow analysis to prove when a nullable value is safe to access,
+while explicit pattern bindings and `match` are the preferred ways to handle
+its states. See [Nullability, absence, and null flow](lang/nullability.md) for
+the complete model and configuration boundary.
+
 ---
 
 ## Functions

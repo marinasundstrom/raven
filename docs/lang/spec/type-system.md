@@ -197,12 +197,12 @@ let count: int? = 1
 
 #### Explicit nullable refinement and compatibility checks
 
-Raven treats `is null` and `is not null` as the strict null-check forms for
-flow analysis. They are ordinary valid Raven syntax, not discouraged
-compatibility-only constructs. Raven documentation nevertheless presents an
-explicit successful binding with typed `if let` first, or a direct type pattern
-when that syntax better fits the surrounding code, because those forms name the
-successful non-null value explicitly.
+Raven treats `is null` and `is not null` as strict compatibility forms for
+flow analysis. They are ordinary valid Raven syntax and are not deprecated or
+discouraged. Raven documentation presents an explicit successful binding with
+typed `if let` first, or a direct type pattern when that syntax better fits the
+surrounding code, because those forms name the successful non-null value
+explicitly.
 
 ```raven
 func Inspect(x: string?) -> unit {
@@ -225,19 +225,18 @@ only when the value matches. In the last branch, `x` retains its declared
 `string?` type while its flow state is non-null. Reference and value nullable
 types follow the same source-level refinement rule.
 
-The current implementation therefore narrows the original local for
-`is not null`. Whether that refinement should remain the default language
-behavior is still a stabilization decision; changing it would not make the
-check invalid, only require an explicit binding or assertion before nullable
-member access. An opt-in compiler policy is another possible outcome, but it
-must not be conflated with the broader `EnableNullFlowAnalysis` bug-finding
-policy until that design is settled.
+The current language contract narrows the original local for `is not null`
+inside the successful branch. This refinement is distinct from the broader
+`EnableNullFlowAnalysis` bug-finding policy and remains available when
+flow-derived diagnostics are disabled.
 
 `== null` and `!= null` are also valid. Flow narrowing only applies when the
 comparison follows built-in null-comparison semantics.
 
 Raven includes an analyzer that recommends replacing `== null`/`!= null` with
 `is null`/`is not null` for strict checks. Pointer-like comparisons are exempt.
+The recommendation avoids user-defined equality; it is not a preference over
+typed bindings, matches, or `Option<T>`.
 
 Warning message:
 

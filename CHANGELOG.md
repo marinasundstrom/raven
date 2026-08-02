@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Nullability documentation now defines one coherent Raven policy: unified
+  nullable symbols for reference and value types, strict flow-based proof of
+  safe access, pattern-first handling, `Option<T>` for domain absence, and
+  direct null checks as supported compatibility forms. Compiler and analyzer
+  configuration are documented as policy controls rather than alternate type
+  systems.
 - Generic inference for `ref`, `out`, and `in` arguments now consumes the
   referenced element type instead of leaking compiler-only address/ref wrapper
   symbols into constructed method type arguments. Exact by-reference kind and

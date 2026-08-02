@@ -26,6 +26,8 @@
           href: lang/feature-meaning.md
         - name: Domain modeling
           href: lang/domain-modeling.md
+        - name: Nullability and absence
+          href: lang/nullability.md
         - name: Style guide
           href: lang/style-guide.md
         - name: Language philosophy

@@ -1,9 +1,17 @@
 # Proposal: Identifier-Level and Union-Based Nullability in Raven
 
-## Summary
+> **Status:** Historical syntax exploration. Its removal of `T?`, `T | null`
+> representation, and equality-based narrowing examples are superseded.
+> Current Raven uses one declared `T?` symbol model for reference and value
+> types, prefers explicit patterns, and narrows direct null checks through
+> `is null` / `is not null`. See
+> [Nullability, absence, and null flow](../../nullability.md).
 
-Raven eliminates C#-style nullable types (`T?`) from user-facing syntax.
-Nullability is instead expressed through:
+## Historical summary
+
+This proposal explored eliminating C#-style nullable types (`T?`) from
+user-facing syntax. Raven did not adopt that direction. The proposed model
+expressed nullability through:
 
 1. **Binding-level syntax**
 
@@ -288,13 +296,14 @@ This makes the ergonomics binding-first for humans, but keeps the type system an
 Since nullability is represented as `T | null`, flow analysis is algebraic:
 
 * A union containing `null` is nullable.
-* A check like `if x != null` **narrows** the union to remove the `null` case.
+* A strict check such as `if x is not null` establishes non-null flow state in
+  its successful branch without changing the declared nullable symbol.
 
 Example:
 
 ```raven
 if user? : User {
-    if user != null {
+    if user is not null {
         user.Name   // safe; type narrowed to User
     }
 }

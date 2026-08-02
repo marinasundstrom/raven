@@ -369,18 +369,17 @@ Typed conditional bindings now have reference/value parity and incremental
 edit coverage. A restored or renamed `if let value: T = nullableValue` binding
 publishes a fresh non-null local and stable reference identity before and after
 diagnostics. `value is not null` remains valid and currently refines the
-original local, but whether that smart-cast-like refinement should be enabled
-by default remains an open semantic decision. The choice must not be confused
-with the validity of the syntax or presented as discouraging direct checks.
-The current contract is covered for reference and value nullable parameters in
-both semantic-query orders: the original symbol remains declared as `T?`, its
-flow state is non-null only inside the successful branch, and the fact does not
-leak past the branch.
-Before stabilization, choose explicitly among removing that automatic
-refinement, placing it behind a dedicated opt-in compiler policy, or retaining
-it. Do not silently make it a consequence of `EnableNullFlowAnalysis`: that
-option controls additional bug-finding diagnostics, while syntax-directed
-branch semantics are a separate language contract.
+original local. This is the supported compatibility baseline, not Raven's first
+teaching model: documentation should lead with an explicit typed binding or an
+exhaustive match while describing direct null checks as valid and supported.
+The contract is covered for reference and value nullable parameters in both
+semantic-query orders: the original symbol remains declared as `T?`, its flow
+state is non-null only inside the successful branch, and the fact does not leak
+past the branch. Any future stricter profile must be an explicit policy decision
+and must not silently make branch meaning a consequence of
+`EnableNullFlowAnalysis`; that option controls additional bug-finding
+diagnostics, while syntax-directed branch semantics are a separate language
+contract.
 
 The remaining conformance matrix needs broader joins, loops, richer pattern
 tests, and incremental edits that change control flow. Nullable standard unions

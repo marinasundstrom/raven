@@ -21,6 +21,7 @@
           "lang/philosophy.md",
           "lang/feature-meaning.md",
           "lang/domain-modeling.md",
+          "lang/nullability.md",
           "lang/style-guide.md",
           "lang/spec/*.md",
           "compiler/index.md",

@@ -1,5 +1,12 @@
 # Nullable control flow analysis and `GetTypeInfo` API
 
+> **Status:** Implementation investigation and progress record. It is not the
+> user-facing definition of Raven nullability. The authoritative policy is
+> [Nullability, absence, and null flow](../lang/nullability.md): Raven has one
+> unified declared nullable model, patterns are the preferred handling form,
+> `Option<T>` models domain absence, and null flow proves safe access for
+> interoperability and gradual adoption.
+
 ## Goals
 - Implement `GetTypeInfo` with nullable flow awareness, aligning with Raven's unified nullability model for reference and value types.
 - Treat unannotated external APIs as nullable by default to avoid unsound assumptions.
@@ -94,7 +101,9 @@ and metadata concern.
 
 ## Diagnostics and flow analysis updates
 - Add a diagnostic that explains when nullable metadata is missing and the compiler assumed nullable.
-- Ensure flow state can upgrade types from nullable to non-null after a successful check (e.g., `if (x != null)`), but never downgrade missing-metadata types to non-null without an explicit check.
+- Ensure flow state can prove a nullable use non-null after a successful typed
+  pattern or strict `is not null` check, but never mutate the declared nullable
+  symbol or assume missing-metadata values are non-null without proof.
 
 ## External metadata detection (nullable context)
 We need a reliable query path for external assemblies to determine whether nullable annotations are enabled:

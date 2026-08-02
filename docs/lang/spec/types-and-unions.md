@@ -109,6 +109,17 @@ default, and `null` can only flow through nullable annotations (`T?`). The same
 rules apply uniformly to reference and value types; the distinction only
 affects runtime representation, not the surface type rules.
 
+The declared type remains `T?` when control flow proves that a particular use
+is non-null. That proof is published separately as flow state. Successful
+typed pattern bindings and `is not null` checks establish non-null state in
+their valid branch; the fact does not change the declaration or escape its
+proven control-flow region.
+
+Raven recommends `Option<T>` when absence is an intentional part of a domain
+API. Nullable types remain available for .NET interoperability and gradual
+adoption. See [Nullability, absence, and null flow](../nullability.md) for the
+user-facing policy, preferred pattern forms, and configuration.
+
 `null` is not a general type annotation spelling and is not a union member type.
 Use nullable annotations such as `T?` to mark nullable active union contents.
 

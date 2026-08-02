@@ -30,7 +30,7 @@ support relies on the same core distinctions:
 * `Value` as the interop content surface,
 * pattern matching over unwrapped union contents.
 
-Implementing null support before the compatibility model is settled risks
+Implementing null support before the union ABI and nullable-content model are settled risks
 encoding the wrong distinction between nullable carriers, nullable contents, and
 the inactive/default state of struct union carriers.
 

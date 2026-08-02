@@ -49,10 +49,10 @@ returned-value mode extends `RAV9034` to bare calls and member accesses.
 | `RAV9003` | Warning | Make an event delegate nullable when the event can be empty. |
 | `RAV9004` | Warning | Use `let` when a local declared with `var` is never reassigned. |
 | `RAV9006` | Warning | Initialize a property in storage or a constructor. |
-| `RAV9012` | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. |
+| `RAV9012` | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. A scoped code fix can rewrite simple local null-guarded flow to an `Option` pattern. |
 | `RAV9013` | Warning | Prefer `Result<T, E>` over `throw` for expected failure. |
 | `RAV9014` | Warning | Prefer Raven's `Option`/`Result` LINQ alternatives where applicable. |
-| `RAV9015` | Warning | Use `is null` or `is not null` when a strict null check and flow narrowing are intended. |
+| `RAV9015` | Warning | Replace `== null` or `!= null`, which may invoke user-defined equality, with a strict `is null` or `is not null` check. This is a safety transformation, not a preference over pattern bindings or `Option<T>`. |
 | `RAV9016` | Info | Make an unexposed member private. |
 | `RAV9017` | Info | Make a method static when it does not use instance data. |
 | `RAV9018` | Warning | Remove or use a property that is never referenced. |
@@ -81,3 +81,10 @@ style. For example, all of the following are legitimate project choices:
 
 Prefer committing `.editorconfig` with the project so command-line builds and
 the Raven language server present the same policy to every contributor.
+
+For nullable code, `RAV9012` expresses Raven's configurable preference for
+`Option<T>` or `Result<T, E>` in domain flow. `RAV9015` has a narrower purpose:
+it makes an existing equality-based null check strict so flow narrowing is
+sound. The language still recommends explicit pattern bindings and matches as
+the first teaching model. See
+[Nullability, absence, and null flow](../../lang/nullability.md).
