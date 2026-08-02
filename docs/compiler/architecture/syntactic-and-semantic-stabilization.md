@@ -85,6 +85,14 @@ for interop and gradual migration. That move must preserve the public
 `TypeInfo` answer needed by editor tooling and must not duplicate semantic truth
 inside the language server.
 
+Extended flow analysis remains valuable as a defect detector. Its success
+criterion is finding likely null-reference bugs in .NET-shaped or gradually
+migrated code, while Raven guidance helps users replace recurring nullable
+domain states with exhaustive patterns and explicit sum types. Compiler
+stabilization should therefore preserve a dependable compatibility floor
+without treating ever-more-global null tracking as the primary route to
+idiomatic Raven.
+
 A serious unresolved inconsistency in one of these areas blocks a trusted
 bootstrap even if the affected program happens to emit runnable code.
 

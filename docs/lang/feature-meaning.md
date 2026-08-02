@@ -270,6 +270,21 @@ Raven treats this as three separate responsibilities:
    intended direction is a configurable built-in analysis profile rather than
    an ever-growing set of mandatory language restrictions.
 
+The purpose of that extended profile is defect discovery. It should identify
+likely null-reference bugs in existing .NET-shaped code and make nullable state
+visible while a codebase is being migrated. The recommended response is not to
+build more domain logic around null, but to progressively shorten the nullable
+corridor: handle a boundary value with a pattern and convert meaningful absence
+or failure into an explicit Raven type.
+
+A practical adoption sequence is:
+
+1. preserve and enforce the existing .NET nullable annotations;
+2. enable flow diagnostics to find unsafe dereferences and mutation paths;
+3. introduce local patterns that handle every nullable outcome;
+4. project recurring domain outcomes into `Option`, `Result`, or a union;
+5. leave extended flow tracking concentrated near the remaining interop edges.
+
 Moving the third layer behind analyzer configuration must not change declared
 types, pattern-arm types, overload resolution, emitted metadata, or runtime
 behavior. Until that separation is implemented, existing null-flow diagnostics
