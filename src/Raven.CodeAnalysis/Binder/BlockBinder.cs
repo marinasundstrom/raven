@@ -3688,7 +3688,10 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindParenthesizedExpression(ParenthesizedExpressionSyntax parenthesizedExpression)
     {
-        var expression = BindExpression(parenthesizedExpression.Expression);
+        var targetType = GetScopedTargetType(parenthesizedExpression);
+        var expression = targetType is null
+            ? BindExpression(parenthesizedExpression.Expression)
+            : BindExpressionWithTargetType(parenthesizedExpression.Expression, targetType);
 
         if (expression is BoundErrorExpression)
             return expression;
