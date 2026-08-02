@@ -256,18 +256,27 @@ to publish the state established by patterns, branches, assignments, and .NET
 flow attributes through diagnostics and `TypeInfo`; it is not a reason to
 prefer null over Raven's explicit alternatives.
 
-Raven treats this as three separate responsibilities:
+Raven treats flow and nullability as five separate responsibilities:
 
-1. **Explicit nullness and .NET metadata are core semantics.** At every source
+1. **Reachability analysis is core control-flow semantics.** It determines
+   whether a block, branch, arm, or statement can execute and which paths can
+   complete normally. Other analyses may consume that graph, but they should
+   not independently invent reachability rules.
+2. **Assignment analysis is core variable semantics.** It determines whether a
+   variable is definitely assigned before use and whether an immutable binding
+   is assigned again. Disabling null-flow analysis must not affect either rule.
+3. **Explicit nullness, dereference checks, and .NET metadata are core type
+   semantics.** At every source
    position where null is intentionally admitted—including locals and
    parameters—the semantic type for `T?` remains a nullable wrapper around `T`.
    The compiler preserves that unified representation, validates conversions
-   and constraints, and imports and emits the corresponding platform
-   annotations.
-2. **Pattern refinement is core semantics.** A successful non-null pattern must
-   refine the value within that arm or branch. This is required for Raven's
-   preferred exhaustive pattern style; it is not an optional warning pass.
-3. **Null-flow diagnostics are tooling policy.** Following a
+   and constraints, rejects unsafe dereferences known directly from the
+   declared state, and imports and emits the corresponding platform annotations.
+4. **Branch and pattern refinement is core semantics.** A successful non-null
+   test or pattern establishes a safe fact within that arm or branch. This is
+   required for Raven's preferred exhaustive pattern style; it is not an
+   optional warning pass.
+5. **Null-flow analysis is tooling policy.** Following a
    nullable value through distant assignments, loops, exceptions, and metadata
    postconditions is most useful for .NET interop and gradual migration. The
    analysis is enabled by default, but can be disabled without weakening the
@@ -301,9 +310,10 @@ A practical adoption sequence is:
 2. enable flow diagnostics to find unsafe dereferences and mutation paths;
 3. introduce local patterns that handle every nullable outcome;
 4. project recurring domain outcomes into `Option`, `Result`, or a union;
-5. leave extended flow tracking concentrated near the remaining interop edges.
+5. leave null-flow tracking concentrated near the remaining interop edges.
 
-Turning off the third layer must not change declared types, pattern-arm types,
+Turning off the fifth layer must not change reachability, assignment checks,
+declared types, pattern-arm types,
 overload resolution, emitted metadata, or runtime behavior.
 
 `unit` has a different meaning again: it represents no meaningful return value,

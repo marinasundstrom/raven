@@ -334,13 +334,22 @@ source position, including locals and parameters; disabling null flow must
 never replace that symbol with its underlying `T`. Flow state describes what is
 known about a use at a point in the program, not what type was declared.
 
-Null-state flow belongs beside definite-assignment flow, not inside the type
-representation. Definite assignment asks whether storage has received a value
-on every relevant path; null-state flow asks what is known about that assigned
-value at the current point. They can share control-flow infrastructure, but
-their facts and diagnostics remain independent. In particular, disabling
-null-flow diagnostics does not disable definite-assignment checking
-and neither analysis changes a nullable symbol into its underlying type.
+The stabilization boundary is explicit:
+
+1. Reachability defines which branches and blocks can execute and complete.
+2. Assignment analysis consumes those paths to enforce definite assignment and
+   immutable-binding reassignment rules.
+3. The unified nullability model preserves declared `T?` types, .NET metadata,
+   conversions, and direct nullable-dereference safety.
+4. Null-checking branches and patterns establish safe, syntax-directed facts.
+5. Null-flow analysis consumes control-flow and assignment effects to find
+   additional bugs across mutations, joins, exceptions, and metadata contracts.
+
+These layers can share control-flow infrastructure, but their facts,
+configuration, and diagnostics remain independent. Disabling null-flow
+analysis does not disable reachability, definite assignment, immutable-binding
+checks, declared nullability, or pattern refinement, and no analysis changes a
+nullable symbol into its underlying type.
 
 `TypeInfo` now preserves an expression's declared nullable annotation while
 projecting the bound expression's current flow state. Strict null-check branches
