@@ -256,6 +256,37 @@ to publish the state established by patterns, branches, assignments, and .NET
 flow attributes through diagnostics and `TypeInfo`; it is not a reason to
 prefer null over Raven's explicit alternatives.
 
+Null is a state that Raven code handles explicitly. A strict check refines the
+existing nullable value inside its successful branch:
+
+```raven
+func Inspect(x: string?) -> unit {
+    if x is not null {
+        let len = x.Length
+    }
+}
+```
+
+A type pattern or typed conditional binding instead introduces a new binding
+whose type expresses the successful refinement:
+
+```raven
+if x is string str {
+    let len = str.Length
+}
+
+if let str: string = x {
+    let len = str.Length
+}
+```
+
+These forms are smart-cast-like in effect, but the semantic model remains
+explicit: the first form keeps `x` declared as `string?` and publishes a
+non-null flow state in the branch, while `str` in the latter forms is a new
+non-nullable `string` local. Raven retains .NET-compatible escape hatches such
+as postfix `!` for interop, but they do not replace explicit handling in
+idiomatic Raven code.
+
 Raven treats flow and nullability as five separate responsibilities:
 
 1. **Reachability analysis is core control-flow semantics.** It determines

@@ -132,6 +132,44 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("if x is not null { let len = x.Length }", true, false)]
+    [InlineData("if x is string str { let len = str.Length }", false, false)]
+    [InlineData("if let str: string = x { let len = str.Length }", false, false)]
+    [InlineData("if x is not null { let len = x.Length }", true, true)]
+    [InlineData("if x is string str { let len = str.Length }", false, true)]
+    [InlineData("if let str: string = x { let len = str.Length }", false, true)]
+    public void ExplicitNullableRefinementForms_PublishSafeBranchType(
+        string refinement,
+        bool preservesNullableScrutineeType,
+        bool diagnosticsFirst)
+    {
+        var source = $$"""
+            func Inspect(x: string?) -> unit {
+                {{refinement}}
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(preservesNullableScrutineeType, typeInfo.Type?.IsNullable);
+        Assert.Equal(
+            preservesNullableScrutineeType ? NullableAnnotation.Annotated : NullableAnnotation.NotAnnotated,
+            typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
     [Fact]
     public void EditingNullableStandardUnionAlternativeInvalidatesFlowAndConvertedType()
     {

@@ -200,6 +200,27 @@ let count: int? = 1
 Raven treats `is null` and `is not null` as the strict null-check forms for
 flow analysis. These forms always participate in nullability narrowing.
 
+```raven
+func Inspect(x: string?) -> unit {
+    if x is not null {
+        let len = x.Length
+    }
+
+    if x is string str {
+        let len = str.Length
+    }
+
+    if let str: string = x {
+        let len = str.Length
+    }
+}
+```
+
+In the first branch, `x` retains its declared `string?` type while its flow
+state is non-null. The type pattern and typed `if let` forms introduce a new
+`str: string` binding only when the value matches. Reference and value nullable
+types follow the same source-level refinement rule.
+
 `== null` and `!= null` are also valid. Flow narrowing only applies when the
 comparison follows built-in null-comparison semantics.
 
