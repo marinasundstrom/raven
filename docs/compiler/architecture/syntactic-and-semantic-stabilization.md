@@ -1232,6 +1232,19 @@ uses through PE symbols, and remain nullable after constructing the containing
 type with `string`. This covers annotation emission, metadata loading, generic
 ownership, and substitution at the interop seam without expanding flow rules.
 
+Generic variance has the same source/ABI parity requirement. Raven now emits
+the CLR covariance and contravariance flags for `out` and `in` interface type
+parameters, and tests apply the corresponding interface conversions before and
+after the Raven assembly is reloaded through PE symbols. A variance rule is not
+stable if it works only while the declaration remains in source.
+
+Nullability-flow expressions are semantic refinements rather than runtime
+values of their own. Every bound-tree rewriting path must therefore preserve
+their underlying expression (or deliberately replace it with an equivalent
+lowered expression). Focused emission coverage uses narrowed values as both
+invocation arguments and match scrutinees so a missing rewriter case cannot
+silently introduce null bound children.
+
 Conditional access is part of the mandatory refinement layer. Its synthesized
 receiver conversion from `T?` to `T` is explicitly marked as a non-null
 refinement, so extension receiver applicability sees `T` inside the `?.` path

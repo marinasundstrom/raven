@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Nullability-flow wrappers now lower through their underlying expression
+  instead of disappearing during bound-tree rewriting. Narrowed values remain
+  valid as invocation arguments and match scrutinees through emission, while
+  disabled debug tracing no longer formats entire bound expressions eagerly.
+- Raven-emitted generic interfaces now preserve `in` and `out` variance in
+  their CLR generic-parameter metadata. Reloaded PE symbols consequently apply
+  the same covariant and contravariant interface conversions as source symbols.
 - Constructed generic properties, indexers, and events now project accessors
   back to the constructed member, and substituted parameters are owned by their
   constructed method rather than directly by the containing type. Raven source
