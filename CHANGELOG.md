@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Public type information for constructor invocations now reports the
+  constructed containing type instead of the constructor's `unit` return type,
+  including every construction layer of nested generic types.
 - Constructing an error type through the public named-type API now preserves the
   same recovery symbol instead of throwing `NotSupportedException`, keeping
   semantic tooling total while source is incomplete. Error types also identify

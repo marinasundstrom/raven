@@ -12720,6 +12720,8 @@ public partial class SemanticModel
                     return @event.Type;
                 case IParameterSymbol parameter:
                     return parameter.Type;
+                case IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } containingType }:
+                    return containingType;
                 case IMethodSymbol method:
                     return method.ReturnType;
                 case ITypeSymbol type:

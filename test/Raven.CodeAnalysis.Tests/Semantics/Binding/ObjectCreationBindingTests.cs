@@ -89,6 +89,41 @@ let value = Outer<int>.Inner<string>();
         Assert.Equal(expected, bound.Type, SymbolEqualityComparer.Default);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NestedGenericObjectCreation_TypeInfoPreservesEveryConstructionLayer(bool diagnosticsFirst)
+    {
+        const string source = """
+            class Outer<T> {
+                class Inner<U> {}
+            }
+
+            let value = Outer<int>.Inner<string>()
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "object-creation-type-info",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = syntaxTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var typeInfo = model.GetTypeInfo(invocation);
+        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            typeInfo.Type);
+
+        Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
+        Assert.Equal("Inner<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(SpecialType.System_String, Assert.Single(type.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(type.ContainingType!.TypeArguments).SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     private static void VerifyConstructorBinding(string source, int creationIndex)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
