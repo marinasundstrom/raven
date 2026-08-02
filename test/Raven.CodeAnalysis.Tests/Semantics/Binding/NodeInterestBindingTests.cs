@@ -309,6 +309,7 @@ class C {
             .Single(identifier => identifier.Identifier.ValueText == "x");
 
         var symbol = model.GetSymbolInfo(receiver).Symbol;
+        symbol.ShouldNotBeNull();
 
         var parameter = symbol.ShouldBeAssignableTo<IParameterSymbol>();
         parameter.Type.Name.ShouldBe("ContinuationContext");

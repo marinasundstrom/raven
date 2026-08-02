@@ -523,6 +523,32 @@ partial class BlockBinder : Binder
         }
     }
 
+    internal void EnsurePrecedingStatementContextForSemanticQuery(SyntaxNode node)
+    {
+        EnsurePrecedingStatementDeclarations(node);
+
+        var statement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
+        if (statement?.Parent is null || statement.Parent is GlobalStatementSyntax)
+            return;
+
+        foreach (var sibling in statement.Parent.ChildNodes().OfType<StatementSyntax>())
+        {
+            if (sibling.Span.Start >= statement.Span.Start)
+                break;
+
+            if (sibling is LocalDeclarationStatementSyntax localDeclaration &&
+                localDeclaration.Declaration.Declarators.Any(RequiresInferredLocalBinding))
+            {
+                _ = BindLocalDeclarationStatement(localDeclaration);
+            }
+        }
+
+        bool RequiresInferredLocalBinding(VariableDeclaratorSyntax declarator)
+            => declarator.TypeAnnotation is null &&
+               (!TryGetDeclaredLocal(declarator, out var local) ||
+                !IsCompleteLocalDeclarationType(local.Type));
+    }
+
     private void EnsurePrecedingGlobalStatementDeclarations(GlobalStatementSyntax globalStatement)
     {
         if (globalStatement.Parent is null)

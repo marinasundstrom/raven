@@ -13682,6 +13682,9 @@ public partial class SemanticModel
         EnsureEnclosingFunctionExpressionContextForSemanticQuery(contextualRoot);
 
         var contextualBinder = GetBinderForIncrementalSemanticQuery(contextualRoot);
+        if (TryGetNearestBlockBinder(contextualBinder, out var blockBinder))
+            blockBinder.EnsurePrecedingStatementContextForSemanticQuery(contextualRoot);
+
         return BindNodeWithCurrentDiagnosticMode(contextualBinder, contextualRoot);
     }
 

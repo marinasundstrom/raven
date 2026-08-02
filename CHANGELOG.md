@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Cold contextual semantic queries now seed preceding lexical declarations
+  before binding their statement. Lambda parameters resolve against their
+  contextual delegate instead of falling through to a later shadowing local.
 - Type-info queries now reuse current bound expressions before rebinding an
   enclosing executable region for null-flow state. This preserves lazy root
   binding after document diagnostics while retaining contextual nullability.
