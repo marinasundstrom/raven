@@ -59,7 +59,7 @@ class Foo {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ConstructorParameterPromotionRequiresPrimaryConstructor.Id).WithAnySpan().WithArguments("a", "let"),
+                new DiagnosticResult(CompilerDiagnostics.ConstructorParameterPromotionRequiresPrimaryConstructor.Id).WithAnySpan().WithArguments("a", "val"),
                 new DiagnosticResult(CompilerDiagnostics.ConstructorParameterPromotionRequiresPrimaryConstructor.Id).WithAnySpan().WithArguments("b", "var")
             ]);
 
@@ -79,7 +79,7 @@ func F(val a: int, var b: int) -> int {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("let", "a"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "a"),
                 new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "b")
             ]);
 
@@ -101,7 +101,7 @@ class C {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("let", "a"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "a"),
                 new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "b")
             ]);
 
@@ -123,7 +123,7 @@ class C {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("let", "left"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "left"),
                 new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "right")
             ]);
 
@@ -148,7 +148,7 @@ class C {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("let", "index"),
+                new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("val", "index"),
                 new DiagnosticResult(CompilerDiagnostics.ParameterBindingKeywordNotAllowed.Id).WithAnySpan().WithArguments("var", "step")
             ]);
 
