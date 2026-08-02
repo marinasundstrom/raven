@@ -6620,6 +6620,16 @@ public partial class SemanticModel
         if (TryGetCachedTypeInfo(expression, out typeInfo) &&
             HasNonErrorTypeInfo(typeInfo))
         {
+            if (expression.Kind == SyntaxKind.SuppressNullableWarningExpression &&
+                (typeInfo.Type ?? typeInfo.ConvertedType) is { } suppressedType)
+            {
+                var nonNullableType = suppressedType.GetNonNullableType();
+                typeInfo = new TypeInfo(
+                    nonNullableType,
+                    nonNullableType,
+                    ComputeConversion(nonNullableType, nonNullableType));
+            }
+
             if (TryGetContextualConvertedType(expression, typeInfo.Type, out var contextualConvertedType) &&
                 !SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, contextualConvertedType))
             {
@@ -6677,6 +6687,19 @@ public partial class SemanticModel
             awaitType.TypeKind != TypeKind.Error)
         {
             typeInfo = new TypeInfo(awaitType, awaitType, ComputeConversion(awaitType, awaitType));
+            StoreTypeMapping(expression, typeInfo);
+            return true;
+        }
+
+        if (expression is PostfixOperatorExpressionSyntax
+            {
+                Kind: SyntaxKind.SuppressNullableWarningExpression
+            } suppressNullableExpression &&
+            TryGetAvailableTypeInfo(suppressNullableExpression.Expression, out var operandTypeInfo) &&
+            (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType) is { TypeKind: not TypeKind.Error } operandType)
+        {
+            var type = operandType.GetNonNullableType();
+            typeInfo = new TypeInfo(type, type, ComputeConversion(type, type));
             StoreTypeMapping(expression, typeInfo);
             return true;
         }

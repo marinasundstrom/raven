@@ -95,6 +95,12 @@ func Foo(name: string?) -> int {
             .OfType<VariableDeclaratorSyntax>()
             .Single(v => v.Identifier.Text == "required");
 
+        var initializer = Assert.IsAssignableFrom<PostfixOperatorExpressionSyntax>(variable.Initializer!.Value);
+        var initializerType = model.GetTypeInfo(initializer).Type;
+        Assert.NotNull(initializerType);
+        Assert.Equal(SpecialType.System_String, initializerType.SpecialType);
+        Assert.False(initializerType.IsNullable);
+
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
         Assert.False(local.Type.IsNullable);

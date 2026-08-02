@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Postfix null suppression now has an explicit bound-tree identity and produces
+  a non-nullable expression type and flow state. Inferred locals no longer
+  retain the nullable operand type or report a false possible-null dereference.
 - Reachability analysis now recognizes nested `return` expressions inside
   eagerly evaluated invocation arguments, unary operands, receivers, indexers,
   assignments, and object construction. Following statements are marked

@@ -2822,7 +2822,8 @@ partial class BlockBinder : Binder
         return new BoundConversionExpression(
             operand,
             unwrappedType,
-            new Conversion(isImplicit: false, isIdentity: true, isLifted: true));
+            new Conversion(isImplicit: false, isIdentity: true, isLifted: true),
+            isNullableSuppression: true);
     }
 
     private BoundExpression BindNullableSuppressionOperand(PostfixOperatorExpressionSyntax postfixUnary)

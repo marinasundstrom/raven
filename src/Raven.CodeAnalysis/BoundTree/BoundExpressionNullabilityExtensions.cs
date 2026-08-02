@@ -24,6 +24,9 @@ internal static class BoundExpressionNullabilityExtensions
             case BoundRequiredResultExpression requiredResult:
                 return PreserveNullableFlow(requiredResult.Type, requiredResult.Operand.GetNullabilityFlowType());
 
+            case BoundConversionExpression { IsNullableSuppression: true } suppression:
+                return suppression.Type;
+
             case BoundConversionExpression { IsNullabilityFlowNarrowing: false } conversion:
                 return PreserveNullableFlow(conversion.Type, conversion.Expression.GetNullabilityFlowType());
 
