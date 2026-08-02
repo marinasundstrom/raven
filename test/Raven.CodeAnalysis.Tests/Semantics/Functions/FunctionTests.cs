@@ -565,4 +565,38 @@ func Main() {
         Assert.NotNull(symbol);
         Assert.True(model.IsCapturedVariable(symbol!));
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LocalFunction_DoesNotLeakOutOfNestedBlock(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Main() -> int {
+                let inside = {
+                    func Hidden(value: int) -> int { value }
+                    Hidden(1)
+                }
+
+                Hidden(2)
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(static invocation => invocation.Expression.ToString() == "Hidden")
+            .ToArray();
+
+        var outsideInfo = model.GetSymbolInfo(invocations[1]);
+        Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
+        Assert.Null(outsideInfo.Symbol);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+    }
 }

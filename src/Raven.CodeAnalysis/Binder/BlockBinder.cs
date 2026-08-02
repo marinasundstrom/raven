@@ -2028,6 +2028,7 @@ partial class BlockBinder : Binder
     {
         _scopeDepth++;
         var depth = _scopeDepth;
+        var functionScope = CaptureFunctionScope();
 
         try
         {
@@ -2045,7 +2046,7 @@ partial class BlockBinder : Binder
                     if (functionBinder is FunctionBinder lfBinder)
                     {
                         var symbol = lfBinder.GetMethodSymbol();
-                        if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
+                        if (HasFunctionInCurrentScope(functionScope, symbol))
                             _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                         else
                             AddFunctionToScope(symbol);
@@ -2077,6 +2078,7 @@ partial class BlockBinder : Binder
         }
         finally
         {
+            RestoreFunctionScope(functionScope);
             _scopeDepth--;
         }
     }
@@ -16759,7 +16761,7 @@ partial class BlockBinder : Binder
                 if (!IsSuppressedNamespaceMembersContainer(containingType))
                 {
                     foreach (var member in EnumerateTypeAndBaseMembers(containingType, name))
-                        if (seen.Add(GetLookupKey(member)))
+                        if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
                             yield return member;
                 }
             }
@@ -16767,7 +16769,7 @@ partial class BlockBinder : Binder
             if (current is ImportBinder importBinder)
             {
                 foreach (var symbol in importBinder.LookupSymbols(name))
-                    if (seen.Add(GetLookupKey(symbol)))
+                    if (!IsLexicallyScopedFunctionSymbol(symbol) && seen.Add(GetLookupKey(symbol)))
                         yield return symbol;
             }
 
@@ -16777,17 +16779,22 @@ partial class BlockBinder : Binder
         if (CurrentNamespace is { } currentNamespace)
         {
             foreach (var member in Compilation.GetNamespaceMembers(currentNamespace, name, ShouldIncludeNamespaceMembers()))
-                if (seen.Add(GetLookupKey(member)))
+                if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
                     yield return member;
         }
 
         foreach (var member in Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name))
-            if (seen.Add(GetLookupKey(member)))
+            if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
                 yield return member;
 
         foreach (var member in Compilation.GetNamespaceMembers(Compilation.SourceGlobalNamespace, name, ShouldIncludeNamespaceMembers()))
-            if (seen.Add(GetLookupKey(member)))
+            if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
                 yield return member;
+
+        bool IsLexicallyScopedFunctionSymbol(ISymbol symbol)
+            => symbol is IMethodSymbol && symbol.DeclaringSyntaxReferences.Any(reference =>
+                reference.GetSyntax() is FunctionStatementSyntax function &&
+                !IsNamespaceLevelFunctionMember(function));
 
         bool ShouldIncludeNamespaceMembers()
             => Compilation.Options.AllowNamespaceMembers &&

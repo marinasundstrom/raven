@@ -5696,8 +5696,11 @@ public partial class SemanticModel
         var seenFunctions = new HashSet<SyntaxNode>();
         var seenMethods = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
-        void AddMethod(IMethodSymbol method)
+        void AddMethod(IMethodSymbol method, bool allowLexicallyScopedFunction = false)
         {
+            if (!allowLexicallyScopedFunction && IsLexicallyScopedFunction(method))
+                return;
+
             if (seenMethods.Add(method))
                 builder.Add(method);
         }
@@ -5711,7 +5714,7 @@ public partial class SemanticModel
             }
 
             if (TryGetNamespaceFunctionSymbol(function, out var method))
-                AddMethod(method);
+                AddMethod(method, allowLexicallyScopedFunction: true);
         }
 
         void AddNamespaceFunctionMembers()
@@ -5764,6 +5767,11 @@ public partial class SemanticModel
                         AddFunction(function);
                     break;
 
+                case BlockSyntax block:
+                    foreach (var function in block.Statements.OfType<FunctionStatementSyntax>())
+                        AddFunction(function);
+                    break;
+
                 case FileScopedNamespaceDeclarationSyntax fileScopedNamespace:
                     foreach (var global in fileScopedNamespace.Members.OfType<GlobalStatementSyntax>())
                     {
@@ -5790,6 +5798,11 @@ public partial class SemanticModel
         methods = builder.ToImmutable();
 
         return methods.Length > 0;
+
+        static bool IsLexicallyScopedFunction(IMethodSymbol method)
+            => method.DeclaringSyntaxReferences.Any(static reference =>
+                reference.GetSyntax() is FunctionStatementSyntax function &&
+                !IsTopLevelFunctionMember(function));
 
         bool TryGetNamespaceFunctionSymbol(
             FunctionStatementSyntax function,

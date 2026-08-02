@@ -659,6 +659,36 @@ partial class BlockBinder
         functions.Add(symbol);
     }
 
+    private Dictionary<string, int> CaptureFunctionScope()
+        => _functions.ToDictionary(static pair => pair.Key, static pair => pair.Value.Count, StringComparer.Ordinal);
+
+    private bool HasFunctionInCurrentScope(
+        IReadOnlyDictionary<string, int> scope,
+        IMethodSymbol symbol)
+    {
+        if (!_functions.TryGetValue(symbol.Name, out var functions))
+            return false;
+
+        var start = scope.TryGetValue(symbol.Name, out var count) ? count : 0;
+        return functions.Skip(start).Any(candidate => HaveSameSignature(candidate, symbol));
+    }
+
+    private void RestoreFunctionScope(IReadOnlyDictionary<string, int> scope)
+    {
+        foreach (var name in _functions.Keys.ToArray())
+        {
+            if (!scope.TryGetValue(name, out var count))
+            {
+                _functions.Remove(name);
+                continue;
+            }
+
+            var functions = _functions[name];
+            if (functions.Count > count)
+                functions.RemoveRange(count, functions.Count - count);
+        }
+    }
+
     protected static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
     {
         if (first.Parameters.Length != second.Parameters.Length)
@@ -737,6 +767,7 @@ partial class BlockBinder
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         _scopeDepth++;
         var depth = _scopeDepth;
+        var functionScope = CaptureFunctionScope();
 
         try
         {
@@ -779,7 +810,7 @@ partial class BlockBinder
                     if (functionBinder is FunctionBinder lfBinder)
                     {
                         var symbol = lfBinder.GetMethodSymbol();
-                        if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
+                        if (HasFunctionInCurrentScope(functionScope, symbol))
                             _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                         else
                             AddFunctionToScope(symbol);
@@ -821,6 +852,8 @@ partial class BlockBinder
             foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
                 _localTypes.Remove(name);
 
+            RestoreFunctionScope(functionScope);
+
             _scopeDepth--;
         }
     }
@@ -836,6 +869,7 @@ partial class BlockBinder
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         _scopeDepth++;
         var depth = _scopeDepth;
+        var functionScope = CaptureFunctionScope();
 
         if (isExpressionContext)
             _expressionContextDepth++;
@@ -877,7 +911,7 @@ partial class BlockBinder
                     if (functionBinder is FunctionBinder lfBinder)
                     {
                         var symbol = lfBinder.GetMethodSymbol();
-                        if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
+                        if (HasFunctionInCurrentScope(functionScope, symbol))
                             _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                         else
                             AddFunctionToScope(symbol);
@@ -944,6 +978,8 @@ partial class BlockBinder
 
             foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
                 _localTypes.Remove(name);
+
+            RestoreFunctionScope(functionScope);
 
             _scopeDepth--;
             if (isExpressionContext)

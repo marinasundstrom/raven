@@ -8,6 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   same recovery symbol instead of throwing `NotSupportedException`, keeping
   semantic tooling total while source is incomplete. Error types also identify
   themselves as closed type definitions through the ordinary symbol contract.
+- Local functions declared in nested statement and expression blocks no longer
+  leak into enclosing scopes through their emitted container. Lexical function
+  overload sets are restored on block exit, and semantic lookup admits local
+  functions only through an enclosing block.
 - Lexical function scopes now retain complete overload sets instead of replacing
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function
