@@ -832,9 +832,8 @@ by-reference storage. The matching Boolean branch removes an established
 non-null fact and the opposite branch preserves it. Ref/out argument binding
 uses the writable declaration shape rather than a flow-narrowed read
 conversion, ensuring that post-call analysis updates the original symbol. The
-remaining harder case is an attribute that downgrades a declared non-nullable
-symbol: Raven still needs an explicit maybe-null flow fact independent of the
-declaration annotation before that case can be modeled faithfully.
+same mechanism can downgrade declared non-nullable storage because Raven keeps
+an explicit maybe-null flow fact independent of the declaration annotation.
 
 Input contracts are kept separate from those declared/read types. Ordinary
 non-nullable parameters reject null and maybe-null arguments, `AllowNull`
@@ -1274,6 +1273,12 @@ lowered expression). Focused emission coverage uses narrowed values as both
 invocation arguments and match scrutinees so a missing rewriter case cannot
 silently introduce null bound children.
 
+Explicit postfix null suppression has its own semantic identity. It removes the
+nullable annotation from the expression's public `TypeInfo` and from an
+inferred local without pretending that branch analysis established a reusable
+flow fact. This distinction prevents `value!` from changing the declared symbol
+or leaking a narrowing fact to later reads of `value`.
+
 Conditional access is part of the mandatory refinement layer. Its synthesized
 receiver conversion from `T?` to `T` is explicitly marked as a non-null
 refinement, so extension receiver applicability sees `T` inside the `?.` path
@@ -1303,6 +1308,26 @@ turning it into stale semantic state or document-wide declaration loss.
 These priorities describe correctness risk, not a request for a broad rewrite.
 Each slice should keep using the smallest failing semantic boundary and a
 public diagnostic, symbol, type, operation, metadata, or runtime assertion.
+
+### Latest focused verification gates
+
+The latest stabilization batch added or re-established these boundaries:
+
+- required conditions, loop expressions, lock receivers, and match scrutinees
+  propagate nested abrupt completion into public control-flow analysis;
+- constructed generic conversion operators retain substituted parameter,
+  return, and containing-type symbols in source and emitted metadata, in either
+  semantic-query order;
+- alias directives over ad-hoc unions resolve to the constructed
+  `System.Union<...>` representation supplied by Raven Core rather than the
+  removed legacy type-union mechanism;
+- macro body edits publish authored diagnostics while retaining sibling macro
+  declarations, invocation resolution, and method-like hover behavior;
+- `MaybeNullWhen` source, Raven-emitted PE, and external-metadata behavior,
+  incremental parser recovery, overload resolution, and assignment/reachability
+  analysis all have focused passing suites. These gates should remain targeted
+  during ordinary stabilization; a full baseline is reserved for broad or
+  release-boundary validation.
 
 ## Proposed order of work
 
