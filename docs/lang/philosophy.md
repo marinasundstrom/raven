@@ -152,6 +152,12 @@ contract, including the explicit default/uninitialized carrier state.
 preferred design direction is explicit domain flow through `Option<T>` and
 `Result<T, E>`, not nullable-heavy application logic.
 
+When nullable interop values must be handled directly, Raven prefers an
+explicit successful binding such as `if let value: T = nullableValue`, followed
+by a type pattern such as `if nullableValue is T value`. The compatible
+`if nullableValue is not null` form may refine the original nullable symbol in
+place, but is not the primary Raven style.
+
 ## Explicitness where it changes meaning
 
 Raven does not chase minimal syntax at all costs. It removes ceremony when the syntax carries no real information, but it keeps explicit markers when they materially affect semantics.

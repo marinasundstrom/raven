@@ -195,30 +195,34 @@ let count: int? = 1
 * Postfix `expr!` treats the operand as non-null for the annotated expression
   and reports warning `RAV0403` on the full `<expr>!` expression.
 
-#### Strict null checks and flow narrowing
+#### Explicit nullable refinement and compatibility checks
 
 Raven treats `is null` and `is not null` as the strict null-check forms for
-flow analysis. These forms always participate in nullability narrowing.
+flow analysis. These forms always participate in nullability narrowing, but
+they are compatibility forms for narrowing the original nullable symbol. Raven
+style prefers introducing an explicit successful binding with typed `if let`,
+or with a direct type pattern when that syntax better fits the surrounding
+code.
 
 ```raven
 func Inspect(x: string?) -> unit {
-    if x is not null {
-        let len = x.Length
+    if let str: string = x {
+        let len = str.Length
     }
 
     if x is string str {
         let len = str.Length
     }
 
-    if let str: string = x {
-        let len = str.Length
+    if x is not null {
+        let len = x.Length
     }
 }
 ```
 
-In the first branch, `x` retains its declared `string?` type while its flow
-state is non-null. The type pattern and typed `if let` forms introduce a new
-`str: string` binding only when the value matches. Reference and value nullable
+The typed `if let` and type-pattern forms introduce a new `str: string` binding
+only when the value matches. In the last branch, `x` retains its declared
+`string?` type while its flow state is non-null. Reference and value nullable
 types follow the same source-level refinement rule.
 
 `== null` and `!= null` are also valid. Flow narrowing only applies when the

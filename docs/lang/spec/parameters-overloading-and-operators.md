@@ -110,10 +110,12 @@ Conversions follow the same style:
 These conversion members are resolved using the same lookup rules as other
 static members.
 
-For null checks, prefer `is null` / `is not null` when you need strict
+When retaining a direct null check, prefer `is null` / `is not null` for strict
 nullability narrowing. Raven's analyzer recommends these forms over
-`== null`/`!= null` and provides a code fix. Pointer-like comparisons are
-excluded from that recommendation.
+`== null`/`!= null` and provides a code fix. This is a compatibility preference
+within direct null checks; typed conditional bindings and type patterns remain
+the preferred way to introduce a usable non-null binding. Pointer-like
+comparisons are excluded from that recommendation.
 
 ## Invocation operator
 
