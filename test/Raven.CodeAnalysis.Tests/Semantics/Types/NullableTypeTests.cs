@@ -2758,17 +2758,19 @@ func Length() -> int {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
     }
 
-    [Fact]
-    public void NullFlowAnalysis_DisabledStillPublishesPatternRefinement()
+    [Theory]
+    [InlineData("if value is not null { let len = value.Length }", true)]
+    [InlineData("if value is string text { let len = text.Length }", false)]
+    [InlineData("if let text: string = value { let len = text.Length }", false)]
+    public void NullFlowAnalysis_DisabledStillPublishesExplicitRefinement(
+        string refinement,
+        bool preservesNullableScrutineeType)
     {
-        const string source = """
-func Length(value: string?) -> int {
-    if value is not null {
-        return value.Length
-    }
-    return 0
-}
-""";
+        var source = $$"""
+            func Inspect(value: string?) -> unit {
+                {{refinement}}
+            }
+            """;
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             .WithEnableNullFlowAnalysis(false);
@@ -2780,7 +2782,10 @@ func Length(value: string?) -> int {
             .Expression;
         var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
 
-        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(preservesNullableScrutineeType, typeInfo.Type?.IsNullable);
+        Assert.Equal(
+            preservesNullableScrutineeType ? NullableAnnotation.Annotated : NullableAnnotation.NotAnnotated,
+            typeInfo.Nullability.Annotation);
         Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
         Assert.DoesNotContain(
             compilation.GetDiagnostics(),
