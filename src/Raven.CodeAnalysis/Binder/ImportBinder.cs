@@ -599,7 +599,7 @@ class ImportBinder : Binder
             if (s is null)
                 continue;
 
-            if (!scopes.Contains(s, SymbolEqualityComparer.Default))
+            if (!scopes.Any(existing => ReferenceEquals(existing, s)))
                 scopes.Add(s);
         }
 
@@ -607,7 +607,7 @@ class ImportBinder : Binder
         var baseScopes = base.GetImportedScopesForTypeResolution();
         foreach (var s in baseScopes)
         {
-            if (!scopes.Contains(s, SymbolEqualityComparer.Default))
+            if (!scopes.Any(existing => ReferenceEquals(existing, s)))
                 scopes.Add(s);
         }
 

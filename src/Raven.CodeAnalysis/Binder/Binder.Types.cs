@@ -1138,14 +1138,14 @@ internal abstract partial class Binder
                      ?? new List<INamespaceOrTypeSymbol>(capacity: 2);
 
         // Ensure current namespace is present once.
-        if (CurrentNamespace is not null && !scopes.Contains(CurrentNamespace, SymbolEqualityComparer.Default))
+        if (CurrentNamespace is not null && !scopes.Any(scope => ReferenceEquals(scope, CurrentNamespace)))
             scopes.Add(CurrentNamespace);
 
         if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
         {
             foreach (var globalRoot in Compilation.SymbolLookup.EnumerateGlobalNamespaceRoots())
             {
-                if (!scopes.Contains(globalRoot, SymbolEqualityComparer.Default))
+                if (!scopes.Any(scope => ReferenceEquals(scope, globalRoot)))
                     scopes.Add(globalRoot);
             }
 
@@ -1153,7 +1153,7 @@ internal abstract partial class Binder
         }
 
         // Ensure global namespace is always present once.
-        if (!scopes.Contains(Compilation.GlobalNamespace, SymbolEqualityComparer.Default))
+        if (!scopes.Any(scope => ReferenceEquals(scope, Compilation.GlobalNamespace)))
             scopes.Add(Compilation.GlobalNamespace);
 
         return scopes;

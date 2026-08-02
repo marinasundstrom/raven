@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Raven-emitted generic interfaces now preserve `in` and `out` variance in
   their CLR generic-parameter metadata. Reloaded PE symbols consequently apply
   the same covariant and contravariant interface conversions as source symbols.
+- Imported type-resolution scopes are deduplicated by compiler scope identity
+  instead of recursively comparing complete symbol graphs. This removes
+  pathological symbol-comparison work from reference-heavy Raven builds while
+  retaining each distinct source and metadata scope.
 - Constructed generic properties, indexers, and events now project accessors
   back to the constructed member, and substituted parameters are owned by their
   constructed method rather than directly by the containing type. Raven source
