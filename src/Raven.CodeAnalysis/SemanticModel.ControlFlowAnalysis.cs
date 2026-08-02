@@ -288,14 +288,14 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return false;
             case ExpressionStatementSyntax expressionStatement:
                 base.VisitExpressionStatement(expressionStatement);
-                if (expressionStatement.Expression is ReturnExpressionSyntax returnExpression)
-                    _returnStatements.Add(returnExpression);
+                CollectReturnExpressions(expressionStatement.Expression);
 
                 var boundExpression = _semanticModel.TryGetCachedBoundNode(expressionStatement.Expression) as BoundExpression;
                 _endPointIsReachable = boundExpression is null || !BoundNodeFacts.IsAbruptExpression(boundExpression);
                 return _endPointIsReachable;
             case LocalDeclarationStatementSyntax localDeclaration:
                 base.VisitLocalDeclarationStatement(localDeclaration);
+                CollectReturnExpressions(localDeclaration.Declaration);
                 var boundDeclaration = _semanticModel.TryGetCachedBoundNode(localDeclaration) as BoundLocalDeclarationStatement;
                 _endPointIsReachable = boundDeclaration is null ||
                     !boundDeclaration.Declarators.Any(static declarator =>
@@ -309,6 +309,20 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 base.Visit(statement);
                 _endPointIsReachable = true;
                 return true;
+        }
+    }
+
+    private void CollectReturnExpressions(SyntaxNode node)
+    {
+        if (node is ReturnExpressionSyntax returnExpression)
+            _returnStatements.Add(returnExpression);
+
+        foreach (var child in node.ChildNodes())
+        {
+            if (child is FunctionExpressionSyntax or FunctionStatementSyntax)
+                continue;
+
+            CollectReturnExpressions(child);
         }
     }
 

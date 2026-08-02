@@ -399,6 +399,47 @@ func Compute(flag: bool) -> int {
         analysis.EndPointIsReachable.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData("Identity(return 1)", false)]
+    [InlineData("Identity(return 1)", true)]
+    [InlineData("-(return 1)", false)]
+    [InlineData("-(return 1)", true)]
+    [InlineData("(return 1).ToString()", false)]
+    [InlineData("(return 1).ToString()", true)]
+    public void AnalyzeControlFlow_NestedReturnExpressionMakesFollowingCodeUnreachable(
+        string abruptExpression,
+        bool diagnosticsFirst)
+    {
+        var source = $$"""
+func Identity(value: int) -> int => value
+
+func Compute() -> int {
+    let never = {{abruptExpression}}
+    let unreachable = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "Compute")
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.ReturnStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<ReturnExpressionSyntax>();
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+        compilation.GetDiagnostics().ShouldNotContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
+    }
+
     [Fact]
     public void AnalyzeControlFlow_ExhaustiveAbruptMatch_MakesFollowingStatementUnreachable()
     {

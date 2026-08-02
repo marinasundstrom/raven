@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reachability analysis now recognizes nested `return` expressions inside
+  eagerly evaluated invocation arguments, unary operands, receivers, indexers,
+  assignments, and object construction. Following statements are marked
+  unreachable, and public control-flow results include the nested return node.
 - User-defined conversion classification now selects an exact source or target
   operator independently of declaration and semantic-query order instead of
   returning the first applicable member. Competing candidates are compared on

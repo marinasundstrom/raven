@@ -1184,6 +1184,14 @@ wrapper around the constructed `Box<string>` view in either query order.
    invariant as well: mutations in the finalizer reach the target loop's back
    edge in either semantic-query order. Continue with mixed loop/exception
    cycles rather than rechecking the covered single-cycle forms.
+
+Abrupt expressions must remain abrupt through every eagerly evaluated wrapper,
+not only when they are the direct initializer or statement expression. Public
+reachability now follows nested `return`/`throw` expressions through invocation
+arguments, unary operations, receivers, indexing, assignments, and object
+construction, and reports nested return nodes in `ControlFlowAnalysis`. Lazy
+operators and conditional access retain their branch-sensitive rules; an abrupt
+operand makes the whole expression abrupt only when that operand must execute.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
    have representative coverage. Equivalent constructed signatures now apply
