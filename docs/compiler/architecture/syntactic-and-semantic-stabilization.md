@@ -1169,6 +1169,22 @@ inference and candidate construction.
 Inference through a nullable constructed value parameter such as `Box<T>?`
 also agrees across source and emitted metadata, retaining Raven's nullable
 wrapper around the constructed `Box<string>` view in either query order.
+
+The constructed named-type wrapper still exposes a category inconsistency:
+every constructed named type implements both `IUnionSymbol` and
+`IUnionCaseTypeSymbol`, even when its definition is an ordinary class. Internal
+helpers compensate by checking `IsUnion` and `IsUnionCase`, but a compiler API
+consumer can reasonably interpret the interfaces themselves as category
+markers. A focused subtype-splitting experiment could not yet isolate that
+change because the current Raven Core source fixture already fails around
+generic `Option`/`Result` case projection. Restore and lock that integration
+baseline before changing the wrapper categories. The eventual fix must then
+route all named-type construction and nested reanchoring through a
+category-preserving factory, cover ordinary types and generic unions from both
+source and PE symbols, and only then remove the union interfaces from the
+ordinary constructed wrapper. Until that migration is complete, compiler code
+must use `TryGetUnion()` and `TryGetUnionCase()` rather than raw interface
+tests.
 2. **Flow fixed points (high)** — branch, loop transfer, and ordinary
    try/catch/finally joins are covered, but the binder-owned non-null set is not
    yet a general control-flow fixed-point engine. Labeled loop transfers now
@@ -1309,15 +1325,46 @@ These priorities describe correctness risk, not a request for a broad rewrite.
 Each slice should keep using the smallest failing semantic boundary and a
 public diagnostic, symbol, type, operation, metadata, or runtime assertion.
 
+### Refactoring signals from recent stabilization
+
+The recent commit history is concentrated in `BlockBinder`, semantic-model
+queries, overload resolution, control-flow analysis, and constructed symbols.
+That concentration suggests the following bounded refactoring direction:
+
+- keep contextual target typing scoped to the expression root that owns the
+  target; descendant expressions receive a target only through an explicit
+  language rule;
+- prefer control-flow analysis over already-bound roots, so public analysis
+  cannot re-enter the binder merely to rediscover a condition or filter;
+- centralize construction, substitution, and nested reanchoring before
+  splitting symbol wrappers into more precise public categories;
+- share parser recovery boundaries between declaration families, while
+  retaining family-specific parsing where their grammars genuinely differ;
+- keep declared nullability, nullable metadata contracts, and optional null
+  flow facts as separate layers with explicit hand-off points.
+
+These are maintenance boundaries, not large rewrites. Each extraction should
+follow a failing or ambiguity-revealing test and preserve source/PE and
+diagnostics-first/symbol-first parity. The root-scoped target-type frames and
+shared parameter-list recovery boundary are completed examples of this style.
+
 ### Latest focused verification gates
 
 The latest stabilization batch added or re-established these boundaries:
 
 - required conditions, loop expressions, lock receivers, and match scrutinees
   propagate nested abrupt completion into public control-flow analysis;
+- catch filters preserve abrupt completion through binary, member-access, and
+  unary wrappers without re-entering semantic binding;
 - constructed generic conversion operators retain substituted parameter,
   return, and containing-type symbols in source and emitted metadata, in either
   semantic-query order;
+- nested constructed self types and generic extension-method inference agree
+  between source and emitted metadata;
+- target typing is scoped to the owning expression root, preventing a return or
+  other nested expression from inheriting the surrounding Boolean target;
+- incomplete namespace-function and method parameter lists recover at a body,
+  expression body, or constraint boundary while retaining later declarations;
 - alias directives over ad-hoc unions resolve to the constructed
   `System.Union<...>` representation supplied by Raven Core rather than the
   removed legacy type-union mechanism;
