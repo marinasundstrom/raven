@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Lazy source member declaration now preserves every constructed containing-type
+  layer when rebuilding nested receivers. Rejected generic overload candidates
+  consequently expose the same projected constraints and containing types as
+  their metadata equivalents.
 - Public type information for constructor invocations now reports the
   constructed containing type instead of the constructor's `unit` return type,
   including every construction layer of nested generic types.

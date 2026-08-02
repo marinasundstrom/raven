@@ -790,6 +790,7 @@ public sealed class GenericMethodTests : CompilationTestBase
             Assert.Single(Assert.Single(candidate.TypeParameters).ConstraintTypes));
         Assert.Equal("IEnumerable<int>", constraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal(SpecialType.System_Int32, Assert.Single(candidate.ContainingType!.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.Single(candidate.ContainingType.ContainingType!.TypeArguments).SpecialType);
     }
 
     [Theory]

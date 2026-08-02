@@ -7214,13 +7214,28 @@ public partial class SemanticModel
         INamedTypeSymbol receiverType,
         SourceNamedTypeSymbol declaredType)
     {
-        if (receiverType.TypeArguments.IsDefaultOrEmpty ||
-            receiverType.TypeArguments.Length != declaredType.TypeParameters.Length)
+        var typeArguments = TypeSubstitution.GetShallowTypeArguments(receiverType);
+        if (typeArguments.Length != declaredType.TypeParameters.Length)
         {
             return declaredType;
         }
 
-        return (INamedTypeSymbol)declaredType.Construct(receiverType.TypeArguments.ToArray());
+        if (receiverType.ContainingType is { } containingType &&
+            declaredType.ContainingType is not null)
+        {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(
+                TypeParameterSubstitutionComparer.Instance);
+            TypeSubstitution.AddContainingTypeSubstitutions(containingType, substitutions);
+            return TypeSubstitution.ReanchorNested(
+                declaredType,
+                containingType,
+                substitutions,
+                typeArguments);
+        }
+
+        return typeArguments.IsDefaultOrEmpty
+            ? declaredType
+            : (INamedTypeSymbol)declaredType.Construct(typeArguments.ToArray());
     }
 
     private static bool IsUsefulAvailableExpressionType(ITypeSymbol? type)
