@@ -55,7 +55,7 @@ class TopLevelBinder : BlockBinder
             if (binder is FunctionBinder lfBinder)
             {
                 var symbol = lfBinder.GetMethodSymbol();
-                if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
                     SemanticModel.ReportTopLevelFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
                 else
                     DeclareFunction(symbol);
@@ -304,6 +304,6 @@ class TopLevelBinder : BlockBinder
 
     public void DeclareFunction(IMethodSymbol symbol)
     {
-        _functions[symbol.Name] = symbol;
+        AddFunctionToScope(symbol);
     }
 }

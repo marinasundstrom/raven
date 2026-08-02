@@ -604,6 +604,14 @@ the call. Workspace coverage edits the argument from a satisfying value type
 to a violating reference type and back, requiring both diagnostics and the
 contextually constructed method symbol to update.
 
+Lexical function lookup now retains an overload set per name rather than a
+single last-declared function. This matters at the higher-order boundary:
+generic and non-generic namespace-function overloads passed as a method group
+remain visible together, and the compatible generic transform is selected for
+`Apply(21, Convert)` in either declaration order. Namespace-member promotion
+uses signature identity for the same reason instead of collapsing overloads
+through broad symbol equality.
+
 Repeated inferences for the same method type parameter now have an
 argument-order invariant. Given a base value and a derived value,
 `Choose<T>(T, T)` widens the inferred bound to the base type regardless of

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Lexical function scopes now retain complete overload sets instead of replacing
+  an earlier overload with the last declaration of the same name. Higher-order
+  generic calls therefore see generic and non-generic namespace-function
+  overloads consistently, independent of declaration and semantic-query order.
 - Catch filters now carry true-path null facts into their catch bodies without
   leaking those facts to sibling catches. Diagnostics-first semantic queries
   also retain the expression's declared nullable type while reporting its

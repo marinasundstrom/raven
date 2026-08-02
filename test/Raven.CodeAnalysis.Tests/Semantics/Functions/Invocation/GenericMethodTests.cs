@@ -283,6 +283,60 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void OverloadedGenericMethodGroup_UsesHigherOrderTargetSignature(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        var transforms = reverseDeclarations
+            ? """
+                func Convert(value: string) -> string { value }
+                func Convert<T>(value: T) -> string { "" }
+                """
+            : """
+                func Convert<T>(value: T) -> string { "" }
+                func Convert(value: string) -> string { value }
+                """;
+        var source = $$"""
+            import System.*
+
+            let result = Apply(21, Convert)
+
+            func Apply<TInput, TResult>(value: TInput, transform: Func<TInput, TResult>) -> TResult {
+                transform(value)
+            }
+
+            {{transforms}}
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var applyInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString() == "Apply");
+        var convertReference = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Convert");
+        var apply = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(applyInvocation).Symbol);
+        var convert = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(convertReference).Symbol);
+
+        Assert.Equal(
+            [SpecialType.System_Int32, SpecialType.System_String],
+            apply.TypeArguments.Select(static type => type.SpecialType));
+        Assert.True(convert.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(convert.TypeArguments).SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void GenericMethodGroup_WithUnsatisfiedConstraint_ReportsConstraintFailure()
     {

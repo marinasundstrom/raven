@@ -176,7 +176,7 @@ partial class BlockBinder
         var hasScopedFunctionName = false;
         string? scopedFunctionName = null;
         var hadPreviousScopedFunction = false;
-        IMethodSymbol? previousScopedFunction = null;
+        List<IMethodSymbol>? previousScopedFunctions = null;
 
         if (syntax is ParenthesizedFunctionExpressionSyntax
             {
@@ -185,8 +185,8 @@ partial class BlockBinder
         {
             hasScopedFunctionName = true;
             scopedFunctionName = scopedIdentifierToken.ValueText;
-            hadPreviousScopedFunction = _functions.TryGetValue(scopedFunctionName, out previousScopedFunction);
-            _functions[scopedFunctionName] = lambdaSymbol;
+            hadPreviousScopedFunction = _functions.TryGetValue(scopedFunctionName, out previousScopedFunctions);
+            _functions[scopedFunctionName] = [lambdaSymbol];
         }
 
         if (lambdaTypeParameterList is not null && lambdaTypeParameterList.Parameters.Count > 0)
@@ -410,8 +410,8 @@ partial class BlockBinder
         {
             if (hasScopedFunctionName && scopedFunctionName is not null)
             {
-                if (hadPreviousScopedFunction && previousScopedFunction is not null)
-                    _functions[scopedFunctionName] = previousScopedFunction;
+                if (hadPreviousScopedFunction && previousScopedFunctions is not null)
+                    _functions[scopedFunctionName] = previousScopedFunctions;
                 else
                     _functions.Remove(scopedFunctionName);
             }
@@ -1843,7 +1843,7 @@ partial class BlockBinder
         var hasScopedReplayFunctionName = false;
         string? scopedReplayFunctionName = null;
         var hadPreviousReplayFunction = false;
-        IMethodSymbol? previousReplayFunction = null;
+        List<IMethodSymbol>? previousReplayFunctions = null;
 
         if (syntax is ParenthesizedFunctionExpressionSyntax
             {
@@ -1852,8 +1852,8 @@ partial class BlockBinder
         {
             hasScopedReplayFunctionName = true;
             scopedReplayFunctionName = replayIdentifierToken.ValueText;
-            hadPreviousReplayFunction = _functions.TryGetValue(scopedReplayFunctionName, out previousReplayFunction);
-            _functions[scopedReplayFunctionName] = lambdaSymbol;
+            hadPreviousReplayFunction = _functions.TryGetValue(scopedReplayFunctionName, out previousReplayFunctions);
+            _functions[scopedReplayFunctionName] = [lambdaSymbol];
         }
 
         for (var index = 0; index < parameterSymbols.Count; index++)
@@ -1883,8 +1883,8 @@ partial class BlockBinder
         {
             if (hasScopedReplayFunctionName && scopedReplayFunctionName is not null)
             {
-                if (hadPreviousReplayFunction && previousReplayFunction is not null)
-                    _functions[scopedReplayFunctionName] = previousReplayFunction;
+                if (hadPreviousReplayFunction && previousReplayFunctions is not null)
+                    _functions[scopedReplayFunctionName] = previousReplayFunctions;
                 else
                     _functions.Remove(scopedReplayFunctionName);
             }

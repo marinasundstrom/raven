@@ -1422,7 +1422,7 @@ public partial class Compilation
             return ImmutableArray<ISymbol>.Empty;
 
         var members = ImmutableArray.CreateBuilder<ISymbol>();
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
         {
@@ -1431,7 +1431,7 @@ public partial class Compilation
                 if (!IsPromotableTopLevelContainerMember(container, member))
                     continue;
 
-                if (seen.Add(member))
+                if (seen.Add(member.GetLookupIdentityKey()))
                     members.Add(member);
             }
         }
@@ -1447,7 +1447,7 @@ public partial class Compilation
             return ImmutableArray<ISymbol>.Empty;
 
         var members = ImmutableArray.CreateBuilder<ISymbol>();
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
         {
@@ -1456,7 +1456,7 @@ public partial class Compilation
                 if (!IsPromotableTopLevelContainerMember(container, member))
                     continue;
 
-                if (seen.Add(member))
+                if (seen.Add(member.GetLookupIdentityKey()))
                     members.Add(member);
             }
         }

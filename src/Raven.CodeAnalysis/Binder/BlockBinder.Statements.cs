@@ -646,7 +646,18 @@ partial class BlockBinder
         return catchBuilder.Count > 0;
     }
 
-    public Dictionary<string, IMethodSymbol> _functions = new();
+    public Dictionary<string, List<IMethodSymbol>> _functions = new();
+
+    protected void AddFunctionToScope(IMethodSymbol symbol)
+    {
+        if (!_functions.TryGetValue(symbol.Name, out var functions))
+        {
+            functions = new List<IMethodSymbol>();
+            _functions.Add(symbol.Name, functions);
+        }
+
+        functions.Add(symbol);
+    }
 
     protected static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
     {
@@ -768,10 +779,10 @@ partial class BlockBinder
                     if (functionBinder is FunctionBinder lfBinder)
                     {
                         var symbol = lfBinder.GetMethodSymbol();
-                        if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
                             _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                         else
-                            _functions[symbol.Name] = symbol;
+                            AddFunctionToScope(symbol);
                     }
                 }
             }
@@ -866,10 +877,10 @@ partial class BlockBinder
                     if (functionBinder is FunctionBinder lfBinder)
                     {
                         var symbol = lfBinder.GetMethodSymbol();
-                        if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
                             _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                         else
-                            _functions[symbol.Name] = symbol;
+                            AddFunctionToScope(symbol);
                     }
                 }
             }

@@ -2045,10 +2045,10 @@ partial class BlockBinder : Binder
                     if (functionBinder is FunctionBinder lfBinder)
                     {
                         var symbol = lfBinder.GetMethodSymbol();
-                        if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        if (_functions.TryGetValue(symbol.Name, out var existing) && existing.Any(candidate => HaveSameSignature(candidate, symbol)))
                             _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                         else
-                            _functions[symbol.Name] = symbol;
+                            AddFunctionToScope(symbol);
                     }
                 }
             }
@@ -16702,8 +16702,14 @@ partial class BlockBinder : Binder
                     if (block._localTypes.TryGetValue(name, out var localType) && seen.Add(GetLookupKey(localType.Symbol)))
                         yield return localType.Symbol;
 
-                    if (block._functions.TryGetValue(name, out var func) && seen.Add(GetLookupKey(func)))
-                        yield return func;
+                    if (block._functions.TryGetValue(name, out var functions))
+                    {
+                        foreach (var function in functions)
+                        {
+                            if (seen.Add(GetLookupKey(function)))
+                                yield return function;
+                        }
+                    }
 
                     if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(GetLookupKey(label)))
                         yield return label;
