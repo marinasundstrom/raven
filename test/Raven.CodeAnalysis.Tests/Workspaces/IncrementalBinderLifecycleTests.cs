@@ -1653,6 +1653,74 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void WorkspaceCompilation_TypedConditionalBindingRename_PublishesFreshSemanticIdentity()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            class Edited {
+                func Length(input: string?) -> int {
+                    if let text: string = input {
+                        return text.Length
+                    }
+
+                    return 0
+                }
+            }
+            """;
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialDesignation = initialTree.GetRoot().DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single();
+        var initialLocal = initialModel.GetDeclaredSymbol(initialDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+        initialLocal.Name.ShouldBe("text");
+        initialLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("text", "content", StringComparison.Ordinal)));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedRoot = updatedTree.GetRoot();
+        var updatedDesignation = updatedRoot.DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single();
+        var updatedReference = updatedRoot.DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "content");
+
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        var updatedLocal = updatedModel.GetDeclaredSymbol(updatedDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+        updatedLocal.ShouldNotBeSameAs(initialLocal);
+        updatedLocal.Name.ShouldBe("content");
+        updatedLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
+        updatedLocal.Type.IsNullable.ShouldBeFalse();
+        updatedModel.GetSymbolInfo(updatedReference).Symbol.ShouldBeSameAs(updatedLocal);
+        updatedModel.GetTypeInfo(updatedReference).Type.ShouldBeSameAs(updatedLocal.Type);
+
+        updatedModel.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        updatedModel.GetDeclaredSymbol(updatedDesignation).ShouldBeSameAs(updatedLocal);
+        updatedModel.GetSymbolInfo(updatedReference).Symbol.ShouldBeSameAs(updatedLocal);
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForPatternDeclarationAssignment_UsesStatementForBindingAndBlockForScope()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
