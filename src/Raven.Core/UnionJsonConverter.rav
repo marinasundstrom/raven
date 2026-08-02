@@ -47,11 +47,11 @@ public class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
 
     /// Determines whether a type has the runtime shape of a Raven tagged union.
     override func CanConvert(typeToConvert: Type) -> bool {
-        if typeToConvert.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance) == null {
+        if typeToConvert.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance) is null {
             return false
         }
 
-        if typeToConvert.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance) == null {
+        if typeToConvert.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance) is null {
             return false
         }
 
@@ -287,7 +287,7 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     private static func GetPropertyName(name: string, options: JsonSerializerOptions) -> string {
         val namingPolicy = options.PropertyNamingPolicy
 
-        if namingPolicy != null {
+        if namingPolicy is not null {
             return namingPolicy.ConvertName(name)
         }
 
@@ -321,11 +321,11 @@ public class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory 
 
     /// Determines whether a type has the runtime shape of a parenthesized union.
     override func CanConvert(typeToConvert: Type) -> bool {
-        if typeToConvert.GetField("<Tag>", BindingFlags.NonPublic | BindingFlags.Instance) == null {
+        if typeToConvert.GetField("<Tag>", BindingFlags.NonPublic | BindingFlags.Instance) is null {
             return false
         }
 
-        if typeToConvert.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance) == null {
+        if typeToConvert.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance) is null {
             return false
         }
 
