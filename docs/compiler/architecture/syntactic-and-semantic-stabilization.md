@@ -942,7 +942,10 @@ ownership.
    the standard non-generic-over-generic tie-breaker independent of declaration
    order for both direct invocation and method-group conversion. The latter is
    covered in diagnostics-first and symbol-first query orders; conversion
-   ranking and less common inference forms still need a matrix.
+   ranking and less common inference forms still need a matrix. Numeric ranking
+   now also has a three-candidate transitivity invariant: an `int` argument
+   selects `long` over both `float` and `double`, independent of declaration and
+   semantic-query order.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
    by-reference postconditions without splitting reference and value semantics;

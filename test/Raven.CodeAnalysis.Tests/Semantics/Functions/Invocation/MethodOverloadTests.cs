@@ -198,6 +198,45 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void IntArgument_PrefersNearestTargetAcrossNumericConversionChain(
+        bool reverseDeclarations,
+        bool diagnosticsFirst)
+    {
+        var overloads = reverseDeclarations
+            ? """
+                func Select(value: double) -> string { "double" }
+                func Select(value: float) -> string { "float" }
+                func Select(value: long) -> string { "long" }
+                """
+            : """
+                func Select(value: long) -> string { "long" }
+                func Select(value: float) -> string { "float" }
+                func Select(value: double) -> string { "double" }
+                """;
+        var source = $$"""
+            {{overloads}}
+
+            func Test() -> string {
+                Select(1)
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(SpecialType.System_Int64, Assert.Single(method.Parameters).Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ExactNonGenericOverload_WinsEquivalentGenericCandidate(bool reverseDeclarations)
