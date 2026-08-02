@@ -361,6 +361,21 @@ public class FunctionExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedExpression_ContainingSimpleLambda_ParsesWithoutDiagnostics()
+    {
+        var tree = SyntaxTree.ParseText("let f = (value => value)");
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single();
+
+        Assert.Empty(tree.GetDiagnostics());
+        var parenthesized = Assert.IsType<ParenthesizedExpressionSyntax>(declarator.Initializer!.Value);
+        var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(parenthesized.Expression);
+        Assert.Equal("value", lambda.Parameter.Identifier.Text);
+    }
+
+    [Fact]
     public void TupleExpression_WithMultipleElements_DoesNotParseAsLambda()
     {
         var expression = ParseExpression("(first, second)");

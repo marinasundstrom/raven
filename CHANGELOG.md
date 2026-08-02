@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Parenthesized simple lambdas such as `(value => value)` are now parsed as
+  parenthesized expressions, while `(value) => value` remains the distinct
+  parenthesized-parameter lambda form.
 - Target typing now reaches only the value-producing branches of nested `if`
   expressions and the trailing value of block expressions. Generic union cases
   in nested match arms retain their constructed carrier type without restoring

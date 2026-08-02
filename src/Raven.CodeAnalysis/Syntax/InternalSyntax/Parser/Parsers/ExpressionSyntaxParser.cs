@@ -941,6 +941,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (IsParenthesizedCastAhead())
                 return false;
 
+            // `(x => body)` is a parenthesized expression whose value is a simple
+            // lambda. A parenthesized lambda parameter list has its arrow after the
+            // matching `)`, as in `(x) => body`.
+            if (HasFatArrowInsideInitialParentheses())
+                return false;
+
             if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword: null, out lambda))
                 return true;
         }
@@ -993,6 +999,45 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             checkpoint.Rewind();
             return false;
+        }
+
+        return false;
+    }
+
+    private bool HasFatArrowInsideInitialParentheses()
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            return false;
+
+        const int maxLookahead = 64;
+        var depth = 0;
+
+        for (var offset = 0; offset < maxLookahead; offset++)
+        {
+            var token = PeekToken(offset);
+            if (token.IsKind(SyntaxKind.EndOfFileToken) ||
+                (offset > 0 && TokenHasLeadingNewLine(token)))
+            {
+                return false;
+            }
+
+            if (token.IsKind(SyntaxKind.OpenParenToken))
+            {
+                depth++;
+                continue;
+            }
+
+            if (token.IsKind(SyntaxKind.CloseParenToken))
+            {
+                depth--;
+                if (depth == 0)
+                    return false;
+
+                continue;
+            }
+
+            if (depth > 0 && token.IsKind(SyntaxKind.FatArrowToken))
+                return true;
         }
 
         return false;
