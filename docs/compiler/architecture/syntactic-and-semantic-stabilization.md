@@ -1055,7 +1055,9 @@ constructed receiver rather than the constructor's `unit` return type.
    `finally` is applied before that transfer reaches the back edge, so its
    mutations affect the next iteration as required. Conversely, an abrupt
    `finally` replaces the pending transfer and prevents mutations in the
-   abandoned path from weakening a nonexistent next iteration. Continue with
+   abandoned path from weakening a nonexistent next iteration. The public
+   reachability analysis independently recognizes that replacement and marks
+   code following the resulting non-completing loop unreachable. Continue with
    mixed loop/exception cycles rather than rechecking the covered single-cycle
    forms.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
