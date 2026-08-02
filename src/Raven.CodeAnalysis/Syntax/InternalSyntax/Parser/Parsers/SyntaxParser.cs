@@ -98,6 +98,12 @@ internal class SyntaxParser : ParseContext
         return SyntaxFacts.CanBeIdentifier(token.Kind);
     }
 
+    protected static bool IsParameterListRecoveryBoundary(SyntaxToken token)
+        => token.Kind is SyntaxKind.ArrowToken or
+            SyntaxKind.FatArrowToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.WhereKeyword;
+
     protected static SyntaxToken ToIdentifierToken(SyntaxToken token)
     {
         if (token.Kind == SyntaxKind.IdentifierToken)

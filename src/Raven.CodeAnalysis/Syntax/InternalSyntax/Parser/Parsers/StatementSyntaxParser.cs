@@ -912,7 +912,8 @@ internal class StatementSyntaxParser : SyntaxParser
                 var t = PeekToken();
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.CloseParenToken))
+                    t.IsKind(SyntaxKind.CloseParenToken) ||
+                    IsParameterListRecoveryBoundary(t))
                 {
                     break;
                 }

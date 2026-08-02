@@ -1263,7 +1263,8 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.CloseParenToken))
+                    t.IsKind(SyntaxKind.CloseParenToken) ||
+                    IsParameterListRecoveryBoundary(t))
                 {
                     break;
                 }

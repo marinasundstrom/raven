@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Missing closing parentheses in function and method parameter lists now
+  recover at return annotations, constraint clauses, and body boundaries.
+  Later declarations remain independently parseable and bindable during edits.
 - Binder target-type scopes are now attached to the expression they target
   instead of flowing ambiently into every descendant. Composite operands keep
   their own semantics, while genuinely target-dependent forms such as enum

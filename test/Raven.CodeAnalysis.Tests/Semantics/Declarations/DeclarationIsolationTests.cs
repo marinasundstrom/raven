@@ -240,6 +240,98 @@ func Main() -> int {
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void EditingFunctionParameterListToBeIncomplete_PreservesLaterDeclarations(bool diagnosticsFirst)
+    {
+        const string source = """
+func Broken(brokenValue: int) -> int {
+    brokenValue
+}
+
+func Stable(value: int) -> int {
+    value * 2
+}
+
+func Main() -> int {
+    Stable(21)
+}
+""";
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "function-parameter-recovery");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("brokenValue: int)", "brokenValue: int", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var functions = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .ToDictionary(static function => function.Identifier.ValueText);
+        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == "Stable");
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(stable, model.GetSymbolInfo(invocation).Symbol));
+        AssertErrorsAreConfinedTo(compilation, functions["Broken"].Span);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingMethodParameterListToBeIncomplete_PreservesLaterMembers(bool diagnosticsFirst)
+    {
+        const string source = """
+class Container {
+    func Broken(brokenValue: int) -> int {
+        brokenValue
+    }
+
+    func Stable(value: int) -> int {
+        value * 2
+    }
+}
+
+func Main() -> int {
+    Container().Stable(21)
+}
+""";
+        var (workspace, projectId, documentId) = CreateWorkspace(source, "method-parameter-recovery");
+        Assert.Empty(workspace.GetCompilation(projectId).GetDiagnostics());
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            documentId,
+            SourceText.From(source.Replace("brokenValue: int)", "brokenValue: int", StringComparison.Ordinal))));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methods = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .ToDictionary(static method => method.Identifier.ValueText);
+        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methods["Stable"]));
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.ValueText == "Stable");
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(stable, model.GetSymbolInfo(invocation).Symbol));
+        AssertErrorsAreConfinedTo(compilation, methods["Broken"].Span);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void EditingGenericTypeMemberBody_DoesNotInvalidateConstructedSibling(bool diagnosticsFirst)
     {
         const string source = """
