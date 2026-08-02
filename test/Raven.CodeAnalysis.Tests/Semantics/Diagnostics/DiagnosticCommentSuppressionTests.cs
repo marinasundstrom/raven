@@ -10,10 +10,11 @@ public class DiagnosticCommentSuppressionTests : CompilationTestBase
     public void PragmaDisableComment_SuppressesMatchingDiagnostic()
     {
         var source = """
-func Main() {
-    let x = 1
+func Test(x: int) {
     #pragma warning disable RAV0168
-    let x = 2
+    {
+        let x = 2
+    }
 }
 """;
 
@@ -27,12 +28,15 @@ func Main() {
     public void PragmaDisableAndRestoreComment_OnlySuppressesBetweenDirectives()
     {
         var source = """
-func Main() {
-    let x = 1
+func Test(x: int) {
     // pragma warning disable RAV0168
-    let x = 2
+    {
+        let x = 2
+    }
     #pragma warning restore RAV0168
-    let x = 3
+    {
+        let x = 3
+    }
 }
 """;
 
@@ -47,10 +51,11 @@ func Main() {
     public void PragmaDisableComment_WithReportSuppressedDiagnostics_ReturnsSuppressedDiagnostic()
     {
         var source = """
-func Main() {
-    let x = 1
+func Test(x: int) {
     // pragma warning disable RAV0168
-    let x = 2
+    {
+        let x = 2
+    }
 }
 """;
 
@@ -65,12 +70,15 @@ func Main() {
     public void PragmaDisableComment_WithoutIds_SuppressesAllDiagnosticsUntilRestore()
     {
         var source = """
-func Main() {
-    let x = 1
+func Test(x: int) {
     // pragma warning disable
-    let x = 2
+    {
+        let x = 2
+    }
     // pragma warning restore
-    let x = 3
+    {
+        let x = 3
+    }
 }
 """;
 
@@ -85,11 +93,14 @@ func Main() {
     public void PragmaDisableNextLine_SuppressesOnlyFollowingLine()
     {
         var source = """
-func Main() {
-    let x = 1
-    #pragma warning disable-next-line RAV0168
-    let x = 2
-    let x = 3
+func Test(x: int) {
+    {
+        #pragma warning disable-next-line RAV0168
+        let x = 2
+    }
+    {
+        let x = 3
+    }
 }
 """;
 
@@ -104,9 +115,11 @@ func Main() {
     public void PragmaDisable_SupportsMultipleDiagnosticIdsOnOneLine()
     {
         var source = """
-func Main() {
+func Test(x: int) {
     #pragma warning disable RAV0168 RAV9019
-    let x = 1
+    {
+        let x = 1
+    }
     func unused() -> () {}
 }
 """;
@@ -122,11 +135,14 @@ func Main() {
     public void PragmaDisableNextLine_SupportsMultipleDiagnosticIdsOnOneLine()
     {
         var source = """
-func Main() {
-    let x = 1
-    #pragma warning disable-next-line RAV0168 RAV9012
-    let x = 2
-    let x = 3
+func Test(x: int) {
+    {
+        #pragma warning disable-next-line RAV0168 RAV9012
+        let x = 2
+    }
+    {
+        let x = 3
+    }
 }
 """;
 
