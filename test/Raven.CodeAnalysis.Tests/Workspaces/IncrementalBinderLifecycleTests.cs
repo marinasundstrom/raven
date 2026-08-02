@@ -1367,6 +1367,70 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void WorkspaceCompilation_EventAccessorBodyEdit_UsesIncrementalSemanticBinder()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            class Button {
+                event Clicked: System.Action {
+                    add {
+                        let marker = 1
+                    }
+                    remove { }
+                }
+            }
+            """;
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialAccessor = initialTree.GetRoot().DescendantNodes().OfType<AccessorDeclarationSyntax>().First();
+        var initialBlock = initialAccessor.Body!;
+        var initialBinder = initialModel.GetIncrementalSemanticQueryBinderForTesting(initialBlock);
+        initialModel.GetDeclaredSymbol(initialAccessor).ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("add_Clicked");
+        initialModel.GetDeclaredSymbol(initialBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single())
+            .ShouldBeAssignableTo<ILocalSymbol>()
+            .Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("let marker = 1", "let marker = \"edited\"", StringComparison.Ordinal)));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedAccessor = updatedTree.GetRoot().DescendantNodes().OfType<AccessorDeclarationSyntax>().First();
+        var updatedBlock = updatedAccessor.Body!;
+        var updatedBinder = updatedModel.GetIncrementalSemanticQueryBinderForTesting(updatedBlock);
+
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedAccessor).ShouldBeTrue();
+        updatedBinder.ShouldNotBeSameAs(initialBinder);
+        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("add_Clicked");
+        updatedModel.GetDeclaredSymbol(updatedAccessor).ShouldBeSameAs(updatedBinder.ContainingSymbol);
+        updatedModel.GetDeclaredSymbol(updatedBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single())
+            .ShouldBeAssignableTo<ILocalSymbol>()
+            .Type.SpecialType.ShouldBe(SpecialType.System_String);
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void SemanticModel_RemoveCachedBinder_DiscardsBinderOwnedLocalState()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

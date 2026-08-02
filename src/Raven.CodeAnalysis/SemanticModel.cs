@@ -11318,7 +11318,7 @@ public partial class SemanticModel
     {
         accessorSymbol = null;
 
-        if (accessorDeclaration.Parent is PropertyDeclarationSyntax propertyDeclaration &&
+        if (accessorDeclaration.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault() is { } propertyDeclaration &&
             TryResolveShallowPropertySymbol(propertyDeclaration, out var propertySymbol))
         {
             accessorSymbol = accessorDeclaration.Keyword.Kind switch
@@ -11331,7 +11331,7 @@ public partial class SemanticModel
             return accessorSymbol is not null;
         }
 
-        if (accessorDeclaration.Parent is EventDeclarationSyntax eventDeclaration &&
+        if (accessorDeclaration.Ancestors().OfType<EventDeclarationSyntax>().FirstOrDefault() is { } eventDeclaration &&
             TryResolveShallowEventSymbol(eventDeclaration, out var eventSymbol))
         {
             accessorSymbol = accessorDeclaration.Keyword.Kind switch
@@ -14806,6 +14806,14 @@ public partial class SemanticModel
                 (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
             newBinder = new MethodBinder(recoveredDeclarationMethodSymbol, methodParentBinder);
         }
+        else if (node is AccessorDeclarationSyntax accessorDeclaration &&
+            actualParentBinder is not MethodBinder &&
+            TryResolveShallowAccessorSymbol(accessorDeclaration, out var recoveredAccessorSymbol))
+        {
+            var accessorParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
+            newBinder = new MethodBinder(recoveredAccessorSymbol, accessorParentBinder);
+        }
         else if ((node is BlockSyntax or BlockStatementSyntax or ArrowExpressionClauseSyntax) &&
             node.Parent is { } parentMethodDeclaration &&
             actualParentBinder is not MethodBinder &&
@@ -15172,6 +15180,7 @@ public partial class SemanticModel
             FunctionStatementSyntax functionStatement => TryResolveFunctionStatementSymbolForDeclaration(functionStatement, out methodSymbol),
             OperatorDeclarationSyntax operatorDeclaration => TryResolveOperatorMethodSymbolForDeclaration(operatorDeclaration, out methodSymbol),
             ConversionOperatorDeclarationSyntax conversionDeclaration => TryResolveConversionMethodSymbolForDeclaration(conversionDeclaration, out methodSymbol),
+            AccessorDeclarationSyntax accessorDeclaration => TryResolveShallowAccessorSymbol(accessorDeclaration, out methodSymbol),
             _ => ReturnFalse(out methodSymbol)
         };
 

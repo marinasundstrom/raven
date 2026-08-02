@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Semantic queries after an event- or property-accessor body edit now recover
+  the accessor's method binder directly, preserving accessor parameters and
+  edited local types without forcing complete source declaration binding.
 - Generic calls rejected by type-parameter constraints now retain the inferred,
   constructed method as their semantic candidate. Nullable generic parameters
   are projected consistently through Raven's unified nullable symbol model for
