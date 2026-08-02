@@ -152,8 +152,14 @@ public class SymbolEqualityComparerTests
     {
         const string source = """
             public class Box<T> {
+                private var current: T
                 public init(value: T) { self.Value = value }
                 public var Value: T
+                public var self[index: T]: T {
+                    get => current
+                    set => current = value
+                }
+                public event Changed: System.Action<T>?
                 public func Select<U>(value: U) -> T => throw System.Exception()
             }
             """;
@@ -171,6 +177,8 @@ public class SymbolEqualityComparerTests
         var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(sourceDefinition.Construct(sourceString));
         var sourceConstructor = Assert.Single(sourceBox.InstanceConstructors, constructor => constructor.Parameters.Length == 1);
         var sourceProperty = Assert.Single(sourceBox.GetMembers("Value").OfType<IPropertySymbol>());
+        var sourceIndexer = Assert.Single(sourceBox.GetMembers().OfType<IPropertySymbol>(), property => property.IsIndexer);
+        var sourceEvent = Assert.Single(sourceBox.GetMembers("Changed").OfType<IEventSymbol>());
         var sourceMethod = Assert.Single(sourceBox.GetMembers("Select").OfType<IMethodSymbol>()).Construct(sourceInt);
 
         using var image = new MemoryStream();
@@ -191,6 +199,8 @@ public class SymbolEqualityComparerTests
         var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataDefinition.Construct(metadataString));
         var metadataConstructor = Assert.Single(metadataBox.InstanceConstructors, constructor => constructor.Parameters.Length == 1);
         var metadataProperty = Assert.Single(metadataBox.GetMembers("Value").OfType<IPropertySymbol>());
+        var metadataIndexer = Assert.Single(metadataBox.GetMembers().OfType<IPropertySymbol>(), property => property.IsIndexer);
+        var metadataEvent = Assert.Single(metadataBox.GetMembers("Changed").OfType<IEventSymbol>());
         var metadataMethod = Assert.Single(metadataBox.GetMembers("Select").OfType<IMethodSymbol>()).Construct(metadataInt);
         var comparer = SymbolEqualityComparer.Default;
 
@@ -207,11 +217,30 @@ public class SymbolEqualityComparerTests
         Assert.True(comparer.Equals(sourceConstructor, metadataConstructor));
         Assert.Equal(comparer.GetHashCode(sourceConstructor), comparer.GetHashCode(metadataConstructor));
         Assert.True(comparer.Equals(sourceConstructor.Parameters[0], metadataConstructor.Parameters[0]));
+        Assert.Same(sourceConstructor, sourceConstructor.Parameters[0].ContainingSymbol);
+        Assert.Same(metadataConstructor, metadataConstructor.Parameters[0].ContainingSymbol);
         Assert.True(comparer.Equals(sourceProperty.Type, metadataProperty.Type));
         Assert.True(comparer.Equals(sourceProperty, metadataProperty));
         Assert.Equal(comparer.GetHashCode(sourceProperty), comparer.GetHashCode(metadataProperty));
         Assert.True(comparer.Equals(sourceProperty.GetMethod, metadataProperty.GetMethod));
         Assert.Equal(comparer.GetHashCode(sourceProperty.GetMethod!), comparer.GetHashCode(metadataProperty.GetMethod!));
+        Assert.Same(sourceProperty.GetMethod, sourceProperty.GetMethod);
+        Assert.Same(sourceProperty.SetMethod, sourceProperty.SetMethod);
+        Assert.Same(metadataProperty.GetMethod, metadataProperty.GetMethod);
+        Assert.Same(metadataProperty.SetMethod, metadataProperty.SetMethod);
+        Assert.Same(sourceProperty, sourceProperty.GetMethod!.AssociatedSymbol);
+        Assert.Same(sourceProperty, sourceProperty.SetMethod!.AssociatedSymbol);
+        Assert.Same(metadataProperty, metadataProperty.GetMethod!.AssociatedSymbol);
+        Assert.Same(metadataProperty, metadataProperty.SetMethod!.AssociatedSymbol);
+        Assert.True(comparer.Equals(sourceProperty.OriginalDefinition, metadataProperty.OriginalDefinition));
+        AssertIndexer(sourceIndexer, sourceString);
+        AssertIndexer(metadataIndexer, metadataString);
+        Assert.True(comparer.Equals(sourceIndexer, metadataIndexer));
+        Assert.Equal(comparer.GetHashCode(sourceIndexer), comparer.GetHashCode(metadataIndexer));
+        AssertEvent(sourceEvent, sourceString);
+        AssertEvent(metadataEvent, metadataString);
+        Assert.True(comparer.Equals(sourceEvent, metadataEvent));
+        Assert.Equal(comparer.GetHashCode(sourceEvent), comparer.GetHashCode(metadataEvent));
         Assert.True(comparer.Equals(sourceMethod.ContainingType, metadataMethod.ContainingType),
             "Constructed method containing types differ");
         Assert.True(comparer.Equals(sourceMethod.ContainingSymbol, metadataMethod.ContainingSymbol),
@@ -225,10 +254,41 @@ public class SymbolEqualityComparerTests
             $"Constructed method parameters differ: {sourceMethod.Parameters[0].Type} != {metadataMethod.Parameters[0].Type}");
         Assert.True(comparer.Equals(sourceMethod.Parameters[0], metadataMethod.Parameters[0]),
             "Constructed method parameter symbols differ");
+        Assert.Same(sourceMethod, sourceMethod.Parameters[0].ContainingSymbol);
+        Assert.Same(metadataMethod, metadataMethod.Parameters[0].ContainingSymbol);
         Assert.True(comparer.Equals(sourceMethod.TypeArguments[0], metadataMethod.TypeArguments[0]),
             "Constructed method type arguments differ");
         Assert.True(comparer.Equals(sourceMethod, metadataMethod));
         Assert.Equal(comparer.GetHashCode(sourceMethod), comparer.GetHashCode(metadataMethod));
+
+        static void AssertIndexer(IPropertySymbol indexer, ITypeSymbol expectedType)
+        {
+            Assert.True(SymbolEqualityComparer.Default.Equals(expectedType, indexer.Type));
+            var getMethod = Assert.IsAssignableFrom<IMethodSymbol>(indexer.GetMethod);
+            var setMethod = Assert.IsAssignableFrom<IMethodSymbol>(indexer.SetMethod);
+            var indexParameter = Assert.Single(getMethod.Parameters);
+            Assert.True(SymbolEqualityComparer.Default.Equals(expectedType, indexParameter.Type));
+            Assert.Same(getMethod, indexParameter.ContainingSymbol);
+            Assert.Same(indexer, getMethod.AssociatedSymbol);
+            Assert.Same(indexer, setMethod.AssociatedSymbol);
+            Assert.All(setMethod.Parameters, parameter => Assert.Same(setMethod, parameter.ContainingSymbol));
+            Assert.True(SymbolEqualityComparer.Default.Equals(expectedType, setMethod.Parameters[^1].Type));
+        }
+
+        static void AssertEvent(IEventSymbol @event, ITypeSymbol expectedArgument)
+        {
+            var eventType = Assert.IsAssignableFrom<INamedTypeSymbol>(@event.Type.GetNonNullableType());
+            Assert.Equal("Action", eventType.Name);
+            Assert.True(SymbolEqualityComparer.Default.Equals(expectedArgument, Assert.Single(eventType.TypeArguments)));
+            var addMethod = Assert.IsAssignableFrom<IMethodSymbol>(@event.AddMethod);
+            var removeMethod = Assert.IsAssignableFrom<IMethodSymbol>(@event.RemoveMethod);
+            Assert.Same(@event, addMethod.AssociatedSymbol);
+            Assert.Same(@event, removeMethod.AssociatedSymbol);
+            Assert.All(addMethod.Parameters, parameter => Assert.Same(addMethod, parameter.ContainingSymbol));
+            Assert.All(removeMethod.Parameters, parameter => Assert.Same(removeMethod, parameter.ContainingSymbol));
+            Assert.True(SymbolEqualityComparer.Default.Equals(@event.Type, Assert.Single(addMethod.Parameters).Type));
+            Assert.True(SymbolEqualityComparer.Default.Equals(@event.Type, Assert.Single(removeMethod.Parameters).Type));
+        }
     }
 
     [Fact]

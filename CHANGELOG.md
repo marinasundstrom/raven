@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Constructed generic properties, indexers, and events now project accessors
+  back to the constructed member, and substituted parameters are owned by their
+  constructed method rather than directly by the containing type. Raven source
+  and emitted PE symbols now agree across the complete member graph.
 - Metadata `[MaybeNull]` output contracts can now place a declared non-nullable
   reference in the maybe-null flow state. The declared Raven type remains
   unchanged, null patterns can refine it again, and branch joins preserve the

@@ -1617,6 +1617,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 {
     private readonly IMethodSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
+    private readonly ISymbol? _associatedSymbol;
     private ImmutableArray<IParameterSymbol>? _parameters;
     private Dictionary<ITypeParameterSymbol, ImmutableArray<ITypeSymbol>>? _constraintTypeMap;
     private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
@@ -1624,10 +1625,14 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     private readonly Dictionary<ITypeParameterSymbol, ITypeParameterSymbol> _methodTypeParameterMap;
     private ITypeSymbol? _returnType;
 
-    public SubstitutedMethodSymbol(IMethodSymbol original, ConstructedNamedTypeSymbol constructed)
+    public SubstitutedMethodSymbol(
+        IMethodSymbol original,
+        ConstructedNamedTypeSymbol constructed,
+        ISymbol? associatedSymbol = null)
     {
         _original = original;
         _constructed = constructed;
+        _associatedSymbol = associatedSymbol;
 
         if (!_original.TypeParameters.IsDefaultOrEmpty)
         {
@@ -1667,7 +1672,11 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     public ImmutableArray<IParameterSymbol> Parameters =>
         _parameters ??= _original.Parameters
-            .Select(p => (IParameterSymbol)new SubstitutedParameterSymbol(p, _constructed, _methodTypeParameterMap))
+            .Select(p => (IParameterSymbol)new SubstitutedParameterSymbol(
+                p,
+                _constructed,
+                _methodTypeParameterMap,
+                this))
             .ToImmutableArray();
 
     public ISymbol ContainingSymbol => _constructed;
@@ -1761,7 +1770,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public IModuleSymbol? ContainingModule => _original.ContainingModule;
     public INamedTypeSymbol? ContainingType => _constructed;
     public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
-    public ISymbol? AssociatedSymbol => _original.AssociatedSymbol;
+    public ISymbol? AssociatedSymbol => _associatedSymbol ?? _original.AssociatedSymbol;
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
@@ -2371,6 +2380,8 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     private readonly ConstructedNamedTypeSymbol _constructed;
     private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
     private ITypeSymbol? _type;
+    private IMethodSymbol? _getMethod;
+    private IMethodSymbol? _setMethod;
 
     public SubstitutedPropertySymbol(IPropertySymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -2381,9 +2392,13 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public string Name => _original.Name;
     public ITypeSymbol Type => _type ??= _constructed.Substitute(_original.Type);
     public ISymbol ContainingSymbol => _constructed;
-    public IPropertySymbol? OriginalDefinition { get; }
-    public IMethodSymbol? GetMethod => _original.GetMethod is null ? null : new SubstitutedMethodSymbol(_original.GetMethod, _constructed);
-    public IMethodSymbol? SetMethod => _original.SetMethod is null ? null : new SubstitutedMethodSymbol(_original.SetMethod, _constructed);
+    public IPropertySymbol? OriginalDefinition => _original.OriginalDefinition ?? _original;
+    public IMethodSymbol? GetMethod => _original.GetMethod is null
+        ? null
+        : _getMethod ??= new SubstitutedMethodSymbol(_original.GetMethod, _constructed, this);
+    public IMethodSymbol? SetMethod => _original.SetMethod is null
+        ? null
+        : _setMethod ??= new SubstitutedMethodSymbol(_original.SetMethod, _constructed, this);
     public bool IsIndexer => _original.IsIndexer;
     public bool IsRequired => _original.IsRequired;
     public SymbolKind Kind => _original.Kind;
@@ -2470,6 +2485,8 @@ internal sealed class SubstitutedEventSymbol : IEventSymbol
     private readonly IEventSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
     private ImmutableArray<IEventSymbol>? _explicitInterfaceImplementations;
+    private IMethodSymbol? _addMethod;
+    private IMethodSymbol? _removeMethod;
 
     public SubstitutedEventSymbol(IEventSymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -2480,8 +2497,12 @@ internal sealed class SubstitutedEventSymbol : IEventSymbol
     public string Name => _original.Name;
     public ITypeSymbol Type => _constructed.Substitute(_original.Type);
     public ISymbol ContainingSymbol => _constructed;
-    public IMethodSymbol? AddMethod => _original.AddMethod is null ? null : new SubstitutedMethodSymbol(_original.AddMethod, _constructed);
-    public IMethodSymbol? RemoveMethod => _original.RemoveMethod is null ? null : new SubstitutedMethodSymbol(_original.RemoveMethod, _constructed);
+    public IMethodSymbol? AddMethod => _original.AddMethod is null
+        ? null
+        : _addMethod ??= new SubstitutedMethodSymbol(_original.AddMethod, _constructed, this);
+    public IMethodSymbol? RemoveMethod => _original.RemoveMethod is null
+        ? null
+        : _removeMethod ??= new SubstitutedMethodSymbol(_original.RemoveMethod, _constructed, this);
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
@@ -2560,16 +2581,19 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     private readonly IParameterSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
     private readonly Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? _methodMap;
+    private readonly ISymbol _containingSymbol;
     private ITypeSymbol? _type;
 
     public SubstitutedParameterSymbol(
         IParameterSymbol original,
         ConstructedNamedTypeSymbol constructed,
-        Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
+        Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null,
+        ISymbol? containingSymbol = null)
     {
         _original = original;
         _constructed = constructed;
         _methodMap = methodMap;
+        _containingSymbol = containingSymbol ?? constructed;
     }
 
     public string Name => _original.Name;
@@ -2579,7 +2603,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
 
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
-    public ISymbol? ContainingSymbol => _constructed; // Adjust depending on method/field owner if needed
+    public ISymbol? ContainingSymbol => _containingSymbol;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
     public IModuleSymbol? ContainingModule => _original.ContainingModule;
     public INamedTypeSymbol? ContainingType => _constructed;

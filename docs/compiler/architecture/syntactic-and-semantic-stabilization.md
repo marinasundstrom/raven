@@ -1114,6 +1114,14 @@ The highest remaining risks after the current stabilization batch are:
    properties, accessors, and generic methods. Continue boundary invariants
    before considering a central construction redesign.
 
+Constructed properties, indexers, and events now form a self-consistent member
+graph on both sides of emit. Their accessor methods associate with the
+substituted property or event rather than the open definition, accessor and
+ordinary method parameters are owned by the substituted method, and repeated
+accessor queries return the same immutable projection. Generic property,
+indexer, event, accessor, constructor, and ordinary-method types compare and
+hash equally after Raven source is emitted and consumed through PE symbols.
+
 Nested generic construction follows a definition/view split: an inner type
 parameter remains owned by its generic definition, while a lookup through a
 constructed outer type reanchors the inner view and substitutes outer and inner
