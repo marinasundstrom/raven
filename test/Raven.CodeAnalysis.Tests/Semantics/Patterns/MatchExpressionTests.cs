@@ -3145,6 +3145,61 @@ func Describe(result: LoginResult) -> string {
         AssertMatchExhaustiveness(code, expectedExhaustive: true);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedUnionOrPatternExhaustiveness_MatchesSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+namespace NestedUnionLibrary {
+    public union LoginResult {
+        case Success
+        case Error(error: LoginError)
+    }
+
+    public union LoginError {
+        case WrongCredentials
+        case ServiceUnavailable
+    }
+}
+""";
+        var libraryTree = SyntaxTree.ParseText(librarySource);
+        var consumerTree = SyntaxTree.ParseText("""
+import NestedUnionLibrary.*
+
+func Describe(result: LoginResult) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials or .ServiceUnavailable) => "Error"
+    }
+}
+""");
+        MetadataReference[] references = useMetadata
+            ? [.. TestMetadataReferences.Default,
+                TestMetadataFactory.CreateFromSource(librarySource, "nested_union_pattern_library")]
+            : TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "nested_union_pattern_consumer",
+            useMetadata ? [consumerTree] : [libraryTree, consumerTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var match = consumerTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(consumerTree).GetMatchExhaustiveness(match);
+
+        Assert.True(info.IsExhaustive, $"Expected exhaustive match but missing: [{string.Join(", ", info.MissingCases)}]");
+        Assert.Empty(info.MissingCases);
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void MatchExpression_WithGuardedNestedUnionCase_RemainsNotExhaustive()
     {

@@ -945,6 +945,13 @@ The same query-order matrix preserves the scrutinee's declared nullable symbol
 and maybe-null flow state while publishing non-null leaf types for each typed
 arm binding, for both source and PE hierarchy symbols.
 
+Nested declared-union patterns now have a corresponding convergence invariant.
+An outer payload case whose inner domain is covered by a logical `or` pattern
+must be exhaustive both while the union declarations are in source and after
+their assembly is emitted and reloaded, independent of diagnostic-query order.
+This checks case ownership, nested payload projection, logical-pattern coverage,
+and metadata reconstruction together instead of testing each layer in isolation.
+
 Pattern binding also treats unsupported pattern node kinds as recoverable
 semantic errors. Programmatically constructed or transient edited trees now
 produce an invalid-term diagnostic and bound error pattern for unknown general,
