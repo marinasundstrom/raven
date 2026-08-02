@@ -4,6 +4,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -133,12 +134,15 @@ public class AliasResolutionTest : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode);
+        var tree = SyntaxTree.ParseText(testCode);
+        var compilation = Compilation.Create(
+                "AliasUnion",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenCore);
 
-        var result = verifier.GetResult();
-        verifier.Verify();
-        var tree = result.Compilation.SyntaxTrees.Single();
-        var model = result.Compilation.GetSemanticModel(tree);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
         var parameter = tree.GetRoot()
             .DescendantNodes()
             .OfType<ParameterSyntax>()
@@ -147,7 +151,13 @@ public class AliasResolutionTest : DiagnosticTestBase
         Assert.True(symbol.Type.IsAlias);
         var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol.Type);
         Assert.Equal("Number", alias.Name);
-        Assert.Equal("IComparable", alias.UnderlyingSymbol.Name);
+        var union = Assert.IsAssignableFrom<INamedTypeSymbol>(alias.UnderlyingSymbol);
+        Assert.Equal("Union", union.Name);
+        Assert.Equal("System.Union`2", union.OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Collection(
+            union.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_String, argument.SpecialType));
     }
 
     [Fact]
