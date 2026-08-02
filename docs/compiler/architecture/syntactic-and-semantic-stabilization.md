@@ -1051,7 +1051,9 @@ constructed receiver rather than the constructor's `unit` return type.
    to the target outer loop's back edge, and a filtered catch plus its fallback
    catch join to the repaired post-state in either query order. A `continue`
    inside a `try` also contributes its mutation to the enclosing loop's back
-   edge despite a sibling catch exit, in either query order. Continue with mixed
+   edge despite a sibling catch exit, in either query order. A completing
+   `finally` is applied before that transfer reaches the back edge, so its
+   mutations affect the next iteration as required. Continue with mixed
    loop/exception cycles rather than rechecking the covered single-cycle forms.
 3. **Generic overload conformance (high)** — explicit and inferred constraints,
    higher-order method groups, metadata methods, candidates, and edit recovery
