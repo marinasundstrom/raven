@@ -180,6 +180,39 @@ match state {
     }
 
     [Fact]
+    public void MatchStatement_WithNullableOpenHierarchyDiscardAndNull_IsExhaustive()
+    {
+        const string code = """
+open class BaseClass {}
+class SubClassA : BaseClass {}
+
+func Describe(value: BaseClass?) -> unit {
+    match value {
+        SubClassA a => {}
+        null => {}
+        _ => {}
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nullable_open_hierarchy_match_statement",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(statement);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
     public void MatchStatement_WithFiniteTupleRows_IsExhaustiveInDiagnosticsAndSemanticModel()
     {
         const string code = """

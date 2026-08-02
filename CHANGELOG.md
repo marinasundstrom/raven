@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Nullable match exhaustiveness now preserves the complete non-null pattern
+  domain instead of reducing it to one opaque underlying-type case. Booleans,
+  enums, and sealed hierarchies can be covered case by case alongside `null`;
+  open hierarchies still require a base-type or `_` fallback. Missing-case code
+  fixes now generate typed sealed-hierarchy bindings from nullable scrutinees.
 - Nullability documentation now defines one coherent Raven policy: unified
   nullable symbols for reference and value types, strict flow-based proof of
   safe access, pattern-first handling, `Option<T>` for domain absence, and

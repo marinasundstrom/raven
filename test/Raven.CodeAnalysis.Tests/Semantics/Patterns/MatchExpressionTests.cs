@@ -2088,6 +2088,194 @@ let result = match value {
     }
 
     [Fact]
+    public void MatchExpression_WithNullableScalarTypeAndNullArms_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: string?) -> string {
+    return match value {
+        string text => text
+        null => ""
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var designation = tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var info = model.GetMatchExhaustiveness(match);
+
+        Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
+        Assert.False(local.Type.IsNullable);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableClosedHierarchyCasesAndNull_IsExhaustive()
+    {
+        const string code = """
+sealed class BaseClass permits SubClassA, SubClassB {}
+class SubClassA : BaseClass {}
+class SubClassB : BaseClass {}
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+        SubClassB b => "B"
+        null => ""
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableClosedHierarchyMissingSubtypeAndNull_ReportsBothCases()
+    {
+        const string code = """
+sealed class BaseClass permits SubClassA, SubClassB {}
+class SubClassA : BaseClass {}
+class SubClassB : BaseClass {}
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nullable_closed_hierarchy_missing_cases",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(
+            info.MissingCases,
+            missing => Assert.Equal("SubClassB", missing),
+            missing => Assert.Equal("null", missing));
+        Assert.Equal(2, diagnostics.Length);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage().Contains("'SubClassB'", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage().Contains("'null'", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("BaseClass other => \"Other\"")]
+    [InlineData("_ => \"Other\"")]
+    public void MatchExpression_WithNullableOpenHierarchyFallbackAndNull_IsExhaustive(string fallbackArm)
+    {
+        var code = $$"""
+open class BaseClass {}
+class SubClassA : BaseClass {}
+class SubClassB : BaseClass {}
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+        SubClassB b => "B"
+        null => ""
+        {{fallbackArm}}
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableOpenHierarchyWithoutFallback_RequiresBaseCoverage()
+    {
+        const string code = """
+open class BaseClass {}
+class SubClassA : BaseClass {}
+class SubClassB : BaseClass {}
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+        SubClassB b => "B"
+        null => ""
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "_");
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableOpenHierarchyBaseFallbackWithoutNull_RequiresNullCoverage()
+    {
+        const string code = """
+open class BaseClass {}
+class SubClassA : BaseClass {}
+
+func Describe(value: BaseClass?) -> string {
+    return match value {
+        SubClassA a => "A"
+        BaseClass other => "Other"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "null");
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableBooleanCasesAndNull_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: bool?) -> string {
+    return match value {
+        true => "True"
+        false => "False"
+        null => "Null"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableEnumCasesAndNull_IsExhaustive()
+    {
+        const string code = """
+enum State {
+    Ready,
+    Waiting
+}
+
+func Describe(value: State?) -> string {
+    return match value {
+        .Ready => "Ready"
+        .Waiting => "Waiting"
+        null => "Null"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithNullableStructUnionScrutinee_RequiresNullArm()
     {
         const string code = """

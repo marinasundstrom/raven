@@ -144,6 +144,42 @@ class LiteralExpressionSyntax : Expression
     }
 
     [Fact]
+    public void MatchExpressionNotExhaustive_AddsNullableSealedHierarchyArmsAndNull()
+    {
+        const string code = """
+func inspect(expression: Expression?) -> int {
+    return match expression {
+    }
+}
+
+sealed class Expression permits IdentifierExpressionSyntax, LiteralExpressionSyntax
+class IdentifierExpressionSyntax : Expression
+class LiteralExpressionSyntax : Expression
+""";
+
+        const string fixedCode = """
+func inspect(expression: Expression?) -> int {
+    return match expression {
+        IdentifierExpressionSyntax identifierExpression => throw System.NotImplementedException()
+        LiteralExpressionSyntax literalExpression => throw System.NotImplementedException()
+        null => throw System.NotImplementedException()
+    }
+}
+
+sealed class Expression permits IdentifierExpressionSyntax, LiteralExpressionSyntax
+class IdentifierExpressionSyntax : Expression
+class LiteralExpressionSyntax : Expression
+""";
+
+        var verifier = CreateCodeFixVerifier<NoOpAnalyzer, MatchExhaustivenessCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(CompilerDiagnostics.MatchExpressionNotExhaustive.Id).WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpressionNotExhaustive_AddsAllSealedRecordHierarchyArmsWithPositionalBindings()
     {
         const string code = """

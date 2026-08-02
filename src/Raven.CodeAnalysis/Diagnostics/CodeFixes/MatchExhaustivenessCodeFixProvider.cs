@@ -235,7 +235,8 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         }
 
         var scrutineeType = semanticModel.GetTypeInfo(GetMatchScrutinee(matchSyntax)).Type;
-        var union = scrutineeType.TryGetUnion() ?? scrutineeType.TryGetUnionCase()?.Union;
+        var patternDomainType = scrutineeType.GetNonNullableType();
+        var union = patternDomainType.TryGetUnion() ?? patternDomainType.TryGetUnionCase()?.Union;
         if (union is not null)
         {
             var (caseName, payloadDisplay) = SplitCaseDisplay(missingCase);
@@ -255,7 +256,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
                 return FormatTypedDeclarationPattern(missingCase);
         }
 
-        if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType &&
+        if (patternDomainType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType &&
             enumType.GetMembers().OfType<IFieldSymbol>().Any(field =>
                 field.IsConst &&
                 field.ContainingType?.TypeKind == TypeKind.Enum &&
@@ -264,9 +265,9 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
             return "." + missingCase;
         }
 
-        if (TypeCoverageHelper.TryGetSealedHierarchy(scrutineeType, out var sealedRoot))
+        if (TypeCoverageHelper.TryGetSealedHierarchy(patternDomainType, out var sealedRoot))
         {
-            var projectedHierarchy = scrutineeType as INamedTypeSymbol ?? sealedRoot;
+            var projectedHierarchy = patternDomainType as INamedTypeSymbol ?? sealedRoot;
             var caseType = TypeCoverageHelper
                 .GetSealedHierarchyCoverageTypes(sealedRoot, projectedHierarchy)
                 .FirstOrDefault(candidate => MatchesTypeDisplay(candidate, missingCase));

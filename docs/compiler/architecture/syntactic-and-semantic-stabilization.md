@@ -861,6 +861,14 @@ enums, declared union cases, and explicit sealed-hierarchy permit lists. Each
 family is checked across the exhaustive, newly non-exhaustive, and restored
 snapshots, with diagnostics and `GetMatchExhaustiveness` required to agree.
 
+Nullable matching now composes the `null` case with the complete non-null
+domain rather than replacing that domain with one opaque underlying-type case.
+Focused coverage includes scalars, booleans, enums, sealed hierarchies, open
+hierarchies with base-type or discard fallbacks, match statements, and the
+missing-case code fix. A nullable sealed hierarchy therefore reports its
+specific missing leaves followed by `null`, while an open hierarchy reports `_`
+until a base-type or discard fallback is present.
+
 Pattern binding also treats unsupported pattern node kinds as recoverable
 semantic errors. Programmatically constructed or transient edited trees now
 produce an invalid-term diagnostic and bound error pattern for unknown general,

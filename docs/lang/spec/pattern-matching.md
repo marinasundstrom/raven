@@ -88,6 +88,11 @@ if let x: int = input {
 }
 ```
 
+For exhaustiveness, nullable `T?` contributes the `null` case in addition to
+the non-null domain of `T`. If `T` is a sealed hierarchy, every permitted leaf
+and `null` must be covered. If `T` is open, typed subtype arms plus `null` still
+require a base-type or `_` fallback for remaining non-null instances.
+
 The same syntax also works for hierarchy narrowing, just like `if expr is Type name`:
 
 ```raven

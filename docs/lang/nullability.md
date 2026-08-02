@@ -70,6 +70,33 @@ Patterns are preferred because they state both the condition and the value that
 is safe to use. They also scale to `Option`, `Result`, unions, and richer data
 shapes without introducing a separate null-only control-flow vocabulary.
 
+For a nullable closed hierarchy, exhaustiveness includes every permitted leaf
+type plus `null`:
+
+```raven
+let description = match value {
+    SubClassA a => Describe(a)
+    SubClassB b => Describe(b)
+    null => "No value"
+}
+```
+
+An open hierarchy cannot enumerate every future subtype. It also needs either
+a base-type arm, which binds the remaining non-null values, or a discard arm:
+
+```raven
+let description = match value {
+    SubClassA a => Describe(a)
+    SubClassB b => Describe(b)
+    null => "No value"
+    BaseClass other => DescribeUnknown(other)
+}
+```
+
+Using `_` instead of `BaseClass other` is appropriate when the remaining value
+is intentionally ignored. Keeping `null` explicit before that fallback makes
+the null-reference state visible rather than absorbing it into `_`.
+
 ## Direct null checks are compatibility forms
 
 Raven also supports direct checks:
