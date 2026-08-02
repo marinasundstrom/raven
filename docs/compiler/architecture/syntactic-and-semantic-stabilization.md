@@ -956,6 +956,13 @@ ownership.
    metadata postconditions; it should be introduced for that accepted-code
    boundary rather than to cascade diagnostics after an assignment Raven has
    already rejected.
+
+Raven-emitted nullable generic contracts now have an explicit round-trip
+invariant. For a reference-constrained `T`, nullable parameter and return uses
+are observed as nullable by .NET reflection, reload as nullable type-parameter
+uses through PE symbols, and remain nullable after constructing the containing
+type with `string`. This covers annotation emission, metadata loading, generic
+ownership, and substitution at the interop seam without expanding flow rules.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage, but macro partitions and
    other declaration families remain less complete. Broken signatures and

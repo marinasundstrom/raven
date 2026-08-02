@@ -217,6 +217,64 @@ class C {
         Assert.False(valueType.TypeArguments[1].IsNullable);
     }
 
+    [Fact]
+    public void ConstrainedGenericNullableReference_RoundTripsAndSubstitutesThroughMetadata()
+    {
+        const string source = """
+            class Box<T : class> {
+                func Echo(value: T?) -> T? { value }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+                "nullable-generic",
+                [tree],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
+
+        var image = peStream.ToArray();
+        using (var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(image), references))
+        {
+            var method = loaded.Assembly.GetType("Box`1", throwOnError: true)!.GetMethod("Echo")!;
+            var nullability = new NullabilityInfoContext();
+
+            Assert.Equal(
+                NullabilityState.Nullable,
+                nullability.Create(Assert.Single(method.GetParameters())).ReadState);
+            Assert.Equal(
+                NullabilityState.Nullable,
+                nullability.Create(method.ReturnParameter).ReadState);
+        }
+
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, MetadataReference.CreateFromImage(image)]);
+        var box = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
+        var typeParameter = Assert.Single(box.TypeParameters);
+        var methodSymbol = Assert.Single(box.GetMembers("Echo").OfType<IMethodSymbol>());
+        var parameterType = Assert.IsType<NullableTypeSymbol>(Assert.Single(methodSymbol.Parameters).Type);
+        var returnType = Assert.IsType<NullableTypeSymbol>(methodSymbol.ReturnType);
+
+        Assert.Equal(TypeParameterConstraintKind.ReferenceType, typeParameter.ConstraintKind);
+        Assert.True(SymbolEqualityComparer.Default.Equals(typeParameter, parameterType.UnderlyingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(typeParameter, returnType.UnderlyingType));
+
+        var constructedBox = box.Construct([consumer.GetSpecialType(SpecialType.System_String)]);
+        var constructedMethod = Assert.Single(constructedBox.GetMembers("Echo").OfType<IMethodSymbol>());
+        var constructedParameter = Assert.IsType<NullableTypeSymbol>(Assert.Single(constructedMethod.Parameters).Type);
+        var constructedReturn = Assert.IsType<NullableTypeSymbol>(constructedMethod.ReturnType);
+
+        Assert.Equal(SpecialType.System_String, constructedParameter.UnderlyingType.SpecialType);
+        Assert.Equal(SpecialType.System_String, constructedReturn.UnderlyingType.SpecialType);
+    }
+
     private static bool IsNullableAttribute(MetadataReader md, CustomAttributeHandle handle)
     {
         var attr = md.GetCustomAttribute(handle);
