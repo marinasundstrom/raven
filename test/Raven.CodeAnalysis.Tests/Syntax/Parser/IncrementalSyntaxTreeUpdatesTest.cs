@@ -227,6 +227,34 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
+    public void EditingNullableMatchArmThroughMissingExpression_MatchesFullParse()
+    {
+        var original = SourceText.From(
+            """
+            func Describe(value: string?) -> int {
+                return match value {
+                    string text => text.Length
+                    null => 0
+                }
+            }
+            """);
+        var tree = SyntaxTree.ParseText(original);
+        var missingExpression = SourceText.From(original.ToString().Replace(
+            "null => 0",
+            "null =>",
+            StringComparison.Ordinal));
+        AssertIncrementalStepMatchesFullParse(tree, missingExpression, "missing nullable match arm expression", out tree);
+
+        var restored = SourceText.From(missingExpression.ToString().Replace(
+            "null =>",
+            "null => 0",
+            StringComparison.Ordinal));
+        AssertIncrementalStepMatchesFullParse(tree, restored, "restored nullable match arm expression", out tree);
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void EditingValidTreeToMissingExpression_MatchesFullParseDiagnostics()
     {
         var original = SourceText.From(

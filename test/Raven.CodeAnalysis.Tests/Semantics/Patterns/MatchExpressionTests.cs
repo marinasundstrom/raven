@@ -990,6 +990,75 @@ func Describe(color: Color) -> string {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NullableMatchExpression_MissingArmExpressionRecoversAcrossWorkspaceEdit(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Stable() -> int => 42
+
+            func Describe(value: string?) -> int {
+                return match value {
+                    string text => text.Length
+                    null => 0
+                }
+            }
+
+            func Main() -> int => Stable()
+            """;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "incremental-nullable-match-recovery",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        project = project.AddDocument("main.rvn", SourceText.From(source), "/tmp/main.rvn").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        AssertSnapshot(source, expectErrors: false);
+
+        var brokenSource = source.Replace("null => 0", "null =>", StringComparison.Ordinal);
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(brokenSource)));
+        AssertSnapshot(brokenSource, expectErrors: true);
+
+        document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(source)));
+        AssertSnapshot(source, expectErrors: false);
+
+        void AssertSnapshot(string expectedText, bool expectErrors)
+        {
+            var compilation = workspace.GetCompilation(projectId);
+            var tree = Assert.Single(compilation.SyntaxTrees);
+            Assert.Equal(expectedText, tree.GetText()!.ToString());
+            var model = compilation.GetSemanticModel(tree);
+            if (diagnosticsFirst)
+                _ = compilation.GetDiagnostics();
+
+            var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+            var stableInvocation = tree.GetRoot()
+                .DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Single(invocation => invocation.Expression.ToString() == "Stable");
+            var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(stableInvocation).Symbol);
+            var exhaustiveness = model.GetMatchExhaustiveness(match);
+            var diagnostics = compilation.GetDiagnostics();
+
+            Assert.Equal("Stable", stable.Name);
+            if (!expectErrors)
+                Assert.True(exhaustiveness.IsExhaustive);
+            Assert.Equal(expectErrors, diagnostics.Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        }
+    }
+
     [Fact]
     public void MatchExpression_WithEnumArms_MissingCase_ReportsDiagnostic()
     {

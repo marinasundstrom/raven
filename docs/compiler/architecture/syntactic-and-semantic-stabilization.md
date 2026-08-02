@@ -1225,6 +1225,14 @@ conditional access as optional mutable null-flow analysis.
    contaminate unrelated declarations or replace local errors with
    invocation-site resolution failures.
 
+Nullable match editing now has a focused recovery invariant. Removing an arm
+expression must produce the same syntax and diagnostics under incremental and
+full parsing, retain the surrounding match node, and leave unrelated sibling
+declarations resolvable. Restoring the expression must remove the transient
+errors and recover the original exhaustiveness result in either semantic-query
+order. This keeps an ordinary incomplete editor snapshot local instead of
+turning it into stale semantic state or document-wide declaration loss.
+
 These priorities describe correctness risk, not a request for a broad rewrite.
 Each slice should keep using the smallest failing semantic boundary and a
 public diagnostic, symbol, type, operation, metadata, or runtime assertion.
