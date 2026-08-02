@@ -15,6 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - An incomplete generic constraint clause such as `where T:` now reports a
   localized missing-constraint diagnostic while retaining the declaration and
   later sibling declarations for semantic queries during edits.
+- Constant-false loops now have an explicit null-flow contract: mutations in
+  their unreachable bodies do not weaken the state at the following reachable
+  statement, independent of semantic-query order.
 - Lexical function scopes now retain complete overload sets instead of replacing
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function
