@@ -728,6 +728,58 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NullableParameterInference_RejectedConstraintRetainsProjectedCandidate(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        var libraryTree = SyntaxTree.ParseText("""
+            namespace NullableConstraintLibrary {
+                public func RequireValue<T>(value: T?) -> T
+                    where T: struct
+                {
+                    if let present: T = value {
+                        return present
+                    }
+
+                    throw System.Exception()
+                }
+            }
+            """);
+        var consumerTree = SyntaxTree.ParseText("""
+            import NullableConstraintLibrary.*
+
+            let value: string? = null
+            let result = RequireValue(value)
+            """);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "NullableConstraintLibrary")])
+            : CreateCompilation([libraryTree, consumerTree]);
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var model = compilation.GetSemanticModel(consumerTree);
+        var diagnostics = diagnosticsFirst ? compilation.GetDiagnostics() : default;
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        if (!diagnosticsFirst)
+            diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.OverloadResolutionFailure, symbolInfo.CandidateReason);
+        var candidate = Assert.IsAssignableFrom<IMethodSymbol>(Assert.Single(symbolInfo.CandidateSymbols));
+        Assert.Equal(SpecialType.System_String, Assert.Single(candidate.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, candidate.ReturnType.SpecialType);
+        var nullableParameter = Assert.IsType<NullableTypeSymbol>(Assert.Single(candidate.Parameters).Type);
+        Assert.Equal(SpecialType.System_String, nullableParameter.UnderlyingType.SpecialType);
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {

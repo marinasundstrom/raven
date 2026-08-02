@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Generic calls rejected by type-parameter constraints now retain the inferred,
+  constructed method as their semantic candidate. Nullable generic parameters
+  are projected consistently through Raven's unified nullable symbol model for
+  both source and metadata methods.
 - Control-flow analysis now lets an abrupt `finally` replace pending loop
   transfers before publishing exits. A `continue` in `finally` therefore
   suppresses an enclosed `break` instead of making a non-completing loop appear

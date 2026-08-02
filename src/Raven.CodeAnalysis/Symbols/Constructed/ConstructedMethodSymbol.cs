@@ -361,6 +361,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                         changed = true;
                 }
 
+                if ((named.ConstructedFrom ?? named).SpecialType == SpecialType.System_Nullable_T &&
+                    substitutedArgs.Length == 1)
+                {
+                    var underlyingType = substitutedArgs[0];
+                    var result = underlyingType.IsNullable
+                        ? underlyingType
+                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                    cache[type] = result;
+                    return result;
+                }
+
                 if (!changed)
                 {
                     // Even if type arguments did not change, nested types may need re-anchoring

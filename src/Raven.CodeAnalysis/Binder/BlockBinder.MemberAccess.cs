@@ -266,7 +266,10 @@ partial class BlockBinder
             {
                 return _binder.ErrorExpression(
                     reason: BoundExpressionReason.OverloadResolutionFailed,
-                    candidates: AsSymbolCandidates(methodGroup.Methods));
+                    candidates: AsSymbolCandidates(
+                        resolution.ConstraintFailureCandidate is { } rejected
+                            ? ImmutableArray.Create(rejected)
+                            : methodGroup.Methods));
             }
 
             _binder.ReportSuppressedLambdaDiagnostics(boundArguments);

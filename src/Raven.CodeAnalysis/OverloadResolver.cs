@@ -30,6 +30,7 @@ internal sealed class OverloadResolver
         ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
         bool bestIsExtension = false;
         TypeArgumentConstraintFailure? constraintFailure = null;
+        IMethodSymbol? constraintFailureCandidate = null;
         var applicableCandidates = new List<ApplicableOverloadCandidate>();
 
         foreach (var candidate in DistinctCandidates(methods))
@@ -49,7 +50,8 @@ internal sealed class OverloadResolver
                 explicitTypeArguments: !explicitTypeArguments.IsDefaultOrEmpty
                     ? explicitTypeArguments
                     : GetExplicitTypeArguments(callSyntax, compilation),
-                constraintFailure: out var candidateConstraintFailure);
+                constraintFailure: out var candidateConstraintFailure,
+                retainConstraintFailureCandidate: true);
             if (method is null)
             {
                 candidateStatus = OverloadCandidateStatus.TypeInferenceFailed;
@@ -59,6 +61,15 @@ internal sealed class OverloadResolver
             }
 
             constructed = method;
+            if (candidateConstraintFailure is not null)
+            {
+                constraintFailure ??= candidateConstraintFailure;
+                constraintFailureCandidate ??= method;
+                candidateStatus = OverloadCandidateStatus.TypeInferenceFailed;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, isExtension: false, candidateComparisons);
+                continue;
+            }
+
             var parameters = method.Parameters;
             var treatAsExtension = method.IsExtensionMethod && receiver is not null;
             var providedCount = arguments.Length + (treatAsExtension ? 1 : 0);
@@ -173,7 +184,7 @@ internal sealed class OverloadResolver
         if (ambiguous is { Count: > 0 })
             return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
 
-        return new OverloadResolutionResult(bestMatch, constraintFailure);
+        return new OverloadResolutionResult(bestMatch, constraintFailure, constraintFailureCandidate);
 
         void RecordCandidate(
             IMethodSymbol original,
@@ -465,7 +476,8 @@ internal sealed class OverloadResolver
         Compilation compilation,
         Binder? binder,
         ImmutableArray<ITypeSymbol> explicitTypeArguments,
-        out TypeArgumentConstraintFailure? constraintFailure)
+        out TypeArgumentConstraintFailure? constraintFailure,
+        bool retainConstraintFailureCandidate = false)
     {
         constraintFailure = null;
         var treatAsReceiverExtension = method.ExtensionMemberKind != ExtensionMemberKind.None && receiver is not null;
@@ -519,13 +531,22 @@ internal sealed class OverloadResolver
                 treatAsExtension,
                 compilation,
                 binder,
-                out constraintFailure);
+                out constraintFailure,
+                retainConstraintFailureCandidate);
 
             return constructed;
         }
 
         // Otherwise infer all method type parameters.
-        return TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation, binder, out constraintFailure);
+        return TryConstructMethodWithInference(
+            method,
+            receiver,
+            arguments,
+            treatAsExtension,
+            compilation,
+            binder,
+            out constraintFailure,
+            retainConstraintFailureCandidate);
     }
 
     private static bool TryConstructMethodOnReceiver(
@@ -599,12 +620,21 @@ internal sealed class OverloadResolver
     bool treatAsExtension,
     Compilation compilation,
     Binder? binder,
-    out TypeArgumentConstraintFailure? constraintFailure)
+    out TypeArgumentConstraintFailure? constraintFailure,
+    bool retainConstraintFailureCandidate)
     {
         constraintFailure = null;
 
         if (explicitTypeArguments.IsDefaultOrEmpty)
-            return TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation, binder, out constraintFailure) ?? method;
+            return TryConstructMethodWithInference(
+                method,
+                receiver,
+                arguments,
+                treatAsExtension,
+                compilation,
+                binder,
+                out constraintFailure,
+                retainConstraintFailureCandidate) ?? method;
 
         var arity = method.TypeParameters.Length;
         if (explicitTypeArguments.Length > arity)
@@ -630,7 +660,7 @@ internal sealed class OverloadResolver
 
             var immutableExplicitArgs = ImmutableArray.CreateRange(finalExplicitArgs);
             if (!SatisfiesMethodConstraints(method, immutableExplicitArgs, binder, out constraintFailure))
-                return null;
+                return retainConstraintFailureCandidate ? method.Construct(finalExplicitArgs) : null;
 
             return method.Construct(finalExplicitArgs);
         }
@@ -737,7 +767,7 @@ internal sealed class OverloadResolver
 
         var immutableArguments = ImmutableArray.CreateRange(finalArgs);
         if (!SatisfiesMethodConstraints(method, immutableArguments, binder, out constraintFailure))
-            return null;
+            return retainConstraintFailureCandidate ? method.Construct(finalArgs) : null;
 
         return method.Construct(finalArgs);
     }
@@ -749,7 +779,8 @@ internal sealed class OverloadResolver
         bool treatAsExtension,
         Compilation compilation,
         Binder? binder,
-        out TypeArgumentConstraintFailure? constraintFailure)
+        out TypeArgumentConstraintFailure? constraintFailure,
+        bool retainConstraintFailureCandidate)
     {
         constraintFailure = null;
 
@@ -835,7 +866,7 @@ internal sealed class OverloadResolver
         var immutableArguments = ImmutableArray.CreateRange(inferredArguments);
 
         if (!SatisfiesMethodConstraints(method, immutableArguments, binder, out constraintFailure))
-            return null;
+            return retainConstraintFailureCandidate ? method.Construct(inferredArguments) : null;
 
         return method.Construct(inferredArguments);
     }
@@ -1239,6 +1270,20 @@ internal sealed class OverloadResolver
         if (argumentType.TypeKind == TypeKind.Error)
             return false;
 
+        if (TryGetNullableInferenceUnderlyingType(parameterType, out var nullableParameterType))
+        {
+            var nullableArgumentType = TryGetNullableInferenceUnderlyingType(argumentType, out var underlyingArgumentType)
+                ? underlyingArgumentType
+                : argumentType;
+
+            return TryInferFromTypes(
+                compilation,
+                nullableParameterType,
+                nullableArgumentType,
+                substitutions,
+                inferenceMethod);
+        }
+
         if (parameterType is ITypeParameterSymbol typeParameter)
         {
             typeParameter = GetCanonicalTypeParameter(typeParameter, inferenceMethod);
@@ -1329,15 +1374,6 @@ internal sealed class OverloadResolver
 
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
             return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod);
-
-        if (parameterType is NullableTypeSymbol paramNullable)
-        {
-            var nullableArgumentType = argumentType is NullableTypeSymbol argNullable
-                ? argNullable.UnderlyingType
-                : argumentType;
-
-            return TryInferFromTypes(compilation, paramNullable.UnderlyingType, nullableArgumentType, substitutions, inferenceMethod);
-        }
 
         return true;
 
@@ -1561,6 +1597,31 @@ internal sealed class OverloadResolver
             return literal.UnderlyingType;
 
         return type;
+    }
+
+    private static bool TryGetNullableInferenceUnderlyingType(
+        ITypeSymbol type,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? underlyingType)
+    {
+        if (type is NullableTypeSymbol nullable)
+        {
+            underlyingType = nullable.UnderlyingType;
+            return true;
+        }
+
+        if (type is INamedTypeSymbol named &&
+            (named.ConstructedFrom ?? named).SpecialType == SpecialType.System_Nullable_T)
+        {
+            var arguments = TypeSubstitution.GetShallowTypeArguments(named);
+            if (arguments.Length == 1)
+            {
+                underlyingType = arguments[0];
+                return true;
+            }
+        }
+
+        underlyingType = null;
+        return false;
     }
 
     private static ITypeParameterSymbol GetCanonicalTypeParameter(ITypeParameterSymbol typeParameter, IMethodSymbol? inferenceMethod)
@@ -3047,23 +3108,33 @@ internal sealed class OverloadResolver
 internal readonly struct OverloadResolutionResult
 {
     public OverloadResolutionResult(IMethodSymbol? method)
-        : this(method, ImmutableArray<IMethodSymbol>.Empty, null)
+        : this(method, ImmutableArray<IMethodSymbol>.Empty, null, null)
     {
     }
 
     internal OverloadResolutionResult(IMethodSymbol? method, TypeArgumentConstraintFailure? constraintFailure)
-        : this(method, ImmutableArray<IMethodSymbol>.Empty, constraintFailure)
+        : this(method, ImmutableArray<IMethodSymbol>.Empty, constraintFailure, null)
+    {
+    }
+
+    internal OverloadResolutionResult(
+        IMethodSymbol? method,
+        TypeArgumentConstraintFailure? constraintFailure,
+        IMethodSymbol? constraintFailureCandidate)
+        : this(method, ImmutableArray<IMethodSymbol>.Empty, constraintFailure, constraintFailureCandidate)
     {
     }
 
     private OverloadResolutionResult(
         IMethodSymbol? method,
         ImmutableArray<IMethodSymbol> ambiguousCandidates,
-        TypeArgumentConstraintFailure? constraintFailure)
+        TypeArgumentConstraintFailure? constraintFailure,
+        IMethodSymbol? constraintFailureCandidate)
     {
         Method = method;
         AmbiguousCandidates = ambiguousCandidates;
         ConstraintFailure = constraintFailure;
+        ConstraintFailureCandidate = constraintFailureCandidate;
     }
 
     public IMethodSymbol? Method { get; }
@@ -3071,6 +3142,8 @@ internal readonly struct OverloadResolutionResult
     public ImmutableArray<IMethodSymbol> AmbiguousCandidates { get; }
 
     public TypeArgumentConstraintFailure? ConstraintFailure { get; }
+
+    public IMethodSymbol? ConstraintFailureCandidate { get; }
 
     public bool Success => Method is not null && !IsAmbiguous;
 
@@ -3081,7 +3154,7 @@ internal readonly struct OverloadResolutionResult
         if (candidates.IsDefault)
             candidates = ImmutableArray<IMethodSymbol>.Empty;
 
-        return new OverloadResolutionResult(null, candidates, null);
+        return new OverloadResolutionResult(null, candidates, null, null);
     }
 }
 
