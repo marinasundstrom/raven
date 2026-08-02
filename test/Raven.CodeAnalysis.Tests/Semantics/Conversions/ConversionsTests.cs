@@ -490,4 +490,73 @@ public class Box<T> {
         if (!diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NestedConstructedGenericConversionOperator_SubstitutesOuterAndInnerArguments(
+        bool consumeMetadata,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+public class Outer<TOuter> {
+    public class Box<TValue> {
+        static func implicit(value: TOuter) -> Box<TValue> {
+            return default!
+        }
+    }
+}
+""";
+
+        Compilation compilation;
+        if (consumeMetadata)
+        {
+            var reference = TestMetadataFactory.CreateFromSource(
+                librarySource,
+                "nested_constructed_generic_conversion_library");
+            compilation = Compilation.Create(
+                "nested_constructed_generic_conversion_consumer",
+                [],
+                [.. TestMetadataReferences.Default, reference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        }
+        else
+        {
+            (compilation, _) = CreateCompilation(
+                librarySource,
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        }
+
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Outer`1"));
+        var outerOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(stringType));
+        var boxDefinition = Assert.Single(outerOfString.GetMembers("Box").OfType<INamedTypeSymbol>());
+        Assert.Equal(1, boxDefinition.Arity);
+        var boxOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(boxDefinition.Construct(intType));
+        var conversion = compilation.ClassifyConversion(stringType, boxOfInt, includeUserDefined: true);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(conversion.MethodSymbol);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boxOfInt, method.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, Assert.Single(method.Parameters).Type));
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(boxOfInt.ContainingType, returnType.ContainingType),
+            $"Expected containing '{boxOfInt.ContainingType?.ToDisplayString()}', got '{returnType.ContainingType?.ToDisplayString()}'.");
+        Assert.True(SymbolEqualityComparer.Default.Equals(boxOfInt.OriginalDefinition, returnType.OriginalDefinition));
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(boxOfInt, returnType),
+            $"Expected '{boxOfInt.ToDisplayString()}', got '{returnType.ToDisplayString()}'.");
+
+        if (!diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
 }

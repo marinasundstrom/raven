@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Constructed nested generic members now canonicalize substituted self-types
+  back to their current constructed receiver. Source and PE conversion
+  operators consequently preserve both outer and inner type arguments in their
+  containing and return types.
 - Binary-expression result targets no longer flow into their operands. A
   Boolean context such as a catch filter therefore preserves the method return
   target of a nested `return` expression instead of coercing its value to

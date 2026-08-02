@@ -175,6 +175,13 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
     {
+        if (type is INamedTypeSymbol namedSelf &&
+            ReferenceEquals(TypeSubstitution.GetDefinitionForSubstitution(namedSelf), _originalDefinition) &&
+            HaveEquivalentExplicitTypeArguments(namedSelf))
+        {
+            return this;
+        }
+
         if (type is RefTypeSymbol refType)
         {
             var rewrittenElement = ReanchorNestedTypeIfNeeded(refType.ElementType, methodMap);
@@ -197,6 +204,21 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         }
 
         return type;
+    }
+
+    private bool HaveEquivalentExplicitTypeArguments(INamedTypeSymbol candidate)
+    {
+        var candidateArguments = GetShallowTypeArguments(candidate);
+        if (candidateArguments.Length != _explicitTypeArguments.Length)
+            return false;
+
+        for (var index = 0; index < candidateArguments.Length; index++)
+        {
+            if (!IsEquivalentForSubstitution(candidateArguments[index], _explicitTypeArguments[index]))
+                return false;
+        }
+
+        return true;
     }
 
 
