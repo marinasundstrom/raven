@@ -519,16 +519,23 @@ func Compute() -> int {
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [InlineData("(return 1) == 0", false)]
+    [InlineData("(return 1) == 0", true)]
+    [InlineData("(return 1).Equals(0)", false)]
+    [InlineData("(return 1).Equals(0)", true)]
+    [InlineData("!((return 1) == 0)", false)]
+    [InlineData("!((return 1) == 0)", true)]
     public void AnalyzeControlFlow_NestedReturnInCatchFilterMakesCatchAndFollowingCodeUnreachable(
+        string guard,
         bool diagnosticsFirst)
     {
-        const string source = """
+        var source = $$"""
+import System.*
+
 func Compute() -> int {
     try {
         throw Exception()
-    } catch Exception error when (return 1) == 0 {
+    } catch Exception error when {{guard}} {
         let unreachableCatch = 0
     }
 
@@ -552,10 +559,10 @@ func Compute() -> int {
             .ShouldBeOfType<ReturnExpressionSyntax>();
         analysis.UnreachableStatements.Count().ShouldBe(2);
         analysis.EndPointIsReachable.ShouldBeFalse();
-        compilation.GetDiagnostics().ShouldNotContain(
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
-        compilation.GetDiagnostics().ShouldNotContain(
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
+        var errors = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+        Assert.True(errors.Length == 0, string.Join(Environment.NewLine, errors));
     }
 
     [Fact]

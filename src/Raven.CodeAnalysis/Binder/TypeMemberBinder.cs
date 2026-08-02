@@ -527,7 +527,7 @@ internal partial class TypeMemberBinder : Binder
             {
                 var exprBinder = new BlockBinder(_containingType, this);
 
-                var targetType = exprBinder.PushTargetType(fieldType);
+                var targetType = exprBinder.PushTargetType(fieldType, decl.Initializer.Value);
 
                 initializer = exprBinder.BindExpression(decl.Initializer.Value);
 

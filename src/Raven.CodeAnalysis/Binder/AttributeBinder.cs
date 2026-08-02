@@ -173,7 +173,7 @@ internal sealed class AttributeBinder : BlockBinder
 
     private BoundExpression BindAttributeArgumentExpression(ExpressionSyntax expression, ITypeSymbol targetType)
     {
-        using var _ = PushTargetType(targetType);
+        using var _ = PushTargetType(targetType, expression);
         return BindExpression(expression);
     }
 

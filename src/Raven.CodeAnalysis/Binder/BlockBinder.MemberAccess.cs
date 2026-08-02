@@ -328,7 +328,7 @@ partial class BlockBinder
                 syntax.Span.Start,
                 syntax.Span.Length,
                 GetTypeKey(methodGroup.Receiver?.Type),
-                GetTypeKey(_binder._targetTypeStack.Count > 0 ? _binder._targetTypeStack.Peek() : null),
+                GetTypeKey(_binder.GetScopedTargetType(syntax)),
                 GetSymbolKey(methodGroup.SelectedMethod),
                 string.Join("|", methodGroup.Methods.Select(GetSymbolKey)));
         }

@@ -61,7 +61,7 @@ partial class BlockBinder : Binder
     private readonly HashSet<ISymbol> _maybeNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<MemberFlowSlotKey, MemberFlowSlotSymbol> _memberFlowSlots = new(MemberFlowSlotKeyComparer.Instance);
     private readonly Stack<LoopNullFlowContext> _loopNullFlowContexts = new();
-    private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
+    private readonly Stack<TargetTypeFrame> _targetTypeStack = new();
     private readonly InvocationResolver _invocationResolver;
     private readonly BlockDeclarationState _declarationState = new();
     private readonly StatementDeclarationProgress _statementDeclarationProgress = new();
@@ -2186,10 +2186,16 @@ partial class BlockBinder : Binder
     }
 
     public TargetTypeScope PushTargetType(ITypeSymbol? targetType)
+        => PushTargetTypeCore(new TargetTypeFrame(targetType, Root: null, AppliesToDescendants: true));
+
+    internal TargetTypeScope PushTargetType(ITypeSymbol? targetType, ExpressionSyntax root)
+        => PushTargetTypeCore(new TargetTypeFrame(targetType, root, AppliesToDescendants: false));
+
+    private TargetTypeScope PushTargetTypeCore(TargetTypeFrame frame)
     {
         Monitor.Enter(_executionGate);
         var depthBeforePush = _targetTypeStack.Count;
-        _targetTypeStack.Push(targetType);
+        _targetTypeStack.Push(frame);
         return new TargetTypeScope(this, depthBeforePush);
     }
 
@@ -2202,7 +2208,7 @@ partial class BlockBinder : Binder
         if (targetType is null)
             return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
 
-        using var _ = PushTargetType(targetType);
+        using var _ = PushTargetType(targetType, syntax);
         return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
     }
 
@@ -2233,7 +2239,7 @@ partial class BlockBinder : Binder
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         using var _ = EnterExecutionScope();
 
-        var activeTargetType = _targetTypeStack.Count > 0 ? _targetTypeStack.Peek() : null;
+        var activeTargetType = GetScopedTargetType(syntax);
         var useContextualCache = activeTargetType is not null;
         var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax;
 
@@ -2495,7 +2501,7 @@ partial class BlockBinder : Binder
 
         var bound = BindExpressionWithTargetType(
             expansion.Expression,
-            _targetTypeStack.Count > 0 ? _targetTypeStack.Peek() : null,
+            GetScopedTargetType(syntax),
             allowReturn: _allowReturnsInExpression,
             allowReturnInBlockExpressionsOnly: _allowReturnsInBlockExpressionsOnly);
 
@@ -3570,7 +3576,7 @@ partial class BlockBinder : Binder
         BoundExpression boundExpression;
         if (refKind.IsByRef && syntax.Expression is IdentifierNameSyntax identifier)
         {
-            using var _ = PushTargetType(expressionTargetType);
+            using var _ = PushTargetType(expressionTargetType, identifier);
             boundExpression = BindIdentifierName(identifier, applyFlowNarrowing: false);
         }
         else
@@ -6572,13 +6578,13 @@ partial class BlockBinder : Binder
         // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
         if (node.Parent is InfixOperatorExpressionSyntax binary &&
             node is ExpressionSyntax equalityOperand &&
-            IsTargetTypedEqualityOperand(equalityOperand) &&
+            IsTargetTypedMemberBinding(equalityOperand) &&
             (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken))
         {
             var other = ReferenceEquals(binary.Left, node) ? binary.Right : binary.Left;
 
             // Avoid recursion if the other side is also target-typed.
-            if (other is not ExpressionSyntax otherExpression || !IsTargetTypedEqualityOperand(otherExpression))
+            if (other is not ExpressionSyntax otherExpression || !IsTargetTypedMemberBinding(otherExpression))
             {
                 var otherBound = BindExpression(other);
                 if (otherBound.Type is { } otherType &&
@@ -6591,27 +6597,41 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        return GetTargetTypeFromBinderChain();
+        return GetTargetTypeFromBinderChain(node);
     }
 
-    private static bool IsTargetTypedEqualityOperand(ExpressionSyntax expression)
+    private static bool IsTargetTypedMemberBinding(ExpressionSyntax expression)
     {
         return expression is MemberBindingExpressionSyntax ||
                expression is InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax };
     }
 
-    private ITypeSymbol? GetTargetTypeFromBinderChain()
+    private ITypeSymbol? GetTargetTypeFromBinderChain(SyntaxNode node)
     {
         for (Binder? binder = this; binder is not null; binder = binder.ParentBinder)
         {
             if (binder is BlockBinder blockBinder &&
                 blockBinder._targetTypeStack.Count > 0)
             {
-                return blockBinder._targetTypeStack.Peek();
+                var frame = blockBinder._targetTypeStack.Peek();
+                return frame.AppliesToDescendants || ReferenceEquals(frame.Root, node)
+                    ? frame.Type
+                    : null;
             }
         }
 
         return null;
+    }
+
+    private ITypeSymbol? GetScopedTargetType(SyntaxNode node)
+    {
+        if (_targetTypeStack.Count == 0)
+            return null;
+
+        var frame = _targetTypeStack.Peek();
+        return frame.AppliesToDescendants || ReferenceEquals(frame.Root, node)
+            ? frame.Type
+            : null;
     }
 
     private ITypeSymbol? GetConstructorArgumentTargetTypeFromSyntax(
@@ -8709,13 +8729,14 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindBinaryExpression(InfixOperatorExpressionSyntax syntax)
     {
-        var left = BindExpressionWithoutTargetType(syntax.Left);
+        var expressionTargetType = GetScopedTargetType(syntax);
+        var left = BindBinaryOperand(syntax.Left, expressionTargetType);
         var opKind = syntax.OperatorToken.Kind;
 
         if (opKind == SyntaxKind.PipeToken)
             return BindPipeExpression(left, syntax);
 
-        var right = BindExpressionWithoutTargetType(syntax.Right);
+        var right = BindBinaryOperand(syntax.Right, expressionTargetType);
 
         return BindBinaryExpression(
             opKind,
@@ -8726,6 +8747,11 @@ partial class BlockBinder : Binder
             syntax.Right,
             syntax);
     }
+
+    private BoundExpression BindBinaryOperand(ExpressionSyntax operand, ITypeSymbol? expressionTargetType)
+        => expressionTargetType is not null && IsTargetTypedMemberBinding(operand)
+            ? BindExpressionWithTargetType(operand, expressionTargetType)
+            : BindExpression(operand);
 
     private BoundExpression BindBinaryExpression(
         SyntaxKind opKind,
@@ -13916,6 +13942,11 @@ partial class BlockBinder : Binder
             }
         }
     }
+
+    private readonly record struct TargetTypeFrame(
+        ITypeSymbol? Type,
+        SyntaxNode? Root,
+        bool AppliesToDescendants);
 
     private readonly struct ExecutionScope : IDisposable
     {

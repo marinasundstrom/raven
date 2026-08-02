@@ -393,7 +393,7 @@ partial class BlockBinder
         {
             if (lambdaBodyTargetType is not null)
             {
-                using var _ = lambdaBinder.PushTargetType(lambdaBodyTargetType);
+                using var _ = lambdaBinder.PushTargetType(lambdaBodyTargetType, lambdaBodySyntax);
                 bodyExpr = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
             }
             else

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Binder target-type scopes are now attached to the expression they target
+  instead of flowing ambiently into every descendant. Composite operands keep
+  their own semantics, while genuinely target-dependent forms such as enum
+  member bindings receive their context explicitly.
 - Constructed nested generic members now canonicalize substituted self-types
   back to their current constructed receiver. Source and PE conversion
   operators consequently preserve both outer and inner type arguments in their
