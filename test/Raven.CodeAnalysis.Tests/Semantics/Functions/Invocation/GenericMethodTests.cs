@@ -676,6 +676,58 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false, "string", "\"fallback\"", SpecialType.System_String, false)]
+    [InlineData(false, "string", "\"fallback\"", SpecialType.System_String, true)]
+    [InlineData(false, "int", "0", SpecialType.System_Int32, false)]
+    [InlineData(false, "int", "0", SpecialType.System_Int32, true)]
+    [InlineData(true, "string", "\"fallback\"", SpecialType.System_String, false)]
+    [InlineData(true, "string", "\"fallback\"", SpecialType.System_String, true)]
+    [InlineData(true, "int", "0", SpecialType.System_Int32, false)]
+    [InlineData(true, "int", "0", SpecialType.System_Int32, true)]
+    public void NullableParameterInference_MatchesSourceAndMetadata(
+        bool useMetadata,
+        string typeName,
+        string fallback,
+        SpecialType expectedType,
+        bool diagnosticsFirst)
+    {
+        var libraryTree = SyntaxTree.ParseText("""
+            namespace NullableInferenceLibrary {
+                public func Coalesce<T>(value: T?, fallback: T) -> T {
+                    if let present: T = value {
+                        return present
+                    }
+
+                    return fallback
+                }
+            }
+            """);
+        var consumerTree = SyntaxTree.ParseText($$"""
+            import NullableInferenceLibrary.*
+
+            let value: {{typeName}}? = null
+            let result = Coalesce(value, {{fallback}})
+            """);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "NullableInferenceLibrary")])
+            : CreateCompilation([libraryTree, consumerTree]);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(expectedType, Assert.Single(method.TypeArguments).SpecialType);
+        Assert.Equal(expectedType, method.ReturnType.SpecialType);
+        var nullableParameter = Assert.IsType<NullableTypeSymbol>(method.Parameters[0].Type);
+        Assert.Equal(expectedType, nullableParameter.UnderlyingType.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void MetadataGenericMethod_ConstraintUsingConstructedContainingType_IsSatisfied()
     {
