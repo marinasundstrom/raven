@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Null-flow state captured by `break` now passes through an enclosing
+  `finally`: possible assignments invalidate pre-finally non-null facts, and an
+  abrupt `finally` replaces pending protected-region breaks. Loop exits no
+  longer publish stale nullability after cleanup code runs.
 - Generic inference and constructed signatures now preserve type parameters
   nested through nullable arrays, tuples, and constructed generic arguments.
   Raven tuple projections compare consistently with emitted

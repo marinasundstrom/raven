@@ -1632,6 +1632,48 @@ public class NullableTypeTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GetTypeInfo_FinallyMutationAppliesBeforeBreakLoopExit(bool diagnosticsFirst)
+    {
+        const string source = """
+            func Length(input: string?) -> int {
+                var value: string? = input
+                if value is null {
+                    return 0
+                }
+
+                loop {
+                    try {
+                        break
+                    } finally {
+                        value = null
+                    }
+                }
+
+                return value.Length
+            }
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.ValueText == "Length")
+            .Expression;
+        var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
+
+        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
+        Assert.Equal(NullableFlowState.MaybeNull, typeInfo.Nullability.FlowState);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GetTypeInfo_AbruptFinallySuppressesContinueLoopBackEdge(bool diagnosticsFirst)
     {
         const string source = """

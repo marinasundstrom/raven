@@ -577,6 +577,9 @@ partial class BlockBinder
 
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
+        var loopBreakStateStarts = _loopNullFlowContexts
+            .Select(static context => (Context: context, Start: context.BreakStates.Count))
+            .ToArray();
         var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         var catchEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
         catchEntryState.ExceptWith(GetPotentiallyAssignedFlowSymbols(tryStmt.Block));
@@ -605,7 +608,16 @@ partial class BlockBinder
 
         BoundBlockStatement? finallyBlock = null;
         if (tryStmt.FinallyClause is { } finallyClause)
+        {
+            var protectedBreakStateEnds = loopBreakStateStarts
+                .Select(static snapshot => snapshot.Context.BreakStates.Count)
+                .ToArray();
             finallyBlock = BindBlockStatement(finallyClause.Block);
+            ApplyFinallyToPendingBreakStates(
+                finallyClause.Block,
+                loopBreakStateStarts,
+                protectedBreakStateEnds);
+        }
 
         if (_containingSymbol is IMethodSymbol containingMethod &&
             GetReturnTargetType(containingMethod) is { } methodReturnType &&
@@ -622,6 +634,41 @@ partial class BlockBinder
             return tryBlock;
 
         return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+    }
+
+    private void ApplyFinallyToPendingBreakStates(
+        BlockStatementSyntax finallyBlock,
+        IReadOnlyList<(LoopNullFlowContext Context, int Start)> snapshots,
+        IReadOnlyList<int> protectedEnds)
+    {
+        var finallyIsAbrupt = IsEarlyExitStatement(finallyBlock);
+        var possiblyAssigned = finallyIsAbrupt
+            ? null
+            : GetPotentiallyAssignedFlowSymbols(finallyBlock);
+
+        for (var snapshotIndex = 0; snapshotIndex < snapshots.Count; snapshotIndex++)
+        {
+            var (context, start) = snapshots[snapshotIndex];
+            var end = protectedEnds[snapshotIndex];
+            if (end <= start)
+                continue;
+
+            if (finallyIsAbrupt)
+            {
+                // A transfer from finally replaces every pending transfer from the
+                // protected region. Breaks originating in finally were appended after
+                // 'end' and remain owned by their target loops.
+                context.BreakStates.RemoveRange(start, end - start);
+                continue;
+            }
+
+            // Every pending break executes finally before reaching its loop exit. A
+            // possible write can invalidate an incoming non-null fact. Keep this
+            // conservative until null-flow effects have their own reusable structural
+            // transfer function; never publish a fact that only held before finally.
+            foreach (var state in context.BreakStates.Skip(start).Take(end - start))
+                state.ExceptWith(possiblyAssigned!);
+        }
     }
 
     private HashSet<ISymbol> GetPotentiallyAssignedFlowSymbols(SyntaxNode body)

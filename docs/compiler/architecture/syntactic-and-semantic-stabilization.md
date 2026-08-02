@@ -772,6 +772,15 @@ target. The mutation scan also recognizes a labeled break that prevents the
 target loop's back-edge, avoiding a different nullability result solely because
 the programmer made the transfer explicit.
 
+Pending loop exits also respect a `finally` boundary. A `break` captures state
+at its transfer point, but every possible assignment in a completing `finally`
+invalidates the corresponding facts before that state reaches the loop exit.
+An abrupt `finally` removes protected-region break states because its own
+transfer replaces them; breaks originating inside `finally` remain owned by
+their actual target loop. This is deliberately conservative: it prevents false
+non-null results now, while a future reusable flow-effect summary can recover
+facts that every `finally` path definitely establishes.
+
 Ordinary `try`/`catch` null-flow joins now contain only paths that can complete
 normally. A `try` ending in an abrupt transfer contributes no direct
 continuation, and a `catch` ending in one does not weaken the state produced by
