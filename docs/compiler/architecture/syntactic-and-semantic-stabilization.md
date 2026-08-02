@@ -954,7 +954,9 @@ ownership.
    ranking and less common inference forms still need a matrix. Numeric ranking
    now also has a three-candidate transitivity invariant: an `int` argument
    selects `long` over both `float` and `double`, independent of declaration and
-   semantic-query order.
+   semantic-query order. Generic inference independently extracts multiple type
+   arguments from a constructed metadata parameter such as
+   `Dictionary<TKey, TValue>`, also in both query orders.
 4. **Unified nullability contracts (high)** — declared annotation and flow state
    now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
    by-reference postconditions without splitting reference and value semantics;

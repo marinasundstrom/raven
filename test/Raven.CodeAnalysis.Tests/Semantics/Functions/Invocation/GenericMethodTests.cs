@@ -163,6 +163,40 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Equal(["Base", "String"], method.TypeArguments.Select(static type => type.Name));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GenericMethodInvocation_InfersMultipleArgumentsFromConstructedMetadataType(bool diagnosticsFirst)
+    {
+        const string source = """
+            import System.Collections.Generic.*
+
+            func GetValue<TKey, TValue>(values: Dictionary<TKey, TValue>) -> TValue {
+                values.Values.GetEnumerator().Current
+            }
+
+            func Test(values: Dictionary<string, int>) -> int {
+                GetValue(values)
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString() == "GetValue");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal(2, method.TypeArguments.Length);
+        Assert.Equal(SpecialType.System_String, method.TypeArguments[0].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, method.TypeArguments[1].SpecialType);
+        Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void GenericMethodInvocation_GenericMethodGroup_InfersBothMethods()
     {
