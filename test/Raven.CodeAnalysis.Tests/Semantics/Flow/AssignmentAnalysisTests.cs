@@ -440,6 +440,84 @@ func Compute() -> int {
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnalyzeControlFlow_NestedReturnInIfConditionMakesBranchesAndFollowingCodeUnreachable(
+        bool diagnosticsFirst)
+    {
+        const string source = """
+func Identity(value: int) -> int => value
+
+func Compute() -> int {
+    if Identity(return 1) == 0 {
+        let unreachableThen = 0
+    } else {
+        let unreachableElse = 0
+    }
+
+    let unreachableAfter = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "Compute")
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.ReturnStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<ReturnExpressionSyntax>();
+        analysis.UnreachableStatements.Count().ShouldBe(3);
+        compilation.GetDiagnostics().ShouldNotContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnalyzeControlFlow_NestedReturnInMatchScrutineeMakesArmsAndFollowingCodeUnreachable(
+        bool diagnosticsFirst)
+    {
+        const string source = """
+func Identity(value: int) -> int => value
+
+func Compute() -> int {
+    match Identity(return 1) {
+        _ => 0
+    }
+
+    let unreachableAfter = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "Compute")
+            .Body!;
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        analysis.Succeeded.ShouldBeTrue();
+        analysis.EndPointIsReachable.ShouldBeFalse();
+        analysis.ReturnStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<ReturnExpressionSyntax>();
+        analysis.UnreachableStatements.ShouldNotBeEmpty();
+        compilation.GetDiagnostics().ShouldNotContain(
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NotAllCodePathsReturnAValue);
+    }
+
     [Fact]
     public void AnalyzeControlFlow_ExhaustiveAbruptMatch_MakesFollowingStatementUnreachable()
     {

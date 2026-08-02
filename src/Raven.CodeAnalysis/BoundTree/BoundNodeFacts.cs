@@ -17,6 +17,14 @@ internal static class BoundNodeFacts
                 return IsAbruptExpression(conversion.Expression);
             case BoundUnaryExpression unary:
                 return IsAbruptExpression(unary.Operand);
+            case BoundBinaryExpression binary:
+                if (IsAbruptExpression(binary.Left))
+                    return true;
+
+                var operatorKind = binary.Operator.OperatorKind &
+                    ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+                return operatorKind is not (BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr) &&
+                    IsAbruptExpression(binary.Right);
             case BoundMemberAccessExpression { Receiver: { } receiver }:
                 return IsAbruptExpression(receiver);
             case BoundPointerMemberAccessExpression pointerMemberAccess:
@@ -43,10 +51,12 @@ internal static class BoundNodeFacts
             case BoundConditionalAccessExpression conditionalAccess:
                 return IsAbruptExpression(conditionalAccess.Receiver);
             case BoundIfExpression { ElseBranch: not null } ifExpression:
-                return IsAbruptExpression(ifExpression.ThenBranch) &&
+                return IsAbruptExpression(ifExpression.Condition) ||
+                    IsAbruptExpression(ifExpression.ThenBranch) &&
                     IsAbruptExpression(ifExpression.ElseBranch);
             case BoundMatchExpression { Arms.IsDefaultOrEmpty: false } matchExpression:
-                return matchExpression.Arms.All(static arm => IsAbruptExpression(arm.Expression));
+                return IsAbruptExpression(matchExpression.Expression) ||
+                    matchExpression.Arms.All(static arm => IsAbruptExpression(arm.Expression));
             case BoundBlockExpression block:
                 {
                     var last = block.Statements.LastOrDefault();

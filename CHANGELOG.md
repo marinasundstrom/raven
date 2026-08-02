@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Public control-flow analysis now recognizes abrupt expressions in required
+  conditions, loop inputs, lock receivers, and match scrutinees. A nested
+  `return` makes dependent branches and following statements unreachable in
+  either semantic-query order.
 - Postfix null suppression now has an explicit bound-tree identity and produces
   a non-nullable expression type and flow state. Inferred locals no longer
   retain the nullable operand type or report a false possible-null dereference.

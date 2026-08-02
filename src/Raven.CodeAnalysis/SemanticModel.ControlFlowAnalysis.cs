@@ -192,55 +192,49 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             case BlockStatementSyntax block:
                 return AnalyzeBlock(block, isReachable);
             case IfStatementSyntax ifStatement:
-                Visit(ifStatement.Condition);
+                var beforeIf = AnalyzeRequiredExpression(ifStatement.Condition, isReachable);
 
-                var beforeIf = isReachable;
-
-                _ = AnalyzeStatement(ifStatement.ThenStatement, beforeIf);
-                var thenReachable = _endPointIsReachable;
+                var thenReachable = AnalyzeStatement(ifStatement.ThenStatement, beforeIf);
 
                 var elseReachable = beforeIf;
                 if (ifStatement.ElseClause is { } elseClause)
-                {
-                    _ = AnalyzeStatement(elseClause.Statement, beforeIf);
-                    elseReachable = _endPointIsReachable;
-                }
+                    elseReachable = AnalyzeStatement(elseClause.Statement, beforeIf);
 
                 _endPointIsReachable = thenReachable || elseReachable;
                 return _endPointIsReachable;
             case IfPatternStatementSyntax ifPatternStatement:
-                Visit(ifPatternStatement.Expression);
+                beforeIf = AnalyzeRequiredExpression(ifPatternStatement.Expression, isReachable);
 
-                beforeIf = isReachable;
-
-                _ = AnalyzeStatement(ifPatternStatement.ThenStatement, beforeIf);
-                thenReachable = _endPointIsReachable;
+                thenReachable = AnalyzeStatement(ifPatternStatement.ThenStatement, beforeIf);
 
                 elseReachable = beforeIf;
                 if (ifPatternStatement.ElseClause is { } ifPatternElseClause)
-                {
-                    _ = AnalyzeStatement(ifPatternElseClause.Statement, beforeIf);
-                    elseReachable = _endPointIsReachable;
-                }
+                    elseReachable = AnalyzeStatement(ifPatternElseClause.Statement, beforeIf);
 
                 _endPointIsReachable = thenReachable || elseReachable;
                 return _endPointIsReachable;
             case WhileStatementSyntax whileStatement:
-                Visit(whileStatement.Condition);
-                var whileHasReachableBreak = AnalyzeLoopBody(whileStatement.Statement, isReachable);
+                var whileConditionReachable = AnalyzeRequiredExpression(whileStatement.Condition, isReachable);
+                var whileHasReachableBreak = AnalyzeLoopBody(whileStatement.Statement, whileConditionReachable);
+                if (!whileConditionReachable)
+                {
+                    _endPointIsReachable = false;
+                    return false;
+                }
+
                 _endPointIsReachable = IsConstantTrue(whileStatement.Condition)
                     ? isReachable && whileHasReachableBreak
                     : isReachable;
                 return _endPointIsReachable;
             case WhilePatternStatementSyntax whilePatternStatement:
-                Visit(whilePatternStatement.Expression);
-                AnalyzeLoopBody(whilePatternStatement.Statement, isReachable);
-                _endPointIsReachable = isReachable;
+                var whilePatternExpressionReachable = AnalyzeRequiredExpression(whilePatternStatement.Expression, isReachable);
+                AnalyzeLoopBody(whilePatternStatement.Statement, whilePatternExpressionReachable);
+                _endPointIsReachable = whilePatternExpressionReachable;
                 return _endPointIsReachable;
             case ForStatementSyntax forStatement:
-                Visit(forStatement.Expression);
-                AnalyzeLoopBody(forStatement.Body, isReachable);
-                _endPointIsReachable = isReachable;
+                var forExpressionReachable = AnalyzeRequiredExpression(forStatement.Expression, isReachable);
+                AnalyzeLoopBody(forStatement.Body, forExpressionReachable);
+                _endPointIsReachable = forExpressionReachable;
                 return _endPointIsReachable;
             case LoopStatementSyntax loopStatement:
                 var hasReachableBreak = AnalyzeLoopBody(loopStatement.Statement, isReachable);
@@ -249,8 +243,8 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             case MatchStatementSyntax matchStatement:
                 return AnalyzeMatchStatement(matchStatement, isReachable);
             case LockStatementSyntax lockStatement:
-                Visit(lockStatement.Expression);
-                return AnalyzeStatement(lockStatement.Statement, isReachable);
+                var lockExpressionReachable = AnalyzeRequiredExpression(lockStatement.Expression, isReachable);
+                return AnalyzeStatement(lockStatement.Statement, lockExpressionReachable);
             case UnsafeStatementSyntax unsafeStatement:
                 return AnalyzeStatement(unsafeStatement.Block, isReachable);
             case TryStatementSyntax tryStatement:
@@ -326,6 +320,18 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         }
     }
 
+    private bool AnalyzeRequiredExpression(ExpressionSyntax expression, bool isReachable)
+    {
+        Visit(expression);
+        CollectReturnExpressions(expression);
+
+        if (!isReachable)
+            return false;
+
+        var boundExpression = _semanticModel.GetBoundNode(expression);
+        return !BoundNodeFacts.IsAbruptExpression(boundExpression);
+    }
+
     private bool AnalyzeBlock(BlockStatementSyntax block, bool isReachable)
         => AnalyzeBlockStatements(block.Statements, isReachable);
 
@@ -370,7 +376,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             return isReachable;
         }
 
-        Visit(matchStatement.Expression);
+        var scrutineeReachable = AnalyzeRequiredExpression(matchStatement.Expression, isReachable);
 
         var anyArmCompletes = false;
         for (var index = 0; index < matchStatement.Arms.Count; index++)
@@ -381,7 +387,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             anyArmCompletes |= AnalyzeMatchArmExpression(
                 arm.Expression,
                 boundMatch.Arms[index].Expression,
-                isReachable);
+                scrutineeReachable);
         }
 
         var evaluator = new MatchExhaustivenessEvaluator(
@@ -389,7 +395,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             _semanticModel.TryGetCachedBoundNode);
         var exhaustiveness = evaluator.Evaluate(matchStatement, boundMatch, default);
 
-        _endPointIsReachable = isReachable && (!exhaustiveness.IsExhaustive || anyArmCompletes);
+        _endPointIsReachable = scrutineeReachable && (!exhaustiveness.IsExhaustive || anyArmCompletes);
         return _endPointIsReachable;
     }
 
