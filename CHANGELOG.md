@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Generic inference for `ref`, `out`, and `in` arguments now consumes the
+  referenced element type instead of leaking compiler-only address/ref wrapper
+  symbols into constructed method type arguments. Exact by-reference kind and
+  addressability checks still run during overload applicability.
 - Semantic queries after an event- or property-accessor body edit now recover
   the accessor's method binder directly, preserving accessor parameters and
   edited local types without forcing complete source declaration binding.

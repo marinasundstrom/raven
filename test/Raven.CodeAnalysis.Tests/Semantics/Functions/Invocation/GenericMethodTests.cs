@@ -1,5 +1,4 @@
 using System.Linq;
-using System.IO;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -822,6 +821,57 @@ public sealed class GenericMethodTests : CompilationTestBase
         var constructedBox = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableParameter.UnderlyingType);
         Assert.Equal("Box", constructedBox.Name);
         Assert.Equal(SpecialType.System_String, Assert.Single(constructedBox.TypeArguments).SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ByRefParameterInference_MatchesSourceAndMetadata(
+        bool useMetadata,
+        bool diagnosticsFirst)
+    {
+        var libraryTree = SyntaxTree.ParseText("""
+            namespace ByRefInferenceLibrary {
+                public func Read<T>(ref value: T) -> T {
+                    value
+                }
+            }
+            """);
+        var consumerTree = SyntaxTree.ParseText("""
+            import ByRefInferenceLibrary.*
+
+            var value = "raven"
+            let result = Read(ref value)
+            """);
+        var compilation = useMetadata
+            ? CreateCompilation(
+                consumerTree,
+                references: [.. TestMetadataReferences.Default, CreateLibraryReference(libraryTree, "ByRefInferenceLibrary")])
+            : CreateCompilation([libraryTree, consumerTree]);
+        if (!useMetadata)
+        {
+            var declaration = libraryTree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+            var openMethod = Assert.IsAssignableFrom<IMethodSymbol>(
+                compilation.GetSemanticModel(libraryTree).GetDeclaredSymbol(declaration));
+            var openParameter = Assert.Single(openMethod.Parameters);
+            Assert.Equal(RefKind.Ref, openParameter.RefKind);
+            Assert.IsAssignableFrom<ITypeParameterSymbol>(openParameter.Type);
+        }
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+        var parameter = Assert.Single(method.Parameters);
+
+        Assert.Equal(SpecialType.System_String, Assert.Single(method.TypeArguments).SpecialType);
+        Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
+        Assert.Equal(RefKind.Ref, parameter.RefKind);
+        Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType);
         Assert.Empty(compilation.GetDiagnostics());
     }
 

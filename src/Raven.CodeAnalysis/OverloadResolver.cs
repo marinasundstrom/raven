@@ -741,7 +741,14 @@ internal sealed class OverloadResolver
             if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
                 continue;
 
-            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions, method))
+            var parameterType = parameters[parameterIndex].Type;
+            if (parameters[parameterIndex].RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+            {
+                parameterType = GetByRefInferenceElementType(parameterType);
+                argumentType = GetByRefInferenceElementType(argumentType);
+            }
+
+            if (!TryInferFromTypes(compilation, parameterType, argumentType, substitutions, method))
                 return null;
         }
 
@@ -1593,11 +1600,22 @@ internal sealed class OverloadResolver
 
     private static ITypeSymbol NormalizeType(ITypeSymbol type)
     {
-        if (type is LiteralTypeSymbol literal)
-            return literal.UnderlyingType;
-
-        return type;
+        return type switch
+        {
+            LiteralTypeSymbol literal => literal.UnderlyingType,
+            IAddressTypeSymbol addressType => NormalizeType(addressType.ReferencedType),
+            RefTypeSymbol refType => NormalizeType(refType.ElementType),
+            _ => type,
+        };
     }
+
+    private static ITypeSymbol GetByRefInferenceElementType(ITypeSymbol type)
+        => type switch
+        {
+            IAddressTypeSymbol addressType => addressType.ReferencedType,
+            RefTypeSymbol refType => refType.ElementType,
+            _ => type,
+        };
 
     private static bool TryGetNullableInferenceUnderlyingType(
         ITypeSymbol type,

@@ -1204,6 +1204,8 @@ partial class BlockBinder
         return type switch
         {
             LiteralTypeSymbol literal => literal.UnderlyingType,
+            IAddressTypeSymbol addressType => NormalizeTypeForExtensionInference(addressType.ReferencedType),
+            RefTypeSymbol refType => NormalizeTypeForExtensionInference(refType.ElementType),
             _ => type
         };
     }
@@ -1369,7 +1371,8 @@ partial class BlockBinder
             if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
                 continue;
 
-            var parameterType = method.Parameters[parameterIndex].Type;
+            var parameter = method.Parameters[parameterIndex];
+            var parameterType = parameter.Type;
 
             // Only bother if this parameter type involves type parameters.
             if (!ContainsAnyTypeParameter(parameterType, method.TypeParameters))
@@ -1380,7 +1383,19 @@ partial class BlockBinder
             if (naturalBound.Type is null || naturalBound.Type.TypeKind == TypeKind.Error)
                 continue;
 
-            TryUnifyExtensionReceiverType(parameterType, naturalBound.Type, substitutions);
+            var argumentType = naturalBound.Type;
+            if (parameter.RefKind.IsByRef)
+            {
+                parameterType = parameter.GetByRefElementType();
+                argumentType = argumentType switch
+                {
+                    IAddressTypeSymbol addressType => addressType.ReferencedType,
+                    RefTypeSymbol refType => refType.ElementType,
+                    _ => argumentType,
+                };
+            }
+
+            TryUnifyExtensionReceiverType(parameterType, argumentType, substitutions);
         }
 
         return substitutions;
@@ -1417,6 +1432,15 @@ partial class BlockBinder
 
         if (type is IArrayTypeSymbol array)
             return ContainsAnyTypeParameterCore(array.ElementType, typeParameters);
+
+        if (type is RefTypeSymbol refType)
+            return ContainsAnyTypeParameterCore(refType.ElementType, typeParameters);
+
+        if (type is IAddressTypeSymbol addressType)
+            return ContainsAnyTypeParameterCore(addressType.ReferencedType, typeParameters);
+
+        if (type is NullableTypeSymbol nullableType)
+            return ContainsAnyTypeParameterCore(nullableType.UnderlyingType, typeParameters);
 
         return false;
     }
