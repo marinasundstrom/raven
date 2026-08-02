@@ -264,6 +264,32 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
+    public void EditingGenericConstraintBetweenValidMissingAndRestoredMatchesFullParse()
+    {
+        var original = SourceText.From(
+            """
+            import System.Collections.Generic.*
+
+            func Convert<T>(value: T) -> T
+                where T: IEnumerable<string> {
+                value
+            }
+
+            func Stable(value: int) -> int {
+                value
+            }
+            """);
+        var constraintStart = original.ToString().IndexOf("IEnumerable<string>", StringComparison.Ordinal);
+        var missing = original.Replace(constraintStart, "IEnumerable<string>".Length, string.Empty);
+        var originalTree = SyntaxTree.ParseText(original);
+
+        AssertIncrementalStepMatchesFullParse(originalTree, missing, "missing constraint", out var missingTree);
+
+        var restored = missing.Replace(constraintStart, 0, "class");
+        AssertIncrementalStepMatchesFullParse(missingTree, restored, "restored constraint", out _);
+    }
+
+    [Fact]
     public void EditingTreeWithMissingExpression_DoesNotFailIncrementalReplacement()
     {
         var original = SourceText.From(
