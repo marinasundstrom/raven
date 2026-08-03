@@ -388,6 +388,8 @@ public sealed class MacroCodeGenTests
     {
         public string Name => "AddEquatableContract";
 
+        public string Namespace => string.Empty;
+
         public MacroTarget Targets => MacroTarget.Type;
 
         public MacroExpansionResult Expand(AttachedMacroContext context)

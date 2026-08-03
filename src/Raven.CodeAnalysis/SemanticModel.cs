@@ -14481,9 +14481,13 @@ public partial class SemanticModel
         return null;
     }
 
-    private SourceMethodSymbol? ResolveCanonicalSourceMethod(BaseMethodDeclarationSyntax methodDeclaration)
+    private SourceMethodSymbol? ResolveCanonicalSourceMethod(
+        BaseMethodDeclarationSyntax methodDeclaration,
+        SourceMethodSymbol? fallback = null)
     {
-        var declared = GetDeclaredSymbol(methodDeclaration) as SourceMethodSymbol;
+        var declared = ReferenceEquals(methodDeclaration.SyntaxTree, SyntaxTree)
+            ? GetDeclaredSymbol(methodDeclaration) as SourceMethodSymbol
+            : fallback;
 
         if (declared is null)
             return null;
@@ -14540,7 +14544,7 @@ public partial class SemanticModel
         for (var current = syntaxNode; current is not null; current = current.Parent)
         {
             if (current is BaseMethodDeclarationSyntax methodDeclaration)
-                return ResolveCanonicalSourceMethod(methodDeclaration);
+                return ResolveCanonicalSourceMethod(methodDeclaration, fallback);
         }
 
         return fallback;

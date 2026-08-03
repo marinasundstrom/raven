@@ -355,6 +355,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   declared-annotation transform. `TypeInfo` continues to report contextual flow
   separately from the declared type symbol, using the same semantic shape for
   nullable reference and value types.
+- Lowering macro-introduced methods now preserves the binder-owned source method
+  when generated syntax is contextualized into an authored semantic model.
+  Emission no longer re-queries a detached declaration through a semantic model
+  that owns a different syntax tree.
 - Metadata loading now preserves non-null owner and type contracts for PE field,
   property, event, and method symbols, using the compiler error type for
   unreadable referenced signatures. Non-constant PE fields now return no
