@@ -1129,6 +1129,7 @@ internal sealed class OverloadResolver
 
             // Backtrackable inference: try candidate against a copy, then commit.
             var temp = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(substitutions, SymbolEqualityComparer.Default);
+            var priorSubstitutions = substitutions.ToArray();
 
             var ok = true;
 
@@ -1157,6 +1158,14 @@ internal sealed class OverloadResolver
             // Unify return types as well so we can infer TResult from a method group like `Compute`.
             if (!TryInferFromTypes(compilation, invoke.ReturnType, constructedCandidate.ReturnType, temp, inferenceMethod))
                 continue;
+
+            // A method group adapts to the delegate signature selected by the other
+            // arguments. It may fill still-unbound type parameters, but it must not
+            // widen an inference already established by an ordinary argument. The
+            // final applicability pass validates the adapted method group against
+            // the resulting delegate type.
+            foreach (var (typeParameter, inferredType) in priorSubstitutions)
+                temp[typeParameter] = inferredType;
 
             // Commit inferred substitutions.
             substitutions.Clear();

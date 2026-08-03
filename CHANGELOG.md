@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed generic method inference so method-group adaptation cannot widen a type
+  argument already inferred from an ordinary argument.
 - Fixed bound-tree traversal through assignment expressions so async capture
   analysis preserves locals used across suspension, including await-for
   enumerators.
