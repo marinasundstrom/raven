@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed bound-tree traversal through assignment expressions so async capture
+  analysis preserves locals used across suspension, including await-for
+  enumerators.
 - Fixed closure emission for target-typed lambdas inside Result-propagating
   namespace functions when replayed binding omitted an outer parameter from the
   recorded capture set.

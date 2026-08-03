@@ -72,6 +72,62 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
+    public override void VisitLocalAssignmentExpression(BoundLocalAssignmentExpression node)
+    {
+        VisitExpression(node.Left);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitPropertyAssignmentExpression(BoundPropertyAssignmentExpression node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitFieldAssignmentExpression(BoundFieldAssignmentExpression node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitArrayAssignmentExpression(BoundArrayAssignmentExpression node)
+    {
+        VisitExpression(node.Left);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitParameterAssignmentExpression(BoundParameterAssignmentExpression node)
+    {
+        VisitExpression(node.Left);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitIndexerAssignmentExpression(BoundIndexerAssignmentExpression node)
+    {
+        VisitExpression(node.Left);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitMemberAssignmentExpression(BoundMemberAssignmentExpression node)
+    {
+        VisitExpression(node.Receiver);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitPatternAssignmentExpression(BoundPatternAssignmentExpression node)
+    {
+        VisitPattern(node.Pattern);
+        VisitExpression(node.Right);
+    }
+
+    public override void VisitByRefAssignmentExpression(BoundByRefAssignmentExpression node)
+    {
+        VisitExpression(node.Reference);
+        VisitExpression(node.Right);
+    }
+
     public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
     {
         foreach (var declarator in node.Declarators)
