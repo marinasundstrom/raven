@@ -1127,7 +1127,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);
         ILGenerator.Emit(OpCodes.Stloc, closureLocal);
 
-        var capturedSymbols = lambdaExpression.CapturedVariables
+        var capturedSymbols = closure.CapturedSymbols
             .Where(captured => !IsDeclaredByLambda(captured, lambdaExpression))
             .ToArray();
         for (var i = 0; i < capturedSymbols.Length; i++)
@@ -1207,9 +1207,12 @@ internal partial class ExpressionGenerator : Generator
                         break;
                     }
 
-                    var isDeclaredParameter = MethodSymbol.Parameters.Any(
-                        parameter => SymbolEqualityComparer.Default.Equals(parameter, parameterSymbol));
-                    if (!isDeclaredParameter)
+                    var declaredParameters = MethodSymbol.Parameters
+                        .Where(parameter =>
+                            SymbolEqualityComparer.Default.Equals(parameter, parameterSymbol) ||
+                            string.Equals(parameter.Name, parameterSymbol.Name, StringComparison.Ordinal))
+                        .ToArray();
+                    if (declaredParameters.Length != 1)
                     {
                         if (MethodSymbol.IsStatic)
                             ILGenerator.Emit(OpCodes.Ldnull);
@@ -1218,7 +1221,7 @@ internal partial class ExpressionGenerator : Generator
                         break;
                     }
 
-                    var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
+                    var parameterBuilder = MethodGenerator.GetParameterBuilder(declaredParameters[0]);
                     var position = parameterBuilder.Position;
                     if (MethodSymbol.IsStatic)
                         position -= 1;
@@ -2164,6 +2167,16 @@ internal partial class ExpressionGenerator : Generator
     {
         if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
             return EmitInfo.ForValue(parameterAccess.Parameter, wasCaptured: true);
+
+        if (MethodBodyGenerator.LambdaClosure is { } lambdaClosure &&
+            !MethodSymbol.Parameters.Any(parameter =>
+                SymbolEqualityComparer.Default.Equals(parameter, parameterAccess.Parameter) ||
+                string.Equals(parameter.Name, parameterAccess.Parameter.Name, StringComparison.Ordinal)))
+        {
+            lambdaClosure.EnsureFields(ImmutableArray.Create<ISymbol>(parameterAccess.Parameter));
+            if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
+                return EmitInfo.ForValue(parameterAccess.Parameter, wasCaptured: true);
+        }
 
         int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
         if (MethodSymbol.IsStatic)

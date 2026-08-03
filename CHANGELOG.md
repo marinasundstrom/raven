@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed closure emission for target-typed lambdas inside Result-propagating
+  namespace functions when replayed binding omitted an outer parameter from the
+  recorded capture set.
 - Parenthesized expressions now pass their contextual target type to the
   enclosed value, keeping target-bound union cases stable after cold queries.
 - Null checks performed through user-defined equality operators now contribute

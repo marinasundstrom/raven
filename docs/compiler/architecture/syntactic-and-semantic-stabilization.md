@@ -882,6 +882,23 @@ groups, lambdas, `null`, unions, user-defined conversions, and ambiguity. Each
 test should assert the chosen symbol or diagnostic, not an internal lowering
 shape.
 
+### Lambda capture ownership needs one authoritative model
+
+Target-typed lambda replay and Result propagation recently exposed a split
+capture model: a lowered namespace function could retain an outer-parameter
+access in a lambda body while the lambda's recorded capture set omitted that
+parameter. Emission now contains this case by materializing the missing closure
+field from the actual parameter access and copying the canonical outer argument.
+
+Allocate a dedicated stabilization slice to inspect the relevant closure,
+lambda-replay, canonical-method-symbol, and propagation-lowering changes from
+the preceding 150 commits. Determine whether binder capture analysis should be
+the single authoritative result consumed by the semantic model, lowering, and
+emission, or whether the capture representation needs replacement. The end
+state should remove reconciliation paths where possible and cover ordinary,
+namespace, local, async, iterator, nested, and propagation-containing lambdas
+with source/runtime behavior tests.
+
 Ad-hoc-union target typing must be tested with an available `System.Union<...>`
 carrier. Carrier coverage verifies alternative construction in assignment,
 argument, and return contexts. If no compatible carrier exists, binding reports
