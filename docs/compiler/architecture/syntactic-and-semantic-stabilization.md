@@ -119,6 +119,58 @@ implementation exists, run differential tests over public diagnostics, symbol
 and operation shapes, emitted metadata, and observable runtime behavior. Exact
 internal lowering or instruction sequences are not the compatibility oracle.
 
+### Porting phases and defect feedback
+
+The initial Raven implementation is a port of the C# compiler, not an
+independent redesign. Its first objective is trustworthy behavioral parity at
+stable component boundaries. That does not mean mechanically translating
+known defects, severe structural problems, accidental coupling, or recovery
+paths that have already proved unsound. Keep a porting ledger that identifies
+which behavior is contractual, which implementation detail is temporary, and
+which known defect must be removed rather than inherited.
+
+Use the following feedback rule whenever porting exposes a problem:
+
+- If the C# bootstrap compiler is wrong, reduce the failure, add a focused test,
+  and fix the C# implementation first. Port the corrected behavior rather than
+  teaching the Raven implementation to agree with a bug.
+- If the language rule or public compiler contract is unclear, settle and
+  document it, then make both implementations agree with that decision.
+- If only the Raven implementation is wrong, keep the C# result as the oracle
+  and add differential coverage before correcting the port.
+- If the problem is structural, define the boundary and invariants that should
+  replace it. Migrate the C# implementation when its structure affects
+  correctness or makes it an unreliable oracle; otherwise avoid reproducing
+  the structure in Raven while retaining equivalent public behavior.
+
+Port one coherent component or boundary at a time. Bring its focused tests
+with it, including diagnostics, symbols, operations, metadata shape, and
+observable runtime behavior as applicable. Run the C# and Raven
+implementations against the same fixtures whenever both can execute the
+boundary. Tests are part of the ported contract, not a final activity after
+all compiler code has moved. Port Raven-authored test programs and test
+infrastructure gradually where doing so does not remove the independent C#
+oracle; preserve shared inputs and expected results so the two compilers can
+still be compared directly.
+
+Components should be replaceable gradually behind explicit interfaces or
+data contracts. If a subsystem such as code generation can consume the stable
+bound or lowered representation independently, introduce the Raven version as
+an alternative implementation and compare it before making it the default.
+The same approach applies to parsers, analyzers, metadata readers, lowering,
+and other separable passes when their inputs and outputs are sufficiently
+stable. Do not require a flag-day rewrite of the entire compiler.
+
+During this parity phase, prefer direct and reviewable translations. Local
+idiomatic Raven constructs are welcome when they are obviously equivalent,
+well tested, and reduce risk, but broad cleanup or architectural invention
+should remain limited. After the Raven compiler is stable enough to compile
+itself and its results agree with the C# oracle, begin a distinct idiomatic
+cleanup phase. That phase can reshape internal APIs, replace expected absence
+with `Option`, use `Result` for recoverable failure, model closed states with
+unions, and simplify code around Raven-native language features without
+obscuring whether an earlier mismatch was a porting error.
+
 ## Project-system boundary
 
 Workspace projects must remain constructible without MSBuild. The workspace
@@ -187,15 +239,20 @@ the port.
 
 Changes tied primarily to implementation structure can be made while porting:
 
-- Translating binder and lowering components into idiomatic Raven.
-- Replacing C#-specific helpers with Raven-native abstractions.
+- Translating binder and lowering components with behavior-preserving Raven
+  structure and only small, clearly equivalent idiomatic improvements.
+- Replacing C#-specific helpers with Raven-native abstractions when the
+  replacement is local, test-backed, and does not obscure parity.
 - Rearranging internal types and pass boundaries without changing observable
   behavior.
 - Porting generators after their generated contracts are stable.
 - Replacing cache implementations while retaining the same snapshot and query
   semantics.
 
-The port must not become the first test of what the language means.
+Broader idiomatic cleanup belongs after the corresponding Raven component has
+reached parity and remained stable. The port must not become the first test of
+what the language means, and cleanup must not make parity failures difficult
+to attribute.
 
 ### Idiomatic absence in a Raven-authored compiler
 
@@ -1448,6 +1505,8 @@ continue generic-shaped semantic inspection while declarations are incomplete.
 The port can begin incrementally when:
 
 - the compiler-writing subset has an explicit supported-feature inventory;
+- the porting ledger distinguishes contractual behavior, known defects,
+  structural debt, and cleanup that is intentionally deferred;
 - the C# bootstrap compiler builds representative Raven-written
   compiler-shaped workloads deterministically;
 - no source edit in that subset reaches a generic exception or an unimplemented
@@ -1463,6 +1522,9 @@ The port can begin incrementally when:
   subset or safe to address during the port.
 
 At that point, Raven-authored compiler components can be introduced one
-boundary at a time and checked against the same suites. The existing compiler
-continues to receive correctness, diagnostics, recovery, and performance
-improvements throughout that process.
+boundary at a time and checked against the same suites. Each component carries
+its focused tests and can replace the C# implementation independently when the
+architecture permits it. The existing compiler continues to receive
+correctness, diagnostics, recovery, and performance improvements throughout
+that process; after parity is established, the Raven implementation enters a
+separate Raven-native cleanup phase.
