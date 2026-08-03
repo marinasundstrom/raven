@@ -688,7 +688,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(slice.Length);
         foreach (var tp in slice)
         {
-            var paramSymbol = (ITypeParameterSymbol)_reflectionTypeLoader.ResolveType(tp)!;
+            var paramSymbol = _reflectionTypeLoader.ResolveTypeParameter(tp, this);
             builder.Add(paramSymbol);
         }
 

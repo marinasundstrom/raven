@@ -1089,6 +1089,33 @@ let result = properties.Where(pi => !pi.GetMethod.IsStatic)
         Assert.IsNotType<BoundErrorExpression>(boundLambda.Body);
     }
 
+    [Fact]
+    public void RavenCoreExtension_OnFacadeCollection_BindsWithExplicitCoreLibraryReference()
+    {
+        const string source = """
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+let values: ImmutableList<int> = [1, 2, 3]
+let first = values.FirstOrNone()
+""";
+
+        var references = TestMetadataReferences.DefaultWithRavenCore
+            .Append(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
+            .ToArray();
+        var (compilation, tree) = CreateCompilation(source, references: references);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var symbol = compilation.GetSemanticModel(tree).GetSymbolInfo(GetMemberAccess(tree, "FirstOrNone")).Symbol;
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbol);
+        Assert.True(method.IsExtensionMethod);
+        Assert.Equal("FirstOrNone", method.Name);
+    }
+
     private static MemberAccessExpressionSyntax GetMemberAccess(SyntaxTree tree, string methodName)
     {
         return tree

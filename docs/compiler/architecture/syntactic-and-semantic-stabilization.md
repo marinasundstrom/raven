@@ -719,6 +719,26 @@ continue adding source/PE and repeated-construction invariants, then evaluate a
 single substitution service or interned constructed-symbol factory as a
 separate design slice.
 
+PE and reflection loading require a dedicated boundary-consistency slice.
+Every loader boundary must return the same compilation-owned semantic symbol
+for the same CLI type whether it arrived from a reference facade, a runtime
+implementation assembly, a forwarded signature, or a dependent library.
+That audit must cover definitions and constructed forms, source/PE parity,
+equality and hashing, generic parameter ownership, type forwarding, and
+re-entrant member loading. Fix inconsistencies in the loader or symbol factory
+that introduces them; extension lookup, overload resolution, workspaces, the
+language server, and hosts such as the playground must not compensate for
+split symbol identities.
+
+The first contained invariant covers framework collection contracts. A
+reflection signature resolving `IEnumerable<T>` through
+`System.Private.CoreLib` and an implemented interface resolving it through the
+`System.Runtime` facade now share the compilation's canonical collection
+definition. This restores Raven Core extension lookup in mixed reference
+universes. Canonicalizing every framework special type is intentionally left
+to the dedicated slice because the remaining definitions have not yet been
+audited for forwarded arity, ownership, construction, and identity behavior.
+
 Nested inference now descends structurally through nullable, array, tuple, and
 constructed named-type layers. Raven tuple symbols are source projections over
 `System.ValueTuple`; substitution preserves that public projection, while

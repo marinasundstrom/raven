@@ -393,6 +393,37 @@ public class MemberContainer {
     }
 
     [Fact]
+    public void FrameworkSpecialType_FromCoreLibraryAndFacade_ResolvesToSameSymbol()
+    {
+        var compilation = Compilation.Create("pe_forwarded_framework_identity", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences([
+                .. TestMetadataReferences.DefaultWithRavenCore,
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            ]);
+
+        var enumerableFromCoreLibrary = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetType(typeof(IEnumerable<>)));
+        var enumerableFromFacade = compilation.GetSpecialType(
+            SpecialType.System_Collections_Generic_IEnumerable_T);
+        var immutableListDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList`1"));
+        var immutableList = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            immutableListDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32)));
+        var implementedEnumerable = Assert.Single(
+            immutableList.AllInterfaces,
+            interfaceType => interfaceType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T);
+        var typeParameter = Assert.Single(enumerableFromFacade.TypeParameters);
+
+        Assert.Same(enumerableFromFacade, enumerableFromCoreLibrary);
+        Assert.Same(enumerableFromFacade, implementedEnumerable.OriginalDefinition);
+        Assert.Same(enumerableFromFacade, typeParameter.DeclaringTypeParameterOwner);
+        Assert.Same(typeParameter, Assert.Single(enumerableFromFacade.TypeParameters));
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            enumerableFromCoreLibrary,
+            implementedEnumerable.OriginalDefinition));
+    }
+
+    [Fact]
     public void NestedMetadataType_AndReflectionType_ResolveToSameSymbol()
     {
         var compilation = Compilation.Create("pe_identity_nested", new CompilationOptions(OutputKind.ConsoleApplication))

@@ -239,7 +239,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         if (type.IsGenericTypeDefinition)
         {
-            var definition = ResolveTypeCore(type);
+            var definition = CanonicalizeSpecialTypeDefinition(ResolveTypeCore(type));
             CacheResolvedType(type, metadataCacheKey, definition);
             return definition;
         }
@@ -286,7 +286,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (ResolveType(type.DeclaringType!) is not INamedTypeSymbol declaringNamedType)
                 throw new InvalidOperationException($"Could not resolve declaring type for type parameter: {type}");
 
-            return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, [], this).AddAsMember2();
+            return ResolveTypeParameter(type, declaringNamedType);
         }
 
         if (type.IsArray)
@@ -298,11 +298,48 @@ internal class ReflectionTypeLoader(Compilation compilation)
             return new ArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Array), elementType, null, null, null, [], type.GetArrayRank());
         }
 
-        var symbol = ResolveTypeCore(type);
+        var symbol = CanonicalizeSpecialTypeDefinition(ResolveTypeCore(type));
 
         CacheResolvedType(type, metadataCacheKey, symbol!);
 
         return symbol;
+    }
+
+    internal ITypeParameterSymbol ResolveTypeParameter(Type type, INamedTypeSymbol declaringType)
+    {
+        if (_cache.TryGetValue(type, out var cached))
+            return (ITypeParameterSymbol)cached;
+
+        var symbol = new PETypeParameterSymbol(
+            type,
+            declaringType,
+            declaringType,
+            declaringType.ContainingNamespace,
+            [new MetadataLocation(declaringType.ContainingModule!)],
+            this).AddAsMember2();
+
+        return (ITypeParameterSymbol)_cache.GetOrAdd(type, symbol);
+    }
+
+    private ITypeSymbol CanonicalizeSpecialTypeDefinition(ITypeSymbol symbol)
+    {
+        // Collection contracts commonly cross the System.Runtime facade boundary in
+        // metadata signatures. Intern them before constructing closed receiver types so
+        // extension lookup observes one compilation-owned definition.
+        if (symbol is not INamedTypeSymbol namedType ||
+            namedType.SpecialType is not (
+                SpecialType.System_Collections_IEnumerable or
+                SpecialType.System_Collections_Generic_IEnumerable_T or
+                SpecialType.System_Collections_Generic_IList_T or
+                SpecialType.System_Collections_Generic_ICollection_T or
+                SpecialType.System_Collections_IEnumerator or
+                SpecialType.System_Collections_Generic_IEnumerator_T))
+        {
+            return symbol;
+        }
+
+        var canonicalType = compilation.GetSpecialType(namedType.SpecialType);
+        return canonicalType is IErrorTypeSymbol ? symbol : canonicalType;
     }
 
     private INamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
