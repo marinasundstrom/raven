@@ -5394,7 +5394,9 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldind_I);
                 break;
             default:
-                if (elementType.IsReferenceType || elementType.TypeKind == TypeKind.Pointer)
+                if (elementType is ITypeParameterSymbol)
+                    ILGenerator.Emit(OpCodes.Ldobj, ResolveClrType(elementType));
+                else if (elementType.IsReferenceType || elementType.TypeKind == TypeKind.Pointer)
                     ILGenerator.Emit(OpCodes.Ldind_Ref);
                 else
                     ILGenerator.Emit(OpCodes.Ldobj, ResolveClrType(elementType));
@@ -5435,7 +5437,7 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Stind_I);
                 break;
             default:
-                if (elementType.IsValueType)
+                if (elementType is ITypeParameterSymbol || elementType.IsValueType)
                 {
                     ILGenerator.Emit(OpCodes.Stobj, ResolveClrType(elementType));
                 }

@@ -475,10 +475,14 @@ internal abstract class Generator
         if (tryGetMethod is null)
             return false;
 
+        var unionClrType = ResolveClrType(unionType);
+        var unionLocal = ILGenerator.DeclareLocal(unionClrType);
         var memberClrType = ResolveClrType(memberType);
         var valueLocal = ILGenerator.DeclareLocal(memberClrType);
         var successLabel = ILGenerator.DefineLabel();
 
+        ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+        ILGenerator.Emit(unionClrType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, unionLocal);
         ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(tryGetMethod));
         ILGenerator.Emit(OpCodes.Brtrue, successLabel);
