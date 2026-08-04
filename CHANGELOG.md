@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Raven.Core nullable conversions and JSON naming-policy handling now use
+  explicit typed pattern bindings, and `Option` construction is qualified to
+  remain unambiguous against .NET 11 framework metadata.
 - Canonicalized framework collection contracts loaded through runtime and
   facade assemblies so Raven Core extensions bind consistently in mixed
   reference environments such as the browser playground.

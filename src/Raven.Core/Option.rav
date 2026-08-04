@@ -217,8 +217,8 @@ public extension OptionExtensions1<T : class> for Option<T> {
 
     /// Converts a nullable reference to `Some`, or to `None` when it is `null`.
     static func implicit(value: T?) -> Option<T> {
-        if value is not null {
-            return Some(value)
+        if let present: T = value {
+            return Option<T>.Some(present)
         }
         None
     }
@@ -236,8 +236,8 @@ public extension OptionExtensions2<T : struct> for Option<T> {
 
     /// Converts a nullable value to `Some`, or to `None` when it is `null`.
     static func implicit(value: T?) -> Option<T> {
-        if value is not null {
-            return Some(value)
+        if let present: T = value {
+            return Option<T>.Some(present)
         }
         None
     }

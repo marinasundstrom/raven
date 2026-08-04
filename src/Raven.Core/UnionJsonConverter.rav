@@ -287,8 +287,8 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     private static func GetPropertyName(name: string, options: JsonSerializerOptions) -> string {
         val namingPolicy = options.PropertyNamingPolicy
 
-        if namingPolicy is not null {
-            return namingPolicy.ConvertName(name)
+        if let policy: JsonNamingPolicy = namingPolicy {
+            return policy.ConvertName(name)
         }
 
         return name
