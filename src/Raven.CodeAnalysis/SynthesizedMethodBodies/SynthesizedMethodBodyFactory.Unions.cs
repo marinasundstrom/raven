@@ -71,10 +71,28 @@ internal static partial class SynthesizedMethodBodyFactory
             {
                 var payloadField = (SourceFieldSymbol)UnionFieldUtilities.GetRequiredPayloadField(unionSymbol, caseType);
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
-                var caseToString = CreateObjectToStringInvocation(compilation, payloadAccess);
+                var parts = new List<BoundExpression>
+                {
+                    InvokeUnionDisplayNameHelper(method),
+                    CreateStringLiteral(compilation, "."),
+                    CreateStringLiteral(compilation, caseType.Name)
+                };
+
+                var parameterInfos = CollectUnionCaseParameters(payloadField.Type as INamedTypeSymbol, caseType);
+                if (parameterInfos.Count > 0)
+                {
+                    parts.Add(CreateStringLiteral(compilation, "("));
+                    AppendFormattedMemberList(
+                        compilation,
+                        parts,
+                        CreateUnionCaseDisplayMembers(compilation, method, parameterInfos, payloadAccess),
+                        nameValueSeparator: "=");
+                    parts.Add(CreateStringLiteral(compilation, ")"));
+                }
+
                 statements.Add(new BoundIfStatement(
                     CreateUnionTagEquality(compilation, method, unionSymbol, caseType.Ordinal),
-                    new BoundReturnStatement(caseToString)));
+                    new BoundReturnStatement(ConcatSequence(compilation, parts))));
             }
 
             statements.Add(new BoundReturnStatement(CreateStringLiteral(compilation, "<Uninitialized>")));
@@ -207,7 +225,8 @@ internal static partial class SynthesizedMethodBodyFactory
             AppendFormattedMemberList(
                 compilation,
                 parts,
-                CreateUnionCaseDisplayMembers(compilation, method, parameterInfos));
+                CreateUnionCaseDisplayMembers(compilation, method, parameterInfos),
+                nameValueSeparator: "=");
             parts.Add(CreateStringLiteral(compilation, ")"));
         }
 
@@ -647,19 +666,22 @@ internal static partial class SynthesizedMethodBodyFactory
     private static List<(string? Name, BoundExpression Value)> CreateUnionCaseDisplayMembers(
         Compilation compilation,
         IMethodSymbol method,
-        IReadOnlyList<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> parameterInfos)
+        IReadOnlyList<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> parameterInfos,
+        BoundExpression? receiver = null)
     {
         var includeParameterNames = parameterInfos.Count > 1;
         var members = new List<(string? Name, BoundExpression Value)>(parameterInfos.Count);
-        var self = new BoundSelfExpression(method.ContainingType!);
+        receiver ??= new BoundSelfExpression(method.ContainingType!);
 
         foreach (var (name, property, declaredType) in parameterInfos)
         {
-            var field = ResolveUnionCaseBackingField(method.ContainingType, property);
-            if (field is null)
+            var containingType = receiver.Type as INamedTypeSymbol;
+            var resolvedProperty = containingType?.GetMembers(property.Name).OfType<IPropertySymbol>().FirstOrDefault()
+                ?? property;
+            if (resolvedProperty.GetMethod is null)
                 continue;
 
-            var payloadAccess = new BoundFieldAccess(self, field);
+            var payloadAccess = CreatePropertyGetterAccess(receiver, resolvedProperty);
             members.Add((includeParameterNames ? name : null, FormatUnionValue(compilation, method, payloadAccess, declaredType)));
         }
 

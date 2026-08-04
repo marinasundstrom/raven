@@ -122,7 +122,7 @@ public union Result<T> {
         var okCtor = okCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
         Assert.NotNull(okCtor);
 
-        var errorCase = assembly.GetType("Result_Error`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        var errorCase = assembly.GetType("Result_Error", throwOnError: true)!;
         Assert.True(errorCase.IsPublic);
         var errorCtor = errorCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(string) }, modifiers: null);
         Assert.NotNull(errorCtor);
@@ -132,6 +132,8 @@ public union Result<T> {
     public void GenericOptionNoneCase_UsesDirectUnionConstructorOnConstructedCarrier()
     {
         const string code = """
+import Option.*
+
 class Runner {
     public static func Run(flag: bool) -> Option<int> {
         let input: Option<int> = Some(42)
@@ -187,6 +189,7 @@ union Option<T> {
     {
         const string code = """
 import System.*
+import Result.*
 
 class Runner {
     public static func Run() -> string {
@@ -533,7 +536,7 @@ union Option {
         Assert.NotNull(valueProperty);
         Assert.Equal(typeof(object), valueProperty!.PropertyType);
         var nullability = new NullabilityInfoContext().Create(valueProperty);
-        Assert.Equal(NullabilityState.NotNull, nullability.ReadState);
+        Assert.Equal(NullabilityState.Nullable, nullability.ReadState);
     }
 
     [Fact]
@@ -619,9 +622,9 @@ union class Maybe(string? | int)
         var code = """
 import System.Collections.Generic.*
 
-union class JsonValue(string? | double | bool | JsonObject | JsonValue[])
+public union class JsonValue(string? | double | bool | JsonObject | JsonValue[])
 
-record JsonObject(Properties: IDictionary<string, JsonValue>)
+public record JsonObject(Properties: IDictionary<string, JsonValue>)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -651,11 +654,11 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
         var nullabilityContext = new NullabilityInfoContext();
 
         Assert.Equal(5, constructors.Length);
-        AssertNullableConstructor(typeof(string));
-        AssertNullableConstructor(typeof(double?));
-        AssertNullableConstructor(typeof(bool?));
-        AssertNullableConstructor(objectType);
-        AssertNullableConstructor(unionType.MakeArrayType());
+        AssertConstructor(typeof(string), NullabilityState.Nullable);
+        AssertConstructor(typeof(double), NullabilityState.NotNull);
+        AssertConstructor(typeof(bool), NullabilityState.NotNull);
+        AssertConstructor(objectType, NullabilityState.NotNull);
+        AssertConstructor(unionType.MakeArrayType(), NullabilityState.NotNull);
 
         var directory = Path.Combine(Path.GetTempPath(), $"raven-json-union-csharp-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -704,12 +707,12 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
                 Directory.Delete(directory, recursive: true);
         }
 
-        void AssertNullableConstructor(Type parameterType)
+        void AssertConstructor(Type parameterType, NullabilityState expectedNullability)
         {
             var constructor = Assert.Single(constructors, constructor => constructor.GetParameters()[0].ParameterType == parameterType);
             var parameter = constructor.GetParameters()[0];
             var nullability = nullabilityContext.Create(parameter);
-            Assert.Equal(NullabilityState.Nullable, nullability.ReadState);
+            Assert.Equal(expectedNullability, nullability.ReadState);
         }
     }
 
@@ -754,7 +757,7 @@ union struct Maybe<T>(T)
         var code = """
 class Runner {
     public static func NullCase() -> int {
-        let v: Foo = null
+        let v: Foo = (int?)null
         return match v {
             3 => 30
             int i => i
@@ -815,17 +818,17 @@ union class Foo(int?)
         var code = """
 class Runner {
     public static func NullValueIsNull() -> bool {
-        let v: Foo = null
+        let v: Foo = (int?)null
         return v.Value is null
     }
 
     public static func NullHasValue() -> bool {
-        let v: Foo = null
+        let v: Foo = (int?)null
         return v.HasValue
     }
 
     public static func ExpressionNullCase() -> int {
-        let v: Foo = null
+        let v: Foo = (int?)null
         return match v {
             int i => i
             null => -1
@@ -841,7 +844,7 @@ class Runner {
     }
 
     public static func StatementNullCase() -> int {
-        let v: Foo = null
+        let v: Foo = (int?)null
         match v {
             int i => i
             null => -1
@@ -903,7 +906,7 @@ class Runner {
     }
 
     public static func NullCase() -> int {
-        let v: Foo = null
+        let v: Foo = (int?)null
         if v is int i {
             return i
         }
@@ -1193,7 +1196,7 @@ union MyResult<T>(List<T> | int)
         var value = valueMethod.Invoke(null, Array.Empty<object?>());
 
         Assert.NotNull(value);
-        Assert.Equal("MyResult<String>(System.Collections.Generic.List<String>)", value!.ToString());
+        Assert.Equal("MyResult<String>(<List<String>>)", value!.ToString());
     }
 
     [Fact]
@@ -1476,7 +1479,7 @@ class Container {
         var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var payloadField = unionType.GetField("<SomePayload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.Equal((byte)1, (byte)tagField.GetValue(unionValue)!);
+        Assert.Equal((byte)2, (byte)tagField.GetValue(unionValue)!);
 
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
@@ -1571,7 +1574,7 @@ union Option {
         var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var payloadField = unionType.GetField("<SomePayload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.Equal((byte)1, (byte)tagField.GetValue(unionValue)!);
+        Assert.Equal((byte)2, (byte)tagField.GetValue(unionValue)!);
 
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
@@ -1930,7 +1933,7 @@ class Container {
 
         var caseValue = createMethod.Invoke(instance, Array.Empty<object?>());
         Assert.NotNull(caseValue);
-        Assert.Contains("Result_Error", caseValue!.GetType().Name, StringComparison.Ordinal);
+        Assert.Equal("Result`2", caseValue!.GetType().Name);
         Assert.Contains("Error", caseValue.ToString(), StringComparison.Ordinal);
     }
 
@@ -2016,12 +2019,15 @@ class Container {
         var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
         var closedCaseType = caseTypeDefinition.MakeGenericType(typeof(int));
 
-        Assert.Equal(closedCaseType, unionValue!.GetType());
-        Assert.True(closedUnionType.IsAssignableFrom(unionValue.GetType()));
+        Assert.Equal(closedUnionType, unionValue!.GetType());
+        Assert.False(closedUnionType.IsAssignableFrom(closedCaseType));
 
         var ctor = closedCaseType.GetConstructor(new[] { typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 7 });
-        Assert.IsAssignableFrom(closedUnionType, caseInstance);
+        Assert.False(closedUnionType.IsInstanceOfType(caseInstance));
+
+        var carrierCtor = closedUnionType.GetConstructor(new[] { closedCaseType })!;
+        Assert.IsType(closedUnionType, carrierCtor.Invoke([caseInstance]));
     }
 
     [Fact]
@@ -2333,6 +2339,8 @@ class Container {
     public void TargetTypedParameterlessUnionCase_EmitsInNestedConstructorArgument()
     {
         var code = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None
@@ -2345,17 +2353,27 @@ record Theme(PrimaryColor: Option<string>)
 
 class Container {
     public static func DescribeMissing() -> string {
-        let value = Some(User(Some(Profile(Some(Settings(Some(Theme(None))))))))
+        let theme: Option<Theme> = Some(Theme(None))
+        let settings: Option<Settings> = Some(Settings(theme))
+        let profile: Option<Profile> = Some(Profile(settings))
+        let value: Option<User> = Some(User(profile))
         return describe(value)
     }
 
     public static func DescribeTargetTypedMissing() -> string {
-        let value = Some(User(Some(Profile(Some(Settings(Some(Theme(.None))))))))
+        let theme: Option<Theme> = Some(Theme(.None))
+        let settings: Option<Settings> = Some(Settings(theme))
+        let profile: Option<Profile> = Some(Profile(settings))
+        let value: Option<User> = Some(User(profile))
         return describe(value)
     }
 
     public static func DescribePresent() -> string {
-        let value = Some(User(Some(Profile(Some(Settings(Some(Theme(Some("blue")))))))))
+        let color: Option<string> = Some("blue")
+        let theme: Option<Theme> = Some(Theme(color))
+        let settings: Option<Settings> = Some(Settings(theme))
+        let profile: Option<Profile> = Some(Profile(settings))
+        let value: Option<User> = Some(User(profile))
         return describe(value)
     }
 

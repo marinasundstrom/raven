@@ -576,6 +576,12 @@ partial class BlockBinder
                 _ => RefKind.None,
             };
 
+            if (targetType is null &&
+                TryGetTargetTypedUnionCaseName(arg.Expression, out var unionCaseName))
+            {
+                targetType = TryGetFirstUnionCaseParameterType(methods, i, receiver, pipeReceiverType, arg, unionCaseName);
+            }
+
             BoundExpression? preboundExpression = null;
             if (targetType is null &&
                 arg.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax)
@@ -608,12 +614,6 @@ partial class BlockBinder
                 // before overload resolution (for example, Task<T> to Task in Task.WhenAll).
                 if (!HasGenericEnumerableCollectionCandidate(methods, i, receiver, pipeReceiverType))
                     targetType = TryGetFirstCollectionParameterType(methods, i, receiver, pipeReceiverType);
-            }
-
-            if (targetType is null &&
-                TryGetTargetTypedUnionCaseName(arg.Expression, out var unionCaseName))
-            {
-                targetType = TryGetFirstUnionCaseParameterType(methods, i, receiver, pipeReceiverType, arg, unionCaseName);
             }
 
             // Apply pre-inferred type-parameter substitutions to the target type, then

@@ -237,7 +237,7 @@ let wrapped = result.WithContext("reading value")
         var carrier = ConvertCaseToCarrier(resultType, okCase);
         var carrierText = carrier.ToString();
         Assert.NotNull(carrierText);
-        Assert.Contains("Result<String>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
+        Assert.Contains("Result<String, InvalidOperationException>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Ok(Foo)", carrierText!, StringComparison.Ordinal);
     }
 

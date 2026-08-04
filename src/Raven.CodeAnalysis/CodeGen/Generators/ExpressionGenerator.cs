@@ -727,6 +727,15 @@ internal partial class ExpressionGenerator : Generator
 
         var caseCreation = new BoundObjectCreationExpression(ctor, args);
 
+        // A case can be named explicitly as the target type in Raven source. In that
+        // form the bound expression represents the case value itself and must not be
+        // wrapped in its carrier union.
+        if (node.UnionType.TryGetUnionCase() is not null)
+        {
+            EmitObjectCreationExpression(caseCreation);
+            return;
+        }
+
         if (!node.UnionType.TryGetUnionCarrierConstructor(node.CaseType, out var unionCtor))
         {
             throw new InvalidOperationException(

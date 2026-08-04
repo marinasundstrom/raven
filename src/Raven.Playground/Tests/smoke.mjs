@@ -325,7 +325,7 @@ try {
       `Expected Result/record source to run, got ${resultRecordStatus}: ${diagnostics.join("\n")}\n${output}`,
     );
   }
-  await page.getByText("Result<Int32>.Ok(42)", { exact: true }).waitFor();
+  await page.getByText("Result<Int32, CustomError>.Ok(42)", { exact: true }).waitFor();
 
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");

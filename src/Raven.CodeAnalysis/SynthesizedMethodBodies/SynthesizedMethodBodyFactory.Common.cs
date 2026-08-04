@@ -13,7 +13,8 @@ internal static partial class SynthesizedMethodBodyFactory
     private static void AppendFormattedMemberList(
         Compilation compilation,
         List<BoundExpression> parts,
-        IReadOnlyList<(string? Name, BoundExpression Value)> members)
+        IReadOnlyList<(string? Name, BoundExpression Value)> members,
+        string nameValueSeparator = " = ")
     {
         for (var index = 0; index < members.Count; index++)
         {
@@ -24,7 +25,7 @@ internal static partial class SynthesizedMethodBodyFactory
             if (!string.IsNullOrEmpty(name))
             {
                 parts.Add(CreateStringLiteral(compilation, name!));
-                parts.Add(CreateStringLiteral(compilation, " = "));
+                parts.Add(CreateStringLiteral(compilation, nameValueSeparator));
             }
 
             parts.Add(value);
@@ -181,11 +182,26 @@ internal static partial class SynthesizedMethodBodyFactory
         BoundExpression value,
         string quote)
     {
+        var stringType = compilation.GetSpecialType(SpecialType.System_String)
+            ?? throw new InvalidOperationException("Failed to resolve System.String.");
+        var replace = stringType.GetMembers(nameof(string.Replace))
+            .OfType<IMethodSymbol>()
+            .First(method => method.Parameters.Length == 2 &&
+                             method.Parameters.All(parameter => parameter.Type.GetNonNullableType().SpecialType == SpecialType.System_String));
+        var escapedBackslashes = new BoundInvocationExpression(
+            replace,
+            [CreateStringLiteral(compilation, "\\"), CreateStringLiteral(compilation, "\\\\")],
+            value);
+        var escapedValue = new BoundInvocationExpression(
+            replace,
+            [CreateStringLiteral(compilation, quote), CreateStringLiteral(compilation, $"\\{quote}")],
+            escapedBackslashes);
+
         return ConcatSequence(
             compilation,
             [
                 CreateStringLiteral(compilation, quote),
-                value,
+                escapedValue,
                 CreateStringLiteral(compilation, quote)
             ]);
     }

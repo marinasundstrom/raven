@@ -239,6 +239,14 @@ internal abstract class Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
+        if (from.TypeKind == TypeKind.Null &&
+            to is NullableTypeSymbol { UnderlyingType.IsValueType: true } nullableValueType)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            EmitDefaultValue(nullableValueType);
+            return;
+        }
+
         if (from.TypeKind == TypeKind.Null && conversion.IsReference)
             return;
 

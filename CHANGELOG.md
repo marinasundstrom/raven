@@ -13,6 +13,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   for .NET interop, while normal Raven symbol display keeps the names omitted.
   Named and unnamed payload forms cannot be mixed within one case. Raven.Core's
   `Option.Some`, `Result.Ok`, and `Result.Error` now use the positional form.
+- Stabilized pre-nested union case construction and emission. Imported
+  free-standing cases retain contextual carrier conversion in constructor
+  arguments, explicit case-typed expressions emit the case value itself,
+  nullable value payloads emit valid `Nullable<T>` values, and carrier display
+  preserves the carrier's complete generic type arguments.
 - Canonicalized framework collection contracts loaded through runtime and
   facade assemblies so Raven Core extensions bind consistently in mixed
   reference environments such as the browser playground.
