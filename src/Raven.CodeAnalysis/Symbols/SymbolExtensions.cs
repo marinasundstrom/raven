@@ -340,7 +340,7 @@ public static partial class SymbolExtensions
                 text = FormatType(typeSymbol, format);
             }
 
-            if (typeSymbol is IUnionCaseTypeSymbol unionCase &&
+            if (typeSymbol is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase &&
                 format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
             {
                 text += "(" + string.Join(", ", unionCase.ConstructorParameters.Select(parameter => FormatParameter(parameter, format))) + ")";

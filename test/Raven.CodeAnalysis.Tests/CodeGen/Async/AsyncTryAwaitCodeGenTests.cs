@@ -401,6 +401,7 @@ class Program {
     {
         const string code = """
 import System.*
+import System.Option.*
 import System.Threading.Tasks.*
 
 class Program {
@@ -415,14 +416,76 @@ class Program {
     }
 
     static async func Main() -> Task {
-        Console.WriteLine(await Program.Fetch(true))
-        Console.WriteLine(await Program.Fetch(false))
+        let some = await Program.Fetch(true)
+        let none = await Program.Fetch(false)
+
+        Console.WriteLine(match some {
+            Some(let value) => "Some: $value"
+            None => "None"
+        })
+
+        Console.WriteLine(match none {
+            Some(let value) => "Some: $value"
+            None => "None"
+        })
     }
 }
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Option<Int32>.Some(42)", "Option.None" }, output);
+        Assert.Equal(new[] { "Some: 42", "None" }, output);
+    }
+
+    [Fact]
+    public void AsyncMethod_PatternLocalUsedAfterAwait_IsPreserved()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Person(value: int) {
+    val Value: int => value
+}
+
+class Program {
+    static async func Read(person: Person?) -> Task<int> {
+        if let value: Person = person {
+            await Task.Yield()
+            return value.Value
+        }
+
+        return -1
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.Read(Person(42)))
+        Console.WriteLine(await Program.Read(null))
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "42", "-1" }, output);
+    }
+
+    [Fact]
+    public void MetadataOption_InferredMatchResult_ClosesParameterlessCaseCarrier()
+    {
+        const string code = """
+import System.*
+import System.Option.*
+
+let input: Option<int> = Some(42)
+let result = match input {
+    Some(let value) => Option<int>.Some(value * 2)
+    None => None
+}
+
+Console.WriteLine(result)
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "Option<Int32>.Some(84)" }, output);
     }
 
     [Fact]

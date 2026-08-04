@@ -4394,12 +4394,10 @@ partial class BlockBinder : Binder
             // concrete scrutinee carrier.
             if (expressionTargetType is null &&
                 expression is BoundUnionCaseExpression &&
-                pattern is BoundCasePattern &&
                 scrutinee.Type is INamedTypeSymbol scrutineeUnion &&
-                pattern.Type.TryGetUnionCase()?.Union is INamedTypeSymbol caseUnion &&
-                SymbolEqualityComparer.Default.Equals(
-                    (scrutineeUnion.OriginalDefinition as INamedTypeSymbol) ?? scrutineeUnion,
-                    (caseUnion.OriginalDefinition as INamedTypeSymbol) ?? caseUnion))
+                TryGetPatternUnion(pattern) is INamedTypeSymbol caseUnion &&
+                ((ITypeSymbol)(scrutineeUnion.OriginalDefinition ?? scrutineeUnion)).MetadataIdentityEquals(
+                    caseUnion.OriginalDefinition ?? caseUnion))
             {
                 expressionTargetType = scrutineeUnion;
                 RemoveCachedBoundNode(arm.Expression);
@@ -4464,6 +4462,15 @@ partial class BlockBinder : Binder
                 }
             }
         }
+
+        static IUnionSymbol? TryGetPatternUnion(BoundPattern boundPattern)
+            => boundPattern switch
+            {
+                BoundCasePattern casePattern => casePattern.CaseSymbol.Union,
+                BoundUnionMemberPattern memberPattern => memberPattern.MemberType.TryGetUnionCase()?.Union,
+                BoundDeclarationPattern declarationPattern => declarationPattern.Type.TryGetUnionCase()?.Union,
+                _ => null,
+            };
     }
 
     private BoundExpression BindTryExpression(TryExpressionSyntax tryExpression)

@@ -4183,7 +4183,7 @@ class C {
         var whole = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")));
 
         Assert.Equal("string", first.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        Assert.Equal("Some<(string, int)>", whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Some<(string, int)>(value: (string, int))", whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]

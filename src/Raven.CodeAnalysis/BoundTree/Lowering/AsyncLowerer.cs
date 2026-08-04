@@ -3970,6 +3970,53 @@ internal static class AsyncLowerer
             }
         }
 
+        public override void VisitIfStatement(BoundIfStatement node)
+        {
+            if (node is null)
+                return;
+
+            VisitExpression(node.Condition);
+
+            if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
+            {
+                _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
+                DeclarePatternLocals(pattern);
+                VisitStatement(node.ThenNode);
+                _scopes.Pop();
+            }
+            else
+            {
+                VisitStatement(node.ThenNode);
+            }
+
+            if (node.ElseNode is not null)
+                VisitStatement(node.ElseNode);
+        }
+
+        public override void VisitWhileStatement(BoundWhileStatement node)
+        {
+            if (node is null)
+                return;
+
+            VisitExpression(node.Condition);
+
+            _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
+            if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
+                DeclarePatternLocals(pattern);
+            VisitStatement(node.Body);
+            _scopes.Pop();
+        }
+
+        public override void VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
+        {
+            if (node is null)
+                return;
+
+            VisitExpression(node.Condition);
+            if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
+                DeclarePatternLocals(pattern);
+        }
+
         public override void VisitForStatement(BoundForStatement node)
         {
             if (node is null)
@@ -4026,6 +4073,15 @@ internal static class AsyncLowerer
 
             var scope = _scopes.Peek();
             scope.Declare(local, isUsing);
+        }
+
+        private void DeclarePatternLocals(BoundPattern pattern)
+        {
+            foreach (var designator in pattern.GetDesignators())
+            {
+                if (designator is BoundSingleVariableDesignator single)
+                    DeclareLocal(single.Local, isUsing: false);
+            }
         }
 
         private void CaptureCurrentLocals()

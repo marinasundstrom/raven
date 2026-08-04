@@ -355,11 +355,7 @@ internal partial class ExpressionGenerator
                 if (ClrTypesMatch(inputClr, declaredClr) &&
                     (!inputType.IsNullable || typeSymbol.IsNullable))
                 {
-                    var local = EmitDesignation(declarationPattern.Designator, scope);
-                    if (local is not null)
-                        ILGenerator.Emit(OpCodes.Stloc, local);
-                    else
-                        ILGenerator.Emit(OpCodes.Pop);
+                    EmitDesignationFromStack(declarationPattern.Designator, scope);
 
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);
                     return;
@@ -377,8 +373,6 @@ internal partial class ExpressionGenerator
                     isReferencePattern = true;
             }
 
-            var patternLocal = EmitDesignation(declarationPattern.Designator, scope);
-
             if (!isReferencePattern)
             {
                 var labelSuccess = ILGenerator.DefineLabel();
@@ -395,10 +389,7 @@ internal partial class ExpressionGenerator
                 ILGenerator.MarkLabel(labelSuccess);
                 ILGenerator.Emit(requiresUnbox ? OpCodes.Unbox_Any : OpCodes.Castclass, clrType);
 
-                if (patternLocal is not null)
-                    ILGenerator.Emit(OpCodes.Stloc, patternLocal);
-                else
-                    ILGenerator.Emit(OpCodes.Pop);
+                EmitDesignationFromStack(declarationPattern.Designator, scope);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
                 ILGenerator.MarkLabel(labelDone);
@@ -406,10 +397,10 @@ internal partial class ExpressionGenerator
             else
             {
                 ILGenerator.Emit(OpCodes.Isinst, clrType); // cast or null
-                if (patternLocal is not null)
+                if (declarationPattern.Designator is not BoundDiscardDesignator)
                 {
                     ILGenerator.Emit(OpCodes.Dup);
-                    ILGenerator.Emit(OpCodes.Stloc, patternLocal);
+                    EmitDesignationFromStack(declarationPattern.Designator, scope);
                 }
                 ILGenerator.Emit(OpCodes.Ldnull);
                 ILGenerator.Emit(OpCodes.Cgt_Un); // not-null
@@ -1165,11 +1156,7 @@ internal partial class ExpressionGenerator
 
                 if (ClrTypesMatch(inputClr, declaredClr))
                 {
-                    var local = EmitDesignation(dp.Designator, scope);
-                    if (local is not null)
-                        ILGenerator.Emit(OpCodes.Stloc, local);
-                    else
-                        ILGenerator.Emit(OpCodes.Pop);
+                    EmitDesignationFromStack(dp.Designator, scope);
 
                     return;
                 }
@@ -1703,14 +1690,7 @@ internal partial class ExpressionGenerator
         // If the property pattern has a top-level designation (e.g. `Type { ... } name`),
         // bind it to the (possibly cast) receiver value.
         if (propertyPattern.Designator is not null)
-        {
-            var boundLocal = EmitDesignation(propertyPattern.Designator, scope);
-            if (boundLocal is not null)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, typedLocal);
-                ILGenerator.Emit(OpCodes.Stloc, boundLocal);
-            }
-        }
+            EmitPatternDesignator(propertyPattern.Designator, typedLocal, scope);
 
         foreach (var sub in propertyPattern.Properties)
         {
@@ -2312,12 +2292,7 @@ internal partial class ExpressionGenerator
             if (dpClr != unionClrType)
                 return false;
 
-            var boundLocal = EmitDesignation(dp.Designator, scope);
-            if (boundLocal is not null)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
-                ILGenerator.Emit(OpCodes.Stloc, boundLocal);
-            }
+            EmitPatternDesignator(dp.Designator, unionLocal, scope);
 
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
             return true;
@@ -2683,10 +2658,45 @@ internal partial class ExpressionGenerator
         throw new InvalidOperationException($"Unexpected bound designation type '{designation.GetType().Name}'.");
     }
 
+    private void EmitDesignationFromStack(BoundDesignator designation, Generator scope)
+    {
+        if (designation is BoundSingleVariableDesignator single &&
+            MethodBodyGenerator.TryGetCapturedField(single.Local, out var field, out var fromStateMachine))
+        {
+            var valueLocal = ILGenerator.DeclareLocal(ResolveClrType(single.Local.Type));
+            ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+            if (fromStateMachine)
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+            else
+                MethodBodyGenerator.EmitLoadClosure();
+            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+            ILGenerator.Emit(OpCodes.Stfld, field);
+            return;
+        }
+
+        var local = EmitDesignation(designation, scope);
+        if (local is not null)
+            ILGenerator.Emit(OpCodes.Stloc, local);
+        else
+            ILGenerator.Emit(OpCodes.Pop);
+    }
+
     private void EmitPatternDesignator(BoundDesignator? designator, IILocal sourceLocal, Generator scope)
     {
         if (designator is null)
             return;
+
+        if (designator is BoundSingleVariableDesignator single &&
+            MethodBodyGenerator.TryGetCapturedField(single.Local, out var field, out var fromStateMachine))
+        {
+            if (fromStateMachine)
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+            else
+                MethodBodyGenerator.EmitLoadClosure();
+            ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
+            ILGenerator.Emit(OpCodes.Stfld, field);
+            return;
+        }
 
         var boundLocal = EmitDesignation(designator, scope);
         if (boundLocal is null)
@@ -2871,12 +2881,7 @@ internal partial class ExpressionGenerator
             if (!ClrTypesMatch(dpClr, unionClrType))
                 return false;
 
-            var boundLocal = EmitDesignation(dp.Designator, scope);
-            if (boundLocal is not null)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
-                ILGenerator.Emit(OpCodes.Stloc, boundLocal);
-            }
+            EmitPatternDesignator(dp.Designator, unionLocal, scope);
 
             return true;
         }
@@ -3051,11 +3056,7 @@ internal partial class ExpressionGenerator
 
                 if (inputClr == declaredClr)
                 {
-                    var local = EmitDesignation(dp.Designator, scope);
-                    if (local is not null)
-                        ILGenerator.Emit(OpCodes.Stloc, local);
-                    else
-                        ILGenerator.Emit(OpCodes.Pop);
+                    EmitDesignationFromStack(dp.Designator, scope);
 
                     return;
                 }

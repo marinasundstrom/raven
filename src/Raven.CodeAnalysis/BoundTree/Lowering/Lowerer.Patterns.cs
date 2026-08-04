@@ -171,6 +171,12 @@ internal sealed partial class Lowerer
         if (declaredType.TypeKind is TypeKind.Error or TypeKind.Null)
             return false;
 
+        if (inputType.TryGetUnionCase() is not null &&
+            CanUnionMemberMatchDeclaration(inputType, declaredType))
+        {
+            return false;
+        }
+
         var unionType = inputType.TryGetUnion()
             ?? inputType.TryGetUnionCase()?.Union;
 
@@ -352,6 +358,9 @@ internal sealed partial class Lowerer
         var leftPlain = left.GetNonNullableType();
         var rightPlain = right.GetNonNullableType();
         if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
+            return true;
+
+        if (leftPlain.MetadataIdentityEquals(rightPlain))
             return true;
 
         var leftDefinition = left.OriginalDefinition ?? left;

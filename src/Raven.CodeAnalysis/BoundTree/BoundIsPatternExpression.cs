@@ -1978,6 +1978,15 @@ internal partial class BlockBinder
 
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
+        if (memberType.TryGetUnionCase() is { ConstructorParameters.Length: 0 } &&
+            AreSameUnionMemberPatternTarget(inputType, memberType))
+        {
+            pattern = new BoundDeclarationPattern(
+                memberType,
+                BindWholePatternDesignation(syntax.Designation, memberType));
+            return true;
+        }
+
         var innerPattern = BindNominalDeconstructionPatternAgainstKnownType(syntax, inputType, memberType);
         pattern = new BoundUnionMemberPattern(inputType, memberType, tryGetMethod, innerPattern);
         return true;
@@ -2626,6 +2635,9 @@ internal partial class BlockBinder
         var leftPlain = left.GetNonNullableType();
         var rightPlain = right.GetNonNullableType();
         if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
+            return true;
+
+        if (leftPlain.MetadataIdentityEquals(rightPlain))
             return true;
 
         var leftDefinition = left.OriginalDefinition ?? left;
