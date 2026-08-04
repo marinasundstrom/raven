@@ -168,7 +168,9 @@ DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterL
                              TypeTerminator? ;
 
 UnionCaseList            ::= {UnionCaseClause} ;
-UnionCaseClause          ::= 'case' Identifier (ParameterList | CaseFieldClause)? UnionCaseTerminator? ;
+UnionCaseClause          ::= 'case' Identifier (UnionCaseParameterList | CaseFieldClause)? UnionCaseTerminator? ;
+UnionCaseParameterList   ::= '(' UnionCaseParameter {',' UnionCaseParameter} ')' ;
+UnionCaseParameter       ::= Parameter | Type ;
 CaseFieldClause          ::= '{' {CaseField} '}' ;
 CaseField                ::= Identifier ':' Type ('=' Expression)? UnionCaseTerminator? ;
 UnionCaseTerminator      ::= ',' | TypeTerminator ;

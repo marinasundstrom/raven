@@ -2293,6 +2293,43 @@ class Container {
     }
 
     [Fact]
+    public void UnnamedUnionCasePayloads_ExecuteThroughPropertiesAndPatterns()
+    {
+        const string code = """
+union Payload {
+    case Single(int)
+    case Pair(int, string)
+}
+
+class Container {
+    public static func Describe() -> string {
+        let payload: Payload = .Pair(8, "eight")
+        return payload match {
+            .Single(let value) => value.ToString()
+            .Pair(let first, let second) => "$first:$second"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "unnamed-union-payloads",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var container = loaded.Assembly.GetType("Container", throwOnError: true)!;
+
+        Assert.Equal("8:eight", container.GetMethod("Describe", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, null));
+    }
+
+    [Fact]
     public void TargetTypedParameterlessUnionCase_EmitsInNestedConstructorArgument()
     {
         var code = """

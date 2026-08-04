@@ -90,6 +90,19 @@ public sealed class CSharpUnionInteropTests
                 if (value.TryGetValue(out Choice_Text _))
                     return Fail("Struct union TryGetValue should reject inactive cases.");
 
+                var unnamedSingle = new Choice(new Choice_Single(7));
+                if (!unnamedSingle.TryGetValue(out Choice_Single single) || single.Value != 7)
+                    return Fail("A single unnamed payload should project as Value.");
+
+                var unnamedPair = new Choice(new Choice_Pair(8, "eight"));
+                var pairValue = unnamedPair switch
+                {
+                    Choice_Pair(var item1, var item2) when item2 == "eight" => item1,
+                    _ => -1
+                };
+                if (pairValue != 8)
+                    return Fail("Multiple unnamed payloads should project as Item1/Item2 and deconstruct positionally.");
+
                 var none = new Choice(new Choice_None());
                 if (!none.HasValue || none.Value is not Choice_None)
                     return Fail("Parameterless case should still produce an active carrier.");
@@ -312,6 +325,8 @@ public sealed class CSharpUnionInteropTests
             public union Choice {
                 case Int32(value: int)
                 case Text(value: string)
+                case Single(int)
+                case Pair(int, string)
                 case None
             }
 

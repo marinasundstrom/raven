@@ -298,6 +298,7 @@ union Result<T> {
 """;
 
         var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var okClause = tree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>().First();
         var okSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(model.GetDeclaredSymbol(okClause));
@@ -306,7 +307,7 @@ union Result<T> {
             SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
             SymbolDisplayKindOptions.IncludeMemberKeyword);
 
-        okSymbol.ToDisplayString(format).ShouldBe("case Ok<T>");
+        okSymbol.ToDisplayString(format).ShouldBe("case Ok(value: T)");
     }
 
     [Fact]

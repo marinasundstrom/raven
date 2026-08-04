@@ -586,7 +586,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         ParameterListSyntax? parameterList = null;
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-            parameterList = ParseParameterList();
+            parameterList = ParseParameterList(allowUnnamedTypes: true);
 
         CaseFieldClauseSyntax? fieldClause = null;
         if (parameterList is null && PeekToken().IsKind(SyntaxKind.OpenBraceToken))
@@ -1218,7 +1218,10 @@ internal class TypeDeclarationParser : SyntaxParser
             or SyntaxKind.RemoveKeyword;
     }
 
-    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null, bool allowAccessModifiers = false)
+    public ParameterListSyntax ParseParameterList(
+        SyntaxToken? openParenToken = null,
+        bool allowAccessModifiers = false,
+        bool allowUnnamedTypes = false)
     {
         var openParenTokenValue = openParenToken ?? ReadToken();
 
@@ -1296,16 +1299,26 @@ internal class TypeDeclarationParser : SyntaxParser
                     bindingKeyword = ReadToken();
 
                 SyntaxToken name;
-                if (CanTokenBeIdentifier(PeekToken()))
+                TypeAnnotationClauseSyntax? typeAnnotation;
+                var hasExplicitName = CanTokenBeIdentifier(PeekToken()) &&
+                    PeekToken(1).IsKind(SyntaxKind.ColonToken);
+
+                if (allowUnnamedTypes && !hasExplicitName)
+                {
+                    name = MissingToken(SyntaxKind.IdentifierToken);
+                    var type = new NameSyntaxParser(this).ParseTypeName();
+                    typeAnnotation = TypeAnnotationClause(MissingToken(SyntaxKind.ColonToken), type);
+                }
+                else if (CanTokenBeIdentifier(PeekToken()))
                 {
                     name = ReadIdentifierToken();
+                    typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
                 }
                 else
                 {
                     name = ExpectToken(SyntaxKind.IdentifierToken);
+                    typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
                 }
-
-                var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
                 var dotDotDotToken = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.DotDotDotToken)
                     dotDotDotToken = ReadToken();

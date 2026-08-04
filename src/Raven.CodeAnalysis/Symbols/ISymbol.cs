@@ -415,6 +415,12 @@ public interface IParameterSymbol : ISymbol
     ITypeSymbol Type { get; }
 
     /// <summary>
+    /// Gets whether the parameter has a compiler-projected metadata name rather
+    /// than a name written in Raven source.
+    /// </summary>
+    bool HasImplicitName => false;
+
+    /// <summary>
     /// Gets how this parameter is supplied when it belongs to a macro
     /// function, or <see cref="MacroParameterRole.None"/> otherwise.
     /// </summary>

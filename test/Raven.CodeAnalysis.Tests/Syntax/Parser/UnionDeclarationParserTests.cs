@@ -42,6 +42,49 @@ public class UnionDeclarationParserTests
         Assert.Empty(tree.GetDiagnostics());
     }
 
+    [Fact]
+    public void UnionDeclaration_WithUnnamedPayloads_ParsesTypesWithoutSourceNames()
+    {
+        const string source = """
+union Payload<T> {
+    case Single(T)
+    case Pair(int, string)
+    case Named(value: T)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+        var cases = declaration.Members.OfType<CaseDeclarationSyntax>().ToArray();
+
+        Assert.Collection(
+            cases[0].ParameterList!.Parameters,
+            parameter =>
+            {
+                Assert.True(parameter.Identifier.IsMissing);
+                Assert.True(parameter.TypeAnnotation!.ColonToken.IsMissing);
+                Assert.Equal("T", parameter.TypeAnnotation.Type.ToString());
+            });
+        Assert.Collection(
+            cases[1].ParameterList!.Parameters,
+            first =>
+            {
+                Assert.True(first.Identifier.IsMissing);
+                Assert.Equal("int", first.TypeAnnotation!.Type.ToString());
+            },
+            second =>
+            {
+                Assert.True(second.Identifier.IsMissing);
+                Assert.Equal("string", second.TypeAnnotation!.Type.ToString());
+            });
+
+        var named = Assert.Single(cases[2].ParameterList!.Parameters);
+        Assert.Equal("value", named.Identifier.ValueText);
+        Assert.False(named.TypeAnnotation!.ColonToken.IsMissing);
+        Assert.Equal("T", named.TypeAnnotation.Type.ToString());
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
     [Theory]
     [InlineData("union LoginResult {\n    case A\n    case B,\n    case C\n}")]
     [InlineData("union LoginResult {\n    case Success\n    case Error(error: LoginError),\n}")]

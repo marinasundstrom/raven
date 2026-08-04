@@ -1390,6 +1390,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public ITypeSymbol Type => _typeSubstitution(_original.Type);
 
+        public bool HasImplicitName => _original.HasImplicitName;
+
         public SymbolKind Kind => _original.Kind;
 
         public string MetadataName => _original.MetadataName;

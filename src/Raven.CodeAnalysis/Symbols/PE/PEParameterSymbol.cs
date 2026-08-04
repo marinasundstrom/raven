@@ -39,6 +39,9 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     public override string Name => _name;
     public ITypeSymbol Type => _type ??= ResolveParameterType();
 
+    public bool HasImplicitName => _parameterInfo.GetCustomAttributesData()
+        .Any(attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+
     public bool IsVarParams => _isParams;
 
     public RefKind RefKind

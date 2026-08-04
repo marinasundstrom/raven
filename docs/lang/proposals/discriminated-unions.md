@@ -44,6 +44,14 @@ let err : Token = .Error {
 
 Struct-like cases use the same case construction model. The brace form is named constructor syntax for the case value, not object-initializer mutation; the resulting case payload remains immutable.
 
+Parenthesized case payloads have two forms. Named payloads behave like record
+members (`case Range(start: int, end: int)`), while positional payloads behave
+like tuple records (`case Pair(int, string)`). The forms cannot be mixed within
+one case. Positional payloads are projected as `Value` for one element or
+`Item1`, `Item2`, ... for multiple elements, but Raven displays the declaration
+using the source-like unnamed signature unless generated names are explicitly
+requested through the symbol display API.
+
 Each case struct exposes the payload values via immutable fields or properties. Assigning a case to the union still converts implicitly at the language level, but the conversion is implemented by calling the matching union constructor (`.ctor(CaseType)`), not by synthesizing `op_Implicit`.
 
 Invariant:

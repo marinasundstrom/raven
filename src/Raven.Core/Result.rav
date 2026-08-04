@@ -47,10 +47,10 @@ import System.Text.Json.Serialization.*
 [JsonConverter(typeof(ResultJsonConverterFactory))]
 public union Result<T, E> {
     /// Represents a successful result value.
-    case Ok(value: T)
+    case Ok(T)
 
     /// Represents an error result.
-    case Error(data: E)
+    case Error(E)
 
     /// Gets a value indicating whether this result is `Ok`.
     val HasOk: bool => self is Ok(val message)

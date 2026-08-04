@@ -4405,15 +4405,32 @@ public partial class SemanticModel
                 namespaceSymbol?.AddMember(caseSymbol);
                 RegisterMember(unionSymbol, caseSymbol);
 
-                var rawParameters = new List<(SyntaxNode Syntax, SyntaxToken Identifier, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams)>();
+                var rawParameters = new List<(SyntaxNode Syntax, string Name, Location Location, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams, bool HasImplicitName)>();
                 var seenOptionalParameter = false;
 
                 if (caseClause.ParameterList is { } parameterList)
                 {
-                    foreach (var parameterSyntax in parameterList.Parameters)
+                    var hasNamedPayloads = parameterList.Parameters.Any(static parameter => !parameter.Identifier.IsMissing);
+                    var hasUnnamedPayloads = parameterList.Parameters.Any(static parameter => parameter.Identifier.IsMissing);
+                    if (hasNamedPayloads && hasUnnamedPayloads)
                     {
+                        _declarationDiagnostics.ReportUnionCasePayloadStyleMixed(
+                            caseClause.Identifier.ValueText,
+                            parameterList.GetLocation());
+                    }
+
+                    for (var parameterOrdinal = 0; parameterOrdinal < parameterList.Parameters.Count; parameterOrdinal++)
+                    {
+                        var parameterSyntax = parameterList.Parameters[parameterOrdinal];
                         var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
                         var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
+                        var parameterName = UnionFacts.GetCaseParameterName(
+                            parameterSyntax.Identifier.ValueText,
+                            parameterOrdinal,
+                            parameterList.Parameters.Count);
+                        var parameterLocation = parameterSyntax.Identifier.IsMissing
+                            ? typeSyntax?.GetLocation() ?? parameterSyntax.GetLocation()
+                            : parameterSyntax.Identifier.GetLocation();
 
                         ITypeSymbol parameterType;
                         if (typeSyntax is null)
@@ -4432,27 +4449,29 @@ public partial class SemanticModel
                             Compilation,
                             parameterSyntax,
                             parameterType,
-                            parameterSyntax.Identifier.ValueText,
+                            parameterName,
                             unionBinder.Diagnostics,
                             out var isVarParams);
 
                         var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                             parameterSyntax,
                             parameterType,
-                            parameterSyntax.Identifier.ValueText,
+                            parameterName,
                             unionBinder.Diagnostics,
                             ref seenOptionalParameter);
 
                         var isMutable = refKind is RefKind.Ref or RefKind.Out;
                         rawParameters.Add((
                             Syntax: parameterSyntax,
-                            Identifier: parameterSyntax.Identifier,
+                            Name: parameterName,
+                            Location: parameterLocation,
                             Type: parameterType,
                             RefKind: refKind,
                             HasExplicitDefaultValue: defaultResult.HasExplicitDefaultValue,
                             ExplicitDefaultValue: defaultResult.ExplicitDefaultValue,
                             IsMutable: isMutable,
-                            IsVarParams: isVarParams));
+                            IsVarParams: isVarParams,
+                            HasImplicitName: parameterSyntax.Identifier.IsMissing));
                     }
                 }
                 else if (caseClause.FieldClause is { } fieldClause)
@@ -4471,13 +4490,15 @@ public partial class SemanticModel
 
                         rawParameters.Add((
                             Syntax: fieldSyntax,
-                            Identifier: fieldSyntax.Identifier,
+                            Name: fieldSyntax.Identifier.ValueText,
+                            Location: fieldSyntax.Identifier.GetLocation(),
                             Type: parameterType,
                             RefKind: RefKind.None,
                             HasExplicitDefaultValue: defaultResult.HasExplicitDefaultValue,
                             ExplicitDefaultValue: defaultResult.ExplicitDefaultValue,
                             IsMutable: false,
-                            IsVarParams: false));
+                            IsVarParams: false,
+                            HasImplicitName: false));
                     }
                 }
 
@@ -4553,35 +4574,35 @@ public partial class SemanticModel
                 foreach (var rawParameter in rawParameters)
                 {
                     var parameterSyntax = rawParameter.Syntax;
-                    var parameterIdentifier = rawParameter.Identifier;
+                    var parameterName = rawParameter.Name;
                     var refKind = rawParameter.RefKind;
                     var parameterType = rawParameter.Type;
                     if (caseTypeParameterMap.Count > 0)
                         parameterType = SubstituteTypeParameters(parameterType, caseTypeParameterMap);
 
                     var parameterSymbol = new SourceParameterSymbol(
-                        parameterIdentifier.ValueText,
+                        parameterName,
                         parameterType,
                         constructor,
                         caseSymbol,
                         namespaceSymbol,
-                        [parameterIdentifier.GetLocation()],
+                        [rawParameter.Location],
                         [parameterSyntax.GetReference()],
                         refKind,
                         rawParameter.HasExplicitDefaultValue,
                         rawParameter.ExplicitDefaultValue,
                         rawParameter.IsMutable,
-                        rawParameter.IsVarParams);
+                        rawParameter.IsVarParams,
+                        hasImplicitName: rawParameter.HasImplicitName);
 
                     parameters.Add(parameterSymbol);
 
                     if (refKind == RefKind.None)
                     {
-                        var parameterName = parameterIdentifier.ValueText;
                         var propertyName = UnionFacts.GetCasePropertyName(parameterName);
 
                         var backingField = new SourceFieldSymbol(
-                            $"<{parameterIdentifier.ValueText}>k__BackingField",
+                            $"<{parameterName}>k__BackingField",
                             parameterType,
                             isStatic: false,
                             isMutable: parameterSymbol.IsMutable,
@@ -4605,7 +4626,7 @@ public partial class SemanticModel
                             namespaceSymbol,
                             [parameterSyntax.GetLocation()],
                             [parameterSyntax.GetReference()],
-                            declaredAccessibility: Accessibility.Private);
+                            declaredAccessibility: Accessibility.Public);
 
                         RegisterCaseMember(propertySymbol);
 

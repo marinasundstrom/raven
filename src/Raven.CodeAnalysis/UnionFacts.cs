@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -45,6 +46,17 @@ internal static class UnionFacts
         parameterName.AsSpan().CopyTo(buffer);
         buffer[0] = char.ToUpperInvariant(buffer[0]);
         return new string(buffer);
+    }
+
+    public static string GetCaseParameterName(string declaredName, int ordinal, int parameterCount)
+    {
+        if (!string.IsNullOrEmpty(declaredName))
+            return declaredName;
+
+        if (parameterCount == 1)
+            return "value";
+
+        return "item" + (ordinal + 1).ToString(CultureInfo.InvariantCulture);
     }
 
     public static string GetCaseMetadataBaseName(string unionName, string caseName)

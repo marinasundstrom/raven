@@ -6,12 +6,50 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class UnionSemanticTests : CompilationTestBase
 {
+    [Fact]
+    public void UnnamedGenericCasePayloads_ProjectToTheirCarrierAgainstNet11References()
+    {
+        const string source = """
+namespace System
+
+import System.*
+import System.Option.*
+
+union Option<T> {
+    case Some(T)
+    case None
+
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+        self match {
+            Some(let value) => Some(mapper(value))
+            None => None
+        }
+    }
+}
+""";
+
+        var version = TargetFrameworkResolver.ResolveVersion("net11.0");
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Where(File.Exists)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithEmbedCoreTypes(true),
+            references);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void TargetTypedMatchArms_PropagateThroughNestedIfAndBlockExpressions()
     {
@@ -72,6 +110,117 @@ union Option {
 
         var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(symbol);
         Assert.Equal("None", caseSymbol.Name);
+    }
+
+    [Fact]
+    public void UnnamedCasePayloads_ProjectStableMetadataNamesAndSourceLikeSignatures()
+    {
+        const string source = """
+union Payload {
+    case Single(int)
+    case Pair(int, string)
+    case Named(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var union = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(declaration));
+        var single = union.DeclaredCaseTypes.Single(@case => @case.Name == "Single");
+        var pair = union.DeclaredCaseTypes.Single(@case => @case.Name == "Pair");
+        var named = union.DeclaredCaseTypes.Single(@case => @case.Name == "Named");
+
+        var singleParameter = Assert.Single(single.ConstructorParameters);
+        Assert.Equal("value", singleParameter.Name);
+        Assert.True(singleParameter.HasImplicitName);
+        Assert.Contains(singleParameter.GetAttributes(), attribute =>
+            attribute.AttributeClass?.Name == "CompilerGeneratedAttribute" &&
+            attribute.AttributeClass.ContainingNamespace?.ToMetadataName() == "System.Runtime.CompilerServices");
+        Assert.Equal(
+            Accessibility.Public,
+            Assert.Single(single.GetMembers("Value").OfType<IPropertySymbol>()).DeclaredAccessibility);
+
+        Assert.Collection(
+            pair.ConstructorParameters,
+            first =>
+            {
+                Assert.Equal("item1", first.Name);
+                Assert.True(first.HasImplicitName);
+            },
+            second =>
+            {
+                Assert.Equal("item2", second.Name);
+                Assert.True(second.HasImplicitName);
+            });
+        Assert.Equal(
+            Accessibility.Public,
+            Assert.Single(pair.GetMembers("Item1").OfType<IPropertySymbol>()).DeclaredAccessibility);
+        Assert.Equal(
+            Accessibility.Public,
+            Assert.Single(pair.GetMembers("Item2").OfType<IPropertySymbol>()).DeclaredAccessibility);
+
+        var namedParameter = Assert.Single(named.ConstructorParameters);
+        Assert.Equal("message", namedParameter.Name);
+        Assert.False(namedParameter.HasImplicitName);
+        Assert.Single(named.GetMembers("Message").OfType<IPropertySymbol>());
+
+        Assert.Equal("case Single(int)", single.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+        Assert.Equal("case Pair(int, string)", pair.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+        Assert.Equal("case Named(message: string)", named.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+
+        var generatedNameFormat = SymbolDisplayFormat.RavenSignatureFormat.WithParameterOptions(
+            SymbolDisplayFormat.RavenSignatureFormat.ParameterOptions |
+            SymbolDisplayParameterOptions.IncludeGeneratedNames);
+        Assert.Equal("case Single(value: int)", single.ToDisplayString(generatedNameFormat));
+        Assert.Equal("case Pair(item1: int, item2: string)", pair.ToDisplayString(generatedNameFormat));
+    }
+
+    [Fact]
+    public void UnionCasePayloads_CannotMixNamedAndUnnamedForms()
+    {
+        const string source = """
+union Mixed {
+    case Invalid(int, message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnionCasePayloadStyleMixed);
+    }
+
+    [Fact]
+    public void UnnamedCasePayloads_RoundTripThroughMetadataWithoutChangingSourceDisplay()
+    {
+        const string source = """
+public union Payload {
+    case Single(int)
+    case Pair(int, string)
+}
+""";
+
+        var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "UnnamedUnionPayloadMetadata");
+        var compilation = Compilation.Create(
+            "consumer",
+            [],
+            [.. TestMetadataReferences.Default, reference],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var payload = Assert.IsAssignableFrom<IUnionSymbol>(compilation.GetTypeByMetadataName("Payload"));
+        var single = Assert.Single(payload.DeclaredCaseTypes, unionCase => unionCase.Name == "Single");
+        var pair = Assert.Single(payload.DeclaredCaseTypes, unionCase => unionCase.Name == "Pair");
+
+        Assert.True(Assert.Single(single.ConstructorParameters).HasImplicitName);
+        Assert.All(pair.ConstructorParameters, parameter => Assert.True(parameter.HasImplicitName));
+        Assert.Equal("case Single(int)", single.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+        Assert.Equal("case Pair(int, string)", pair.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
     }
 
     [Fact]
@@ -1442,7 +1591,7 @@ union Result<T, E> {
         var output = writer.ToString();
         Assert.Contains("SynthesizedMethod=virtual override Result<T, E>.ToString() -> string", output);
         Assert.Contains("SynthesizedMethod=Result<T, E>.<RavenUnionDisplayName>() -> string", output);
-        Assert.Contains("FieldAccess [Type=Ok<T>, Symbol=Result<T, E>.<OkPayload>: Ok<T>, Field=Result<T, E>.<OkPayload>: Ok<T>]", output);
+        Assert.Contains("FieldAccess [Type=Ok<T>(value: T), Symbol=Result<T, E>.<OkPayload>: Ok<T>, Field=Result<T, E>.<OkPayload>: Ok<T>]", output);
         Assert.Contains("Symbol=static Result<T, E>.<RavenFriendlyTypeName>(type: Type) -> string", output);
         Assert.Contains("TypeOfExpression [Type=Type, OperandType=T, SystemType=Type]", output);
         Assert.Contains("TypeOfExpression [Type=Type, OperandType=E, SystemType=Type]", output);
@@ -1561,9 +1710,9 @@ union Result {
 
         var output = writer.ToString();
         Assert.Contains("SynthesizedMethod=Result.TryGetValue(out value: Ok) -> bool", output);
-        Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=Ok, UnitType=()]", output);
-        Assert.Contains("ParameterAccess [Type=Ok, Symbol=out value: Ok, Parameter=out value: Ok]", output);
-        Assert.Contains("FieldAccess [Type=Ok, Symbol=Result.<OkPayload>: Ok, Field=Result.<OkPayload>: Ok]", output);
+        Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=Ok(value: int), UnitType=()]", output);
+        Assert.Contains("ParameterAccess [Type=Ok(value: int), Symbol=out value: Ok, Parameter=out value: Ok]", output);
+        Assert.Contains("FieldAccess [Type=Ok(value: int), Symbol=Result.<OkPayload>: Ok, Field=Result.<OkPayload>: Ok]", output);
     }
 
     [Fact]
@@ -3600,7 +3749,7 @@ union Option {
         var caseSymbol = unionSymbol.CaseTypes.Single();
 
         var property = caseSymbol.GetMembers("Value").OfType<IPropertySymbol>().Single();
-        Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Public, property.DeclaredAccessibility);
         Assert.NotNull(property.GetMethod);
         Assert.Null(property.SetMethod);
         Assert.Equal(SpecialType.System_Int32, property.Type.SpecialType);

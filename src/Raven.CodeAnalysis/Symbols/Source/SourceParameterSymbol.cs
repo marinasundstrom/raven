@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -18,7 +20,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         bool isMutable = false,
         bool isVarParams = false,
         ScopedKind scopedKind = ScopedKind.None,
-        MacroParameterRole macroRole = MacroParameterRole.None)
+        MacroParameterRole macroRole = MacroParameterRole.None,
+        bool hasImplicitName = false)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = parameterType;
@@ -28,6 +31,7 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         IsMutable = isMutable;
         IsVarParams = isVarParams;
         MacroRole = macroRole;
+        HasImplicitName = hasImplicitName;
         ScopedKind = scopedKind != ScopedKind.None
             ? scopedKind
             : refKind switch
@@ -39,6 +43,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     }
 
     public ITypeSymbol Type { get; }
+
+    public bool HasImplicitName { get; }
 
     public bool IsVarParams { get; }
 
@@ -55,4 +61,14 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     public bool IsOptional => HasExplicitDefaultValue;
 
     public bool IsMutable { get; }
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        var attributes = base.GetAttributes();
+        if (!HasImplicitName)
+            return attributes;
+
+        var compilerGenerated = CreateCompilerGeneratedAttribute();
+        return compilerGenerated is null ? attributes : attributes.Add(compilerGenerated);
+    }
 }

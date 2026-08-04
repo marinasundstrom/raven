@@ -1033,6 +1033,10 @@
     Title="Union special member is compiler-controlled"
     Message="Union '{unionName}' cannot declare '{memberName}'; this special member is compiler-controlled"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2113" Identifier="UnionCasePayloadStyleMixed"
+    Title="Union case payload styles cannot be mixed"
+    Message="Union case '{caseName}' cannot mix named and unnamed payloads"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2500" Identifier="LabelAlreadyDefined" Title="Label already defined"
     Message="A label named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

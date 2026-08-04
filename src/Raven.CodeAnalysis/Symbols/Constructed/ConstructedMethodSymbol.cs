@@ -492,6 +492,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public ISymbol UnderlyingSymbol => this;
         public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
         public ITypeSymbol Type => _type ??= _owner.Substitute(_original.Type);
+        public bool HasImplicitName => _original.HasImplicitName;
         public bool IsVarParams => _original.IsVarParams;
         public RefKind RefKind => _original.RefKind;
         public ScopedKind ScopedKind => _original.ScopedKind;

@@ -340,6 +340,12 @@ public static partial class SymbolExtensions
                 text = FormatType(typeSymbol, format);
             }
 
+            if (typeSymbol is IUnionCaseTypeSymbol unionCase &&
+                format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
+            {
+                text += "(" + string.Join(", ", unionCase.ConstructorParameters.Select(parameter => FormatParameter(parameter, format))) + ")";
+            }
+
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
                 symbol is INamedTypeSymbol namedMemberType &&
                 GetMemberKindKeyword(namedMemberType) is { Length: > 0 } memberKeyword)
@@ -384,6 +390,7 @@ public static partial class SymbolExtensions
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
                             symbol is INamedTypeSymbol namedTypeSymbol &&
+                            !namedTypeSymbol.IsUnionCase &&
                             !isNamedDelegateDeclarationDisplay)
             {
                 var modifierPrefix = GetTypeDeclarationModifierPrefix(namedTypeSymbol);
@@ -1370,7 +1377,8 @@ public static partial class SymbolExtensions
     private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat format)
     {
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
-        var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
+        var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName) &&
+            (!parameter.HasImplicitName || format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeGeneratedNames));
         var includeRefKind = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeParamsRefOut);
 
         var builder = new StringBuilder();

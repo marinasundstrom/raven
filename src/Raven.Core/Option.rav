@@ -46,7 +46,7 @@ import System.Text.Json.Serialization.*
 [JsonConverter(typeof(OptionJsonConverterFactory))]
 public union Option<T> {
     /// Represents an available value.
-    case Some(value: T)
+    case Some(T)
 
     /// Represents the absence of a value.
     case None

@@ -2622,6 +2622,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public ITypeSymbol Type => _type ??= _constructed.ReanchorNestedTypeIfNeeded(
         _constructed.Substitute(_original.Type, _methodMap),
         _methodMap);
+    public bool HasImplicitName => _original.HasImplicitName;
 
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;

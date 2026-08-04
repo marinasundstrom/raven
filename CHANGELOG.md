@@ -7,6 +7,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Raven.Core nullable conversions and JSON naming-policy handling now use
   explicit typed pattern bindings, and `Option` construction is qualified to
   remain unambiguous against .NET 11 framework metadata.
+- Union cases now support positional unnamed payloads such as
+  `case Some(T)` and `case Pair(int, string)`. They project public `Value` or
+  `Item1`/`Item2` properties and stable generated constructor parameter names
+  for .NET interop, while normal Raven symbol display keeps the names omitted.
+  Named and unnamed payload forms cannot be mixed within one case. Raven.Core's
+  `Option.Some`, `Result.Ok`, and `Result.Error` now use the positional form.
 - Canonicalized framework collection contracts loaded through runtime and
   facade assemblies so Raven Core extensions bind consistently in mixed
   reference environments such as the browser playground.

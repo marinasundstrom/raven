@@ -218,7 +218,7 @@ named case in the union's closed case set.
 
 ```raven
 union LookupResult {
-    case Found(id: int)
+    case Found(int)
     case Missing
 
     func Describe() -> string {
@@ -236,6 +236,13 @@ let missing: LookupResult = Missing
 ##### Rules
 
 * Each `case` declaration declares one synthesized case type.
+* A case payload uses either positional types (`case Pair(int, string)`) or
+  named members (`case Range(start: int, end: int)`). A single case cannot mix
+  the two forms.
+* Positional payloads project stable generated members: a single value is
+  exposed as `Value`, while multiple values are exposed as `Item1`, `Item2`,
+  and so on. Normal Raven signatures preserve the declaration spelling and do
+  not display those generated names.
 * Body-form unions may also declare ordinary members in the same body.
 * `case` declarations are valid only inside `union` declarations.
 * Case references may use `Union.Case`, `.Case`, or unqualified `Case` when

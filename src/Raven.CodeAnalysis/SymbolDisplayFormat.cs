@@ -377,5 +377,6 @@ public enum SymbolDisplayParameterOptions
     IncludeName = 8,
     IncludeDefaultValue = 16,
     IncludeOptionalBrackets = 32,
-    IncludeBinding = 64
+    IncludeBinding = 64,
+    IncludeGeneratedNames = 128
 }

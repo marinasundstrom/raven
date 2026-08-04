@@ -112,6 +112,13 @@ additional cases when constructors are present. Nullable active contents are
 derived from nullable constructor parameter types, not from `Value` being
 `object?`.
 
+Positional case payloads use stable metadata names even though ordinary Raven
+symbol display preserves the unnamed source form. A single unnamed payload is
+emitted as constructor parameter `value` and property `Value`; multiple
+payloads use `item1`, `item2`, ... and `Item1`, `Item2`, .... The compiler marks
+the generated parameter names so API consumers can request them explicitly
+without making them part of the default Raven signature presentation.
+
 For nullable members in a parenthesized union declaration, Raven emits
 nullable-capable constructor parameter types for the listed members and does not
 emit a synthetic null constructor:

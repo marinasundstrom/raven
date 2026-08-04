@@ -66,7 +66,7 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
         Assert.True(ok);
         Assert.NotNull(args[0]);
 
-        var data = args[0]!.GetType().GetProperty("Data")!.GetValue(args[0]);
+        var data = args[0]!.GetType().GetProperty("Value")!.GetValue(args[0]);
         Assert.Equal("boom", data);
     }
 

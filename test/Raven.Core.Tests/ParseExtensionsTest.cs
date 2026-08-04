@@ -171,7 +171,7 @@ func ParseMain(text: string) -> Result<int, FormatException | OverflowException>
         Assert.NotNull(args[0]);
 
         var errorCase = args[0]!;
-        var errorUnion = errorCase.GetType().GetProperty("Data")!.GetValue(errorCase)!;
+        var errorUnion = errorCase.GetType().GetProperty("Value")!.GetValue(errorCase)!;
         var exception = errorUnion.GetType().GetProperty("Value")!.GetValue(errorUnion)!;
         Assert.Equal(expectedExceptionType, exception.GetType().Name);
     }
@@ -209,7 +209,7 @@ func ParseMain(text: string) -> Result<int, FormatException | OverflowException>
 
         if (expectedExceptionType is not null)
         {
-            var exception = args[0]!.GetType().GetProperty("Data")!.GetValue(args[0])!;
+            var exception = args[0]!.GetType().GetProperty("Value")!.GetValue(args[0])!;
             Assert.Equal(expectedExceptionType, exception.GetType().Name);
         }
     }

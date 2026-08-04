@@ -161,6 +161,14 @@ union DeliveryStatus {
 }
 ```
 
+Case payloads may instead be positional when their names add no domain meaning,
+for example `case Some(T)` or `case Pair(int, string)`. Positional cases remain
+distinct generated record-like case types with public `Value` or
+`Item1`/`Item2` members for .NET interoperability. Keep names when they explain
+the domain; omit them when the case name and position already communicate the
+shape. Ordinary records continue to require names because their promoted
+properties are the product type's public meaning.
+
 This is not just a shorter enum or class hierarchy. It encodes a closed
 semantic domain:
 
