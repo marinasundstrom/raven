@@ -304,7 +304,7 @@ internal static partial class SymbolResolver
                     return false;
                 }
 
-                resolvedType = nullableElementType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                resolvedType = nullableElementType.GetNullableType();
                 return true;
 
             case GenericNameSyntax genericName:

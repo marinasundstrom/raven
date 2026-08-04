@@ -337,7 +337,7 @@ public static partial class SymbolExtensions
             var underlyingType = SubstituteTypeParameters(nullableTypeSymbol.UnderlyingType, map);
 
             if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-                return underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                return underlyingType.GetNullableType();
 
             return type;
         }

@@ -44,17 +44,17 @@ class AddEquatableMacro : IAttachedDeclarationMacro {
     }
 
     static func AddBaseType(existing: BaseListSyntax?, baseType: BaseTypeSyntax) -> BaseListSyntax {
-        if existing == null {
+        let present: BaseListSyntax = existing else {
             return BaseList(SingletonSeparatedList<BaseTypeSyntax>(SyntaxNodeOrToken(baseType)))
         }
 
         let items = System.Collections.Generic.List<SyntaxNodeOrToken>()
-        for item in existing.Types.GetWithSeparators() {
+        for item in present.Types.GetWithSeparators() {
             items.Add(item)
         }
         items.Add(SyntaxNodeOrToken(CommaToken))
         items.Add(SyntaxNodeOrToken(baseType))
 
-        existing.WithTypes(SeparatedList<BaseTypeSyntax>(items.ToArray()))
+        present.WithTypes(SeparatedList<BaseTypeSyntax>(items.ToArray()))
     }
 }

@@ -141,7 +141,6 @@ internal static class MsBuildProjectEvaluator
         var runAnalyzers = GetBooleanProperty(project, "RunAnalyzers")
             ?? GetBooleanProperty(project, "RavenRunAnalyzers")
             ?? true;
-        var enableNullFlowAnalysis = GetBooleanProperty(project, "EnableNullFlowAnalysis") ?? true;
         var disabledAnalyzers = AnalyzerOptionUtilities.ParseAnalyzerNameSet(
             GetOptionalProperty(project, "DisabledAnalyzers") ??
             GetOptionalProperty(project, "RavenDisabledAnalyzers"));
@@ -164,7 +163,6 @@ internal static class MsBuildProjectEvaluator
             .WithAllowNamespaceMembers(allowNamespaceMembers)
             .WithAllowNamespaceMemberImports(allowNamespaceMemberImports)
             .WithRunAnalyzers(runAnalyzers)
-            .WithEnableNullFlowAnalysis(enableNullFlowAnalysis)
             .WithDisabledAnalyzers(disabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode);
 

@@ -214,7 +214,7 @@ class Program {
 
         senderParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
         SymbolEqualityComparer.Default.Equals(changedArgsType, argsParameter.Type).ShouldBeTrue();
-        SymbolEqualityComparer.Default.Equals(objectType.WithNullableAnnotation(NullableAnnotation.Annotated), boundLambda.Parameters.ElementAt(0).Type).ShouldBeTrue();
+        SymbolEqualityComparer.Default.Equals(objectType.GetNullableType(), boundLambda.Parameters.ElementAt(0).Type).ShouldBeTrue();
         SymbolEqualityComparer.Default.Equals(changedArgsType, boundLambda.Parameters.ElementAt(1).Type).ShouldBeTrue();
     }
 

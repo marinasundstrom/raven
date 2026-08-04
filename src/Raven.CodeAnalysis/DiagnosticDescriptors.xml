@@ -550,8 +550,9 @@
     Title="Type parameter cannot be nullable"
     Message="Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0402" Identifier="PossibleNullReferenceAccess"
-    Title="Possible null reference access" Message="Possible null reference access"
+  <Descriptor Id="RAV0402" Identifier="NullableValueMemberAccess"
+    Title="Nullable value must be unwrapped"
+    Message="A member cannot be accessed through nullable type '{receiverType}'; unwrap or pattern-bind the value first"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0403" Identifier="NullableSuppressionUsed"
     Title="Nullable suppression used"

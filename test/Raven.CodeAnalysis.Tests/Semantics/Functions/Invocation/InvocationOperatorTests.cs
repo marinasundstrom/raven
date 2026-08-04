@@ -147,7 +147,7 @@ class VirtualDerived : VirtualBase {
     }
 
     [Fact]
-    public void InvocationOperator_AfterNotNullCheck_BindsToInvokeMethod()
+    public void InvocationOperator_AfterExplicitPatternBinding_BindsToInvokeMethod()
     {
         var source = """
 class Foo {
@@ -157,8 +157,8 @@ class Foo {
 }
 
 func test(foo: Foo?) -> int {
-    if foo is not null {
-        return foo(2)
+    if let callable: Foo = foo {
+        return callable(2)
     }
 
     return 0
@@ -180,7 +180,7 @@ func test(foo: Foo?) -> int {
     }
 
     [Fact]
-    public void InvocationOperator_AwaitedAfterNotNullCheck_BindsInvokeAndAwaitedResult()
+    public void InvocationOperator_AwaitedAfterExplicitPatternBinding_BindsInvokeAndAwaitedResult()
     {
         var source = """
 import System.Threading.Tasks.*
@@ -207,8 +207,8 @@ class Foo(value: int) {
 }
 
 async func Run(foo: Foo?) -> Task<Option<int>> {
-    if foo is not null {
-        let result = await foo(true)
+    if let callable: Foo = foo {
+        let result = await callable(true)
         return result
     }
 
@@ -227,7 +227,7 @@ async func Run(foo: Foo?) -> Task<Option<int>> {
         var root = tree.GetRoot();
         var invocation = root.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
-            .Single(node => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "foo" });
+            .Single(node => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "callable" });
         var invokeSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("Invoke", invokeSymbol.Name);

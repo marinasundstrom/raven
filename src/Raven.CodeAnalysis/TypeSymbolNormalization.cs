@@ -413,7 +413,7 @@ internal static class TypeSymbolNormalization
             return false;
         }
 
-        result = other.WithNullableAnnotation(NullableAnnotation.Annotated);
+        result = other.GetNullableType();
         return true;
     }
 

@@ -2,13 +2,13 @@ import System.*
 import System.Console.*
 
 // Feature: `Result<(), E>` success form.
-let result: Result<(), string> = Ok
+let result: Result<(), string> = .Ok
 
 WriteLine(result)
 
 let r = match result {
-    Ok => "Foo",
-    Error(let str) => "error"
+    .Ok => "Foo",
+    .Error(let str) => "error"
 }
 
 WriteLine(r)

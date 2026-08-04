@@ -233,7 +233,7 @@ class Number
     [InlineData("null != x", false)]
     [InlineData("x == null", true)]
     [InlineData("null == x", true)]
-    public void NullCheck_WithUserDefinedEquality_NarrowsLikeRoslyn(string condition, bool dereferenceInElse)
+    public void NullCheck_WithUserDefinedEquality_DoesNotRefineNullableStorage(string condition, bool dereferenceInElse)
     {
         var guardedDereference = dereferenceInElse
             ? $"if {condition} {{ }} else {{ x.Ping() }}"
@@ -261,7 +261,7 @@ class C
         var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableValueMemberAccess);
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
     }
 }

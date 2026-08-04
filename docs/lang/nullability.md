@@ -1,18 +1,20 @@
-# Nullability, absence, and null flow
+# Nullability and absence
 
-Raven encourages programs to model intentional absence with `Option<T>` and to
-handle alternatives with patterns. Nullable types remain part of the language
-because Raven is a .NET language: existing libraries use null, applications are
-adopted gradually, and not every boundary can be redesigned at once.
+Raven treats nullability as part of an expression's static type. A value of
+type `T?` must be explicitly unwrapped, pattern-bound, converted, or suppressed
+before it can be used as `T`.
 
-The resulting policy is:
+Raven encourages programs to model intentional domain absence with `Option<T>`
+and expected failure with `Result<T, E>`. Nullable types remain important for
+.NET interoperability, reference state, and gradual adoption.
+
+In Raven's modeling vocabulary, `null` describes runtime null state rather
+than a domain-level “possibly absent” case. Use `Option<T>` when absence is a
+meaningful state of the application instead of carrying that meaning in a null
+reference.
 
 > Use `Option<T>` when absence is part of the domain. Use `T?` when null is part
-> of an interoperability or migration boundary. In either case, handle the
-> possible states explicitly before using the value.
-
-This is guidance, not a second type system. Nullable Raven code still has a
-precise, strict meaning.
+> of an interoperability or storage contract. Handle either form explicitly.
 
 ## One unified nullable type model
 
@@ -24,42 +26,28 @@ let name: string? = ReadName()
 let count: int? = ReadCount()
 ```
 
-Both declarations are nullable in Raven's symbol model. Their CLR
-representations differ, but that ABI detail does not create separate source or
-semantic rules. Public semantic APIs preserve the declared nullable type while
-reporting what is known about a particular use through its null-flow state.
+Both declarations have a nullable wrapper in Raven's symbol model. Their CLR
+representations differ: a nullable reference uses .NET nullable metadata,
+while a nullable value uses the conventional `System.Nullable<T>` ABI shape.
+That platform distinction does not create two source-language type systems.
 
-This is Raven's native type model, not a presentation layer over C# nullable
-reference types. .NET compatibility determines how Raven imports and emits the
-contract: a nullable reference uses the platform annotation metadata, while a
-nullable value type uses the conventional `System.Nullable<T>` representation.
-Inside Raven, both project to the same declared `T?` concept and participate in
-the same conversions, patterns, symbol APIs, and diagnostics. Raven code should
-therefore be designed in terms of Raven's types and modeling conventions even
-when those types cross a conventional .NET ABI unchanged.
+Raven's type system is its own semantic model, designed to interoperate with
+the .NET type system. `TypeInfo.Type` is the authoritative type of an
+expression. Raven does not publish a second flow-sensitive type or nullability
+result for the same expression.
 
-A flow fact does not mutate a declaration. If `name` is declared as `string?`,
-it remains declared as `string?` even at a position where analysis proves that
-its current value is not null. The reverse is also true at an interoperability
-boundary: a .NET `[MaybeNull]` postcondition can make a value declared as
-`string` maybe-null at a particular program point without rewriting its Raven
-type. `TypeInfo` therefore reports the declared annotation and current flow
-state independently.
+## Nullable values must be handled explicitly
 
-## Nullable values must be handled
-
-By default, Raven reports an error when code dereferences a value that may be
-null:
+A member cannot be accessed through `T?`:
 
 ```raven
 func PrintLength(value: string?) -> unit {
-    // RAV0402: Possible null reference access
+    // RAV0402: Nullable value must be unwrapped
     WriteLine(value.Length)
 }
 ```
 
-Code must first establish a non-null value. Raven's preferred forms make that
-result explicit with a pattern binding:
+Prefer a pattern that both checks the value and introduces a non-null binding:
 
 ```raven
 func PrintLength(value: string?) -> unit {
@@ -69,8 +57,45 @@ func PrintLength(value: string?) -> unit {
 }
 ```
 
-The same idea works in a `match`, where every state can be visible in one
-place:
+A direct type pattern has the same useful property:
+
+```raven
+if value is string text {
+    WriteLine(text.Length)
+}
+```
+
+The original storage remains `string?`; `text` is a separate `string` value.
+This rule is predictable for locals, mutable variables, properties, and values
+whose backing storage another call or thread could change.
+
+This intentionally differs from C# nullable flow analysis and from languages
+that smart-cast sufficiently stable storage after a null check. C# needed a
+migration-friendly analysis for an existing nullable-unaware ecosystem. Raven
+starts with nullable types as a strict source-language distinction: checking a
+storage location does not change its type. A successful pattern names the
+non-null value that subsequent code may use.
+
+Null checks remain valid conditions, but they do not change a value's type:
+
+```raven
+if value is not null {
+    WriteLine(value.Length) // error: value is still string?
+}
+
+if value != null {
+    WriteLine(value.Length) // error: value is still string?
+}
+```
+
+These familiar .NET forms can still select a branch. Bind the checked value to
+use it as non-null. Equality checks may also invoke user-defined equality;
+`RAV9015` can replace an equality comparison with the stricter `is null` or
+`is not null` form when that distinction matters.
+
+## Match every nullable state
+
+`match` makes all states visible in one place:
 
 ```raven
 let description = match value {
@@ -78,10 +103,6 @@ let description = match value {
     null => "No value"
 }
 ```
-
-Patterns are preferred because they state both the condition and the value that
-is safe to use. They also scale to `Option`, `Result`, unions, and richer data
-shapes without introducing a separate null-only control-flow vocabulary.
 
 For a nullable closed hierarchy, exhaustiveness includes every permitted leaf
 type plus `null`:
@@ -94,8 +115,7 @@ let description = match value {
 }
 ```
 
-An open hierarchy cannot enumerate every future subtype. It also needs either
-a base-type arm, which binds the remaining non-null values, or a discard arm:
+An open hierarchy also needs a base-type or discard arm:
 
 ```raven
 let description = match value {
@@ -106,41 +126,46 @@ let description = match value {
 }
 ```
 
-Using `_` instead of `BaseClass other` is appropriate when the remaining value
-is intentionally ignored. Keeping `null` explicit before that fallback makes
-the null-reference state visible rather than absorbing it into `_`.
+Use `_` instead when the remaining non-null value is intentionally ignored.
 
-## Direct null checks are compatibility forms
+## Explicit escape hatches
 
-Raven also supports direct checks:
+Conditional access handles a nullable receiver without changing the receiver's
+type:
 
 ```raven
-if value is not null {
-    WriteLine(value.Length)
-}
+let length: int? = value?.Length
 ```
 
-`is null` and `is not null` are valid Raven. They are useful when translating
-.NET-shaped code, interoperating with nullable APIs, or adopting Raven without
-rewriting every local flow. A successful `is not null` branch currently narrows
-the original value inside that branch. Its declared type remains `T?`, and the
-non-null fact does not escape the branch unless control flow proves it on every
-continuing path.
+Postfix `!` explicitly suppresses nullability for one expression and reports
+warning `RAV0403`:
 
-These forms are described as compatibility forms because Raven documentation
-should teach pattern bindings and exhaustive matching first. “Compatibility”
-does not mean deprecated, unsafe, or unsupported.
+```raven
+let length = value!.Length
+```
 
-Equality operators are a separate concern. `value == null` and
-`value != null` may invoke user-defined equality and therefore may not be
-strict null tests. `RAV9015` can replace those comparisons with `is null` or
-`is not null`. That safety-oriented fix does not make direct null checks the
-preferred way to model domain absence.
+Suppression is appropriate only when the programmer has knowledge the type
+does not express. Prefer a pattern when the program can prove the state.
+
+## .NET metadata boundaries
+
+Raven imports and emits .NET nullable annotations so public contracts retain
+their ABI meaning:
+
+- nullable metadata determines whether an imported type is `T` or `T?`;
+- `[MaybeNull]` makes an imported call result statically nullable when the
+  underlying type can represent null;
+- `[AllowNull]` and `[DisallowNull]` affect accepted input values;
+- conditional flow attributes such as `[NotNullWhen]`, `[NotNullIfNotNull]`,
+  and `[MemberNotNull]` do not refine Raven storage locations.
+
+The last rule is an intentional language boundary. Raven consumes the contract
+that determines a value's static type, but it does not adopt C#'s contextual
+null-state machinery.
 
 ## Prefer `Option` for domain absence
 
-If a missing value is an expected state of the application, represent it in
-the API:
+If a missing value is an expected application state, represent it in the API:
 
 ```raven
 func FindCustomer(id: CustomerId) -> Option<Customer> {
@@ -154,82 +179,17 @@ let message = match FindCustomer(id) {
 }
 ```
 
-`Option<T>` gives absence a named, closed shape. It supports exhaustive
-matching and distinguishes an absent result from a nullable payload when that
-distinction matters. `Result<T, E>` serves the corresponding role when an
-expected operation can fail with useful error information.
+`Option<T>` gives absence a named, closed shape and supports exhaustive
+matching. `Result<T, E>` serves the corresponding role when an operation can
+fail with useful error information.
 
-Do not mechanically replace every nullable type in imported or boundary APIs.
-An application can accept a `string?` from .NET, handle it once, and then pass
-an `Option<string>` or a proven `string` into the rest of its domain code.
+Do not mechanically replace every nullable type at a .NET boundary. A program
+can accept `string?`, handle it once with a pattern, and pass a `string` or
+`Option<string>` into the rest of its domain code.
 
-The built-in `RAV9012` analyzer reports nullable flow that appears to model
-domain absence. Its code fix can rewrite simple, local null-guarded flows to an
-`Option` pattern when the transformation is contained and unambiguous. It does
-not automatically redesign public APIs or rewrite arbitrary control flow; those
-changes require a domain decision from the developer.
-
-## What null flow analysis does
-
-Null flow analysis tracks facts established by assignments, branches, loops,
-patterns, calls, and .NET nullable-flow attributes. Its purpose in Raven is to
-prove safe access and find likely null-reference bugs in interop-oriented or
-gradually migrated code.
-
-It is not Raven's primary model for absence, and it should not grow into a
-reason to organize domain APIs around mutable nullable state. When analysis
-cannot prove that a nullable value is safe, prefer another explicit pattern or
-binding over increasingly implicit inference.
-
-Raven keeps these layers distinct:
-
-1. Declared nullability determines whether a type is `T` or `T?`.
-2. Boundary and conversion checks enforce those declared contracts.
-3. Patterns establish explicit safe branches and bindings.
-4. Null flow analysis carries additional facts through control flow and reports
-   possible dereferences.
-
-Disabling a flow diagnostic does not remove nullable annotations, change symbol
-identity, alter emitted nullable metadata, or disable syntax-directed pattern
-refinement.
-
-## Configuration
-
-Null-flow diagnostics are enabled by default. An MSBuild project can suppress
-flow-derived possible-null-reference diagnostics with:
-
-```xml
-<PropertyGroup>
-  <EnableNullFlowAnalysis>false</EnableNullFlowAnalysis>
-</PropertyGroup>
-```
-
-This setting does not turn nullability off. Declared annotations, conversions,
-metadata, boundary checks, pattern refinement, and flow-sensitive semantic
-information remain available.
-
-Raven's policy analyzers are configured independently through
-`.editorconfig`. For example:
-
-```ini
-[*.rvn]
-# Encourage Option or Result for nullable domain flow.
-dotnet_diagnostic.RAV9012.severity = warning
-
-# Disable the equality-to-strict-null-check suggestion if it is not useful.
-dotnet_diagnostic.RAV9015.severity = none
-```
-
-Projects can therefore choose how strongly to enforce Raven's preferred style
-without changing what `T?`, a pattern, or a flow fact means.
-
-## Current policy boundary
-
-Raven currently has one nullable semantic model, not separate strict and
-compatibility languages. A future project profile might bundle stricter or more
-migration-oriented diagnostic settings, but it must not silently change symbol
-types, metadata contracts, or the meaning of patterns. Any such profile remains
-an explicit design question rather than current behavior.
+The built-in `RAV9012` analyzer identifies simple nullable code that may be
+better expressed with `Option`. Analyzer severity is configurable through
+`.editorconfig`; the meaning of `T?` is not configurable.
 
 Continue with [Pattern matching](spec/pattern-matching.md),
 [Raven.Core and `Option`](../compiler/raven-core-library.md), and

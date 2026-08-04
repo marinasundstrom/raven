@@ -5,8 +5,8 @@ let str = "Test"
 Foo(str)
 
 func Foo(str: string?) {
-    if str is not null {
-        let len = str.Length
+    if let text: string = str {
+        let len = text.Length
 
         WriteLine("Length: $len")
     }

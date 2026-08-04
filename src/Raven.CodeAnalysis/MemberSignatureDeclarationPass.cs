@@ -886,7 +886,7 @@ internal static class MemberSignatureDeclarationPass
 
         return underlyingType.TypeKind == TypeKind.Error
             ? fallbackType
-            : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+            : underlyingType.GetNullableType();
     }
 
     private static ITypeSymbol ResolveArraySkeletonType(

@@ -47,7 +47,7 @@ func Test() {
         var fixes = GetAvailableCodeFixes(code);
 
         Assert.Contains(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
-        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
     }
 
     [Fact]
@@ -67,7 +67,7 @@ func Test() {
         var fixes = GetAvailableCodeFixes(code);
 
         Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
-        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
     }
 
     [Fact]
@@ -93,10 +93,10 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -116,7 +116,7 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(0, result.AppliedFixCount);
         Assert.Empty(result.AppliedFixes);
@@ -139,7 +139,7 @@ func Test() {
 
         var fixes = GetAvailableCodeFixes(code);
 
-        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
     }
 
     [Fact]
@@ -169,10 +169,10 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -199,10 +199,10 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -233,10 +233,10 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -267,10 +267,10 @@ func Test() -> string {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -307,10 +307,10 @@ func Test() -> string {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 
@@ -337,10 +337,10 @@ func Test() {
 
         var result = GetCodeFixResult(
             code,
-            fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+            fix => fix.Action.Title == "Rewrite nullable handling to Option pattern matching");
 
         Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
+        Assert.Equal("Rewrite nullable handling to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
         Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
     }
 

@@ -244,9 +244,8 @@ Raven still supports nullable values for .NET interop. `Option<T>` is the
 preferred domain shape when absence is expected and meaningful.
 
 Unlike C#, Raven applies the same declared nullable model to reference and
-value types. A `T?` value cannot be dereferenced by default until a pattern or
-flow fact proves that it is non-null. Prefer an explicit binding when crossing
-that boundary:
+value types. A `T?` value cannot be dereferenced until an explicit operation
+produces `T`. Prefer a pattern binding when crossing that boundary:
 
 ```raven
 if let customer: Customer = importedCustomer {
@@ -254,11 +253,10 @@ if let customer: Customer = importedCustomer {
 }
 ```
 
-`if importedCustomer is not null` is also valid and narrows the original value
-inside the branch. Raven keeps that form for familiar .NET-shaped code and
-gradual adoption, but teaches bindings and matches first. The declared symbol
-remains `Customer?` even where its current flow state is known to be non-null.
-See [Nullability, absence, and null flow](lang/nullability.md).
+`if importedCustomer is not null` is also a valid condition, but it does not
+change the original storage from `Customer?` to `Customer`. This avoids a
+contextual compiler promise for mutable values and properties. See
+[Nullability and absence](lang/nullability.md).
 
 ## Expected failure becomes `Result`
 

@@ -78,7 +78,7 @@ let anyNumbers = numbers.Any()
         Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
-                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
+                diagnostic.Descriptor != CompilerDiagnostics.NullableValueMemberAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Any");
@@ -145,7 +145,7 @@ let projection = numbers.Select(value => value)
         Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
-                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
+                diagnostic.Descriptor != CompilerDiagnostics.NullableValueMemberAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Select");
@@ -371,7 +371,7 @@ let enumerable = values.AsEnumerable()
         Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
-                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
+                diagnostic.Descriptor != CompilerDiagnostics.NullableValueMemberAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "AsEnumerable");
@@ -463,7 +463,7 @@ let anyPositive = numbers.Any((value: int) => value > 0)
         Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
-                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
+                diagnostic.Descriptor != CompilerDiagnostics.NullableValueMemberAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Any");
@@ -528,7 +528,7 @@ let anyItems = numbers.Any()
         Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
-                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
+                diagnostic.Descriptor != CompilerDiagnostics.NullableValueMemberAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Any");
@@ -1073,7 +1073,7 @@ let result = properties.Where(pi => !pi.GetMethod.IsStatic)
         Assert.DoesNotContain(
             diagnostics,
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
-                diagnostic.Descriptor != CompilerDiagnostics.PossibleNullReferenceAccess);
+                diagnostic.Descriptor != CompilerDiagnostics.NullableValueMemberAccess);
 
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()

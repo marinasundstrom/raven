@@ -228,9 +228,9 @@ outcome that callers should handle explicitly. Raven supports conversions at
 appropriate nullable interoperability boundaries; the two forms should not be
 treated as conceptually identical.
 
-### Nullability is an interoperability corridor
+### Nullability is an explicit interoperability boundary
 
-Raven does not expect nullable flow to organize an application. At a .NET
+Raven does not expect nullable storage to organize an application. At a .NET
 boundary, accept the platform signature faithfully, then eliminate the nullable
 state as close to that boundary as practical:
 
@@ -248,13 +248,6 @@ After that conversion, domain code should normally use exhaustive patterns over
 `Option`, `Result`, unions, or other explicit states. This keeps absence and
 failure visible in the model instead of carrying a nullable reference through
 unrelated code.
-
-Null-flow analysis complements that style. It must remain sound for code that
-cannot immediately leave the nullable corridor: platform callbacks, mutable
-object models, generated APIs, reflection, and gradual migrations. Its job is
-to publish the state established by patterns, branches, assignments, and .NET
-flow attributes through diagnostics and `TypeInfo`; it is not a reason to
-prefer null over Raven's explicit alternatives.
 
 Null is a state that Raven code handles explicitly. Prefer a typed conditional
 binding when the branch needs the present value:
@@ -275,24 +268,21 @@ if x is string str {
 }
 ```
 
-Raven also supports the familiar direct check, which currently refines the
-existing nullable value inside the successful branch:
+Raven also supports the familiar direct check as a condition:
 
 ```raven
 if x is not null {
-    let len = x.Length
+    // x remains string?
 }
 ```
 
-That last form is a valid compatibility form and is not discouraged. It is
-narrowing in effect, but the semantic model keeps `x` declared as
-`string?` and publishes a non-null flow state only in the branch. Documentation
-and examples present the binding forms first because they introduce a distinct
-non-nullable `str: string` local and make the successful value explicit. Raven
-retains .NET-compatible escape hatches such as postfix `!` for interop, but
-they do not replace explicit handling in idiomatic Raven code.
+That last form is valid, but it does not implicitly refine the checked storage.
+Documentation and examples present binding forms first because they introduce
+a distinct non-nullable `str: string` local and make the successful value
+explicit. Raven retains .NET-compatible escape hatches such as postfix `!` for
+interop, but they do not replace explicit handling in idiomatic Raven code.
 
-Raven treats flow and nullability as five separate responsibilities:
+Raven keeps four responsibilities distinct:
 
 1. **Reachability analysis is core control-flow semantics.** It determines
    whether a block, branch, arm, or statement can execute and which paths can
@@ -300,7 +290,7 @@ Raven treats flow and nullability as five separate responsibilities:
    not independently invent reachability rules.
 2. **Assignment analysis is core variable semantics.** It determines whether a
    variable is definitely assigned before use and whether an immutable binding
-   is assigned again. Disabling null-flow analysis must not affect either rule.
+   is assigned again.
 3. **Explicit nullness, dereference checks, and .NET metadata are core type
    semantics.** At every source
    position where null is intentionally admitted—including locals and
@@ -308,52 +298,24 @@ Raven treats flow and nullability as five separate responsibilities:
    The compiler preserves that unified representation, validates conversions
    and constraints, rejects unsafe dereferences known directly from the
    declared state, and imports and emits the corresponding platform annotations.
-4. **Branch and pattern refinement is core semantics.** A successful non-null
-   test or pattern establishes a safe fact within that arm or branch. This is
-   required for Raven's preferred exhaustive pattern style; it is not an
-   optional warning pass.
-5. **Null-flow analysis is tooling policy.** Following a
-   nullable value through distant assignments, loops, exceptions, and metadata
-   postconditions is most useful for .NET interop and gradual migration. The
-   analysis is enabled by default, but can be disabled without weakening the
-   language's declared-nullness rules or pattern semantics.
+4. **Patterns produce values with explicit types.** A successful typed binding
+   introduces a new non-null value within its scope. It does not change the
+   type of the original storage location.
 
-For an MSBuild Raven project, disable null-flow analysis with:
-
-```xml
-<PropertyGroup>
-  <EnableNullFlowAnalysis>false</EnableNullFlowAnalysis>
-</PropertyGroup>
-```
-
-Hosts that construct compilations directly use
-`CompilationOptions.WithEnableNullFlowAnalysis(false)`. This currently
-suppresses the flow-derived possible-null-reference diagnostic (`RAV0402`). It
-does not change `T` versus `T?`, nullable conversions, imported or emitted .NET
-metadata, syntax-directed pattern refinement, or the nullability information
-published by `TypeInfo`.
-
-The purpose of null-flow analysis is defect discovery. It should identify
-likely null-reference bugs in existing .NET-shaped code and make nullable state
-visible while a codebase is being migrated. The recommended response is not to
-build more domain logic around null, but to progressively shorten the nullable
-corridor: handle a boundary value with a pattern and convert meaningful absence
-or failure into an explicit Raven type.
+Raven deliberately has no C#-style nullable flow state layered on top of these
+rules. A member-access decision follows directly from the receiver's static
+type. This applies equally to locals, parameters, properties, and mutable
+storage and keeps `TypeInfo` independent of query order and control-flow state.
 
 A practical adoption sequence is:
 
 1. preserve and enforce the existing .NET nullable annotations;
-2. enable flow diagnostics to find unsafe dereferences and mutation paths;
-3. introduce local patterns that handle every nullable outcome;
-4. project recurring domain outcomes into `Option`, `Result`, or a union;
-5. leave null-flow tracking concentrated near the remaining interop edges.
+2. introduce local patterns that handle every nullable outcome;
+3. project recurring domain outcomes into `Option`, `Result`, or a union;
+4. keep null concentrated near the remaining interop and storage boundaries.
 
-The canonical user-facing policy and configuration examples are in
-[Nullability, absence, and null flow](nullability.md).
-
-Turning off the fifth layer must not change reachability, assignment checks,
-declared types, pattern-arm types,
-overload resolution, emitted metadata, or runtime behavior.
+The canonical user-facing policy is in
+[Nullability and absence](nullability.md).
 
 `unit` has a different meaning again: it represents no meaningful return value,
 not an absent value.

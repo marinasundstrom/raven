@@ -87,14 +87,6 @@ partial class BlockBinder
         SyntaxNode conditionSyntax,
         Location ifKeywordLocation)
     {
-        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
-        var entryMaybeNullState = new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default);
-        var thenEntryState = entryState;
-        var elseEntryState = entryState;
-        var thenMaybeNullEntryState = entryMaybeNullState;
-        var elseMaybeNullEntryState = entryMaybeNullState;
-        var thenExits = IsEarlyExitStatement(thenStatementSyntax);
-        var elseExits = elseClauseSyntax is not null && IsEarlyExitStatement(elseClauseSyntax.Statement);
         var patternLocals = condition is BoundIsPatternExpression isPattern
             ? CollectPatternDesignatorLocals(isPattern.Pattern)
             : ImmutableArray<ILocalSymbol>.Empty;
@@ -108,25 +100,6 @@ partial class BlockBinder
             ReportCannotConvertFromTypeToType(condition.Type, boolType, conditionSyntax.GetLocation());
         }
 
-        var nullCheckFlows = GetNullCheckFlows(condition);
-        if (!nullCheckFlows.IsDefaultOrEmpty)
-        {
-            thenEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-            elseEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-            thenMaybeNullEntryState = new HashSet<ISymbol>(entryMaybeNullState, SymbolEqualityComparer.Default);
-            elseMaybeNullEntryState = new HashSet<ISymbol>(entryMaybeNullState, SymbolEqualityComparer.Default);
-
-            foreach (var flow in nullCheckFlows)
-            {
-                ApplyNullFlow(thenEntryState, thenMaybeNullEntryState, flow.Symbol, flow.NonNullWhenTrue);
-                ApplyNullFlow(elseEntryState, elseMaybeNullEntryState, flow.Symbol, flow.NonNullWhenFalse);
-            }
-        }
-
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(thenEntryState);
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(thenMaybeNullEntryState);
         foreach (var local in patternLocals)
         {
             if (!shadowedLocals.ContainsKey(local.Name))
@@ -144,67 +117,9 @@ partial class BlockBinder
                 _locals[local.Name] = shadowed.Value;
         }
 
-        var thenExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
-        var thenMaybeNullExitState = new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default);
         BoundStatement? elseBound = null;
-        HashSet<ISymbol> elseExitState = elseEntryState;
-        HashSet<ISymbol> elseMaybeNullExitState = elseMaybeNullEntryState;
         if (elseClauseSyntax is not null)
-        {
-            _nonNullSymbols.Clear();
-            _nonNullSymbols.UnionWith(elseEntryState);
-            _maybeNullSymbols.Clear();
-            _maybeNullSymbols.UnionWith(elseMaybeNullEntryState);
             elseBound = BindStatement(elseClauseSyntax.Statement);
-            elseExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
-            elseMaybeNullExitState = new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default);
-        }
-
-        if (elseClauseSyntax is not null)
-        {
-            if (thenExits && elseExits)
-            {
-                _nonNullSymbols.Clear();
-                _nonNullSymbols.UnionWith(entryState);
-                _maybeNullSymbols.Clear();
-                _maybeNullSymbols.UnionWith(entryMaybeNullState);
-            }
-            else if (thenExits)
-            {
-                _nonNullSymbols.Clear();
-                _nonNullSymbols.UnionWith(elseExitState);
-                _maybeNullSymbols.Clear();
-                _maybeNullSymbols.UnionWith(elseMaybeNullExitState);
-            }
-            else if (elseExits)
-            {
-                _nonNullSymbols.Clear();
-                _nonNullSymbols.UnionWith(thenExitState);
-                _maybeNullSymbols.Clear();
-                _maybeNullSymbols.UnionWith(thenMaybeNullExitState);
-            }
-            else
-            {
-                _nonNullSymbols.Clear();
-                _nonNullSymbols.UnionWith(IntersectFlowStates(thenExitState, elseExitState));
-                _maybeNullSymbols.Clear();
-                _maybeNullSymbols.UnionWith(UnionFlowStates(thenMaybeNullExitState, elseMaybeNullExitState));
-            }
-        }
-        else if (thenExits)
-        {
-            _nonNullSymbols.Clear();
-            _nonNullSymbols.UnionWith(elseExitState);
-            _maybeNullSymbols.Clear();
-            _maybeNullSymbols.UnionWith(elseMaybeNullExitState);
-        }
-        else
-        {
-            _nonNullSymbols.Clear();
-            _nonNullSymbols.UnionWith(IntersectFlowStates(entryState, thenExitState));
-            _maybeNullSymbols.Clear();
-            _maybeNullSymbols.UnionWith(UnionFlowStates(entryMaybeNullState, thenMaybeNullExitState));
-        }
 
         if (_containingSymbol is IMethodSymbol containingMethod &&
             GetReturnTargetType(containingMethod) is { } methodReturnType &&
@@ -314,22 +229,6 @@ partial class BlockBinder
         return false;
     }
 
-    private static bool IsEarlyExitStatement(StatementSyntax statement)
-    {
-        return statement switch
-        {
-            ReturnStatementSyntax => true,
-            ThrowStatementSyntax => true,
-            BreakStatementSyntax => true,
-            ContinueStatementSyntax => true,
-            BlockStatementSyntax block when block.Statements.Count > 0 => IsEarlyExitStatement(block.Statements[^1]),
-            IfStatementSyntax ifStatement when ifStatement.ElseClause is not null =>
-                IsEarlyExitStatement(ifStatement.ThenStatement) &&
-                IsEarlyExitStatement(ifStatement.ElseClause.Statement),
-            _ => false
-        };
-    }
-
     private static bool TryGetIgnoredValueExpression(BoundStatement statement, out BoundExpression expression)
     {
         switch (statement)
@@ -345,88 +244,29 @@ partial class BlockBinder
         }
     }
 
+    private static bool IsEarlyExitStatement(StatementSyntax statement)
+    {
+        return statement switch
+        {
+            ReturnStatementSyntax or ThrowStatementSyntax or BreakStatementSyntax or ContinueStatementSyntax => true,
+            BlockStatementSyntax block when block.Statements.Count > 0 => IsEarlyExitStatement(block.Statements[^1]),
+            IfStatementSyntax { ElseClause: { } elseClause } ifStatement =>
+                IsEarlyExitStatement(ifStatement.ThenStatement) &&
+                IsEarlyExitStatement(elseClause.Statement),
+            _ => false
+        };
+    }
+
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
     {
-        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
-        var entryMaybeNullState = new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default);
-        var conditionIsConstantFalse = ConstantValueEvaluator.TryEvaluate(whileStmt.Condition, out var constantCondition) &&
-            constantCondition is false;
-        var assignedInBody = GetLoopAssignedFlowSymbols(whileStmt.Statement);
-        var headerState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-        var headerMaybeNullState = new HashSet<ISymbol>(entryMaybeNullState, SymbolEqualityComparer.Default);
-        headerState.ExceptWith(assignedInBody);
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(headerState);
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(headerMaybeNullState);
         var condition = BindExpression(whileStmt.Condition);
-        var bodyEntryState = new HashSet<ISymbol>(headerState, SymbolEqualityComparer.Default);
-        var bodyMaybeNullEntryState = new HashSet<ISymbol>(headerMaybeNullState, SymbolEqualityComparer.Default);
-        var nullCheckFlows = GetNullCheckFlows(condition);
-
-        foreach (var flow in nullCheckFlows)
-        {
-            ApplyNullFlow(bodyEntryState, bodyMaybeNullEntryState, flow.Symbol, flow.NonNullWhenTrue);
-        }
-
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(bodyEntryState);
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(bodyMaybeNullEntryState);
-
-        var body = BindStatementInLoop(whileStmt.Statement, out var loopFlow);
-
-        HashSet<ISymbol> exitState;
-        HashSet<ISymbol> exitMaybeNullState;
-        if (conditionIsConstantFalse)
-        {
-            exitState = entryState;
-            exitMaybeNullState = entryMaybeNullState;
-        }
-        else
-        {
-            exitState = new HashSet<ISymbol>(headerState, SymbolEqualityComparer.Default);
-            exitMaybeNullState = new HashSet<ISymbol>(headerMaybeNullState, SymbolEqualityComparer.Default);
-            foreach (var flow in nullCheckFlows)
-                ApplyNullFlow(exitState, exitMaybeNullState, flow.Symbol, flow.NonNullWhenFalse);
-            exitState = IntersectFlowStates(exitState, loopFlow.BreakStates);
-            exitMaybeNullState = UnionFlowStates(exitMaybeNullState, loopFlow.BreakMaybeNullStates);
-        }
-
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(exitState);
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(exitMaybeNullState);
-
+        var body = BindStatementInLoop(whileStmt.Statement);
         return new BoundWhileStatement(condition, body);
     }
 
     private BoundStatement BindWhilePatternStatement(WhilePatternStatementSyntax whileStmt)
     {
-        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
-        var entryMaybeNullState = new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default);
-        var assignedInBody = GetLoopAssignedFlowSymbols(whileStmt.Statement);
-        var headerState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-        var headerMaybeNullState = new HashSet<ISymbol>(entryMaybeNullState, SymbolEqualityComparer.Default);
-        headerState.ExceptWith(assignedInBody);
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(headerState);
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(headerMaybeNullState);
         var condition = BindWhilePatternCondition(whileStmt);
-        var nullCheckFlows = GetNullCheckFlows(condition);
-        var bodyEntryState = new HashSet<ISymbol>(headerState, SymbolEqualityComparer.Default);
-        var bodyMaybeNullEntryState = new HashSet<ISymbol>(headerMaybeNullState, SymbolEqualityComparer.Default);
-        foreach (var flow in nullCheckFlows)
-        {
-            ApplyNullFlow(bodyEntryState, bodyMaybeNullEntryState, flow.Symbol, flow.NonNullWhenTrue);
-        }
-
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(bodyEntryState);
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(bodyMaybeNullEntryState);
-
         var patternLocals = condition is BoundIsPatternExpression isPattern
             ? CollectPatternDesignatorLocals(isPattern.Pattern)
             : ImmutableArray<ILocalSymbol>.Empty;
@@ -441,7 +281,7 @@ partial class BlockBinder
             _locals[local.Name] = (local, patternDepth);
         }
 
-        var body = BindStatementInLoop(whileStmt.Statement, out var loopFlow);
+        var body = BindStatementInLoop(whileStmt.Statement);
 
         foreach (var local in patternLocals)
         {
@@ -451,171 +291,13 @@ partial class BlockBinder
                 _locals[local.Name] = shadowed.Value;
         }
 
-        _nonNullSymbols.Clear();
-        var exitState = new HashSet<ISymbol>(headerState, SymbolEqualityComparer.Default);
-        var exitMaybeNullState = new HashSet<ISymbol>(headerMaybeNullState, SymbolEqualityComparer.Default);
-        foreach (var flow in nullCheckFlows)
-            ApplyNullFlow(exitState, exitMaybeNullState, flow.Symbol, flow.NonNullWhenFalse);
-        _nonNullSymbols.UnionWith(IntersectFlowStates(exitState, loopFlow.BreakStates));
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(UnionFlowStates(exitMaybeNullState, loopFlow.BreakMaybeNullStates));
-
         return new BoundWhileStatement(condition, body);
     }
 
     private BoundStatement BindLoopStatement(LoopStatementSyntax loopStmt)
     {
-        _nonNullSymbols.ExceptWith(GetLoopAssignedFlowSymbols(loopStmt.Statement));
-        var body = BindStatementInLoop(loopStmt.Statement, out var loopFlow);
-        _nonNullSymbols.Clear();
-        _maybeNullSymbols.Clear();
-        if (loopFlow.BreakStates.Count > 0)
-        {
-            _nonNullSymbols.UnionWith(IntersectFlowStates(loopFlow.BreakStates));
-            _maybeNullSymbols.UnionWith(UnionFlowStates(loopFlow.BreakMaybeNullStates));
-        }
+        var body = BindStatementInLoop(loopStmt.Statement);
         return new BoundLoopStatement(body);
-    }
-
-    private HashSet<ISymbol> GetLoopAssignedFlowSymbols(StatementSyntax body)
-    {
-        var assigned = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-
-        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentStatementSyntax>())
-        {
-            if (!IsInNestedExecutableScope(assignment, body) &&
-                !IsInStaticallyUnreachableNestedLoop(assignment, body) &&
-                CanReachLoopBackEdge(assignment, body))
-                TryAddAssignedFlowSymbol(assignment.Left, assigned);
-        }
-
-        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentExpressionSyntax>())
-        {
-            if (!IsInNestedExecutableScope(assignment, body) &&
-                !IsInStaticallyUnreachableNestedLoop(assignment, body) &&
-                CanReachLoopBackEdge(assignment, body))
-                TryAddAssignedFlowSymbol(assignment.Left, assigned);
-        }
-
-        return assigned;
-    }
-
-    private static bool IsInStaticallyUnreachableNestedLoop(SyntaxNode node, StatementSyntax outerBody)
-    {
-        for (var current = node; current is not null && !ReferenceEquals(current, outerBody); current = current.Parent)
-        {
-            if (current.Parent is WhileStatementSyntax whileStatement &&
-                ReferenceEquals(current, whileStatement.Statement) &&
-                ConstantValueEvaluator.TryEvaluate(whileStatement.Condition, out var value) &&
-                value is false)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool CanReachLoopBackEdge(SyntaxNode mutation, StatementSyntax loopBody)
-    {
-        SyntaxNode current = mutation;
-        while (!ReferenceEquals(current, loopBody))
-        {
-            if (current.Parent is TryStatementSyntax tryStatement &&
-                current is not FinallyClauseSyntax &&
-                tryStatement.FinallyClause is { } finallyClause &&
-                AlwaysPreventsLoopBackEdge(finallyClause.Block, loopBody))
-            {
-                return false;
-            }
-
-            if (current.Parent is BlockStatementSyntax block)
-            {
-                var containingStatement = current.AncestorsAndSelf()
-                    .OfType<StatementSyntax>()
-                    .FirstOrDefault(statement => ReferenceEquals(statement.Parent, block));
-                if (containingStatement is not null)
-                {
-                    var index = block.Statements.IndexOf(containingStatement);
-                    for (var i = index + 1; i < block.Statements.Count; i++)
-                    {
-                        if (AlwaysPreventsLoopBackEdge(block.Statements[i], loopBody))
-                            return false;
-                    }
-                }
-
-                current = block;
-                continue;
-            }
-
-            current = current.Parent ?? loopBody;
-        }
-
-        return true;
-    }
-
-    private static bool AlwaysPreventsLoopBackEdge(StatementSyntax statement, StatementSyntax loopBody)
-    {
-        return statement switch
-        {
-            ReturnStatementSyntax or ThrowStatementSyntax => true,
-            BreakStatementSyntax breakStatement => TargetsLoopBody(breakStatement, loopBody),
-            BlockStatementSyntax block when block.Statements.Count > 0 =>
-                AlwaysPreventsLoopBackEdge(block.Statements[^1], loopBody),
-            IfStatementSyntax { ElseClause: { } elseClause } ifStatement =>
-                AlwaysPreventsLoopBackEdge(ifStatement.ThenStatement, loopBody) &&
-                AlwaysPreventsLoopBackEdge(elseClause.Statement, loopBody),
-            _ => false
-        };
-    }
-
-    private static bool TargetsLoopBody(BreakStatementSyntax breakStatement, StatementSyntax loopBody)
-    {
-        if (!breakStatement.Identifier.IsMissing && breakStatement.Identifier.Kind != SyntaxKind.None)
-        {
-            var targetName = breakStatement.Identifier.ValueText;
-            var labeledLoop = breakStatement.Ancestors()
-                .OfType<LabeledStatementSyntax>()
-                .FirstOrDefault(label =>
-                    label.Identifier.ValueText == targetName &&
-                    ReferenceEquals(UnwrapLabeledStatement(label.Statement), loopBody.Parent));
-            return labeledLoop is not null;
-        }
-
-        var nearestLoop = breakStatement.Ancestors().FirstOrDefault(static node =>
-            node is WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax or LoopStatementSyntax);
-        return ReferenceEquals(nearestLoop, loopBody.Parent);
-    }
-
-    private static bool IsInNestedExecutableScope(SyntaxNode node, SyntaxNode body)
-    {
-        for (var current = node.Parent; current is not null && !ReferenceEquals(current, body); current = current.Parent)
-        {
-            if (current is FunctionStatementSyntax or FunctionExpressionSyntax or TypeDeclarationStatementSyntax)
-                return true;
-        }
-
-        return false;
-    }
-
-    private void TryAddAssignedFlowSymbol(ExpressionOrPatternSyntax target, HashSet<ISymbol> assigned)
-    {
-        if (target is not IdentifierNameSyntax identifier)
-            return;
-
-        var name = identifier.Identifier.ValueText;
-        if (_locals.TryGetValue(name, out var local) && local.Symbol.IsMutable)
-        {
-            assigned.Add(local.Symbol);
-            return;
-        }
-
-        if (_containingSymbol is IMethodSymbol method &&
-            method.Parameters.FirstOrDefault(parameter =>
-                parameter.IsMutable && string.Equals(parameter.Name, name, StringComparison.Ordinal)) is { } parameter)
-        {
-            assigned.Add(parameter);
-        }
     }
 
     private BoundStatement BindLockStatement(LockStatementSyntax lockStmt)
@@ -635,60 +317,17 @@ partial class BlockBinder
 
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
-        var loopBreakStateStarts = _loopNullFlowContexts
-            .Select(static context => (Context: context, Start: context.BreakStates.Count))
-            .ToArray();
-        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
-        var entryMaybeNullState = new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default);
-        var catchEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
-        var catchMaybeNullEntryState = new HashSet<ISymbol>(entryMaybeNullState, SymbolEqualityComparer.Default);
-        catchEntryState.ExceptWith(GetPotentiallyAssignedFlowSymbols(tryStmt.Block));
-
         var tryBlock = BindBlockStatement(tryStmt.Block);
-        var completingStates = new List<HashSet<ISymbol>>();
-        var completingMaybeNullStates = new List<HashSet<ISymbol>>();
-        if (!IsEarlyExitStatement(tryStmt.Block))
-        {
-            completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
-            completingMaybeNullStates.Add(new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default));
-        }
-
         var catchBuilder = ImmutableArray.CreateBuilder<BoundCatchClause>();
         foreach (var catchClause in tryStmt.CatchClauses)
         {
-            _nonNullSymbols.Clear();
-            _nonNullSymbols.UnionWith(catchEntryState);
-            _maybeNullSymbols.Clear();
-            _maybeNullSymbols.UnionWith(catchMaybeNullEntryState);
             var boundCatchClause = BindCatchClause(catchClause);
             catchBuilder.Add(boundCatchClause);
-            var filterIsConstantFalse = boundCatchClause.Guard is { } guard &&
-                TryGetExpressionConstantValue(guard, out var filterValue) &&
-                filterValue is false;
-            if (!filterIsConstantFalse && !IsEarlyExitStatement(catchClause.Block))
-            {
-                completingStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
-                completingMaybeNullStates.Add(new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default));
-            }
         }
-
-        _nonNullSymbols.Clear();
-        _nonNullSymbols.UnionWith(IntersectFlowStates(completingStates));
-        _maybeNullSymbols.Clear();
-        _maybeNullSymbols.UnionWith(UnionFlowStates(completingMaybeNullStates));
 
         BoundBlockStatement? finallyBlock = null;
         if (tryStmt.FinallyClause is { } finallyClause)
-        {
-            var protectedBreakStateEnds = loopBreakStateStarts
-                .Select(static snapshot => snapshot.Context.BreakStates.Count)
-                .ToArray();
             finallyBlock = BindBlockStatement(finallyClause.Block);
-            ApplyFinallyToPendingBreakStates(
-                finallyClause.Block,
-                loopBreakStateStarts,
-                protectedBreakStateEnds);
-        }
 
         if (_containingSymbol is IMethodSymbol containingMethod &&
             GetReturnTargetType(containingMethod) is { } methodReturnType &&
@@ -705,61 +344,6 @@ partial class BlockBinder
             return tryBlock;
 
         return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
-    }
-
-    private void ApplyFinallyToPendingBreakStates(
-        BlockStatementSyntax finallyBlock,
-        IReadOnlyList<(LoopNullFlowContext Context, int Start)> snapshots,
-        IReadOnlyList<int> protectedEnds)
-    {
-        var finallyIsAbrupt = IsEarlyExitStatement(finallyBlock);
-        var possiblyAssigned = finallyIsAbrupt
-            ? null
-            : GetPotentiallyAssignedFlowSymbols(finallyBlock);
-
-        for (var snapshotIndex = 0; snapshotIndex < snapshots.Count; snapshotIndex++)
-        {
-            var (context, start) = snapshots[snapshotIndex];
-            var end = protectedEnds[snapshotIndex];
-            if (end <= start)
-                continue;
-
-            if (finallyIsAbrupt)
-            {
-                // A transfer from finally replaces every pending transfer from the
-                // protected region. Breaks originating in finally were appended after
-                // 'end' and remain owned by their target loops.
-                context.BreakStates.RemoveRange(start, end - start);
-                context.BreakMaybeNullStates.RemoveRange(start, end - start);
-                continue;
-            }
-
-            // Every pending break executes finally before reaching its loop exit. A
-            // possible write can invalidate an incoming non-null fact. Keep this
-            // conservative until null-flow effects have their own reusable structural
-            // transfer function; never publish a fact that only held before finally.
-            foreach (var state in context.BreakStates.Skip(start).Take(end - start))
-                state.ExceptWith(possiblyAssigned!);
-        }
-    }
-
-    private HashSet<ISymbol> GetPotentiallyAssignedFlowSymbols(SyntaxNode body)
-    {
-        var assigned = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-
-        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentStatementSyntax>())
-        {
-            if (!IsInNestedExecutableScope(assignment, body))
-                TryAddAssignedFlowSymbol(assignment.Left, assigned);
-        }
-
-        foreach (var assignment in body.DescendantNodesAndSelf().OfType<AssignmentExpressionSyntax>())
-        {
-            if (!IsInNestedExecutableScope(assignment, body))
-                TryAddAssignedFlowSymbol(assignment.Left, assigned);
-        }
-
-        return assigned;
     }
 
     private bool AllCatchBlocksProduceIgnoredValues(ImmutableArray<BoundCatchClause>.Builder catchBuilder)
@@ -975,8 +559,6 @@ partial class BlockBinder
         }
         finally
         {
-            ClearNonNullSymbolsAtDepth(depth);
-
             foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
                 _locals.Remove(name);
 
@@ -1117,8 +699,6 @@ partial class BlockBinder
         }
         finally
         {
-            ClearNonNullSymbolsAtDepth(depth);
-
             foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
                 _locals.Remove(name);
 
@@ -2290,11 +1870,7 @@ partial class BlockBinder
         }
 
         if (catchClause.WhenClause?.Guard is ExpressionSyntax guardSyntax)
-        {
             guard = BindExpressionWithTargetType(guardSyntax, boolType);
-            foreach (var flow in GetNullCheckFlows(guard))
-                ApplyNullFlow(_nonNullSymbols, _maybeNullSymbols, flow.Symbol, flow.NonNullWhenTrue);
-        }
 
         var block = BindBlockStatement(catchClause.Block);
 
@@ -2814,36 +2390,9 @@ partial class BlockBinder
             _diagnostics.ReportBreakStatementNotWithinLoop(location);
         }
 
-        var loopFlow = GetBreakNullFlowContext(breakStatement, targetLabel);
-        if (loopFlow is not null)
-        {
-            loopFlow.BreakStates.Add(new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default));
-            loopFlow.BreakMaybeNullStates.Add(new HashSet<ISymbol>(_maybeNullSymbols, SymbolEqualityComparer.Default));
-        }
-
         var bound = new BoundBreakStatement(targetLabel);
         CacheBoundNode(breakStatement, bound);
         return bound;
-    }
-
-    private LoopNullFlowContext? GetBreakNullFlowContext(BreakStatementSyntax breakStatement, ILabelSymbol? targetLabel)
-    {
-        if (IsMissingControlFlowLabel(breakStatement.Identifier))
-            return _loopNullFlowContexts.TryPeek(out var nearestLoop) ? nearestLoop : null;
-
-        if (targetLabel is null)
-            return null;
-
-        var targetName = breakStatement.Identifier.ValueText;
-        var labeledSyntax = breakStatement.Ancestors()
-            .OfType<LabeledStatementSyntax>()
-            .FirstOrDefault(label => label.Identifier.ValueText == targetName);
-        if (labeledSyntax is null)
-            return null;
-
-        var targetLoop = UnwrapLabeledStatement(labeledSyntax.Statement);
-        return _loopNullFlowContexts.FirstOrDefault(context =>
-            ReferenceEquals(context.LoopStatement, targetLoop));
     }
 
     private BoundStatement BindContinueStatement(ContinueStatementSyntax continueStatement)
@@ -2965,14 +2514,9 @@ partial class BlockBinder
     }
 
     public BoundStatement BindStatementInLoop(StatementSyntax syntax)
-        => BindStatementInLoop(syntax, out _);
-
-    private BoundStatement BindStatementInLoop(StatementSyntax syntax, out LoopNullFlowContext loopFlow)
     {
         using var _ = EnterExecutionScope();
 
-        loopFlow = new LoopNullFlowContext(syntax.Parent as StatementSyntax);
-        _loopNullFlowContexts.Push(loopFlow);
         var previous = EnterLoop();
         try
         {
@@ -2981,7 +2525,6 @@ partial class BlockBinder
         finally
         {
             ExitLoop(previous);
-            _loopNullFlowContexts.Pop();
         }
     }
 

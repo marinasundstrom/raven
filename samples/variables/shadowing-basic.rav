@@ -1,3 +1,10 @@
-// Feature: local shadowing diagnostic.
-let a = 2
-let a = "foo"
+import System.Console.*
+
+// Feature: a nested lexical scope can shadow an outer binding.
+func Main() {
+    let a = 2
+    if true {
+        let a = "foo"
+        WriteLine(a)
+    }
+}

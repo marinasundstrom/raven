@@ -38,27 +38,15 @@ public static class TypeSymbolNullabilityExtensions
     }
 
     /// <summary>
-    /// Returns a type with the requested declared nullable annotation.
-    /// Flow state is reported separately by <see cref="TypeInfo.Nullability"/>.
+    /// Returns the nullable form of the type. A type that is already nullable
+    /// is returned unchanged.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="annotation"/> is <see cref="NullableAnnotation.None"/>,
-    /// which does not describe a concrete type in Raven's unified nullability model.
-    /// </exception>
-    public static ITypeSymbol WithNullableAnnotation(
-        this ITypeSymbol typeSymbol,
-        NullableAnnotation annotation)
+    public static ITypeSymbol GetNullableType(this ITypeSymbol typeSymbol)
     {
         ArgumentNullException.ThrowIfNull(typeSymbol);
-
-        return annotation switch
-        {
-            NullableAnnotation.Annotated => typeSymbol.IsNullable
-                ? typeSymbol
-                : new NullableTypeSymbol(typeSymbol, null, null, null, []),
-            NullableAnnotation.NotAnnotated => typeSymbol.GetNonNullableType(),
-            _ => throw new ArgumentOutOfRangeException(nameof(annotation), annotation, "A concrete type requires an explicit nullable annotation."),
-        };
+        return typeSymbol.IsNullable
+            ? typeSymbol
+            : new NullableTypeSymbol(typeSymbol, null, null, null, []);
     }
 
     internal static ITypeSymbol GetDefaultValueType(this ITypeSymbol typeSymbol)
@@ -72,13 +60,13 @@ public static class TypeSymbolNullabilityExtensions
         if (typeSymbol is ITypeParameterSymbol typeParameter)
         {
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0
-                ? typeSymbol.WithNullableAnnotation(NullableAnnotation.Annotated)
+                ? typeSymbol.GetNullableType()
                 : typeSymbol;
         }
 
         return typeSymbol.IsValueType
             ? typeSymbol
-            : typeSymbol.WithNullableAnnotation(NullableAnnotation.Annotated);
+            : typeSymbol.GetNullableType();
     }
 
 }

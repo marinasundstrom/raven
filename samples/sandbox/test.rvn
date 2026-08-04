@@ -9,17 +9,17 @@ async func Main() -> Task {
     let result = await GetPerson("Derek")
 
     match result {
-        Ok(let person) => {
+        .Ok(let person) => {
             Console.WriteLine("Person is: ${person.Name}")
 
             let displayFunction = (product: Product) => Console.WriteLine("* ${product.Name}")
 
             match DisplayProducts(person, displayFunction) {
-                Ok => ()
-                Error(CustomError error) => Console.WriteLine(error.Message)
+                .Ok => ()
+                .Error(CustomError error) => Console.WriteLine(error.Message)
             }
         }
-        Error(let error) => Console.WriteLine(error.Message)
+        .Error(let error) => Console.WriteLine(error.Message)
     }
 
     await Task.CompletedTask
@@ -29,14 +29,14 @@ func DisplayProducts(person: Person, action: Product -> ()) -> Result<(), Custom
     let products = person.Products
 
     if products.Length == 0 {
-        return Error(CustomError("No products"))
+        return .Error(CustomError("No products"))
     }
 
     for product in products {
         action(product)
     }
 
-    return Ok
+    return .Ok
 }
 
 async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
@@ -47,17 +47,17 @@ async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
 func FindPerson(persons: Person[], name: string) -> Result<Person, CustomError> {
     for person in persons {
         if person is { Name: name } {
-            return Ok(person)
+            return .Ok(person)
         }
     }
-    return Error(CustomError("Not found"))
+    return .Error(CustomError("Not found"))
 }
 
 async func GetPersons() -> Task<Result<Person[], CustomError>> {
     let personResult = await GetPersonsCore()
     match personResult {
-        Ok(let persons) => Ok(persons)
-        Error(let exception) => Error(CustomError(exception.Message))
+        .Ok(let persons) => .Ok(persons)
+        .Error(let exception) => .Error(CustomError(exception.Message))
     }
 }
 
@@ -68,7 +68,7 @@ async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
         IncludeFields = true
     }
     let results = try JsonSerializer.Deserialize<Person[]>(textResult?, options)
-    return Ok(results?)
+    return .Ok(results?)
 }
 
 class Person {

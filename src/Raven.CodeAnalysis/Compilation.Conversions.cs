@@ -70,7 +70,7 @@ public partial class Compilation
                 named.TypeArguments.Length == 1)
             {
                 var underlying = named.TypeArguments[0];
-                return underlying.IsNullable ? underlying : underlying.WithNullableAnnotation(NullableAnnotation.Annotated);
+                return underlying.IsNullable ? underlying : underlying.GetNullableType();
             }
 
             return type;

@@ -191,9 +191,8 @@ let count: int? = 1
   resolution.
 * `T?` is the canonical nullable form in Raven.
 * The semantic model represents `T?` uniformly for reference and value types:
-  `TypeInfo.Type` retains the declared nullable type, while
-  `TypeInfo.Nullability.FlowState` reports what is known about the current
-  value. Flow narrowing never replaces the declared type symbol.
+  `TypeInfo.Type` reports the expression's static type. Raven does not publish
+  a separate flow-sensitive nullability result.
 * Whether the underlying `T` is a reference type or value type affects the .NET
   ABI representation, not Raven nullability analysis or its public semantic
   shape.
@@ -203,14 +202,11 @@ let count: int? = 1
 * Postfix `expr!` treats the operand as non-null for the annotated expression
   and reports warning `RAV0403` on the full `<expr>!` expression.
 
-#### Explicit nullable refinement and compatibility checks
+#### Explicit nullable handling and compatibility checks
 
-Raven treats `is null` and `is not null` as strict compatibility forms for
-flow analysis. They are ordinary valid Raven syntax and are not deprecated or
-discouraged. Raven documentation presents an explicit successful binding with
-typed `if let` first, or a direct type pattern when that syntax better fits the
-surrounding code, because those forms name the successful non-null value
-explicitly.
+Raven presents an explicit successful binding with typed `if let` first, or a
+direct type pattern when that syntax better fits the surrounding code. Those
+forms name a new non-null value explicitly.
 
 ```raven
 func Inspect(x: string?) -> unit {
@@ -222,24 +218,18 @@ func Inspect(x: string?) -> unit {
         let len = str.Length
     }
 
-    if x is not null {
-        let len = x.Length
-    }
+    if x is not null { }
 }
 ```
 
 The typed `if let` and type-pattern forms introduce a new `str: string` binding
-only when the value matches. In the last branch, `x` retains its declared
-`string?` type while its flow state is non-null. Reference and value nullable
-types follow the same source-level refinement rule.
+only when the value matches. A direct `is null`, `is not null`, `== null`, or
+`!= null` condition does not change the static type of the checked storage.
+Dereferencing `x` inside such a branch remains an error when `x` is `string?`.
+Reference and value nullable types follow the same source-level rule.
 
-The current language contract narrows the original local for `is not null`
-inside the successful branch. This refinement is distinct from the broader
-`EnableNullFlowAnalysis` bug-finding policy and remains available when
-flow-derived diagnostics are disabled.
-
-`== null` and `!= null` are also valid. Flow narrowing only applies when the
-comparison follows built-in null-comparison semantics.
+`is null` and `is not null` are ordinary valid Raven syntax. `== null` and
+`!= null` are also valid, but may invoke user-defined equality.
 
 Raven includes an analyzer that recommends replacing `== null`/`!= null` with
 `is null`/`is not null` for strict checks. Pointer-like comparisons are exempt.
@@ -248,8 +238,8 @@ typed bindings, matches, or `Option<T>`.
 
 Warning message:
 
-> ⚠️ This comparison may call a custom equality operator, so nullability isn’t
-> narrowed. Use `is null` or `is not null` for a strict check.
+> ⚠️ This comparison may call a custom equality operator. Use `is null` or
+> `is not null` to test null identity.
 
 ### Generics
 

@@ -7279,11 +7279,11 @@ public partial class SemanticModel
     private static ITypeSymbol? GetInvocationReturnType(IMethodSymbol method)
         => method.MethodKind == MethodKind.Constructor
             ? method.ContainingType
-            : method.ReturnType;
+            : NullableMetadataFacts.GetReturnType(method);
 
     private static ITypeSymbol? GetAvailablePipeInvocationReturnType(IMethodSymbol method, ITypeSymbol receiverType)
     {
-        var returnType = method.ReturnType;
+        var returnType = NullableMetadataFacts.GetReturnType(method);
         if (returnType is null || returnType.ContainsErrorType())
             return returnType;
 
@@ -7702,9 +7702,7 @@ public partial class SemanticModel
 
         foreach (var candidate in invocationCandidates)
         {
-            var candidateReturnType = candidate.MethodKind == MethodKind.Constructor
-                ? candidate.ContainingType
-                : candidate.ReturnType;
+            var candidateReturnType = GetInvocationReturnType(candidate);
 
             if (!IsUsefulAvailableExpressionType(candidateReturnType))
                 continue;
@@ -9948,8 +9946,6 @@ public partial class SemanticModel
                     ComputeConversion(info.Type, contextualConvertedType));
             }
 
-            info = ApplyAvailableFlowNullability(expr, info);
-
             if (HasTypeInfo(info))
                 StoreTypeMapping(expr, info);
 
@@ -10035,70 +10031,6 @@ public partial class SemanticModel
         };
 
         return Cache(new TypeInfo(naturalType, convertedType, conversion));
-    }
-
-    private TypeInfo ApplyAvailableFlowNullability(ExpressionSyntax expression, TypeInfo typeInfo)
-    {
-        var boundExpression = TryGetCachedBoundNode(expression) as BoundExpression;
-        if (boundExpression is null || IsLikelyStaleFunctionBodyNode(boundExpression))
-        {
-            if (!TryBindInterestRegion(
-                    expression,
-                    out boundExpression,
-                    includeExtendedExecutableRoots: true))
-            {
-                return typeInfo;
-            }
-        }
-
-        var flowType = GetNullabilityFlowType(boundExpression, typeInfo.Type);
-        var convertedFlowType = GetNullabilityFlowType(boundExpression, typeInfo.ConvertedType);
-        if (TryGetDeclaredTypeBeforeFlowNarrowing(boundExpression, out var declaredType) &&
-            declaredType is not null &&
-            declaredType.IsNullable &&
-            typeInfo.Type is { IsNullable: false })
-        {
-            var convertedType = SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, boundExpression.Type)
-                ? declaredType
-                : typeInfo.ConvertedType;
-            typeInfo = new TypeInfo(
-                declaredType,
-                convertedType,
-                ComputeConversion(declaredType, convertedType));
-        }
-
-        return new TypeInfo(
-            typeInfo.Type,
-            typeInfo.ConvertedType,
-            typeInfo.Conversion,
-            flowType,
-            convertedFlowType);
-    }
-
-    private static bool TryGetDeclaredTypeBeforeFlowNarrowing(
-        BoundExpression expression,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? declaredType)
-    {
-        declaredType = expression switch
-        {
-            BoundConversionExpression { IsNullabilityFlowNarrowing: true } conversion => conversion.Expression.Type,
-            BoundNullableValueExpression { IsNullabilityFlowNarrowing: true } nullableValue => nullableValue.Operand.Type,
-            _ => null,
-        };
-
-        return declaredType is not null;
-    }
-
-    private static ITypeSymbol? GetNullabilityFlowType(BoundExpression boundExpression, ITypeSymbol? declaredType)
-    {
-        if (boundExpression is BoundConversionExpression { IsNullabilityFlowNarrowing: true } or
-            BoundNullableValueExpression { IsNullabilityFlowNarrowing: true })
-        {
-            return boundExpression.Type;
-        }
-
-        var flowType = boundExpression.GetNullabilityFlowType();
-        return flowType is { IsNullable: true } ? flowType : declaredType;
     }
 
     private bool TryGetContextualConvertedType(
@@ -10804,7 +10736,7 @@ public partial class SemanticModel
             var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
             return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
                 ? type
-                : substituted.WithNullableAnnotation(NullableAnnotation.Annotated);
+                : substituted.GetNullableType();
         }
 
         if (type is IArrayTypeSymbol arrayType)

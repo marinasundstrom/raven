@@ -4,14 +4,14 @@ let f: Action<int>? = null //(x) => Console.WriteLine("Test")
 
 f?.Invoke(2) // Report that 'f' might be null.
 
-if f is not null {
-    f.Invoke(2) // OK
+if let action: Action<int> = f {
+    action.Invoke(2)
 }
 
 //f(2) // Report that 'f' might be null.
 
 f?(2) // OK since its null-conditional
 
-if f is not null {
-    f(2) // OK
+if let action: Action<int> = f {
+    action(2)
 }

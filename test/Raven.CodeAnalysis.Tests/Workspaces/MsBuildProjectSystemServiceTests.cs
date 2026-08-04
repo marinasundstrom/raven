@@ -65,7 +65,6 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
                                             <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
                                             <RavenRunAnalyzers>false</RavenRunAnalyzers>
-                                            <EnableNullFlowAnalysis>false</EnableNullFlowAnalysis>
                                             <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
                                             <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
                                             <RavenFrameworkProjections>None</RavenFrameworkProjections>
@@ -92,7 +91,6 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.True(project.CompilationOptions.AllowUnsafe);
             Assert.False(project.CompilationOptions.AllowGlobalStatements);
             Assert.False(project.CompilationOptions.RunAnalyzers);
-            Assert.False(project.CompilationOptions.EnableNullFlowAnalysis);
             Assert.Contains("UnusedVariableAnalyzer", project.CompilationOptions.DisabledAnalyzers);
             Assert.Contains("VarCanBeLetAnalyzer", project.CompilationOptions.DisabledAnalyzers);
             Assert.True(project.CompilationOptions.ReturnedValueHandlingModeConfigured);
@@ -489,7 +487,6 @@ let value = WidgetFactory.CreateDefault()
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                     .WithAllowUnsafe(true)
                     .WithAllowGlobalStatements(false)
-                    .WithEnableNullFlowAnalysis(false)
                     .WithFrameworkProjectionMode(FrameworkProjectionMode.None));
             updatedProject = updatedProject.WithDocumentationOptions(
                 new ProjectDocumentationOptions(
@@ -519,7 +516,7 @@ let value = WidgetFactory.CreateDefault()
             Assert.Equal("Library", rootElement.Descendants().First(e => e.Name.LocalName == "OutputType").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "AllowUnsafeBlocks").Value);
             Assert.Equal("false", rootElement.Descendants().First(e => e.Name.LocalName == "RavenAllowGlobalStatements").Value);
-            Assert.Equal("false", rootElement.Descendants().First(e => e.Name.LocalName == "EnableNullFlowAnalysis").Value);
+            Assert.DoesNotContain(rootElement.Descendants(), e => e.Name.LocalName == "EnableNullFlowAnalysis");
             Assert.DoesNotContain(rootElement.Descendants(), e => e.Name.LocalName is "MembersPublicByDefault" or "RavenMembersPublicByDefault");
             Assert.Equal("None", rootElement.Descendants().First(e => e.Name.LocalName == "RavenFrameworkProjections").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "GenerateDocumentationFile").Value);
@@ -562,8 +559,7 @@ let value = WidgetFactory.CreateDefault()
                     val Targets: MacroTarget => MacroTarget.Property
 
                     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-                        let property = context.TargetDeclaration as PropertyDeclarationSyntax
-                        if property is null {
+                        let property: PropertyDeclarationSyntax = context.TargetDeclaration else {
                             return MacroExpansionResult.Empty
                         }
 
@@ -580,14 +576,14 @@ let value = WidgetFactory.CreateDefault()
                             }
                             """)
 
-                        let container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
-                        if container is null {
+                        let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] else {
                             return MacroExpansionResult.Empty
                         }
 
-                        let backingStorage = container.Members[0] as PropertyDeclarationSyntax
-                        let replacement = container.Members[1] as PropertyDeclarationSyntax
-                        if backingStorage is null || replacement is null {
+                        let backingStorage: PropertyDeclarationSyntax = container.Members[0] else {
+                            return MacroExpansionResult.Empty
+                        }
+                        let replacement: PropertyDeclarationSyntax = container.Members[1] else {
                             return MacroExpansionResult.Empty
                         }
 
@@ -784,8 +780,7 @@ let value = WidgetFactory.CreateDefault()
                     val Targets: MacroTarget => MacroTarget.Property
 
                     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-                        let property = context.TargetDeclaration as PropertyDeclarationSyntax
-                        if property is null {
+                        let property: PropertyDeclarationSyntax = context.TargetDeclaration else {
                             return MacroExpansionResult.Empty
                         }
 
@@ -808,14 +803,14 @@ let value = WidgetFactory.CreateDefault()
                             }
                             """)
 
-                        let container = tree.GetRoot().Members[0] as ClassDeclarationSyntax
-                        if container is null {
+                        let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] else {
                             return MacroExpansionResult.Empty
                         }
 
-                        let backingStorage = container.Members[0] as PropertyDeclarationSyntax
-                        let replacement = container.Members[1] as PropertyDeclarationSyntax
-                        if backingStorage is null || replacement is null {
+                        let backingStorage: PropertyDeclarationSyntax = container.Members[0] else {
+                            return MacroExpansionResult.Empty
+                        }
+                        let replacement: PropertyDeclarationSyntax = container.Members[1] else {
                             return MacroExpansionResult.Empty
                         }
 
@@ -930,8 +925,7 @@ let value = WidgetFactory.CreateDefault()
                     val Targets: MacroTarget => MacroTarget.Property
 
                     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-                        let property = context.CurrentDeclaration as PropertyDeclarationSyntax
-                        if property is null {
+                        let property: PropertyDeclarationSyntax = context.CurrentDeclaration else {
                             return MacroExpansionResult.Empty
                         }
 

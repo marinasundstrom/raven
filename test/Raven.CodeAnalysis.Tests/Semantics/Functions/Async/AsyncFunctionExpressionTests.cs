@@ -254,7 +254,7 @@ let result = await Task.Run(async () => {
 
         var expectedReturn = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
-        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn.WithNullableAnnotation(NullableAnnotation.Annotated), boundLambda.ReturnType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn.GetNullableType(), boundLambda.ReturnType));
 
         var taskRunInvocation = root
             .DescendantNodes()

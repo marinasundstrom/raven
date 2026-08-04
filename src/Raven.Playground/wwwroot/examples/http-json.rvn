@@ -21,12 +21,15 @@ async func LoadCatalog() -> Task<CatalogResult> {
             PropertyNameCaseInsensitive = true
         }
         let examples = JsonSerializer.Deserialize<PlaygroundExample[]>(json, options)
-
-        if examples is null || examples.Length == 0 {
+        let presentExamples: PlaygroundExample[] = examples else {
             return .Empty
         }
 
-        return .Loaded(examples)
+        if presentExamples.Length == 0 {
+            return .Empty
+        }
+
+        return .Loaded(presentExamples)
     } catch (Exception error) {
         return .Failed(error.Message)
     }

@@ -30,28 +30,6 @@ public sealed class ProjectFileCompilationOptionTests
     }
 
     [Fact]
-    public void OpenProject_ReadsNullFlowAnalysisAttribute()
-    {
-        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var projectDir = Path.Combine(root, "project");
-        Directory.CreateDirectory(projectDir);
-        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
-
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
-        File.WriteAllText(
-            projectPath,
-            """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" EnableNullFlowAnalysis="false" />
-            """);
-
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var projectId = workspace.OpenProject(projectPath);
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-
-        Assert.False(project.CompilationOptions!.EnableNullFlowAnalysis);
-    }
-
-    [Fact]
     public void OpenProject_ReadsDisabledAnalyzersAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -138,27 +116,6 @@ public sealed class ProjectFileCompilationOptionTests
 
         var document = XDocument.Load(projectPath);
         var value = (string?)document.Root?.Attribute("RunAnalyzers");
-        Assert.Equal("false", value);
-    }
-
-    [Fact]
-    public void SaveProject_WritesNullFlowAnalysisAttribute()
-    {
-        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        var projectPath = Path.Combine(root, "App.ravenproj");
-
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var projectId = workspace.AddProject(
-            "App",
-            filePath: projectPath,
-            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithEnableNullFlowAnalysis(false));
-
-        workspace.SaveProject(projectId, projectPath);
-
-        var document = XDocument.Load(projectPath);
-        var value = (string?)document.Root?.Attribute("EnableNullFlowAnalysis");
         Assert.Equal("false", value);
     }
 

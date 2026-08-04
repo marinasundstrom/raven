@@ -1231,7 +1231,7 @@ partial class BlockBinder
             var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
             return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
                 ? type
-                : substituted.WithNullableAnnotation(NullableAnnotation.Annotated);
+                : substituted.GetNullableType();
         }
 
         if (type is RefTypeSymbol refTypeType)
@@ -2430,8 +2430,7 @@ partial class BlockBinder
         return new BoundConversionExpression(
             receiver,
             lookupType,
-            conversion,
-            isNullabilityFlowNarrowing: true);
+            conversion);
     }
 
     // ============================
@@ -2934,7 +2933,7 @@ partial class BlockBinder
 
         var resultType = whenNotNull.Type;
         if (!resultType.IsNullable)
-            resultType = resultType.WithNullableAnnotation(NullableAnnotation.Annotated);
+            resultType = resultType.GetNullableType();
 
         return new BoundConditionalAccessExpression(receiver, whenNotNull, resultType);
     }
@@ -2952,7 +2951,7 @@ partial class BlockBinder
         bool suppressNullWarning)
     {
         if (!suppressNullWarning)
-            ReportPossibleNullReferenceAccess(receiver, syntax);
+            ReportNullableValueMemberAccess(receiver, syntax);
 
         var argumentExprs = argumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
@@ -3529,7 +3528,7 @@ partial class BlockBinder
 
             var receiver = GetReceiver(left);
 
-            var fieldInputType = NullableFlowAttributeFacts.GetInputType(fieldSymbol, fieldSymbol.Type);
+            var fieldInputType = NullableMetadataFacts.GetInputType(fieldSymbol, fieldSymbol.Type);
             var right2 = BindExpressionWithTargetType(rightSyntax, fieldInputType);
 
             if (IsErrorExpression(right2))
@@ -3584,7 +3583,7 @@ partial class BlockBinder
                 }
             }
 
-            var propertyInputType = NullableFlowAttributeFacts.GetInputType(propertySymbol, propertySymbol.Type);
+            var propertyInputType = NullableMetadataFacts.GetInputType(propertySymbol, propertySymbol.Type);
             var right2 = BindExpressionWithTargetType(rightSyntax, propertyInputType);
 
             if (IsErrorExpression(right2))
@@ -3634,11 +3633,7 @@ partial class BlockBinder
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
     {
-        var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
-        if (bound is BoundAssignmentExpression assignment)
-            UpdateNullableFlowOnAssignment(assignment);
-
-        return bound;
+        return BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
     }
 
     private BoundExpression ConvertValueForAssignment(BoundExpression value, ITypeSymbol targetType, SyntaxNode syntax)
@@ -3661,10 +3656,7 @@ partial class BlockBinder
     {
         var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
         if (bound is BoundAssignmentExpression assignment)
-        {
-            UpdateNullableFlowOnAssignment(assignment);
             return new BoundAssignmentStatement(assignment);
-        }
 
         return new BoundExpressionStatement(bound);
     }
@@ -3698,10 +3690,7 @@ partial class BlockBinder
         var right = BindExpressionWithTargetType(syntax.Right, targetType);
         var bound = BindPatternAssignment(syntax.Left, right, syntax, syntax.BindingKeyword.Kind);
         if (bound is BoundAssignmentExpression assignment)
-        {
-            UpdateNullableFlowOnAssignment(assignment);
             return new BoundAssignmentStatement(assignment);
-        }
 
         return new BoundExpressionStatement(bound);
     }
@@ -3858,7 +3847,7 @@ partial class BlockBinder
                 forceExtensionReceiver: false);
         }
 
-        ReportPossibleNullReferenceAccess(receiver, memberAccess.Expression);
+        ReportNullableValueMemberAccess(receiver, memberAccess.Expression);
 
         var result = BindMemberAccessOnReceiver(
             receiver,
@@ -3869,7 +3858,7 @@ partial class BlockBinder
             receiverTypeForLookup: null,
             forceExtensionReceiver: false);
 
-        return UnwrapNullableIfFlowKnownNonNull(result);
+        return result;
     }
 
     private BoundExpression BindPointerMemberAccessExpression(
@@ -4225,7 +4214,7 @@ partial class BlockBinder
             receiverType = EnsureSourceMemberSignatureDeclaredForExactLookup(receiverType, name);
 
             if (!suppressNullWarning)
-                ReportPossibleNullReferenceAccess(receiver, simpleName);
+                ReportNullableValueMemberAccess(receiver, simpleName);
 
             var allowExtensions = forceExtensionReceiver || IsExtensionReceiver(receiver);
 

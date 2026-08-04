@@ -15,6 +15,12 @@ breaking changes. Raven is still free to revise syntax and semantics. It means
 that changes are deliberate, documented, consistently implemented, and covered
 by tests across full and incremental compilation.
 
+> **Current nullability decision:** Raven no longer performs nullable-specific
+> flow refinement. A nullable expression remains `T?` until an explicit pattern,
+> conversion, conditional access, or suppression produces another static type.
+> Earlier null-flow entries in the chronological progress record below document
+> superseded implementation work; they are not the current language contract.
+
 Familiarity and interoperability are the default when established C# and .NET
 conventions carry observable meaning. Raven may intentionally diverge in source
 semantics where that produces an idiomatic Raven model, but its .NET ABI must
@@ -69,36 +75,19 @@ Three semantic areas are explicit gates for porting compiler code:
 2. **Control-flow analysis.** Reachability, abrupt completion, joins, definite
    assignment, return analysis, and loop ownership must be conservative and
    internally consistent for every construct used by compiler code.
-3. **Unified null-state analysis.** Reference and value nullability must use
+3. **Unified nullability contracts.** Reference and value nullability must use
    the same Raven semantic model while importing and emitting the correct .NET
-   ABI annotations. Branches, loops, patterns, calls, and metadata flow
-   attributes must publish the same state to diagnostics and `TypeInfo`.
+   ABI annotations. Static `T?` identity, conversions, dereference checks,
+   generic substitution, and explicit pattern bindings must agree across source
+   and PE symbols and through `TypeInfo`.
 
-Null-state analysis is primarily a .NET-boundary soundness gate, not the
-preferred domain model for compiler code. Raven code should normally eliminate
-nullable states with patterns and project meaningful absence or failure into
-`Option`, `Result`, or a domain union. Stabilization therefore prioritizes
-sound imported/emitted contracts, valid narrowing paths, and consistent public
-flow information. Additional cascaded state after an already-rejected null
-assignment is lower priority than those accepted-code and interoperability
-paths.
-
-The architecture should separate declared nullness, pattern refinement, and
-null-flow diagnostics. Declared annotations and ABI projection remain
-mandatory. Syntax-directed refinement inside a successful pattern arm remains
-mandatory because it is part of the pattern's type meaning. Broader tracking of
-mutable null state should move toward a configurable built-in analyzer/profile
-for interop and gradual migration. That move must preserve the public
-`TypeInfo` answer needed by editor tooling and must not duplicate semantic truth
-inside the language server.
-
-Null flow analysis remains valuable as a defect detector. Its success
-criterion is finding likely null-reference bugs in .NET-shaped or gradually
-migrated code, while Raven guidance helps users replace recurring nullable
-domain states with exhaustive patterns and explicit sum types. Compiler
-stabilization should therefore preserve a dependable compatibility floor
-without treating ever-more-global null tracking as the primary route to
-idiomatic Raven.
+Nullability is primarily a type-system and .NET-boundary soundness gate, not
+the preferred domain model for compiler code. Raven code should normally
+eliminate nullable states with patterns and project meaningful absence or
+failure into `Option`, `Result`, or a domain union. Stabilization therefore
+prioritizes sound imported/emitted contracts, a single static semantic answer,
+and explicit unwrapping paths. It must not reintroduce contextual null-state
+caches in binders, public semantic APIs, or the language server.
 
 A serious unresolved inconsistency in one of these areas blocks a trusted
 bootstrap even if the affected program happens to emit runnable code.
@@ -288,7 +277,7 @@ to imply that every file must be rewritten before porting.
 | Semantic query orchestration | `SemanticModel.cs` | Specialized fast paths can bypass contextual binding and publish different symbols by query order |
 | Declaration validation | `MemberSignatureDeclarationPass.cs`, `Binder/TypeParameterInitializer.cs`, declaration binders | Repeated initialization paths must share one idempotent validation result |
 | Recovery during binding | `Binder/BlockBinder.Statements.cs`, `Binder/BlockBinder.MemberAccess.cs`, `Binder/MethodBodyBinder.cs` | Broad exception suppression and binder fallbacks |
-| Public flow information | `TypeInfo.cs`, `Binder/BlockBinder.cs`, `Binder/BlockBinder.Statements.cs` | Agreement between nullability diagnostics, narrowing, and semantic APIs |
+| Public type information | `TypeInfo.cs`, `Binder/BlockBinder.cs`, `Binder/BlockBinder.Statements.cs` | Agreement between static nullability diagnostics, explicit pattern bindings, and semantic APIs |
 | Overload resolution | `OverloadResolver.cs`, `Binder/BlockBinder.MemberAccess.cs` | Generic method groups, inference, ambiguity, and conversion ranking |
 | Pattern semantics | `BoundTree/BoundIsPatternExpression.cs`, pattern binding in `Binder/BlockBinder.cs`, `CodeGen/Generators/ExpressionGenerator.Patterns.cs` | Binding, flow, exhaustiveness, and lowering agreement |
 | Symbol contracts | `Symbols/Constructed/*`, `Symbols/Source/SourceModuleSymbol.cs`, `Symbols/PE/PEModuleSymbol.cs` | Reachable incomplete lookup and construction APIs; duplicated structural substitution across constructed wrappers |
@@ -389,233 +378,14 @@ be stabilized. Boolean logical negation is now folded by the shared constant
 evaluator, so `while !false` has the same completion semantics as
 `while true`.
 
-### Public nullability information is becoming flow-sensitive
+### Removed nullable-flow experiment
 
-Possible-null-reference reporting is now an explicit null-flow compilation
-policy, enabled by default and configurable through the compilation and MSBuild
-property `EnableNullFlowAnalysis`. Disabling it affects diagnostic
-publication only: declared annotations, conversion checks, metadata, pattern
-refinement, and flow-sensitive `TypeInfo` remain compiler semantics. This keeps
-the semantic model useful to editors and analyzers without forcing applications
-to organize domain code around mutable null flow.
-
-The declaration/type layer remains independent of that policy. Raven represents
-an intentionally nullable type uniformly as `NullableTypeSymbol(T)` at every
-source position, including locals and parameters; disabling null flow must
-never replace that symbol with its underlying `T`. Flow state describes what is
-known about a use at a point in the program, not what type was declared.
-
-The stabilization boundary is explicit:
-
-1. Reachability defines which branches and blocks can execute and complete.
-2. Assignment analysis consumes those paths to enforce definite assignment and
-   immutable-binding reassignment rules.
-3. The unified nullability model preserves declared `T?` types, .NET metadata,
-   conversions, and direct nullable-dereference safety.
-4. Null-checking branches and patterns establish safe, syntax-directed facts.
-5. Null-flow analysis consumes control-flow and assignment effects to find
-   additional bugs across mutations, joins, exceptions, and metadata contracts.
-
-These layers can share control-flow infrastructure, but their facts,
-configuration, and diagnostics remain independent. Disabling null-flow
-analysis does not disable reachability, definite assignment, immutable-binding
-checks, declared nullability, or pattern refinement, and no analysis changes a
-nullable symbol into its underlying type.
-
-`TypeInfo` now preserves an expression's declared nullable annotation while
-projecting the bound expression's current flow state. Strict null-check branches
-and null guards therefore report `NotNull` through the public semantic model in
-both cold and diagnostics-first query orders, matching the state already used
-by binding and nullable-access diagnostics.
-
-This contract is deliberately uniform across reference and value types. Both
-`string?` and `int?` remain declared nullable symbols when narrowed, and both
-publish the contextual `NotNull` fact through `Nullability.FlowState`. Their
-different .NET runtime encodings must not leak into semantic analysis.
-The same annotation and flow results are required whether diagnostics or type
-information is requested first, and repeated semantic queries must preserve
-both `Nullability` and `ConvertedNullability`.
-
-Typed conditional bindings now have reference/value parity and incremental
-edit coverage. A restored or renamed `if let value: T = nullableValue` binding
-publishes a fresh non-null local and stable reference identity before and after
-diagnostics. `value is not null` remains valid and currently refines the
-original local. This is the supported compatibility baseline, not Raven's first
-teaching model: documentation should lead with an explicit typed binding or an
-exhaustive match while describing direct null checks as valid and supported.
-The contract is covered for reference and value nullable parameters in both
-semantic-query orders: the original symbol remains declared as `T?`, its flow
-state is non-null only inside the successful branch, and the fact does not leak
-past the branch. Any future stricter profile must be an explicit policy decision
-and must not silently make branch meaning a consequence of
-`EnableNullFlowAnalysis`; that option controls additional bug-finding
-diagnostics, while syntax-directed branch semantics are a separate language
-contract.
-
-The remaining conformance matrix needs broader joins, loops, richer pattern
-tests, and incremental edits that change control flow. Nullable standard unions
-now have cold and diagnostics-first coverage proving that a null guard preserves
-the declared nullable union while publishing a non-null flow state for the
-continuing return expression.
-
-Branch-join coverage now distinguishes facts established on every completing
-path from facts established on only one path. Ordinary `while` bodies also bind
-under the condition's true-state nullability facts, while post-loop state stays
-conservative when a `break` or outward `goto` can bypass the condition. Without
-such an exit, normal completion projects the condition's false-state facts.
-Break ownership follows the nearest loop, so a nested loop's break does not
-erase facts from the enclosing loop. Cold queries bind the enclosing loop to
-preserve the same context.
-
-Loop back-edges now invalidate facts for mutable locals and parameters assigned
-on a path that can continue iterating. `break` exits carry the null state at the
-transfer point and multiple exits are intersected, while mutations followed by
-an unconditional exit do not pollute an earlier body use. Assignment binding
-uses the declared writable target rather than its flow-narrowed read shape; a
-narrowed nullable local can therefore be assigned `null`, after which both
-diagnostics and `TypeInfo` report it as maybe-null.
-
-A nested `while false` still binds its body for diagnostics, but its mutations
-do not participate in an enclosing loop's back-edge and its normal exit
-preserves the incoming state. Syntactically present assignments on a
-constant-unreachable path therefore no longer erase a valid outer-loop
-narrowing. Diagnostics-first and direct `TypeInfo` queries share this result.
-
-Exception regions use the same path-sensitive join rule. A `catch` starts from
-the try-entry facts minus values that may have been assigned before an
-exception, each catch is bound independently, and the completing try/catch
-states are intersected before `finally` runs. This prevents a preceding catch
-from seeding a sibling and ensures a mutation in any completing path or in the
-finally block is visible after the statement.
-
-A catch filter contributes its true-path null facts to that catch body. The
-false path remains part of exception dispatch and does not seed or suppress a
-sibling catch. Flow-narrowing conversions cached during diagnostics also retain
-the nullable wrapper as the expression's declared `TypeInfo.Type`; only
-`Nullability.FlowState` changes to `NotNull`. This makes filtered catches agree
-in cold and diagnostics-first query orders.
-
-Incremental workspace coverage changes a `while` condition between `is not
-null` and `is null`, then restores it. Public `TypeInfo` flow state and
-possible-null diagnostics must update together in all three snapshots.
-
-Successful declaration patterns with a non-null declared type establish that
-their scrutinee is non-null on the true path. Ordinary `if ... is` and dedicated
-`while let` binding apply the same fact to their bodies, and cold semantic
-queries bind those enclosing constructs before publishing `TypeInfo`.
-Negation reverses any recognized pattern nullability fact rather than relying
-on a special case for `not null`; consequently, an early-exit `is not T` guard
-publishes the same non-null state on its continuing path as a positive typed
-pattern publishes inside its body.
-Property-pattern success also establishes a non-null scrutinee, matching the
-runtime meaning of both typed property patterns and the empty `{ }` pattern.
-Nominal deconstruction patterns establish the same fact before their
-deconstruction method is invoked.
-Pattern flow distinguishes adding, removing, and preserving a nullability fact.
-A type or shape mismatch does not make an already non-null scrutinee nullable;
-only a branch that proves a null match removes the fact.
-For conjunctive patterns, a successful operand that requires a non-null input
-establishes that fact for the successful combined pattern.
-For disjunctive patterns, every successful alternative must require non-null
-before the combined true path narrows; the false path may use a guarantee shared
-by the required operand failures.
-Sequence patterns follow the same recursive-pattern rule as property and
-deconstruction patterns: nullable reference inputs are accepted, `null` does
-not match, and success establishes non-null flow.
-Dictionary patterns apply that rule to the underlying dictionary-compatible
-type while retaining the nullable annotation on the scrutinee outside a
-successful match.
-
-Definite assignment joins only paths that can actually complete the construct.
-Exhaustive match arms are intersected across their completing exits, and
-non-exhaustive matches retain the unmodified incoming path. A `loop` has no
-zero-iteration exit, so out-parameter assignment is now intersected across its
-reachable `break` states rather than discarded wholesale; one unassigned break
-continues to make the method exit invalid.
-
-Definite assignment and null-state flow now share an explicit early-exit guard
-invariant without sharing representations. In a nullable guard where the null
-branch assigns an `out` parameter and returns, the continuation sees the input
-as non-null and the later assignment satisfies the remaining normal exit. Both
-facts agree in diagnostics-first and semantic-query-first order.
-
-Nullable match exhaustiveness is also a shared control-flow boundary. A
-`string?` match with `string value` and `null` arms is exhaustive for definite
-assignment, so an `out` parameter assigned in both arms is assigned on every
-normal exit. If both arms return, the following statement is unreachable.
-Focused tests require the exhaustiveness query, assignment analysis, and public
-control-flow analysis to agree in both semantic-query orders.
-
-Null-flow joins treat a branch as abrupt when its block ends in `return`,
-`throw`, `break`, or `continue`, even when ordinary statements precede that
-exit. Nested `if`/`else` statements are abrupt when both branches are abrupt.
-This allows a multi-statement null guard to narrow subsequent code without
-weakening the conservative loop rules: a direct `break` path still prevents a
-while-condition's false-state narrowing, while nested-loop breaks do not leak
-into the outer loop.
-
-The .NET boundary is an ABI contract rather than an implementation detail.
-Raven must consume and emit the platform's nullable metadata conventions in
-every relevant signature position, including nullable context/annotation
-attributes, flow attributes such as `MaybeNull` and `NotNull`, generic type
-arguments, arrays, and by-reference parameters and returns. Raven-authored
-public APIs, including Raven.Core and Raven.Macros, are part of the same
-contract and need metadata round-trip tests from both Raven and C# consumers.
-Raven-authored infrastructure must also consume those contracts honestly: a
-nullable reflection or serializer result remains nullable until explicitly
-checked, and helpers that need runtime type identity carry the declared `Type`
-separately instead of calling `GetType()` on a potentially null value.
-
-Nullable annotation emission and import now use the .NET transform-flag walk
-for nested generic arguments, arrays, generic value-type placeholders, and
-by-reference positions. Both the uniform single-byte form and the positional
-byte-array form round-trip through `NullabilityInfoContext` and Raven metadata
-symbols. Metadata method returns and parameters also expose their flow
-attributes through the public symbol APIs. Nullable context placement and the
-remaining call-site interpretation of those flow contracts remain separate ABI
-slices. Conditional `NotNullWhen` parameter contracts now narrow all annotated
-arguments on the matching Boolean branch, including metadata methods with more
-than one flow-annotated parameter; the opposite branch remains conservative.
-`MaybeNull` return contracts likewise affect the call result's flow state
-without changing its declared return annotation. This applies uniformly to
-reference and generic results after construction, while a non-nullable value
-type remains definitely non-null because its runtime representation cannot
-carry `null`. Assignment and member-access diagnostics consume that flow view
-rather than mutating the public method signature.
-
-Imported `NotNullIfNotNull` return contracts now resolve their named parameter
-and inspect the corresponding argument's Raven flow state. A non-null literal
-or narrowed nullable argument produces a non-null invocation result, while a
-maybe-null argument preserves the declared nullable result. Metadata-symbol and
-call-site tests use a separately compiled C# fixture so attribute decoding and
-semantic interpretation cannot accidentally pass through a source-only path.
-
-By-reference metadata loading now reads an `out` parameter's write-state
-nullability and falls back to the root reflection node when no separate element
-node is available. Calls apply unconditional `NotNull` and `MaybeNull`
-postconditions to the referenced local or parameter, including attributes on an
-open generic `out T` after method construction. Cached invocations replay the
-same transition so diagnostics-first and cold semantic queries agree.
-An explicit maybe-null flow fact now also represents a metadata postcondition
-that downgrades declared non-nullable reference storage. The declaration stays
-non-nullable in Raven's symbol model, while dereference diagnostics and public
-`TypeInfo` observe the maybe-null program-point state. A successful null pattern
-can refine the value again, and branch joins retain the downgraded state if any
-completing path may have received null.
-`MaybeNullWhen` has the same invariant through all three relevant boundaries:
-a Raven source declaration affects its caller directly, the emitted declaration
-round-trips through a PE symbol and retains its Boolean constructor argument,
-and an independently compiled .NET declaration produces the same branch flow.
-Both cold and diagnostics-first semantic queries consume that one contract.
-
-By-reference overload applicability compares the CLR storage identity rather
-than Raven's reference-nullability projection. Consequently, `string` and
-`string?` can identify the same `ref`, `out`, or `in` signature position while
-input and output flow contracts still determine whether a call is safe and how
-the referenced storage changes afterward. This normalization is deliberately
-limited to reference annotations: `T` and `Nullable<T>` remain different
-runtime storage types. The same comparer contract is covered for equality,
-hashing, source calls, and constructed metadata methods.
+Raven no longer carries or publishes nullable-specific flow state. The former
+implementation history is available in version control, but it is not part of
+the stabilization contract. A nullable receiver remains `T?` after every direct
+null check. Only an explicit pattern binding, conversion, conditional-access
+result, or suppression expression produces a different static type. See
+[Nullability and absence](../../lang/nullability.md).
 
 ### Control transfers have one expression-context policy
 
@@ -872,60 +642,13 @@ order and whether diagnostics or symbol information is requested first. The
 semantic fast path scores every remaining applicable candidate together; it
 does not prefer a non-generic candidate before comparing conversions.
 
-Loop null flow now includes the mutation side of its fixed-point approximation.
-Before binding a repeated body, Raven removes entry narrowings for locals and
-parameters assigned anywhere on that loop back-edge. A `while` condition then
-applies its true-branch facts to this conservative header state, so a condition
-such as `value is not null` still narrows every iteration. The same mutations
-are removed from a possibly executing loop's exit state. This prevents both an
-unconditional `loop` and an ordinary `while` from carrying a first-iteration
-fact across an assignment to null.
-
-Labeled transfers use that same loop-owned flow state. A labeled `break` joins
-the exit state of the loop identified by its label rather than whichever loop
-was bound most recently, while a labeled `continue` remains a back-edge to its
-target. The mutation scan also recognizes a labeled break that prevents the
-target loop's back-edge, avoiding a different nullability result solely because
-the programmer made the transfer explicit.
-
-Pending loop exits also respect a `finally` boundary. A `break` captures state
-at its transfer point, but every possible assignment in a completing `finally`
-invalidates the corresponding facts before that state reaches the loop exit.
-An abrupt `finally` removes protected-region break states because its own
-transfer replaces them; breaks originating inside `finally` remain owned by
-their actual target loop. This is deliberately conservative: it prevents false
-non-null results now, while a future reusable flow-effect summary can recover
-facts that every `finally` path definitely establishes.
-
-Ordinary `try`/`catch` null-flow joins now contain only paths that can complete
-normally. A `try` ending in an abrupt transfer contributes no direct
-continuation, and a `catch` ending in one does not weaken the state produced by
-the completing `try` or sibling catches. Catch entry remains conservative about
-assignments that may have happened before an exception; excluding an abrupt
-exit does not make exception flow itself optimistic.
-
-Conditional output contracts now include `MaybeNullWhen` for nullable
-by-reference storage. The matching Boolean branch removes an established
-non-null fact and the opposite branch preserves it. Ref/out argument binding
-uses the writable declaration shape rather than a flow-narrowed read
-conversion, ensuring that post-call analysis updates the original symbol. The
-same mechanism can downgrade declared non-nullable storage because Raven keeps
-an explicit maybe-null flow fact independent of the declaration annotation.
-
 Input contracts are kept separate from those declared/read types. Ordinary
-non-nullable parameters reject null and maybe-null arguments, `AllowNull`
+non-nullable parameters reject null and nullable arguments, `AllowNull`
 permits such input without making reads nullable, and `DisallowNull` rejects it
 even when the declaration type is nullable. Property assignment follows the
 same rule using the setter value parameter, which is where C# emits these
 attributes. PE properties now project their own metadata attributes as well;
 accessor-parameter contracts remain owned by the corresponding method symbol.
-
-Local flow facts now reflect values written by both declarations and later
-assignments. A non-null initializer or right-hand side establishes non-null
-state even when the storage type remains nullable; a null or maybe-null value
-removes it. Rebinding a cached declaration replays its initializer state, so
-diagnostics-first and semantic-query-first paths start from the same fact before
-subsequent assignments are applied.
 
 Source and PE named types now share the Roslyn-like `MetadataName` contract: it
 is the local CLI name, including generic arity but excluding namespace and
@@ -1035,8 +758,8 @@ permitted leaf invalidate the nullable match immediately, report only that new
 leaf when `null` was already handled, and restore the original exhaustive state
 without retaining stale diagnostics.
 The same query-order matrix preserves the scrutinee's declared nullable symbol
-and maybe-null flow state while publishing non-null leaf types for each typed
-arm binding, for both source and PE hierarchy symbols.
+while publishing non-null leaf types for each explicit typed arm binding, for
+both source and PE hierarchy symbols.
 
 Nested declared-union patterns now have a corresponding convergence invariant.
 An outer payload case whose inner domain is covered by a logical `or` pattern
@@ -1345,23 +1068,18 @@ operand makes the whole expression abrupt only when that operand must execute.
    selected by member enumeration order. Exact implicit conversions retain a
    bounded fast path so deterministic selection does not turn global extension
    conversion discovery into a build-time penalty.
-4. **Unified nullability contracts (high)** — declared annotation and flow state
-   now consume `MaybeNull`, `NotNullWhen`, `NotNullIfNotNull`, and unconditional
-   by-reference postconditions without splitting reference and value semantics;
-   `MaybeNullWhen` also updates already-nullable ref storage conditionally.
-   Input conversion now consumes `AllowNull` and `DisallowNull` without changing
-   the read type. `MemberNotNull` and `MemberNotNullWhen` use receiver/member
-   flow slots rather than globally narrowing a property symbol, including
-   conditional branch and query-order coverage. Generic type and method
+4. **Unified nullability contracts (high)** — declared annotations are the
+   semantic truth for both reference and value types. Imported `MaybeNull`
+   returns project to a static nullable result, while `AllowNull` and
+   `DisallowNull` affect input contracts. Conditional .NET flow attributes do
+   not refine Raven storage. Generic type and method
    parameters now preserve `class`, `struct`, `new()`, `notnull`, base-class,
    and interface constraints across Raven source and emitted metadata. PE
    loading recognizes Raven's standard `NullableAttribute(1)` encoding for an
    otherwise unconstrained `notnull` parameter instead of dropping that
    semantic constraint. Dependent and nested constraint shapes still need
-   equivalent construction coverage. An explicit
-   maybe-null state for declared non-nullable storage now covers valid metadata
-   postconditions without weakening ordinary Raven assignment rules or
-   rewriting the declared type.
+   equivalent construction coverage. Source and PE projections must yield the
+   same static type without query-order-dependent nullability state.
 
 Raven-emitted nullable generic contracts now have an explicit round-trip
 invariant. For a reference-constrained `T`, nullable parameter and return uses
@@ -1376,24 +1094,16 @@ parameters, and tests apply the corresponding interface conversions before and
 after the Raven assembly is reloaded through PE symbols. A variance rule is not
 stable if it works only while the declaration remains in source.
 
-Nullability-flow expressions are semantic refinements rather than runtime
-values of their own. Every bound-tree rewriting path must therefore preserve
-their underlying expression (or deliberately replace it with an equivalent
-lowered expression). Focused emission coverage uses narrowed values as both
-invocation arguments and match scrutinees so a missing rewriter case cannot
-silently introduce null bound children.
-
 Explicit postfix null suppression has its own semantic identity. It removes the
 nullable annotation from the expression's public `TypeInfo` and from an
 inferred local without pretending that branch analysis established a reusable
 flow fact. This distinction prevents `value!` from changing the declared symbol
 or leaking a narrowing fact to later reads of `value`.
 
-Conditional access is part of the mandatory refinement layer. Its synthesized
-receiver conversion from `T?` to `T` is explicitly marked as a non-null
-refinement, so extension receiver applicability sees `T` inside the `?.` path
-while the overall expression remains nullable. This avoids treating ordinary
-conditional access as optional mutable null-flow analysis.
+Conditional access performs an expression-local receiver conversion from `T?`
+to `T`, so extension receiver applicability sees `T` only inside the `?.` path
+while the overall expression remains nullable. The original receiver storage
+is not refined.
 5. **Incremental declaration isolation (high)** — ordinary and generic namespace
    functions have body/signature query-order coverage. Accessors, constructors,
    generic members, overloads, and field initializers now preserve sibling

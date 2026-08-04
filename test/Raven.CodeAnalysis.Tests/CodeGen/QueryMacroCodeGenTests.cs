@@ -23,7 +23,7 @@ public sealed class QueryMacroCodeGenTests
             class Harness {
                 public static func Run() -> int {
                     let value = 100
-                    let query = #query {
+                    let query = query! {
                         from value in [1, 2, 3, 4]
                         where value > 2
                         select value * 10
@@ -45,7 +45,7 @@ public sealed class QueryMacroCodeGenTests
 
             class Harness {
                 public static func Run() -> int {
-                    let query = #query {
+                    let query = query! {
                         from value in [1, 2, 3]
                         select value + 1
                     }
@@ -62,7 +62,7 @@ public sealed class QueryMacroCodeGenTests
     public void QueryMacro_MissingSelectClause_ReportsBodyDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
-            func Main() -> int => #query {
+            func Main() -> int => query! {
                 from value in [1, 2, 3]
                 where value > 1
             }
@@ -80,7 +80,7 @@ public sealed class QueryMacroCodeGenTests
     public void QueryMacro_MalformedEmbeddedExpression_ReportsParserDiagnosticAtAuthoredLocation()
     {
         var syntaxTree = SyntaxTree.ParseText("""
-            func Main() -> int => #query {
+            func Main() -> int => query! {
                 from value in [1, 2, 3]
                 where value.Equals(1, )
                 select value
@@ -124,6 +124,8 @@ public sealed class QueryMacroCodeGenTests
         private const int SelectKeywordRawKind = 80_006;
 
         public string Name => "query";
+
+        public string Namespace => string.Empty;
 
         public ImmutableArray<MacroKeyword> Keywords =>
         [

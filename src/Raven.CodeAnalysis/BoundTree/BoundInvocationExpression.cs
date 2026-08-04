@@ -16,7 +16,7 @@ internal partial class BoundInvocationExpression : BoundExpression
         BoundExpression? receiver = null,
         BoundExpression? extensionReceiver = null,
         bool requiresReceiverAddress = false)
-           : base(method.ReturnType, method, BoundExpressionReason.None)
+           : base(NullableMetadataFacts.GetReturnType(method), method, BoundExpressionReason.None)
     {
         Method = method;
         Arguments = arguments;

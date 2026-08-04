@@ -2379,8 +2379,6 @@ func Describe(value: BaseClass?) -> string {
         Assert.Empty(info.MissingCases);
         var nullableScrutinee = Assert.IsType<NullableTypeSymbol>(scrutineeInfo.Type);
         Assert.Equal("BaseClass", nullableScrutinee.UnderlyingType.Name);
-        Assert.Equal(NullableAnnotation.Annotated, scrutineeInfo.Nullability.Annotation);
-        Assert.Equal(NullableFlowState.MaybeNull, scrutineeInfo.Nullability.FlowState);
         Assert.Collection(
             locals,
             local =>

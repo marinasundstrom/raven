@@ -18,7 +18,7 @@ public class SymbolEqualityComparerTests
             .AddReferences(TestMetadataReferences.Default);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var nullableInt = intType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableInt = intType.GetNullableType();
 
         var comparer = SymbolEqualityComparer.Default;
         Assert.False(comparer.Equals(intType, nullableInt));
@@ -38,7 +38,7 @@ public class SymbolEqualityComparerTests
             .AddReferences(TestMetadataReferences.Default);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var nullableInt = intType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableInt = intType.GetNullableType();
 
         var comparer = SymbolEqualityComparer.IgnoringNullability;
         Assert.False(comparer.Equals(intType, nullableInt));
@@ -58,7 +58,7 @@ public class SymbolEqualityComparerTests
             .AddReferences(TestMetadataReferences.Default);
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var nullableString = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableString = stringType.GetNullableType();
 
         var comparer = SymbolEqualityComparer.IgnoringNullability;
         Assert.True(comparer.Equals(stringType, nullableString));

@@ -77,9 +77,9 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var compilation = CreateInitializedCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
 
-        var nullableArgumentType = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableArgumentType = stringType.GetNullableType();
 
-        var nullableParameterType = stringType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableParameterType = stringType.GetNullableType();
 
         var nonNullable = CreateMethod(compilation, "NonNullable", stringType);
         var nullable = CreateMethod(compilation, "Nullable", nullableParameterType);
@@ -99,8 +99,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
     public void ResolveOverload_NullLiteralPrefersMoreSpecificReferenceTypeRegardlessOfCandidateOrder()
     {
         var compilation = CreateInitializedCompilation();
-        var stringType = compilation.GetSpecialType(SpecialType.System_String).WithNullableAnnotation(NullableAnnotation.Annotated);
-        var objectType = compilation.GetSpecialType(SpecialType.System_Object).WithNullableAnnotation(NullableAnnotation.Annotated);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String).GetNullableType();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object).GetNullableType();
         var stringMethod = CreateMethod(compilation, "Select", stringType);
         var objectMethod = CreateMethod(compilation, "Select", objectType);
         var arguments = CreateArguments(new BoundLiteralExpression(

@@ -2,7 +2,7 @@
 
 > **Status:** Historical design record. The unified nullable symbol model is
 > implemented. Current policy is defined by
-> [Nullability, absence, and null flow](../../nullability.md). Any future strict
+> [Nullability and absence](../../nullability.md). Any future strict
 > or migration profile may configure diagnostics, but must not make `?`
 > disappear or give Raven two symbol models.
 

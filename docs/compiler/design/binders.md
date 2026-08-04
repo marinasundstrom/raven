@@ -52,7 +52,6 @@ Transient execution state exists only while walking a body:
 - the active lexical lookup map at the current statement
 - current scope depth
 - locals pending disposal for the active scope
-- flow facts such as non-null symbols
 - statement traversal progress used to seed preceding declarations
 - current target type and pattern-binding context
 

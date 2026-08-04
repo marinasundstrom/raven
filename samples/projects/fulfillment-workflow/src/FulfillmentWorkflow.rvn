@@ -63,8 +63,8 @@ async func LoadInboundBatch() -> Task<Result<InboundBatch, FulfillmentError>> {
     let dtoResult = try JsonSerializer.Deserialize<InboundBatchDto>(rawJson)
 
     if dtoResult is Ok(let value) {
-        if value is not null {
-            return ValidateBatch(value)
+        if let batch: InboundBatchDto = value {
+            return ValidateBatch(batch)
         }
     }
 
@@ -142,20 +142,18 @@ func ValidateLine(orderId: string, dto: OrderLineDto) -> Result<OrderLine, Fulfi
 func ParsePriority(text: string) -> Result<Priority, FulfillmentError> {
     let normalized = text.Trim().ToLowerInvariant()
 
-    match normalized {
-        "standard" => {
-            let priority: Priority = .Standard
-            Ok(priority)
-        }
-        "expedited" => {
-            let priority: Priority = .Expedited
-            Ok(priority)
-        }
-        _ => {
-            let error: FulfillmentError = .Validation("Unsupported priority: ${text}")
-            Error(error)
-        }
+    if normalized == "standard" {
+        let priority: Priority = .Standard
+        return Ok(priority)
     }
+
+    if normalized == "expedited" {
+        let priority: Priority = .Expedited
+        return Ok(priority)
+    }
+
+    let error: FulfillmentError = .Validation("Unsupported priority: ${text}")
+    return Error(error)
 }
 
 func ToOption(text: string?) -> Option<string> {

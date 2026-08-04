@@ -18,19 +18,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed closure emission for target-typed lambdas inside Result-propagating
   namespace functions when replayed binding omitted an outer parameter from the
   recorded capture set.
+- **Breaking:** Raven no longer performs nullable-specific control-flow
+  refinement. A value with static type `T?` remains nullable after direct null
+  checks and must be explicitly pattern-bound, converted, conditionally
+  accessed, or suppressed before dereference. `TypeInfo` no longer exposes a
+  separate null-flow result, `CompilationOptions.EnableNullFlowAnalysis` has
+  been removed, and `RAV0402` now reports a static nullable-value access.
+  Nullable metadata remains part of source/PE boundary projection; in
+  particular, `MaybeNull` return contracts produce statically nullable results.
 - Parenthesized expressions now pass their contextual target type to the
   enclosed value, keeping target-bound union cases stable after cold queries.
-- Null checks performed through user-defined equality operators now contribute
-  the same true/false branch narrowing as intrinsic `==` and `!=` checks.
 - Cold contextual semantic queries now seed preceding lexical declarations
   before binding their statement. Lambda parameters resolve against their
   contextual delegate instead of falling through to a later shadowing local.
-- Type-info queries now reuse current bound expressions before rebinding an
-  enclosing executable region for null-flow state. This preserves lazy root
-  binding after document diagnostics while retaining contextual nullability.
-- Hover-shaped type queries now tolerate bound expressions without a published
-  null-flow type, preserving the declared type instead of throwing while
-  diagnostics are being produced incrementally.
 - Parenthesized simple lambdas such as `(value => value)` are now parsed as
   parenthesized expressions, while `(value) => value` remains the distinct
   parenthesized-parameter lambda form.
@@ -61,7 +61,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `return` makes dependent branches and following statements unreachable in
   either semantic-query order.
 - Postfix null suppression now has an explicit bound-tree identity and produces
-  a non-nullable expression type and flow state. Inferred locals no longer
+  a non-nullable expression type. Inferred locals no longer
   retain the nullable operand type or report a false possible-null dereference.
 - Reachability analysis now recognizes nested `return` expressions inside
   eagerly evaluated invocation arguments, unary operands, receivers, indexers,
@@ -72,10 +72,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   returning the first applicable member. Competing candidates are compared on
   both standard-conversion legs, while exact implicit operators retain a fast
   path for reference-heavy builds.
-- Nullability-flow wrappers now lower through their underlying expression
-  instead of disappearing during bound-tree rewriting. Narrowed values remain
-  valid as invocation arguments and match scrutinees through emission, while
-  disabled debug tracing no longer formats entire bound expressions eagerly.
 - Raven-emitted generic interfaces now preserve `in` and `out` variance in
   their CLR generic-parameter metadata. Reloaded PE symbols consequently apply
   the same covariant and contravariant interface conversions as source symbols.
@@ -87,14 +83,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   back to the constructed member, and substituted parameters are owned by their
   constructed method rather than directly by the containing type. Raven source
   and emitted PE symbols now agree across the complete member graph.
-- Metadata `[MaybeNull]` output contracts can now place a declared non-nullable
-  reference in the maybe-null flow state. The declared Raven type remains
-  unchanged, null patterns can refine it again, and branch joins preserve the
-  possible-null diagnostic in either semantic-query order.
-- Null-flow state captured by `break` now passes through an enclosing
-  `finally`: possible assignments invalidate pre-finally non-null facts, and an
-  abrupt `finally` replaces pending protected-region breaks. Loop exits no
-  longer publish stale nullability after cleanup code runs.
+- Metadata `[MaybeNull]` output contracts now project call results as statically
+  nullable Raven types when the underlying type can represent null.
 - Generic inference and constructed signatures now preserve type parameters
   nested through nullable arrays, tuples, and constructed generic arguments.
   Raven tuple projections compare consistently with emitted
@@ -137,10 +127,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   transfers before publishing exits. A `continue` in `finally` therefore
   suppresses an enclosed `break` instead of making a non-completing loop appear
   to have a reachable endpoint.
-- An abrupt `finally` now suppresses enclosed loop transfers during null-flow
-  back-edge analysis. Mutations before a `continue` that is replaced by a
-  `return` or `throw` in `finally` no longer weaken an unreachable next
-  iteration.
 - Lazy source member declaration now preserves every constructed containing-type
   layer when rebuilding nested receivers. Rejected generic overload candidates
   consequently expose the same projected constraints and containing types as
@@ -159,9 +145,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - An incomplete generic constraint clause such as `where T:` now reports a
   localized missing-constraint diagnostic while retaining the declaration and
   later sibling declarations for semantic queries during edits.
-- Constant-false loops now have an explicit null-flow contract: mutations in
-  their unreachable bodies do not weaken the state at the following reachable
-  statement, independent of semantic-query order.
 - Constant-false catch filters likewise exclude their unreachable catch-body
   mutations from the null-state joined after a `try` statement.
 - Cold public symbol queries now apply a method group's contextual delegate
@@ -172,33 +155,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   an earlier overload with the last declaration of the same name. Higher-order
   generic calls therefore see generic and non-generic namespace-function
   overloads consistently, independent of declaration and semantic-query order.
-- Catch filters now carry true-path null facts into their catch bodies without
-  leaking those facts to sibling catches. Diagnostics-first semantic queries
-  also retain the expression's declared nullable type while reporting its
-  narrowed flow state.
-- Null-state flow now preserves incoming facts across `while false` and ignores
-  mutations in such unreachable nested loops when computing an enclosing loop's
-  back-edge.
 - Semantic queries over object-initializer syntax no longer throw during edit
   recovery. Attached initializers report their containing construction type,
   while temporarily detached recovery nodes produce an error result.
-- Null-flow analysis can be disabled with
-  `CompilationOptions.WithEnableNullFlowAnalysis(false)` or the MSBuild
-  property `EnableNullFlowAnalysis=false`. Declared nullability,
-  boundary checks, nullable metadata, pattern refinement, and flow-sensitive
-  semantic information remain active. The former "extended null flow" naming
-  has been removed from compiler and workspace APIs.
-- Conditional access now marks its synthesized non-null receiver conversion as
-  a refinement, preventing false nullable-input diagnostics when invoking
-  source extension methods through `?.`.
+- Conditional access now uses an expression-local non-null receiver conversion,
+  preventing false nullable-input diagnostics when invoking source extension
+  methods through `?.` without refining the original storage.
 - Reuse unchanged local macro partitions even when they contain authored
   diagnostics, remapping those diagnostics after consumer-only workspace edits
   instead of recompiling the macro partition.
 
-- Nullable flow now consumes metadata `MemberNotNull` and
-  `MemberNotNullWhen` contracts. Facts are keyed by receiver and member, so a
-  call narrows only that instance and conditional contracts apply only on their
-  declared Boolean branch.
 - Overload resolution now prefers an exact non-generic method over a generic
   candidate whose inferred construction produces the same parameter sequence,
   independent of declaration order. The same rule selects methods when a method
@@ -210,61 +176,23 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - By-reference overload applicability now follows CLR signature identity for
   nullability: nullable reference annotations do not make an otherwise matching
   `ref`, `out`, or `in` argument inapplicable, while nullable value types remain
-  distinct. This also lets generic metadata `MaybeNull` output contracts update
-  Raven flow state after a successfully resolved call.
-- VS Code hover now presents the compiler's position-specific nullable flow
-  state for nullable locals and parameters. The declared signature remains
-  unchanged while the hover distinguishes `maybe null` from a value narrowed
-  to `not null` at the selected reference.
+  distinct.
 - Generic method inference now widens repeated type-parameter bounds for a
   base/derived argument pair instead of depending on argument order. Partial
   explicit type arguments on namespace functions also remain open through
   invocation binding, so trailing fixed arguments and leading inferred
   arguments are combined by the shared overload resolver.
-- Labeled loop transfers now participate in the same null-flow joins as their
-  unlabeled forms. A labeled `break` contributes its state to the target loop's
-  exit, and labeled `break`/`continue` paths are classified correctly when
-  determining whether a mutation can reach that loop's back-edge.
-- Null-flow joins after `try` now exclude `try` and `catch` branches that cannot
-  complete normally. An abrupt branch no longer weakens facts established by
-  the reachable continuation solely because it was bound before the join.
-- Metadata `MaybeNullWhen` contracts now invalidate a narrowed nullable
-  `ref` argument on the indicated Boolean branch while preserving the opposite
-  branch. By-reference arguments bind their writable declared storage shape,
-  so a prior flow conversion no longer hides the symbol from post-call flow.
 - Invocation and property-assignment inputs now honor .NET nullability
-  contracts. Non-nullable and `DisallowNull` inputs reject null or maybe-null
+  contracts. Non-nullable and `DisallowNull` inputs reject null or nullable
   values, `AllowNull` accepts them without changing the declared/read type, and
   PE property attributes are available through the public symbol model.
-- Nullable local and mutable-parameter flow now follows the assigned value.
-  Definitely non-null initializers and assignments establish a fact, assignments
-  from narrowed values copy it, and null or maybe-null assignments remove it;
-  cached declarations replay the same initialization state.
 - Source named types now expose the same local CLI `MetadataName` as PE named
   types, including generic arity but excluding namespace and containing-type
   paths. `ToFullyQualifiedMetadataName` owns complete identities, and emission
   now uses it explicitly for top-level types while retaining nested builders.
 - PE by-reference parameters now retain their nullable element annotation,
   using write-state nullability for `out` parameters even when reflection
-  exposes the annotation on the root by-ref node. Invocation flow applies
-  `NotNull` and `MaybeNull` postconditions to `ref`/`out` arguments, including
-  constructed generic methods, and replays them when the invocation is cached.
-- Metadata `NotNullIfNotNull` return contracts now affect invocation flow.
-  Raven resolves the named parameter from the imported attribute and projects
-  a non-null result only when the corresponding argument is non-null in the
-  current flow state, without changing the method's declared return annotation.
-- Null-flow state now joins `try` and each `catch` from independent entry and
-  exit states, then applies `finally` to the joined normal continuation. An
-  assignment that may occur before an exception conservatively invalidates the
-  corresponding fact at catch entry, and one mutating catch no longer leaks
-  its state into the binding of a sibling catch.
-- Null-flow narrowing now accounts for assignments on loop back-edges,
-  including paths reached through `continue`, and the states carried by
-  `break`. Values mutated by a `loop` or `while` body are no longer assumed
-  non-null on later iterations or after a reachable mutated exit, while a
-  `while` condition can reestablish its narrowing for each body entry.
-  Assignment targets also retain their writable declared shape instead of
-  being replaced by a non-null flow conversion.
+  exposes the annotation on the root by-ref node.
 - Constrained generic overloads now participate in fast semantic-query ranking
   only when their constraints are satisfied. A generic identity conversion can
   beat an `object` fallback, while a rejected generic candidate leaves the
@@ -288,22 +216,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   reflection omits a module file name, and source generic method
   `MetadataName` follows the CLI name rather than documentation-ID
   double-backtick notation.
-- Null-flow analysis now recognizes guard blocks whose final statement exits,
-  as well as nested `if`/`else` guards whose branches all exit. Subsequent code
-  receives the same non-null narrowing as it does after a single-statement
-  guard.
 - Definite-assignment analysis for `out` parameters now joins the actual exits
   from `loop` statements. Assigning before every reachable `break` satisfies
   the contract, while any unassigned break path still reports `RAV0269`.
-- `MaybeNull` return contracts now affect invocation flow without rewriting the
-  declared return annotation. Direct dereferences, inferred locals, and
-  explicitly non-nullable local assignments observe maybe-null reference and
-  constructed-generic results, while non-nullable value-type results remain
-  definitely non-null.
-- Conditional nullable metadata contracts now participate in Raven flow
-  analysis. `NotNullWhen` narrows every annotated invocation argument on the
-  matching Boolean branch without making an unsound claim on the opposite
-  branch.
 - Removed the unused placeholder local table and throwing declaration path from
   `LocalScopeBinder`. Lexical locals remain owned by `BlockBinder`, leaving the
   local-scope binder as the forwarding semantic boundary it actually provides.
@@ -365,10 +280,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Nullable symbol APIs now distinguish structural inspection from total
   normalization: `TryGetNullableUnderlyingType` exposes nullable wrapping,
   `GetNonNullableType` replaces the ambiguous `GetPlainType`/`StripNullable`
-  helpers, and `WithNullableAnnotation` provides an immutable, idempotent
-  declared-annotation transform. `TypeInfo` continues to report contextual flow
-  separately from the declared type symbol, using the same semantic shape for
-  nullable reference and value types.
+  helpers, and `GetNullableType` provides an immutable, idempotent nullable-type
+  transform. The resulting type symbol is the semantic nullability result for
+  both reference and value types; there is no parallel nullable-annotation API.
 - Lowering macro-introduced methods now preserves the binder-owned source method
   when generated syntax is contextualized into an authored semantic model.
   Emission no longer re-queries a detached declaration through a semantic model
@@ -429,10 +343,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and `continue` remain statement-only and consistently report `RAV1902` or
   `RAV1903` from expression blocks, including macro bodies and blocks nested in
   loops.
-- Public `TypeInfo` nullability now keeps the declared nullable annotation while
-  reporting the bound expression's narrowed flow state. Strict null-check
-  branches and early null guards return the same result in cold and
-  diagnostics-first semantic query orders.
 - Control-flow analysis now models unconditional `loop` statements, reachable
   `break` exits, literal-true `while` loops, `unsafe` blocks, and `finally`
   execution consistently. Exhaustive match statements now make their endpoint
@@ -471,36 +381,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Incremental match exhaustiveness now has add-and-restore coverage for source
   enums, Raven union cases, and sealed-hierarchy permitted subtypes, including
   agreement between diagnostics and `GetMatchExhaustiveness` across snapshots.
-- Ordinary `while` bodies now inherit nullability facts established by their
-  condition, and cold semantic queries bind the enclosing loop so public flow
-  information agrees with diagnostics-first binding.
-- Normal exits from `while` loops now project the condition's false-state
-  nullability facts when no `break` or outward `goto` can bypass the condition.
-- Nested-loop `break` statements no longer suppress nullability facts inferred
-  from normal exit of an enclosing `while`; only exits targeting that loop (or
-  conservatively unresolved labeled/goto exits) block the inference.
-- Workspace edits that change a `while` null check now invalidate and restore
-  body flow state together with possible-null diagnostics.
-- Successful non-null typed patterns now narrow their nullable scrutinee inside
-  both `if ... is` and `while let` bodies, including cold semantic queries.
-- Negated typed patterns now invert the same nullability fact, so a guard that
-  exits on `is not T` narrows the scrutinee on the continuing path without
-  regressing ordinary `is not null` flow.
-- Successful property patterns, including the empty `{ }` non-null pattern,
-  now narrow nullable scrutinees in public flow information and diagnostics.
-- Successful nominal deconstruction patterns now likewise publish a non-null
-  scrutinee within their true branch.
-- Pattern mismatch now preserves a previously established non-null fact unless
-  the pattern proves the scrutinee null, keeping cold and diagnostics-first
-  semantic queries consistent across nested guards.
-- Conjunctive patterns now combine operand nullability guarantees, so a
-  successful `not null and ...` pattern narrows its scrutinee.
-- Disjunctive patterns now narrow their success path only when every alternative
-  requires non-null, and combine failure-path guarantees conservatively.
-- Sequence patterns now accept nullable arrays and strings, fail normally for
-  `null`, and publish a non-null scrutinee on successful matches.
-- Dictionary patterns now accept nullable dictionary inputs with the same
-  null-fail and successful non-null flow semantics.
 - Incomplete constructor declarations now recover with a missing block and a
   targeted `RAV1028` diagnostic instead of throwing or silently accepting a
   bodyless `init`. Recovery preserves following type members, and parser
@@ -513,9 +393,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   identities instead of rebuilding the entire tree. Incremental parser tests
   compare exact syntax shape and diagnostics with an authoritative full parse,
   including incomplete macro functions and repair edits.
-- Raven's existing nullability and control-flow actions are usable through the
+- Raven's nullability and control-flow code actions are usable through the
   language server again: structured diagnostic arguments now survive the LSP
-  round trip, strict-null guidance is registered by default, nullable-to-Option
+  round trip, null-identity guidance is registered by default, nullable-to-Option
   rewrites generate canonical `let` bindings, and if/else-to-match refactorings
   preserve exact fallback semantics with `_` instead of guessing complementary
   cases from names. The VS Code lifecycle log now records code-action requests

@@ -292,7 +292,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     var underlyingType = underlying.Type;
                     var result = underlyingType.IsNullable
                         ? underlyingType
-                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                        : underlyingType.GetNullableType();
                     return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
@@ -372,7 +372,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     var underlyingType = substitutedArgs[0];
                     var result = underlyingType.IsNullable
                         ? underlyingType
-                        : underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                        : underlyingType.GetNullableType();
                     return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 

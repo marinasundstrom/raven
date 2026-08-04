@@ -1,11 +1,10 @@
 # Nullable control flow analysis and `GetTypeInfo` API
 
-> **Status:** Implementation investigation and progress record. It is not the
-> user-facing definition of Raven nullability. The authoritative policy is
-> [Nullability, absence, and null flow](../lang/nullability.md): Raven has one
-> unified declared nullable model, patterns are the preferred handling form,
-> `Option<T>` models domain absence, and null flow proves safe access for
-> interoperability and gradual adoption.
+> **Status:** Superseded implementation investigation. Raven removed the
+> nullable-flow subsystem and flow-sensitive `TypeInfo` surface described here.
+> The authoritative model is [Nullability and absence](../lang/nullability.md):
+> a nullable value keeps its static `T?` type until an explicit pattern or
+> conversion produces `T`.
 
 ## Goals
 - Implement `GetTypeInfo` with nullable flow awareness, aligning with Raven's unified nullability model for reference and value types.
@@ -82,10 +81,9 @@ if (type.TryGetNullableUnderlyingType(out var underlyingType))
 }
 ```
 
-`WithNullableAnnotation` is immutable and idempotent. `Annotated` adds the
-nullable decoration, while `NotAnnotated` removes it. `None` is rejected for a
-concrete Raven type because the unified model requires a definite declared
-annotation; absence of a type is represented separately by `TypeInfo`.
+`GetNullableType` is immutable and idempotent. It adds Raven's nullable
+decoration, while `GetNonNullableType` removes it. The type symbol itself is the
+nullability result; absence of a type is represented separately by `TypeInfo`.
 
 ### 6) Prefer `ITypeSymbol.IsNullable` in flow checks
 Refactor flow analysis and diagnostics to use `ITypeSymbol.IsNullable` directly:
@@ -93,7 +91,7 @@ Refactor flow analysis and diagnostics to use `ITypeSymbol.IsNullable` directly:
 - Ensure nullable-aware features (like match exhaustiveness or event null checks) depend on `IsNullable`.
 
 ### 7) Keep representation and flow out of transformation APIs
-`WithNullableAnnotation`, `GetNonNullableType`, and
+`GetNullableType`, `GetNonNullableType`, and
 `TryGetNullableUnderlyingType` operate on Raven's declared type model. They do
 not expose `System.Nullable<T>` as a separate public type shape and do not
 encode `NullableFlowState`. Runtime representation remains an internal codegen
@@ -150,7 +148,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 
 ## Delivery plan (phased)
 1. **Inventory & refactor helpers**: replace ambiguous plain/strip helpers with
-   explicit annotation and structural APIs.
+   explicit nullable-type and structural APIs.
 2. **Metadata pipeline**: add nullable context discovery (assembly/module/member), plus caching, and plumb it into symbol construction.
 3. **Type surfaces**: keep `GetTypeInfo` focused on declared annotation and
    contextual flow; keep runtime representation and metadata provenance internal.
@@ -163,7 +161,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 - ✅ `TypeInfo` preserves the declared nullable annotation while reporting the bound expression's narrowed flow state for strict null-check branches and null guards, independent of whether diagnostics or the semantic query runs first.
 - ✅ Added `Conversion.IsNullable` and a `GetNonNullableType` helper to centralize nullability and plain-type access.
 - ✅ Added `TryGetNullableUnderlyingType` for structural inspection and
-  `WithNullableAnnotation` for immutable, idempotent declared-type transforms.
+  `GetNullableType` for immutable, idempotent nullable-type transforms.
 - ✅ Kept `TypeInfo.Nullability.Annotation` and `FlowState` separate so flow
   narrowing does not mutate the declared symbol.
 - ✅ Began routing conversion identity checks through `Conversion.IsNullable` to centralize nullability logic.
@@ -178,7 +176,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 ## Current state vs. proposed implementation checklist
 ### Existing
 - `NullableTypeSymbol` is the internal declared-type decorator.
-- `WithNullableAnnotation`, `GetNonNullableType`, and
+- `GetNullableType`, `GetNonNullableType`, and
   `TryGetNullableUnderlyingType` form the public transformation API.
 - `TypeInfo` reports declared annotation and contextual flow independently.
 

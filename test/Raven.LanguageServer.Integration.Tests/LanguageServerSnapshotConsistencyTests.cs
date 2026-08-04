@@ -950,7 +950,7 @@ class Runner {
     }
 
     [Fact]
-    public async Task HoverHandler_NullableLocalReference_ShowsPositionSpecificFlowStateAsync()
+    public async Task HoverHandler_NullableLocalReference_ShowsStaticTypeAtEveryPositionAsync()
     {
         const string text = """
 func Length(value: string?) -> int {
@@ -966,15 +966,15 @@ func Length(value: string?) -> int {
         var results = await ReplayInlineHoversAsync(
             text,
             new HoverReplayTarget(
-                "maybe-null local",
+                "checked local",
                 "copy is not null",
                 1,
-                "Nullable flow state: **maybe null** at this location."),
+                "val copy: string?"),
             new HoverReplayTarget(
-                "narrowed local",
+                "dereferenced local",
                 "copy.Length",
                 1,
-                "Nullable flow state: **not null** at this location."));
+                "val copy: string?"));
 
         results.Count.ShouldBe(2);
     }

@@ -117,8 +117,8 @@ public union Option<T> {
 
 extension OptionExtensions1<T : class> for Option<T> {
     static func implicit(value: T?) -> Option<T> {
-        if value is not null {
-            return .Some(value)
+        if let present: T = value {
+            return Option<T>.Some(present)
         }
 
         .None
@@ -185,8 +185,8 @@ public union Option<T> {
 
 public extension OptionExtensions1<T : class> for Option<T> {
     static func implicit(value: T?) -> Option<T> {
-        if value is not null {
-            return .Some(value)
+        if let present: T = value {
+            return Option<T>.Some(present)
         }
 
         .None

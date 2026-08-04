@@ -91,7 +91,7 @@ class C {
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void OutParameter_EarlyNullExitAlignsAssignmentAndNullState(bool diagnosticsFirst)
+    public void OutParameter_EarlyNullExitDoesNotRefineNullableValue(bool diagnosticsFirst)
     {
         const string source = """
 class C {
@@ -109,7 +109,7 @@ class C {
 
         var (compilation, tree) = CreateCompilation(source);
         if (diagnosticsFirst)
-            Assert.Empty(compilation.GetDiagnostics());
+            _ = compilation.GetDiagnostics();
 
         var receiver = tree.GetRoot()
             .DescendantNodes()
@@ -119,10 +119,9 @@ class C {
         var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(receiver);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.Equal(NullableAnnotation.Annotated, typeInfo.Nullability.Annotation);
-        Assert.Equal(NullableFlowState.NotNull, typeInfo.Nullability.FlowState);
+        Assert.True(typeInfo.Type?.IsNullable);
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableValueMemberAccess);
     }
 
     [Fact]

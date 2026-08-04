@@ -208,7 +208,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type.IsNullableValueType())
         {
             var underlying = ResolveType(type.GetGenericArguments()[0], methodContext);
-            var nullable = underlying!.WithNullableAnnotation(NullableAnnotation.Annotated);
+            var nullable = underlying!.GetNullableType();
             CacheResolvedType(type, metadataCacheKey, nullable);
             return nullable;
         }
@@ -445,7 +445,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             && !typeSymbol.IsValueType
             && typeSymbol is not ITypeParameterSymbol)
         {
-            typeSymbol = typeSymbol.WithNullableAnnotation(NullableAnnotation.Annotated);
+            typeSymbol = typeSymbol.GetNullableType();
         }
 
         return typeSymbol;
@@ -464,7 +464,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             var underlying = ApplyExplicitNullableFlags(nullableValue.UnderlyingType, flags, ref index);
             return ReferenceEquals(underlying, nullableValue.UnderlyingType)
                 ? typeSymbol
-                : underlying.WithNullableAnnotation(NullableAnnotation.Annotated);
+                : underlying.GetNullableType();
         }
 
         var consumesFlag = !typeSymbol.IsValueType ||
@@ -501,7 +501,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         }
 
         if (flag == 2 && typeSymbol is not NullableTypeSymbol && !typeSymbol.IsValueType)
-            typeSymbol = typeSymbol.WithNullableAnnotation(NullableAnnotation.Annotated);
+            typeSymbol = typeSymbol.GetNullableType();
 
         return typeSymbol;
     }

@@ -163,7 +163,7 @@ internal partial class BoundBinaryOperator
                 var liftedKind = lifted.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
                 var resultType = liftedKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality
                     ? boolType
-                    : lifted.ResultType.WithNullableAnnotation(NullableAnnotation.Annotated);
+                    : lifted.ResultType.GetNullableType();
 
                 op = new BoundBinaryOperator(
                     lifted.OperatorKind | BinaryOperatorKind.Lifted,

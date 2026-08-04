@@ -265,9 +265,6 @@ internal sealed class HoverHandler : IHoverHandler
                 documentation,
                 functionCaptures,
                 isCapturedVariable);
-            var nullableFlowState = TryBuildNullableFlowStateDisplay(resolvedValue, semanticModel);
-            if (nullableFlowState is not null)
-                hoverText = InsertHoverContextBeforeDocumentation(hoverText, nullableFlowState);
             PruneHoverPresentationCacheIfNeeded();
             _hoverPresentationCache[presentationCacheKey] = hoverText;
             hoverTextMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -524,40 +521,6 @@ internal sealed class HoverHandler : IHoverHandler
             parts.Add($"---\n\n{docsText}");
 
         return string.Join("\n\n", parts);
-    }
-
-    private static string? TryBuildNullableFlowStateDisplay(
-        SymbolResolutionResult resolution,
-        SemanticModel semanticModel)
-    {
-        if (resolution.Symbol is not (ILocalSymbol or IParameterSymbol) ||
-            resolution.Node is not ExpressionSyntax expression)
-        {
-            return null;
-        }
-
-        var nullability = semanticModel.GetTypeInfo(expression).Nullability;
-        if (nullability.Annotation != NullableAnnotation.Annotated &&
-            nullability.FlowState != NullableFlowState.MaybeNull)
-        {
-            return null;
-        }
-
-        return nullability.FlowState switch
-        {
-            NullableFlowState.NotNull => "Nullable flow state: **not null** at this location.",
-            NullableFlowState.MaybeNull => "Nullable flow state: **maybe null** at this location.",
-            _ => null
-        };
-    }
-
-    private static string InsertHoverContextBeforeDocumentation(string hoverText, string context)
-    {
-        const string documentationSeparator = "\n\n---\n\n";
-        var documentationIndex = hoverText.IndexOf(documentationSeparator, StringComparison.Ordinal);
-        return documentationIndex >= 0
-            ? hoverText.Insert(documentationIndex, $"\n\n{context}")
-            : $"{hoverText}\n\n{context}";
     }
 
     private static string FormatKindAndContainingDisplay(string kind, string containing)

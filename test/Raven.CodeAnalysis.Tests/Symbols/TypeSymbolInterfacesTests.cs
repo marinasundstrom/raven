@@ -18,7 +18,7 @@ public class TypeSymbolInterfacesTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
         var underlyingType = compilation.GetSpecialType(specialType);
-        var nullableType = underlyingType.WithNullableAnnotation(NullableAnnotation.Annotated);
+        var nullableType = underlyingType.GetNullableType();
 
         var expectedMembers = underlyingType.GetMembers(memberName);
         var actualMembers = nullableType.GetMembers(memberName);

@@ -142,8 +142,10 @@ class Widget {}
         var code = """
 class NullableSequencePatterns {
     public static func Count(value: int[]?) -> int {
-        if value is [let first, ...] {
-            return value.Length
+        if value is int[] items {
+            if items is [let first, ...] {
+                return items.Length
+            }
         }
 
         return -1

@@ -5,15 +5,15 @@ import System.Console.*
 func Main() -> () {
     let inputs = [|"10", "3", "abc", "42"|]
     let r = match ProcessNumbers(inputs) {
-        Ok => ()
-        Error(let message) => WriteLine(message)
+        .Ok => ()
+        .Error(let message) => WriteLine(message)
     }
 }
 
 func parseInt(text: string) -> Result<int, string> {
     return int.Parse(text) match {
-        Ok(let value) => Ok(value)
-        Error(_) => Error("\"$text\" is not a number")
+        .Ok(let value) => .Ok(value)
+        .Error(_) => .Error("\"$text\" is not a number")
     }
 }
 
@@ -29,5 +29,5 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
         WriteLine(message)
     }
 
-    return Ok
+    return .Ok
 }

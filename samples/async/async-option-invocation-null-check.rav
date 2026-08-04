@@ -1,7 +1,7 @@
 import System.*
 import System.Threading.Tasks.*
 
-// Feature: nullable receiver check before async invocation operator call.
+// Feature: explicit nullable receiver binding before async invocation operator call.
 async func Main() -> Task {
     let foo = Foo(42)
 
@@ -9,12 +9,8 @@ async func Main() -> Task {
 }
 
 async func Do(foo: Foo?) -> Task {
-    /*
-    if foo is null {
-        return
-    } */
-    if foo is not null {
-        let result = await foo(true) // foo.Test(true)
+    if let callable: Foo = foo {
+        let result = await callable(true) // callable.Test(true)
 
         Console.WriteLine("Result: $result")
 
@@ -25,7 +21,7 @@ async func Do(foo: Foo?) -> Task {
 
         Console.WriteLine(v)
 
-        Console.WriteLine(foo.Value)
+        Console.WriteLine(callable.Value)
     }
 }
 

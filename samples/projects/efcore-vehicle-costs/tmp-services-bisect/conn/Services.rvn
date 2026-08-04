@@ -3,8 +3,8 @@ import System.*
 static class VehicleAppServices {
     static func GetConnectionString() -> string {
         let environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
-        if environment is not null {
-            let trimmed = environment.Trim()
+        if let value: string = environment {
+            let trimmed = value.Trim()
             if trimmed.Length > 0 {
                 return trimmed
             }

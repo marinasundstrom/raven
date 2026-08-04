@@ -3,9 +3,9 @@
 > **Status:** Historical syntax exploration. Its removal of `T?`, `T | null`
 > representation, and equality-based narrowing examples are superseded.
 > Current Raven uses one declared `T?` symbol model for reference and value
-> types, prefers explicit patterns, and narrows direct null checks through
-> `is null` / `is not null`. See
-> [Nullability, absence, and null flow](../../nullability.md).
+> types and requires an explicit binding pattern to produce a non-null value.
+> Direct `is null` / `is not null` checks do not refine storage. See
+> [Nullability and absence](../../nullability.md).
 
 ## Historical summary
 

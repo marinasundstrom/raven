@@ -47,7 +47,7 @@ or browse the Markdown sources under [`docs/`](docs/).
 - [Domain Modeling](docs/lang/domain-modeling.md) - patterns for values, states,
   behavior, dependencies, and object-oriented models.
 - [Nullability and Absence](docs/lang/nullability.md) - unified nullable types,
-  pattern-first handling, null flow, and `Option<T>` guidance.
+  explicit pattern binding, and `Option<T>` guidance.
 - [Language Specification](docs/lang/spec/language-specification.md) - current
   normative language docs and grammar links.
 - [Compiler Docs](docs/compiler/index.md) - architecture, APIs, diagnostics,

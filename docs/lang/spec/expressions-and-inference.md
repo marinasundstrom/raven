@@ -191,9 +191,9 @@ The following clarifications extend the type inference model:
 * **Contextual inference**: Raven computes a contextual type based on both expression shape and target type. Inference is bidirectional.
 * **Literal arithmetic**: Non-constant operations widen literals to their base type unless constant-folded.
 * **Generic inference**: Type argument inference requires a single consistent set of type arguments that satisfies all constraints.
-* **Nullability**: Nullable flow follows `T?` rules and safe-navigation propagation.
-* **Pattern narrowing**: See [Pattern matching](pattern-matching.md) for how `is` and `match` refine variables.
+* **Nullability**: `T?` remains the static type of nullable storage. Safe navigation and explicit patterns produce separate result types or bindings; direct null checks do not refine storage.
+* **Pattern binding**: See [Pattern matching](pattern-matching.md) for how `is`, `if let`, and `match` introduce values whose types are established by a successful pattern.
 * **Tuples**: Tuple element names do not affect type identity.
 * **Ref/out parameters**: `ref` requires exact type match; `out` contributes to inference of the parameter type.
-* **Flow stability**: Variable declarations have a fixed declared type. Narrowings are ephemeral and do not change declared type. Captured variables use the join of all flows.
+* **Type stability**: Variable declarations have a fixed static type. A successful pattern may introduce a separate binding, but it does not change the type of the matched variable.
 * **Diagnostics**: When conversion fails, diagnostics should identify the conflicting conversions and why. For overloads, diagnostics should explain alternative selections.

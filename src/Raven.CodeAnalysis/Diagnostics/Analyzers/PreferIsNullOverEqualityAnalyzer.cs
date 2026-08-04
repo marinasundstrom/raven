@@ -9,10 +9,10 @@ public sealed class PreferIsNullOverEqualityAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Use 'is null' for strict null checks",
+        title: "Use 'is null' for null identity checks",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "This comparison may call a custom equality operator, so nullability isn’t narrowed. Use 'is null' or 'is not null' for a strict check.",
+        messageFormat: "This comparison may call a custom equality operator. Use 'is null' or 'is not null' to test null identity.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Warning);
 
