@@ -20,7 +20,7 @@ func Main() {
     Seed(db)
 
     let minAge = 21
-    let onlyActiveAdults: Expression<System.Func<User, bool>> =
+    let onlyActiveAdults: Expression<User -> bool> =
         user => user.IsActive && user.Age >= minAge
 
     let query = db.Users
