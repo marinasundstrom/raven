@@ -77,7 +77,7 @@ Pattern note:
 - `samples/result-and-options/result-option-item-name-async-propagation.rav`
 - `samples/result-and-options/option-user-match-async.rav`
 - `samples/result-and-options/process-numbers-result-propagation.rav`
-- `samples/result-and-options/option-isokor-to-result-basic.rav`
+- `samples/result-and-options/option-okor-to-result-basic.rav`
 - `samples/result-and-options/option-result-state-flags.rav`
 
 ## 6) Async and Await (cross-cuts control flow + error handling)

@@ -164,7 +164,7 @@ public union Option<T> {
     }
 
     /// Converts this option into a result, using `error` when it is `None`.
-    func IsOkOr<E>(error: E) -> Result<T, E> {
+    func OkOr<E>(error: E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
         }
@@ -172,7 +172,7 @@ public union Option<T> {
     }
 
     /// Converts this option into a result, evaluating `errorFactory` when it is `None`.
-    func IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
+    func OkOr<E>(errorFactory: () -> E) -> Result<T, E> {
         if self is Some(val value) {
             return Ok(value)
         }

@@ -4,7 +4,7 @@ import System.Linq.*
 
 // Feature: `Option`/`Result` state helpers and carrier surface (`HasValue`, `Value`).
 let f: Option<int> = Some(2)
-let isOk = f.IsOkOr(CustomError("Bang!"))
+let isOk = f.OkOr(CustomError("Bang!"))
 
 WriteLine("Has Some: ${f.HasSome}")
 WriteLine("Has None: ${f.HasNone}")

@@ -2,12 +2,12 @@ import System.*
 import System.Console.*
 import System.Linq.*
 
-// Feature: converting `Option<T>` to `Result<T, E>` via `IsOkOr`.
+// Feature: converting `Option<T>` to `Result<T, E>` via `OkOr`.
 WriteLine(test())
 
 func test() -> Result<int, CustomError> {
     let f = test2()
-    return f.IsOkOr(CustomError("Bang!"))
+    return f.OkOr(CustomError("Bang!"))
 }
 
 func test2() -> Option<int> {

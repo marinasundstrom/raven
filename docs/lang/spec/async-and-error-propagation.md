@@ -240,8 +240,8 @@ See
 
 - State checks: `HasSome`, `HasNone`
 - Mapping/composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
-- Result bridge: `ThenResult`, `MapResult`, `IsOkOr(error)`,
-  `IsOkOr(errorFactory)`
+- Result bridge: `ThenResult`, `MapResult`, `OkOr(error)`,
+  `OkOr(errorFactory)`
 - Pattern/value helpers: `Match`, `Tap`, `TapNone`
 - Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
   `UnwrapOr(defaultValue)`

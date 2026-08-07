@@ -428,7 +428,7 @@ let optionHasSome = option.HasSome
 let optionHasNone = option.HasNone
 let optionCarrierHasValue = option.HasValue
 let optionCarrierValue = option.Value
-let converted = option.IsOkOr(CustomError("Bang!"))
+let converted = option.OkOr(CustomError("Bang!"))
 
 let result: Result<int, CustomError> = .Ok(2)
 let resultHasOk = result.HasOk

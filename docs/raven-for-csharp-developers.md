@@ -282,7 +282,7 @@ union QuoteError {
 
 func BuildQuote(id: string) -> Result<Quote, QuoteError> {
     let request = FindRequest(id)
-        .IsOkOr(() => .RequestNotFound(id))?
+        .OkOr(() => .RequestNotFound(id))?
 
     if request.WeightKg < 1 {
         return Error(.InvalidWeight(request.WeightKg))

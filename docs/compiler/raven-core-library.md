@@ -127,8 +127,8 @@ catch-all arms.
 
 - State checks: `HasSome`, `HasNone`
 - Mapping and composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
-- Interop with `Result`: `ThenResult`, `MapResult`, `IsOkOr(error)`,
-  `IsOkOr(errorFactory)`
+- Interop with `Result`: `ThenResult`, `MapResult`, `OkOr(error)`,
+  `OkOr(errorFactory)`
 - Pattern/value helpers: `Match`, `Tap`, `TapNone`
 - Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
   `UnwrapOr(defaultValue)`

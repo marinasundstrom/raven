@@ -57,7 +57,7 @@ union Option<T> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    func IsOkOr<E>(error: E) -> Result<T, E> {
+    func OkOr<E>(error: E) -> Result<T, E> {
         if self is .Some(let value) {
             return .Ok(value)
         }

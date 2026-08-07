@@ -12,7 +12,7 @@ func BuildConnection(portText: string) -> Result<string, string> {
         .Tap(port => Console.WriteLine("Validated port $port"))
         .TapNone(() => Console.WriteLine("No valid port in '$portText'"))
         .Map(port => "localhost:$port")
-        .IsOkOr("A valid port is required")
+        .OkOr("A valid port is required")
         .Then(endpoint => Connect(endpoint))
         .Map(message => message.ToUpperInvariant())
         .MapError(error => "Configuration error: $error")
