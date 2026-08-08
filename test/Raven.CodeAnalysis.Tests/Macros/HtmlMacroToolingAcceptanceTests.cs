@@ -27,12 +27,22 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var syntaxTree = SyntaxTree.ParseText(source, path: "html-completion.rvn");
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var position = source.IndexOf("message.", StringComparison.Ordinal) + "message.".Length;
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
 
         var items = compilation.GetSemanticModel(syntaxTree)
             .GetCompletions(position)
             .ToArray();
+        var messageInfo = compilation.GetMacroFragmentSemanticInfo(
+            invocation,
+            source.LastIndexOf("message", StringComparison.Ordinal) + 1);
 
         Assert.Contains(items, static item => item.DisplayText == "Length");
+        var message = Assert.IsAssignableFrom<IPropertySymbol>(messageInfo?.SymbolInfo.Symbol);
+        Assert.Equal("message", message.Name);
+        Assert.Contains(message.Locations, static location => location.IsInSource);
     }
 
     [Fact]

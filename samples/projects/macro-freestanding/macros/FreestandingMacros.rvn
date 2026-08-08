@@ -215,7 +215,8 @@ class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
         let sourceSpan = TextSpan.FromBounds(inKeyword.Span.End, sourceEnd)
         let rangeVariableLocal = context.CreateSequenceElementLocal(
             rangeVariable.ValueText,
-            sourceSpan)
+            sourceSpan,
+            rangeVariable.Span)
         var regions: ImmutableArray<MacroFragmentRegion> = [
             context.CreateFragmentRegion(
                 MacroFragmentKind.Expression,

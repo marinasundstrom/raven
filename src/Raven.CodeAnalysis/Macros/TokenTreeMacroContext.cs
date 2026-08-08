@@ -159,6 +159,22 @@ public class TokenTreeMacroContext
     public MacroFragmentLocal CreateSequenceElementLocal(
         string name,
         TextSpan sourceExpressionSpan)
+        => CreateSequenceElementLocalCore(name, sourceExpressionSpan, declarationSpan: null);
+
+    /// <summary>
+    /// Creates a fragment local whose type is inferred from an authored sequence expression
+    /// and whose declaration is identified by a body-relative DSL span.
+    /// </summary>
+    public MacroFragmentLocal CreateSequenceElementLocal(
+        string name,
+        TextSpan sourceExpressionSpan,
+        TextSpan declarationSpan)
+        => CreateSequenceElementLocalCore(name, sourceExpressionSpan, declarationSpan);
+
+    private MacroFragmentLocal CreateSequenceElementLocalCore(
+        string name,
+        TextSpan sourceExpressionSpan,
+        TextSpan? declarationSpan)
     {
         if (sourceExpressionSpan.Start < 0 || sourceExpressionSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(sourceExpressionSpan));
@@ -168,19 +184,44 @@ public class TokenTreeMacroContext
         var elementType = sourceType is null
             ? null
             : SequenceTypeUtilities.TryGetElementType(Compilation, sourceType);
-        return CreateFragmentLocal(name, elementType ?? Compilation.ErrorTypeSymbol);
+        return declarationSpan is { } declaredAt
+            ? CreateFragmentLocal(name, elementType ?? Compilation.ErrorTypeSymbol, declaredAt)
+            : CreateFragmentLocal(name, elementType ?? Compilation.ErrorTypeSymbol);
     }
 
     /// <summary>
     /// Creates an explicitly typed local that a macro can attach to selected fragments.
     /// </summary>
     public MacroFragmentLocal CreateFragmentLocal(string name, ITypeSymbol type)
+        => CreateFragmentLocalCore(name, type, declarationSpan: null);
+
+    /// <summary>
+    /// Creates an explicitly typed local declared at a body-relative span in the macro DSL.
+    /// </summary>
+    public MacroFragmentLocal CreateFragmentLocal(
+        string name,
+        ITypeSymbol type,
+        TextSpan declarationSpan)
+        => CreateFragmentLocalCore(name, type, declarationSpan);
+
+    private MacroFragmentLocal CreateFragmentLocalCore(
+        string name,
+        ITypeSymbol type,
+        TextSpan? declarationSpan)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Macro fragment local names cannot be empty.", nameof(name));
         ArgumentNullException.ThrowIfNull(type);
+        if (declarationSpan is { } span && (span.Start < 0 || span.End > BodySpan.Length))
+            throw new ArgumentOutOfRangeException(nameof(declarationSpan));
 
-        return new MacroFragmentLocal(name, type);
+        return new MacroFragmentLocal(
+            name,
+            type,
+            declarationSpan,
+            declarationSpan is { } declaredAt
+                ? new TextSpan(BodySpan.Start + declaredAt.Start, declaredAt.Length)
+                : null);
     }
 
     /// <summary>

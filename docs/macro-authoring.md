@@ -329,7 +329,21 @@ resolves symbols and types in the invocation's caller scope, with the region's
 `MacroFragmentLocal` values layered over that scope. The language server uses
 that compiler result to render its normal Raven signature, containing-symbol,
 and documentation presentation. Macro authors do not implement a hover
-provider for ordinary Raven fragments.
+provider for ordinary Raven fragments. Go-to-definition uses the same result:
+caller symbols navigate to their ordinary Raven declarations. A
+DSL-introduced local can also supply its declaration token span:
+
+```raven
+let item = context.CreateSequenceElementLocal(
+    rangeToken.ValueText,
+    sourceExpressionSpan,
+    rangeToken.Span)
+```
+
+The third argument is body-relative, like token-stream spans. The context maps
+it to the authored invocation, and the local's semantic symbol carries that
+source location. Omitting it remains valid when the DSL has no authored
+declaration to navigate to.
 
 The same token-tree function can publish stable token metadata while consuming
 its stream:

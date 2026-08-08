@@ -38,8 +38,12 @@ public sealed class QueryMacroToolingAcceptanceTests
             regions.Select(region => source.Substring(region.Span.Start, region.Span.Length).Trim()));
         Assert.All(regions, static region => Assert.Equal(MacroFragmentKind.Expression, region.Kind));
         Assert.Empty(regions[0].Locals);
-        Assert.Equal("value", Assert.Single(regions[1].Locals).Name);
+        var predicateLocal = Assert.Single(regions[1].Locals);
+        Assert.Equal("value", predicateLocal.Name);
         Assert.Equal("value", Assert.Single(regions[2].Locals).Name);
+        Assert.Equal("value", source.Substring(
+            predicateLocal.DeclarationSpan!.Value.Start,
+            predicateLocal.DeclarationSpan.Value.Length));
     }
 
     [Fact]
@@ -143,6 +147,10 @@ public sealed class QueryMacroToolingAcceptanceTests
         var customer = Assert.IsAssignableFrom<ILocalSymbol>(customerInfo?.SymbolInfo.Symbol);
         Assert.Equal("customer", customer.Name);
         Assert.Equal("Customer", customer.Type.Name);
+        var customerDeclaration = Assert.Single(customer.Locations);
+        Assert.Equal(
+            "customer",
+            source.Substring(customerDeclaration.SourceSpan.Start, customerDeclaration.SourceSpan.Length));
         var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", name.Name);
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);

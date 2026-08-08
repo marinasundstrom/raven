@@ -12,7 +12,8 @@ internal sealed class MacroFragmentBinder : BlockBinder
     public MacroFragmentBinder(
         Binder parent,
         ImmutableArray<MacroFragmentLocal> fragmentLocals,
-        ImmutableArray<ISymbol> visibleSymbols)
+        ImmutableArray<ISymbol> visibleSymbols,
+        SyntaxTree syntaxTree)
         : base(
             parent.ContainingSymbol ?? parent.Compilation.GlobalNamespace,
             parent)
@@ -20,6 +21,9 @@ internal sealed class MacroFragmentBinder : BlockBinder
         var builder = ImmutableArray.CreateBuilder<ISymbol>(fragmentLocals.Length + visibleSymbols.Length);
         foreach (var local in fragmentLocals)
         {
+            var locations = local.DeclarationSpan is { } declarationSpan
+                ? new[] { Location.Create(syntaxTree, declarationSpan) }
+                : [];
             builder.Add(new SourceLocalSymbol(
                 local.Name,
                 local.Type,
@@ -27,7 +31,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
                 ContainingSymbol,
                 ContainingSymbol.ContainingType,
                 ContainingSymbol as INamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
-                locations: [],
+                locations,
                 declaringSyntaxReferences: []));
         }
 

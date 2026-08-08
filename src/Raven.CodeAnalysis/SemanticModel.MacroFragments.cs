@@ -45,7 +45,8 @@ public partial class SemanticModel
         var binder = new MacroFragmentBinder(
             parentBinder,
             region.Locals,
-            GetVisibleValueSymbols(expression, allowBindingFallback: true));
+            GetVisibleValueSymbols(expression, allowBindingFallback: true),
+            SyntaxTree);
         switch (fragment)
         {
             case ExpressionSyntax fragmentExpression:

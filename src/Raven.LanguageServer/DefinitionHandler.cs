@@ -82,8 +82,29 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             }
 
             stageStopwatch.Restart();
-            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+            var macroFragmentInfo = TryResolveMacroFragmentDefinition(
+                semanticModel,
+                root,
+                offset,
+                cancellationToken);
             resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            var macroFragmentSymbol = macroFragmentInfo?.SymbolInfo.Symbol
+                ?? macroFragmentInfo?.SymbolInfo.CandidateSymbols.FirstOrDefault();
+            if (macroFragmentInfo is not null && macroFragmentSymbol is not null)
+            {
+                var fragmentLinks = DefinitionLocationMapper.BuildLocationLinks(
+                        ReferenceSearchService.NormalizeSymbol(macroFragmentSymbol.UnderlyingSymbol),
+                        sourceText,
+                        macroFragmentInfo.Span)
+                    .Select(static location => (LocationOrLocationLink)location)
+                    .ToArray();
+                resultCount = fragmentLinks.Length;
+                return new LocationOrLocationLinks(fragmentLinks);
+            }
+
+            stageStopwatch.Restart();
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+            resolutionMs += stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
                 return new LocationOrLocationLinks();
 
@@ -129,6 +150,30 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs)
                 ]);
         }
+    }
+
+    private static MacroFragmentSemanticInfo? TryResolveMacroFragmentDefinition(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        SyntaxToken token;
+        try
+        {
+            token = root.FindToken(offset);
+        }
+        catch
+        {
+            return null;
+        }
+
+        var invocation = token.Parent?.AncestorsAndSelf()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .FirstOrDefault();
+        return invocation?.TokenTree is null
+            ? null
+            : semanticModel.GetMacroFragmentSemanticInfo(invocation, offset, cancellationToken);
     }
 
     private static bool TryResolveMacroDefinition(

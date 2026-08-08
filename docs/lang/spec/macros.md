@@ -188,6 +188,13 @@ macro that already owns an `ITypeSymbol`, such as a schema-backed DSL, can use
 `CreateFragmentLocal(name, type)` directly.
 Fragment locals participate in ordinary completion and shadow caller names;
 they do not introduce runtime storage or expose the macro's lowered syntax.
+The overloads
+`CreateSequenceElementLocal(name, sourceExpressionSpan, declarationSpan)` and
+`CreateFragmentLocal(name, type, declarationSpan)` additionally associate a
+body-relative DSL declaration span with the local. The resulting
+`BodyRelativeDeclarationSpan` and authored `DeclarationSpan` are optional and
+provide an ordinary source location for navigation without exposing DSL
+structure.
 
 `SemanticModel.GetMacroFragmentSemanticInfo` and its `Compilation` counterpart
 resolve the ordinary Raven symbol and type at an authored position in an
@@ -196,6 +203,9 @@ scope plus the fragment's immutable locals. The result contains symbol info,
 type info, and the authored token span; it does not expose the macro's private
 DSL structure. Language servers can therefore reuse normal Raven hover
 presentation for any DSL that reports the same fragment metadata.
+Go-to-definition uses the resolved symbol and authored token span through the
+same compiler result. Caller symbols navigate normally; fragment locals with a
+declaration span navigate to that authored DSL token.
 
 `SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
 the standard or custom stream selected for a token-tree invocation. Each

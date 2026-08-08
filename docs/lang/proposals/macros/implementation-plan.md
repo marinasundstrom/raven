@@ -206,23 +206,28 @@ accepted only when the preceding use case demonstrates its value.
    of names and types visible inside a fragment only after query-like or
    template-like examples prove caller scope alone is insufficient. Define
    hygiene and shadowing here rather than in the editor.
-4. **Add optional DSL affordance providers.** Introduce narrowly scoped
+4. **Route ordinary hover and definition through fragment spans
+   (implemented).** Resolve expression and statement fragment symbols through
+   the compiler-owned semantic model. Reuse normal Raven hover and definition
+   presentation. Optional declaration spans give macro-introduced locals a
+   navigation target without introducing DSL nodes.
+5. **Add optional DSL affordance providers.** Introduce narrowly scoped
    completion, hover, and navigation contributions for outer DSL tokens only
    when token kind, fragment semantics, and ordinary Raven hover cannot express
    the experience. Compiler APIs normalize and cache them; the language server
    remains a presenter.
-5. **Retain private structure snapshots when measurement justifies it.** Permit
+6. **Retain private structure snapshots when measurement justifies it.** Permit
    a provider-owned immutable snapshot shared between expansion and tooling if
    repeated parsing is materially expensive. Do not standardize or expose its
    node model to Raven analyzers by default.
-6. **Harden execution boundaries.** Add compiler-owned recursion, work, output,
+7. **Harden execution boundaries.** Add compiler-owned recursion, work, output,
    and nested-compilation limits before supporting more powerful syntax-tree
    construction or compilation APIs. Consider process isolation only when the
    package and host model requires it.
-7. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
+8. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
    reference, diagnostics, generated Blazor shape, and an external consumer
    before treating the React-like sample as a reusable product surface.
-8. **Prototype Playground preview as a library consumer.** After distribution,
+9. **Prototype Playground preview as a library consumer.** After distribution,
    add compile-and-inspect component discovery, then explicit interactive
    mounting. The Playground must not copy or special-case the HTML parser.
 

@@ -223,6 +223,82 @@ func Main() -> int => answer!()
         links[0].LocationLink!.TargetUri.ShouldBe(DocumentUri.FromFileSystemPath(macroPath));
     }
 
+    [Fact]
+    public async Task DefinitionHandler_MacroFragmentMember_UsesOrdinaryRavenDefinition()
+    {
+        using var fixture = new DefinitionWorkspaceFixture();
+        var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
+
+        fixture.WriteProject(Path.Combine(fixture.Root, "macros"), "FragmentMacros", $$"""
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>FragmentMacros</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="main.rvn" />
+    <Reference Include="Raven.CodeAnalysis">
+      <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
+""");
+        fixture.WriteRavenFile(Path.Combine(fixture.Root, "macros", "main.rvn"), """
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+[assembly: RavenCompilerPlugin(typeof(FragmentMacro))]
+
+class FragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider {
+    val Name: string => "fragment"
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
+    }
+
+    func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+        [context.CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            TextSpan(0, context.BodySpan.Length))]
+    }
+}
+""");
+
+        fixture.WriteProject(Path.Combine(fixture.Root, "app"), "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+    <ProjectReference Include="../macros/FragmentMacros.rvnproj" />
+  </ItemGroup>
+</Project>
+""");
+        var appPath = Path.Combine(fixture.Root, "app", "src", "main.rvn");
+        fixture.WriteRavenFile(appPath, """
+class Customer {
+    val Name: string => "Ada"
+}
+
+func Main() {
+    let customer = Customer()
+    let result = fragment! { customer.Name }
+}
+""");
+
+        var result = await fixture.GetDefinitionAsync(appPath, "Name", useLastOccurrence: true);
+
+        result.ShouldNotBeNull();
+        var link = result!.Single().LocationLink;
+        link.ShouldNotBeNull();
+        link!.TargetUri.ShouldBe(DocumentUri.FromFileSystemPath(appPath));
+        link.TargetSelectionRange.Start.Line.ShouldBe(1);
+    }
+
     private sealed class DefinitionWorkspaceFixture : IDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), $"raven-def-ls-{Guid.NewGuid():N}");
@@ -246,7 +322,10 @@ func Main() -> int => answer!()
             File.WriteAllText(path, contents);
         }
 
-        public async Task<LocationOrLocationLinks?> GetDefinitionAsync(string filePath, string marker)
+        public async Task<LocationOrLocationLinks?> GetDefinitionAsync(
+            string filePath,
+            string marker,
+            bool useLastOccurrence = false)
         {
             var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
             var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -263,7 +342,9 @@ func Main() -> int => answer!()
             var handler = new DefinitionHandler(store, NullLogger<DefinitionHandler>.Instance);
             var uri = DocumentUri.FromFileSystemPath(filePath);
             var text = await File.ReadAllTextAsync(filePath);
-            var offset = text.IndexOf(marker, StringComparison.Ordinal);
+            var offset = useLastOccurrence
+                ? text.LastIndexOf(marker, StringComparison.Ordinal)
+                : text.IndexOf(marker, StringComparison.Ordinal);
             offset.ShouldBeGreaterThanOrEqualTo(0);
             await store.UpsertDocumentAsync(uri, text);
             var sourceText = Raven.CodeAnalysis.Text.SourceText.From(text);
