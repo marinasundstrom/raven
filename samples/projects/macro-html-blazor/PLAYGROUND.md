@@ -41,6 +41,38 @@ works for the macro prototype without coupling the language to one IDE. A
 future project manifest can name a root component when convention is no longer
 enough.
 
+## Sample initialization contract
+
+Registered Playground samples should not rely on component discovery alone.
+Each entry in the existing sample index should be able to declare a minimal
+launch descriptor that tells the host which experience to initialize and what
+artifact is its root. For example:
+
+```json
+{
+  "id": "html-counter",
+  "title": "HTML counter",
+  "file": "html-counter.rvn",
+  "category": "Macros",
+  "launch": {
+    "mode": "blazor-component",
+    "component": "Samples.Counter"
+  }
+}
+```
+
+`mode` initially needs only the existing console behavior and
+`blazor-component`. The fully qualified component name is stable compiler
+output, so the host can select the Preview pane and mount that exact type after
+a successful emit. Component parameters can be added to the descriptor when a
+sample needs them; they are not required for the first preview slice.
+
+This metadata belongs to the Playground sample registry, not to the HTML DSL or
+the component macro. Ad hoc source without a descriptor can retain the
+discovery behavior above: select the sole component automatically or ask the
+user when several are available. That keeps registered demos deterministic
+without introducing Playground-specific syntax into Raven programs.
+
 ## Why the existing Playground can host it
 
 The Playground is already a Blazor WebAssembly application. Its compilation
