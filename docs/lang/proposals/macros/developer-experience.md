@@ -471,6 +471,12 @@ keyword or reserved-word classification automatically. A macro implements
 identifier, literal, operator, punctuation, or comment. This classification
 does not change the token kind or publish a DSL syntax tree.
 
+Both token and fragment-region queries are cached by the owning semantic model
+for the immutable authored invocation. A new compilation/document snapshot
+gets a new semantic model and therefore recomputes the provider results. Editor
+and language-server code consume these APIs without maintaining a parallel
+macro cache.
+
 ### Structured DSL wrappers
 
 A macro may privately parse its body into a secondary tree for its own DSL.

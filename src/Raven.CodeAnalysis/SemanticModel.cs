@@ -26,6 +26,8 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<AttributeSyntax, ImmutableArray<SyntaxNode>> _expandedDeclarationCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
+    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
+    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
 
     private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private readonly object _diagnosticsCollectionGate = new();
@@ -346,7 +348,11 @@ public partial class SemanticModel
             throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
-        return MacroFragmentRegionService.GetFragmentRegions(this, expression, cancellationToken);
+        if (_macroFragmentRegionCache.TryGetValue(expression, out var cached))
+            return cached;
+
+        var regions = MacroFragmentRegionService.GetFragmentRegions(this, expression, cancellationToken);
+        return _macroFragmentRegionCache.GetOrAdd(expression, regions);
     }
 
     /// <summary>
@@ -361,7 +367,11 @@ public partial class SemanticModel
             throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
-        return MacroTokenInfoService.GetTokens(this, expression, cancellationToken);
+        if (_macroTokenInfoCache.TryGetValue(expression, out var cached))
+            return cached;
+
+        var tokens = MacroTokenInfoService.GetTokens(this, expression, cancellationToken);
+        return _macroTokenInfoCache.GetOrAdd(expression, tokens);
     }
 
     /// <summary>

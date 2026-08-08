@@ -606,6 +606,7 @@ absolute authored span, and an optional `MacroTokenClassification`.
 * [x] classify declared macro keyword overlays automatically
 * [x] allow a lightweight optional `IMacroTokenClassifier`
 * [x] isolate optional tokenization/classification failures from semantic tools
+* [x] cache token and fragment-region results in the owning semantic model
 * [ ] consume macro token classifications in semantic highlighting
 * [ ] project token classification capabilities from `macro func` syntax
 

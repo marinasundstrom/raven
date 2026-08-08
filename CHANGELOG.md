@@ -7,6 +7,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added compiler-owned macro token snapshots with provider raw kinds, authored
   spans, keyword overlays, and optional lightweight token classifications.
   Token providers remain independent of Raven's global `SyntaxKind` values.
+  Token and embedded-fragment tooling results are cached by the owning semantic
+  model for the immutable invocation snapshot.
 
 - Added an optional token-tree macro fragment-region provider and compiler API
   for surfacing body-relative expression, statement, type, pattern, and member

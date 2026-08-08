@@ -171,6 +171,8 @@ absolute authored span, and optional presentation classification. Macro keyword
 overlays are classified automatically; `IMacroTokenClassifier` can supply
 additional identifier, literal, operator, punctuation, or comment categories.
 These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
+Token and fragment-region results are cached by the invocation's owning
+semantic model and recomputed for a new compilation snapshot.
 
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,
