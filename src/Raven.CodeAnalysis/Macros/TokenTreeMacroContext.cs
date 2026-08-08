@@ -116,22 +116,71 @@ public class TokenTreeMacroContext
             ?? throw new InvalidOperationException("The macro token-stream provider returned null.");
     }
 
+    /// <summary>
+    /// Creates an ordinary Raven fragment with no macro-introduced locals.
+    /// </summary>
     public MacroFragmentRegion CreateFragmentRegion(
         MacroFragmentKind kind,
         TextSpan bodyRelativeSpan)
+        => CreateFragmentRegion(kind, bodyRelativeSpan, ImmutableArray<MacroFragmentLocal>.Empty);
+
+    /// <summary>
+    /// Creates an ordinary Raven fragment and the macro-introduced locals visible inside it.
+    /// </summary>
+    public MacroFragmentRegion CreateFragmentRegion(
+        MacroFragmentKind kind,
+        TextSpan bodyRelativeSpan,
+        ImmutableArray<MacroFragmentLocal> locals)
     {
         if (!Enum.IsDefined(kind))
             throw new ArgumentOutOfRangeException(nameof(kind));
 
         if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
+        if (locals.IsDefault)
+            throw new ArgumentException("Macro fragment locals must be initialized.", nameof(locals));
+        if (locals.Any(static local => local is null))
+            throw new ArgumentException("Macro fragment locals cannot contain null.", nameof(locals));
+        if (locals.Select(static local => local.Name).Distinct(StringComparer.Ordinal).Count() != locals.Length)
+            throw new ArgumentException("Macro fragment local names must be unique.", nameof(locals));
 
         return new MacroFragmentRegion(
             kind,
             bodyRelativeSpan,
             new TextSpan(
                 BodySpan.Start + bodyRelativeSpan.Start,
-                bodyRelativeSpan.Length));
+                bodyRelativeSpan.Length),
+            locals);
+    }
+
+    /// <summary>
+    /// Creates a fragment local whose type is inferred from an authored sequence expression.
+    /// </summary>
+    public MacroFragmentLocal CreateSequenceElementLocal(
+        string name,
+        TextSpan sourceExpressionSpan)
+    {
+        if (sourceExpressionSpan.Start < 0 || sourceExpressionSpan.End > BodySpan.Length)
+            throw new ArgumentOutOfRangeException(nameof(sourceExpressionSpan));
+
+        var sourceExpression = ParseExpression(sourceExpressionSpan);
+        var sourceType = SemanticModel.GetMacroFragmentExpressionType(Syntax, sourceExpression);
+        var elementType = sourceType is null
+            ? null
+            : SequenceTypeUtilities.TryGetElementType(Compilation, sourceType);
+        return CreateFragmentLocal(name, elementType ?? Compilation.ErrorTypeSymbol);
+    }
+
+    /// <summary>
+    /// Creates an explicitly typed local that a macro can attach to selected fragments.
+    /// </summary>
+    public MacroFragmentLocal CreateFragmentLocal(string name, ITypeSymbol type)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Macro fragment local names cannot be empty.", nameof(name));
+        ArgumentNullException.ThrowIfNull(type);
+
+        return new MacroFragmentLocal(name, type);
     }
 
     internal MacroTokenInfo CreateTokenInfo(

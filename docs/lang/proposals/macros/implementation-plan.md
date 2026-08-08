@@ -163,10 +163,11 @@ consumes the combined snapshot for semantic highlighting. The macro's own
 parse tree remains private and no macro-specific nodes enter Raven's global
 syntax or bound trees.
 
-This is the MVP boundary: enough information for stable highlighting and for a
-future editor to route a cursor into ordinary Raven language services. It does
-not claim DSL-specific completion, macro-introduced semantic scope, public
-retained structure, or Playground preview support.
+This was the initial MVP boundary: enough information for stable highlighting
+and for a future editor to route a cursor into ordinary Raven language
+services. Follow-on slices now provide ordinary fragment completion and the
+first typed-local scope bridge. DSL-specific completion, public retained
+structure, and Playground preview support remain outside this boundary.
 
 ### MVP exit checklist
 
@@ -198,7 +199,8 @@ accepted only when the preceding use case demonstrates its value.
    cursor selected by `FindFragmentRegion`, reuse Raven's existing expression,
    statement, type, pattern, or member completion against the authored
    fragment. Do not add a DSL completion API yet.
-3. **Bridge macro-introduced semantic scope.** Add a compiler-owned description
+3. **Bridge macro-introduced semantic scope (typed-local MVP implemented).**
+   Add a compiler-owned description
    of names and types visible inside a fragment only after query-like or
    template-like examples prove caller scope alone is insufficient. Define
    hygiene and shadowing here rather than in the editor.
@@ -671,18 +673,20 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
 * [ ] project fragment-region contributions from `macro func` syntax
 * [x] route ordinary Raven completion inside reported fragment regions using
   the invocation's caller scope
-* [ ] describe macro-introduced semantic scope visible inside a fragment
+* [x] describe explicitly typed fragment locals, including query-introduced
+  sequence-element locals visible inside selected fragments
 
 This is deliberately a token-and-span API. It does not require or expose a
 secondary DSL syntax tree. Completion reparses only the selected ordinary Raven
 fragment and delegates to the existing compiler completion provider. Semantic
-scope bridging for DSL-introduced names remains a later independently justified
-slice.
+scope bridging beyond immutable name/type locals remains a later independently
+justified slice.
 
 The Raven-authored `query!` sample reports its source, predicate, and projection
-through this same API. Caller-scope completion works in those spans; completing
-the query-introduced range variable is intentionally reserved for the semantic
-scope-bridge slice.
+through this same API. Caller-scope completion works in those spans, and a
+compiler-owned sequence-element local makes its range variable available only
+inside the predicate and projection. Broader scope shapes remain deferred until
+another DSL demonstrates their value.
 
 ## Active slice: classified macro tokens
 

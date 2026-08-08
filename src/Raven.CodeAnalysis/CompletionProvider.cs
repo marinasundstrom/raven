@@ -26,16 +26,18 @@ public static class CompletionProvider
         SyntaxToken token,
         SemanticModel model,
         SyntaxNode invocation,
+        ImmutableArray<MacroFragmentLocal> fragmentLocals,
         int position,
         bool forceInsertionAtCaret = false)
-        => GetCompletionsCore(token, model, position, forceInsertionAtCaret, invocation);
+        => GetCompletionsCore(token, model, position, forceInsertionAtCaret, invocation, fragmentLocals);
 
     private static IEnumerable<CompletionItem> GetCompletionsCore(
         SyntaxToken token,
         SemanticModel model,
         int position,
         bool forceInsertionAtCaret,
-        SyntaxNode? semanticContext)
+        SyntaxNode? semanticContext,
+        ImmutableArray<MacroFragmentLocal> fragmentLocals = default)
     {
         var sourceText = model.SyntaxTree.GetText();
 
@@ -57,6 +59,17 @@ public static class CompletionProvider
         var semanticContextNode = semanticContext ?? token.Parent;
         var binder = model.GetBinder(semanticContextNode);
         model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(semanticContextNode);
+        var fragmentLocalSymbols = fragmentLocals.IsDefaultOrEmpty
+            ? ImmutableArray<ILocalSymbol>.Empty
+            : fragmentLocals.Select(local => (ILocalSymbol)new SourceLocalSymbol(
+                local.Name,
+                local.Type,
+                isMutable: false,
+                binder.ContainingSymbol ?? model.Compilation.GlobalNamespace,
+                binder.ContainingSymbol?.ContainingType,
+                binder.ContainingSymbol as INamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
+                locations: [],
+                declaringSyntaxReferences: [])).ToImmutableArray();
 
         var completions = new List<CompletionItem>(macroParameterCompletions);
         var seen = new HashSet<string>(
@@ -170,6 +183,11 @@ public static class CompletionProvider
         {
             if (string.IsNullOrWhiteSpace(name))
                 return null;
+
+            var fragmentLocal = fragmentLocalSymbols.FirstOrDefault(local =>
+                string.Equals(local.Name, name, StringComparison.Ordinal));
+            if (fragmentLocal is not null)
+                return fragmentLocal;
 
             if (model.TryLookupVisibleValueSymbol(
                     semanticContextNode,
@@ -445,12 +463,7 @@ public static class CompletionProvider
                 if (string.IsNullOrWhiteSpace(receiverName))
                     return null;
 
-                var symbol = model.TryLookupVisibleValueSymbol(
-                        semanticContextNode,
-                        receiverName,
-                        allowBindingFallback: semanticContext is not null)
-                    ?? binder.LookupSymbol(receiverName)
-                    ?? TryLookupValueSymbolByName(receiverName);
+                var symbol = TryLookupValueSymbolByName(receiverName);
                 if (symbol is not null)
                     return symbol;
             }
@@ -618,7 +631,7 @@ public static class CompletionProvider
             if (collectionType is null || collectionType.TypeKind == TypeKind.Error)
                 return null;
 
-            return TryGetSequenceElementType(collectionType);
+            return SequenceTypeUtilities.TryGetElementType(model.Compilation, collectionType);
         }
 
         ITypeSymbol? TryGetExpressionType(ExpressionSyntax expression)
@@ -630,36 +643,6 @@ public static class CompletionProvider
             }
 
             return GetContextualType(expression);
-        }
-
-        ITypeSymbol? TryGetSequenceElementType(ITypeSymbol collectionType)
-        {
-            if (collectionType is IArrayTypeSymbol arrayType)
-                return arrayType.ElementType;
-
-            if (collectionType.SpecialType == SpecialType.System_String)
-                return model.Compilation.GetSpecialType(SpecialType.System_Char);
-
-            if (collectionType is INamedTypeSymbol namedType)
-            {
-                foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
-                {
-                    if (candidate.TypeArguments.Length == 1 &&
-                        candidate.Name is "IEnumerable" or "IAsyncEnumerable")
-                    {
-                        return candidate.TypeArguments[0];
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
-        {
-            yield return type;
-            foreach (var iface in type.AllInterfaces)
-                yield return iface;
         }
 
         var tokenText = forceInsertionAtCaret ? string.Empty : token.Text;
@@ -1009,10 +992,7 @@ public static class CompletionProvider
 
             if (symbol is null &&
                 expression is IdentifierNameSyntax receiverIdentifier &&
-                model.TryLookupVisibleValueSymbol(
-                    semanticContextNode,
-                    receiverIdentifier.Identifier.ValueText,
-                    allowBindingFallback: semanticContext is not null) is { } visibleSymbol)
+                TryLookupValueSymbolByName(receiverIdentifier.Identifier.ValueText) is { } visibleSymbol)
             {
                 symbol = visibleSymbol;
             }
@@ -2874,6 +2854,27 @@ public static class CompletionProvider
             var prefixWithoutEscape = valuePrefix.TrimStart('@');
             var allowTypesInValuePosition = prefixWithoutEscape.Length > 0 && char.IsUpper(prefixWithoutEscape[0]);
             var contextNode = semanticContext ?? token.Parent ?? model.SyntaxTree.GetRoot();
+
+            foreach (var symbol in fragmentLocalSymbols)
+            {
+                if (!string.IsNullOrEmpty(valuePrefix) &&
+                    !NameMatchesPrefix(symbol.Name, valuePrefix))
+                {
+                    continue;
+                }
+
+                var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
+                if (seen.Add(dedupKey))
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: displayText,
+                        InsertionText: insertText,
+                        ReplacementSpan: argumentStartReplacementSpan,
+                        CursorOffset: GetDefaultCursorOffset(symbol, insertText),
+                        Description: SafeToDisplayString(symbol),
+                        Symbol: symbol));
+                }
+            }
 
             foreach (var symbol in model.GetVisibleValueSymbols(
                 contextNode,

@@ -44,7 +44,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   regions using the invocation's caller scope, including local-symbol and
   member-access completion, without requiring a DSL-specific completion API.
   The Raven-authored LINQ-like query sample now proves the same contract for
-  its source, predicate, and projection fragments.
+  its source, predicate, and projection fragments. Fragment regions can also
+  carry compiler-owned locals, with a focused sequence-element helper allowing
+  the query DSL's range variable to receive typed member completion in its
+  predicate and projection without exposing generated lambdas. Schema-backed
+  DSLs can provide an explicitly typed local directly.
 
 - Added exact-one member-declaration parsing for standalone syntax construction
   and token-tree macro bodies. Empty, multiple, import-only, and global-

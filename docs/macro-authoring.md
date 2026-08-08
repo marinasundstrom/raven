@@ -221,9 +221,25 @@ caller scope, so locals, parameters, fields, types, and member access behave as
 they do outside the DSL. Macro authors do not implement a second completion
 provider for embedded Raven syntax.
 
-Macro-introduced names, such as a query range variable, are not visible yet.
-They need a compiler-owned semantic-scope contract before completion can
-resolve them.
+For a query-like DSL, attach an introduced range variable only to the fragments
+where it is visible:
+
+```raven
+let item = context.CreateSequenceElementLocal("item", sourceSpan)
+let predicate = context.CreateFragmentRegion(
+    MacroFragmentKind.Expression,
+    predicateSpan,
+    [item])
+```
+
+The compiler resolves the source expression in the invocation's caller scope
+and infers the element type for arrays, strings, `IEnumerable<T>`, and
+`IAsyncEnumerable<T>`. `MacroFragmentRegion.Locals` exposes the resulting name
+and type. Completion treats these as immutable fragment-local values, with
+fragment locals shadowing caller names. This is deliberately narrower than a
+general custom symbol or scope API. A macro that already knows the type, such
+as a schema-backed SQL macro, can instead call
+`CreateFragmentLocal(name, type)`.
 
 ## 7. Transform declarations
 
@@ -301,7 +317,8 @@ The repository examples progress from compact syntax to full DSL handling:
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
 * `samples/projects/macro-freestanding` — LINQ-like query parsing, three
-  embedded Raven expression regions, and caller-scope completion;
+  embedded Raven expression regions, caller-scope completion, and an
+  introduced sequence-element range variable;
 * `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven
   fragments, fragment metadata, component macros, and Blazor lowering.
 
@@ -324,5 +341,6 @@ The predicted follow-on slices are maintained in dependency order under
 “Predicted post-MVP DSL tooling slices” in
 `docs/lang/proposals/macros/implementation-plan.md`. Ordinary Raven completion
 now works inside reported fragment spans without requiring public custom syntax
-trees. The next completion-specific step is an explicit semantic-scope contract
-for names introduced by a macro's DSL.
+trees. Query-like macros can also bridge an introduced sequence-element local
+into selected fragments. Broader custom scope shapes should wait for another
+concrete DSL use case.

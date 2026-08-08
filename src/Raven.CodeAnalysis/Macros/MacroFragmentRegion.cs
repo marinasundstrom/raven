@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
@@ -10,11 +12,13 @@ public sealed class MacroFragmentRegion
     internal MacroFragmentRegion(
         MacroFragmentKind kind,
         TextSpan bodyRelativeSpan,
-        TextSpan span)
+        TextSpan span,
+        ImmutableArray<MacroFragmentLocal> locals)
     {
         Kind = kind;
         BodyRelativeSpan = bodyRelativeSpan;
         Span = span;
+        Locals = locals.IsDefault ? ImmutableArray<MacroFragmentLocal>.Empty : locals;
     }
 
     /// <summary>Gets the Raven syntax category expected in this region.</summary>
@@ -25,4 +29,7 @@ public sealed class MacroFragmentRegion
 
     /// <summary>Gets the region in the containing Raven source text.</summary>
     public TextSpan Span { get; }
+
+    /// <summary>Gets the macro-introduced locals visible inside this region.</summary>
+    public ImmutableArray<MacroFragmentLocal> Locals { get; }
 }

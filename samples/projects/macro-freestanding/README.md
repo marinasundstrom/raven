@@ -68,8 +68,9 @@ Current status:
 - The query implements `IMacroFragmentProvider` and reports its source,
   predicate, and projection as ordinary Raven expression spans. Caller-scope
   completion therefore works inside those fragments without a query-specific
-  editor provider. Completion for the query-introduced range variable remains
-  the separate semantic-scope bridge planned for the macro infrastructure.
+  editor provider. It also creates a sequence-element fragment local for the
+  authored range variable, so `value.` completion in `where` and `select`
+  resolves the element type without exposing the generated lambdas.
 - The query MVP generates no hidden temporary names and retains no custom DSL
   tree. Additional generators, repeated clauses, ordering, joins, and editor
   services remain future work.

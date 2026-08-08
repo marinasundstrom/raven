@@ -11528,6 +11528,32 @@ public partial class SemanticModel
             ? TryLookupVisibleValueSymbol(expression, identifier.Identifier.ValueText)
             : null;
 
+    internal ITypeSymbol? GetMacroFragmentExpressionType(
+        FreestandingMacroExpressionSyntax invocation,
+        ExpressionSyntax expression)
+    {
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
+        if (expression is IdentifierNameSyntax identifier &&
+            TryLookupVisibleValueSymbol(
+                invocation,
+                identifier.Identifier.ValueText,
+                allowBindingFallback: true) is { } visibleSymbol)
+        {
+            return visibleSymbol switch
+            {
+                ILocalSymbol local => local.Type,
+                IParameterSymbol parameter => parameter.Type,
+                IFieldSymbol field => field.Type,
+                IPropertySymbol property => property.Type,
+                IEventSymbol @event => @event.Type,
+                _ => null,
+            };
+        }
+
+        return GetBinder(invocation).BindExpression(expression).Type;
+    }
+
     internal ImmutableArray<ISymbol> GetVisibleValueSymbols(
         SyntaxNode contextNode,
         bool allowBindingFallback = false)

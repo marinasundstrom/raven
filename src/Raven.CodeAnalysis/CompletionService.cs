@@ -553,12 +553,19 @@ public class CompletionService
         int position,
         bool forceInsertionAtCaret)
     {
-        if (TryGetMacroFragmentToken(token, semanticModel, position, out var fragmentToken, out var invocation))
+        if (TryGetMacroFragmentToken(
+            token,
+            semanticModel,
+            position,
+            out var fragmentToken,
+            out var invocation,
+            out var fragmentLocals))
         {
             var completions = CompletionProvider.GetCompletionsForMacroFragment(
                 fragmentToken,
                 semanticModel,
                 invocation,
+                fragmentLocals,
                 position,
                 forceInsertionAtCaret || fragmentToken.Kind == SyntaxKind.None);
             var tokenReplacementSpan = new TextSpan(fragmentToken.Position, fragmentToken.Text.Length);
@@ -580,9 +587,11 @@ public class CompletionService
         SemanticModel semanticModel,
         int position,
         out SyntaxToken fragmentToken,
-        out FreestandingMacroExpressionSyntax invocation)
+        out FreestandingMacroExpressionSyntax invocation,
+        out ImmutableArray<MacroFragmentLocal> fragmentLocals)
     {
         fragmentToken = default;
+        fragmentLocals = ImmutableArray<MacroFragmentLocal>.Empty;
         invocation = token.Parent?.AncestorsAndSelf()
             .OfType<FreestandingMacroExpressionSyntax>()
             .FirstOrDefault()!;
@@ -592,6 +601,7 @@ public class CompletionService
         var region = semanticModel.GetMacroInputSnapshot(invocation).FindFragmentRegion(position);
         if (region is null)
             return false;
+        fragmentLocals = region.Locals;
 
         var context = new TokenTreeMacroContext(
             semanticModel.Compilation,

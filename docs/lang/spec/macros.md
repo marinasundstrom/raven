@@ -164,6 +164,18 @@ authored Raven source. Zero-width regions represent expected syntax in
 incomplete input. `SemanticModel.GetMacroFragmentRegions` and the corresponding
 `Compilation` API resolve this capability.
 
+A fragment region may also carry immutable `MacroFragmentLocal` values for
+names introduced by the DSL rather than the caller. A token-tree context can
+create the initial supported shape with
+`CreateSequenceElementLocal(name, sourceExpressionSpan)`. The compiler binds
+the source expression in the invocation's caller scope and infers the local's
+type from an array, string, `IEnumerable<T>`, or `IAsyncEnumerable<T>`. Passing
+that local to `CreateFragmentRegion` limits its visibility to that region. A
+macro that already owns an `ITypeSymbol`, such as a schema-backed DSL, can use
+`CreateFragmentLocal(name, type)` directly.
+Fragment locals participate in ordinary completion and shadow caller names;
+they do not introduce runtime storage or expose the macro's lowered syntax.
+
 `SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
 the standard or custom stream selected for a token-tree invocation. Each
 `MacroTokenInfo` retains its provider-owned `RawKind`, text, body-relative span,

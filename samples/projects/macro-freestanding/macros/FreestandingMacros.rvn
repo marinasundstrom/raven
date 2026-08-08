@@ -212,21 +212,27 @@ class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
         } else {
             selectKeyword.SpanStart
         }
+        let sourceSpan = TextSpan.FromBounds(inKeyword.Span.End, sourceEnd)
+        let rangeVariableLocal = context.CreateSequenceElementLocal(
+            rangeVariable.ValueText,
+            sourceSpan)
         var regions: ImmutableArray<MacroFragmentRegion> = [
             context.CreateFragmentRegion(
                 MacroFragmentKind.Expression,
-                TextSpan.FromBounds(inKeyword.Span.End, sourceEnd))
+                sourceSpan)
         ]
 
         if whereKeyword.Kind == SyntaxKind.WhereKeyword {
             regions = regions.Add(context.CreateFragmentRegion(
                 MacroFragmentKind.Expression,
-                TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart)))
+                TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart),
+                [rangeVariableLocal]))
         }
 
         regions.Add(context.CreateFragmentRegion(
             MacroFragmentKind.Expression,
-            TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length)))
+            TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length),
+            [rangeVariableLocal]))
     }
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {

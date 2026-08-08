@@ -364,11 +364,13 @@ Fragment state distinguishes a present fragment from an expected or recovery
 slot. A zero-width span can therefore say “a Raven expression is expected
 here,” which is essential for completion before valid syntax exists.
 
-`MacroScopeBridge` is an advanced, compiler-owned description of DSL names
-visible inside a Raven fragment. For example, a query macro may introduce the
-range variable `user` into `where` and `select` fragments. The bridge describes
-symbols or bindings; the language server must not synthesize fake source or
-reverse engineer the final expansion.
+The implemented scope-bridge MVP is smaller than the sketched
+`MacroScopeBridge`: a `MacroFragmentRegion` carries immutable
+`MacroFragmentLocal` name/type pairs. A query macro creates a typed range
+variable from an authored source-expression span with
+`CreateSequenceElementLocal` and attaches it only to its `where` and `select`
+regions. The language server consumes the resulting ordinary local symbols; it
+does not synthesize fake source or reverse engineer the final expansion.
 
 The provider returns this snapshot only when it implements the optional input
 capability. The authoritative public query remains compiler-owned:
@@ -810,8 +812,8 @@ The proposal intentionally leaves these decisions for focused experiments:
 * What is the exact default lookup rule for bare identifiers inside quotes?
 * Should preparation and expansion be one generic class contract, separate
   capabilities, or compiler-generated adapters over `macro func` declarations?
-* How should a scope bridge represent DSL-introduced locals without exposing
-  incremental binder internals?
+* Which additional scope-bridge shapes are justified beyond the implemented
+  sequence-element local, and what hygiene rules should they use?
 * Which semantic queries are legal during each expansion phase, and how are
   their dependencies recorded without over-invalidating caches?
 * How much provenance should factories infer, and when must authors attach it

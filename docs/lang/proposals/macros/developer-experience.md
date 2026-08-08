@@ -680,9 +680,13 @@ completion is commonly requested at an empty or incomplete location. The
 compiler-owned snapshot must therefore retain expected categories and spans
 even when no valid Raven fragment exists yet.
 
-The exact scope-bridge API remains future work. It must preserve caller scope,
-macro hygiene, and compiler-owned semantic caching rather than requiring the
-language server to reconstruct an expansion or call the plugin directly.
+The first scope-bridge API is deliberately narrow: a fragment can carry
+immutable `MacroFragmentLocal` values, and query-like macros can infer one from
+an authored sequence expression with `CreateSequenceElementLocal`. Macros that
+already know a schema type can create an explicitly typed local. Additional
+scope shapes remain future work and must preserve caller scope, macro hygiene,
+and compiler-owned semantic caching rather than requiring the language server
+to reconstruct an expansion or call the plugin directly.
 
 The same snapshot is the analyzer boundary. A future semantic API should
 conceptually support:

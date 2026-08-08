@@ -37,6 +37,9 @@ public sealed class QueryMacroToolingAcceptanceTests
             ["values", "value > minimum", "value * scale"],
             regions.Select(region => source.Substring(region.Span.Start, region.Span.Length).Trim()));
         Assert.All(regions, static region => Assert.Equal(MacroFragmentKind.Expression, region.Kind));
+        Assert.Empty(regions[0].Locals);
+        Assert.Equal("value", Assert.Single(regions[1].Locals).Name);
+        Assert.Equal("value", Assert.Single(regions[2].Locals).Name);
     }
 
     [Fact]
@@ -63,6 +66,47 @@ public sealed class QueryMacroToolingAcceptanceTests
             .ToArray();
 
         Assert.Contains(items, static item => item.DisplayText == "Length");
+    }
+
+    [Fact]
+    public void CheckedInQueryMacro_CompletesMembersOfIntroducedRangeVariable()
+    {
+        var macroReference = CreateCheckedInQueryMacroReference();
+        const string source = """
+            class Customer(val Name: string)
+
+            class QueryHost {
+                val Customers: Customer[] = []
+
+                func Test() {
+                    let result = query! {
+                        from customer in Customers
+                        where customer.Name.Length > 0
+                        select customer.
+                    }
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "query-range-completion.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var position = source.LastIndexOf("customer.", StringComparison.Ordinal) + "customer.".Length;
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var region = compilation.GetSemanticModel(syntaxTree)
+            .GetMacroInputSnapshot(invocation)
+            .FindFragmentRegion(position);
+
+        var local = Assert.Single(region!.Locals);
+        Assert.Equal("customer", local.Name);
+        Assert.Equal("Customer", local.Type.Name);
+
+        var items = compilation.GetSemanticModel(syntaxTree)
+            .GetCompletions(position)
+            .ToArray();
+
+        Assert.Contains(items, static item => item.DisplayText == "Name");
     }
 
     private static Compilation CreateConsumerCompilation(
