@@ -1144,5 +1144,9 @@ internal enum SymbolResolutionKind
     Declaration
 }
 
-internal readonly record struct SymbolResolutionResult(SymbolResolutionKind Kind, ISymbol Symbol, SyntaxNode Node);
+internal readonly record struct SymbolResolutionResult(
+    SymbolResolutionKind Kind,
+    ISymbol Symbol,
+    SyntaxNode Node,
+    TextSpan? SourceSpan = null);
 internal readonly record struct CandidateNode(SyntaxNode Node, SyntaxToken Token);

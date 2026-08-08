@@ -362,6 +362,21 @@ snapshot behavior. As with fragments, a macro class can use the dedicated
 token kind and classification provider interfaces when metadata discovery must
 remain independent from expansion.
 
+An outer DSL token that denotes ordinary Raven code can also carry a symbol.
+Source-authored macros pass it as the fourth `CreateTokenInfo` argument. A
+class-authored provider can implement the narrow `IMacroTokenSymbolProvider`:
+
+```raven
+func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
+    context.Compilation.GetTypeByMetadataName(token.ValueText)
+}
+```
+
+This is useful for component tags, schema-backed table or column names, and
+similar references. It enables normal hover and go-to-definition without a
+custom hover format or public DSL tree. Return `null` for tokens that do not
+denote Raven symbols.
+
 ## Working examples
 
 The repository examples progress from compact syntax to full DSL handling:

@@ -66,12 +66,30 @@ public sealed class MacroTokenInfoTests
             {
                 Assert.Equal(MacroTokenClassification.Keyword, token.Classification);
                 Assert.Null(token.KindName);
+                Assert.Null(token.Symbol);
             },
             token =>
             {
                 Assert.Equal(MacroTokenClassification.Default, token.Classification);
                 Assert.Equal(nameof(SyntaxKind.IdentifierToken), token.KindName);
+                Assert.Null(token.Symbol);
             });
+    }
+
+    [Fact]
+    public void GetMacroTokens_ProjectsOrdinarySymbolTargets()
+    {
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nclass Greeting { }\nlet value = #symbols { <Greeting }";
+        var (compilation, expression) = CreateCompilation(code, new SymbolMacro());
+
+        var token = Assert.Single(
+            compilation.GetMacroTokens(expression),
+            static candidate => candidate.Text == "Greeting");
+
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(token.Symbol);
+        Assert.Equal("Greeting", symbol.Name);
+        Assert.Contains(symbol.Locations, static location => location.IsInSource);
+        Assert.Same(token, compilation.GetMacroInputSnapshot(expression).FindToken(token.Span.Start));
     }
 
     [Fact]
@@ -190,7 +208,8 @@ public sealed class MacroTokenInfoTests
         ITokenTreeExpressionMacro,
         IMacroKeywordProvider,
         IMacroTokenKindProvider,
-        IMacroTokenClassifier
+        IMacroTokenClassifier,
+        IMacroTokenSymbolProvider
     {
         public string Name => "resilient";
 
@@ -209,6 +228,20 @@ public sealed class MacroTokenInfoTests
             => token.RawKind == QueryMacro.FromRawKind
                 ? throw new InvalidOperationException("broken classifier")
                 : (MacroTokenClassification)int.MaxValue;
+
+        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+            => throw new InvalidOperationException("broken symbol provider");
+    }
+
+    private sealed class SymbolMacro : ITokenTreeExpressionMacro, IMacroTokenSymbolProvider
+    {
+        public string Name => "symbols";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+            => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 
     private sealed class ExpansionFailingMacro : ITokenTreeExpressionMacro

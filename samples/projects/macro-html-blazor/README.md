@@ -27,6 +27,8 @@ Supported by the prototype:
   fragment-region API;
 - HTML-body identifiers, literals, and punctuation surfaced through the
   compiler's classified token-stream API;
+- component tag identifiers resolved to their ordinary Raven component symbols
+  for normal hover and go-to-definition;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - scalar, `RenderFragment`, and sequences of fragment expressions as children;
@@ -40,7 +42,7 @@ Not supported by the macro:
 
 - component child content or macro-owned control-flow directives;
 - attribute splatting or Razor compatibility;
-- tag-versus-attribute editor semantics or DSL-specific completion;
+- distinct tag-versus-attribute classifications or DSL-specific completion;
 - multiple root elements.
 
 `#[Parameter]` is convenience rather than a new parameter model. Components
@@ -136,11 +138,16 @@ kinds to Raven's global `SyntaxKind`; a later custom HTML stream can introduce
 provider-owned raw kinds and name them through `IMacroTokenKindProvider` if tag
 and attribute names need distinct editor semantics.
 
+`IMacroTokenSymbolProvider` resolves identifier tokens that match consumer
+types. Component tags such as `<Greeting />` therefore reuse ordinary Raven
+hover and definition behavior. This is symbol metadata over the token span,
+not an HTML node projected into Raven's syntax tree.
+
 This is the compiler-side routing primitive for future macro-aware editor
 services. Semantic highlighting consumes the compiler snapshot today.
-Ordinary Raven completion within the reported regions and macro-introduced
-semantic scopes remain future work. The HTML parser's own tree, if it grows
-one, remains private to the macro.
+Ordinary Raven completion, hover, and definition now route through reported
+fragment spans, and component tags can publish ordinary symbol targets. The
+HTML parser's own tree, if it grows one, remains private to the macro.
 
 The sample now exercises the DSL-tooling MVP: immutable combined input
 snapshots, token kinds and classifications, embedded expression spans,

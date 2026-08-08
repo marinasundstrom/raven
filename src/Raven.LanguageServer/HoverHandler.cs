@@ -132,7 +132,11 @@ internal sealed class HoverHandler : IHoverHandler
                 root,
                 offset,
                 effectiveCancellationToken);
-            if (macroFragmentResolution is null)
+            currentStage = "macroTokenHover";
+            var macroTokenResolution = macroFragmentResolution is null
+                ? TryResolveMacroTokenHover(semanticModel, root, offset, effectiveCancellationToken)
+                : null;
+            if (macroFragmentResolution is null && macroTokenResolution is null)
             {
                 currentStage = "macroHover";
                 var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
@@ -159,7 +163,9 @@ internal sealed class HoverHandler : IHoverHandler
             currentStage = "resolution";
             var resolutionStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
-            var resolution = macroFragmentResolution ?? TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
+            var resolution = macroFragmentResolution
+                ?? macroTokenResolution
+                ?? TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
             declaredSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
             {
@@ -671,6 +677,47 @@ internal sealed class HoverHandler : IHoverHandler
                 SymbolResolutionKind.SymbolInfo,
                 symbol.UnderlyingSymbol,
                 info.Syntax);
+        }
+
+        return null;
+    }
+
+    private static SymbolResolutionResult? TryResolveMacroTokenHover(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var invocation = token.Parent?.AncestorsAndSelf()
+                .OfType<FreestandingMacroExpressionSyntax>()
+                .FirstOrDefault();
+            if (invocation?.TokenTree is null)
+                continue;
+
+            var tokenInfo = semanticModel.GetMacroInputSnapshot(invocation, cancellationToken)
+                .FindToken(candidateOffset);
+            if (tokenInfo?.Symbol is not { } symbol)
+                continue;
+
+            return new SymbolResolutionResult(
+                SymbolResolutionKind.SymbolInfo,
+                symbol.UnderlyingSymbol,
+                invocation,
+                tokenInfo.Span);
         }
 
         return null;
@@ -2538,6 +2585,9 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static TextSpan GetHoverSpanForResolution(SymbolResolutionResult resolution)
     {
+        if (resolution.SourceSpan is { } sourceSpan)
+            return sourceSpan;
+
         var node = resolution.Node;
 
         if (node is not IdentifierNameSyntax and

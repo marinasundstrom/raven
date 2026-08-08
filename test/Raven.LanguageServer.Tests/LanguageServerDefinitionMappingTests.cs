@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
@@ -45,6 +46,46 @@ class Counter {
         first.TargetUri.ShouldBe(DocumentUri.FromFileSystemPath("/workspace/test.rav"));
         first.OriginSelectionRange.Start.Line.ShouldBe(3);
         first.TargetSelectionRange.Start.Line.ShouldBe(1);
+    }
+
+    [Fact]
+    public void MacroTokenDefinition_UsesOrdinaryRavenSymbolTarget()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+class Greeting { }
+
+func Main() {
+    let value = symbolToken! { Greeting }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new SymbolTokenMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("Greeting", StringComparison.Ordinal) + 1;
+
+        var tokenInfo = DefinitionHandler.TryResolveMacroTokenDefinition(
+            semanticModel,
+            root,
+            offset,
+            CancellationToken.None);
+        var links = DefinitionLocationMapper.BuildLocationLinks(
+                tokenInfo!.Symbol!,
+                syntaxTree.GetText(),
+                tokenInfo.Span)
+            .ToArray();
+
+        var link = Assert.Single(links);
+        link.TargetUri.ShouldBe(DocumentUri.FromFileSystemPath("/workspace/test.rav"));
+        link.TargetSelectionRange.Start.Line.ShouldBe(2);
+        link.OriginSelectionRange.Start.Line.ShouldBe(5);
     }
 
     [Fact]
@@ -360,5 +401,16 @@ func Main() {
             if (Directory.Exists(Root))
                 Directory.Delete(Root, recursive: true);
         }
+    }
+
+    private sealed class SymbolTokenMacro : ITokenTreeExpressionMacro, IMacroTokenSymbolProvider
+    {
+        public string Name => "symbolToken";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+            => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 }

@@ -64,6 +64,50 @@ func Main() {
     }
 
     [Fact]
+    public void MacroTokenHover_UsesOrdinaryRavenTypePresentationAndAuthoredSpan()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+class Greeting { }
+
+func Main() {
+    let value = symbolToken! { Greeting }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new SymbolTokenMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("Greeting", StringComparison.Ordinal) + 1;
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroTokenHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, offset, CancellationToken.None]);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().Name.ShouldBe("Greeting");
+        resolution.Value.SourceSpan.ShouldNotBeNull();
+        code.Substring(
+                resolution.Value.SourceSpan!.Value.Start,
+                resolution.Value.SourceSpan.Value.Length)
+            .ShouldBe("Greeting");
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignature.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, offset])!;
+        signature.ShouldContain("Greeting");
+    }
+
+    [Fact]
     public void SymbolResolver_DottedPropertyPattern_ResolvesEveryMemberSegment()
     {
         const string code = """
@@ -116,6 +160,17 @@ func Test(item: Foo) -> bool {
                     MacroFragmentKind.Expression,
                     new TextSpan(0, context.BodySpan.Length))
             ];
+    }
+
+    private sealed class SymbolTokenMacro : ITokenTreeExpressionMacro, IMacroTokenSymbolProvider
+    {
+        public string Name => "symbolToken";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+            => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 
     [Fact]

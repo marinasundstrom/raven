@@ -13,13 +13,15 @@ public sealed class MacroTokenInfo
         TextSpan bodyRelativeSpan,
         TextSpan span,
         string? kindName,
-        MacroTokenClassification classification)
+        MacroTokenClassification classification,
+        ISymbol? symbol)
     {
         Token = token;
         BodyRelativeSpan = bodyRelativeSpan;
         Span = span;
         KindName = kindName;
         Classification = classification;
+        Symbol = symbol;
     }
 
     public SyntaxToken Token { get; }
@@ -39,4 +41,9 @@ public sealed class MacroTokenInfo
     public TextSpan Span { get; }
 
     public MacroTokenClassification Classification { get; }
+
+    /// <summary>
+    /// Gets the optional ordinary Raven symbol denoted by this DSL token.
+    /// </summary>
+    public ISymbol? Symbol { get; }
 }

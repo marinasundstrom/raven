@@ -102,6 +102,23 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                 return new LocationOrLocationLinks(fragmentLinks);
             }
 
+            var macroTokenInfo = TryResolveMacroTokenDefinition(
+                semanticModel,
+                root,
+                offset,
+                cancellationToken);
+            if (macroTokenInfo?.Symbol is { } macroTokenSymbol)
+            {
+                var tokenLinks = DefinitionLocationMapper.BuildLocationLinks(
+                        ReferenceSearchService.NormalizeSymbol(macroTokenSymbol.UnderlyingSymbol),
+                        sourceText,
+                        macroTokenInfo.Span)
+                    .Select(static location => (LocationOrLocationLink)location)
+                    .ToArray();
+                resultCount = tokenLinks.Length;
+                return new LocationOrLocationLinks(tokenLinks);
+            }
+
             stageStopwatch.Restart();
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
             resolutionMs += stageStopwatch.Elapsed.TotalMilliseconds;
@@ -174,6 +191,30 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         return invocation?.TokenTree is null
             ? null
             : semanticModel.GetMacroFragmentSemanticInfo(invocation, offset, cancellationToken);
+    }
+
+    internal static MacroTokenInfo? TryResolveMacroTokenDefinition(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        SyntaxToken token;
+        try
+        {
+            token = root.FindToken(offset);
+        }
+        catch
+        {
+            return null;
+        }
+
+        var invocation = token.Parent?.AncestorsAndSelf()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .FirstOrDefault();
+        return invocation?.TokenTree is null
+            ? null
+            : semanticModel.GetMacroInputSnapshot(invocation, cancellationToken).FindToken(offset);
     }
 
     private static bool TryResolveMacroDefinition(

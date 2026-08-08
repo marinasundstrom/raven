@@ -46,6 +46,7 @@ internal static class MacroTokenInfoService
 
             var classifier = loaded.Macro as IMacroTokenClassifier;
             var kindProvider = loaded.Macro as IMacroTokenKindProvider;
+            var symbolProvider = loaded.Macro as IMacroTokenSymbolProvider;
             var stream = context.CreateTokenStream();
             var builder = ImmutableArray.CreateBuilder<MacroTokenInfo>();
 
@@ -55,8 +56,9 @@ internal static class MacroTokenInfoService
                 var token = stream.ReadToken();
                 var kindName = GetKindName(kindProvider, token);
                 var classification = GetClassification(classifier, context, token);
+                var symbol = GetSymbol(symbolProvider, context, token);
 
-                builder.Add(context.CreateTokenInfo(token, kindName, classification));
+                builder.Add(context.CreateTokenInfo(token, kindName, classification, symbol));
             }
 
             return builder.ToImmutable();
@@ -133,5 +135,24 @@ internal static class MacroTokenInfoService
         return classification == MacroTokenClassification.Default
             ? context.GetKeywordClassification(token)
             : classification;
+    }
+
+    private static ISymbol? GetSymbol(
+        IMacroTokenSymbolProvider? provider,
+        TokenTreeMacroContext context,
+        SyntaxToken token)
+    {
+        if (provider is null)
+            return null;
+
+        try
+        {
+            return provider.GetTokenSymbol(context, token);
+        }
+        catch
+        {
+            // Optional semantic metadata must not invalidate the token snapshot.
+            return null;
+        }
     }
 }

@@ -211,29 +211,34 @@ accepted only when the preceding use case demonstrates its value.
    the compiler-owned semantic model. Reuse normal Raven hover and definition
    presentation. Optional declaration spans give macro-introduced locals a
    navigation target without introducing DSL nodes.
-5. **Add optional DSL affordance providers.** Introduce narrowly scoped
-   completion, hover, and navigation contributions for outer DSL tokens only
-   when token kind, fragment semantics, and ordinary Raven hover cannot express
-   the experience. Compiler APIs normalize and cache them; the language server
-   remains a presenter.
-6. **Retain private structure snapshots when measurement justifies it.** Permit
+5. **Project ordinary symbols from outer DSL tokens (implemented).** An
+   optional token-symbol provider and `MacroTokenInfo.Symbol` let component
+   tags, schema identifiers, and similar tokens reuse normal Raven hover and
+   definition. Metadata failures degrade per token, and no DSL structure or
+   presentation API is exposed.
+6. **Add optional non-symbol DSL affordance providers.** Introduce narrowly
+   scoped completion, hover, and navigation contributions for outer DSL tokens
+   only when token kind, fragment semantics, and ordinary Raven hover cannot
+   express the experience. Compiler APIs normalize and cache them; the language
+   server remains a presenter.
+7. **Retain private structure snapshots when measurement justifies it.** Permit
    a provider-owned immutable snapshot shared between expansion and tooling if
    repeated parsing is materially expensive. Do not standardize or expose its
    node model to Raven analyzers by default.
-7. **Harden execution boundaries.** Add compiler-owned recursion, work, output,
+8. **Harden execution boundaries.** Add compiler-owned recursion, work, output,
    and nested-compilation limits before supporting more powerful syntax-tree
    construction or compilation APIs. Consider process isolation only when the
    package and host model requires it.
-8. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
+9. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
    reference, diagnostics, generated Blazor shape, and an external consumer
    before treating the React-like sample as a reusable product surface.
-9. **Prototype Playground preview as a library consumer.** After distribution,
+10. **Prototype Playground preview as a library consumer.** After distribution,
    add compile-and-inspect component discovery, then explicit interactive
    mounting. The Playground must not copy or special-case the HTML parser.
 
 Public custom DSL trees, a universal macro AST, and automatic structural editor
 integration are intentionally absent. They can be reconsidered after slices 2
-through 5 provide evidence that spans, token semantics, and narrow capability
+through 6 provide evidence that spans, token semantics, and narrow capability
 providers are insufficient.
 
 ## Active slice: function-oriented macro declarations
@@ -1350,6 +1355,11 @@ slice:
 * [x] compiles inside a Raven-authored macro project and constructs the sample
   `#add` expansion from quoted syntax plus argument holes
 
-Later slices add contextual category selection, statement/member/declaration
-quote categories, compiler-owned bind/equivalence verification, SDK reference
-convenience, and token/identifier/list/repetition splice categories.
+Later quote slices add contextual category selection; statement, member, type,
+pattern, and declaration quote categories; category-checked holes;
+token/identifier/list/repetition splices; and compiler-owned source provenance
+for generated syntax. Bind/equivalence verification should ensure quote and
+factory construction produce the same valid nodes. Hygiene and definition-site
+versus call-site name lookup must be settled before declaration quotes are
+stabilized. These facilities reuse normal fragment semantics; `quote!` does
+not need outer-DSL token-symbol providers because its body is Raven syntax.

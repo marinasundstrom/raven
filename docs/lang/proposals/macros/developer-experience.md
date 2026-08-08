@@ -27,6 +27,12 @@ The compiler owns macro semantic truth. The language server schedules requests
 and presents compiler results; it does not load or invoke macro plugins
 directly.
 
+Outer DSL tokens that denote ordinary Raven symbols should publish those
+symbols rather than custom hover or navigation payloads. The editor can then
+reuse normal Raven presentation. Component tags and schema-backed identifiers
+fit this model; keywords or prose hints do not and should justify a separate,
+narrow affordance only when a real DSL requires one.
+
 In user-facing terms, freestanding procedural macros use function-like or
 delimited invocations, while attached macros use attributes. During binding,
 the compiler resolves the macro implementation and expands the invocation or

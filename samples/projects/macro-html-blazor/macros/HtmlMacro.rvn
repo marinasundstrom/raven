@@ -2,14 +2,23 @@ import System.*
 import System.Collections.Immutable.*
 import System.Text.*
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
 
-class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroTokenClassifier {
+class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
     val Name: string => "Html"
+
+    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
+        if token.Kind != SyntaxKind.IdentifierToken {
+            return null
+        }
+
+        context.Compilation.GetTypeByMetadataName(token.ValueText)
+    }
 
     func ClassifyToken(
         context: TokenTreeMacroContext,

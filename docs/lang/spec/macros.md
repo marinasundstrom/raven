@@ -211,10 +211,14 @@ declaration span navigate to that authored DSL token.
 the standard or custom stream selected for a token-tree invocation. Each
 `MacroTokenInfo` retains its provider-owned `RawKind`, text, body-relative span,
 absolute authored span, stable kind name, and optional presentation
-classification. Standard Raven kinds receive their `SyntaxKind` name, while
+classification and ordinary Raven `Symbol`. Standard Raven kinds receive their `SyntaxKind` name, while
 `IMacroTokenKindProvider` can name custom raw kinds. Macro keyword overlays are
 classified automatically; `IMacroTokenClassifier` can supply
 additional identifier, literal, operator, punctuation, or comment categories.
+`IMacroTokenSymbolProvider` may resolve individual outer-DSL tokens to symbols
+from the consumer compilation. Provider failures degrade that token's symbol
+to `null` without discarding its remaining metadata. Language services reuse
+normal Raven hover and definition presentation for non-null targets.
 These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
 Failures and invalid values from the optional kind-name or classification
 capabilities are normalized per token, preserving the remaining snapshot and
@@ -224,7 +228,11 @@ A token-tree `macro func` can instead contribute a complete token metadata
 snapshot as it consumes its `IMacroTokenStream`:
 
 ```raven
-token context.CreateTokenInfo(token, "DslKeyword", MacroTokenClassification.Keyword)
+token context.CreateTokenInfo(
+    token,
+    "ComponentName",
+    MacroTokenClassification.Identifier,
+    componentType)
 ```
 
 Reached `token` contributions are retained in authored source order. They are

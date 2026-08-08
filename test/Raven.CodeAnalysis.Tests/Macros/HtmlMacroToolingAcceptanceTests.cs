@@ -117,6 +117,35 @@ public sealed class HtmlMacroToolingAcceptanceTests
                 diagnostic.GetMessage().Contains("HTML001", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void CheckedInHtmlMacro_ProjectsComponentTagSymbol()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        const string source = """
+            class Greeting { }
+
+            class Gallery {
+                func Render() => Html! {
+                    <Greeting />
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-component-symbol.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var token = Assert.Single(
+            compilation.GetMacroTokens(invocation),
+            static candidate => candidate.Text == "Greeting");
+
+        var component = Assert.IsAssignableFrom<INamedTypeSymbol>(token.Symbol);
+        Assert.Equal("Greeting", component.Name);
+        Assert.Contains(component.Locations, static location => location.IsInSource);
+    }
+
     private static Compilation CreateConsumerCompilation(
         SyntaxTree tree,
         MacroReference macroReference)

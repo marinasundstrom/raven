@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added optional ordinary-symbol targets to macro token metadata. Outer DSL
+  tokens now reuse normal VS Code hover and go-to-definition, with the HTML
+  sample resolving component tags such as `<Greeting>` without exposing its
+  private parser structure or adding HTML-specific language-server code.
+
 - Added compiler-owned semantic lookup and normal VS Code hover and
   go-to-definition presentation
   for ordinary Raven expression and statement fragments inside token-tree

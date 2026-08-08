@@ -230,7 +230,8 @@ public class TokenTreeMacroContext
     public MacroTokenInfo CreateTokenInfo(
         SyntaxToken token,
         string? kindName = null,
-        MacroTokenClassification classification = MacroTokenClassification.Default)
+        MacroTokenClassification classification = MacroTokenClassification.Default,
+        ISymbol? symbol = null)
     {
         if (!Enum.IsDefined(classification))
             throw new ArgumentOutOfRangeException(nameof(classification));
@@ -246,7 +247,8 @@ public class TokenTreeMacroContext
                 BodySpan.Start + bodyRelativeSpan.Start,
                 bodyRelativeSpan.Length),
             kindName,
-            classification);
+            classification,
+            symbol);
     }
 
     public ExpressionSyntax ParseExpression()
