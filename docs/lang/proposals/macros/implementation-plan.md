@@ -607,6 +607,7 @@ absolute authored span, and an optional `MacroTokenClassification`.
 * [x] allow a lightweight optional `IMacroTokenClassifier`
 * [x] expose standard and provider-defined token kind names
 * [x] isolate optional tokenization/classification failures from semantic tools
+* [x] normalize optional metadata failures per token without losing the stream
 * [x] cache token and fragment-region results in the owning semantic model
 * [x] consume available macro token classifications in semantic highlighting
 * [ ] project token classification capabilities from `macro func` syntax

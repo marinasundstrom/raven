@@ -11,6 +11,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added compiler-owned macro token snapshots with provider raw kinds, authored
   spans, stable standard or provider-defined kind names, keyword overlays, and
   optional lightweight token classifications.
+  Invalid or failing optional metadata is normalized per token rather than
+  discarding otherwise valid snapshot data.
   Token providers remain independent of Raven's global `SyntaxKind` values.
   Token and embedded-fragment tooling results are cached by the owning semantic
   model for the immutable invocation snapshot.

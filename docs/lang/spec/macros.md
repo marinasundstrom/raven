@@ -173,6 +173,9 @@ classification. Standard Raven kinds receive their `SyntaxKind` name, while
 classified automatically; `IMacroTokenClassifier` can supply
 additional identifier, literal, operator, punctuation, or comment categories.
 These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
+Failures and invalid values from the optional kind-name or classification
+capabilities are normalized per token, preserving the remaining snapshot and
+compiler-owned keyword classification.
 Token and fragment-region results are cached by the invocation's owning
 semantic model and recomputed for a new compilation snapshot.
 The language server maps available macro classifications to protocol semantic

@@ -52,6 +52,28 @@ public sealed class MacroTokenInfoTests
         Assert.Empty(tokens);
     }
 
+    [Fact]
+    public void GetMacroTokens_NormalizesFailingOptionalMetadata()
+    {
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #resilient { from users }";
+        var (compilation, expression) = CreateCompilation(code, new ResilientMacro());
+
+        var tokens = compilation.GetMacroTokens(expression);
+
+        Assert.Collection(
+            tokens,
+            token =>
+            {
+                Assert.Equal(MacroTokenClassification.Keyword, token.Classification);
+                Assert.Null(token.KindName);
+            },
+            token =>
+            {
+                Assert.Equal(MacroTokenClassification.Default, token.Classification);
+                Assert.Equal(nameof(SyntaxKind.IdentifierToken), token.KindName);
+            });
+    }
+
     private static (Compilation Compilation, FreestandingMacroExpressionSyntax Expression) CreateCompilation(
         string code,
         IMacroDefinition macro)
@@ -105,5 +127,30 @@ public sealed class MacroTokenInfoTests
 
         public IMacroTokenStream CreateTokenStream(MacroTokenStreamContext context)
             => throw new InvalidOperationException("broken token provider");
+    }
+
+    private sealed class ResilientMacro :
+        ITokenTreeExpressionMacro,
+        IMacroKeywordProvider,
+        IMacroTokenKindProvider,
+        IMacroTokenClassifier
+    {
+        public string Name => "resilient";
+
+        public ImmutableArray<MacroKeyword> Keywords =>
+            [new MacroKeyword("from", QueryMacro.FromRawKind)];
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public string? GetTokenKindName(int rawKind)
+            => throw new InvalidOperationException("broken kind name provider");
+
+        public MacroTokenClassification ClassifyToken(
+            TokenTreeMacroContext context,
+            SyntaxToken token)
+            => token.RawKind == QueryMacro.FromRawKind
+                ? throw new InvalidOperationException("broken classifier")
+                : (MacroTokenClassification)int.MaxValue;
     }
 }
