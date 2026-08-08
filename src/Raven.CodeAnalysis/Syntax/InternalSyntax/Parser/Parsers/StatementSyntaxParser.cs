@@ -147,7 +147,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private static bool IsMacroExpansionKeyword(SyntaxToken token)
         => token.IsKind(SyntaxKind.IdentifierToken) &&
-           token.GetValueText() is "expand" or "replace" or "introduce" or "fragment";
+           token.GetValueText() is "expand" or "replace" or "introduce" or "fragment" or "token";
 
     private MacroExpansionStatementSyntax ParseMacroExpansionStatementSyntax()
     {

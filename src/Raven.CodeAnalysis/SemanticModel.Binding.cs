@@ -481,7 +481,7 @@ public partial class SemanticModel
             var valid = symbol.MacroKind switch
             {
                 MacroKind.FreestandingExpression => instruction == "expand" ||
-                    instruction == "fragment" && symbol.Parameters.Any(static parameter =>
+                    (instruction is "fragment" or "token") && symbol.Parameters.Any(static parameter =>
                         parameter.MacroRole is MacroParameterRole.TokenStream or MacroParameterRole.Context),
                 MacroKind.AttachedDeclaration => instruction is "replace" or "introduce",
                 _ => false

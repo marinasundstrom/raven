@@ -203,6 +203,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     {
         var tree = SyntaxTree.ParseText("""
             macro func Template(context: TokenTreeMacroContext) {
+                token context.CreateTokenInfo(next)
                 fragment context.CreateFragmentRegion(kind, span)
                 expand context.ParseExpression(span)
             }
@@ -215,7 +216,7 @@ public sealed class MacroFunctionDeclarationParsingTests
             .OfType<MacroExpansionStatementSyntax>()
             .ToArray();
 
-        Assert.Equal(["fragment", "expand"], contributions.Select(static contribution => contribution.Keyword.ValueText));
+        Assert.Equal(["token", "fragment", "expand"], contributions.Select(static contribution => contribution.Keyword.ValueText));
         Assert.Empty(tree.GetDiagnostics());
     }
 
@@ -228,6 +229,7 @@ public sealed class MacroFunctionDeclarationParsingTests
                 replace(value)
                 introduce(value)
                 fragment(value)
+                token(value)
             }
             """);
 

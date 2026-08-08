@@ -303,6 +303,7 @@ The compiler lowers `macro func` declarations to adapters, but tools expose an
 | reached `replace` | replacement declaration |
 | reached `introduce` | ordered introduced members |
 | reached `fragment` | ordinary Raven fragment metadata |
+| reached `token` | token kind and classification metadata |
 
 Token-tree macro functions can publish editor regions through the same
 execution-ordered contribution model as expansion:
@@ -321,6 +322,23 @@ result; `SemanticModel` uses them when the macro does not implement a dedicated
 `IMacroFragmentProvider`. Implement that provider directly when tooling must
 remain independent from full expansion, especially for heavily recovered or
 incomplete DSL input.
+
+The same token-tree function can publish stable token metadata while consuming
+its stream:
+
+```raven
+let next = tokens.ReadToken()
+token context.CreateTokenInfo(
+    next,
+    "ElementName",
+    MacroTokenClassification.Identifier)
+```
+
+Reached `token` contributions form the complete contributed token snapshot in
+source order. If none are reached, the compiler retains its normal token-stream
+snapshot behavior. As with fragments, a macro class can use the dedicated
+token kind and classification provider interfaces when metadata discovery must
+remain independent from expansion.
 
 ## Working examples
 

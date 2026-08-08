@@ -296,17 +296,19 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         var (compilation, _) = CreateCompilation("""
             macro func ArgumentMacro(value: int) {
                 fragment value
+                token value
                 expand value
             }
 
             macro func AttachedMacro() on Type {
                 fragment target
+                token target
             }
             """);
 
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
+        Assert.Equal(4, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
     }
 
     [Fact]

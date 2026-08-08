@@ -10,8 +10,8 @@ namespace Raven.CodeAnalysis.Macros;
 /// </summary>
 /// <remarks>
 /// Contribution order follows execution order. A later expression or
-/// replacement supersedes an earlier one, while introduced members append in
-/// order.
+/// replacement supersedes an earlier one, while introduced members and editor
+/// metadata append in order.
 /// </remarks>
 public sealed class MacroExpansionResultBuilder
 {
@@ -19,6 +19,8 @@ public sealed class MacroExpansionResultBuilder
         ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
     private readonly ImmutableArray<MacroFragmentRegion>.Builder _fragmentRegions =
         ImmutableArray.CreateBuilder<MacroFragmentRegion>();
+    private readonly ImmutableArray<MacroTokenInfo>.Builder _tokenInfos =
+        ImmutableArray.CreateBuilder<MacroTokenInfo>();
     private ExpressionSyntax? _expression;
     private FreestandingMacroExpansionResult? _freestandingResult;
     private SyntaxNode? _replacement;
@@ -75,6 +77,24 @@ public sealed class MacroExpansionResultBuilder
         _fragmentRegions.AddRange(regions);
     }
 
+    /// <summary>
+    /// Contributes metadata for a token in the macro body.
+    /// </summary>
+    public void Token(MacroTokenInfo tokenInfo)
+    {
+        ArgumentNullException.ThrowIfNull(tokenInfo);
+        _tokenInfos.Add(tokenInfo);
+    }
+
+    /// <summary>
+    /// Contributes metadata for tokens in the macro body.
+    /// </summary>
+    public void Token(IEnumerable<MacroTokenInfo> tokenInfos)
+    {
+        ArgumentNullException.ThrowIfNull(tokenInfos);
+        _tokenInfos.AddRange(tokenInfos);
+    }
+
     public FreestandingMacroExpansionResult BuildFreestanding()
     {
         var result = _freestandingResult is not null
@@ -83,14 +103,23 @@ public sealed class MacroExpansionResultBuilder
             ? FreestandingMacroExpansionResult.Empty
             : FreestandingMacroExpansionResult.FromExpression(_expression);
 
-        if (_fragmentRegions.Count > 0)
+        if (_fragmentRegions.Count > 0 || _tokenInfos.Count > 0)
         {
             if (ReferenceEquals(result, FreestandingMacroExpansionResult.Empty))
                 result = new FreestandingMacroExpansionResult();
 
-            result.FragmentRegions = result.FragmentRegions.IsDefault
-                ? _fragmentRegions.ToImmutable()
-                : result.FragmentRegions.AddRange(_fragmentRegions);
+            if (_fragmentRegions.Count > 0)
+            {
+                result.FragmentRegions = result.FragmentRegions.IsDefault
+                    ? _fragmentRegions.ToImmutable()
+                    : result.FragmentRegions.AddRange(_fragmentRegions);
+            }
+            if (_tokenInfos.Count > 0)
+            {
+                result.TokenInfos = result.TokenInfos.IsDefault
+                    ? _tokenInfos.ToImmutable()
+                    : result.TokenInfos.AddRange(_tokenInfos);
+            }
         }
 
         return result;

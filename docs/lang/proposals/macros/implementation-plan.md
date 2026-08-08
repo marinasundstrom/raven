@@ -192,11 +192,11 @@ state is carried across that boundary by this contract.
 These are dependency-ordered predictions, not promises. Each slice should be
 accepted only when the preceding use case demonstrates its value.
 
-1. **Project tooling contributions from `macro func` (fragment regions
-   implemented).** The `fragment` contribution publishes kind/span pairs and
-   typed fragment locals through the ordinary expansion result, so common
-   macros do not need a provider class. Keep the generated adapter private.
-   A source projection for custom token metadata remains a separate slice.
+1. **Project tooling contributions from `macro func` (implemented).** The
+   `fragment` and `token` contributions publish fragment kind/span pairs,
+   typed fragment locals, stable token kind names, and lightweight token
+   classifications through the ordinary expansion result. Common macros do not
+   need provider classes, and the generated adapter stays private.
 2. **Route ordinary completion through fragment spans (implemented).** At a
    cursor selected by `FindFragmentRegion`, reuse Raven's existing expression,
    statement, type, pattern, or member completion against the authored
@@ -708,7 +708,7 @@ absolute authored span, and an optional `MacroTokenClassification`.
 * [x] normalize optional metadata failures per token without losing the stream
 * [x] cache token and fragment-region results in the owning semantic model
 * [x] consume available macro token classifications in semantic highlighting
-* [ ] project token classification capabilities from `macro func` syntax
+* [x] project token kind and classification metadata from `macro func` syntax
 
 The classifier sees the same stream tokens used by expansion. It labels tokens;
 it does not publish the macro's parser nodes or alter ordinary Raven lexing.

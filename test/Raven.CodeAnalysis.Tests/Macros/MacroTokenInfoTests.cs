@@ -74,6 +74,63 @@ public sealed class MacroTokenInfoTests
             });
     }
 
+    [Fact]
+    public void MacroFunctionTokenContributions_ProjectThroughGeneratedAdapter()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Macros.*
+
+            macro func Classified(tokens: IMacroTokenStream, context: TokenTreeMacroContext) {
+                let keyword = tokens.ReadToken()
+                token context.CreateTokenInfo(keyword, "DslKeyword", MacroTokenClassification.Keyword)
+                let identifier = tokens.ReadToken()
+                token context.CreateTokenInfo(identifier, "DslIdentifier", MacroTokenClassification.Identifier)
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("0")
+            }
+
+            func Main() -> int => Classified! { select customer }
+            """;
+        var authoredTree = SyntaxTree.ParseText(code, path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionTokens",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(authoredTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var expression = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var tokens = compilation.GetMacroTokens(expression);
+
+        Assert.Collection(
+            tokens,
+            token =>
+            {
+                Assert.Equal("select", token.Text);
+                Assert.Equal("DslKeyword", token.KindName);
+                Assert.Equal(MacroTokenClassification.Keyword, token.Classification);
+            },
+            token =>
+            {
+                Assert.Equal("customer", token.Text);
+                Assert.Equal("DslIdentifier", token.KindName);
+                Assert.Equal(MacroTokenClassification.Identifier, token.Classification);
+            });
+    }
+
+    [Fact]
+    public void GetMacroTokens_DoesNotExpandMacroWithoutSourceMetadataContributions()
+    {
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = plain! { value }";
+        var (compilation, expression) = CreateCompilation(code, new ExpansionFailingMacro());
+
+        var tokens = compilation.GetMacroTokens(expression);
+
+        Assert.Equal("value", Assert.Single(tokens).Text);
+    }
+
     private static (Compilation Compilation, FreestandingMacroExpressionSyntax Expression) CreateCompilation(
         string code,
         IMacroDefinition macro)
@@ -152,5 +209,13 @@ public sealed class MacroTokenInfoTests
             => token.RawKind == QueryMacro.FromRawKind
                 ? throw new InvalidOperationException("broken classifier")
                 : (MacroTokenClassification)int.MaxValue;
+    }
+
+    private sealed class ExpansionFailingMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "plain";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => throw new InvalidOperationException("Token discovery must not expand this macro.");
     }
 }

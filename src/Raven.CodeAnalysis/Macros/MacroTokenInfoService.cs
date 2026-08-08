@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Threading;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
@@ -35,6 +36,14 @@ internal static class MacroTokenInfoService
                 expression,
                 tokenTreeMacro,
                 cancellationToken);
+            if (loaded.Macro is IMacroExpansionMetadataProvider)
+            {
+                var contributed = semanticModel.GetMacroExpansion(expression, cancellationToken)?.TokenInfos ??
+                    ImmutableArray<MacroTokenInfo>.Empty;
+                if (!contributed.IsDefaultOrEmpty)
+                    return NormalizeContributedTokens(context, contributed);
+            }
+
             var classifier = loaded.Macro as IMacroTokenClassifier;
             var kindProvider = loaded.Macro as IMacroTokenKindProvider;
             var stream = context.CreateTokenStream();
@@ -61,6 +70,21 @@ internal static class MacroTokenInfoService
             return ImmutableArray<MacroTokenInfo>.Empty;
         }
     }
+
+    private static ImmutableArray<MacroTokenInfo> NormalizeContributedTokens(
+        TokenTreeMacroContext context,
+        ImmutableArray<MacroTokenInfo> tokens)
+        => tokens
+            .Where(token =>
+                token is not null &&
+                token.BodyRelativeSpan.Start >= 0 &&
+                token.BodyRelativeSpan.End <= context.BodySpan.Length &&
+                token.Span == new TextSpan(
+                    context.BodySpan.Start + token.BodyRelativeSpan.Start,
+                    token.BodyRelativeSpan.Length))
+            .OrderBy(static token => token.Span.Start)
+            .ThenBy(static token => token.Span.Length)
+            .ToImmutableArray();
 
     private static string? GetKindName(
         IMacroTokenKindProvider? provider,

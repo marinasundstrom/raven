@@ -70,6 +70,9 @@ internal static class MacroFunctionLowering
                     MacroParameterRole.FreestandingContext))
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0 || contextParameters.Length > 0;
+        var hasEditorMetadataContributions = declaration.DescendantNodes()
+            .OfType<MacroExpansionStatementSyntax>()
+            .Any(static statement => statement.Keyword.ValueText is "fragment" or "token");
         var hasParameters = valueParameters.Length > 0;
         var usedNames = declaration.DescendantTokens()
             .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
@@ -99,6 +102,8 @@ internal static class MacroFunctionLowering
             interfaceName += $"<{parametersName}>";
             contextName += $"<{parametersName}>";
         }
+        if (hasEditorMetadataContributions)
+            interfaceName += ", Raven.CodeAnalysis.Macros.IMacroExpansionMetadataProvider";
 
         var builder = new StringBuilder();
         if (hasParameters)
@@ -251,6 +256,7 @@ internal static class MacroFunctionLowering
                     "replace" => "Replace",
                     "introduce" => "Introduce",
                     "fragment" => "Fragment",
+                    "token" => "Token",
                     _ => throw new InvalidOperationException()
                 };
                 content.Remove(relativeStart, contribution.Span.Length);

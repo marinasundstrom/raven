@@ -183,9 +183,12 @@ public class TokenTreeMacroContext
         return new MacroFragmentLocal(name, type);
     }
 
-    internal MacroTokenInfo CreateTokenInfo(
+    /// <summary>
+    /// Creates editor metadata for a token read from this macro body's token stream.
+    /// </summary>
+    public MacroTokenInfo CreateTokenInfo(
         SyntaxToken token,
-        string? kindName,
+        string? kindName = null,
         MacroTokenClassification classification = MacroTokenClassification.Default)
     {
         if (!Enum.IsDefined(classification))

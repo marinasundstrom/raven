@@ -88,6 +88,12 @@ public sealed class FreestandingMacroExpansionResult
     public ImmutableArray<MacroFragmentRegion> FragmentRegions { get; set; } =
         ImmutableArray<MacroFragmentRegion>.Empty;
 
+    /// <summary>
+    /// Gets or sets the token metadata contributed for editor tooling.
+    /// </summary>
+    public ImmutableArray<MacroTokenInfo> TokenInfos { get; set; } =
+        ImmutableArray<MacroTokenInfo>.Empty;
+
     internal ImmutableArray<MacroFileDependency> FileDependencies { get; set; } =
         ImmutableArray<MacroFileDependency>.Empty;
 

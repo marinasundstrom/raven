@@ -4,11 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Added `fragment` contributions to token-tree `macro func` declarations, so
-  Raven-authored DSL macros can publish ordinary Raven expression, statement,
-  type, pattern, or member regions—and their typed locals—without a separate
-  provider class. Dedicated fragment providers remain supported and take
-  precedence when tooling must be independent from full expansion.
+- Added `fragment` and `token` contributions to token-tree `macro func`
+  declarations, so Raven-authored DSL macros can publish ordinary Raven
+  expression, statement, type, pattern, or member regions, typed locals, and
+  token kind/classification metadata without separate provider classes.
+  Dedicated providers remain supported when tooling must be independent from
+  full expansion.
 
 - Extended the isolated HTML-to-Blazor macro sample with expression-based
   conditional content, filtered list-comprehension rendering, native Blazor

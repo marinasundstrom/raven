@@ -201,6 +201,18 @@ These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
 Failures and invalid values from the optional kind-name or classification
 capabilities are normalized per token, preserving the remaining snapshot and
 compiler-owned keyword classification.
+
+A token-tree `macro func` can instead contribute a complete token metadata
+snapshot as it consumes its `IMacroTokenStream`:
+
+```raven
+token context.CreateTokenInfo(token, "DslKeyword", MacroTokenClassification.Keyword)
+```
+
+Reached `token` contributions are retained in authored source order. They are
+used only for generated adapters marked by the compiler; ordinary token-tree
+macros are not expanded merely to answer a token tooling query. `token` is
+invalid on argument-style and attached macro functions.
 Token and fragment-region results are cached by the invocation's owning
 semantic model and recomputed for a new compilation snapshot.
 The language server maps available macro classifications to protocol semantic
