@@ -23,6 +23,8 @@ Supported by the prototype:
 - `{ RavenExpression }` content parsed by Raven with authored-source diagnostics;
 - `{ RavenExpression }` spans surfaced through the compiler's optional macro
   fragment-region API;
+- HTML-body identifiers, literals, and punctuation surfaced through the
+  compiler's classified token-stream API;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - deterministic, preorder render-tree sequence numbers; and
@@ -72,6 +74,12 @@ as `MacroFragmentKind.Expression`. `SemanticModel.GetMacroFragmentRegions`
 therefore exposes body-relative and absolute authored spans without exposing
 the HTML parser's representation. Zero additional HTML nodes enter Raven's
 syntax or bound trees.
+
+`IMacroTokenClassifier` supplies lightweight presentation categories over the
+same standard token stream used by the macro infrastructure. This prototype
+does not add HTML token kinds to Raven's global `SyntaxKind`; a later custom
+HTML stream can introduce provider-owned raw kinds if tag and attribute names
+need distinct editor semantics.
 
 This is the compiler-side routing primitive for future macro-aware editor
 services. HTML token classification, ordinary Raven completion within the

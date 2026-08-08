@@ -2,13 +2,43 @@ import System.*
 import System.Collections.Immutable.*
 import System.Text.*
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
 
-class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider {
+class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroTokenClassifier {
     val Name: string => "Html"
+
+    func ClassifyToken(
+        context: TokenTreeMacroContext,
+        token: SyntaxToken
+    ) -> MacroTokenClassification {
+        if token.Kind == SyntaxKind.IdentifierToken {
+            return MacroTokenClassification.Identifier
+        }
+
+        if token.Kind == SyntaxKind.StringLiteralToken
+            || token.Kind == SyntaxKind.MultiLineStringLiteralToken
+            || token.Kind == SyntaxKind.CharacterLiteralToken
+            || token.Kind == SyntaxKind.NumericLiteralToken {
+            return MacroTokenClassification.Literal
+        }
+
+        if token.Kind == SyntaxKind.LessThanToken
+            || token.Kind == SyntaxKind.GreaterThanToken
+            || token.Kind == SyntaxKind.SlashToken
+            || token.Kind == SyntaxKind.EqualsToken
+            || token.Kind == SyntaxKind.OpenBraceToken
+            || token.Kind == SyntaxKind.CloseBraceToken
+            || token.Kind == SyntaxKind.ColonToken
+            || token.Kind == SyntaxKind.MinusToken {
+            return MacroTokenClassification.Punctuation
+        }
+
+        MacroTokenClassification.Default
+    }
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
         let expansion = HtmlDslParser(context.GetBodyText()).Parse()

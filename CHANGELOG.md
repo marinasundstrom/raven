@@ -11,6 +11,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   model for the immutable invocation snapshot.
   The language server now projects available macro token classifications into
   semantic highlighting without loading or invoking providers itself.
+  The HTML-to-Blazor prototype supplies lightweight body-token classifications
+  in addition to its embedded Raven expression regions.
 
 - Added an optional token-tree macro fragment-region provider and compiler API
   for surfacing body-relative expression, statement, type, pattern, and member
