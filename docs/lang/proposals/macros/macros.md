@@ -363,6 +363,8 @@ Remapping:
   counterparts, each with a diagnostic-bearing `Result` form
 * `ParseMemberDeclaration` and `ParseMemberDeclarationResult`, which require
   exactly one top-level declaration
+* `CreateFragmentRegion(kind, bodyRelativeSpan)`, used by an optional
+  `IMacroFragmentProvider` to expose embedded Raven regions to compiler tooling
 
 These:
 
@@ -372,6 +374,12 @@ These:
 * In the result-bearing form, preserve native Raven parser diagnostics
 
 This ensures precise source mapping for embedded Raven fragments.
+
+Fragment-region results retain the original body-relative span and the mapped
+authored source span. `SemanticModel.GetMacroFragmentRegions` and the matching
+`Compilation` convenience API resolve the optional provider. Zero-width spans
+are valid expected slots for incomplete-code completion, and no macro-private
+parser node crosses this API boundary.
 
 ---
 

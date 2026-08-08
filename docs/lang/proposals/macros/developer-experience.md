@@ -444,6 +444,14 @@ an HTML tree, query clauses, or another structure internally, but that
 representation remains owned by the macro unless a later use case proves that
 a broader public contract is necessary.
 
+The first fragment-region contract implements that boundary directly. A
+token-tree macro optionally implements `IMacroFragmentProvider` and creates
+regions through `TokenTreeMacroContext.CreateFragmentRegion`. The macro supplies
+a body-relative span and `MacroFragmentKind`; the compiler adds the absolute
+authored span and exposes the immutable results through `SemanticModel` or
+`Compilation`. Zero-width spans are valid expected slots. Provider failures
+produce no regions and do not take down unrelated semantic tooling.
+
 ### Structured DSL wrappers
 
 A macro may privately parse its body into a secondary tree for its own DSL.

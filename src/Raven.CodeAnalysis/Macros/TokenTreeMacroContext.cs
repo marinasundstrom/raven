@@ -116,6 +116,24 @@ public class TokenTreeMacroContext
             ?? throw new InvalidOperationException("The macro token-stream provider returned null.");
     }
 
+    public MacroFragmentRegion CreateFragmentRegion(
+        MacroFragmentKind kind,
+        TextSpan bodyRelativeSpan)
+    {
+        if (!Enum.IsDefined(kind))
+            throw new ArgumentOutOfRangeException(nameof(kind));
+
+        if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
+            throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
+
+        return new MacroFragmentRegion(
+            kind,
+            bodyRelativeSpan,
+            new TextSpan(
+                BodySpan.Start + bodyRelativeSpan.Start,
+                bodyRelativeSpan.Length));
+    }
+
     public ExpressionSyntax ParseExpression()
         => ParseExpressionResult().Syntax;
 

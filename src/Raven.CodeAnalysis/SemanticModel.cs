@@ -335,6 +335,21 @@ public partial class SemanticModel
     }
 
     /// <summary>
+    /// Gets ordinary Raven fragment regions reported for a token-tree macro invocation.
+    /// </summary>
+    public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (expression.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        return MacroFragmentRegionService.GetFragmentRegions(this, expression, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in this semantic model's syntax tree asynchronously.
     /// </summary>
     /// <param name="position">The zero-based position in the syntax tree.</param>

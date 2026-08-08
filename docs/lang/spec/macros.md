@@ -151,6 +151,15 @@ contract. The diagnostic-bearing form reports `RAVM022` at the responsible
 authored input and returns recovered member syntax so a macro can continue
 analysis without silently treating the input as valid.
 
+An optional `IMacroFragmentProvider` surfaces which body-relative spans contain
+ordinary Raven syntax without exposing a macro's private DSL tree. Providers
+create expression, statement, type, pattern, or member-declaration regions
+through `TokenTreeMacroContext.CreateFragmentRegion`. Each result retains both
+the supplied body-relative span and its compiler-mapped absolute span in the
+authored Raven source. Zero-width regions represent expected syntax in
+incomplete input. `SemanticModel.GetMacroFragmentRegions` and the corresponding
+`Compilation` API resolve this capability.
+
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,
 `ParsePattern`, `ParseCompilationUnit`, and `ParseMemberDeclaration`.

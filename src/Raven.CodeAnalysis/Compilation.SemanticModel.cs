@@ -43,6 +43,19 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets ordinary Raven fragment regions reported for a token-tree macro invocation.
+    /// </summary>
+    public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        var syntaxTree = expression.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(expression));
+        return GetSemanticModel(syntaxTree).GetMacroFragmentRegions(expression, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>

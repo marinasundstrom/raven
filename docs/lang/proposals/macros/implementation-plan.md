@@ -566,6 +566,31 @@ with `RAVM022` when its exact-one contract is not satisfied. The standalone
 `SyntaxFactory.ParseMemberDeclaration` form returns null for the same shape
 failures.
 
+## Active slice: embedded Raven fragment regions
+
+Status: **implemented**
+
+Token-tree macros can implement `IMacroFragmentProvider` to surface the spans
+that contain ordinary Raven syntax without publishing their private DSL parser
+representation:
+
+```csharp
+context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
+```
+
+* [x] use body-relative spans as the macro-authoring primitive
+* [x] map each region to its absolute authored source span in the compiler
+* [x] distinguish expression, statement, type, pattern, and member categories
+* [x] permit zero-width expected regions for incomplete-code completion
+* [x] resolve the optional provider through `SemanticModel` and `Compilation`
+* [x] isolate optional tooling-provider failures from other semantic queries
+* [ ] route ordinary Raven completion inside reported fragment regions
+* [ ] describe macro-introduced semantic scope visible inside a fragment
+
+This is deliberately a token-and-span API. It does not require or expose a
+secondary DSL syntax tree, and it leaves completion routing and semantic scope
+bridging to later independently justified slices.
+
 ## Validation case: compile-time file embedding
 
 Status: **test macro implemented; tracked resource API deferred**
