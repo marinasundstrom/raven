@@ -91,11 +91,12 @@ only when the DSL has a genuinely different lexical grammar.
 
 Compiler hosts can query the exact selected stream through
 `SemanticModel.GetMacroTokens`. Each result includes the token's provider-owned
-raw kind, text, body-relative and authored spans, plus an optional lightweight
-classification. Keyword overlays are classified automatically. Implement
-`IMacroTokenClassifier` only when other DSL tokens need identifier, literal,
-operator, punctuation, or comment presentation. This metadata does not add
-global Raven token kinds.
+raw kind, stable kind name, text, body-relative and authored spans, plus an
+optional lightweight classification. Standard Raven tokens receive their
+`SyntaxKind` name. Implement `IMacroTokenKindProvider` only to name custom raw
+kinds, and `IMacroTokenClassifier` only when DSL tokens need identifier,
+literal, operator, punctuation, or comment presentation. Keyword overlays are
+classified automatically. This metadata does not add global Raven token kinds.
 
 The language server projects available keyword, identifier, literal, operator,
 and comment categories to semantic tokens. It uses an already available
@@ -211,6 +212,8 @@ instead of breaking unrelated semantic queries.
 Editor integrations normally call `GetMacroInputSnapshot(invocation)` to obtain
 both classified tokens and Raven-fragment regions from one immutable view. The
 narrower token and fragment queries remain available when only one is needed.
+`FindFragmentRegion(position)` returns the narrowest region at a cursor,
+including an exact zero-width expected slot.
 
 **Future:** ordinary Raven completion is not yet delegated into these regions.
 Macro-introduced names, such as a query range variable, also need a
@@ -295,3 +298,16 @@ The repository examples progress from compact syntax to full DSL handling:
   fragments, fragment metadata, component macros, and Blazor lowering.
 
 See the [macro reference](lang/spec/macros.md) for current restrictions.
+
+## Tooling MVP and next slices
+
+The current DSL-tooling MVP is intentionally span based. It supplies a cached
+compiler-owned input snapshot, stable token kinds and classifications,
+embedded Raven fragment regions, deterministic cursor lookup, and semantic
+highlighting. A macro keeps its parser representation private.
+
+The predicted follow-on slices are maintained in dependency order under
+“Predicted post-MVP DSL tooling slices” in
+`docs/lang/proposals/macros/implementation-plan.md`. The next useful step is
+ordinary Raven completion inside reported fragment spans. Public custom syntax
+trees are not a prerequisite.

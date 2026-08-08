@@ -34,7 +34,7 @@ Not supported by the macro:
 
 - component child content, directives, loops, or conditionals;
 - attribute splatting or Razor compatibility;
-- HTML-aware editor highlighting or completion;
+- tag-versus-attribute editor semantics or DSL-specific completion;
 - multiple root elements.
 
 `#[Parameter]` is convenience rather than a new parameter model. Components
@@ -76,15 +76,23 @@ the HTML parser's representation. Zero additional HTML nodes enter Raven's
 syntax or bound trees.
 
 `IMacroTokenClassifier` supplies lightweight presentation categories over the
-same standard token stream used by the macro infrastructure. This prototype
-does not add HTML token kinds to Raven's global `SyntaxKind`; a later custom
-HTML stream can introduce provider-owned raw kinds if tag and attribute names
-need distinct editor semantics.
+same standard token stream used by the macro infrastructure. Standard tokens
+also expose stable Raven kind names. This prototype does not add HTML token
+kinds to Raven's global `SyntaxKind`; a later custom HTML stream can introduce
+provider-owned raw kinds and name them through `IMacroTokenKindProvider` if tag
+and attribute names need distinct editor semantics.
 
 This is the compiler-side routing primitive for future macro-aware editor
-services. HTML token classification, ordinary Raven completion within the
-reported regions, and macro-introduced semantic scopes remain future work. The
-HTML parser's own tree, if it grows one, remains private to the macro.
+services. Semantic highlighting consumes the compiler snapshot today.
+Ordinary Raven completion within the reported regions and macro-introduced
+semantic scopes remain future work. The HTML parser's own tree, if it grows
+one, remains private to the macro.
+
+The sample now exercises the DSL-tooling MVP: immutable combined input
+snapshots, token kinds and classifications, embedded expression spans,
+deterministic cursor routing, failure isolation, and semantic highlighting.
+The dependency-ordered post-MVP slices are tracked in the
+[macro implementation plan](../../../docs/lang/proposals/macros/implementation-plan.md#predicted-post-mvp-dsl-tooling-slices).
 
 ## Playground status
 

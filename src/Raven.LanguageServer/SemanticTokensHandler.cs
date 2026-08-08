@@ -452,7 +452,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                      .Where(static expression => expression.TokenTree is not null))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var token in semanticModel.GetMacroTokens(expression, cancellationToken))
+            var snapshot = semanticModel.GetMacroInputSnapshot(expression, cancellationToken);
+            foreach (var token in snapshot.Tokens)
             {
                 var tokenType = MapMacroTokenType(token.Classification);
                 if (tokenType is not null && token.Span.Length > 0)

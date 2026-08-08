@@ -6,7 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added `MacroInputSnapshot` as the compiler-owned combined view of a
   token-tree invocation's classified tokens and embedded Raven regions, with
-  deterministic source ordering and most-specific cursor lookup.
+  deterministic source ordering and most-specific cursor lookup. The language
+  server consumes this combined view for macro semantic highlighting.
 
 - Added compiler-owned macro token snapshots with provider raw kinds, authored
   spans, stable standard or provider-defined kind names, keyword overlays, and

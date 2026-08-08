@@ -142,6 +142,72 @@ Current direct-contract validation:
 * live macro-project refresh tests: 2 passed; watched-file redesign case remains
   explicitly skipped
 
+## DSL tooling MVP gate
+
+Status: **implemented**
+
+The first editor-facing contract is deliberately smaller than a public custom
+syntax-tree API. For one token-tree invocation, the compiler owns and caches a
+`MacroInputSnapshot` containing:
+
+* the selected standard or provider token stream, with raw kinds, stable kind
+  names, authored spans, and optional presentation classifications;
+* body-relative and authored spans for embedded Raven expression, statement,
+  type, pattern, compilation-unit, or member fragments; and
+* deterministic narrowest-region lookup at a cursor, including zero-width
+  expected slots.
+
+Optional metadata failures degrade per token. Provider failures do not escape
+into unrelated semantic or language-service queries. The language server
+consumes the combined snapshot for semantic highlighting. The macro's own
+parse tree remains private and no macro-specific nodes enter Raven's global
+syntax or bound trees.
+
+This is the MVP boundary: enough information for stable highlighting and for a
+future editor to route a cursor into ordinary Raven language services. It does
+not claim DSL-specific completion, macro-introduced semantic scope, public
+retained structure, or Playground preview support.
+
+## Predicted post-MVP DSL tooling slices
+
+These are dependency-ordered predictions, not promises. Each slice should be
+accepted only when the preceding use case demonstrates its value.
+
+1. **Project tooling contributions from `macro func`.** Add the smallest source
+   contribution form for fragment kind/span pairs and token metadata so common
+   macros do not need a provider class. Keep the generated adapter private.
+2. **Route ordinary completion through fragment spans.** At a cursor selected
+   by `FindFragmentRegion`, reuse Raven's existing expression, statement, type,
+   pattern, or member completion against the authored fragment. Do not add a
+   DSL completion API yet.
+3. **Bridge macro-introduced semantic scope.** Add a compiler-owned description
+   of names and types visible inside a fragment only after query-like or
+   template-like examples prove caller scope alone is insufficient. Define
+   hygiene and shadowing here rather than in the editor.
+4. **Add optional DSL affordance providers.** Introduce narrowly scoped
+   completion, hover, and navigation contributions for outer DSL tokens only
+   when token kind plus semantics cannot express the experience. Compiler APIs
+   normalize and cache them; the language server remains a presenter.
+5. **Retain private structure snapshots when measurement justifies it.** Permit
+   a provider-owned immutable snapshot shared between expansion and tooling if
+   repeated parsing is materially expensive. Do not standardize or expose its
+   node model to Raven analyzers by default.
+6. **Harden execution boundaries.** Add compiler-owned recursion, work, output,
+   and nested-compilation limits before supporting more powerful syntax-tree
+   construction or compilation APIs. Consider process isolation only when the
+   package and host model requires it.
+7. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
+   reference, diagnostics, generated Blazor shape, and an external consumer
+   before treating the React-like sample as a reusable product surface.
+8. **Prototype Playground preview as a library consumer.** After distribution,
+   add compile-and-inspect component discovery, then explicit interactive
+   mounting. The Playground must not copy or special-case the HTML parser.
+
+Public custom DSL trees, a universal macro AST, and automatic structural editor
+integration are intentionally absent. They can be reconsidered after slices 2
+through 5 provide evidence that spans, token semantics, and narrow capability
+providers are insufficient.
+
 ## Active slice: function-oriented macro declarations
 
 Status: **initial executable slice implemented and validated**
