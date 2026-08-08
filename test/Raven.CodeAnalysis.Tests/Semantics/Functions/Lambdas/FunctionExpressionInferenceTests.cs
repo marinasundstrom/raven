@@ -808,7 +808,7 @@ class Container {
     }
 
     [Fact]
-    public void Lambda_InGenericLinqSelect_QualifiedUnionCases_ReportsConversionDiagnostic()
+    public void Lambda_InGenericLinqSelect_QualifiedOptionCases_InfersOptionType()
     {
         const string code = """
 import System.*
@@ -831,9 +831,27 @@ class Container {
 }
 """;
 
-        var (compilation, _) = CreateCompilation(code);
+        var (compilation, tree) = CreateCompilation(code);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RAV1503");
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var resultDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.Text == "result");
+
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var elementType = Assert.Single(resultType.TypeArguments);
+
+        var expectedOption = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Option`1"))
+            .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(expectedOption, elementType),
+            $"Expected: {expectedOption.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}, Actual: {elementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
     }
 
     [Fact]
@@ -1236,7 +1254,7 @@ let makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
     }
 
     [Fact]
-    public void Lambda_WithUnionCaseConstructor_ReportsConversionDiagnostic()
+    public void Lambda_WithUnionCaseConstructor_ConvertsToDelegateReturnType()
     {
         const string code = """
 import System.*
@@ -1259,7 +1277,7 @@ class Container {
 
         var (compilation, _) = CreateCompilation(code);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RAV1503");
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
 
     [Fact]

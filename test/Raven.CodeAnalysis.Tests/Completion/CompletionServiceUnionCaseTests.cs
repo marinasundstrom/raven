@@ -41,6 +41,8 @@ Result.
     public void GetCompletions_OnValuePrefix_ShowsQualifiedCaseDisplayText()
     {
         var code = """
+import ParseResult.*
+
 union ParseResult {
     case Ok
 }

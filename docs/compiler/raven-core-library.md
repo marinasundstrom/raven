@@ -315,9 +315,11 @@ When the compiler builds Raven.Core (and when it embeds core shims for
 standalone compilations) it also synthesizes a few supporting types that aren't
 hand-written in `src/Raven.Core`:
 
-- `System.Runtime.CompilerServices.UnionAttribute` and
-  `UnionCaseAttribute` annotate union types and their cases so the
-  emitted IL retains union metadata.
+- `System.Runtime.CompilerServices.UnionAttribute` marks C#-compatible union
+  carriers. Raven's `RavenUnionCaseAttribute` records logical body-declared
+  cases, while `RavenUnionCompanionAttribute` associates the non-generic
+  companion used to contain cases of generic unions with the carrier's
+  assembly-local, fully qualified metadata name.
 - `System.Unit` is emitted whenever a project depends on the `unit` type,
   ensuring the `Unit.Value` shim is available even when compiling without an
   existing Raven.Core reference.

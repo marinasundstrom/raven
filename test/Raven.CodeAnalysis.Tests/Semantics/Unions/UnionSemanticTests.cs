@@ -113,6 +113,50 @@ union Option {
     }
 
     [Fact]
+    public void GenericCase_HasUnionSemanticOwnerAndCompanionMetadataOwner()
+    {
+        const string source = """
+        union Result<T, E> {
+            case Ok(value: T)
+            case Error(error: E)
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var unionDeclaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var union = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        var ok = Assert.Single(union.DeclaredCaseTypes, @case => @case.Name == "Ok");
+
+        Assert.Same(union, ok.ContainingSymbol);
+        Assert.Same(union, ok.ContainingType);
+        Assert.NotSame(union, ok.MetadataContainingType);
+        Assert.Equal("Result", ok.MetadataContainingType.Name);
+        Assert.Equal(0, ok.MetadataContainingType.Arity);
+    }
+
+    [Fact]
+    public void NonGenericCase_UsesUnionAsSemanticAndMetadataOwner()
+    {
+        const string source = """
+        union Option {
+            case Some(value: int)
+            case None
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var unionDeclaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var union = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        var some = Assert.Single(union.DeclaredCaseTypes, @case => @case.Name == "Some");
+
+        Assert.Same(union, some.ContainingSymbol);
+        Assert.Same(union, some.ContainingType);
+        Assert.Same(union, some.MetadataContainingType);
+    }
+
+    [Fact]
     public void UnnamedCasePayloads_ProjectStableMetadataNamesAndSourceLikeSignatures()
     {
         const string source = """
@@ -1557,8 +1601,8 @@ union Token {
         Assert.Contains("=== Synthesized Method Bodies ===", output);
         Assert.Contains("SynthesizedMethod=virtual override Token.ToString() -> string", output);
         Assert.Contains("SynthesizedMethod=Token.<RavenUnionDisplayName>() -> string", output);
-        Assert.Contains("SynthesizedMethod=virtual override Identifier.ToString() -> string", output);
-        Assert.Contains("SynthesizedMethod=Identifier.<RavenUnionDisplayName>() -> string", output);
+        Assert.Contains("SynthesizedMethod=virtual override Token.Identifier.ToString() -> string", output);
+        Assert.Contains("SynthesizedMethod=Token.Identifier.<RavenUnionDisplayName>() -> string", output);
     }
 
     [Fact]
@@ -1591,7 +1635,7 @@ union Result<T, E> {
         var output = writer.ToString();
         Assert.Contains("SynthesizedMethod=virtual override Result<T, E>.ToString() -> string", output);
         Assert.Contains("SynthesizedMethod=Result<T, E>.<RavenUnionDisplayName>() -> string", output);
-        Assert.Contains("FieldAccess [Type=Ok<T>(value: T), Symbol=Result<T, E>.<OkPayload>: Ok<T>, Field=Result<T, E>.<OkPayload>: Ok<T>]", output);
+        Assert.Contains("FieldAccess [Type=Result<T, E>.Ok<T>(value: T), Symbol=Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>, Field=Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>]", output);
         Assert.Contains("Symbol=static Result<T, E>.<RavenFriendlyTypeName>(type: Type) -> string", output);
         Assert.Contains("TypeOfExpression [Type=Type, OperandType=T, SystemType=Type]", output);
         Assert.Contains("TypeOfExpression [Type=Type, OperandType=E, SystemType=Type]", output);
@@ -1709,10 +1753,10 @@ union Result {
         }
 
         var output = writer.ToString();
-        Assert.Contains("SynthesizedMethod=Result.TryGetValue(out value: Ok) -> bool", output);
-        Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=Ok(value: int), UnitType=()]", output);
-        Assert.Contains("ParameterAccess [Type=Ok(value: int), Symbol=out value: Ok, Parameter=out value: Ok]", output);
-        Assert.Contains("FieldAccess [Type=Ok(value: int), Symbol=Result.<OkPayload>: Ok, Field=Result.<OkPayload>: Ok]", output);
+        Assert.Contains("SynthesizedMethod=Result.TryGetValue(out value: Result.Ok) -> bool", output);
+        Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=Result.Ok(value: int), UnitType=()]", output);
+        Assert.Contains("ParameterAccess [Type=Result.Ok(value: int), Symbol=out value: Result.Ok, Parameter=out value: Result.Ok]", output);
+        Assert.Contains("FieldAccess [Type=Result.Ok(value: int), Symbol=Result.<OkPayload>: Result.Ok, Field=Result.<OkPayload>: Result.Ok]", output);
     }
 
     [Fact]
@@ -1743,9 +1787,9 @@ union Result {
         }
 
         var output = writer.ToString();
-        Assert.Contains("SynthesizedMethod=Ok.Deconstruct(out Value: int) -> ()", output);
+        Assert.Contains("SynthesizedMethod=Result.Ok.Deconstruct(out Value: int) -> ()", output);
         Assert.Contains("ByRefAssignmentExpression [Type=(), ElementType=int, UnitType=()]", output);
-        Assert.Contains("Symbol=Ok.get_Value() -> int", output);
+        Assert.Contains("Symbol=Result.Ok.get_Value() -> int", output);
     }
 
     [Fact]
@@ -3727,9 +3771,9 @@ union Result<T, E> {
         var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single(c => c.Name == "Error"));
 
         Assert.Equal("Ok", okCase.Name);
-        Assert.Equal("Result_Ok`1", okCase.MetadataName);
+        Assert.Equal("Ok`1", okCase.MetadataName);
         Assert.Equal("Error", errorCase.Name);
-        Assert.Equal("Result_Error`1", errorCase.MetadataName);
+        Assert.Equal("Error`1", errorCase.MetadataName);
     }
 
     [Fact]

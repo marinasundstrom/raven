@@ -117,13 +117,13 @@ public union Result<T> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
         var assembly = loaded.Assembly;
 
-        var okCase = assembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
-        Assert.True(okCase.IsPublic);
+        var okCase = assembly.GetType("Result+Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        Assert.True(okCase.IsNestedPublic);
         var okCtor = okCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
         Assert.NotNull(okCtor);
 
-        var errorCase = assembly.GetType("Result_Error", throwOnError: true)!;
-        Assert.True(errorCase.IsPublic);
+        var errorCase = assembly.GetType("Result+Error", throwOnError: true)!;
+        Assert.True(errorCase.IsNestedPublic);
         var errorCtor = errorCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(string) }, modifiers: null);
         Assert.NotNull(errorCtor);
     }
@@ -250,8 +250,8 @@ union Hidden<T> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
         var assembly = loaded.Assembly;
 
-        var caseType = assembly.GetType("Hidden_Case`1", throwOnError: true)!.MakeGenericType(typeof(int));
-        Assert.True(caseType.IsNotPublic);
+        var caseType = assembly.GetType("Hidden+Case`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        Assert.True(caseType.IsNestedAssembly);
         var ctor = caseType.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
         Assert.NotNull(ctor);
     }
@@ -1430,8 +1430,8 @@ union Option {
         Assert.Equal("Some", caseAttributes[1].ConstructorArguments[1].Value);
         Assert.Equal(1, caseAttributes[1].ConstructorArguments[2].Value);
 
-        Assert.Equal("Option_None", caseAttributes[0].ConstructorArguments[0].Value);
-        Assert.Equal("Option_Some", caseAttributes[1].ConstructorArguments[0].Value);
+        Assert.Equal("Option+None", caseAttributes[0].ConstructorArguments[0].Value);
+        Assert.Equal("Option+Some", caseAttributes[1].ConstructorArguments[0].Value);
     }
 
     [Fact]
@@ -1484,7 +1484,7 @@ class Container {
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
 
-        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Option+Some", throwOnError: true)!;
         Assert.Equal(caseType, payload!.GetType());
 
         var valueProperty = caseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
@@ -1561,7 +1561,7 @@ union Option {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Option+Some", throwOnError: true)!;
 
         var unionCtor = unionType.GetConstructor(new[] { caseType })!;
 
@@ -1681,7 +1681,7 @@ union Option {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseType = runtimeAssembly.GetType("Option_Some", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Option+Some", throwOnError: true)!;
         var unionCtor = unionType.GetConstructor(new[] { caseType })!;
 
         var ilBytes = unionCtor.GetMethodBody()!.GetILAsByteArray();
@@ -1774,8 +1774,8 @@ class Container {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Result", throwOnError: true)!;
-        var okCaseType = runtimeAssembly.GetType("Result_Ok", throwOnError: true)!;
-        var errorCaseType = runtimeAssembly.GetType("Result_Error", throwOnError: true)!;
+        var okCaseType = runtimeAssembly.GetType("Result+Ok", throwOnError: true)!;
+        var errorCaseType = runtimeAssembly.GetType("Result+Error", throwOnError: true)!;
         var okTryGetMethod = unionType.GetMethod(
             "TryGetValue",
             BindingFlags.Public | BindingFlags.Instance,
@@ -1843,7 +1843,7 @@ union Result {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var okCaseType = runtimeAssembly.GetType("Result_Ok", throwOnError: true)!;
+        var okCaseType = runtimeAssembly.GetType("Result+Ok", throwOnError: true)!;
         var deconstructMethod = okCaseType.GetMethod(
             "Deconstruct",
             BindingFlags.Public | BindingFlags.Instance,
@@ -1886,7 +1886,7 @@ union Result {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var okCaseType = runtimeAssembly.GetType("Result_Ok", throwOnError: true)!;
+        var okCaseType = runtimeAssembly.GetType("Result+Ok", throwOnError: true)!;
         var okValue = Activator.CreateInstance(okCaseType, [7])!;
         var valueProperty = okCaseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
 
@@ -1968,10 +1968,10 @@ union Result<T, E> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
 
-        Assert.Single(runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.GetGenericArguments());
-        Assert.Single(runtimeAssembly.GetType("Result_Error`1", throwOnError: true)!.GetGenericArguments());
-        Assert.Equal(2, runtimeAssembly.GetType("Result_Pair`2", throwOnError: true)!.GetGenericArguments().Length);
-        Assert.Empty(runtimeAssembly.GetType("Result_None", throwOnError: true)!.GetGenericArguments());
+        Assert.Single(runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!.GetGenericArguments());
+        Assert.Single(runtimeAssembly.GetType("Result+Error`1", throwOnError: true)!.GetGenericArguments());
+        Assert.Equal(2, runtimeAssembly.GetType("Result+Pair`2", throwOnError: true)!.GetGenericArguments().Length);
+        Assert.Empty(runtimeAssembly.GetType("Result+None", throwOnError: true)!.GetGenericArguments());
     }
 
     [Fact]
@@ -2015,7 +2015,7 @@ class Container {
         Assert.NotNull(unionValue);
 
         var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
-        var caseTypeDefinition = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!;
+        var caseTypeDefinition = runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!;
         var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
         var closedCaseType = caseTypeDefinition.MakeGenericType(typeof(int));
 
@@ -2057,7 +2057,7 @@ union Shape {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var caseType = runtimeAssembly.GetType("Shape_Rectangle", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Shape+Rectangle", throwOnError: true)!;
 
         var ctor = caseType.GetConstructor(new[] { typeof(int), typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 3, 6 });
@@ -2145,7 +2145,7 @@ union Result<T> {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var okCaseType = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        var okCaseType = runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
         var okCase = okCaseType.GetConstructor(new[] { typeof(int) })!.Invoke([42]);
 
         Assert.Equal("Result<Int32>.Ok(42)", okCase!.ToString());
@@ -2179,7 +2179,7 @@ union Result<T> {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
-        var okCaseType = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        var okCaseType = runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
         var okCase = okCaseType.GetConstructor(new[] { typeof(int) })!.Invoke([42]);
         var displayNameHelper = okCaseType.GetMethod("<RavenUnionDisplayName>", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -2237,6 +2237,8 @@ class Container {
     public void UnionCaseCanonicalForms_EmitEquivalentRuntimeValues()
     {
         var code = """
+import Result.*
+
 union Result<T, E> {
     case Ok(value: T)
     case Error(error: E)
@@ -2440,7 +2442,7 @@ union Result<T> {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
 
-        var caseType = runtimeAssembly.GetType("Result_Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
+        var caseType = runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
 
         var ctor = caseType.GetConstructor(new[] { typeof(int) })!;
         var caseInstance = ctor.Invoke(new object?[] { 99 });
@@ -2484,7 +2486,7 @@ class Container {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Shape", throwOnError: true)!;
-        var caseType = runtimeAssembly.GetType("Shape_Label", throwOnError: true)!;
+        var caseType = runtimeAssembly.GetType("Shape+Label", throwOnError: true)!;
 
         var ctor = caseType.GetConstructor(new[] { typeof(string) })!;
         var caseInstance = ctor.Invoke(new object?[] { "a\"b" });

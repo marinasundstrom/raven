@@ -25,8 +25,9 @@ internal abstract class SourceSymbol : Symbol
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        Accessibility declaredAccessibility = Accessibility.NotApplicable)
-        : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
+        Accessibility declaredAccessibility = Accessibility.NotApplicable,
+        bool addAsMember = true)
+        : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember)
     {
         var parseOptions = GetParseOptions(declaringSyntaxReferences);
         DocumentationComments = DocumentationCommentUtilities.GetDocumentationComments(declaringSyntaxReferences, parseOptions);

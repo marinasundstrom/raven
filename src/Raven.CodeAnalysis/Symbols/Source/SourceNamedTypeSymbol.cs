@@ -64,8 +64,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         bool isAbstract = false,
         bool isStatic = false,
         Accessibility declaredAccessibility = Accessibility.NotApplicable,
-        string? metadataName = null)
-    : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
+        string? metadataName = null,
+        bool addAsMember = true)
+    : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember)
     {
         _metadataName = metadataName ?? name;
         BaseType = baseType;

@@ -541,9 +541,27 @@ class BinderFactory
 
             if (ResolveType(current, nameText) is { } resolvedType &&
                 string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
-                return resolvedType;
+                return GetLogicalImportType(resolvedType);
 
-            return ResolveNamespace(current, nameText);
+            var resolvedNamespace = ResolveNamespace(current, nameText);
+            if (resolvedNamespace is not null &&
+                provisionalImportBinder.TryResolveTypeFromNamespaceName(resolvedNamespace, out var namespaceType))
+            {
+                return namespaceType;
+            }
+
+            return resolvedNamespace;
+        }
+
+        static ITypeSymbol GetLogicalImportType(ITypeSymbol type)
+        {
+            if (type is PEUnionCompanionSymbol companion &&
+                companion.TryGetAssociatedUnion(out var union))
+            {
+                return (ITypeSymbol)union;
+            }
+
+            return type;
         }
 
         IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)

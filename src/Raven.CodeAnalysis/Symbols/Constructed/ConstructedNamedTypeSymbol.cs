@@ -721,6 +721,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     {
         var selfArgs = TypeArguments;
 
+        // Union cases are semantically nested in their union, but their CLR type is nested
+        // in either the non-generic union or a non-generic companion. The semantic owner's
+        // type arguments must therefore never be inherited into the case's runtime identity.
+        if (TryGetCaseDefinition(out _))
+            return selfArgs;
+
         if (_containingTypeOverride is ConstructedNamedTypeSymbol constructedContaining)
         {
             var outerArgs = constructedContaining.GetAllTypeArguments();
@@ -991,6 +997,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     public bool IsUnion => _originalDefinition.IsUnion;
     public bool IsUnionCase => _originalDefinition.IsUnionCase;
     public INamedTypeSymbol? UnderlyingUnionType => _originalDefinition.UnderlyingUnionType;
+    public INamedTypeSymbol MetadataContainingType =>
+        TryGetCaseDefinition(out var caseDefinition)
+            ? caseDefinition.MetadataContainingType
+            : _originalDefinition;
     public INamedTypeSymbol? ContainingType => _containingTypeOverride ?? _originalDefinition.ContainingType;
     public INamespaceSymbol? ContainingNamespace => _containingTypeOverride?.ContainingNamespace ?? _originalDefinition.ContainingNamespace;
     public ISymbol? ContainingSymbol => _containingTypeOverride ?? _originalDefinition.ContainingSymbol;
@@ -1220,7 +1230,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     {
         var segments = new Stack<string>();
 
-        for (INamedTypeSymbol? current = this; current is not null; current = current.ContainingType)
+        for (INamedTypeSymbol? current = this; current is not null; current = GetMetadataContainingType(current))
         {
             var definition = (current as ConstructedNamedTypeSymbol)?._originalDefinition ?? current;
             var metadataName = definition.Name;
@@ -1231,6 +1241,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
             segments.Push(metadataName);
         }
+
+        static INamedTypeSymbol? GetMetadataContainingType(INamedTypeSymbol type)
+            => type is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+                ? unionCase.MetadataContainingType
+                : type.ContainingType;
 
         var typeName = segments.Count > 0
             ? string.Join("+", segments)
@@ -1290,8 +1305,18 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             var runtimeArgs = runtimeArguments
                 .Select(arg => ResolveRuntimeTypeArgument(arg, codeGen))
                 .ToArray();
-            var constructed = definitionType.MakeGenericType(runtimeArgs);
-            return constructed.GetTypeInfo();
+            try
+            {
+                var constructed = definitionType.MakeGenericType(runtimeArgs);
+                return constructed.GetTypeInfo();
+            }
+            catch (InvalidOperationException exception)
+            {
+                throw new InvalidOperationException(
+                    $"Unable to construct runtime type '{source.ToFullyQualifiedMetadataName()}' " +
+                    $"from builder '{definitionType}' with {runtimeArgs.Length} type argument(s).",
+                    exception);
+            }
         }
 
         throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a supported symbol type.");

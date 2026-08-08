@@ -396,12 +396,7 @@ internal abstract partial class Binder
         for (var current = containingType; current is not null; current = current.BaseType)
         {
             foreach (var member in current.GetMembers(name))
-            {
-                if (member is IUnionCaseTypeSymbol)
-                    continue;
-
                 yield return member;
-            }
         }
     }
 

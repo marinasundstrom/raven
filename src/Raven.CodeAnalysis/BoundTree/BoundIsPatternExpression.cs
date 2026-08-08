@@ -2535,6 +2535,13 @@ internal partial class BlockBinder
             if (parameterType.MetadataIdentityEquals(targetCaseType))
                 return true;
 
+            if (parameterType is INamedTypeSymbol parameterNamed &&
+                targetCaseType is INamedTypeSymbol targetNamed &&
+                parameterNamed.OriginalDefinition.MetadataIdentityEquals(targetNamed.OriginalDefinition))
+            {
+                return true;
+            }
+
             var parameterCase = parameterType.TryGetUnionCase();
             if (parameterCase is not null)
             {

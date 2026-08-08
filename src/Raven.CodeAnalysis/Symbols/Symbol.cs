@@ -24,12 +24,27 @@ internal abstract class Symbol : ISymbol
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        : this(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember: true)
+    {
+    }
+
+    protected Symbol(
+        SymbolKind kind,
+        string name,
+        ISymbol? containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
+        SyntaxReference[] declaringSyntaxReferences,
+        Accessibility declaredAccessibility,
+        bool addAsMember)
         : this(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember: false)
     {
         Kind = kind;
         Name = name;
 
-        AddAsMember(containingType, containingNamespace);
+        if (addAsMember)
+            AddAsMember(containingType, containingNamespace);
     }
 
     protected Symbol(

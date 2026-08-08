@@ -6,14 +6,14 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionCaseTypeSymbol
 {
     private readonly IUnionSymbol _union;
-    private readonly string _metadataBaseName;
+    private readonly INamedTypeSymbol _metadataContainingType;
     private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _projectedUnionTypeParameters = ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
     public SourceUnionCaseTypeSymbol(
         string name,
-        string metadataBaseName,
         int ordinal,
         IUnionSymbol union,
+        INamedTypeSymbol metadataContainingType,
         INamedTypeSymbol baseType,
         TypeKind typeKind,
         ISymbol containingSymbol,
@@ -25,7 +25,7 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionC
         : base(name, baseType, typeKind, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility)
     {
         _union = union;
-        _metadataBaseName = metadataBaseName;
+        _metadataContainingType = metadataContainingType;
         Ordinal = ordinal;
     }
 
@@ -33,7 +33,7 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionC
     {
         get
         {
-            var name = _metadataBaseName;
+            var name = Name;
 
             if (IsGenericType)
                 name = $"{name}`{Arity}";
@@ -47,6 +47,8 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionC
     public int Ordinal { get; }
 
     public IUnionSymbol Union => _union;
+
+    public INamedTypeSymbol MetadataContainingType => _metadataContainingType;
 
     internal void SetConstructorParameters(IEnumerable<SourceParameterSymbol> parameters)
     {

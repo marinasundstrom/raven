@@ -288,6 +288,7 @@ internal class CodeGenerator
     public Type? DiscriminatedUnionAttributeType { get; private set; }
     public Type? UnionInterfaceType { get; private set; }
     public Type? RavenUnionCaseAttributeType { get; private set; }
+    public Type? RavenUnionCompanionAttributeType { get; private set; }
     public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     public Type? ClosedHierarchyAttributeType { get; private set; }
@@ -298,6 +299,7 @@ internal class CodeGenerator
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _ravenUnionCaseCtor;
+    ConstructorInfo? _ravenUnionCompanionCtor;
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _fixedLengthArrayCtor;
     ConstructorInfo? _extensionAttributeCtor;
@@ -661,6 +663,14 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_ravenUnionCaseCtor!, new object?[] { caseTypeMetadataName, name, ordinal });
     }
 
+    internal CustomAttributeBuilder CreateRavenUnionCompanionAttribute(string unionTypeMetadataName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(unionTypeMetadataName);
+
+        EnsureRavenUnionCompanionAttributeType();
+        return new CustomAttributeBuilder(_ravenUnionCompanionCtor!, [unionTypeMetadataName]);
+    }
+
     internal void ApplyClosedHierarchyAttribute(
         ImmutableArray<INamedTypeSymbol> permittedTypes,
         Action<ConstructorInfo, byte[]> apply)
@@ -1012,6 +1022,65 @@ internal class CodeGenerator
         RavenUnionCaseAttributeType = attrBuilder.CreateType();
         _ravenUnionCaseCtor = RavenUnionCaseAttributeType.GetConstructor(new[] { stringType, stringType, intType })
             ?? throw new InvalidOperationException("Missing RavenUnionCaseAttribute(string, string, int) constructor.");
+    }
+
+    void EnsureRavenUnionCompanionAttributeType()
+    {
+        if (RavenUnionCompanionAttributeType is not null)
+            return;
+
+        RavenUnionCompanionAttributeType = Compilation.ResolveRuntimeType("Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute");
+        if (RavenUnionCompanionAttributeType is not null)
+        {
+            _ravenUnionCompanionCtor = RavenUnionCompanionAttributeType.GetConstructor([typeof(string)]);
+            if (_ravenUnionCompanionCtor is not null)
+                return;
+        }
+
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
+        var stringType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_String), this);
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            attributeType);
+
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)])
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute(AttributeTargets) constructor.");
+        var inheritedProperty = typeof(AttributeUsageAttribute).GetProperty(nameof(AttributeUsageAttribute.Inherited))
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute.Inherited property.");
+        attrBuilder.SetCustomAttribute(new CustomAttributeBuilder(
+            attrUsageCtor,
+            [AttributeTargets.Class],
+            [inheritedProperty],
+            [false]));
+
+        var unionTypeMetadataNameField = DefineReadOnlyBackingField(attrBuilder, "UnionTypeMetadataName", stringType);
+        DefineReadOnlyProperty(attrBuilder, "UnionTypeMetadataName", stringType, unionTypeMetadataNameField);
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            [stringType]);
+
+        var il = ctorBuilder.GetILGenerator();
+        var baseCtor = attributeType.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null)
+            ?? throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Stfld, unionTypeMetadataNameField);
+        il.Emit(OpCodes.Ret);
+
+        RavenUnionCompanionAttributeType = attrBuilder.CreateType();
+        _ravenUnionCompanionCtor = RavenUnionCompanionAttributeType.GetConstructor([stringType])
+            ?? throw new InvalidOperationException("Missing RavenUnionCompanionAttribute(string) constructor.");
     }
 
     private static FieldBuilder DefineReadOnlyBackingField(TypeBuilder typeBuilder, string propertyName, Type propertyType)
@@ -1743,6 +1812,12 @@ internal class CodeGenerator
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
+        var unionCompanionTypes = declaredTypes
+            .OfType<SourceUnionSymbol>()
+            .Select(union => union.CompanionType)
+            .OfType<ITypeSymbol>()
+            .ToArray();
+
         var synthesizedAsyncTypes = Compilation.GetSynthesizedAsyncStateMachineTypes().ToArray();
         var synthesizedDelegates = Compilation.GetSynthesizedDelegateTypes().ToArray();
         var synthesizedIterators = Compilation.GetSynthesizedIteratorTypes().ToArray();
@@ -1755,6 +1830,11 @@ internal class CodeGenerator
         foreach (var unionCaseType in unionCaseTypes)
         {
             GetOrCreateTypeGenerator(unionCaseType);
+        }
+
+        foreach (var unionCompanionType in unionCompanionTypes)
+        {
+            GetOrCreateTypeGenerator(unionCompanionType);
         }
 
         foreach (var asyncType in synthesizedAsyncTypes)

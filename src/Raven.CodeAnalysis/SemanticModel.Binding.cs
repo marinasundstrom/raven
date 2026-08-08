@@ -2332,14 +2332,29 @@ public partial class SemanticModel
             var targetName = GetRightmostIdentifier(name);
             var nameText = name.ToString();
 
-            if (ResolveNamespace(current, nameText) is { } resolvedNamespace)
-                return resolvedNamespace;
-
             if (ResolveType(current, nameText) is { } resolvedType &&
                 string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
-                return resolvedType;
+                return GetLogicalImportType(resolvedType);
 
-            return null;
+            var resolvedNamespace = ResolveNamespace(current, nameText);
+            if (resolvedNamespace is not null &&
+                provisionalImportBinder.TryResolveTypeFromNamespaceName(resolvedNamespace, out var namespaceType))
+            {
+                return namespaceType;
+            }
+
+            return resolvedNamespace;
+        }
+
+        static ITypeSymbol GetLogicalImportType(ITypeSymbol type)
+        {
+            if (type is PEUnionCompanionSymbol companion &&
+                companion.TryGetAssociatedUnion(out var union))
+            {
+                return (ITypeSymbol)union;
+            }
+
+            return type;
         }
 
         IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)
@@ -4390,19 +4405,18 @@ public partial class SemanticModel
 
                 var caseSymbol = new SourceUnionCaseTypeSymbol(
                     caseClause.Identifier.ValueText,
-                    UnionFacts.GetCaseMetadataBaseName(unionSymbol.Name, caseClause.Identifier.ValueText),
                     ordinal++,
                     unionSymbol,
+                    unionSymbol.GetMetadataCaseContainer(),
                     caseBaseType,
                     caseTypeKind,
-                    (ISymbol?)namespaceSymbol ?? unionSymbol,
-                    null,
+                    unionSymbol,
+                    unionSymbol,
                     namespaceSymbol,
                     [caseClause.GetLocation()],
                     [caseClause.GetReference()],
                     unionAccessibility);
 
-                namespaceSymbol?.AddMember(caseSymbol);
                 RegisterMember(unionSymbol, caseSymbol);
 
                 var rawParameters = new List<(SyntaxNode Syntax, string Name, Location Location, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams, bool HasImplicitName)>();

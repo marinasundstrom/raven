@@ -180,7 +180,8 @@ internal class TypeGenerator
 
         TypeBuilder? containingTypeBuilder = null;
         if (!hoistNestedSealedHierarchyCase &&
-            TypeSymbol is INamedTypeSymbol { ContainingType: INamedTypeSymbol containingType })
+            TypeSymbol is INamedTypeSymbol namedTypeWithMetadataOwner &&
+            GetMetadataContainingType(namedTypeWithMetadataOwner) is INamedTypeSymbol containingType)
         {
             var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
             if (containingGenerator.TypeBuilder is null)
@@ -334,17 +335,21 @@ internal class TypeGenerator
             }
             else
             {
+                var synthesizedMetadataName = synthesizedType is SynthesizedUnionCompanionTypeSymbol
+                    ? synthesizedType.ToFullyQualifiedMetadataName()
+                    : synthesizedType.MetadataName;
+
                 if (synthesizedType.TypeKind == TypeKind.Struct && synthesizedType.BaseType is not null)
                 {
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                        synthesizedType.MetadataName,
+                        synthesizedMetadataName,
                         synthesizedAttributes,
                         ResolveClrType(synthesizedType.BaseType));
                 }
                 else
                 {
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                        synthesizedType.MetadataName,
+                        synthesizedMetadataName,
                         synthesizedAttributes);
                 }
             }
@@ -396,8 +401,20 @@ internal class TypeGenerator
                 TypeBuilder!.SetCustomAttribute);
         }
 
+        if (TypeSymbol is SynthesizedUnionCompanionTypeSymbol companionType)
+        {
+            TypeBuilder!.SetCustomAttribute(
+                CodeGen.CreateRavenUnionCompanionAttribute(
+                    companionType.Union.ToFullyQualifiedMetadataName()));
+        }
+
         EnsureExtensionGroupingType();
     }
+
+    private static INamedTypeSymbol? GetMetadataContainingType(INamedTypeSymbol type)
+        => type is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+            ? unionCase.MetadataContainingType
+            : type.ContainingType;
 
     private static string GetNestedTypeMetadataName(INamedTypeSymbol type)
     {

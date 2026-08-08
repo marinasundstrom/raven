@@ -39,6 +39,16 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
 
     public ImmutableArray<IFieldSymbol> PayloadFields { get; private set; } = ImmutableArray<IFieldSymbol>.Empty;
 
+    internal SynthesizedUnionCompanionTypeSymbol? CompanionType { get; private set; }
+
+    internal INamedTypeSymbol GetMetadataCaseContainer()
+    {
+        if (!IsGenericType)
+            return this;
+
+        return CompanionType ??= new SynthesizedUnionCompanionTypeSymbol(this);
+    }
+
     internal void SetCases(IEnumerable<IUnionCaseTypeSymbol> cases)
     {
         _declaredCases = cases.ToImmutableArray();

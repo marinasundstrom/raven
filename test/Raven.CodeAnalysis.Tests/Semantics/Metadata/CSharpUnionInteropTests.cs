@@ -77,34 +77,34 @@ public sealed class CSharpUnionInteropTests
                     return 1;
                 }
 
-                var value = new Choice(new Choice_Int32(42));
+                var value = new Choice(new Choice.Int32(42));
                 if (!value.HasValue)
                     return Fail("Constructed struct union carrier should have HasValue.");
 
-                if (value.Value is not Choice_Int32 boxedInt || boxedInt.Value != 42)
+                if (value.Value is not Choice.Int32 boxedInt || boxedInt.Value != 42)
                     return Fail("Struct union Value should expose the active case object.");
 
-                if (!value.TryGetValue(out Choice_Int32 extractedInt) || extractedInt.Value != 42)
+                if (!value.TryGetValue(out Choice.Int32 extractedInt) || extractedInt.Value != 42)
                     return Fail("Struct union TryGetValue should extract the active case.");
 
-                if (value.TryGetValue(out Choice_Text _))
+                if (value.TryGetValue(out Choice.Text _))
                     return Fail("Struct union TryGetValue should reject inactive cases.");
 
-                var unnamedSingle = new Choice(new Choice_Single(7));
-                if (!unnamedSingle.TryGetValue(out Choice_Single single) || single.Value != 7)
+                var unnamedSingle = new Choice(new Choice.Single(7));
+                if (!unnamedSingle.TryGetValue(out Choice.Single single) || single.Value != 7)
                     return Fail("A single unnamed payload should project as Value.");
 
-                var unnamedPair = new Choice(new Choice_Pair(8, "eight"));
+                var unnamedPair = new Choice(new Choice.Pair(8, "eight"));
                 var pairValue = unnamedPair switch
                 {
-                    Choice_Pair(var item1, var item2) when item2 == "eight" => item1,
+                    Choice.Pair(var item1, var item2) when item2 == "eight" => item1,
                     _ => -1
                 };
                 if (pairValue != 8)
                     return Fail("Multiple unnamed payloads should project as Item1/Item2 and deconstruct positionally.");
 
-                var none = new Choice(new Choice_None());
-                if (!none.HasValue || none.Value is not Choice_None)
+                var none = new Choice(new Choice.None());
+                if (!none.HasValue || none.Value is not Choice.None)
                     return Fail("Parameterless case should still produce an active carrier.");
 
                 Choice defaultChoice = default;
@@ -114,18 +114,29 @@ public sealed class CSharpUnionInteropTests
                 if (defaultChoice.Value is not null)
                     return Fail("Default struct union Value should be null.");
 
-                if (defaultChoice.TryGetValue(out Choice_Int32 _))
+                if (defaultChoice.TryGetValue(out Choice.Int32 _))
                     return Fail("Default struct union should not extract a case.");
 
-                var referenceValue = new ReferenceChoice(new ReferenceChoice_Text("ok"));
+                var referenceValue = new ReferenceChoice(new ReferenceChoice.Text("ok"));
                 if (!referenceValue.HasValue)
                     return Fail("Constructed class union carrier should have HasValue.");
 
-                if (referenceValue.Value is not ReferenceChoice_Text text || text.Value != "ok")
+                if (referenceValue.Value is not ReferenceChoice.Text text || text.Value != "ok")
                     return Fail("Class union Value should expose the active case object.");
 
-                if (!referenceValue.TryGetValue(out ReferenceChoice_Text extractedText) || extractedText.Value != "ok")
+                if (!referenceValue.TryGetValue(out ReferenceChoice.Text extractedText) || extractedText.Value != "ok")
                     return Fail("Class union TryGetValue should extract the active case.");
+
+                RavenProduced.Result<int, string> ok = new RavenProduced.Result.Ok<int>(42);
+                if (ok.Value is not RavenProduced.Result.Ok<int> genericOk || genericOk.Value != 42)
+                    return Fail("Generic companion case should construct and match through the C# union surface.");
+
+                if (ok is not RavenProduced.Result.Ok<int>(var matchedValue) || matchedValue != 42)
+                    return Fail("Generic companion case should participate in C# union patterns.");
+
+                RavenProduced.Result<int, string> error = new RavenProduced.Result.Error<string>("bad");
+                if (!error.TryGetValue(out RavenProduced.Result.Error<string> extractedError) || extractedError.Error != "bad")
+                    return Fail("Generic companion case should preserve only its required generic parameter.");
 
                 return 0;
                 """);
@@ -333,6 +344,11 @@ public sealed class CSharpUnionInteropTests
             public union class ReferenceChoice {
                 case Text(value: string)
                 case Number(value: int)
+            }
+
+            public union Result<T, E> {
+                case Ok(value: T)
+                case Error(error: E)
             }
             """);
 

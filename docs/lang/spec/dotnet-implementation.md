@@ -94,11 +94,28 @@ Raven lifecycle declarations map to CLR methods:
 
 ## Union interop (C#)
 Raven unions compile into a carrier type plus independent case types that C#
-can consume directly. Each case becomes a public type with a constructor that
-accepts the payload values, a set of get-only properties for those payloads,
-and a `Deconstruct(out ...)` method that mirrors the payload order. The union
-carrier exposes overloaded `TryGetValue(out CaseType value)` helpers to safely
-extract a case instance. For parenthesized unions such as
+can consume directly. A non-generic carrier physically contains its cases. A
+generic carrier has a non-generic, same-name companion that contains its cases,
+so a case carries only the generic parameters used by its payload:
+
+```text
+Result`2        // carrier
+Result          // RavenUnionCompanion("Result`2")
+ ├─ Ok`1
+ └─ Error`1
+```
+
+Raven treats the carrier and annotated companion as one logical declaration
+when loading metadata. Case symbols are members of the union for lookup,
+`import Result.*`, preludes, completion, and matching, even though their CLR
+metadata owner can be the companion. The association is explicit and is never
+inferred from the shared name alone.
+
+Each case is a public type with a constructor that accepts the payload values,
+a set of get-only properties for those payloads, and a `Deconstruct(out ...)`
+method that mirrors the payload order. The union carrier exposes overloaded
+`TryGetValue(out CaseType value)` helpers to safely extract a case instance. For
+parenthesized unions such as
 `union Either<T1, T2>(T1 | T2)`, the carrier is declared over existing member
 types instead of synthesized case types, so the carrier constructor and
 `TryGetValue` overloads operate directly on those member types.
@@ -130,28 +147,35 @@ union JsonValue(string? | double | bool | JsonObject | JsonValue[])
 Raven pattern matching still treats nullable member contents as the non-null
 listed member cases plus a distinct `null` branch.
 
-Producing a union from C# is done by constructing the case and then converting
-it to the carrier:
+Producing and consuming a body-declared union from C# uses its nested case
+types. For example:
 
 ```csharp
 // Raven
-// union Token { Identifier(text: string) Number(value: int) }
+// public union Result<T, E> {
+//     case Ok(value: T)
+//     case Error(error: E)
+// }
 
-var identifier = new TokenIdentifier("hello");
-Token token = identifier;
-Token other = new TokenNumber(42);
-```
+Result<int, string> result = new Result.Ok<int>(42);
 
-Consuming a union from C# involves calling an overloaded `TryGetValue` helper
-and then using the case properties or deconstruction to extract payload values:
-
-```csharp
-if (token.TryGetValue(out TokenIdentifier identifier))
+if (result is Result.Ok<int> ok)
 {
-    var (text) = identifier; // Deconstruct(out string text)
-    Console.WriteLine(text);
+    Console.WriteLine(ok.Value);
+}
+
+if (result.TryGetValue(out Result.Ok<int> extracted))
+{
+    var (value) = extracted;
+    Console.WriteLine(value);
 }
 ```
+
+The explicit `int` on `Result.Ok<int>` is required by current C#. Raven does
+not emit speculative `CreateOk` or `CreateError` factories; factory ergonomics
+are deferred until the C# generic-constructor-inference direction is settled.
+The case-to-carrier assignment remains a C# union conversion backed by the
+carrier's public one-parameter constructor.
 
 For a parenthesized union, extraction is performed directly on the member type:
 

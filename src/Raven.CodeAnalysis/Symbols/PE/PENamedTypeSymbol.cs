@@ -118,6 +118,16 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (attributeName is null)
                 continue;
 
+            if (attributeName is "Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute")
+            {
+                return new PEUnionCompanionSymbol(
+                    reflectionTypeLoader,
+                    typeInfo,
+                    containingSymbol,
+                    containingNamespace,
+                    locations);
+            }
+
             if (attributeName is "System.Runtime.CompilerServices.UnionAttribute" &&
                 LooksLikeCSharpUnion(typeInfo))
             {
@@ -127,64 +137,39 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         }
 
-        if (containingType is IUnionSymbol parentUnion ||
-            TryInferContainingUnionFromCaseMetadataName(typeInfo, containingNamespace, out parentUnion))
+        IUnionSymbol? parentUnion = containingType as IUnionSymbol;
+        var metadataContainingType = containingType;
+
+        if (parentUnion is null &&
+            containingType is PEUnionCompanionSymbol companion &&
+            companion.TryGetAssociatedUnion(out var associatedUnion))
         {
-            return new PEUnionCaseSymbol(
+            parentUnion = associatedUnion;
+        }
+
+        if (parentUnion is not null)
+        {
+            var caseSymbol = new PEUnionCaseSymbol(
                 reflectionTypeLoader,
                 typeInfo,
-                containingSymbol,
-                containingType,
+                parentUnion,
+                metadataContainingType ?? parentUnion,
                 containingNamespace,
                 locations,
-                parentUnion).AddAsMember();
+                parentUnion);
+
+            caseSymbol.AddAsMember(parentUnion, containingNamespace);
+            if (metadataContainingType is not null &&
+                !ReferenceEquals(metadataContainingType, parentUnion))
+            {
+                caseSymbol.AddAsMember(metadataContainingType, containingNamespace);
+            }
+
+            return caseSymbol;
         }
 
         return new PENamedTypeSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
             .AddAsMember();
-    }
-
-    private static bool TryInferContainingUnionFromCaseMetadataName(
-        System.Reflection.TypeInfo typeInfo,
-        INamespaceSymbol? containingNamespace,
-        out IUnionSymbol unionSymbol)
-    {
-        unionSymbol = null!;
-
-        if (containingNamespace is null)
-            return false;
-
-        if (containingNamespace is PENamespaceSymbol { IsLoadingMembers: true })
-            return false;
-
-        var metadataName = StripGenericArity(typeInfo.Name);
-        var separatorIndex = metadataName.IndexOf('_', StringComparison.Ordinal);
-        if (separatorIndex <= 0 || separatorIndex == metadataName.Length - 1)
-            return false;
-
-        var unionName = metadataName[..separatorIndex];
-        var candidate = containingNamespace
-            .GetMembers(unionName)
-            .OfType<IUnionSymbol>()
-            .FirstOrDefault();
-
-        if (candidate is null)
-            return false;
-
-        if (!UnionFacts.TryGetLogicalCaseNameFromMetadata(candidate.Name, metadataName, out var logicalCaseName) ||
-            string.Equals(logicalCaseName, metadataName, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        unionSymbol = candidate;
-        return true;
-    }
-
-    private static string StripGenericArity(string name)
-    {
-        var index = name.IndexOf('`', StringComparison.Ordinal);
-        return index >= 0 ? name[..index] : name;
     }
 
     private static bool LooksLikeCSharpUnion(System.Reflection.TypeInfo typeInfo)

@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Changed the body-declared union case ABI to emit non-generic cases inside the
+  union and generic-union cases inside an explicitly annotated non-generic
+  companion. Raven merges the carrier and companion during metadata import, so
+  case lookup, `import Union.*`, preludes, matching, and semantic ownership stay
+  unchanged while each CLR case carries only the generic parameters it uses.
+  The carrier retains the C# union constructor, `Value`, and `TryGetValue`
+  surface, and C# can construct and match cases as `Result.Ok<T>` and
+  `Result.Error<E>`.
+
 - Raven.Core nullable conversions and JSON naming-policy handling now use
   explicit typed pattern bindings, and `Option` construction is qualified to
   remain unambiguous against .NET 11 framework metadata.

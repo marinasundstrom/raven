@@ -7,6 +7,72 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
+internal sealed class PEUnionCompanionSymbol : PENamedTypeSymbol
+{
+    private const string RavenUnionCompanionAttributeMetadataName = "Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute";
+    private IUnionSymbol? _associatedUnion;
+    private bool _associationResolving;
+
+    public PEUnionCompanionSymbol(
+        ReflectionTypeLoader reflectionTypeLoader,
+        System.Reflection.TypeInfo typeInfo,
+        ISymbol containingSymbol,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations)
+        : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType: null, containingNamespace, locations, addAsMember: false)
+    {
+    }
+
+    internal bool TryGetAssociatedUnion(out IUnionSymbol union)
+    {
+        if (_associatedUnion is null && !_associationResolving)
+        {
+            _associationResolving = true;
+            try
+            {
+                _associatedUnion = ResolveAssociatedUnion();
+            }
+            finally
+            {
+                _associationResolving = false;
+            }
+        }
+
+        union = _associatedUnion!;
+        return union is not null;
+    }
+
+    private IUnionSymbol? ResolveAssociatedUnion()
+    {
+        foreach (var attribute in GetCustomAttributesSafe(_typeInfo))
+        {
+            if (GetAttributeTypeName(attribute) != RavenUnionCompanionAttributeMetadataName)
+                continue;
+
+            try
+            {
+                if (attribute.ConstructorArguments is not [{ Value: string unionMetadataName }])
+                    continue;
+
+                if (ContainingAssembly?.GetTypeByMetadataName(unionMetadataName) is IUnionSymbol assemblyUnion)
+                {
+                    return assemblyUnion;
+                }
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException or
+                    BadImageFormatException or
+                    TypeLoadException or
+                    System.IO.FileNotFoundException)
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+}
+
 internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 {
     private const string RavenUnionCaseAttributeMetadataName = "Raven.Runtime.CompilerServices.RavenUnionCaseAttribute";
@@ -78,24 +144,9 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 
     internal bool TryGetDeclaredCaseType(string logicalCaseName, out IUnionCaseTypeSymbol caseType)
     {
-        if (_cases is { } loadedCases)
-        {
-            caseType = loadedCases.FirstOrDefault(@case =>
-                string.Equals(@case.Name, logicalCaseName, StringComparison.Ordinal))!;
-            return caseType is not null;
-        }
-
-        foreach (var metadataName in GetCandidateCaseMetadataNames(logicalCaseName))
-        {
-            if (TryResolveCaseMetadataType(metadataName, out var candidate))
-            {
-                caseType = candidate;
-                return true;
-            }
-        }
-
-        caseType = null!;
-        return false;
+        caseType = DeclaredCaseTypes.FirstOrDefault(@case =>
+            string.Equals(@case.Name, logicalCaseName, StringComparison.Ordinal))!;
+        return caseType is not null;
     }
 
     private ImmutableArray<IUnionCaseTypeSymbol> GetDeclaredCaseTypesFromRavenMetadata()
@@ -107,10 +158,10 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
             if (GetAttributeTypeName(attribute) != RavenUnionCaseAttributeMetadataName)
                 continue;
 
-            if (!TryReadRavenUnionCaseAttribute(attribute, out var caseTypeMetadataName, out var logicalCaseName, out var ordinal))
+            if (!TryReadRavenUnionCaseAttribute(attribute, out var caseTypeMetadataName, out _, out var ordinal))
                 continue;
 
-            if (TryResolveRavenUnionCaseType(caseTypeMetadataName, logicalCaseName, out var caseType))
+            if (TryResolveRavenUnionCaseType(caseTypeMetadataName, out var caseType))
                 builder.Add((ordinal, caseType));
         }
 
@@ -125,19 +176,9 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
             .ToImmutableArray();
     }
 
-    private bool TryResolveRavenUnionCaseType(string caseTypeMetadataName, string logicalCaseName, out IUnionCaseTypeSymbol caseType)
+    private bool TryResolveRavenUnionCaseType(string caseTypeMetadataName, out IUnionCaseTypeSymbol caseType)
     {
-        if (TryResolveCaseTypeByMetadataName(caseTypeMetadataName, out caseType))
-            return true;
-
-        foreach (var metadataName in GetCandidateCaseMetadataNames(logicalCaseName))
-        {
-            if (TryResolveCaseMetadataType(metadataName, out caseType))
-                return true;
-        }
-
-        caseType = null!;
-        return false;
+        return TryResolveCaseTypeByMetadataName(caseTypeMetadataName, out caseType);
     }
 
     private static bool TryReadRavenUnionCaseAttribute(
@@ -173,16 +214,6 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
         }
     }
 
-    private bool TryResolveCaseMetadataType(string metadataName, out IUnionCaseTypeSymbol caseType)
-    {
-        var namespaceName = ContainingNamespace?.ToMetadataName() ?? string.Empty;
-        var fullName = string.IsNullOrEmpty(namespaceName)
-            ? metadataName
-            : namespaceName + "." + metadataName;
-
-        return TryResolveCaseTypeByMetadataName(fullName, out caseType);
-    }
-
     private bool TryResolveCaseTypeByMetadataName(string metadataName, out IUnionCaseTypeSymbol caseType)
     {
         var namedType = ContainingAssembly?.GetTypeByMetadataName(metadataName) as INamedTypeSymbol;
@@ -202,8 +233,8 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
             caseType = new PEUnionCaseSymbol(
                 _reflectionTypeLoader,
                 peType.GetTypeInfo(),
-                peType.ContainingSymbol ?? peType.ContainingNamespace ?? ContainingSymbol!,
-                peType.ContainingType,
+                this,
+                peType.ContainingType ?? this,
                 peType.ContainingNamespace,
                 peType.Locations.ToArray(),
                 this);
@@ -212,17 +243,6 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 
         caseType = null!;
         return false;
-    }
-
-    private IEnumerable<string> GetCandidateCaseMetadataNames(string logicalCaseName)
-    {
-        var aritySuffixStart = MetadataName.IndexOf('`', StringComparison.Ordinal);
-        var aritySuffix = aritySuffixStart >= 0 ? MetadataName[aritySuffixStart..] : string.Empty;
-
-        yield return UnionFacts.GetCaseMetadataBaseName(Name, logicalCaseName) + aritySuffix;
-        yield return UnionFacts.GetCaseMetadataBaseName(Name, logicalCaseName);
-        yield return Name + logicalCaseName + aritySuffix;
-        yield return Name + logicalCaseName;
     }
 
     public IFieldSymbol DiscriminatorField =>
@@ -330,19 +350,21 @@ internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbo
     private string? _logicalCaseName;
     private ImmutableArray<IParameterSymbol>? _constructorParameters;
     private int? _ordinal;
+    private readonly INamedTypeSymbol _metadataContainingType;
 
     public PEUnionCaseSymbol(
         ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
+        IUnionSymbol semanticUnion,
+        INamedTypeSymbol metadataContainingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         IUnionSymbol? inferredUnion)
-        : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations,
+        : base(reflectionTypeLoader, typeInfo, semanticUnion, (INamedTypeSymbol)semanticUnion, containingNamespace, locations,
         addAsMember: false)
     {
         _inferredUnion = inferredUnion;
+        _metadataContainingType = metadataContainingType;
     }
 
     public override string Name => _logicalCaseName ??= ComputeLogicalCaseName();
@@ -360,13 +382,11 @@ internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbo
             if (_inferredUnion is not null)
                 return _union = _inferredUnion;
 
-            var resolvedFromMetadataName = ResolveUnionFromMetadataName();
-            if (resolvedFromMetadataName is not null)
-                return _union = resolvedFromMetadataName;
-
             throw new InvalidOperationException($"Could not resolve discriminated union for '{Name}'.");
         }
     }
+
+    public INamedTypeSymbol MetadataContainingType => _metadataContainingType;
 
     public ImmutableArray<IParameterSymbol> ConstructorParameters
     {
@@ -419,28 +439,6 @@ internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbo
 
         if (_inferredUnion is not null)
             return _inferredUnion;
-
-        return ResolveUnionFromMetadataName();
-    }
-
-    private IUnionSymbol? ResolveUnionFromMetadataName()
-    {
-        if (ContainingNamespace is not null)
-        {
-            var rawCaseName = base.Name;
-
-            var inferredUnion = ContainingNamespace
-                .GetAllMembersRecursive()
-                .OfType<IUnionSymbol>()
-                .FirstOrDefault(unionSymbol =>
-                    UnionFacts.TryGetLogicalCaseNameFromMetadata(
-                        unionSymbol.Name,
-                        rawCaseName,
-                        out _));
-
-            if (inferredUnion is not null)
-                return inferredUnion;
-        }
 
         return null;
     }

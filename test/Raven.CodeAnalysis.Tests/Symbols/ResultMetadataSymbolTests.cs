@@ -385,7 +385,7 @@ class Container {
 
     private static bool AreEquivalentTypes(ITypeSymbol left, ITypeSymbol right)
     {
-        if (SymbolEqualityComparer.Default.Equals(left, right))
+        if (left.MetadataIdentityEquals(right))
             return true;
 
         var leftNamed = left as INamedTypeSymbol;
@@ -393,6 +393,7 @@ class Container {
         if (leftNamed is null || rightNamed is null)
             return false;
 
-        return SymbolEqualityComparer.Default.Equals(leftNamed.OriginalDefinition, rightNamed.OriginalDefinition);
+        return leftNamed.OriginalDefinition.MetadataIdentityEquals(rightNamed.OriginalDefinition);
     }
+
 }

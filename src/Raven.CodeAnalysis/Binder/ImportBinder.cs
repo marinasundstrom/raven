@@ -232,6 +232,13 @@ class ImportBinder : Binder
 
         type = ResolveMetadataType(namespaceName)
             ?? ResolveTypeFromContainingNamespace(namespaceName);
+
+        if (type is PEUnionCompanionSymbol companion &&
+            companion.TryGetAssociatedUnion(out var union))
+        {
+            type = (ITypeSymbol)union;
+        }
+
         return type is not null;
     }
 

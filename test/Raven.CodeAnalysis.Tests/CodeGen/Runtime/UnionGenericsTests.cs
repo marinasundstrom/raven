@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
@@ -54,10 +55,76 @@ union Result<T, E> {
         Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
-        var typeNames = loaded.Assembly.GetTypes().Select(type => type.FullName ?? type.Name).ToArray();
+        var assembly = loaded.Assembly;
+        var union = Assert.IsAssignableFrom<Type>(assembly.GetType("Result`2"));
+        var companion = Assert.IsAssignableFrom<Type>(assembly.GetType("Result"));
+        const BindingFlags nestedVisibility = BindingFlags.Public | BindingFlags.NonPublic;
+        var ok = Assert.IsAssignableFrom<Type>(companion.GetNestedType("Ok`1", nestedVisibility));
+        var error = Assert.IsAssignableFrom<Type>(companion.GetNestedType("Error`1", nestedVisibility));
 
-        Assert.Contains(typeNames, name => name.Contains("Result_Ok", StringComparison.Ordinal));
-        Assert.Contains(typeNames, name => name.Contains("Result_Error", StringComparison.Ordinal));
+        Assert.Equal(2, union.GetGenericArguments().Length);
+        Assert.Single(ok.GetGenericArguments());
+        Assert.Single(error.GetGenericArguments());
+        Assert.Same(companion, ok.DeclaringType);
+        Assert.Same(companion, error.DeclaringType);
+        Assert.DoesNotContain(assembly.GetTypes(), type => type.Name.StartsWith("Result_", StringComparison.Ordinal));
+
+        var companionAttribute = Assert.Single(
+            companion.CustomAttributes,
+            attribute => attribute.AttributeType.FullName == "Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute");
+        Assert.Equal("Result`2", companionAttribute.ConstructorArguments.Single().Value);
+    }
+
+    [Fact]
+    public void GenericUnionMetadataImport_MergesCompanionCasesIntoUnionLookup()
+    {
+        var producerTree = SyntaxTree.ParseText(
+            """
+            public union Result<T, E> {
+                case Ok(value: T)
+                case Error(error: E)
+            }
+            """);
+        var producer = Compilation.Create(
+                "generic-union-provider",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(producerTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var emitResult = producer.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        var consumerTree = SyntaxTree.ParseText(
+            """
+            import Result.*
+
+            func Create() -> Result<int, string> {
+                Ok(42)
+            }
+            """);
+        var consumer = Compilation.Create(
+                "generic-union-consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(consumerTree)
+            .AddReferences([.. TestMetadataReferences.Default, MetadataReference.CreateFromImage(peStream.ToArray())]);
+
+        Assert.DoesNotContain(
+            consumer.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var union = Assert.Single(consumer.GlobalNamespace.GetMembers("Result").OfType<IUnionSymbol>());
+        Assert.Collection(
+            union.DeclaredCaseTypes,
+            ok =>
+            {
+                Assert.Equal("Ok", ok.Name);
+                Assert.Same(union, ok.ContainingSymbol);
+                Assert.Same(union, ok.ContainingType);
+                Assert.Equal("Result", ok.MetadataContainingType.Name);
+                Assert.Equal(0, ok.MetadataContainingType.Arity);
+            },
+            error => Assert.Equal("Error", error.Name));
     }
 
     [Fact]

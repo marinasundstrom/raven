@@ -523,7 +523,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
         {
             var segments = new Stack<string>();
 
-            for (INamedTypeSymbol? current = named; current is not null; current = current.ContainingType)
+            for (INamedTypeSymbol? current = named; current is not null; current = GetMetadataContainingType(current))
             {
                 var segment = current.MetadataName ?? current.Name ?? string.Empty;
 
@@ -542,6 +542,11 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
             typeName = segments.Count > 0
                 ? string.Join("+", segments)
                 : MetadataName;
+
+            static INamedTypeSymbol? GetMetadataContainingType(INamedTypeSymbol type)
+                => type is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+                    ? unionCase.MetadataContainingType
+                    : type.ContainingType;
         }
         else
         {
@@ -731,6 +736,8 @@ public interface IUnionSymbol : INamedTypeSymbol
 public interface IUnionCaseTypeSymbol : INamedTypeSymbol
 {
     IUnionSymbol Union { get; }
+
+    INamedTypeSymbol MetadataContainingType { get; }
 
     ImmutableArray<IParameterSymbol> ConstructorParameters { get; }
 

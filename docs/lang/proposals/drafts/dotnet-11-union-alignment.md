@@ -56,7 +56,7 @@ these relevant properties:
 
 * A source `union` declaration generates a value type by default.
 * Generated unions implement `System.Runtime.CompilerServices.IUnion`.
-* Unions expose `Value`, documented as `object?`; in local .NET 11 Preview 4
+* Unions expose `Value`, documented as `object?`; in local .NET 11 Preview 6
   reflection currently reports `System.Object`, while nullable metadata carries
   the nullable state.
 * Case types may be classes, structs, interfaces, type parameters, nullable
@@ -79,8 +79,8 @@ these relevant properties:
 * Custom class unions may have a null carrier reference; struct unions may have
   a default value whose `Value` is null.
 
-As of local verification with .NET SDK `11.0.100-preview.4.26230.115`,
-`UnionAttribute` and `IUnion` are present in the Preview 4 reference and runtime
+As of local verification with .NET SDK `11.0.100-preview.6.26359.118`,
+`UnionAttribute` and `IUnion` are present in the Preview 6 reference and runtime
 assemblies. A small C# probe using:
 
 ```csharp
@@ -121,7 +121,8 @@ References:
 ## Non-goals
 
 * Do not remove Raven's current union syntax.
-* Do not require Raven case types to be nested CLR types.
+* Do not physically nest body-declared cases in a generic union carrier, where
+  CLR nested types inherit the carrier's complete generic parameter list.
 * Do not require Raven to use C#'s exact storage layout.
 * Do not change `Option<T>` or `Result<T, E>` semantics beyond interop surface
   alignment.
@@ -157,7 +158,7 @@ but it should not be required for basic interop on .NET 11 and later.
 
 Raven should not emit `System.Runtime.CompilerServices.UnionCaseAttribute` or
 `DiscriminatedUnionCaseAttribute`. Those case marker attributes are not part of
-the current .NET 11 Preview 4 direction.
+the current .NET 11 union direction.
 
 Recognition should follow the C# basic union pattern, not Raven metadata:
 
@@ -245,8 +246,10 @@ public static implicit operator Result<T, E>(Ok<T> value);
 public static implicit operator Result<T, E>(Error<E> value);
 ```
 
-Raven can continue to synthesize independent case types rather than nested case
-types. Compatibility must not depend on nested CLR case types.
+Raven continues to synthesize independent case types. C# compatibility depends
+on the carrier's public one-parameter constructors, `Value`, and optional
+`TryGetValue` members; it does not require a particular metadata owner for the
+case types.
 
 For standard C#-style parenthesized unions, the public constructor set is the
 case set. Raven should avoid creating additional public one-parameter
@@ -281,8 +284,49 @@ This keeps binary compatibility centered on the same case constructor pattern
 that C# consumes.
 
 Body-declared case types are a Raven extension rather than the C# standard union
-shape. For those cases Raven may emit Raven-owned implementation metadata on the
-carrier:
+shape. Their CLR organization follows this ABI:
+
+```text
+// Non-generic union
+Choice
+ ├─ Int32
+ └─ Text
+
+// Generic union plus non-generic companion
+Result`2
+Result
+ ├─ Ok`1
+ └─ Error`1
+```
+
+A non-generic union physically contains its case types. A generic union uses a
+non-generic, same-name companion so each case declares only the generic
+parameters its payload requires. For example, `Result.Ok<T>` does not inherit
+the unused `E` parameter from `Result<T, E>`.
+
+The companion is annotated with an explicit association; matching names alone
+do not establish the relationship:
+
+```csharp
+namespace Raven.Runtime.CompilerServices
+{
+    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
+    public sealed class RavenUnionCompanionAttribute(string unionTypeMetadataName) : Attribute;
+}
+
+[RavenUnionCompanion("Result`2")]
+public static class Result
+{
+    public readonly struct Ok<T> { /* ... */ }
+    public readonly struct Error<E> { /* ... */ }
+}
+```
+
+The metadata name is resolved in the companion's containing assembly. This is
+an explicit ABI association, not a convention based on the companion's own
+name.
+
+Raven also emits carrier-level case metadata:
 
 ```csharp
 namespace Raven.Runtime.CompilerServices
@@ -292,14 +336,24 @@ namespace Raven.Runtime.CompilerServices
 }
 ```
 
-The attribute records the stable case type metadata name, logical source name,
-and source ordinal. It is carrier-level metadata so individual case types do not
-need a non-standard system marker. PE import should prefer this metadata for
-body-declared Raven unions, and use public single-argument constructors and
-`TryGetValue(out T)` to infer member types for C#/standard unions.
+`RavenUnionCaseAttribute` records the stable nested metadata name, logical source
+name, and source ordinal. PE import detects the companion annotation, resolves
+its referenced union, and reparents the companion's physical case types into
+the union's logical member table. For non-generic unions, the physical and
+logical owner are already the same union type.
 
-Raven case types emitted from body-form unions may remain standalone PE types.
-The imported union carrier is still the logical owner for source lookup and
+Consequently a case can have distinct owners:
+
+```text
+Ok<T>.ContainingSymbol        = Result<T, E>
+Ok<T>.ContainingType          = Result<T, E>
+Ok<T>.MetadataContainingType  = Result
+```
+
+Compiler code must use metadata containment for CLR identity and semantic
+containment for Raven lookup. The companion does not appear as a second Raven
+source type; Raven presents the carrier and companion as one merged declaration.
+The imported union carrier remains the logical owner for source lookup and
 semantic APIs:
 
 ```raven
@@ -309,11 +363,22 @@ let result = Ok(42)
 ```
 
 `import System.Result.*` imports the logical members of the `Result` union,
-including `Ok` and `Error`, even though their PE types are emitted as standalone
-metadata types. The same applies to `System.Option.*` and to Raven-authored
-metadata unions that expose `RavenUnionCaseAttribute` on the carrier. This keeps
-source imports aligned with Raven's union model while avoiding non-standard
-system case marker attributes.
+including `Ok` and `Error`, regardless of whether their physical metadata owner
+is the non-generic union or its companion. The same projection applies to
+prelude/global imports. This keeps source imports aligned with Raven's union
+model while avoiding non-standard system case marker attributes.
+
+C# callers can construct and match the physical types directly:
+
+```csharp
+Result<int, string> value = new Result.Ok<int>(42);
+if (value is Result.Ok<int> ok) { /* ... */ }
+```
+
+Generic type arguments on the case constructor are explicit today. Factory
+helpers are deferred until the C# generic-constructor-inference direction is
+settled, because such helpers would be permanent public API rather than an ABI
+requirement.
 
 ### 4. Case extraction
 
@@ -363,7 +428,7 @@ The semantic rules should align with C#:
 For body-declared Raven unions imported from metadata, pattern matching should
 resolve the logical case through the carrier and then bind extraction through
 `TryGetValue(out CaseType)`. PE import may see the logical case symbol and the
-standalone `TryGetValue` parameter type as different symbol instances, so the
+nested `TryGetValue` parameter type as different symbol instances, so the
 compiler must match them by stable metadata identity. With that bridge in
 place, ordinary case patterns continue to work:
 
@@ -428,9 +493,9 @@ func GetItem() -> Result<string, Err> {
 
 The binder should infer the constructed PE case types from constructors and
 `TryGetValue(out T)` before falling back to Raven's logical case wrappers. This
-matters because metadata names such as `Result_Ok<T>` and `Result_Error<E>`
-encode the carrier name and generic arity, while the source-visible logical
-names remain `Ok` and `Error`.
+matters because metadata names such as `Result+Ok<T>` and `Result+Error<E>` use
+the physical companion path, while the source-visible logical owner remains
+`Result<T, E>`.
 
 ### 6. Standard union syntax
 
@@ -527,9 +592,9 @@ Likely implementation touchpoints:
   exhaustiveness alignment.
 * `src/Raven.CodeAnalysis/BoundTree/Lowering/*Propagate*` and carrier
   conditional-access binding for matching PE case wrappers and constructed
-  standalone case types by metadata identity.
+  nested case types by metadata identity.
 * `src/Raven.CodeAnalysis/CodeGen/*` for emitting `[Union]`, `IUnion`, Raven
-  case metadata, `Value`, creation members, and `TryGetValue(out T)`.
+  case/companion metadata, `Value`, creation members, and `TryGetValue(out T)`.
 * `src/Raven.CodeAnalysis/Symbols/SymbolExtensions.cs` for display of standard
   union syntax instead of implementation bridge names.
 * `docs/lang/spec/dotnet-implementation.md` and
@@ -542,13 +607,13 @@ Add focused tests in these areas:
 * Emit Raven unions with a .NET 11-compatible marker and `IUnion.Value` surface.
 * Verify body-declared Raven cases are recorded through
   `RavenUnionCaseAttribute` on the carrier, not system case marker attributes.
-* Consume C# Preview 4 generated unions from metadata.
+* Consume current C# 15 generated unions from metadata.
 * Consume custom C# unions marked with `[Union]`.
 * Preserve Raven construction syntax for body-form and parenthesized unions.
 * Verify wildcard imports such as `import System.Result.*` and
   `import System.Option.*` bring logical case names into unqualified scope from
   metadata.
-* Validate `TryGetValue(out T)` extraction for independent case types.
+* Validate `TryGetValue(out T)` extraction for nested case types.
 * Verify pattern matching over consumed C# unions and Raven body-form unions
   imported from PE metadata.
 * Verify result/option propagation and carrier conditional access over Raven.Core
