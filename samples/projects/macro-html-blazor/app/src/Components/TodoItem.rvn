@@ -1,0 +1,27 @@
+import System.Threading.Tasks.*
+import Microsoft.AspNetCore.Components.*
+
+#[Component]
+public class TodoItem {
+    #[Parameter]
+    var title: string = ""
+
+    #[Parameter]
+    var isCompleted: bool = false
+
+    #[Parameter]
+    var toggled: EventCallback = default(EventCallback)
+
+    func toggle() -> Task => toggled.InvokeAsync()
+
+    func Render() -> RenderFragment =>
+        Html! {
+            <li class={if isCompleted { "todo-item is-complete" } else { "todo-item" }}>
+                <label>
+                    <input type="checkbox" checked={isCompleted} onChange={toggle} />
+                    <span class="todo-marker">{if isCompleted { "✓" } else { "" }}</span>
+                    <span class="todo-title">{title}</span>
+                </label>
+            </li>
+        }
+}

@@ -1,0 +1,24 @@
+import Microsoft.AspNetCore.Components.*
+
+#[Component]
+public class Counter {
+    #[Parameter]
+    var initialCount: int = 0
+
+    var count: int = 0
+
+    protected override func OnInitialized() {
+        count = initialCount
+    }
+
+    func increment() {
+        count = count + 1
+    }
+
+    func Render() -> RenderFragment =>
+        Html! {
+            <button onClick={increment}>
+                Count: {count}
+            </button>
+        }
+}

@@ -1,0 +1,12 @@
+import Microsoft.AspNetCore.Components.*
+
+#[Component]
+public class Gallery {
+    func Render() -> RenderFragment =>
+        Html! {
+            <div class="composition">
+                <Greeting name="Raven" />
+                <Counter initialCount={3} />
+            </div>
+        }
+}

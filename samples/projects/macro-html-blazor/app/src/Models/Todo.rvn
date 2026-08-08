@@ -1,0 +1,1 @@
+public record Todo(Id: int, Title: string, IsCompleted: bool)

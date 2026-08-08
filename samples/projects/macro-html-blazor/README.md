@@ -46,6 +46,28 @@ Not supported by the macro:
 `#[Parameter]` is convenience rather than a new parameter model. Components
 can use Blazor's ordinary `[Parameter]` attribute directly when preferred.
 
+## Sample layout
+
+The application follows the same one-component-per-file convention expected
+of a normal component project:
+
+```text
+app/src/
+├── Program.rvn
+├── Components/
+│   ├── Counter.rvn
+│   ├── Gallery.rvn
+│   ├── Greeting.rvn
+│   ├── TodoItem.rvn
+│   └── TodoList.rvn
+└── Models/
+    └── Todo.rvn
+```
+
+`Program.rvn` contains only the executable render-tree verification. Component
+and model declarations remain ordinary Raven source files discovered by the
+project's existing `src/**/*.rvn` compile glob.
+
 Build and run:
 
 ```bash

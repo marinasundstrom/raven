@@ -1,0 +1,57 @@
+import System.*
+import Microsoft.AspNetCore.Components.*
+
+#[Component]
+public class TodoList {
+    var todos: Todo[] = [
+        Todo(1, "Explore Raven macros", true)
+        Todo(2, "Render a list comprehension", false)
+        Todo(3, "Ship a Blazor component", false)
+    ]
+    var showCompleted: bool = false
+
+    func toggleTodo(id: int) {
+        for index in 0..<todos.Length {
+            let todo = todos[index]
+            if todo.Id == id {
+                todos[index] = Todo(todo.Id, todo.Title, todo.IsCompleted == false)
+                return
+            }
+        }
+    }
+
+    func toggleCompletedVisibility() {
+        showCompleted = showCompleted == false
+    }
+
+    func toggleCallback(id: int) -> EventCallback {
+        let callback: Action = () => toggleTodo(id)
+        return EventCallback.Factory.Create(self, callback)
+    }
+
+    func Render() -> RenderFragment {
+        return Html! {
+            <section class="todo-board">
+                <header class="todo-heading">
+                    <div>
+                        <span class="todo-kicker">Today</span>
+                        <h2>Build the future</h2>
+                    </div>
+                    <button class="todo-filter" onClick={toggleCompletedVisibility}>
+                        {if showCompleted { "Hide completed" } else { "Show completed" }}
+                    </button>
+                </header>
+                <ul class="todo-list">
+                    {[for todo in todos if showCompleted || !todo.IsCompleted =>
+                        Html! {
+                            <TodoItem
+                                key={todo.Id}
+                                title={todo.Title}
+                                isCompleted={todo.IsCompleted}
+                                toggled={toggleCallback(todo.Id)} />
+                        }]}
+                </ul>
+            </section>
+        }
+    }
+}
