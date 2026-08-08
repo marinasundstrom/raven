@@ -206,6 +206,13 @@ presentation for any DSL that reports the same fragment metadata.
 Go-to-definition uses the resolved symbol and authored token span through the
 same compiler result. Caller symbols navigate normally; fragment locals with a
 declaration span navigate to that authored DSL token.
+If a fragment contains a nested token-tree macro with fragment metadata,
+semantic lookup recursively resolves the most specific nested region. The
+nested region inherits the lexical bindings visible at its invocation,
+including comprehension and pattern locals, while macro-name resolution uses
+the authored outer invocation's namespace and imports. Recursion is bounded;
+failure to resolve a nested region falls back without exposing expansion
+implementation symbols.
 
 `SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
 the standard or custom stream selected for a token-tree invocation. Each

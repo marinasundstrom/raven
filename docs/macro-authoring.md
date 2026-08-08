@@ -333,6 +333,14 @@ provider for ordinary Raven fragments. Go-to-definition uses the same result:
 caller symbols navigate to their ordinary Raven declarations. A
 DSL-introduced local can also supply its declaration token span:
 
+Fragments may contain another token-tree macro invocation. When the nested
+macro reports its own fragment regions, semantic lookup descends recursively
+and carries the lexical bindings visible at that invocation into the nested
+fragment. For example, an HTML macro nested in a collection-comprehension
+selector can resolve the comprehension item and caller members without either
+macro exposing its private DSL structure. Macro resolution continues to use
+the imports and namespace of the authored outer invocation.
+
 ```raven
 let item = context.CreateSequenceElementLocal(
     rangeToken.ValueText,

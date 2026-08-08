@@ -178,24 +178,32 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var todoPosition = source.IndexOf("todo.Title", StringComparison.Ordinal) + 1;
         var titlePosition = source.IndexOf("Title.Length", StringComparison.Ordinal) + 1;
         var nestedTodoPosition = source.LastIndexOf("todo.Title", StringComparison.Ordinal) + 1;
+        var nestedTitlePosition = source.LastIndexOf("Title", StringComparison.Ordinal) + 1;
 
         var todosInfo = compilation.GetMacroFragmentSemanticInfo(invocation, todosPosition);
         var todoInfo = compilation.GetMacroFragmentSemanticInfo(invocation, todoPosition);
         var titleInfo = compilation.GetMacroFragmentSemanticInfo(invocation, titlePosition);
         var nestedTodoInfo = compilation.GetMacroFragmentSemanticInfo(invocation, nestedTodoPosition);
+        var nestedTitleInfo = compilation.GetMacroFragmentSemanticInfo(invocation, nestedTitlePosition);
 
         var todos = Assert.IsAssignableFrom<IPropertySymbol>(todosInfo?.SymbolInfo.Symbol);
         Assert.Equal("todos", todos.Name);
 
         var todo = Assert.IsAssignableFrom<ILocalSymbol>(todoInfo?.SymbolInfo.Symbol);
-        Assert.Contains("todo", todo.Name, StringComparison.Ordinal);
+        Assert.Equal("todo", todo.Name);
         Assert.Equal("Todo", todo.Type.Name);
 
         var title = Assert.IsAssignableFrom<IPropertySymbol>(titleInfo?.SymbolInfo.Symbol);
         Assert.Equal("Title", title.Name);
         Assert.Equal(SpecialType.System_String, title.Type.SpecialType);
 
-        Assert.False(nestedTodoInfo?.SymbolInfo.Symbol is ILambdaSymbol);
+        var nestedTodo = Assert.IsAssignableFrom<ILocalSymbol>(nestedTodoInfo?.SymbolInfo.Symbol);
+        Assert.Equal("todo", nestedTodo.Name);
+        Assert.Equal("Todo", nestedTodo.Type.Name);
+
+        var nestedTitle = Assert.IsAssignableFrom<IPropertySymbol>(nestedTitleInfo?.SymbolInfo.Symbol);
+        Assert.Equal("Title", nestedTitle.Name);
+        Assert.Equal(SpecialType.System_String, nestedTitle.Type.SpecialType);
     }
 
     private static Compilation CreateConsumerCompilation(

@@ -7,7 +7,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed macro-fragment semantic queries over collection comprehensions and
   nested macro expansions so detached fragment syntax no longer crashes while
   creating synthesized locals, lambdas, or parameters. Hover now resolves the
-  outer comprehension source, condition, iteration-local members, and avoids
+  outer comprehension source, condition, and iteration-local members. Nested
+  token-tree macro fragments inherit the lexical scope at their invocation, so
+  HTML expressions inside a comprehension resolve the item, its members, and
+  caller callbacks without HTML-specific language-server logic. Hover uses
+  authored names for compiler-synthesized comprehension locals and avoids
   presenting a nested macro's generated lambda as the authored DSL symbol.
 
 - Added optional ordinary-symbol targets to macro token metadata. Outer DSL

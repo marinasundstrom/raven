@@ -210,7 +210,9 @@ accepted only when the preceding use case demonstrates its value.
    (implemented).** Resolve expression and statement fragment symbols through
    the compiler-owned semantic model. Reuse normal Raven hover and definition
    presentation. Optional declaration spans give macro-introduced locals a
-   navigation target without introducing DSL nodes.
+   navigation target without introducing DSL nodes. Nested token-tree macros
+   recursively inherit the lexical bindings at their invocation, so composed
+   DSLs use the same compiler API without language-server special cases.
 5. **Project ordinary symbols from outer DSL tokens (implemented).** An
    optional token-symbol provider and `MacroTokenInfo.Symbol` let component
    tags, schema identifiers, and similar tokens reuse normal Raven hover and

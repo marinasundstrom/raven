@@ -2241,6 +2241,9 @@ partial class BlockBinder : Binder
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         using var _ = EnterExecutionScope();
 
+        if (syntax is FreestandingMacroExpressionSyntax macroExpressionForScope)
+            OnFreestandingMacroExpressionBinding(macroExpressionForScope);
+
         var activeTargetType = GetScopedTargetType(syntax);
         var useContextualCache = activeTargetType is not null;
         var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax;
@@ -2316,6 +2319,10 @@ partial class BlockBinder : Binder
             CacheBoundNode(syntax, boundNode);
 
         return boundNode;
+    }
+
+    protected virtual void OnFreestandingMacroExpressionBinding(FreestandingMacroExpressionSyntax syntax)
+    {
     }
 
     private BoundExpression BindObjectInitializerExpressionForSemanticQuery(ObjectInitializerExpressionSyntax syntax)

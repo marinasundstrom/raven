@@ -1,10 +1,15 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
+    private const int MaxMacroFragmentNestingDepth = 16;
+
     /// <summary>
     /// Gets ordinary Raven semantic information at an authored position inside a
     /// fragment reported by a token-tree macro.
@@ -27,6 +32,31 @@ public partial class SemanticModel
         if (region is null)
             return null;
 
+        var parentBinder = GetBinder(expression);
+        return GetMacroFragmentSemanticInfo(
+            expression,
+            region,
+            position,
+            parentBinder,
+            MacroFragmentBinder.CreateVisibleSymbols(
+                GetVisibleValueSymbols(expression, allowBindingFallback: true)),
+            expression,
+            nestingDepth: 0,
+            cancellationToken);
+    }
+
+    private MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
+        FreestandingMacroExpressionSyntax expression,
+        MacroFragmentRegion region,
+        int position,
+        Binder parentBinder,
+        ImmutableArray<MacroFragmentVisibleSymbol> visibleSymbols,
+        FreestandingMacroExpressionSyntax resolutionContext,
+        int nestingDepth,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
         SyntaxNode fragment;
         switch (region.Kind)
@@ -41,11 +71,10 @@ public partial class SemanticModel
                 return null;
         }
 
-        var parentBinder = GetBinder(expression);
         var binder = new MacroFragmentBinder(
             parentBinder,
             region.Locals,
-            GetVisibleValueSymbols(expression, allowBindingFallback: true),
+            visibleSymbols,
             SyntaxTree);
         switch (fragment)
         {
@@ -63,6 +92,40 @@ public partial class SemanticModel
         var token = fragment.FindToken(searchPosition);
         if (token.Kind == SyntaxKind.None || token.Parent is null)
             return null;
+
+        if (nestingDepth < MaxMacroFragmentNestingDepth)
+        {
+            foreach (var nestedInvocation in token.Parent.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>())
+            {
+                if (nestedInvocation.TokenTree?.Span.Contains(searchPosition) != true ||
+                    !binder.TryGetNestedMacroVisibleSymbols(nestedInvocation, out var nestedVisibleSymbols))
+                {
+                    continue;
+                }
+
+                var nestedRegion = FindFragmentRegion(
+                    MacroFragmentRegionService.GetFragmentRegions(
+                        this,
+                        nestedInvocation,
+                        resolutionContext,
+                        cancellationToken),
+                    position);
+                if (nestedRegion is null)
+                    continue;
+
+                var nestedInfo = GetMacroFragmentSemanticInfo(
+                    nestedInvocation,
+                    nestedRegion,
+                    position,
+                    binder,
+                    nestedVisibleSymbols,
+                    resolutionContext,
+                    nestingDepth + 1,
+                    cancellationToken);
+                if (nestedInfo is not null)
+                    return nestedInfo;
+            }
+        }
 
         foreach (var candidate in token.Parent.AncestorsAndSelf())
         {
@@ -85,6 +148,8 @@ public partial class SemanticModel
             if (symbolInfo.Symbol is null && symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
                 continue;
 
+            symbolInfo = UseAuthoredLocalName(symbolInfo, token.ValueText);
+
             var type = bound is BoundExpression expressionNode ? expressionNode.Type : null;
             return new MacroFragmentSemanticInfo(
                 region,
@@ -95,5 +160,51 @@ public partial class SemanticModel
         }
 
         return null;
+    }
+
+    private static SymbolInfo UseAuthoredLocalName(SymbolInfo symbolInfo, string authoredName)
+    {
+        if (symbolInfo.Symbol is not ILocalSymbol local ||
+            !local.IsImplicitlyDeclared ||
+            string.IsNullOrWhiteSpace(authoredName) ||
+            string.Equals(local.Name, authoredName, StringComparison.Ordinal))
+        {
+            return symbolInfo;
+        }
+
+        var authoredLocal = new SourceLocalSymbol(
+            authoredName,
+            local.Type,
+            local.IsMutable,
+            local.ContainingSymbol!,
+            local.ContainingType,
+            local.ContainingNamespace,
+            local.Locations.ToArray(),
+            local.DeclaringSyntaxReferences.ToArray(),
+            local.IsConst,
+            local.ConstantValue,
+            local.ScopedKind,
+            isImplicitlyDeclared: true);
+        return new SymbolInfo(authoredLocal);
+    }
+
+    private static MacroFragmentRegion? FindFragmentRegion(
+        ImmutableArray<MacroFragmentRegion> regions,
+        int position)
+    {
+        MacroFragmentRegion? best = null;
+        foreach (var region in regions)
+        {
+            var containsPosition = region.Span.Length == 0
+                ? position == region.Span.Start
+                : position >= region.Span.Start && position <= region.Span.End;
+            if (!containsPosition)
+                continue;
+
+            if (best is null || region.Span.Length < best.Span.Length)
+                best = region;
+        }
+
+        return best;
     }
 }

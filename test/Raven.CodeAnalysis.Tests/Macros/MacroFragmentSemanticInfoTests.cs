@@ -136,12 +136,55 @@ public sealed class MacroFragmentSemanticInfoTests
         Assert.Equal("ImmutableList<Customer>", source.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         var local = Assert.IsAssignableFrom<ILocalSymbol>(localInfo?.SymbolInfo.Symbol);
-        Assert.Contains("customer", local.Name, StringComparison.Ordinal);
+        Assert.Equal("customer", local.Name);
         Assert.Equal("Customer", local.Type.Name);
 
         var member = Assert.IsAssignableFrom<IPropertySymbol>(memberInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", member.Name);
         Assert.Equal(SpecialType.System_String, member.Type.SpecialType);
+    }
+
+    [Fact]
+    public void GetMacroFragmentSemanticInfo_ResolvesNestedMacroFragmentSymbols()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            class Customer {
+                val Name: string => "Ada"
+            }
+
+            func Main() {
+                let customer = Customer()
+                let value = fragmentHover! {
+                    fragmentHover! { customer.Name }
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "NestedMacroFragmentHover",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .First();
+        var customerPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
+        var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
+
+        var customerInfo = compilation.GetMacroFragmentSemanticInfo(expression, customerPosition);
+        var nameInfo = compilation.GetMacroFragmentSemanticInfo(expression, namePosition);
+
+        var customer = Assert.IsAssignableFrom<ILocalSymbol>(customerInfo?.SymbolInfo.Symbol);
+        Assert.Equal("customer", customer.Name);
+        Assert.Equal("Customer", customer.Type.Name);
+
+        var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
+        Assert.Equal("Name", name.Name);
+        Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
     }
 
     private sealed class FragmentHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider

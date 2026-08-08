@@ -12,6 +12,13 @@ internal static class MacroFragmentRegionService
         SemanticModel semanticModel,
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken)
+        => GetFragmentRegions(semanticModel, expression, expression, cancellationToken);
+
+    public static ImmutableArray<MacroFragmentRegion> GetFragmentRegions(
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax expression,
+        SyntaxNode resolutionContext,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -19,7 +26,7 @@ internal static class MacroFragmentRegionService
             !expression.TryGetMacroName(out var name) ||
             !semanticModel.Compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                 semanticModel.Compilation,
-                expression,
+                resolutionContext,
                 name,
                 out var loaded,
                 out _) ||
