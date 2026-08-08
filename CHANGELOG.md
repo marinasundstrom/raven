@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed macro-fragment semantic queries over collection comprehensions and
+  nested macro expansions so detached fragment syntax no longer crashes while
+  creating synthesized locals, lambdas, or parameters. Hover now resolves the
+  outer comprehension source, condition, iteration-local members, and avoids
+  presenting a nested macro's generated lambda as the authored DSL symbol.
+
 - Added optional ordinary-symbol targets to macro token metadata. Outer DSL
   tokens now reuse normal VS Code hover and go-to-definition, with the HTML
   sample resolving component tags such as `<Greeting>` without exposing its

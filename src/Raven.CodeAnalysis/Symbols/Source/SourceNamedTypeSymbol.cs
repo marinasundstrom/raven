@@ -389,12 +389,17 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     private static bool HaveSameSignature(IMethodSymbol left, IMethodSymbol right)
     {
-        if (left.Parameters.Length != right.Parameters.Length)
+        var leftParameters = left.Parameters;
+        var rightParameters = right.Parameters;
+        if (leftParameters.IsDefault || rightParameters.IsDefault)
             return false;
 
-        for (var i = 0; i < left.Parameters.Length; i++)
+        if (leftParameters.Length != rightParameters.Length)
+            return false;
+
+        for (var i = 0; i < leftParameters.Length; i++)
         {
-            if (!SymbolEqualityComparer.Default.Equals(left.Parameters[i].Type, right.Parameters[i].Type))
+            if (!SymbolEqualityComparer.Default.Equals(leftParameters[i].Type, rightParameters[i].Type))
                 return false;
         }
 

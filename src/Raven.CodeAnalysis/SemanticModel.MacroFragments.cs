@@ -69,6 +69,12 @@ public partial class SemanticModel
             if (!fragment.FullSpan.Contains(candidate.Span))
                 break;
 
+            if (candidate is FreestandingMacroExpressionSyntax nestedInvocation &&
+                nestedInvocation.TokenTree?.Span.Contains(searchPosition) == true)
+            {
+                continue;
+            }
+
             var bound = TryGetCachedBoundNode(candidate);
             var symbolInfo = bound switch
             {

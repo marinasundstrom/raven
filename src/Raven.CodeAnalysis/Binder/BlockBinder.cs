@@ -1476,7 +1476,7 @@ partial class BlockBinder : Binder
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
             ? variableDeclarator.Identifier.GetLocation()
             : declaringSyntax.GetLocation();
-        var syntaxReference = declaringSyntax.GetReference();
+        var syntaxReferences = GetDeclaringSyntaxReferences(declaringSyntax);
 
         var symbol = new SourceLocalSymbol(
             name,
@@ -1486,7 +1486,7 @@ partial class BlockBinder : Binder
             _containingSymbol?.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [location],
-            [syntaxReference],
+            syntaxReferences,
             isConst,
             constantValue,
             scopedKind);
@@ -1819,9 +1819,13 @@ partial class BlockBinder : Binder
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
             ? variableDeclarator.Identifier.GetLocation()
             : declaringSyntax.GetLocation();
-        var syntaxReference = declaringSyntax is VariableDeclaratorSyntax variableDeclaratorReference
-            ? new SyntaxReference(variableDeclaratorReference.SyntaxTree, variableDeclaratorReference.Identifier.Span)
-            : declaringSyntax.GetReference();
+        SyntaxReference? syntaxReference = null;
+        if (declaringSyntax.SyntaxTree is { } syntaxTree)
+        {
+            syntaxReference = declaringSyntax is VariableDeclaratorSyntax variableDeclaratorReference
+                ? new SyntaxReference(syntaxTree, variableDeclaratorReference.Identifier.Span)
+                : declaringSyntax.GetReference();
+        }
 
         var symbol = new SourceFunctionValueSymbol(
             name,
@@ -1846,7 +1850,7 @@ partial class BlockBinder : Binder
         var containingNamespace = _containingSymbol.ContainingNamespace;
         var name = $"<{nameHint}>__{_tempCounter++}";
         var location = syntax.GetLocation() ?? Location.None;
-        var syntaxReference = syntax.GetReference();
+        var syntaxReferences = GetDeclaringSyntaxReferences(syntax);
 
         return new SourceLocalSymbol(
             name,
@@ -1856,9 +1860,12 @@ partial class BlockBinder : Binder
             containingType,
             containingNamespace,
             [location],
-            syntaxReference is null ? [] : [syntaxReference],
+            syntaxReferences,
             isImplicitlyDeclared: true);
     }
+
+    private static SyntaxReference[] GetDeclaringSyntaxReferences(SyntaxNode syntax)
+        => syntax.SyntaxTree is null ? [] : [syntax.GetReference()];
 
     public override BoundStatement BindStatement(StatementSyntax statement)
     {

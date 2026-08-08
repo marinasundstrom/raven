@@ -161,7 +161,7 @@ partial class BlockBinder
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol.ContainingNamespace,
             [syntax.GetLocation()],
-            [syntax.GetReference()],
+            GetDeclaringSyntaxReferences(syntax),
             isAsync: isAsyncLambda);
         var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
@@ -322,7 +322,7 @@ partial class BlockBinder
                 lambdaSymbol.ContainingType,
                 lambdaSymbol.ContainingNamespace,
                 [parameterLocation],
-                [parameterSyntax.GetReference()],
+                GetDeclaringSyntaxReferences(parameterSyntax),
                 refKind,
                 hasExplicitDefaultValue,
                 explicitDefaultValue,
@@ -1718,7 +1718,7 @@ partial class BlockBinder
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol.ContainingNamespace,
             [syntax.GetLocation()],
-            [syntax.GetReference()],
+            GetDeclaringSyntaxReferences(syntax),
             isAsync: unbound.LambdaSymbol.IsAsync);
 
         var parameterSymbols = new List<IParameterSymbol>(effectiveParameterCount);
@@ -1808,7 +1808,7 @@ partial class BlockBinder
                 lambdaSymbol.ContainingType,
                 lambdaSymbol.ContainingNamespace,
                 [parameterLocation],
-                [parameterSyntax.GetReference()],
+                GetDeclaringSyntaxReferences(parameterSyntax),
                 refKind,
                 hasExplicitDefaultValue: hasExplicitDefaultValue,
                 explicitDefaultValue: explicitDefaultValue,

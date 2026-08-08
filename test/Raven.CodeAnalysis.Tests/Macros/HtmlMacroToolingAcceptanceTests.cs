@@ -146,6 +146,58 @@ public sealed class HtmlMacroToolingAcceptanceTests
         Assert.Contains(component.Locations, static location => location.IsInSource);
     }
 
+    [Fact]
+    public void CheckedInHtmlMacro_ResolvesSymbolsInNestedComprehensionTemplate()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        const string source = """
+            class Todo {
+                val Title: string => "Build Raven"
+            }
+
+            class TodoList {
+                val todos = [Todo()]
+
+                func Render() => Html! {
+                    <ul>
+                        {[for todo in todos if todo.Title.Length > 0 =>
+                            Html! {
+                                <li>{todo.Title}</li>
+                            }]}
+                    </ul>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-comprehension-hover.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .First();
+        var todosPosition = source.LastIndexOf("todos if", StringComparison.Ordinal) + 1;
+        var todoPosition = source.IndexOf("todo.Title", StringComparison.Ordinal) + 1;
+        var titlePosition = source.IndexOf("Title.Length", StringComparison.Ordinal) + 1;
+        var nestedTodoPosition = source.LastIndexOf("todo.Title", StringComparison.Ordinal) + 1;
+
+        var todosInfo = compilation.GetMacroFragmentSemanticInfo(invocation, todosPosition);
+        var todoInfo = compilation.GetMacroFragmentSemanticInfo(invocation, todoPosition);
+        var titleInfo = compilation.GetMacroFragmentSemanticInfo(invocation, titlePosition);
+        var nestedTodoInfo = compilation.GetMacroFragmentSemanticInfo(invocation, nestedTodoPosition);
+
+        var todos = Assert.IsAssignableFrom<IPropertySymbol>(todosInfo?.SymbolInfo.Symbol);
+        Assert.Equal("todos", todos.Name);
+
+        var todo = Assert.IsAssignableFrom<ILocalSymbol>(todoInfo?.SymbolInfo.Symbol);
+        Assert.Contains("todo", todo.Name, StringComparison.Ordinal);
+        Assert.Equal("Todo", todo.Type.Name);
+
+        var title = Assert.IsAssignableFrom<IPropertySymbol>(titleInfo?.SymbolInfo.Symbol);
+        Assert.Equal("Title", title.Name);
+        Assert.Equal(SpecialType.System_String, title.Type.SpecialType);
+
+        Assert.False(nestedTodoInfo?.SymbolInfo.Symbol is ILambdaSymbol);
+    }
+
     private static Compilation CreateConsumerCompilation(
         SyntaxTree tree,
         MacroReference macroReference)
