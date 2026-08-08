@@ -2797,6 +2797,13 @@ internal class MethodBodyGenerator
             if (captured is null)
                 return false;
 
+            // Compiler-generated expression temporaries, including collection-comprehension
+            // iteration locals, have value semantics at the point where a nested lambda is
+            // created. Let the lambda emitter snapshot them into a fresh closure instead of
+            // sharing the outer method's reference-based closure across iterations.
+            if (IsCompilerGeneratedLocal(captured))
+                return false;
+
             if (captured is ILocalSymbol or IParameterSymbol)
                 return SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingMethod);
 
@@ -2804,6 +2811,11 @@ internal class MethodBodyGenerator
                 return SymbolEqualityComparer.Default.Equals(typeSymbol, _containingMethod.ContainingType);
 
             return SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingMethod);
+        }
+
+        private static bool IsCompilerGeneratedLocal(ISymbol symbol)
+        {
+            return symbol is ILocalSymbol { IsImplicitlyDeclared: true };
         }
 
         private static bool IsDeclaredInsideLambda(ISymbol? captured, BoundFunctionExpression lambda)

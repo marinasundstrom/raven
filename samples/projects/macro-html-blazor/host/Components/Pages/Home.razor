@@ -20,7 +20,7 @@
         <h1>Components that read like the <em>web.</em></h1>
         <p class="hero-copy">
             A Raven macro turns familiar HTML into a real <code>RenderFragment</code>—with parameters,
-            state, nested elements, and event callbacks intact.
+            state, nested components, list comprehensions, and event callbacks intact.
         </p>
         <div class="hero-actions">
             <a class="primary-action" href="#playground">Try the components <span>↓</span></a>
@@ -118,11 +118,60 @@
         </div>
     </section>
 
+    <section class="showcase todo-showcase">
+        <header class="section-heading">
+            <div>
+                <span class="section-number">03</span>
+                <h2>Data becomes UI</h2>
+            </div>
+            <p>Check an item to update the Raven model. The filtered comprehension runs again and Blazor reconciles the keyed components.</p>
+        </header>
+
+        <div class="demo-grid todo-grid">
+            <article class="code-card">
+                <div class="card-bar">
+                    <div class="traffic-lights"><i></i><i></i><i></i></div>
+                    <span>TodoList.rvn</span>
+                    <span class="language-pill">RAVEN</span>
+                </div>
+                <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
+<span class="syntax-keyword">class</span> <span class="syntax-type">TodoList</span> {
+    <span class="syntax-keyword">var</span> todos: <span class="syntax-type">Todo</span>[] = [...]
+    <span class="syntax-keyword">var</span> showCompleted = <span class="syntax-keyword">false</span>
+
+    <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> {
+        <span class="syntax-keyword">return</span> <span class="syntax-macro">Html!</span> {
+            &lt;<span class="syntax-tag">ul</span> <span class="syntax-property">class</span>=<span class="syntax-string">"todo-list"</span>&gt;
+                {[<span class="syntax-keyword">for</span> todo <span class="syntax-keyword">in</span> todos
+                    <span class="syntax-keyword">if</span> showCompleted || !todo.IsCompleted =&gt;
+                    <span class="syntax-macro">Html!</span> {
+                        &lt;<span class="syntax-type">TodoItem</span>
+                            <span class="syntax-property">key</span>={todo.Id}
+                            <span class="syntax-property">title</span>={todo.Title}
+                            <span class="syntax-property">isCompleted</span>={todo.IsCompleted}
+                            <span class="syntax-property">toggled</span>={<span class="syntax-function">toggleCallback</span>(todo.Id)} /&gt;
+                    }]}
+            &lt;/<span class="syntax-tag">ul</span>&gt;
+        }
+    }
+}</code></pre>
+            </article>
+
+            <article class="preview-card todo-preview">
+                <div class="preview-label">LIVE PREVIEW</div>
+                <div class="component-stage todo-stage">
+                    <DynamicComponent Type="typeof(TodoList)" />
+                </div>
+                <div class="preview-footer"><span></span> Re-evaluated from Raven state</div>
+            </article>
+        </div>
+    </section>
+
     <section class="proof-strip" aria-label="Prototype capabilities">
         <div><strong>Html!</strong><span>Token-tree macro</span></div>
         <div><strong>#[Component]</strong><span>Attached macro</span></div>
+        <div><strong>[for … if]</strong><span>List comprehension</span></div>
         <div><strong>RenderFragment</strong><span>Native Blazor output</span></div>
-        <div><strong>Zero Razor</strong><span>In component source</span></div>
     </section>
 
     <footer>

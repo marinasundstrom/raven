@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Extended the isolated HTML-to-Blazor macro sample with expression-based
+  conditional content, filtered list-comprehension rendering, native Blazor
+  keys, and an interactive Todo showcase whose model changes re-evaluate the
+  rendered sequence.
+
+- Fixed collection-comprehension iteration locals captured by nested lambdas
+  so each generated delegate snapshots the current iteration value instead of
+  reading an uninitialized shared closure field.
+
 - Added end-to-end DSL-tooling acceptance coverage that compiles the checked-in
   HTML macro and verifies cached token/fragment snapshots, cursor routing, and
   authored diagnostics. The HTML/Blazor showcase now highlights its Raven code
