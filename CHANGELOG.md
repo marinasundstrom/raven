@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed workspace loading for compiler-plugin project references so the built
+  plugin assembly is available as both a macro provider and an ordinary
+  metadata reference. Macro libraries can now expose runtime helper types used
+  by their expansions without producing false editor diagnostics.
+
 - Fixed macro-fragment semantic queries over collection comprehensions and
   nested macro expansions so detached fragment syntax no longer crashes while
   creating synthesized locals, lambdas, or parameters. Hover now resolves the

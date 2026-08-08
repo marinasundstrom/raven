@@ -593,6 +593,10 @@ let value = WidgetFactory.CreateDefault()
                         }
                     }
                 }
+
+                public static class MacroRuntime {
+                    static func Answer() -> int => 42
+                }
                 """");
 
             var macroProjectPath = Path.Combine(macrosDirectory, "ObservableMacros.rvnproj");
@@ -619,6 +623,8 @@ let value = WidgetFactory.CreateDefault()
                     #[Observable]
                     var Title: string
                 }
+
+                func ReadMacroRuntime() -> int => MacroRuntime.Answer()
                 """);
 
             var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
@@ -647,9 +653,16 @@ let value = WidgetFactory.CreateDefault()
             Assert.NotNull(expansion);
             Assert.IsType<PropertyDeclarationSyntax>(expansion!.ReplacementDeclaration);
             Assert.Single(expansion.IntroducedMembers);
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
             Assert.Single(project.MacroReferences);
             Assert.Empty(project.ProjectReferences);
-            Assert.True(File.Exists(Path.Combine(macrosDirectory, "bin", "Debug", "net10.0", "ObservableMacros.dll")));
+            var macroOutputPath = Path.Combine(macrosDirectory, "bin", "Debug", "net10.0", "ObservableMacros.dll");
+            Assert.True(File.Exists(macroOutputPath));
+            Assert.Contains(
+                project.MetadataReferences.OfType<PortableExecutableReference>(),
+                reference => PathsEqual(reference.FilePath, macroOutputPath));
 
             workspace.SaveProject(projectId, appProjectPath);
             var savedProject = System.Xml.Linq.XDocument.Load(appProjectPath);

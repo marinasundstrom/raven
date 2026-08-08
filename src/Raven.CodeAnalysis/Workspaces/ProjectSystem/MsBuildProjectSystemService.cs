@@ -140,6 +140,9 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 solution = solution.AddMacroReference(
                     projectId,
                     MacroReference.CreateFromFile(outputPath, referencedProjectPath));
+                solution = solution.AddMetadataReference(
+                    projectId,
+                    MetadataReference.CreateFromFile(outputPath));
                 continue;
             }
 

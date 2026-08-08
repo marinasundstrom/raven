@@ -261,7 +261,7 @@ class HtmlDslParser {
     private func AppendContent(expression: string) {
         let sequence = _sequence
         _sequence = _sequence + 1
-        _ = _builder.Append("HtmlContent.Add(__htmlBuilder, ${sequence}, (${expression}));")
+        _ = _builder.Append("HtmlBlazorMacros.HtmlContent.Add(__htmlBuilder, ${sequence}, (${expression}));")
     }
 
     private func AppendOpenComponent(name: string) {
