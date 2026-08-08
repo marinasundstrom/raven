@@ -1856,7 +1856,8 @@ partial class BlockBinder : Binder
             containingType,
             containingNamespace,
             [location],
-            syntaxReference is null ? [] : [syntaxReference]);
+            syntaxReference is null ? [] : [syntaxReference],
+            isImplicitlyDeclared: true);
     }
 
     public override BoundStatement BindStatement(StatementSyntax statement)

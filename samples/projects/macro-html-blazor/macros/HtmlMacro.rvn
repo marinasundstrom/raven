@@ -161,10 +161,12 @@ class HtmlDslParser {
 
             if At("\"") {
                 let value = ReadQuotedValue()
-                AppendAttribute(attributeName, "\"${Escape(value)}\"")
+                AppendAttributeOrKey(attributeName, "\"${Escape(value)}\"")
             } else if At("{") {
                 let expression = ReadEmbeddedExpression()
-                if !isComponent && IsEventAttribute(attributeName) {
+                if IsKeyAttribute(attributeName) {
+                    AppendKey(expression)
+                } else if !isComponent && IsEventAttribute(attributeName) {
                     AppendAttribute(
                         NormalizeEventName(attributeName),
                         "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(" +
@@ -216,7 +218,7 @@ class HtmlDslParser {
                 ParseElement()
             } else if At("{") {
                 let expression = ReadEmbeddedExpression()
-                AppendCall("AddContent", expression)
+                AppendContent(expression)
             } else {
                 let text = ReadText()
                 let normalized = NormalizeText(text)
@@ -233,6 +235,24 @@ class HtmlDslParser {
 
     private func AppendAttribute(name: string, value: string) {
         AppendCall("AddAttribute", "\"${Escape(name)}\", ${value}")
+    }
+
+    private func AppendAttributeOrKey(name: string, value: string) {
+        if IsKeyAttribute(name) {
+            AppendKey(value)
+        } else {
+            AppendAttribute(name, value)
+        }
+    }
+
+    private func AppendKey(value: string) {
+        _ = _builder.Append("__htmlBuilder.SetKey(${value});")
+    }
+
+    private func AppendContent(expression: string) {
+        let sequence = _sequence
+        _sequence = _sequence + 1
+        _ = _builder.Append("HtmlContent.Add(__htmlBuilder, ${sequence}, (${expression}));")
     }
 
     private func AppendOpenComponent(name: string) {
@@ -358,6 +378,10 @@ class HtmlDslParser {
 
     private static func IsEventAttribute(name: string) -> bool {
         name.StartsWith("on", StringComparison.OrdinalIgnoreCase)
+    }
+
+    private static func IsKeyAttribute(name: string) -> bool {
+        name.Equals("key", StringComparison.OrdinalIgnoreCase)
     }
 
     private static func IsComponentName(name: string) -> bool {

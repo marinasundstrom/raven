@@ -1,0 +1,44 @@
+import System.*
+import System.Collections.Generic.*
+import Microsoft.AspNetCore.Components.*
+import Microsoft.AspNetCore.Components.Rendering.*
+
+public static class HtmlContent {
+    static func Add(
+        builder: RenderTreeBuilder,
+        sequence: int,
+        content: IEnumerable<RenderFragment>
+    ) {
+        for fragment in content {
+            builder.AddContent(sequence, fragment)
+        }
+    }
+
+    static func Add(
+        builder: RenderTreeBuilder,
+        _sequence: int,
+        content: IEnumerable<Action<RenderTreeBuilder>>
+    ) {
+        for fragment in content {
+            builder.OpenRegion(_sequence)
+            fragment(builder)
+            builder.CloseRegion()
+        }
+    }
+
+    static func Add(
+        builder: RenderTreeBuilder,
+        sequence: int,
+        content: RenderFragment
+    ) {
+        builder.AddContent(sequence, content)
+    }
+
+    static func Add(
+        builder: RenderTreeBuilder,
+        sequence: int,
+        content: object?
+    ) {
+        builder.AddContent(sequence, content)
+    }
+}

@@ -1815,7 +1815,28 @@ internal class TypeGenerator
                 return hostGenerator.EnsureLambdaClosure(lambdaSymbol);
         }
 
-        var captures = lambdaSymbol.CapturedVariables;
+        // Capture analysis also visits nested lambdas. Remove locals declared by this lambda
+        // itself; they belong to a nested closure and must not become uninitialized fields on
+        // the enclosing lambda's closure.
+        var captures = lambdaSymbol.CapturedVariables
+            .Where(captured => !IsDeclaredWithinLambda(captured, lambdaSymbol))
+            .ToImmutableArray();
+
+        // Compiler-generated iteration locals are scoped to the expression that creates the
+        // lambda. A nested lambda must therefore receive a fresh closure for each evaluation,
+        // rather than sharing the closure of an enclosing lambda across every iteration.
+        if (captures.Any(IsCompilerGeneratedLocal))
+        {
+            if (_lambdaClosures.TryGetValue(lambdaSymbol, out var iterationClosure))
+            {
+                iterationClosure.EnsureFields(captures);
+                return iterationClosure;
+            }
+
+            iterationClosure = CreateClosure(lambdaSymbol, captures);
+            _lambdaClosures[lambdaSymbol] = iterationClosure;
+            return iterationClosure;
+        }
 
         // C#-style: the display class is keyed by the *declaring scope* of the captured locals.
         // If the captured variables are declared in a method, all lambdas/local functions in that
@@ -1937,8 +1958,11 @@ internal class TypeGenerator
         // returns the same object instead of creating a separate per-lambda closure.
         foreach (var lambda in lambdas)
         {
-            if (lambda is SourceLambdaSymbol source)
+            if (lambda is SourceLambdaSymbol source &&
+                !source.CapturedVariables.Any(IsCompilerGeneratedLocal))
+            {
                 _lambdaClosures[source] = closure;
+            }
         }
 
         // Pre-register for every local function so that EnsureMethodClosure returns the
@@ -2005,6 +2029,31 @@ internal class TypeGenerator
         }
 
         return null;
+    }
+
+    private static bool IsDeclaredWithinLambda(ISymbol captured, SourceLambdaSymbol lambda)
+    {
+        if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, lambda))
+            return true;
+
+        foreach (var capturedReference in captured.DeclaringSyntaxReferences)
+        {
+            foreach (var lambdaReference in lambda.DeclaringSyntaxReferences)
+            {
+                if (capturedReference.SyntaxTree == lambdaReference.SyntaxTree &&
+                    lambdaReference.Span.Contains(capturedReference.Span))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsCompilerGeneratedLocal(ISymbol symbol)
+    {
+        return symbol is ILocalSymbol { IsImplicitlyDeclared: true };
     }
 
     private ImmutableArray<ISymbol> GetCapturedVariablesForMethod(SourceMethodSymbol methodSymbol)

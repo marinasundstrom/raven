@@ -103,6 +103,7 @@ pre { margin: 0; padding: 34px 36px; overflow: auto; font-size: clamp(12px, 1.2v
 .preview-card { display: flex; flex-direction: column; min-width: 0; padding: 27px; background: var(--card); }
 .counter-preview { background: linear-gradient(145deg, #fffdf8, #eef4dc); }
 .greeting-preview { background: linear-gradient(145deg, #f8d6c9, #ffeae0); }
+.todo-preview { background: linear-gradient(145deg, #dceee5, #f7f5e9); }
 .preview-label { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; letter-spacing: 0.12em; }
 .component-stage { display: grid; flex: 1; align-content: center; justify-items: center; padding: 48px 12px; text-align: center; }
 .component-stage > button, .component-stage .composition button { min-width: 190px; padding: 20px 26px; border: 0; border-radius: 8px; color: white; background: var(--forest); font: inherit; font-size: 18px; font-weight: 750; cursor: pointer; box-shadow: 7px 7px 0 var(--acid); transition: transform 140ms ease, box-shadow 140ms ease; }
@@ -113,10 +114,28 @@ pre { margin: 0; padding: 34px 36px; overflow: auto; font-size: clamp(12px, 1.2v
 .component-stage .greeting { padding: 22px 30px; border: 1px solid rgba(23,33,28,0.12); border-radius: 50%; background: rgba(255,255,255,0.55); box-shadow: 0 12px 30px rgba(78,41,29,0.09); }
 .component-stage .greeting h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(40px, 5vw, 68px); font-weight: 400; letter-spacing: -0.05em; }
 .component-stage .composition { display: grid; gap: 42px; justify-items: center; }
+.todo-stage { display: flex; align-items: center; justify-content: center; text-align: left; }
+.todo-board { width: min(100%, 390px); padding: 25px; border: 1px solid rgba(22,60,45,0.14); border-radius: 12px; background: rgba(255,253,248,0.92); box-shadow: 0 22px 55px rgba(22,60,45,0.12); }
+.todo-heading { display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.todo-heading h2 { margin: 3px 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 28px; font-weight: 400; letter-spacing: -0.04em; }
+.todo-kicker { color: var(--orange); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; }
+.todo-filter { padding: 8px 10px; border: 1px solid rgba(22,60,45,0.22); border-radius: 999px; color: var(--forest); background: transparent; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.todo-filter:hover { background: rgba(22,60,45,0.07); }
+.todo-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.todo-item { border: 1px solid rgba(22,60,45,0.12); border-radius: 8px; background: white; transition: opacity 160ms ease, transform 160ms ease; }
+.todo-item:hover { transform: translateX(2px); }
+.todo-item label { display: grid; grid-template-columns: 18px 22px 1fr; gap: 8px; align-items: center; padding: 13px 14px; cursor: pointer; }
+.todo-item input { width: 16px; height: 16px; margin: 0; accent-color: var(--forest); }
+.todo-marker { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; color: white; background: var(--forest); font-size: 11px; }
+.todo-title { font-size: 13px; font-weight: 650; }
+.todo-item.is-complete { opacity: 0.58; }
+.todo-item.is-complete .todo-title { text-decoration: line-through; }
 .preview-footer { display: flex; gap: 9px; align-items: center; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
 .preview-footer span { width: 7px; height: 7px; border-radius: 50%; background: #72a919; }
 
 .greeting-showcase { padding-bottom: 112px; }
+.todo-showcase { padding-bottom: 112px; }
+.todo-grid { grid-template-columns: 1.12fr 0.88fr; }
 .proof-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
 .proof-strip div { display: flex; flex-direction: column; gap: 8px; padding: 32px 22px; border-right: 1px solid var(--line); }
 .proof-strip div:last-child { border-right: 0; }

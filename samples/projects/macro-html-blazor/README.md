@@ -29,12 +29,16 @@ Supported by the prototype:
   compiler's classified token-stream API;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
+- scalar, `RenderFragment`, and sequences of fragment expressions as children;
+- Raven `if` expressions for conditional content and attributes;
+- Raven list comprehensions, including `if` filters, for repeated content;
+- `key={expression}` mapped to Blazor's native component/element key;
 - deterministic, preorder render-tree sequence numbers; and
 - body-relative diagnostics for malformed HTML envelopes.
 
 Not supported by the macro:
 
-- component child content, directives, loops, or conditionals;
+- component child content or macro-owned control-flow directives;
 - attribute splatting or Razor compatibility;
 - tag-versus-attribute editor semantics or DSL-specific completion;
 - multiple root elements.
@@ -49,8 +53,27 @@ dotnet run --project app/HtmlBlazorSample.rvnproj --property WarningLevel=0
 ```
 
 The executable invokes each generated fragment against a `RenderTreeBuilder`
-and reports its frame count. This proves macro expansion, Blazor binding, emit,
-and runtime execution without requiring a web host.
+and verifies its frame shape. The Todo scenario renders a filtered
+comprehension, changes the model, verifies that the list is re-evaluated, and
+then includes completed items. This proves macro expansion, Blazor binding,
+emit, keyed list rendering, and runtime execution without requiring a web host.
+
+Control flow remains Raven code rather than becoming extra HTML-macro syntax:
+
+```raven
+{if showDetails {
+    Html! { <p>{details}</p> }
+} else {
+    Html! { <p>No details</p> }
+}}
+
+{[for todo in todos if showCompleted || !todo.IsCompleted =>
+    Html! { <TodoItem key={todo.Id} title={todo.Title} /> }]}
+```
+
+The small `HtmlContent` adapter is sample runtime support: it funnels scalar
+values, fragments, and fragment sequences into `RenderTreeBuilder`. It does
+not introduce a parallel component or state model.
 
 Run the styled interactive browser demo:
 
@@ -58,12 +81,13 @@ Run the styled interactive browser demo:
 dotnet run --project host/HtmlBlazorShowcase.csproj
 ```
 
-The host is deliberately thin C#/Razor infrastructure. Its live Counter and
-Greeting instances are the public component classes authored in Raven and
-expanded by the sample macros. Clicking Counter exercises the generated
-`EventCallback` through Blazor's interactive server renderer.
+The host is deliberately thin C#/Razor infrastructure. Its live Counter,
+Greeting, Gallery, and Todo instances are public component classes authored in
+Raven and expanded by the sample macros. The Todo preview uses a checkbox to
+update the parent model through an ordinary Blazor `EventCallback`; the
+filtered comprehension then produces the next set of keyed components.
 
-The showcase's two fixed source listings use static semantic spans and no
+The showcase's three fixed source listings use static semantic spans and no
 highlighting runtime. Any future editable or generated listing should consume
 `src/Raven.VSCode/syntaxes/raven.tmLanguage.json` through the repository's
 existing TextMate integration instead of adding another Raven tokenizer. The
