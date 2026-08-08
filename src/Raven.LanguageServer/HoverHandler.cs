@@ -126,10 +126,19 @@ internal sealed class HoverHandler : IHoverHandler
 
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
-            currentStage = "macroHover";
-            var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
-            if (macroHover is not null)
-                return macroHover;
+            currentStage = "macroFragmentHover";
+            var macroFragmentResolution = TryResolveMacroFragmentHover(
+                semanticModel,
+                root,
+                offset,
+                effectiveCancellationToken);
+            if (macroFragmentResolution is null)
+            {
+                currentStage = "macroHover";
+                var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
+                if (macroHover is not null)
+                    return macroHover;
+            }
 
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
@@ -150,7 +159,7 @@ internal sealed class HoverHandler : IHoverHandler
             currentStage = "resolution";
             var resolutionStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
-            var resolution = TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
+            var resolution = macroFragmentResolution ?? TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
             declaredSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
             {
@@ -622,6 +631,49 @@ internal sealed class HoverHandler : IHoverHandler
             }),
             Range = PositionHelper.ToRange(sourceText, display.Span)
         };
+    }
+
+    private static SymbolResolutionResult? TryResolveMacroFragmentHover(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var invocation = token.Parent?.AncestorsAndSelf()
+                .OfType<FreestandingMacroExpressionSyntax>()
+                .FirstOrDefault();
+            if (invocation?.TokenTree is null)
+                continue;
+
+            var info = semanticModel.GetMacroFragmentSemanticInfo(
+                invocation,
+                candidateOffset,
+                cancellationToken);
+            var symbol = info?.SymbolInfo.Symbol ?? info?.SymbolInfo.CandidateSymbols.FirstOrDefault();
+            if (info is null || symbol is null)
+                continue;
+
+            return new SymbolResolutionResult(
+                SymbolResolutionKind.SymbolInfo,
+                symbol.UnderlyingSymbol,
+                info.Syntax);
+        }
+
+        return null;
     }
 
     private static bool TryGetMacroHint(Compilation compilation, string macroName, out string hint)

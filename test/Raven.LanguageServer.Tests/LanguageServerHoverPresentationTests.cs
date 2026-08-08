@@ -10,15 +10,59 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
 namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerHoverPresentationTests
 {
+    [Fact]
+    public void MacroFragmentHover_UsesOrdinaryRavenSymbolPresentation()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+class Customer {
+    val Name: string => "Ada"
+}
+
+func Main() {
+    let customer = Customer()
+    let value = fragmentHover! { customer.Name }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, offset, CancellationToken.None]);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Name");
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignature.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, offset])!;
+        signature.ShouldContain("Name: string");
+    }
+
     [Fact]
     public void SymbolResolver_DottedPropertyPattern_ResolvesEveryMemberSegment()
     {
@@ -56,6 +100,22 @@ func Test(item: Foo) -> bool {
             resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe(expectedName);
             resolution.Value.Node.Span.ShouldBe(identifier.Identifier.Span);
         }
+    }
+
+    private sealed class FragmentHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Name => "fragmentHover";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Expression,
+                    new TextSpan(0, context.BodySpan.Length))
+            ];
     }
 
     [Fact]

@@ -56,6 +56,21 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets ordinary Raven semantic information at an authored position inside a
+    /// fragment reported by a token-tree macro.
+    /// </summary>
+    public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
+        FreestandingMacroExpressionSyntax expression,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        var syntaxTree = expression.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(expression));
+        return GetSemanticModel(syntaxTree).GetMacroFragmentSemanticInfo(expression, position, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets the token stream and optional classifications for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroTokenInfo> GetMacroTokens(

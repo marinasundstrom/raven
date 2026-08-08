@@ -109,6 +109,45 @@ public sealed class QueryMacroToolingAcceptanceTests
         Assert.Contains(items, static item => item.DisplayText == "Name");
     }
 
+    [Fact]
+    public void CheckedInQueryMacro_ResolvesHoverForIntroducedRangeVariableAndMember()
+    {
+        var macroReference = CreateCheckedInQueryMacroReference();
+        const string source = """
+            class Customer(val Name: string)
+
+            class QueryHost {
+                val Customers: Customer[] = []
+
+                func Test() {
+                    let result = query! {
+                        from customer in Customers
+                        where customer.Name.Length > 0
+                        select customer.Name
+                    }
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "query-range-hover.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var customerPosition = source.IndexOf("customer.Name", StringComparison.Ordinal) + 1;
+        var namePosition = source.IndexOf("Name.Length", StringComparison.Ordinal) + 1;
+
+        var customerInfo = compilation.GetMacroFragmentSemanticInfo(invocation, customerPosition);
+        var nameInfo = compilation.GetMacroFragmentSemanticInfo(invocation, namePosition);
+
+        var customer = Assert.IsAssignableFrom<ILocalSymbol>(customerInfo?.SymbolInfo.Symbol);
+        Assert.Equal("customer", customer.Name);
+        Assert.Equal("Customer", customer.Type.Name);
+        var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
+        Assert.Equal("Name", name.Name);
+        Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
+    }
+
     private static Compilation CreateConsumerCompilation(
         SyntaxTree tree,
         MacroReference macroReference)

@@ -208,8 +208,9 @@ accepted only when the preceding use case demonstrates its value.
    hygiene and shadowing here rather than in the editor.
 4. **Add optional DSL affordance providers.** Introduce narrowly scoped
    completion, hover, and navigation contributions for outer DSL tokens only
-   when token kind plus semantics cannot express the experience. Compiler APIs
-   normalize and cache them; the language server remains a presenter.
+   when token kind, fragment semantics, and ordinary Raven hover cannot express
+   the experience. Compiler APIs normalize and cache them; the language server
+   remains a presenter.
 5. **Retain private structure snapshots when measurement justifies it.** Permit
    a provider-owned immutable snapshot shared between expansion and tooling if
    repeated parsing is materially expensive. Do not standardize or expose its
@@ -677,6 +678,8 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
   the invocation's caller scope
 * [x] describe explicitly typed fragment locals, including query-introduced
   sequence-element locals visible inside selected fragments
+* [x] resolve ordinary symbol/type hover in expression and statement fragments
+  through a compiler-owned span query, including caller and fragment locals
 
 This is deliberately a token-and-span API. It does not require or expose a
 secondary DSL syntax tree. Completion reparses only the selected ordinary Raven

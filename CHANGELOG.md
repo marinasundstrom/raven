@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added compiler-owned semantic lookup and normal VS Code hover presentation
+  for ordinary Raven expression and statement fragments inside token-tree
+  macro DSLs. Hover resolves caller locals, macro-introduced typed locals, and
+  their members through the same span metadata used by completion, without an
+  HTML- or query-specific editor integration.
+
 - Added `fragment` and `token` contributions to token-tree `macro func`
   declarations, so Raven-authored DSL macros can publish ordinary Raven
   expression, statement, type, pattern, or member regions, typed locals, and

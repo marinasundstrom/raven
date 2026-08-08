@@ -189,6 +189,14 @@ macro that already owns an `ITypeSymbol`, such as a schema-backed DSL, can use
 Fragment locals participate in ordinary completion and shadow caller names;
 they do not introduce runtime storage or expose the macro's lowered syntax.
 
+`SemanticModel.GetMacroFragmentSemanticInfo` and its `Compilation` counterpart
+resolve the ordinary Raven symbol and type at an authored position in an
+expression or statement fragment. Resolution uses the invocation's lexical
+scope plus the fragment's immutable locals. The result contains symbol info,
+type info, and the authored token span; it does not expose the macro's private
+DSL structure. Language servers can therefore reuse normal Raven hover
+presentation for any DSL that reports the same fragment metadata.
+
 `SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
 the standard or custom stream selected for a token-tree invocation. Each
 `MacroTokenInfo` retains its provider-owned `RawKind`, text, body-relative span,

@@ -323,6 +323,14 @@ result; `SemanticModel` uses them when the macro does not implement a dedicated
 remain independent from full expansion, especially for heavily recovered or
 incomplete DSL input.
 
+The same fragment declaration enables ordinary Raven hover as well as
+completion. `SemanticModel.GetMacroFragmentSemanticInfo(invocation, position)`
+resolves symbols and types in the invocation's caller scope, with the region's
+`MacroFragmentLocal` values layered over that scope. The language server uses
+that compiler result to render its normal Raven signature, containing-symbol,
+and documentation presentation. Macro authors do not implement a hover
+provider for ordinary Raven fragments.
+
 The same token-tree function can publish stable token metadata while consuming
 its stream:
 
