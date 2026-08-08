@@ -20,7 +20,7 @@
         <h1>Components that read like the <em>web.</em></h1>
         <p class="hero-copy">
             A Raven macro turns familiar HTML into a real <code>RenderFragment</code>—with parameters,
-            state, nested components, list comprehensions, and event callbacks intact.
+            state, nested components, list comprehensions, pattern matching, and event callbacks intact.
         </p>
         <div class="hero-actions">
             <a class="primary-action" href="#playground">Try the components <span>↓</span></a>
@@ -167,11 +167,55 @@
         </div>
     </section>
 
+    <section class="showcase match-showcase">
+        <header class="section-heading">
+            <div>
+                <span class="section-number">04</span>
+                <h2>Control flow is an expression</h2>
+            </div>
+            <p>Canonical <code>match value</code> stays ordinary Raven code inside the template. The special postfix form is shown as a secondary contrast.</p>
+        </header>
+
+        <div class="demo-grid reverse match-grid">
+            <article class="preview-card match-preview">
+                <div class="preview-label">LIVE PREVIEW</div>
+                <div class="component-stage match-stage">
+                    <DynamicComponent Type="typeof(MatchShowcase)" />
+                </div>
+                <div class="preview-footer"><span></span> Canonical match, native fragment</div>
+            </article>
+
+            <article class="code-card light-code">
+                <div class="card-bar">
+                    <div class="traffic-lights"><i></i><i></i><i></i></div>
+                    <span>MatchShowcase.rvn</span>
+                    <span class="language-pill">RAVEN</span>
+                </div>
+                <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
+<span class="syntax-keyword">class</span> <span class="syntax-type">MatchShowcase</span> {
+    <span class="syntax-keyword">var</span> phase = <span class="syntax-number">0</span>
+
+    <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
+        <span class="syntax-macro">Html!</span> {
+            &lt;<span class="syntax-tag">strong</span>&gt;{<span class="syntax-keyword">match</span> phase {
+                <span class="syntax-number">0</span> =&gt; <span class="syntax-string">"Design"</span>
+                <span class="syntax-number">1</span> =&gt; <span class="syntax-string">"Compile"</span>
+                _ =&gt; <span class="syntax-string">"Ship"</span>
+            }}&lt;/<span class="syntax-tag">strong</span>&gt;
+
+            <span class="syntax-comment">// Special postfix form:</span>
+            {phase <span class="syntax-keyword">match</span> { ... }}
+        }
+}</code></pre>
+            </article>
+        </div>
+    </section>
+
     <section class="proof-strip" aria-label="Prototype capabilities">
         <div><strong>Html!</strong><span>Token-tree macro</span></div>
         <div><strong>#[Component]</strong><span>Attached macro</span></div>
         <div><strong>[for … if]</strong><span>List comprehension</span></div>
-        <div><strong>RenderFragment</strong><span>Native Blazor output</span></div>
+        <div><strong>match value</strong><span>Exhaustive UI expression</span></div>
     </section>
 
     <footer>

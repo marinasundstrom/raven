@@ -1,0 +1,39 @@
+import Microsoft.AspNetCore.Components.*
+
+#[Component]
+public class MatchShowcase {
+    var phase: int = 0
+
+    func advance() {
+        phase = if phase == 2 { 0 } else { phase + 1 }
+    }
+
+    func Render() -> RenderFragment =>
+        Html! {
+            <section class="match-board">
+                <header class="match-heading">
+                    <span class="match-kicker">Expression-oriented UI</span>
+                    <h2>Match a value into UI</h2>
+                </header>
+                <div class="match-results">
+                    <div class="match-result match-primary">
+                        <span class="match-label">Canonical · match value</span>
+                        <strong>{match phase {
+                            0 => "Design"
+                            1 => "Compile"
+                            _ => "Ship"
+                        }}</strong>
+                    </div>
+                    <div class="match-result">
+                        <span class="match-label">Special · value match</span>
+                        <strong>{phase match {
+                            0 => "Design"
+                            1 => "Compile"
+                            _ => "Ship"
+                        }}</strong>
+                    </div>
+                </div>
+                <button class="match-advance" onClick={advance}>Advance state</button>
+            </section>
+        }
+}

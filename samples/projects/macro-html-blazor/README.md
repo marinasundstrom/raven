@@ -33,6 +33,8 @@ Supported by the prototype:
 - self-closing component tags with Blazor parameters;
 - scalar, `RenderFragment`, and sequences of fragment expressions as children;
 - Raven `if` expressions for conditional content and attributes;
+- canonical Raven `match value` expressions for exhaustive content, with the
+  special postfix form demonstrated secondarily;
 - Raven list comprehensions, including `if` filters, for repeated content;
 - `key={expression}` mapped to Blazor's native component/element key;
 - deterministic, preorder render-tree sequence numbers; and
@@ -60,6 +62,7 @@ app/src/
 │   ├── Counter.rvn
 │   ├── Gallery.rvn
 │   ├── Greeting.rvn
+│   ├── MatchShowcase.rvn
 │   ├── TodoItem.rvn
 │   └── TodoList.rvn
 └── Models/
@@ -81,6 +84,9 @@ and verifies its frame shape. The Todo scenario renders a filtered
 comprehension, changes the model, verifies that the list is re-evaluated, and
 then includes completed items. This proves macro expansion, Blazor binding,
 emit, keyed list rendering, and runtime execution without requiring a web host.
+The match scenario leads with the canonical prefix form, contrasts it with the
+special postfix form, advances the component state, and verifies that both
+expressions are re-evaluated.
 
 Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 
@@ -93,6 +99,9 @@ Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 
 {[for todo in todos if showCompleted || !todo.IsCompleted =>
     Html! { <TodoItem key={todo.Id} title={todo.Title} /> }]}
+
+{match phase { 0 => "Design" 1 => "Compile" _ => "Ship" }}
+{phase match { 0 => "Design" 1 => "Compile" _ => "Ship" }}
 ```
 
 The small `HtmlContent` adapter is sample runtime support: it funnels scalar
@@ -106,12 +115,12 @@ dotnet run --project host/HtmlBlazorShowcase.csproj
 ```
 
 The host is deliberately thin C#/Razor infrastructure. Its live Counter,
-Greeting, Gallery, and Todo instances are public component classes authored in
-Raven and expanded by the sample macros. The Todo preview uses a checkbox to
-update the parent model through an ordinary Blazor `EventCallback`; the
-filtered comprehension then produces the next set of keyed components.
+Greeting, Gallery, Todo, and Match instances are public component classes
+authored in Raven and expanded by the sample macros. The Todo preview uses a
+checkbox to update the parent model through an ordinary Blazor `EventCallback`;
+the filtered comprehension then produces the next set of keyed components.
 
-The showcase's three fixed source listings use static semantic spans and no
+The showcase's four fixed source listings use static semantic spans and no
 highlighting runtime. Any future editable or generated listing should consume
 `src/Raven.VSCode/syntaxes/raven.tmLanguage.json` through the repository's
 existing TextMate integration instead of adding another Raven tokenizer. The
