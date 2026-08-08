@@ -156,7 +156,7 @@ class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
     }
 }
 
-class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
+class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragmentProvider {
     static val FromKeywordRawKind: int => 80005
     static val SelectKeywordRawKind: int => 80006
 
@@ -167,6 +167,67 @@ class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
             MacroKeyword("from", FromKeywordRawKind, MacroKeywordClassification.ReservedWord),
             MacroKeyword("select", SelectKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ]
+
+    func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+        let stream = context.CreateTokenStream()
+        if stream.IsEndOfFile {
+            return []
+        }
+
+        let fromKeyword = stream.ReadToken()
+        if fromKeyword.RawKind != FromKeywordRawKind || stream.IsEndOfFile {
+            return []
+        }
+
+        let rangeVariable = stream.ReadToken()
+        if rangeVariable.Kind != SyntaxKind.IdentifierToken || stream.IsEndOfFile {
+            return []
+        }
+
+        let inKeyword = stream.ReadToken()
+        if inKeyword.Kind != SyntaxKind.InKeyword {
+            return []
+        }
+
+        var whereKeyword = inKeyword
+        var selectKeyword = inKeyword
+        while !stream.IsEndOfFile {
+            let token = stream.ReadToken()
+            if token.RawKind == SelectKeywordRawKind {
+                selectKeyword = token
+                break
+            }
+
+            if token.Kind == SyntaxKind.WhereKeyword && whereKeyword.Kind != SyntaxKind.WhereKeyword {
+                whereKeyword = token
+            }
+        }
+
+        if selectKeyword.RawKind != SelectKeywordRawKind {
+            return []
+        }
+
+        let sourceEnd = if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+            whereKeyword.SpanStart
+        } else {
+            selectKeyword.SpanStart
+        }
+        var regions: ImmutableArray<MacroFragmentRegion> = [
+            context.CreateFragmentRegion(
+                MacroFragmentKind.Expression,
+                TextSpan.FromBounds(inKeyword.Span.End, sourceEnd))
+        ]
+
+        if whereKeyword.Kind == SyntaxKind.WhereKeyword {
+            regions = regions.Add(context.CreateFragmentRegion(
+                MacroFragmentKind.Expression,
+                TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart)))
+        }
+
+        regions.Add(context.CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length)))
+    }
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()

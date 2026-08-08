@@ -300,6 +300,8 @@ The repository examples progress from compact syntax to full DSL handling:
 * `samples/projects/macro-functions` — typed, syntax, and token-stream inputs;
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
+* `samples/projects/macro-freestanding` — LINQ-like query parsing, three
+  embedded Raven expression regions, and caller-scope completion;
 * `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven
   fragments, fragment metadata, component macros, and Blazor lowering.
 

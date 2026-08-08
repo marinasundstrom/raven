@@ -43,6 +43,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   through that contract. Ordinary Raven completion now routes through reported
   regions using the invocation's caller scope, including local-symbol and
   member-access completion, without requiring a DSL-specific completion API.
+  The Raven-authored LINQ-like query sample now proves the same contract for
+  its source, predicate, and projection fragments.
 
 - Added exact-one member-declaration parsing for standalone syntax construction
   and token-tree macro bodies. Empty, multiple, import-only, and global-

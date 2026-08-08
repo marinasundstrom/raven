@@ -179,6 +179,8 @@ retained structure, or Playground preview support.
 * [x] the checked-in HTML macro proves token metadata, embedded-expression
   regions, cursor lookup, and authored diagnostics end to end
 * [x] the HTML/Blazor projects build and their generated fragments execute
+* [x] the checked-in LINQ-like query macro proves that the same fragment and
+  caller-completion contract applies to a non-HTML DSL
 
 Cancellation stops an active query rather than returning partial data. Editing
 creates a new compilation and semantic-model snapshot; no mutable provider
@@ -676,6 +678,11 @@ secondary DSL syntax tree. Completion reparses only the selected ordinary Raven
 fragment and delegates to the existing compiler completion provider. Semantic
 scope bridging for DSL-introduced names remains a later independently justified
 slice.
+
+The Raven-authored `query!` sample reports its source, predicate, and projection
+through this same API. Caller-scope completion works in those spans; completing
+the query-introduced range variable is intentionally reserved for the semantic
+scope-bridge slice.
 
 ## Active slice: classified macro tokens
 
