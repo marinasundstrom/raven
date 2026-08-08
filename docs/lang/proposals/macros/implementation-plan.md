@@ -168,6 +168,22 @@ future editor to route a cursor into ordinary Raven language services. It does
 not claim DSL-specific completion, macro-introduced semantic scope, public
 retained structure, or Playground preview support.
 
+### MVP exit checklist
+
+* [x] one immutable compiler-owned snapshot combines tokens and fragments
+* [x] authored and body-relative spans have documented coordinate systems
+* [x] cursor lookup is deterministic for complete and zero-width regions
+* [x] optional provider failures cannot break unrelated semantic queries
+* [x] repeated queries reuse the owning semantic model's cached result
+* [x] semantic highlighting consumes the compiler snapshot
+* [x] the checked-in HTML macro proves token metadata, embedded-expression
+  regions, cursor lookup, and authored diagnostics end to end
+* [x] the HTML/Blazor projects build and their generated fragments execute
+
+Cancellation stops an active query rather than returning partial data. Editing
+creates a new compilation and semantic-model snapshot; no mutable provider
+state is carried across that boundary by this contract.
+
 ## Predicted post-MVP DSL tooling slices
 
 These are dependency-ordered predictions, not promises. Each slice should be

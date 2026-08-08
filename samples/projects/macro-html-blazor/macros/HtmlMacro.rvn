@@ -108,7 +108,7 @@ class HtmlDslParser {
     }
 
     func Parse() -> HtmlDslExpansion {
-        _builder.Append("(__htmlBuilder: Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder) -> unit => {")
+        _builder.Append("(__htmlBuilder: Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder) => {")
         SkipWhitespace()
         ParseElement()
         SkipWhitespace()
@@ -125,7 +125,7 @@ class HtmlDslParser {
             _embeddedExpressionSpans)
     }
 
-    private func ParseElement() -> unit {
+    private func ParseElement() {
         if !Consume("<") {
             Error("Expected '<' to start an HTML element.")
             return
@@ -168,7 +168,7 @@ class HtmlDslParser {
                     AppendAttribute(
                         NormalizeEventName(attributeName),
                         "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(" +
-                        "self, () -> unit => { ${expression}() })")
+                        "self, () => { ${expression}() })")
                 } else {
                     AppendAttribute(attributeName, expression)
                 }
@@ -231,17 +231,17 @@ class HtmlDslParser {
         }
     }
 
-    private func AppendAttribute(name: string, value: string) -> unit {
+    private func AppendAttribute(name: string, value: string) {
         AppendCall("AddAttribute", "\"${Escape(name)}\", ${value}")
     }
 
-    private func AppendOpenComponent(name: string) -> unit {
+    private func AppendOpenComponent(name: string) {
         let sequence = _sequence
         _sequence = _sequence + 1
         _ = _builder.Append("__htmlBuilder.OpenComponent<${name}>(${sequence});")
     }
 
-    private func AppendClose(isComponent: bool) -> unit {
+    private func AppendClose(isComponent: bool) {
         if isComponent {
             AppendCall("CloseComponent", null)
         } else {
@@ -249,13 +249,13 @@ class HtmlDslParser {
         }
     }
 
-    private func AppendCall(methodName: string, arguments: string?) -> unit {
+    private func AppendCall(methodName: string, arguments: string?) {
         if arguments is null {
-            _builder.Append("__htmlBuilder.${methodName}();")
+            _ = _builder.Append("__htmlBuilder.${methodName}();")
         } else {
             let sequence = _sequence
             _sequence = _sequence + 1
-            _builder.Append("__htmlBuilder.${methodName}(${sequence}, ${arguments});")
+            _ = _builder.Append("__htmlBuilder.${methodName}(${sequence}, ${arguments});")
         }
     }
 
@@ -383,7 +383,7 @@ class HtmlDslParser {
         _source.Substring(_position, 1)
     }
 
-    private func SkipWhitespace() -> unit {
+    private func SkipWhitespace() {
         while !IsEnd() && Char.IsWhiteSpace(_source[_position]) {
             _position = _position + 1
         }
@@ -406,11 +406,11 @@ class HtmlDslParser {
         _position >= _source.Length
     }
 
-    private func Error(message: string) -> unit {
+    private func Error(message: string) {
         ErrorAt(_position, message)
     }
 
-    private func ErrorAt(position: int, message: string) -> unit {
+    private func ErrorAt(position: int, message: string) {
         if _errorMessage is null {
             _errorPosition = position
             _errorMessage = message

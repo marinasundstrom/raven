@@ -44,7 +44,28 @@
                     <span>Counter.rvn</span>
                     <span class="language-pill">RAVEN</span>
                 </div>
-                <pre><code>@CounterSource</code></pre>
+                <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
+<span class="syntax-keyword">class</span> <span class="syntax-type">Counter</span> {
+    <span class="syntax-attribute">#[Parameter]</span>
+    <span class="syntax-keyword">var</span> initialCount: <span class="syntax-type">int</span> = <span class="syntax-number">0</span>
+
+    <span class="syntax-keyword">var</span> count: <span class="syntax-type">int</span> = <span class="syntax-number">0</span>
+
+    <span class="syntax-keyword">protected override func</span> <span class="syntax-function">OnInitialized</span>() {
+        count = initialCount
+    }
+
+    <span class="syntax-keyword">func</span> <span class="syntax-function">increment</span>() {
+        count = count + <span class="syntax-number">1</span>
+    }
+
+    <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
+        <span class="syntax-macro">Html!</span> {
+            &lt;<span class="syntax-tag">button</span> <span class="syntax-property">onClick</span>={<span class="syntax-function">increment</span>}&gt;
+                Count: {count}
+            &lt;/<span class="syntax-tag">button</span>&gt;
+        }
+}</code></pre>
             </article>
 
             <article class="preview-card counter-preview">
@@ -83,7 +104,16 @@
                     <span>Gallery.rvn</span>
                     <span class="language-pill">RAVEN</span>
                 </div>
-                <pre><code>@GallerySource</code></pre>
+                <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
+<span class="syntax-keyword">class</span> <span class="syntax-type">Gallery</span> {
+    <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
+        <span class="syntax-macro">Html!</span> {
+            &lt;<span class="syntax-tag">div</span> <span class="syntax-property">class</span>=<span class="syntax-string">"composition"</span>&gt;
+                &lt;<span class="syntax-type">Greeting</span> <span class="syntax-property">name</span>=<span class="syntax-string">"Raven"</span> /&gt;
+                &lt;<span class="syntax-type">Counter</span> <span class="syntax-property">initialCount</span>={<span class="syntax-number">3</span>} /&gt;
+            &lt;/<span class="syntax-tag">div</span>&gt;
+        }
+}</code></pre>
             </article>
         </div>
     </section>
@@ -108,41 +138,4 @@
         ["initialCount"] = 7,
     };
 
-    private const string CounterSource = """
-        #[Component]
-        class Counter {
-            #[Parameter]
-            var initialCount: int = 0
-
-            var count: int = 0
-
-            protected override func OnInitialized() -> unit {
-                count = initialCount
-            }
-
-            func increment() -> unit {
-                count = count + 1
-            }
-
-            func Render() -> RenderFragment =>
-                Html! {
-                    <button onClick={increment}>
-                        Count: {count}
-                    </button>
-                }
-        }
-        """;
-
-    private const string GallerySource = """
-        #[Component]
-        class Gallery {
-            func Render() -> RenderFragment =>
-                Html! {
-                    <div class="composition">
-                        <Greeting name="Raven" />
-                        <Counter initialCount={3} />
-                    </div>
-                }
-        }
-        """;
 }

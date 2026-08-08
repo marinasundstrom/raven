@@ -2,7 +2,7 @@ import System.Console.*
 import Microsoft.AspNetCore.Components.*
 import Microsoft.AspNetCore.Components.Rendering.*
 
-func Main() -> unit {
+func Main() {
     let counter = Counter()
     use counterBuilder = RenderTreeBuilder()
     counter.Render()(counterBuilder)
@@ -61,7 +61,7 @@ func Main() -> unit {
     WriteLine("Gallery frames: ${galleryFrames.Count}; components: Greeting + Counter")
 }
 
-func Require(condition: bool, message: string) -> unit {
+func Require(condition: bool, message: string) {
     if !condition {
         throw System.InvalidOperationException(message)
     }
@@ -74,11 +74,11 @@ public class Counter {
 
     var count: int = 0
 
-    protected override func OnInitialized() -> unit {
+    protected override func OnInitialized() {
         count = initialCount
     }
 
-    func increment() -> unit {
+    func increment() {
         count = count + 1
     }
 

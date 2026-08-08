@@ -90,6 +90,16 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .traffic-lights i:first-child { background: var(--orange); }
 .language-pill { justify-self: end; padding: 4px 7px; border-radius: 3px; color: var(--acid); background: rgba(200,240,75,0.08); font-size: 9px; letter-spacing: 0.08em; }
 pre { margin: 0; padding: 34px 36px; overflow: auto; font-size: clamp(12px, 1.2vw, 15px); line-height: 1.68; tab-size: 4; }
+.raven-source { color: #d9e4dd; }
+.syntax-attribute { color: #ff9478; }
+.syntax-keyword { color: #c8f04b; font-weight: 650; }
+.syntax-type { color: #7dd8c0; }
+.syntax-function { color: #c9b5ff; }
+.syntax-macro { color: #ffc96b; font-weight: 700; }
+.syntax-tag { color: #78bff5; }
+.syntax-property { color: #a9d6ff; }
+.syntax-string { color: #f4b99f; }
+.syntax-number { color: #e9a7f2; }
 .preview-card { display: flex; flex-direction: column; min-width: 0; padding: 27px; background: var(--card); }
 .counter-preview { background: linear-gradient(145deg, #fffdf8, #eef4dc); }
 .greeting-preview { background: linear-gradient(145deg, #f8d6c9, #ffeae0); }

@@ -306,6 +306,12 @@ compiler-owned input snapshot, stable token kinds and classifications,
 embedded Raven fragment regions, deterministic cursor lookup, and semantic
 highlighting. A macro keeps its parser representation private.
 
+Snapshots are immutable for one compilation and invocation. Absolute spans
+refer to the authored document, while `BodyRelativeSpan` starts inside the
+invocation braces. Repeated queries on the same semantic model reuse the
+cached result; an edit creates a new compilation snapshot. Cancellation aborts
+the query, while optional tooling metadata failures degrade safely.
+
 The predicted follow-on slices are maintained in dependency order under
 “Predicted post-MVP DSL tooling slices” in
 `docs/lang/proposals/macros/implementation-plan.md`. The next useful step is

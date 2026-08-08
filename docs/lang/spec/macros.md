@@ -185,6 +185,14 @@ waiting. Otherwise it retains ordinary syntax-only highlighting.
 the same cached tokens and fragment regions into one compiler-owned view.
 `FindFragmentRegion(position)` selects the narrowest matching region, including
 a zero-width expected slot at its exact position.
+The snapshot is immutable for its owning compilation and invocation. Its
+`BodySpan`, token `Span` values, and fragment `Span` values use absolute
+authored-source coordinates; `BodyRelativeSpan` values start at the first
+character inside the invocation braces. Results are source ordered. A new
+compilation snapshot recomputes provider results, while repeated queries on the
+same semantic model reuse the cached snapshot. Queries honor cancellation;
+optional tooling-provider failures degrade to empty or compiler-default
+metadata rather than failing unrelated semantic requests.
 
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,

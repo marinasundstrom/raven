@@ -14,6 +14,8 @@ and lowers it directly to a Blazor `RenderFragment` implemented with
 class from `ComponentBase` and introduces `BuildRenderTree` by forwarding to
 the authored `Render()` method. `#[Parameter]` performs a one-to-one expansion
 to Blazor's ordinary `Microsoft.AspNetCore.Components.ParameterAttribute`.
+Unit-returning functions omit `-> unit`; Raven infers `unit` when no meaningful
+return value is produced.
 
 Supported by the prototype:
 
@@ -61,6 +63,12 @@ Greeting instances are the public component classes authored in Raven and
 expanded by the sample macros. Clicking Counter exercises the generated
 `EventCallback` through Blazor's interactive server renderer.
 
+The showcase's two fixed source listings use static semantic spans and no
+highlighting runtime. Any future editable or generated listing should consume
+`src/Raven.VSCode/syntaxes/raven.tmLanguage.json` through the repository's
+existing TextMate integration instead of adding another Raven tokenizer. The
+TextMate/Oniguruma/Monaco pipeline remains outside this thin sample host.
+
 ## Editor-readiness fixture
 
 `Html!` keeps every embedded Raven expression as a body-relative `TextSpan`
@@ -91,6 +99,9 @@ one, remains private to the macro.
 The sample now exercises the DSL-tooling MVP: immutable combined input
 snapshots, token kinds and classifications, embedded expression spans,
 deterministic cursor routing, failure isolation, and semantic highlighting.
+Compiler acceptance coverage builds this checked-in `HtmlMacro.rvn` into an
+in-memory plugin and verifies those contracts plus authored-source diagnostics,
+preventing the sample and tooling API from drifting independently.
 The dependency-ordered post-MVP slices are tracked in the
 [macro implementation plan](../../../docs/lang/proposals/macros/implementation-plan.md#predicted-post-mvp-dsl-tooling-slices).
 

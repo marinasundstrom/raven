@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added end-to-end DSL-tooling acceptance coverage that compiles the checked-in
+  HTML macro and verifies cached token/fragment snapshots, cursor routing, and
+  authored diagnostics. The HTML/Blazor showcase now highlights its Raven code
+  and relies on inferred `unit` return types for effect-only functions.
+
 - Added `MacroInputSnapshot` as the compiler-owned combined view of a
   token-tree invocation's classified tokens and embedded Raven regions, with
   deterministic source ordering and most-specific cursor lookup. The language
