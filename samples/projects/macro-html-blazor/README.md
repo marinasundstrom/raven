@@ -8,28 +8,29 @@ The Raven-authored `Html!` macro parses a deliberately small HTML-shaped DSL
 and lowers it directly to a Blazor `RenderFragment` implemented with
 `RenderTreeBuilder`. The Raven-authored `#[Component]` attached macro derives a
 class from `ComponentBase` and introduces `BuildRenderTree` by forwarding to
-the authored `Render()` method.
+the authored `Render()` method. `#[Parameter]` performs a one-to-one expansion
+to Blazor's ordinary `Microsoft.AspNetCore.Components.ParameterAttribute`.
 
 Supported by the prototype:
 
 - nested HTML elements;
 - plain text with formatting whitespace collapsed;
 - quoted attributes;
-- `{ RavenExpression }` content;
+- `{ RavenExpression }` content parsed by Raven with authored-source diagnostics;
 - event attributes such as `onClick={increment}`;
+- self-closing component tags with Blazor parameters;
 - deterministic, preorder render-tree sequence numbers; and
 - body-relative diagnostics for malformed HTML envelopes.
 
 Not supported by the macro:
 
-- component tags, directives, loops, or conditionals;
+- component child content, directives, loops, or conditionals;
 - attribute splatting or Razor compatibility;
 - HTML-aware editor highlighting or completion;
 - multiple root elements.
 
-`[Parameter]` is the ordinary Blazor attribute. Raven's `#[Name]` spelling is
-reserved for macro invocations, so `#[Parameter]` would incorrectly request a
-macro named `Parameter`.
+`#[Parameter]` is convenience rather than a new parameter model. Components
+can use Blazor's ordinary `[Parameter]` attribute directly when preferred.
 
 Build and run:
 
@@ -51,6 +52,22 @@ The host is deliberately thin C#/Razor infrastructure. Its live Counter and
 Greeting instances are the public component classes authored in Raven and
 expanded by the sample macros. Clicking Counter exercises the generated
 `EventCallback` through Blazor's interactive server renderer.
+
+## Editor-readiness fixture
+
+`Html!` keeps every embedded Raven expression as a body-relative `TextSpan`
+and delegates that span to `TokenTreeMacroContext.ParseExpressionResult`.
+Malformed Raven therefore reports a native parser diagnostic at the authored
+expression inside the HTML body. The HTML parser owns only the surrounding DSL
+grammar.
+
+Those spans are the first concrete input for future macro-aware editor
+services. HTML token classifications and Raven-expression regions should
+eventually be exposed by a compiler-owned token-and-span snapshot shared by
+expansion, semantic highlighting, and completion. The HTML parser's own tree,
+if it grows one, remains private to the macro. This sample does not yet add that
+compiler/LSP contract; it records and exercises the source-coordinate behavior
+the contract will require.
 
 ## Playground status
 

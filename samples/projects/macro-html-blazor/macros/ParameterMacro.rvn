@@ -1,0 +1,41 @@
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+[assembly: RavenCompilerPlugin(typeof(ParameterMacro))]
+
+class ParameterMacro : IAttachedDeclarationMacro {
+    val Name: string => "Parameter"
+    val Targets: MacroTarget => MacroTarget.Property
+
+    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+        let property: PropertyDeclarationSyntax = context.CurrentDeclaration else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Parameter] requires a property declaration.", code: "HTMLP001"))
+        }
+
+        let tree = ParseSyntaxTree(
+            "class __ParameterContainer { " +
+            "[Microsoft.AspNetCore.Components.Parameter] var __parameter: int = 0 " +
+            "}")
+        let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Parameter] could not construct its Blazor attribute.", code: "HTMLP002"))
+        }
+        let generatedProperty: PropertyDeclarationSyntax = container.Members[0] else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Parameter] could not construct its Blazor attribute.", code: "HTMLP003"))
+        }
+
+        let parameterAttribute = generatedProperty.AttributeLists[0]
+        let replacement = property.WithAttributeLists(
+            List<AttributeListSyntax>([
+                parameterAttribute,
+                for attributeList in property.AttributeLists
+                if attributeList.Attributes.Count > 0 && !attributeList.Attributes[0].IsMacroAttribute()
+                    => attributeList
+            ]))
+
+        MacroExpansionResult.FromReplacement(replacement)
+    }
+}

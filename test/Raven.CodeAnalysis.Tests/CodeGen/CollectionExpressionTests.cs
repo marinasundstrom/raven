@@ -287,6 +287,37 @@ class Foo {
     }
 
     [Fact]
+    public void EmptyImmutableArrayCollectionExpression_EmitsStaticFactoryCall()
+    {
+        const string code = """
+import System.Collections.Immutable.*
+
+class Foo {
+    public static func Count() -> int {
+        let values: ImmutableArray<int> = []
+        values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", throwOnError: true)!;
+        var method = type.GetMethod("Count", BindingFlags.Static | BindingFlags.Public)!;
+
+        Assert.Equal(0, (int)method.Invoke(null, null)!);
+    }
+
+    [Fact]
     public void CollectionExpressions_SpreadEnumerates()
     {
         var code = """

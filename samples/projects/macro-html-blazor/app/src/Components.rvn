@@ -42,8 +42,23 @@ func Main() -> unit {
     Require(greetingFrames.Array[3].TextContent == "Hello ", "Greeting text must be preserved.")
     Require(greetingFrames.Array[4].TextContent == "Raven", "Greeting must render its parameter.")
 
+    let gallery = Gallery()
+    use galleryBuilder = RenderTreeBuilder()
+    gallery.Render()(galleryBuilder)
+    let galleryFrames = galleryBuilder.GetFrames()
+
+    Require(galleryFrames.Count == 6, "Gallery must emit element, component, and parameter frames.")
+    Require(galleryFrames.Array[0].ElementName == "div", "Gallery root must be a div.")
+    Require(galleryFrames.Array[2].ComponentType == typeof(Greeting), "Gallery must compose Greeting.")
+    Require(galleryFrames.Array[3].AttributeName == "name", "Greeting must receive its name parameter.")
+    Require(galleryFrames.Array[3].AttributeValue.ToString() == "Raven", "Greeting must receive Raven.")
+    Require(galleryFrames.Array[4].ComponentType == typeof(Counter), "Gallery must compose Counter.")
+    Require(galleryFrames.Array[5].AttributeName == "initialCount", "Counter must receive its initial count.")
+    Require(galleryFrames.Array[5].AttributeValue.ToString() == "3", "Counter must receive count three.")
+
     WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[3].TextContent}")
     WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")
+    WriteLine("Gallery frames: ${galleryFrames.Count}; components: Greeting + Counter")
 }
 
 func Require(condition: bool, message: string) -> unit {
@@ -54,7 +69,7 @@ func Require(condition: bool, message: string) -> unit {
 
 #[Component]
 public class Counter {
-    [Parameter]
+    #[Parameter]
     var initialCount: int = 0
 
     var count: int = 0
@@ -77,7 +92,7 @@ public class Counter {
 
 #[Component]
 public class Greeting {
-    [Parameter]
+    #[Parameter]
     var name: string = ""
 
     func Render() -> RenderFragment =>
@@ -85,5 +100,16 @@ public class Greeting {
             <section class="greeting">
                 <h1>Hello {name}</h1>
             </section>
+        }
+}
+
+#[Component]
+public class Gallery {
+    func Render() -> RenderFragment =>
+        Html! {
+            <div class="composition">
+                <Greeting name="Raven" />
+                <Counter initialCount={3} />
+            </div>
         }
 }

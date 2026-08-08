@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed empty collection expressions targeting `ImmutableArray<T>` crashing
+  emission when the selected zero-argument static factory is metadata-marked
+  as an extension method.
+
 - Fixed bare type patterns such as `value is BaseType` being bound as value
   constants and emitting invalid equality calls.
 

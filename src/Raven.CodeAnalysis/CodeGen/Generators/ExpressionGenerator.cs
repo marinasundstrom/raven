@@ -7329,7 +7329,8 @@ internal partial class ExpressionGenerator : Generator
         var isExtensionCall =
             target.IsStatic &&
             target is IMethodSymbol m &&
-            m.IsExtensionMethod; // whatever your helper is
+            m.IsExtensionMethod &&
+            target.Parameters.Length > 0;
 
         if (isExtensionCall)
         {

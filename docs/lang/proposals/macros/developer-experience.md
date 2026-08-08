@@ -6,7 +6,9 @@ The user-facing [metaprogramming overview](../../../metaprogramming.md)
 distinguishes procedural macros from .NET reflection and direct use of the
 Raven compiler APIs.
 Implementation sequencing is tracked separately in
-[the macro implementation plan](implementation-plan.md).
+[the macro implementation plan](implementation-plan.md). The complete proposed
+compiler API and its relationship to prior macro systems are consolidated in
+[Complete macro system architecture](system-architecture.md).
 
 ## Experience goals
 
@@ -84,8 +86,9 @@ The near-term authoring priorities are:
 * use provider-declared compiler-plugin metadata through ordinary project,
   assembly, and package references for reusable macros.
 
-Retained DSL structure, custom completion, and syntax highlighting build on
-this loop later; they are not prerequisites for it.
+Token classifications and embedded Raven fragment spans build on this loop and
+form the first editor contract. Custom completion comes later; retained DSL
+structure is not a prerequisite for either.
 
 Dedicated syntax for declaring a macro is also post-MVP work. It may eventually
 hide repetitive plugin or macro classes as well as `[LocalMacro]` partition
@@ -421,12 +424,33 @@ The compiler validates that expansion returns ordinary Raven syntax matching
 the carrier category. An expression carrier must produce an `ExpressionSyntax`,
 a statement carrier must produce statement syntax, and so on.
 
+### Token-and-span editor surface
+
+The first editor-facing contract for a token-tree DSL should expose tokens and
+body-relative spans, not a macro's parser representation. Each surfaced token
+can retain its provider-owned raw kind and an optional syntactic or semantic
+classification. Separately, the macro can identify spans that contain ordinary
+Raven fragments such as expressions, statements, types, or patterns.
+
+That is enough for the compiler to provide the first useful editor behavior:
+
+* semantic highlighting consumes the classified token spans;
+* a cursor inside a Raven-fragment span routes to ordinary Raven completion;
+* diagnostics and completion edits use the same body-relative coordinates; and
+* incomplete fragments can be represented by zero-width expected spans.
+
+No DSL node needs to enter Raven's syntax tree or bound tree. A macro may build
+an HTML tree, query clauses, or another structure internally, but that
+representation remains owned by the macro unless a later use case proves that
+a broader public contract is necessary.
+
 ### Structured DSL wrappers
 
-A macro may parse its body into a secondary tree of special wrapper nodes for
-its own DSL. These wrappers can model DSL expressions, statements,
-declarations, clauses, or other concepts, but they do not derive from Raven
-`ExpressionSyntax`, `StatementSyntax`, or other ordinary grammar nodes.
+A macro may privately parse its body into a secondary tree for its own DSL.
+Such a representation can model DSL expressions, statements, declarations,
+clauses, or other concepts, but it does not derive from Raven
+`ExpressionSyntax`, `StatementSyntax`, or other ordinary grammar nodes and is
+not required for editor integration.
 
 Wrapper nodes should follow familiar Raven conventions:
 
@@ -436,9 +460,9 @@ Wrapper nodes should follow familiar Raven conventions:
 * diagnostics
 * visitors and rewriters where useful
 
-The secondary tree is derived from the raw body and is associated with the
-macro invocation plus document snapshot. It supports expansion and tooling.
-The macro ultimately lowers it to ordinary Raven syntax before binding.
+The macro ultimately lowers its private representation to ordinary Raven
+syntax before binding. Tokens, classifications, and embedded-fragment spans
+are the stable boundary shared with compiler tooling.
 
 ## Token streams
 
@@ -487,15 +511,15 @@ There are two supported lowering paths:
 
 1. **Direct lowering:** consume the standard or custom token stream and
    immediately construct the ordinary Raven syntax returned by expansion.
-2. **Structured lowering:** build and retain a secondary DSL wrapper tree for
-   diagnostics and editor tooling, then translate that structure into the
-   ordinary Raven syntax returned by expansion.
+2. **Structured lowering:** privately build and optionally cache a secondary
+   DSL representation, then translate it into the ordinary Raven syntax
+   returned by expansion and surface only tokens and fragment spans to tools.
 
-The structured layer is optional. Simple macros should not have to manufacture
-a secondary tree, while tooling-rich DSLs should not have to reparse raw text
-independently for every editor request. Both paths share the authored raw body,
-body-relative spans, token conventions, diagnostics, caching boundary, and
-typed Raven output contract.
+The structured layer is private and optional. Simple macros should not have to
+manufacture a secondary tree, while a complex macro may cache one internally
+to avoid reparsing. Both paths share the authored raw body, body-relative
+tokens and fragment spans, diagnostics, caching boundary, and typed Raven
+output contract.
 
 The first executable MVP deliberately uses direct lowering:
 
@@ -581,9 +605,9 @@ The macro definition is the registration point for optional capabilities:
 
 * expansion/lowering
 * standard keyword overlay or custom token-stream provider
-* structured DSL parser
+* token classification provider
+* embedded Raven fragment-span provider
 * completion provider
-* token classification/highlighting provider
 * hover and signature-help providers
 * definition/navigation provider where the DSL has referable entities
 
@@ -591,9 +615,9 @@ The compiler registry discovers these capabilities together. Compiler services
 own caching, cancellation, invalidation, diagnostics, and deterministic result
 ordering.
 
-Editor capabilities should share the same cached token and structure snapshot
-as expansion. A completion provider should not silently tokenize or parse the
-body under different rules from the macro expander.
+Editor capabilities should share the same cached token-and-span snapshot as
+expansion. A completion provider should not silently tokenize the body under
+different rules from the macro expander.
 
 Syntax classification should be modeled for macro inputs generally rather than
 as a string-only feature. `StringSyntaxAttribute` is useful interoperability
@@ -605,13 +629,13 @@ custom syntax supplied by the macro. Tooling may use the identity when it has a
 matching highlighter or completion provider and otherwise preserve the body as
 ordinary macro tokens.
 
-Retained structure is also the routing map for mixed-language editor services.
-A structure snapshot should be able to mark a body-relative region or recovery
-slot as expecting a Raven expression, statement, type, pattern, member, or
-other supported fragment category. At a completion position, the compiler can
-then choose between:
+Fragment spans are the routing map for mixed-language editor services. A
+token-and-span snapshot should be able to mark a body-relative region or
+zero-width recovery slot as expecting a Raven expression, statement, type,
+pattern, member, or other supported fragment category. At a completion
+position, the compiler can then choose between:
 
-* macro-owned completion for DSL tokens and structure
+* macro-owned completion for DSL tokens
 * ordinary Raven completion for a marked Raven fragment
 * a macro-provided semantic bridge when the DSL introduces names visible
   inside that fragment, such as a query range variable
@@ -629,12 +653,13 @@ The same snapshot is the analyzer boundary. A future semantic API should
 conceptually support:
 
 ```text
-GetMacroStructure(invocation) -> MacroStructureSnapshot?
+GetMacroInputSnapshot(invocation) -> MacroInputSnapshot?
 ```
 
-The snapshot exposes provider-defined structured nodes and compiler-recognized
-embedded Raven fragments. A null result means the macro did not opt into
-retained structure; it does not mean an analyzer should attempt its own parse.
+The snapshot exposes provider-classified tokens and compiler-recognized
+embedded Raven fragment spans. It does not expose the macro's private parser
+nodes. A null result means the macro did not opt into editor metadata; it does
+not mean an analyzer should attempt its own parse.
 
 ## Compiler-plugin dependencies
 
@@ -667,8 +692,8 @@ expansion, diagnostics, and semantic behavior are compiler-owned.
 
 Workspace analyzers may still act on macro-authored code. The compiler should
 expose invocation syntax and expansion mappings through stable compiler APIs.
-For a macro that explicitly retains structured DSL syntax, the semantic model
-should additionally expose that immutable structure snapshot.
+For a macro that supplies editor metadata, the semantic model may additionally
+expose its immutable token-and-span snapshot.
 
 The current Workspace analyzer driver already treats a mixed `[LocalMacro]`
 document as two compiler-owned semantic projections. Ordinary Raven analyzer
@@ -677,16 +702,15 @@ using the semantic model that owns each projection while retaining authored
 diagnostic positions. This is macro-source analysis, not retained DSL analysis:
 the driver does not infer fragments from a token-tree body or expansion.
 
-An `ExpressionSyntax` embedded in that macro structure can automatically
-trigger the ordinary Raven expression-analysis pipeline when a workspace
-analyzer host is present. The same rule can later apply to structured
-statements, types, patterns, and members. The macro author marks the typed
-fragment once; the macro does not manually invoke individual analyzers.
+An embedded Raven fragment span can route parsing, classification, and
+completion through ordinary Raven services on demand. It does not insert the
+fragment into the containing Raven syntax tree or bound tree, and it does not
+expose the macro's private representation.
 
-This is opt-in structure, not inference. If a macro lowers directly or performs
-completely opaque custom parsing without returning structure, the structured
-macro query returns no result. Analyzers must not reconstruct a supposed DSL
-tree from raw tokens or reverse-engineer one from the expansion.
+This metadata is opt-in, not inferred. If a macro supplies no token or fragment
+metadata, the macro input query returns no result. Analyzers must not
+reconstruct a supposed DSL tree from raw tokens or reverse-engineer one from
+the expansion.
 
 That interoperability is optional. Macro parsing, expansion, binding, and core
 diagnostics must not require an analyzer or a workspace. An analyzer consumes
@@ -1055,9 +1079,10 @@ compilation.
 
 ## Responsiveness and isolation
 
-Macro tokenization, structure parsing, editor services, and expansion must be
-cancellable and versioned with the compilation/document snapshot. Foreground
-completion and hover should not wait behind stale project-wide macro work.
+Macro tokenization, optional private parsing, editor services, and expansion
+must be cancellable and versioned with the compilation/document snapshot.
+Foreground completion and hover should not wait behind stale project-wide
+macro work.
 
 The initial in-process plugin model treats macro assemblies as trusted build
 extensions. `AssemblyLoadContext` provides dependency isolation, not a security

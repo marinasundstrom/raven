@@ -1,4 +1,5 @@
 import System.*
+import System.Collections.Immutable.*
 import System.Text.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
@@ -21,6 +22,13 @@ class HtmlMacro : ITokenTreeExpressionMacro {
                     code: "HTML001"))
         }
 
+        for span in expansion.EmbeddedExpressionSpans {
+            let expression = context.ParseExpressionResult(span)
+            if expression.HasErrors {
+                return FreestandingMacroExpansionResult.FromDiagnostics(expression.Diagnostics)
+            }
+        }
+
         FreestandingMacroExpansionResult.FromExpression(ParseExpression(expansion.ExpressionText))
     }
 }
@@ -29,17 +37,25 @@ class HtmlDslExpansion {
     val ExpressionText: string
     val ErrorMessage: string?
     val ErrorPosition: int
+    val EmbeddedExpressionSpans: ImmutableArray<TextSpan>
 
-    init(expressionText: string, errorMessage: string?, errorPosition: int) {
+    init(
+        expressionText: string,
+        errorMessage: string?,
+        errorPosition: int,
+        embeddedExpressionSpans: ImmutableArray<TextSpan>
+    ) {
         ExpressionText = expressionText
         ErrorMessage = errorMessage
         ErrorPosition = errorPosition
+        EmbeddedExpressionSpans = embeddedExpressionSpans
     }
 }
 
 class HtmlDslParser {
     private val _source: string
     private val _builder = StringBuilder()
+    private var _embeddedExpressionSpans: ImmutableArray<TextSpan> = []
     private var _position: int = 0
     private var _sequence: int = 0
     private var _errorMessage: string? = null
@@ -60,7 +76,11 @@ class HtmlDslParser {
         }
 
         _builder.Append("}")
-        HtmlDslExpansion(_builder.ToString(), _errorMessage, _errorPosition)
+        HtmlDslExpansion(
+            _builder.ToString(),
+            _errorMessage,
+            _errorPosition,
+            _embeddedExpressionSpans)
     }
 
     private func ParseElement() -> unit {
@@ -75,10 +95,15 @@ class HtmlDslParser {
             return
         }
 
-        AppendCall("OpenElement", "\"${Escape(name)}\"")
+        let isComponent = IsComponentName(name)
+        if isComponent {
+            AppendOpenComponent(name)
+        } else {
+            AppendCall("OpenElement", "\"${Escape(name)}\"")
+        }
         SkipWhitespace()
 
-        while _errorMessage is null && !IsEnd() && !At(">") {
+        while _errorMessage is null && !IsEnd() && !At(">") && !At("/>") {
             let attributeName = ReadName()
             if attributeName.Length == 0 {
                 Error("Expected an attribute name or '>'.")
@@ -97,7 +122,7 @@ class HtmlDslParser {
                 AppendAttribute(attributeName, "\"${Escape(value)}\"")
             } else if At("{") {
                 let expression = ReadEmbeddedExpression()
-                if IsEventAttribute(attributeName) {
+                if !isComponent && IsEventAttribute(attributeName) {
                     AppendAttribute(
                         NormalizeEventName(attributeName),
                         "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(" +
@@ -113,8 +138,18 @@ class HtmlDslParser {
             SkipWhitespace()
         }
 
+        if Consume("/>") {
+            AppendClose(isComponent)
+            return
+        }
+
         if !Consume(">") {
             Error("Expected '>' after element '${name}'.")
+            return
+        }
+
+        if isComponent {
+            Error("Component '${name}' must use a self-closing tag in this prototype.")
             return
         }
 
@@ -131,7 +166,7 @@ class HtmlDslParser {
                     Error("Closing element '${closingName}' does not match '${name}'.")
                     return
                 }
-                AppendCall("CloseElement", null)
+                AppendClose(isComponent)
                 return
             }
 
@@ -156,6 +191,20 @@ class HtmlDslParser {
 
     private func AppendAttribute(name: string, value: string) -> unit {
         AppendCall("AddAttribute", "\"${Escape(name)}\", ${value}")
+    }
+
+    private func AppendOpenComponent(name: string) -> unit {
+        let sequence = _sequence
+        _sequence = _sequence + 1
+        _ = _builder.Append("__htmlBuilder.OpenComponent<${name}>(${sequence});")
+    }
+
+    private func AppendClose(isComponent: bool) -> unit {
+        if isComponent {
+            AppendCall("CloseComponent", null)
+        } else {
+            AppendCall("CloseElement", null)
+        }
     }
 
     private func AppendCall(methodName: string, arguments: string?) -> unit {
@@ -208,9 +257,12 @@ class HtmlDslParser {
                 depth = depth - 1
                 if depth == 0 {
                     let expression = _source.Substring(start, _position - start).Trim()
+                    let expressionSpan = TextSpan.FromBounds(start, _position)
                     _position = _position + 1
                     if expression.Length == 0 {
                         ErrorAt(openingPosition, "Embedded Raven expressions cannot be empty.")
+                    } else {
+                        _embeddedExpressionSpans = _embeddedExpressionSpans.Add(expressionSpan)
                     }
                     return expression
                 }
@@ -264,6 +316,10 @@ class HtmlDslParser {
 
     private static func IsEventAttribute(name: string) -> bool {
         name.StartsWith("on", StringComparison.OrdinalIgnoreCase)
+    }
+
+    private static func IsComponentName(name: string) -> bool {
+        name.Length > 0 && Char.IsUpper(name[0])
     }
 
     private static func NormalizeEventName(name: string) -> string {

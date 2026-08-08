@@ -26,13 +26,12 @@ orchestration belong to a workspace or build host. A project system may resolve
 a macro asset, but it passes that asset to the compiler and does not own the
 macro's semantic execution.
 
-An analyzer may optionally query compiler-provided retained structure for a
-macro that explicitly supplies it. An `ExpressionSyntax` embedded in that
-structure can trigger ordinary Raven expression analysis when an analyzer host
-is present. If a macro does not retain structure, the query returns no
-structure and analyzers must not infer one from raw tokens or expansion output.
-Compiling and expanding a macro must not require a workspace or any analyzer to
-be loaded.
+A macro may optionally supply compiler-owned editor metadata consisting of
+classified body-relative tokens and spans for embedded Raven fragments. This
+metadata does not add the macro's private parser representation to Raven's
+syntax tree or bound tree. If a macro supplies no metadata, tools must not infer
+structure from raw tokens or expansion output. Compiling and expanding a macro
+must not require a workspace or any analyzer to be loaded.
 
 Macros are resolved from compiler-plugin assemblies. Their meaning is defined
 by the referenced macro implementation, not by the parser. A reusable Raven

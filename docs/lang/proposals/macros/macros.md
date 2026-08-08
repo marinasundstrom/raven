@@ -5,7 +5,9 @@
 > See the [living implementation plan](implementation-plan.md) for the active
 > slice, invariants, and follow-up work. See
 > [Macro and DSL developer experience](developer-experience.md) for the
-> intended authoring and editor model.
+> intended authoring and editor model. The proposed end-state architecture,
+> API, provenance, hygiene, and comparison with other macro systems are
+> consolidated in [Complete macro system architecture](system-architecture.md).
 
 Current implementation status:
 
