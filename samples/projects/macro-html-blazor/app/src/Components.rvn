@@ -1,6 +1,10 @@
+import System.*
 import System.Console.*
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
 import Microsoft.AspNetCore.Components.*
 import Microsoft.AspNetCore.Components.Rendering.*
+import Microsoft.AspNetCore.Components.RenderTree.*
 
 func Main() {
     let counter = Counter()
@@ -56,9 +60,62 @@ func Main() {
     Require(galleryFrames.Array[5].AttributeName == "initialCount", "Counter must receive its initial count.")
     Require(galleryFrames.Array[5].AttributeValue.ToString() == "3", "Counter must receive count three.")
 
+    let todoList = TodoList()
+    use todoBuilder = RenderTreeBuilder()
+    todoList.Render()(todoBuilder)
+    let todoFrames = todoBuilder.GetFrames()
+    let todoKeys = List<string>()
+
+    for index in 0..<todoFrames.Count {
+        let frame = todoFrames.Array[index]
+        if frame.ComponentType == typeof(TodoItem) {
+            let componentKey: object = frame.ComponentKey else {
+                continue
+            }
+            let keyText: string = componentKey.ToString() else {
+                continue
+            }
+            todoKeys.Add(keyText)
+        }
+    }
+
+    Require(
+        todoKeys.Count == 2,
+        "TodoList must initially render only incomplete items; rendered ${todoKeys.Count}.")
+    Require(
+        todoKeys[0] == "2" && todoKeys[1] == "3",
+        "TodoList must filter completed items and preserve Blazor component keys.")
+
+    todoList.toggleTodo(2)
+    use filteredTodoBuilder = RenderTreeBuilder()
+    todoList.Render()(filteredTodoBuilder)
+    let filteredTodoFrames = filteredTodoBuilder.GetFrames()
+    let filteredTodoCount = CountTodoItems(filteredTodoFrames.Array, filteredTodoFrames.Count)
+    Require(filteredTodoCount == 1, "Completing a todo must re-evaluate the list comprehension.")
+
+    todoList.toggleCompletedVisibility()
+    use allTodoBuilder = RenderTreeBuilder()
+    todoList.Render()(allTodoBuilder)
+    let allTodoFrames = allTodoBuilder.GetFrames()
+    Require(
+        CountTodoItems(allTodoFrames.Array, allTodoFrames.Count) == 3,
+        "Show completed must include every todo.")
+
     WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[3].TextContent}")
     WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")
     WriteLine("Gallery frames: ${galleryFrames.Count}; components: Greeting + Counter")
+    WriteLine("Todo items: ${todoKeys.Count} open; ${filteredTodoCount} after toggle; 3 with completed")
+}
+
+func CountTodoItems(frames: RenderTreeFrame[], frameCount: int) -> int {
+    var count = 0
+    for index in 0..<frameCount {
+        let frame = frames[index]
+        if frame.ComponentType == typeof(TodoItem) {
+            count = count + 1
+        }
+    }
+    return count
 }
 
 func Require(condition: bool, message: string) {
@@ -111,5 +168,87 @@ public class Gallery {
                 <Greeting name="Raven" />
                 <Counter initialCount={3} />
             </div>
+        }
+}
+
+public record Todo(Id: int, Title: string, IsCompleted: bool)
+
+#[Component]
+public class TodoList {
+    var todos: Todo[] = [
+        Todo(1, "Explore Raven macros", true)
+        Todo(2, "Render a list comprehension", false)
+        Todo(3, "Ship a Blazor component", false)
+    ]
+    var showCompleted: bool = false
+
+    func toggleTodo(id: int) {
+        for index in 0..<todos.Length {
+            let todo = todos[index]
+            if todo.Id == id {
+                todos[index] = Todo(todo.Id, todo.Title, todo.IsCompleted == false)
+                return
+            }
+        }
+    }
+
+    func toggleCompletedVisibility() {
+        showCompleted = showCompleted == false
+    }
+
+    func toggleCallback(id: int) -> EventCallback {
+        let callback: Action = () => toggleTodo(id)
+        return EventCallback.Factory.Create(self, callback)
+    }
+
+    func Render() -> RenderFragment {
+        return Html! {
+            <section class="todo-board">
+                <header class="todo-heading">
+                    <div>
+                        <span class="todo-kicker">Today</span>
+                        <h2>Build the future</h2>
+                    </div>
+                    <button class="todo-filter" onClick={toggleCompletedVisibility}>
+                        {if showCompleted { "Hide completed" } else { "Show completed" }}
+                    </button>
+                </header>
+                <ul class="todo-list">
+                    {[for todo in todos if showCompleted || !todo.IsCompleted =>
+                        Html! {
+                            <TodoItem
+                                key={todo.Id}
+                                title={todo.Title}
+                                isCompleted={todo.IsCompleted}
+                                toggled={toggleCallback(todo.Id)} />
+                        }]}
+                </ul>
+            </section>
+        }
+    }
+}
+
+#[Component]
+public class TodoItem {
+    #[Parameter]
+    var title: string = ""
+
+    #[Parameter]
+    var isCompleted: bool = false
+
+    #[Parameter]
+    var toggled: EventCallback = default(EventCallback)
+
+    func toggle() -> Task => toggled.InvokeAsync()
+
+    func Render() -> RenderFragment =>
+        Html! {
+            <li class={if isCompleted { "todo-item is-complete" } else { "todo-item" }}>
+                <label>
+                    <input type="checkbox" checked={isCompleted} onChange={toggle} />
+                    <span class="todo-marker">{if isCompleted { "✓" } else { "" }}</span>
+                    <span class="todo-title">{title}</span>
+                </label>
+            </li>
         }
 }

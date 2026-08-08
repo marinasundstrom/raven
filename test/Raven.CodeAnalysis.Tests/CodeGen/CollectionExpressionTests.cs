@@ -558,6 +558,74 @@ class Foo {
     }
 
     [Fact]
+    public void CollectionComprehension_SelectorLambdaCapturesIterationLocal()
+    {
+        var code = """
+import System.*
+
+class Foo {
+    public static func Evaluate() -> int {
+        let values: int[] = [1, 2]
+        let selectors: Func<int>[] = [for value in values => () => value]
+        return selectors[0]() * 10 + selectors[1]()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("Evaluate", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(12, (int)method!.Invoke(null, null)!);
+    }
+
+    [Fact]
+    public void CollectionComprehension_NestedSelectorLambdaCapturesIterationLocal()
+    {
+        var code = """
+import System.*
+
+class Foo {
+    public static func Evaluate() -> int {
+        let values: int[] = [1, 2]
+        let createSelectors: Func<Func<int>[]> = () =>
+            [for value in values => () => value]
+        let selectors = createSelectors()
+        return selectors[0]() * 10 + selectors[1]()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("Evaluate", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(12, (int)method!.Invoke(null, null)!);
+    }
+
+    [Fact]
     public void DictionaryCollectionExpressions_CanTargetDictionaryInterfaces()
     {
         var code = """
