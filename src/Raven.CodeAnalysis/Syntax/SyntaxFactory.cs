@@ -88,4 +88,22 @@ public static partial class SyntaxFactory
 
         return (CompilationUnitSyntax)result.Root.CreateRed();
     }
+
+    public static MemberDeclarationSyntax? ParseMemberDeclaration(string text, ParseOptions? options = null)
+        => ParseMemberDeclaration(SourceText.From(text), options);
+
+    public static MemberDeclarationSyntax? ParseMemberDeclaration(
+        SourceText sourceText,
+        ParseOptions? options = null)
+    {
+        var compilationUnit = ParseCompilationUnit(sourceText, options);
+
+        return compilationUnit.Imports.Count == 0 &&
+               compilationUnit.Aliases.Count == 0 &&
+               compilationUnit.AttributeLists.Count == 0 &&
+               compilationUnit.Members.Count == 1 &&
+               compilationUnit.Members[0] is not GlobalStatementSyntax
+            ? compilationUnit.Members[0]
+            : null;
+    }
 }

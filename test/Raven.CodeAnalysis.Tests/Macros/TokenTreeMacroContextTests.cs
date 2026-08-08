@@ -78,6 +78,71 @@ public sealed class TokenTreeMacroContextTests
                 diagnostic.Location.SourceSpan.End <= context.BodySpan.End));
     }
 
+    [Fact]
+    public void ParseMemberDeclarationResult_ParsesOneDeclaration()
+    {
+        var context = CreateContext("class Widget { }");
+
+        var result = context.ParseMemberDeclarationResult();
+
+        Assert.False(result.HasErrors);
+        Assert.IsType<ClassDeclarationSyntax>(result.Syntax);
+    }
+
+    [Fact]
+    public void ParseMemberDeclarationResult_RejectsMultipleDeclarations()
+    {
+        var context = CreateContext("class First { } class Second { }");
+
+        var result = context.ParseMemberDeclarationResult();
+
+        Assert.True(result.HasErrors);
+        Assert.Equal("First", Assert.IsType<ClassDeclarationSyntax>(result.Syntax).Identifier.ValueText);
+        var diagnostic = Assert.Single(result.Diagnostics, static diagnostic => diagnostic.Descriptor.Id == "RAVM022");
+        Assert.Contains(
+            "class Second",
+            context.Syntax.SyntaxTree!.GetText().GetSubText(diagnostic.Location.SourceSpan));
+    }
+
+    [Fact]
+    public void ParseMemberDeclarationResult_RejectsEmptyBodyWithRecoveredSyntax()
+    {
+        var context = CreateContext(string.Empty);
+
+        var result = context.ParseMemberDeclarationResult();
+
+        Assert.True(result.HasErrors);
+        Assert.IsType<IncompleteMemberDeclarationSyntax>(result.Syntax);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Descriptor.Id == "RAVM022");
+    }
+
+    [Fact]
+    public void ParseMemberDeclarationResult_RejectsGlobalStatement()
+    {
+        var context = CreateContext("let value = 1");
+
+        var result = context.ParseMemberDeclarationResult();
+
+        Assert.True(result.HasErrors);
+        Assert.IsType<IncompleteMemberDeclarationSyntax>(result.Syntax);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Descriptor.Id == "RAVM022");
+    }
+
+    [Theory]
+    [InlineData("import System.*")]
+    [InlineData("alias Text = System.String")]
+    [InlineData("[assembly: RavenCompilerPlugin]")]
+    public void ParseMemberDeclarationResult_RejectsCompilationUnitContent(string body)
+    {
+        var context = CreateContext(body);
+
+        var result = context.ParseMemberDeclarationResult();
+
+        Assert.True(result.HasErrors);
+        Assert.IsType<IncompleteMemberDeclarationSyntax>(result.Syntax);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Descriptor.Id == "RAVM022");
+    }
+
     private static TokenTreeMacroContext CreateContext(string body)
     {
         var tree = SyntaxTree.ParseText($"func Main() -> unit => probe! {{ {body} }}");

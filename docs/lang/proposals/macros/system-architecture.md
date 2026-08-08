@@ -445,12 +445,12 @@ The fragment service parses a complete selected region and retains authored
 locations:
 
 ```csharp
-MacroParseResult<ExpressionSyntax> ParseExpression(TextSpan span);
-MacroParseResult<StatementSyntax> ParseStatement(TextSpan span);
-MacroParseResult<TypeSyntax> ParseType(TextSpan span);
-MacroParseResult<PatternSyntax> ParsePattern(TextSpan span);
-MacroParseResult<MemberDeclarationSyntax> ParseMember(TextSpan span);
-MacroParseResult<CompilationUnitSyntax> ParseCompilationUnit(TextSpan span);
+MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(TextSpan span);
+MacroSyntaxParseResult<StatementSyntax> ParseStatementResult(TextSpan span);
+MacroSyntaxParseResult<TypeSyntax> ParseTypeResult(TextSpan span);
+MacroSyntaxParseResult<PatternSyntax> ParsePatternResult(TextSpan span);
+MacroSyntaxParseResult<MemberDeclarationSyntax> ParseMemberDeclarationResult(TextSpan span);
+MacroSyntaxParseResult<CompilationUnitSyntax> ParseCompilationUnitResult(TextSpan span);
 ```
 
 Every result contains recovered syntax, immutable native parser diagnostics,
@@ -755,9 +755,9 @@ The stages are capability gates, not compatibility releases:
    cancellation, and category validation. Keep descriptors compiler-derived
    and replace current experimental APIs where doing so produces a cleaner
    model.
-2. **Complete fragment parsing.** Build on the implemented expression,
-   statement, type, pattern, and compilation-unit parsers by defining the
-   exact-one recovery contract for member/declaration helpers.
+2. **Complete fragment parsing (implemented).** Expression, statement, type,
+   pattern, compilation-unit, and exact-one member/declaration helpers use
+   category-specific syntax and diagnostic-bearing results.
 3. **Complete syntax construction.** Extend quote/splice by category, preserve
    trivia, provide list/repetition splices, and round out factory/inspection
    helpers.

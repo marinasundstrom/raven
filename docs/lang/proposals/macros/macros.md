@@ -361,8 +361,8 @@ Remapping:
 * `ParseExpressionResult(bodyRelativeSpan)`
 * `ParseStatement`, `ParseType`, `ParsePattern`, and `ParseCompilationUnit`
   counterparts, each with a diagnostic-bearing `Result` form
-* a planned single-member counterpart after its exact recovery contract is
-  defined
+* `ParseMemberDeclaration` and `ParseMemberDeclarationResult`, which require
+  exactly one top-level declaration
 
 These:
 

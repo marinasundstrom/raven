@@ -576,10 +576,11 @@ generated-tree positions or wrapping them as macro failures.
 `ParseStatement`, `ParseType`, `ParsePattern`, and `ParseCompilationUnit`, plus
 their diagnostic-bearing `Result` forms, provide the same two shapes for other
 Raven categories. A selected body-relative span or the complete body can be
-parsed without changing the surrounding DSL representation. A narrower
-single-member parser remains future work because it needs an explicit recovery
-rule for zero or multiple declarations. The generic result does not make
-Raven's ordinary syntax hierarchy extensible.
+parsed without changing the surrounding DSL representation.
+`ParseMemberDeclarationResult` additionally enforces exactly one top-level
+declaration and reports zero, multiple, or non-declaration inputs instead of
+silently selecting a node. The generic result does not make Raven's ordinary
+syntax hierarchy extensible.
 
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:

@@ -84,4 +84,18 @@ public class SyntaxFactoryEntryPointTests
 
         Assert.IsType<ClassDeclarationSyntax>(Assert.Single(compilationUnit.Members));
     }
+
+    [Fact]
+    public void ParseMemberDeclaration_RequiresExactlyOneDeclaration()
+    {
+        var member = SyntaxFactory.ParseMemberDeclaration("class Widget { }");
+        var multiple = SyntaxFactory.ParseMemberDeclaration("class First { } class Second { }");
+        var globalStatement = SyntaxFactory.ParseMemberDeclaration("let value = 1");
+        var importAndMember = SyntaxFactory.ParseMemberDeclaration("import System.*\nclass Widget { }");
+
+        Assert.IsType<ClassDeclarationSyntax>(member);
+        Assert.Null(multiple);
+        Assert.Null(globalStatement);
+        Assert.Null(importAndMember);
+    }
 }

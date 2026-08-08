@@ -9,6 +9,16 @@ namespace Raven.CodeAnalysis.Macros;
 
 public class TokenTreeMacroContext
 {
+    private static readonly DiagnosticDescriptor s_expectedSingleMemberDeclaration = DiagnosticDescriptor.Create(
+        "RAVM022",
+        "Expected one member declaration",
+        "",
+        "",
+        "Expected exactly one Raven member declaration.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     private readonly IMacroTokenStreamProvider? _tokenStreamProvider;
     private readonly ImmutableArray<MacroKeyword> _keywords;
     private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
@@ -193,6 +203,50 @@ public class TokenTreeMacroContext
             bodyRelativeSpan,
             static () => SyntaxFactory.ParseCompilationUnit(string.Empty));
 
+    public MemberDeclarationSyntax ParseMemberDeclaration()
+        => ParseMemberDeclarationResult().Syntax;
+
+    public MemberDeclarationSyntax ParseMemberDeclaration(TextSpan bodyRelativeSpan)
+        => ParseMemberDeclarationResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<MemberDeclarationSyntax> ParseMemberDeclarationResult()
+        => ParseMemberDeclarationResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<MemberDeclarationSyntax> ParseMemberDeclarationResult(
+        TextSpan bodyRelativeSpan)
+    {
+        var compilationUnitResult = ParseCompilationUnitResult(bodyRelativeSpan);
+        var compilationUnit = compilationUnitResult.Syntax;
+        var members = compilationUnit.Members;
+        var isSingleMemberDeclaration =
+            compilationUnit.Imports.Count == 0 &&
+            compilationUnit.Aliases.Count == 0 &&
+            compilationUnit.AttributeLists.Count == 0 &&
+            members.Count == 1 &&
+            members[0] is not GlobalStatementSyntax;
+
+        if (isSingleMemberDeclaration)
+        {
+            return new MacroSyntaxParseResult<MemberDeclarationSyntax>(
+                members[0],
+                compilationUnitResult.Diagnostics);
+        }
+
+        var recoveredMember = members.FirstOrDefault(static member => member is not GlobalStatementSyntax)
+            ?? SyntaxFactory.IncompleteMemberDeclaration(
+                SyntaxList<AttributeListSyntax>.Empty,
+                SyntaxTokenList.Empty,
+                SyntaxFactory.MissingToken(SyntaxKind.None));
+        var diagnosticLocation = GetSingleMemberDiagnosticLocation(
+            compilationUnit,
+            bodyRelativeSpan);
+        var diagnostics = compilationUnitResult.Diagnostics.Add(Diagnostic.Create(
+            s_expectedSingleMemberDeclaration,
+            diagnosticLocation));
+
+        return new MacroSyntaxParseResult<MemberDeclarationSyntax>(recoveredMember, diagnostics);
+    }
+
     private MacroSyntaxParseResult<TSyntax> ParseSyntaxResult<TSyntax>(
         string bodyText,
         TextSpan bodyRelativeSpan,
@@ -224,6 +278,27 @@ public class TokenTreeMacroContext
             ?? ImmutableArray<Diagnostic>.Empty;
 
         return new MacroSyntaxParseResult<TSyntax>(syntax, diagnostics);
+    }
+
+    private Location GetSingleMemberDiagnosticLocation(
+        CompilationUnitSyntax compilationUnit,
+        TextSpan bodyRelativeSpan)
+    {
+        SyntaxNode? responsibleSyntax = compilationUnit.Imports.FirstOrDefault();
+        responsibleSyntax ??= compilationUnit.Aliases.FirstOrDefault();
+        responsibleSyntax ??= compilationUnit.AttributeLists.FirstOrDefault();
+
+        if (responsibleSyntax is null && compilationUnit.Members.Count > 1)
+            responsibleSyntax = compilationUnit.Members[1];
+
+        responsibleSyntax ??= compilationUnit.Members.FirstOrDefault();
+        if (responsibleSyntax is not null)
+            return Syntax.SyntaxTree?.GetLocation(responsibleSyntax.Span) ?? Location.None;
+
+        var sourceSpan = new TextSpan(
+            BodySpan.Start + bodyRelativeSpan.Start,
+            bodyRelativeSpan.Length);
+        return Syntax.SyntaxTree?.GetLocation(sourceSpan) ?? Location.None;
     }
 
     public MacroExpansionDiagnostic CreateDiagnostic(

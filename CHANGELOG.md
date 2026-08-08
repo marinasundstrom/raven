@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added exact-one member-declaration parsing for standalone syntax construction
+  and token-tree macro bodies. Empty, multiple, import-only, and global-
+  statement inputs are rejected instead of silently selecting a declaration.
+
 - Added source-backed type, pattern, and compilation-unit parsing to token-tree
   macro contexts, with diagnostic-bearing results mapped to authored body
   locations, plus matching `SyntaxFactory` entry points for standalone text.

@@ -144,10 +144,19 @@ syntax-only shape. Their corresponding `ParseTypeResult`,
 parser diagnostics and authored locations. All fragment helpers reject
 trailing input outside the selected fragment.
 
+`ParseMemberDeclaration` and `ParseMemberDeclarationResult` require exactly one
+top-level Raven declaration. Imports, aliases, compilation attributes, global
+statements, empty input, and multiple declarations do not satisfy that
+contract. The diagnostic-bearing form reports `RAVM022` at the responsible
+authored input and returns recovered member syntax so a macro can continue
+analysis without silently treating the input as valid.
+
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,
-`ParsePattern`, and `ParseCompilationUnit`. Macro-context parsing is preferred
-for authored body fragments because it preserves their source coordinates.
+`ParsePattern`, `ParseCompilationUnit`, and `ParseMemberDeclaration`.
+Standalone `ParseMemberDeclaration` returns null unless its input contains
+exactly one declaration. Macro-context parsing is preferred for authored body
+fragments because it preserves their source coordinates and diagnostics.
 
 `FreestandingMacroExpansionResult.FromExpression(...)` creates an expression
 result, optionally forwarding native parser diagnostics.

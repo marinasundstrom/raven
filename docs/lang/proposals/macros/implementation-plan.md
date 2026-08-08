@@ -536,7 +536,7 @@ let statement = context.ParseStatementResult(statementSpan)
 This adds an embedded-fragment category for DSL authors; it does not yet add a
 statement-position macro carrier or a public statement-quote spelling.
 
-## Active slice: Raven type, pattern, and compilation-unit fragments
+## Active slice: Raven type, pattern, compilation-unit, and member fragments
 
 Status: **implemented**
 
@@ -555,13 +555,16 @@ let unit = context.ParseCompilationUnitResult(declarationSpan)
 * [x] retain authored positions for recovered syntax and diagnostics
 * [x] expose matching `SyntaxFactory` entry points for standalone/generated
   text
-* [ ] define the recovery contract for exactly one member or declaration before
-  adding a member-only convenience parser
+* [x] require exactly one top-level declaration for member parsing
+* [x] diagnose empty, multiple, import/alias/attribute-only, and global-
+  statement inputs without silently selecting one
 
 Compilation-unit parsing already enables macros to parse arbitrary Raven
-declaration text into an immutable syntax tree. The narrower member helper is
-deferred deliberately: it must diagnose zero or multiple declarations rather
-than silently select one.
+declaration text into an immutable syntax tree. The narrower
+`ParseMemberDeclarationResult` helper returns recovered member syntax together
+with `RAVM022` when its exact-one contract is not satisfied. The standalone
+`SyntaxFactory.ParseMemberDeclaration` form returns null for the same shape
+failures.
 
 ## Validation case: compile-time file embedding
 
@@ -1138,10 +1141,10 @@ The intended flow is:
 
 ### Raven fragment parsing
 
-Expression, statement, type, pattern, and compilation-unit helpers now provide
-diagnostic-bearing parse results. Define an exact single-member/declaration
-recovery contract before adding narrower member helpers. Preserve authored
-locations for parser diagnostics and future expansion source maps.
+Expression, statement, type, pattern, compilation-unit, and exact-one member
+helpers now provide diagnostic-bearing parse results with authored locations.
+Future fragment categories should preserve the same source mapping and result
+shape rather than adding an untyped syntax-node parser.
 
 ### Additional expansion positions
 
@@ -1186,6 +1189,5 @@ slice:
   `#add` expansion from quoted syntax plus argument holes
 
 Later slices add contextual category selection, statement/member/declaration
-quote categories, member/declaration fragment parsers, compiler-owned
-bind/equivalence verification, SDK reference convenience, and
-token/identifier/list/repetition splice categories.
+quote categories, compiler-owned bind/equivalence verification, SDK reference
+convenience, and token/identifier/list/repetition splice categories.
