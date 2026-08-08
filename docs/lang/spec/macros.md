@@ -226,6 +226,13 @@ additional identifier, literal, operator, punctuation, or comment categories.
 from the consumer compilation. Provider failures degrade that token's symbol
 to `null` without discarding its remaining metadata. Language services reuse
 normal Raven hover and definition presentation for non-null targets.
+This models an authored-span-to-symbol association, with the token span as the
+current unit. An explicit token association takes precedence over a broader
+embedded-fragment association at the same position.
+The provider may interpret the token span using its private DSL parser before
+resolving a contextual symbol, such as a component attribute property or a
+schema column. This does not project the private DSL structure into Raven's
+syntax or bound trees.
 These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
 Failures and invalid values from the optional kind-name or classification
 capabilities are normalized per token, preserving the remaining snapshot and

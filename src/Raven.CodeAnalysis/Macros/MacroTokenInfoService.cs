@@ -12,6 +12,13 @@ internal static class MacroTokenInfoService
         SemanticModel semanticModel,
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken)
+        => GetTokens(semanticModel, expression, expression, cancellationToken);
+
+    public static ImmutableArray<MacroTokenInfo> GetTokens(
+        SemanticModel semanticModel,
+        FreestandingMacroExpressionSyntax expression,
+        SyntaxNode resolutionContext,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -19,7 +26,7 @@ internal static class MacroTokenInfoService
             !expression.TryGetMacroName(out var name) ||
             !semanticModel.Compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                 semanticModel.Compilation,
-                expression,
+                resolutionContext,
                 name,
                 out var loaded,
                 out _) ||

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Extended macro token symbol projection to contextual DSL references. The
+  HTML-to-Blazor sample now resolves component attributes to their ordinary
+  component property symbols, enabling standard hover and go-to-definition
+  without exposing the macro's private parser representation. Token lookup
+  follows reported Raven fragments into nested macro invocations, explicit
+  DSL token associations take precedence over containing fragments, and macro
+  invocation hints no longer occupy unresolved text inside token-tree bodies.
+
 - Updated the HTML-to-Blazor sample so component parameters and matching DSL
   attributes follow .NET PascalCase naming conventions.
 

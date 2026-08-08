@@ -108,6 +108,77 @@ func Main() {
     }
 
     [Fact]
+    public void MacroTokenHover_TakesPrecedenceOverContainingFragment()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+class FragmentTarget { }
+class ExplicitTarget { }
+
+func Main() {
+    let value = conflictingSymbol! { FragmentTarget }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new ConflictingSymbolMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("FragmentTarget", StringComparison.Ordinal) + 1;
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroSymbolHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, offset, CancellationToken.None]);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().Name.ShouldBe("ExplicitTarget");
+    }
+
+    [Fact]
+    public void MacroInvocationHover_IsLimitedToInvocationName()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+class Greeting { }
+
+func Main() {
+    let value = symbolToken! { Greeting }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new SymbolTokenMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText();
+        var bodyOffset = code.LastIndexOf("Greeting", StringComparison.Ordinal) + 1;
+        var nameOffset = code.LastIndexOf("symbolToken", StringComparison.Ordinal) + 1;
+        var braceOffset = code.IndexOf('{', nameOffset);
+        var tryBuild = typeof(HoverHandler)
+            .GetMethod("TryBuildMacroExpansionHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var nameHover = tryBuild.Invoke(null, [sourceText, semanticModel, root, nameOffset]);
+        var braceHover = tryBuild.Invoke(null, [sourceText, semanticModel, root, braceOffset]);
+        var bodyHover = tryBuild.Invoke(null, [sourceText, semanticModel, root, bodyOffset]);
+
+        nameHover.ShouldNotBeNull();
+        braceHover.ShouldBeNull();
+        bodyHover.ShouldBeNull();
+    }
+
+    [Fact]
     public void SymbolResolver_DottedPropertyPattern_ResolvesEveryMemberSegment()
     {
         const string code = """
@@ -167,10 +238,35 @@ func Test(item: Foo) -> bool {
         public string Name => "symbolToken";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+            => FreestandingMacroExpansionResult.FromExpression(
+                SyntaxFactory.LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression,
+                    SyntaxFactory.Literal(42)));
 
         public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
+    }
+
+    private sealed class ConflictingSymbolMacro :
+        ITokenTreeExpressionMacro,
+        IMacroFragmentProvider,
+        IMacroTokenSymbolProvider
+    {
+        public string Name => "conflictingSymbol";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Expression,
+                    new TextSpan(0, context.BodySpan.Length))
+            ];
+
+        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+            => context.Compilation.GetTypeByMetadataName("ExplicitTarget");
     }
 
     [Fact]

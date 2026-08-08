@@ -148,16 +148,25 @@ kinds to Raven's global `SyntaxKind`; a later custom HTML stream can introduce
 provider-owned raw kinds and name them through `IMacroTokenKindProvider` if tag
 and attribute names need distinct editor semantics.
 
-`IMacroTokenSymbolProvider` resolves identifier tokens that match consumer
-types. Component tags such as `<Greeting />` therefore reuse ordinary Raven
-hover and definition behavior. This is symbol metadata over the token span,
-not an HTML node projected into Raven's syntax tree.
+`IMacroTokenSymbolProvider` resolves component tags and component attributes
+against ordinary consumer symbols. `<Greeting Name="Raven" />` therefore gives
+`Greeting` normal type hover and definition behavior, while `Name` presents
+the `Greeting.Name` property. The macro uses its private parse result to supply
+context, but publishes only symbol metadata over each token span—not HTML nodes
+projected into Raven's syntax tree.
+
+The macro invocation hint remains available on the `Html` name. Inside its
+braces, hover is reserved for explicit DSL token-symbol associations and
+reported Raven fragments; unrelated HTML text does not fall back to the macro
+invocation hint. Nested `Html!` invocations inside comprehensions use the same
+compiler-owned lookup path.
 
 This is the compiler-side routing primitive for future macro-aware editor
 services. Semantic highlighting consumes the compiler snapshot today.
 Ordinary Raven completion, hover, and definition now route through reported
-fragment spans, and component tags can publish ordinary symbol targets. The
-HTML parser's own tree, if it grows one, remains private to the macro.
+fragment spans, and component tags and attributes can publish ordinary symbol
+targets. The HTML parser's own tree, if it grows one, remains private to the
+macro.
 
 The sample now exercises the DSL-tooling MVP: immutable combined input
 snapshots, token kinds and classifications, embedded expression spans,
@@ -167,6 +176,10 @@ in-memory plugin and verifies those contracts plus authored-source diagnostics,
 preventing the sample and tooling API from drifting independently.
 The dependency-ordered post-MVP slices are tracked in the
 [macro implementation plan](../../../docs/lang/proposals/macros/implementation-plan.md#predicted-post-mvp-dsl-tooling-slices).
+That plan includes Blazor-aware callback lowering so an `EventCallback`
+component property can accept either a callback reference or an inline Raven
+lambda while the macro emits the required
+`EventCallback.Factory.Create(self, callback)` wrapper.
 
 ## Playground status
 

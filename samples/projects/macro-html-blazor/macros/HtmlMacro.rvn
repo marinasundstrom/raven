@@ -17,6 +17,24 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
             return null
         }
 
+        let expansion = HtmlDslParser(context.GetBodyText()).Parse()
+        for attribute in expansion.ComponentAttributes {
+            if attribute.NameSpan.Start == token.Span.Start
+                && attribute.NameSpan.Length == token.Span.Length {
+                let component: INamedTypeSymbol = context.Compilation.GetTypeByMetadataName(attribute.ComponentName) else {
+                    return null
+                }
+
+                for member in component.GetMembers(attribute.AttributeName) {
+                    if member is IPropertySymbol property {
+                        return property
+                    }
+                }
+
+                return null
+            }
+        }
+
         context.Compilation.GetTypeByMetadataName(token.ValueText)
     }
 
@@ -89,24 +107,34 @@ class HtmlDslExpansion {
     val ErrorMessage: string?
     val ErrorPosition: int
     val EmbeddedExpressionSpans: ImmutableArray<TextSpan>
+    val ComponentAttributes: ImmutableArray<HtmlComponentAttribute>
 
     init(
         expressionText: string,
         errorMessage: string?,
         errorPosition: int,
-        embeddedExpressionSpans: ImmutableArray<TextSpan>
+        embeddedExpressionSpans: ImmutableArray<TextSpan>,
+        componentAttributes: ImmutableArray<HtmlComponentAttribute>
     ) {
         ExpressionText = expressionText
         ErrorMessage = errorMessage
         ErrorPosition = errorPosition
         EmbeddedExpressionSpans = embeddedExpressionSpans
+        ComponentAttributes = componentAttributes
     }
 }
+
+class HtmlComponentAttribute(
+    val ComponentName: string,
+    val AttributeName: string,
+    val NameSpan: TextSpan
+)
 
 class HtmlDslParser {
     private val _source: string
     private val _builder = StringBuilder()
     private var _embeddedExpressionSpans: ImmutableArray<TextSpan> = []
+    private var _componentAttributes: ImmutableArray<HtmlComponentAttribute> = []
     private var _position: int = 0
     private var _sequence: int = 0
     private var _errorMessage: string? = null
@@ -131,7 +159,8 @@ class HtmlDslParser {
             _builder.ToString(),
             _errorMessage,
             _errorPosition,
-            _embeddedExpressionSpans)
+            _embeddedExpressionSpans,
+            _componentAttributes)
     }
 
     private func ParseElement() {
@@ -155,10 +184,18 @@ class HtmlDslParser {
         SkipWhitespace()
 
         while _errorMessage is null && !IsEnd() && !At(">") && !At("/>") {
+            let attributeStart = _position
             let attributeName = ReadName()
             if attributeName.Length == 0 {
                 Error("Expected an attribute name or '>'.")
                 return
+            }
+            if isComponent && !IsKeyAttribute(attributeName) {
+                _componentAttributes = _componentAttributes.Add(
+                    HtmlComponentAttribute(
+                        name,
+                        attributeName,
+                        TextSpan(attributeStart, attributeName.Length)))
             }
 
             SkipWhitespace()

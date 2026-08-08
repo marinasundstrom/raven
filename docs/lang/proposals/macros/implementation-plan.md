@@ -217,7 +217,10 @@ accepted only when the preceding use case demonstrates its value.
    optional token-symbol provider and `MacroTokenInfo.Symbol` let component
    tags, schema identifiers, and similar tokens reuse normal Raven hover and
    definition. Metadata failures degrade per token, and no DSL structure or
-   presentation API is exposed.
+   presentation API is exposed. Token lookup descends through reported Raven
+   fragments into nested token-tree macros, and an explicit token association
+   takes precedence over a containing fragment. Macro invocation hints remain
+   on the invocation name rather than occupying unresolved text in its body.
 6. **Add optional non-symbol DSL affordance providers.** Introduce narrowly
    scoped completion, hover, and navigation contributions for outer DSL tokens
    only when token kind, fragment semantics, and ordinary Raven hover cannot
@@ -231,10 +234,18 @@ accepted only when the preceding use case demonstrates its value.
    and nested-compilation limits before supporting more powerful syntax-tree
    construction or compilation APIs. Consider process isolation only when the
    package and host model requires it.
-9. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
+9. **Lower natural callbacks to Blazor event callbacks.** When a component
+   attribute resolves to an `EventCallback` property, accept an ordinary Raven
+   callback reference or an inline lambda expression and let the HTML macro
+   emit `EventCallback.Factory.Create(self, callback)`. Attribute bodies remain
+   ordinary Raven expression fragments, so both
+   `Toggled={callback}` and `Toggled={() => toggleTodo(todo.Id)}` use the same
+   lowering. Keep this Blazor-aware conversion out of the generic macro
+   symbol/tooling contracts.
+10. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
    reference, diagnostics, generated Blazor shape, and an external consumer
    before treating the React-like sample as a reusable product surface.
-10. **Prototype Playground preview as a library consumer.** After distribution,
+11. **Prototype Playground preview as a library consumer.** After distribution,
    add compile-and-inspect component discovery, then explicit interactive
    mounting. The Playground must not copy or special-case the HTML parser.
 

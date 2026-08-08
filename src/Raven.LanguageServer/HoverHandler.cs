@@ -126,17 +126,14 @@ internal sealed class HoverHandler : IHoverHandler
 
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
-            currentStage = "macroFragmentHover";
-            var macroFragmentResolution = TryResolveMacroFragmentHover(
+            currentStage = "macroSymbolHover";
+            var macroSymbolResolution = TryResolveMacroSymbolHover(
                 semanticModel,
                 root,
                 offset,
                 effectiveCancellationToken);
-            currentStage = "macroTokenHover";
-            var macroTokenResolution = macroFragmentResolution is null
-                ? TryResolveMacroTokenHover(semanticModel, root, offset, effectiveCancellationToken)
-                : null;
-            if (macroFragmentResolution is null && macroTokenResolution is null)
+            var isInMacroBody = IsInMacroTokenTreeBody(root, offset);
+            if (macroSymbolResolution is null && !isInMacroBody)
             {
                 currentStage = "macroHover";
                 var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
@@ -158,13 +155,15 @@ internal sealed class HoverHandler : IHoverHandler
             if (patternHover is not null)
                 return patternHover;
 
+            if (macroSymbolResolution is null && isInMacroBody)
+                return null;
+
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "resolution";
             var resolutionStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
-            var resolution = macroFragmentResolution
-                ?? macroTokenResolution
+            var resolution = macroSymbolResolution
                 ?? TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
             declaredSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
@@ -612,6 +611,25 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static Hover? TryBuildMacroExpansionHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
     {
+        if (IsInMacroTokenTreeBody(root, offset))
+            return null;
+
+        SyntaxToken token;
+        try
+        {
+            token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+        }
+        catch
+        {
+            return null;
+        }
+
+        var tokenTreeInvocation = token.Parent?.AncestorsAndSelf()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .FirstOrDefault(static invocation => invocation.TokenTree is not null);
+        if (tokenTreeInvocation is not null && !tokenTreeInvocation.Name.Span.Contains(token.Span))
+            return null;
+
         if (!MacroExpansionDisplayService.TryCreateForOffset(sourceText, semanticModel, root, offset, out var display))
             return null;
 
@@ -638,6 +656,42 @@ internal sealed class HoverHandler : IHoverHandler
             Range = PositionHelper.ToRange(sourceText, display.Span)
         };
     }
+
+    private static bool IsInMacroTokenTreeBody(SyntaxNode root, int offset)
+    {
+        SyntaxToken token;
+        try
+        {
+            token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+        }
+        catch
+        {
+            return false;
+        }
+
+        foreach (var invocation in token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>() ?? [])
+        {
+            if (invocation.TokenTree is not { } tokenTree)
+                continue;
+
+            var bodyStart = tokenTree.OpenBraceToken.Span.End;
+            var bodyEnd = tokenTree.CloseBraceToken.IsMissing
+                ? tokenTree.BodyToken.Span.End
+                : tokenTree.CloseBraceToken.SpanStart;
+            if (offset >= bodyStart && offset <= bodyEnd)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static SymbolResolutionResult? TryResolveMacroSymbolHover(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        CancellationToken cancellationToken)
+        => TryResolveMacroTokenHover(semanticModel, root, offset, cancellationToken)
+            ?? TryResolveMacroFragmentHover(semanticModel, root, offset, cancellationToken);
 
     private static SymbolResolutionResult? TryResolveMacroFragmentHover(
         SemanticModel semanticModel,
@@ -708,8 +762,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (invocation?.TokenTree is null)
                 continue;
 
-            var tokenInfo = semanticModel.GetMacroInputSnapshot(invocation, cancellationToken)
-                .FindToken(candidateOffset);
+            var tokenInfo = semanticModel.GetMacroTokenInfo(invocation, candidateOffset, cancellationToken);
             if (tokenInfo?.Symbol is not { } symbol)
                 continue;
 

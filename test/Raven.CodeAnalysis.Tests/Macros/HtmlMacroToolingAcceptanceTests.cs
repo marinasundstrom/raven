@@ -122,11 +122,13 @@ public sealed class HtmlMacroToolingAcceptanceTests
     {
         var macroReference = CreateCheckedInHtmlMacroReference();
         const string source = """
-            class Greeting { }
+            class Greeting {
+                var Name: string = ""
+            }
 
             class Gallery {
                 func Render() => Html! {
-                    <Greeting />
+                    <Greeting Name="Raven" />
                 }
             }
             """;
@@ -144,6 +146,14 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var component = Assert.IsAssignableFrom<INamedTypeSymbol>(token.Symbol);
         Assert.Equal("Greeting", component.Name);
         Assert.Contains(component.Locations, static location => location.IsInSource);
+
+        var attributeToken = Assert.Single(
+            compilation.GetMacroTokens(invocation),
+            static candidate => candidate.Text == "Name");
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(attributeToken.Symbol);
+        Assert.Equal("Name", property.Name);
+        Assert.Equal("Greeting", property.ContainingType?.Name);
+        Assert.Contains(property.Locations, static location => location.IsInSource);
     }
 
     [Fact]
@@ -155,6 +165,10 @@ public sealed class HtmlMacroToolingAcceptanceTests
                 val Title: string => "Build Raven"
             }
 
+            class TodoItem {
+                var Title: string = ""
+            }
+
             class TodoList {
                 val todos = [Todo()]
 
@@ -162,7 +176,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
                     <ul>
                         {[for todo in todos if todo.Title.Length > 0 =>
                             Html! {
-                                <li>{todo.Title}</li>
+                                <TodoItem Title={todo.Title} />
                             }]}
                     </ul>
                 }
@@ -179,12 +193,16 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var titlePosition = source.IndexOf("Title.Length", StringComparison.Ordinal) + 1;
         var nestedTodoPosition = source.LastIndexOf("todo.Title", StringComparison.Ordinal) + 1;
         var nestedTitlePosition = source.LastIndexOf("Title", StringComparison.Ordinal) + 1;
+        var componentStart = source.LastIndexOf("<TodoItem", StringComparison.Ordinal);
+        var componentAttributePosition = source.IndexOf("Title", componentStart, StringComparison.Ordinal) + 1;
 
         var todosInfo = compilation.GetMacroFragmentSemanticInfo(invocation, todosPosition);
         var todoInfo = compilation.GetMacroFragmentSemanticInfo(invocation, todoPosition);
         var titleInfo = compilation.GetMacroFragmentSemanticInfo(invocation, titlePosition);
         var nestedTodoInfo = compilation.GetMacroFragmentSemanticInfo(invocation, nestedTodoPosition);
         var nestedTitleInfo = compilation.GetMacroFragmentSemanticInfo(invocation, nestedTitlePosition);
+        var componentAttributeInfo = compilation.GetSemanticModel(syntaxTree)
+            .GetMacroTokenInfo(invocation, componentAttributePosition);
 
         var todos = Assert.IsAssignableFrom<IPropertySymbol>(todosInfo?.SymbolInfo.Symbol);
         Assert.Equal("todos", todos.Name);
@@ -204,6 +222,10 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var nestedTitle = Assert.IsAssignableFrom<IPropertySymbol>(nestedTitleInfo?.SymbolInfo.Symbol);
         Assert.Equal("Title", nestedTitle.Name);
         Assert.Equal(SpecialType.System_String, nestedTitle.Type.SpecialType);
+
+        var componentAttribute = Assert.IsAssignableFrom<IPropertySymbol>(componentAttributeInfo?.Symbol);
+        Assert.Equal("Title", componentAttribute.Name);
+        Assert.Equal("TodoItem", componentAttribute.ContainingType?.Name);
     }
 
     private static Compilation CreateConsumerCompilation(

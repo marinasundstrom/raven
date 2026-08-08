@@ -82,12 +82,29 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             }
 
             stageStopwatch.Restart();
-            var macroFragmentInfo = TryResolveMacroFragmentDefinition(
+            var macroTokenInfo = TryResolveMacroTokenDefinition(
                 semanticModel,
                 root,
                 offset,
                 cancellationToken);
             resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (macroTokenInfo?.Symbol is { } macroTokenSymbol)
+            {
+                var tokenLinks = DefinitionLocationMapper.BuildLocationLinks(
+                        ReferenceSearchService.NormalizeSymbol(macroTokenSymbol.UnderlyingSymbol),
+                        sourceText,
+                        macroTokenInfo.Span)
+                    .Select(static location => (LocationOrLocationLink)location)
+                    .ToArray();
+                resultCount = tokenLinks.Length;
+                return new LocationOrLocationLinks(tokenLinks);
+            }
+
+            var macroFragmentInfo = TryResolveMacroFragmentDefinition(
+                semanticModel,
+                root,
+                offset,
+                cancellationToken);
             var macroFragmentSymbol = macroFragmentInfo?.SymbolInfo.Symbol
                 ?? macroFragmentInfo?.SymbolInfo.CandidateSymbols.FirstOrDefault();
             if (macroFragmentInfo is not null && macroFragmentSymbol is not null)
@@ -100,23 +117,6 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                     .ToArray();
                 resultCount = fragmentLinks.Length;
                 return new LocationOrLocationLinks(fragmentLinks);
-            }
-
-            var macroTokenInfo = TryResolveMacroTokenDefinition(
-                semanticModel,
-                root,
-                offset,
-                cancellationToken);
-            if (macroTokenInfo?.Symbol is { } macroTokenSymbol)
-            {
-                var tokenLinks = DefinitionLocationMapper.BuildLocationLinks(
-                        ReferenceSearchService.NormalizeSymbol(macroTokenSymbol.UnderlyingSymbol),
-                        sourceText,
-                        macroTokenInfo.Span)
-                    .Select(static location => (LocationOrLocationLink)location)
-                    .ToArray();
-                resultCount = tokenLinks.Length;
-                return new LocationOrLocationLinks(tokenLinks);
             }
 
             stageStopwatch.Restart();
@@ -214,7 +214,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             .FirstOrDefault();
         return invocation?.TokenTree is null
             ? null
-            : semanticModel.GetMacroInputSnapshot(invocation, cancellationToken).FindToken(offset);
+            : semanticModel.GetMacroTokenInfo(invocation, offset, cancellationToken);
     }
 
     private static bool TryResolveMacroDefinition(

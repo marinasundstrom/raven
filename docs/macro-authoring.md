@@ -385,6 +385,20 @@ similar references. It enables normal hover and go-to-definition without a
 custom hover format or public DSL tree. Return `null` for tokens that do not
 denote Raven symbols.
 
+The association is fundamentally between an authored DSL span and an ordinary
+symbol; a token's span is the convenient unit supplied by the current token
+metadata API. Resolution may depend on the token's private DSL context. For
+example, an HTML
+macro can use the token span to recognize `Name` as an attribute of
+`<Greeting>`, resolve `Greeting` in the consumer compilation, and return its
+ordinary `IPropertySymbol` for `Name`. A SQL macro can apply the same model to
+resolve a column against the table or alias selected by its private parser.
+Only the resulting symbol crosses the macro boundary; the compiler and editor
+do not need the macro's syntax-tree representation.
+
+An explicit DSL token-symbol association takes precedence over semantic
+inference from a broader embedded Raven fragment containing the same position.
+
 ## Working examples
 
 The repository examples progress from compact syntax to full DSL handling:

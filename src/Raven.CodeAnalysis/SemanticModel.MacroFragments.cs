@@ -45,6 +45,83 @@ public partial class SemanticModel
             cancellationToken);
     }
 
+    /// <summary>
+    /// Gets token metadata at an authored position inside a token-tree macro,
+    /// including token-tree macros nested in reported Raven fragments.
+    /// </summary>
+    public MacroTokenInfo? GetMacroTokenInfo(
+        FreestandingMacroExpressionSyntax expression,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (expression.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        if ((uint)position > (uint)SyntaxTree.GetRoot(cancellationToken).FullSpan.End)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        return GetMacroTokenInfo(
+            expression,
+            position,
+            expression,
+            nestingDepth: 0,
+            cancellationToken);
+    }
+
+    private MacroTokenInfo? GetMacroTokenInfo(
+        FreestandingMacroExpressionSyntax expression,
+        int position,
+        SyntaxNode resolutionContext,
+        int nestingDepth,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
+        var snapshot = nestingDepth == 0
+            ? GetMacroInputSnapshot(expression, cancellationToken)
+            : new MacroInputSnapshot(
+                context.BodySpan,
+                MacroTokenInfoService.GetTokens(this, expression, resolutionContext, cancellationToken),
+                MacroFragmentRegionService.GetFragmentRegions(this, expression, resolutionContext, cancellationToken));
+
+        var region = snapshot.FindFragmentRegion(position);
+        if (region is not null && nestingDepth < MaxMacroFragmentNestingDepth)
+        {
+            SyntaxNode? fragment = region.Kind switch
+            {
+                MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
+                MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+                _ => null
+            };
+            if (fragment is not null)
+            {
+                var searchPosition = Math.Clamp(position, fragment.FullSpan.Start, fragment.FullSpan.End);
+                if (searchPosition == fragment.FullSpan.End && searchPosition > fragment.FullSpan.Start)
+                    searchPosition--;
+                var token = fragment.FindToken(searchPosition);
+                foreach (var nestedInvocation in token.Parent?.AncestorsAndSelf()
+                    .OfType<FreestandingMacroExpressionSyntax>() ?? [])
+                {
+                    if (nestedInvocation.TokenTree?.Span.Contains(searchPosition) != true)
+                        continue;
+
+                    var nestedInfo = GetMacroTokenInfo(
+                        nestedInvocation,
+                        position,
+                        resolutionContext,
+                        nestingDepth + 1,
+                        cancellationToken);
+                    if (nestedInfo is not null)
+                        return nestedInfo;
+                }
+            }
+        }
+
+        return snapshot.FindToken(position);
+    }
+
     private MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
         FreestandingMacroExpressionSyntax expression,
         MacroFragmentRegion region,
