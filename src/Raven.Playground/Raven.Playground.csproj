@@ -18,8 +18,18 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
-    <ProjectReference Include="..\Raven.Core\Raven.Core.rvnproj" />
-    <ProjectReference Include="..\Raven.Macros\Raven.Macros.rvnproj" />
+    <ProjectReference Include="..\Raven.Core\Raven.Core.rvnproj"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Raven.Macros\Raven.Macros.rvnproj"
+                      ReferenceOutputAssembly="false" />
+    <Reference Include="Raven.Core"
+               HintPath="..\Raven.Core\bin\$(Configuration)\net10.0\Raven.Core.dll"
+               Private="true"
+               ExternallyResolved="true" />
+    <Reference Include="Raven.Macros"
+               HintPath="..\Raven.Macros\bin\$(Configuration)\net10.0\Raven.Macros.dll"
+               Private="true"
+               ExternallyResolved="true" />
   </ItemGroup>
 
   <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
