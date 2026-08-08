@@ -350,6 +350,21 @@ public partial class SemanticModel
     }
 
     /// <summary>
+    /// Gets the token stream and optional classifications for a token-tree macro invocation.
+    /// </summary>
+    public ImmutableArray<MacroTokenInfo> GetMacroTokens(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (expression.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        return MacroTokenInfoService.GetTokens(this, expression, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in this semantic model's syntax tree asynchronously.
     /// </summary>
     /// <param name="position">The zero-based position in the syntax tree.</param>

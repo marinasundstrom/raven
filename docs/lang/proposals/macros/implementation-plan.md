@@ -592,6 +592,26 @@ This is deliberately a token-and-span API. It does not require or expose a
 secondary DSL syntax tree, and it leaves completion routing and semantic scope
 bridging to later independently justified slices.
 
+## Active slice: classified macro tokens
+
+Status: **implemented**
+
+`SemanticModel.GetMacroTokens` and its `Compilation` counterpart now surface
+the token stream selected by a token-tree macro. Each `MacroTokenInfo` carries
+the original `SyntaxToken`, provider-owned `RawKind`, text, body-relative span,
+absolute authored span, and an optional `MacroTokenClassification`.
+
+* [x] preserve provider-owned raw kinds without extending Raven `SyntaxKind`
+* [x] map token spans into authored source coordinates
+* [x] classify declared macro keyword overlays automatically
+* [x] allow a lightweight optional `IMacroTokenClassifier`
+* [x] isolate optional tokenization/classification failures from semantic tools
+* [ ] consume macro token classifications in semantic highlighting
+* [ ] project token classification capabilities from `macro func` syntax
+
+The classifier sees the same stream tokens used by expansion. It labels tokens;
+it does not publish the macro's parser nodes or alter ordinary Raven lexing.
+
 ## Validation case: compile-time file embedding
 
 Status: **test macro implemented; tracked resource API deferred**

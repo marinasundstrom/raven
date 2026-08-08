@@ -56,6 +56,19 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets the token stream and optional classifications for a token-tree macro invocation.
+    /// </summary>
+    public ImmutableArray<MacroTokenInfo> GetMacroTokens(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        var syntaxTree = expression.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(expression));
+        return GetSemanticModel(syntaxTree).GetMacroTokens(expression, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>

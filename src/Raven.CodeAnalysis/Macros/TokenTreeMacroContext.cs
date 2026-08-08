@@ -134,6 +134,26 @@ public class TokenTreeMacroContext
                 bodyRelativeSpan.Length));
     }
 
+    internal MacroTokenInfo CreateTokenInfo(
+        SyntaxToken token,
+        MacroTokenClassification classification = MacroTokenClassification.Default)
+    {
+        if (!Enum.IsDefined(classification))
+            throw new ArgumentOutOfRangeException(nameof(classification));
+
+        var bodyRelativeSpan = token.Span;
+        if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
+            throw new ArgumentOutOfRangeException(nameof(token));
+
+        return new MacroTokenInfo(
+            token,
+            bodyRelativeSpan,
+            new TextSpan(
+                BodySpan.Start + bodyRelativeSpan.Start,
+                bodyRelativeSpan.Length),
+            classification);
+    }
+
     public ExpressionSyntax ParseExpression()
         => ParseExpressionResult().Syntax;
 
@@ -317,6 +337,27 @@ public class TokenTreeMacroContext
             BodySpan.Start + bodyRelativeSpan.Start,
             bodyRelativeSpan.Length);
         return Syntax.SyntaxTree?.GetLocation(sourceSpan) ?? Location.None;
+    }
+
+    internal MacroTokenClassification GetKeywordClassification(SyntaxToken token)
+    {
+        foreach (var keyword in _keywords)
+        {
+            if (keyword.RawKind != token.RawKind ||
+                !string.Equals(keyword.Text, token.ValueText, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return keyword.Classification switch
+            {
+                MacroKeywordClassification.Keyword => MacroTokenClassification.Keyword,
+                MacroKeywordClassification.ReservedWord => MacroTokenClassification.ReservedWord,
+                _ => MacroTokenClassification.Default,
+            };
+        }
+
+        return MacroTokenClassification.Default;
     }
 
     public MacroExpansionDiagnostic CreateDiagnostic(

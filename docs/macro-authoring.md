@@ -89,6 +89,14 @@ The standard stream uses Raven's lexer. A mostly Raven-shaped DSL should start
 there and add body-scoped keyword overlays. Implement a custom token stream
 only when the DSL has a genuinely different lexical grammar.
 
+Compiler hosts can query the exact selected stream through
+`SemanticModel.GetMacroTokens`. Each result includes the token's provider-owned
+raw kind, text, body-relative and authored spans, plus an optional lightweight
+classification. Keyword overlays are classified automatically. Implement
+`IMacroTokenClassifier` only when other DSL tokens need identifier, literal,
+operator, punctuation, or comment presentation. This metadata does not add
+global Raven token kinds.
+
 ## 4. Parse Raven fragments inside a DSL
 
 Use `TokenTreeMacroContext` when a custom outer grammar contains ordinary Raven

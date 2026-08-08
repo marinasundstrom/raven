@@ -462,6 +462,15 @@ authored span and exposes the immutable results through `SemanticModel` or
 `Compilation`. Zero-width spans are valid expected slots. Provider failures
 produce no regions and do not take down unrelated semantic tooling.
 
+The matching token contract is also compiler-owned. `GetMacroTokens` enumerates
+the macro's standard or custom stream and returns `MacroTokenInfo` values with
+provider raw kinds, body-relative and authored spans, and optional
+`MacroTokenClassification` values. Keyword overlays receive their declared
+keyword or reserved-word classification automatically. A macro implements
+`IMacroTokenClassifier` only for additional lightweight categories such as
+identifier, literal, operator, punctuation, or comment. This classification
+does not change the token kind or publish a DSL syntax tree.
+
 ### Structured DSL wrappers
 
 A macro may privately parse its body into a secondary tree for its own DSL.
