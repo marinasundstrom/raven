@@ -46,9 +46,9 @@ public class TodoList {
                         Html! {
                             <TodoItem
                                 key={todo.Id}
-                                title={todo.Title}
-                                isCompleted={todo.IsCompleted}
-                                toggled={toggleCallback(todo.Id)} />
+                                Title={todo.Title}
+                                IsCompleted={todo.IsCompleted}
+                                Toggled={toggleCallback(todo.Id)} />
                         }]}
                 </ul>
             </section>

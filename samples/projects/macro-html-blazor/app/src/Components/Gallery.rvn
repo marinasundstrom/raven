@@ -5,8 +5,8 @@ public class Gallery {
     func Render() -> RenderFragment =>
         Html! {
             <div class="composition">
-                <Greeting name="Raven" />
-                <Counter initialCount={3} />
+                <Greeting Name="Raven" />
+                <Counter InitialCount={3} />
             </div>
         }
 }

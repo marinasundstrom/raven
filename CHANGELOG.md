@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Updated the HTML-to-Blazor sample so component parameters and matching DSL
+  attributes follow .NET PascalCase naming conventions.
+
 - Fixed workspace loading for compiler-plugin project references so the built
   plugin assembly is available as both a macro provider and an ordinary
   metadata reference. Macro libraries can now expose runtime helper types used

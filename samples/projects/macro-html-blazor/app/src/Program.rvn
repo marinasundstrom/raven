@@ -30,7 +30,7 @@ func Main() {
         "Invoking onclick must update Counter state.")
 
     let greeting = Greeting()
-    greeting.name = "Raven"
+    greeting.Name = "Raven"
     use greetingBuilder = RenderTreeBuilder()
     greeting.Render()(greetingBuilder)
     let greetingFrames = greetingBuilder.GetFrames()
@@ -52,10 +52,10 @@ func Main() {
     Require(galleryFrames.Count == 6, "Gallery must emit element, component, and parameter frames.")
     Require(galleryFrames.Array[0].ElementName == "div", "Gallery root must be a div.")
     Require(galleryFrames.Array[2].ComponentType == typeof(Greeting), "Gallery must compose Greeting.")
-    Require(galleryFrames.Array[3].AttributeName == "name", "Greeting must receive its name parameter.")
+    Require(galleryFrames.Array[3].AttributeName == "Name", "Greeting must receive its Name parameter.")
     Require(galleryFrames.Array[3].AttributeValue.ToString() == "Raven", "Greeting must receive Raven.")
     Require(galleryFrames.Array[4].ComponentType == typeof(Counter), "Gallery must compose Counter.")
-    Require(galleryFrames.Array[5].AttributeName == "initialCount", "Counter must receive its initial count.")
+    Require(galleryFrames.Array[5].AttributeName == "InitialCount", "Counter must receive its InitialCount parameter.")
     Require(galleryFrames.Array[5].AttributeValue.ToString() == "3", "Counter must receive count three.")
 
     let todoList = TodoList()

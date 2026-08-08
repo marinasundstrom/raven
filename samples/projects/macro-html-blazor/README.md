@@ -99,7 +99,7 @@ Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 }}
 
 {[for todo in todos if showCompleted || !todo.IsCompleted =>
-    Html! { <TodoItem key={todo.Id} title={todo.Title} /> }]}
+    Html! { <TodoItem key={todo.Id} Title={todo.Title} /> }]}
 
 {match phase { 0 => "Design" 1 => "Compile" _ => "Ship" }}
 {phase match { 0 => "Design" 1 => "Compile" _ => "Ship" }}

@@ -4,23 +4,23 @@ import Microsoft.AspNetCore.Components.*
 #[Component]
 public class TodoItem {
     #[Parameter]
-    var title: string = ""
+    var Title: string = ""
 
     #[Parameter]
-    var isCompleted: bool = false
+    var IsCompleted: bool = false
 
     #[Parameter]
-    var toggled: EventCallback = default(EventCallback)
+    var Toggled: EventCallback = default(EventCallback)
 
-    func toggle() -> Task => toggled.InvokeAsync()
+    func toggle() -> Task => Toggled.InvokeAsync()
 
     func Render() -> RenderFragment =>
         Html! {
-            <li class={if isCompleted { "todo-item is-complete" } else { "todo-item" }}>
+            <li class={if IsCompleted { "todo-item is-complete" } else { "todo-item" }}>
                 <label>
-                    <input type="checkbox" checked={isCompleted} onChange={toggle} />
-                    <span class="todo-marker">{if isCompleted { "✓" } else { "" }}</span>
-                    <span class="todo-title">{title}</span>
+                    <input type="checkbox" checked={IsCompleted} onChange={toggle} />
+                    <span class="todo-marker">{if IsCompleted { "✓" } else { "" }}</span>
+                    <span class="todo-title">{Title}</span>
                 </label>
             </li>
         }
