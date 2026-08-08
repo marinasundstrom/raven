@@ -19,6 +19,7 @@ what a feature does, when to use it, and show representative Raven examples.
 * [Raven for absolute beginners](raven-for-absolute-beginners.md)
 * [Raven for C# developers](raven-for-csharp-developers.md)
 * [Metaprogramming in Raven](metaprogramming.md)
+* [Authoring Raven macros](macro-authoring.md)
 * [Language docs](lang/README.md)
 * [Domain modeling](lang/domain-modeling.md)
 

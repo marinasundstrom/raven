@@ -1,5 +1,9 @@
 # Macros
 
+For a progressive implementation guide, see
+[Authoring Raven macros](../../macro-authoring.md). This page is the reference
+for current syntax and compiler contracts.
+
 > [!NOTE]
 > **Status: work in progress.** This page documents the macro behavior currently
 > implemented by the compiler, not a stable compatibility contract. Macro

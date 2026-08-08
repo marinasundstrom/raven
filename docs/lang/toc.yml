@@ -177,6 +177,8 @@
           href: spec/extensions.md#static-extension-members
 - name: Metaprogramming
   items:
+    - name: Authoring macros
+      href: ../macro-authoring.md
     - name: Macros
       href: spec/macros.md
 - name: Pattern matching

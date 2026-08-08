@@ -14,6 +14,7 @@
           "raven-for-absolute-beginners.md",
           "raven-for-csharp-developers.md",
           "metaprogramming.md",
+          "macro-authoring.md",
           "libraries/index.md",
           "libraries/toc.yml",
           "lang/README.md",

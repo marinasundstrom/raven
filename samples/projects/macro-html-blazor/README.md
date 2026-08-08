@@ -1,5 +1,9 @@
 # HTML-to-Blazor macro prototype
 
+For a progression from a minimal `macro func` to the provider and tooling
+contracts used here, see the repository's
+[macro authoring guide](../../../docs/macro-authoring.md).
+
 This isolated experiment tests whether Raven's existing raw token-tree macros
 are a practical foundation for embedded DSLs. It does not add HTML syntax to
 the compiler or promote these macros into `Raven.Macros`.

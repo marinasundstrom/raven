@@ -217,6 +217,16 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 | `macro func AddEquatable() on Type` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
 | `macro func Observable() on Property` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
+Optional capability interfaces must also have an intentional source-syntax
+projection. `IMacroFragmentProvider` is the first concrete gap: class-authored
+providers can report kind/span pairs now, while `macro func` has no contribution
+form for them yet. A future form should accumulate fragment regions through the
+same result/adapter boundary as reached `expand`, `replace`, and `introduce`
+statements. It must preserve body-relative and zero-width spans and must not
+expose generated adapter classes or a macro-private DSL tree. The exact spelling
+is deferred until completion routing and repeated-region examples establish
+the smallest useful surface.
+
 Typed parameter lists may lower through the existing generic macro interfaces
 and compiler-owned parameter objects. Syntax-role parameters such as
 `ExpressionSyntax` and `IMacroTokenStream` retain their real types while using

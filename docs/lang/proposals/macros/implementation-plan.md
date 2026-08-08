@@ -584,6 +584,7 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
 * [x] permit zero-width expected regions for incomplete-code completion
 * [x] resolve the optional provider through `SemanticModel` and `Compilation`
 * [x] isolate optional tooling-provider failures from other semantic queries
+* [ ] project fragment-region contributions from `macro func` syntax
 * [ ] route ordinary Raven completion inside reported fragment regions
 * [ ] describe macro-introduced semantic scope visible inside a fragment
 

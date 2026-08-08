@@ -38,6 +38,10 @@ instead of being deferred until the resulting program runs. Macro completion,
 navigation, expansion previews, and future structured-DSL tooling are compiler
 and editor concerns rather than runtime reflection behavior.
 
+To build one progressively—from a typed `macro func` through token-tree DSLs,
+diagnostics, fragment regions, attached declarations, and reusable packaging—
+see [Authoring Raven macros](macro-authoring.md).
+
 ## .NET reflection
 
 Reflection is the .NET runtime facility exposed through APIs such as

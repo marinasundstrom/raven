@@ -13,6 +13,7 @@ and marks features whose design is still especially likely to change.
 * [Introduction](../introduction.md)
 * [Raven for absolute beginners](../raven-for-absolute-beginners.md)
 * [Raven for C# developers](../raven-for-csharp-developers.md)
+* [Authoring Raven macros](../macro-authoring.md)
 * [Language philosophy](philosophy.md)
 * [Domain modeling](domain-modeling.md)
 * [Language reference](spec/language-specification.md)
