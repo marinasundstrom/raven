@@ -12,6 +12,30 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 public sealed class HtmlMacroToolingAcceptanceTests
 {
     [Fact]
+    public void CheckedInHtmlMacro_RoutesExpressionCompletionThroughReportedFragments()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        const string source = """
+            class Greeting {
+                val message: string = "Hello"
+
+                func Render() => Html! {
+                    <h1>{message.}</h1>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-completion.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var position = source.IndexOf("message.", StringComparison.Ordinal) + "message.".Length;
+
+        var items = compilation.GetSemanticModel(syntaxTree)
+            .GetCompletions(position)
+            .ToArray();
+
+        Assert.Contains(items, static item => item.DisplayText == "Length");
+    }
+
+    [Fact]
     public void CheckedInHtmlMacro_ProvidesCompleteToolingSnapshotAndAuthoredDiagnostics()
     {
         var macroReference = CreateCheckedInHtmlMacroReference();

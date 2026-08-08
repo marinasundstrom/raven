@@ -20,6 +20,22 @@ public static class CompletionProvider
         SemanticModel model,
         int position,
         bool forceInsertionAtCaret = false)
+        => GetCompletionsCore(token, model, position, forceInsertionAtCaret, semanticContext: null);
+
+    internal static IEnumerable<CompletionItem> GetCompletionsForMacroFragment(
+        SyntaxToken token,
+        SemanticModel model,
+        SyntaxNode invocation,
+        int position,
+        bool forceInsertionAtCaret = false)
+        => GetCompletionsCore(token, model, position, forceInsertionAtCaret, invocation);
+
+    private static IEnumerable<CompletionItem> GetCompletionsCore(
+        SyntaxToken token,
+        SemanticModel model,
+        int position,
+        bool forceInsertionAtCaret,
+        SyntaxNode? semanticContext)
     {
         var sourceText = model.SyntaxTree.GetText();
 
@@ -38,9 +54,9 @@ public static class CompletionProvider
             token,
             sourceText,
             position).ToArray();
-        var binder = model.GetBinder(token.Parent);
-        if (token.Parent is { } tokenParent)
-            model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(tokenParent);
+        var semanticContextNode = semanticContext ?? token.Parent;
+        var binder = model.GetBinder(semanticContextNode);
+        model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(semanticContextNode);
 
         var completions = new List<CompletionItem>(macroParameterCompletions);
         var seen = new HashSet<string>(
@@ -57,6 +73,15 @@ public static class CompletionProvider
 
             return binder.IsSymbolAccessible(symbol);
         }
+
+        bool IsInSemanticModel(SyntaxNode node)
+            => ReferenceEquals(node.SyntaxTree, model.SyntaxTree);
+
+        Binder GetContextualBinder(SyntaxNode node)
+            => IsInSemanticModel(node) ? model.GetBinder(node) : binder;
+
+        ITypeSymbol? GetContextualType(ExpressionSyntax node)
+            => IsInSemanticModel(node) ? model.GetTypeInfo(node).Type : null;
 
         bool CanAccessPrivateSelfMembers()
         {
@@ -146,8 +171,10 @@ public static class CompletionProvider
             if (string.IsNullOrWhiteSpace(name))
                 return null;
 
-            if (token.Parent is { } contextNode &&
-                model.TryLookupVisibleValueSymbol(contextNode, name) is { } visibleSymbol)
+            if (model.TryLookupVisibleValueSymbol(
+                    semanticContextNode,
+                    name,
+                    allowBindingFallback: semanticContext is not null) is { } visibleSymbol)
             {
                 return visibleSymbol;
             }
@@ -163,6 +190,12 @@ public static class CompletionProvider
 
         bool TryGetPreferredSymbolInfo(SyntaxNode node, out SymbolInfo symbolInfo)
         {
+            if (!IsInSemanticModel(node))
+            {
+                symbolInfo = default;
+                return false;
+            }
+
             if (model.TryGetNodeInterestSymbolInfo(node, out symbolInfo) &&
                 HasSymbolInfo(symbolInfo))
             {
@@ -412,14 +445,17 @@ public static class CompletionProvider
                 if (string.IsNullOrWhiteSpace(receiverName))
                     return null;
 
-                var symbol = model.TryLookupVisibleValueSymbol(receiverExpression, receiverName)
+                var symbol = model.TryLookupVisibleValueSymbol(
+                        semanticContextNode,
+                        receiverName,
+                        allowBindingFallback: semanticContext is not null)
                     ?? binder.LookupSymbol(receiverName)
                     ?? TryLookupValueSymbolByName(receiverName);
                 if (symbol is not null)
                     return symbol;
             }
 
-            var receiverBinder = model.GetBinder(receiverExpression);
+            var receiverBinder = GetContextualBinder(receiverExpression);
             var binderResolvedSymbol = receiverName is not null
                 ? receiverBinder.LookupSymbol(receiverName) ?? receiverBinder.LookupSymbols(receiverName).FirstOrDefault()
                 : null;
@@ -564,7 +600,7 @@ public static class CompletionProvider
 
         ILocalSymbol CreateSyntheticReceiverLocalSymbol(string name, ITypeSymbol type, ExpressionSyntax receiverExpression)
         {
-            var containingSymbol = model.GetBinder(receiverExpression).ContainingSymbol ?? model.Compilation.GlobalNamespace;
+            var containingSymbol = GetContextualBinder(receiverExpression).ContainingSymbol ?? model.Compilation.GlobalNamespace;
             return new SourceLocalSymbol(
                 name,
                 type,
@@ -593,7 +629,7 @@ public static class CompletionProvider
                 return symbolType;
             }
 
-            return model.GetTypeInfo(expression).Type;
+            return GetContextualType(expression);
         }
 
         ITypeSymbol? TryGetSequenceElementType(ITypeSymbol collectionType)
@@ -647,6 +683,9 @@ public static class CompletionProvider
 
         bool ShouldOfferSelfCompletion()
         {
+            if (semanticContext is not null && token.Kind == SyntaxKind.None)
+                return true;
+
             if (token.IsKind(SyntaxKind.IdentifierToken))
                 return true;
 
@@ -970,13 +1009,16 @@ public static class CompletionProvider
 
             if (symbol is null &&
                 expression is IdentifierNameSyntax receiverIdentifier &&
-                model.TryLookupVisibleValueSymbol(expression, receiverIdentifier.Identifier.ValueText) is { } visibleSymbol)
+                model.TryLookupVisibleValueSymbol(
+                    semanticContextNode,
+                    receiverIdentifier.Identifier.ValueText,
+                    allowBindingFallback: semanticContext is not null) is { } visibleSymbol)
             {
                 symbol = visibleSymbol;
             }
 
             var type = expression is NameOfExpressionSyntax
-                ? model.GetTypeInfo(expression).Type
+                ? GetContextualType(expression)
                 : null;
             if (type is not null && type.TypeKind != TypeKind.Error)
                 return (symbol, type);
@@ -988,7 +1030,7 @@ public static class CompletionProvider
             if (TryGetNullableSuppressionReceiverType(expression, out var suppressedReceiverType))
                 return (symbol, suppressedReceiverType);
 
-            var binderSymbol = model.GetBinder(expression).BindSymbol(expression).Symbol?.UnderlyingSymbol;
+            var binderSymbol = GetContextualBinder(expression).BindSymbol(expression).Symbol?.UnderlyingSymbol;
             if (binderSymbol is not null)
             {
                 symbol = binderSymbol;
@@ -997,7 +1039,7 @@ public static class CompletionProvider
                     return (symbol, type);
             }
 
-            type = model.GetTypeInfo(expression).Type;
+            type = GetContextualType(expression);
             if ((type is null || type.TypeKind == TypeKind.Error) &&
                 TryGetNullableSuppressionReceiverType(expression, out suppressedReceiverType))
             {
@@ -1028,7 +1070,9 @@ public static class CompletionProvider
             }
             else
             {
-                var operandInfo = model.GetTypeInfo(suppression.Expression);
+                var operandInfo = IsInSemanticModel(suppression.Expression)
+                    ? model.GetTypeInfo(suppression.Expression)
+                    : default;
                 operandType = operandInfo.Type ?? operandInfo.ConvertedType;
             }
 
@@ -1530,7 +1574,7 @@ public static class CompletionProvider
                 return model.Compilation.GlobalNamespace;
             }
 
-            var contextNode = token.Parent ?? model.SyntaxTree.GetRoot();
+            var contextNode = semanticContext ?? token.Parent ?? model.SyntaxTree.GetRoot();
             foreach (var symbol in model.GetVisibleValueSymbols(contextNode))
                 AddPipeTargetIfApplicable(symbol);
 
@@ -2821,6 +2865,7 @@ public static class CompletionProvider
         var offerValueCompletions = token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax }
             || token.IsKind(SyntaxKind.IdentifierToken)
             || token.IsKind(SyntaxKind.EndOfFileToken)
+            || (semanticContext is not null && token.Kind == SyntaxKind.None)
             || isArgumentStartToken;
 
         if (offerValueCompletions)
@@ -2828,9 +2873,11 @@ public static class CompletionProvider
             var valuePrefix = isArgumentStartToken ? string.Empty : tokenValueText;
             var prefixWithoutEscape = valuePrefix.TrimStart('@');
             var allowTypesInValuePosition = prefixWithoutEscape.Length > 0 && char.IsUpper(prefixWithoutEscape[0]);
-            var contextNode = token.Parent ?? model.SyntaxTree.GetRoot();
+            var contextNode = semanticContext ?? token.Parent ?? model.SyntaxTree.GetRoot();
 
-            foreach (var symbol in model.GetVisibleValueSymbols(contextNode))
+            foreach (var symbol in model.GetVisibleValueSymbols(
+                contextNode,
+                allowBindingFallback: semanticContext is not null))
             {
                 if (!IsAccessible(symbol))
                     continue;

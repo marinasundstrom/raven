@@ -3,6 +3,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -10,6 +11,129 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 
 public sealed class CompletionServiceMacroTests
 {
+    [Fact]
+    public void GetCompletions_InsideReportedExpressionFragment_UsesCallerScope()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let message = "hello"
+        let value = #fragment { message. }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new FragmentMacro()));
+
+        var position = code.IndexOf("message.", StringComparison.Ordinal) + "message.".Length;
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "Length");
+    }
+
+    [Fact]
+    public void GetCompletions_InsideReportedExpressionFragment_ReturnsCallerSymbols()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let message = "hello"
+        let value = #fragment { mes }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new FragmentMacro()));
+
+        var position = code.IndexOf("mes }", StringComparison.Ordinal) + "mes".Length;
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        var message = Assert.Single(items.Where(static item => item.DisplayText == "message"));
+        Assert.Equal("mes", code.Substring(message.ReplacementSpan.Start, message.ReplacementSpan.Length));
+    }
+
+    [Fact]
+    public void GetCompletions_AtReportedEmptyExpressionFragment_ReturnsCallerSymbols()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let message = "hello"
+        let value = #emptyFragment { }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new EmptyFragmentMacro()));
+
+        var position = code.IndexOf("}", code.IndexOf("#emptyFragment", StringComparison.Ordinal), StringComparison.Ordinal);
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "message");
+    }
+
+    [Theory]
+    [InlineData(MacroFragmentKind.Statement, "mes", "message")]
+    [InlineData(MacroFragmentKind.Type, "Wid", "Widget")]
+    [InlineData(MacroFragmentKind.Pattern, "mes", "message")]
+    [InlineData(MacroFragmentKind.MemberDeclaration, "class Nested(val item: Wid) { }", "Widget")]
+    public void GetCompletions_InsideReportedFragment_UsesReportedSyntaxCategory(
+        MacroFragmentKind kind,
+        string fragment,
+        string expectedCompletion)
+    {
+        var code = $$"""
+class Widget { }
+
+class MacroHost {
+    func Test() {
+        let message = "hello"
+        let value = #categorized { {{fragment}} }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new CategorizedFragmentMacro(kind)));
+
+        var completionPrefix = kind == MacroFragmentKind.MemberDeclaration ? "Wid" : fragment;
+        var position = code.LastIndexOf(completionPrefix, StringComparison.Ordinal) + completionPrefix.Length;
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        Assert.Contains(items, item => item.DisplayText == expectedCompletion);
+    }
+
     [Fact]
     public void GetCompletions_AfterHashInExpression_ReturnsOnlyFreestandingMacros()
     {
@@ -499,6 +623,62 @@ class MacroHost {
 
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => MacroExpansionResult.Empty;
+    }
+
+    private sealed class FragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "fragment";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Expression,
+                    new TextSpan(0, context.BodySpan.Length)),
+            ];
+    }
+
+    private sealed class EmptyFragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "emptyFragment";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Expression,
+                    new TextSpan(context.BodySpan.Length, 0)),
+            ];
+    }
+
+    private sealed class CategorizedFragmentMacro(MacroFragmentKind kind) :
+        ITokenTreeExpressionMacro,
+        IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "categorized";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    kind,
+                    new TextSpan(0, context.BodySpan.Length)),
+            ];
     }
 
     private sealed class SubscribeMacro : IFreestandingExpressionMacro

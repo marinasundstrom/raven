@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -552,11 +553,66 @@ public class CompletionService
         int position,
         bool forceInsertionAtCaret)
     {
+        if (TryGetMacroFragmentToken(token, semanticModel, position, out var fragmentToken, out var invocation))
+        {
+            var completions = CompletionProvider.GetCompletionsForMacroFragment(
+                fragmentToken,
+                semanticModel,
+                invocation,
+                position,
+                forceInsertionAtCaret || fragmentToken.Kind == SyntaxKind.None);
+            var tokenReplacementSpan = new TextSpan(fragmentToken.Position, fragmentToken.Text.Length);
+            return completions.Select(completion =>
+                completion.ReplacementSpan == tokenReplacementSpan
+                    ? completion with { ReplacementSpan = fragmentToken.Span }
+                    : completion);
+        }
+
         return CompletionProvider.GetCompletions(
             token,
             semanticModel,
             position,
             forceInsertionAtCaret: forceInsertionAtCaret);
+    }
+
+    private static bool TryGetMacroFragmentToken(
+        SyntaxToken token,
+        SemanticModel semanticModel,
+        int position,
+        out SyntaxToken fragmentToken,
+        out FreestandingMacroExpressionSyntax invocation)
+    {
+        fragmentToken = default;
+        invocation = token.Parent?.AncestorsAndSelf()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .FirstOrDefault()!;
+        if (invocation?.TokenTree is null)
+            return false;
+
+        var region = semanticModel.GetMacroInputSnapshot(invocation).FindFragmentRegion(position);
+        if (region is null)
+            return false;
+
+        var context = new TokenTreeMacroContext(
+            semanticModel.Compilation,
+            semanticModel,
+            invocation);
+        SyntaxNode fragment = region.Kind switch
+        {
+            MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
+            MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+            MacroFragmentKind.Type => context.ParseType(region.BodyRelativeSpan),
+            MacroFragmentKind.Pattern => context.ParsePattern(region.BodyRelativeSpan),
+            MacroFragmentKind.MemberDeclaration => context.ParseMemberDeclaration(region.BodyRelativeSpan),
+            _ => throw new InvalidOperationException($"Unsupported macro fragment kind '{region.Kind}'.")
+        };
+
+        var searchPosition = Math.Clamp(position - 1, fragment.FullSpan.Start, fragment.FullSpan.End);
+        fragmentToken = fragment.FindToken(searchPosition);
+        if (fragmentToken.Kind == SyntaxKind.None)
+            fragmentToken = fragment.GetFirstToken(includeZeroWidth: true);
+
+        return true;
     }
 
     internal static IEnumerable<CompletionItem> GetBasicKeywordCompletions(SyntaxToken token, int position)

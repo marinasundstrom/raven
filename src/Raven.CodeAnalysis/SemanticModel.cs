@@ -11528,7 +11528,9 @@ public partial class SemanticModel
             ? TryLookupVisibleValueSymbol(expression, identifier.Identifier.ValueText)
             : null;
 
-    internal ImmutableArray<ISymbol> GetVisibleValueSymbols(SyntaxNode contextNode)
+    internal ImmutableArray<ISymbol> GetVisibleValueSymbols(
+        SyntaxNode contextNode,
+        bool allowBindingFallback = false)
     {
         var position = contextNode.Span.Start;
         var builder = ImmutableArray.CreateBuilder<ISymbol>();
@@ -11548,7 +11550,7 @@ public partial class SemanticModel
                 if (candidate.Start > position || !seenDeclarations.Add(candidate.DeclarationNode))
                     continue;
 
-                if (TryResolveVisibleValueSymbol(candidate) is { } symbol)
+                if (TryResolveVisibleValueSymbol(candidate, allowBindingFallback) is { } symbol)
                     builder.Add(symbol);
             }
         }
@@ -11556,7 +11558,10 @@ public partial class SemanticModel
         return builder.ToImmutable();
     }
 
-    internal ISymbol? TryLookupVisibleValueSymbol(SyntaxNode contextNode, string name)
+    internal ISymbol? TryLookupVisibleValueSymbol(
+        SyntaxNode contextNode,
+        string name,
+        bool allowBindingFallback = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
@@ -11590,7 +11595,7 @@ public partial class SemanticModel
                     continue;
                 }
 
-                if (TryResolveVisibleValueSymbol(candidate) is { } symbol)
+                if (TryResolveVisibleValueSymbol(candidate, allowBindingFallback) is { } symbol)
                     return symbol;
             }
         }
@@ -12242,7 +12247,9 @@ public partial class SemanticModel
         }
     }
 
-    private ISymbol? TryResolveVisibleValueSymbol(Compilation.VisibleValueDeclaration declaration)
+    private ISymbol? TryResolveVisibleValueSymbol(
+        Compilation.VisibleValueDeclaration declaration,
+        bool allowBindingFallback = false)
         => declaration.DeclarationNode switch
         {
             ParameterSyntax parameter => TryResolveFunctionExpressionParameterSymbolFast(parameter, out var fastFunctionParameter)
@@ -12260,7 +12267,7 @@ public partial class SemanticModel
                       out var localSymbol,
                       allowErrorType: true,
                       allowInitializerBinding: true,
-                      allowBindingFallback: false)
+                      allowBindingFallback)
                 ? localSymbol
                 : null,
             SingleVariableDesignationSyntax => null,

@@ -215,9 +215,15 @@ narrower token and fragment queries remain available when only one is needed.
 `FindFragmentRegion(position)` returns the narrowest region at a cursor,
 including an exact zero-width expected slot.
 
-**Future:** ordinary Raven completion is not yet delegated into these regions.
-Macro-introduced names, such as a query range variable, also need a
-compiler-owned semantic-scope contract before completion can see them.
+Ordinary Raven completion is automatically delegated into these regions. It
+parses the reported category at its authored position and uses the invocation's
+caller scope, so locals, parameters, fields, types, and member access behave as
+they do outside the DSL. Macro authors do not implement a second completion
+provider for embedded Raven syntax.
+
+Macro-introduced names, such as a query range variable, are not visible yet.
+They need a compiler-owned semantic-scope contract before completion can
+resolve them.
 
 ## 7. Transform declarations
 
@@ -314,6 +320,7 @@ the query, while optional tooling metadata failures degrade safely.
 
 The predicted follow-on slices are maintained in dependency order under
 “Predicted post-MVP DSL tooling slices” in
-`docs/lang/proposals/macros/implementation-plan.md`. The next useful step is
-ordinary Raven completion inside reported fragment spans. Public custom syntax
-trees are not a prerequisite.
+`docs/lang/proposals/macros/implementation-plan.md`. Ordinary Raven completion
+now works inside reported fragment spans without requiring public custom syntax
+trees. The next completion-specific step is an explicit semantic-scope contract
+for names introduced by a macro's DSL.

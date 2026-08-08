@@ -192,10 +192,10 @@ accepted only when the preceding use case demonstrates its value.
 1. **Project tooling contributions from `macro func`.** Add the smallest source
    contribution form for fragment kind/span pairs and token metadata so common
    macros do not need a provider class. Keep the generated adapter private.
-2. **Route ordinary completion through fragment spans.** At a cursor selected
-   by `FindFragmentRegion`, reuse Raven's existing expression, statement, type,
-   pattern, or member completion against the authored fragment. Do not add a
-   DSL completion API yet.
+2. **Route ordinary completion through fragment spans (implemented).** At a
+   cursor selected by `FindFragmentRegion`, reuse Raven's existing expression,
+   statement, type, pattern, or member completion against the authored
+   fragment. Do not add a DSL completion API yet.
 3. **Bridge macro-introduced semantic scope.** Add a compiler-owned description
    of names and types visible inside a fragment only after query-like or
    template-like examples prove caller scope alone is insufficient. Define
@@ -667,12 +667,15 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
 * [x] resolve the optional provider through `SemanticModel` and `Compilation`
 * [x] isolate optional tooling-provider failures from other semantic queries
 * [ ] project fragment-region contributions from `macro func` syntax
-* [ ] route ordinary Raven completion inside reported fragment regions
+* [x] route ordinary Raven completion inside reported fragment regions using
+  the invocation's caller scope
 * [ ] describe macro-introduced semantic scope visible inside a fragment
 
 This is deliberately a token-and-span API. It does not require or expose a
-secondary DSL syntax tree, and it leaves completion routing and semantic scope
-bridging to later independently justified slices.
+secondary DSL syntax tree. Completion reparses only the selected ordinary Raven
+fragment and delegates to the existing compiler completion provider. Semantic
+scope bridging for DSL-introduced names remains a later independently justified
+slice.
 
 ## Active slice: classified macro tokens
 

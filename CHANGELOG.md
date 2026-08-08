@@ -40,7 +40,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   for surfacing body-relative expression, statement, type, pattern, and member
   spans as authored source regions without exposing a macro's private DSL tree.
   The HTML-to-Blazor sample now publishes its embedded Raven expression spans
-  through that contract.
+  through that contract. Ordinary Raven completion now routes through reported
+  regions using the invocation's caller scope, including local-symbol and
+  member-access completion, without requiring a DSL-specific completion API.
 
 - Added exact-one member-declaration parsing for standalone syntax construction
   and token-tree macro bodies. Empty, multiple, import-only, and global-
