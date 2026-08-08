@@ -17,6 +17,8 @@ Supported by the prototype:
 - plain text with formatting whitespace collapsed;
 - quoted attributes;
 - `{ RavenExpression }` content parsed by Raven with authored-source diagnostics;
+- `{ RavenExpression }` spans surfaced through the compiler's optional macro
+  fragment-region API;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - deterministic, preorder render-tree sequence numbers; and
@@ -61,13 +63,16 @@ Malformed Raven therefore reports a native parser diagnostic at the authored
 expression inside the HTML body. The HTML parser owns only the surrounding DSL
 grammar.
 
-Those spans are the first concrete input for future macro-aware editor
-services. HTML token classifications and Raven-expression regions should
-eventually be exposed by a compiler-owned token-and-span snapshot shared by
-expansion, semantic highlighting, and completion. The HTML parser's own tree,
-if it grows one, remains private to the macro. This sample does not yet add that
-compiler/LSP contract; it records and exercises the source-coordinate behavior
-the contract will require.
+The macro also implements `IMacroFragmentProvider` and reports those same spans
+as `MacroFragmentKind.Expression`. `SemanticModel.GetMacroFragmentRegions`
+therefore exposes body-relative and absolute authored spans without exposing
+the HTML parser's representation. Zero additional HTML nodes enter Raven's
+syntax or bound trees.
+
+This is the compiler-side routing primitive for future macro-aware editor
+services. HTML token classification, ordinary Raven completion within the
+reported regions, and macro-introduced semantic scopes remain future work. The
+HTML parser's own tree, if it grows one, remains private to the macro.
 
 ## Playground status
 
