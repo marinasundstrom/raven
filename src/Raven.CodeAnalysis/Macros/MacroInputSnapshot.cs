@@ -24,4 +24,28 @@ public sealed class MacroInputSnapshot
     public ImmutableArray<MacroTokenInfo> Tokens { get; }
 
     public ImmutableArray<MacroFragmentRegion> FragmentRegions { get; }
+
+    /// <summary>
+    /// Finds the most specific Raven fragment region at an authored source position.
+    /// </summary>
+    public MacroFragmentRegion? FindFragmentRegion(int position)
+    {
+        if (position < BodySpan.Start || position > BodySpan.End)
+            return null;
+
+        MacroFragmentRegion? best = null;
+        foreach (var region in FragmentRegions)
+        {
+            var containsPosition = region.Span.Length == 0
+                ? position == region.Span.Start
+                : position >= region.Span.Start && position <= region.Span.End;
+            if (!containsPosition)
+                continue;
+
+            if (best is null || region.Span.Length < best.Span.Length)
+                best = region;
+        }
+
+        return best;
+    }
 }

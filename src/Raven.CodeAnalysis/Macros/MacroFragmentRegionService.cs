@@ -41,7 +41,11 @@ internal static class MacroFragmentRegionService
             cancellationToken.ThrowIfCancellationRequested();
             return regions.IsDefaultOrEmpty
                 ? ImmutableArray<MacroFragmentRegion>.Empty
-                : regions.Where(static region => region is not null).ToImmutableArray();
+                : regions
+                    .Where(static region => region is not null)
+                    .OrderBy(static region => region.Span.Start)
+                    .ThenBy(static region => region.Span.Length)
+                    .ToImmutableArray();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

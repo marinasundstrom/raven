@@ -616,6 +616,9 @@ it does not publish the macro's parser nodes or alter ordinary Raven lexing.
 `GetMacroInputSnapshot` is the normal combined query for editor consumers. It
 groups the cached tokens and fragment regions for one authored body while
 retaining the narrower queries for callers that need only one side.
+Fragment regions are source ordered, and `FindFragmentRegion(position)` returns
+the narrowest matching region. Zero-width expected slots match their exact
+authored position.
 
 ## Validation case: compile-time file embedding
 

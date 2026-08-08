@@ -178,6 +178,8 @@ tokens when it can acquire the document's existing semantic model without
 waiting. Otherwise it retains ordinary syntax-only highlighting.
 `SemanticModel.GetMacroInputSnapshot` and its `Compilation` counterpart group
 the same cached tokens and fragment regions into one compiler-owned view.
+`FindFragmentRegion(position)` selects the narrowest matching region, including
+a zero-width expected slot at its exact position.
 
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,

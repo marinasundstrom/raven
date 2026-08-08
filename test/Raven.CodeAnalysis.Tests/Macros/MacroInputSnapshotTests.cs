@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -37,6 +38,37 @@ public sealed class MacroInputSnapshotTests
         Assert.True(snapshot.BodySpan.Contains(token.Span));
     }
 
+    [Fact]
+    public void FindFragmentRegion_ReturnsMostSpecificRegionIncludingEmptySlot()
+    {
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #regions { outer.inner }";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroFragmentLookup",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new RegionLookupMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var snapshot = compilation.GetMacroInputSnapshot(expression);
+        var innerPosition = code.IndexOf("inner", StringComparison.Ordinal) + 2;
+        var endPosition = expression.TokenTree!.CloseBraceToken.SpanStart;
+
+        var inner = snapshot.FindFragmentRegion(innerPosition);
+        var empty = snapshot.FindFragmentRegion(endPosition);
+
+        Assert.Equal(MacroFragmentKind.Type, inner!.Kind);
+        Assert.Equal("inner", code.Substring(inner.Span.Start, inner.Span.Length));
+        Assert.Equal(MacroFragmentKind.Pattern, empty!.Kind);
+        Assert.Equal(0, empty.Span.Length);
+        Assert.Equal(
+            snapshot.FragmentRegions.OrderBy(static region => region.Span.Start)
+                .ThenBy(static region => region.Span.Length),
+            snapshot.FragmentRegions);
+    }
+
     private sealed class SnapshotMacro :
         ITokenTreeExpressionMacro,
         IMacroTokenClassifier,
@@ -58,6 +90,28 @@ public sealed class MacroInputSnapshotTests
                 context.CreateFragmentRegion(
                     MacroFragmentKind.Expression,
                     new TextSpan(1, "value".Length)),
+            ];
+    }
+
+    private sealed class RegionLookupMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Name => "regions";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Pattern,
+                    new TextSpan(context.BodySpan.Length, 0)),
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Type,
+                    new TextSpan(7, "inner".Length)),
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Expression,
+                    new TextSpan(1, "outer.inner".Length)),
             ];
     }
 }
