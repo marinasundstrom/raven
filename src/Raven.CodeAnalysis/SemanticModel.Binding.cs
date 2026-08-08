@@ -3790,6 +3790,8 @@ public partial class SemanticModel
     {
         foreach (var member in unionDecl.Members)
         {
+            ReportInvalidUnionMemberKindIfNeeded(unionSymbol, unionBinder, member);
+
             switch (member)
             {
                 case CaseDeclarationSyntax:
@@ -3858,6 +3860,7 @@ public partial class SemanticModel
                         var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
                         CacheBinder(propDecl, propMemberBinder);
                         ValidateReservedUnionMemberName(unionSymbol, propDecl.Identifier.ValueText, propDecl.Identifier.GetLocation(), unionBinder.Diagnostics);
+                        ReportInvalidUnionPropertyIfNeeded(unionSymbol, unionBinder, propDecl);
                         foreach (var kv in accessorBinders)
                             CacheBinder(kv.Key, kv.Value);
                         break;
@@ -3917,6 +3920,49 @@ public partial class SemanticModel
                     }
             }
         }
+    }
+
+    private static void ReportInvalidUnionMemberKindIfNeeded(
+        SourceUnionSymbol unionSymbol,
+        UnionDeclarationBinder unionBinder,
+        MemberDeclarationSyntax member)
+    {
+        if (member is CaseDeclarationSyntax or PropertyDeclarationSyntax or IndexerDeclarationSyntax or MethodDeclarationSyntax)
+            return;
+
+        var memberKind = member switch
+        {
+            FieldDeclarationSyntax => "field declarations",
+            ConstDeclarationSyntax => "constant declarations",
+            EventDeclarationSyntax => "event declarations",
+            ConstructorDeclarationSyntax or ParameterlessConstructorDeclarationSyntax => "constructors",
+            InitializerBlockDeclarationSyntax => "initializer blocks",
+            FinallyDeclarationSyntax => "finalizers",
+            OperatorDeclarationSyntax => "operator declarations",
+            ConversionOperatorDeclarationSyntax => "conversion operator declarations",
+            DelegateDeclarationSyntax => "nested delegate declarations",
+            TypeDeclarationSyntax => "nested type declarations",
+            _ => "this member kind",
+        };
+
+        unionBinder.Diagnostics.ReportUnionMemberKindNotAllowed(
+            unionSymbol.Name,
+            memberKind,
+            member.GetLocation());
+    }
+
+    private static void ReportInvalidUnionPropertyIfNeeded(
+        SourceUnionSymbol unionSymbol,
+        UnionDeclarationBinder unionBinder,
+        PropertyDeclarationSyntax property)
+    {
+        if (!IsInstanceStorageProperty(property))
+            return;
+
+        unionBinder.Diagnostics.ReportUnionStoragePropertyNotAllowed(
+            unionSymbol.Name,
+            property.Identifier.ValueText,
+            property.Identifier.GetLocation());
     }
 
     private void RegisterUnionCases(
@@ -5391,7 +5437,7 @@ public partial class SemanticModel
 
             case PropertyDeclarationSyntax propertyDecl
                 when !HasStaticModifier(propertyDecl.Modifiers) &&
-                     IsRecordInstanceStorageProperty(propertyDecl):
+                     IsInstanceStorageProperty(propertyDecl):
                 classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
                     recordSymbol.Name,
                     "property",
@@ -5427,7 +5473,7 @@ public partial class SemanticModel
         }
     }
 
-    private static bool IsRecordInstanceStorageProperty(PropertyDeclarationSyntax propertyDecl)
+    private static bool IsInstanceStorageProperty(PropertyDeclarationSyntax propertyDecl)
     {
         if (propertyDecl.Initializer is not null)
             return true;

@@ -1037,6 +1037,14 @@
     Title="Union case payload styles cannot be mixed"
     Message="Union case '{caseName}' cannot mix named and unnamed payloads"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2114" Identifier="UnionMemberKindNotAllowed"
+    Title="Union member kind is not allowed"
+    Message="Union '{unionName}' cannot declare {memberKind}; only cases, properties, indexers, and ordinary methods are permitted"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2115" Identifier="UnionStoragePropertyNotAllowed"
+    Title="Union properties cannot add storage"
+    Message="Union '{unionName}' cannot declare storage property '{memberName}'; use a computed property"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2500" Identifier="LabelAlreadyDefined" Title="Label already defined"
     Message="A label named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

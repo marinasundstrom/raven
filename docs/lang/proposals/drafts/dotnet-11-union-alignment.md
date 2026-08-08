@@ -129,6 +129,32 @@ References:
 * Do not introduce Raven-only metadata that C# must understand for basic union
   construction, conversion, pattern matching, exhaustiveness, or nullability.
 
+## Declared members
+
+Raven begins with a deliberately narrow union body surface. Apart from `case`
+declarations, a union may declare computed properties, indexers, ordinary
+methods, and computed static properties. Auto-properties and other
+`field`-backed properties are rejected so authored members cannot add storage
+beside the compiler-controlled union representation.
+
+These additional members may project information from, or act on, the data
+contained by the union. They cannot modify the union value itself. The
+compiler-generated `Value` representation is the carrier's sole instance
+storage, preserving value semantics for the default struct form.
+
+Fields, constants, events, constructors and initializer blocks, operators and
+conversions, finalizers, and nested types are not permitted in a union body.
+This is stricter than the C# proposal, which permits ordinary struct members but
+rejects instance fields, auto-properties, field-like events, and constructors
+that do not delegate to generated union constructors. Raven can widen the
+surface later without invalidating programs accepted by this initial rule set.
+
+This restriction belongs to Raven's `union` language declaration, where the
+compiler owns the representation. It does not constrain a manually authored
+CLR class or struct that opts into the .NET union ABI. Such a type consciously
+owns its storage and behavior and is consumed according to the ABI pattern,
+provided its implementation preserves the union contract.
+
 ## Proposed design
 
 ### 1. Marker attribute

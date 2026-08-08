@@ -243,7 +243,19 @@ let missing: LookupResult = Missing
   exposed as `Value`, while multiple values are exposed as `Item1`, `Item2`,
   and so on. Normal Raven signatures preserve the declaration spelling and do
   not display those generated names.
-* Body-form unions may also declare ordinary members in the same body.
+* Body-form unions may also declare computed properties, indexers, and ordinary
+  methods in the same body. Computed static properties are permitted.
+* Additional members may project information from, or act on, the value held by
+  the union. They cannot modify the union value itself. The compiler-generated
+  `Value` representation is the union's only instance storage.
+* Other member kinds are not permitted initially. This includes fields,
+  constants, events, constructors and initializer blocks, operators and
+  conversions, finalizers, and nested types.
+* All authored properties must be computed and cannot declare initializers,
+  auto-accessors, or `field`-backed accessors.
+* These restrictions apply to Raven `union` declarations. A manually authored
+  CLR type that implements the .NET union ABI owns its representation and may
+  use other members and storage, provided it maintains that ABI's invariants.
 * `case` declarations are valid only inside `union` declarations.
 * Case references may use `Union.Case`, `.Case`, or unqualified `Case` when
   resolution is unambiguous.

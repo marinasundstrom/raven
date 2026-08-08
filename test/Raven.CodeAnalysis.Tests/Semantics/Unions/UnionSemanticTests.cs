@@ -13,6 +13,91 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class UnionSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("private field _state: int = 0", "field declarations")]
+    [InlineData("static field Instances: int = 0", "field declarations")]
+    [InlineData("const Code: int = 1", "constant declarations")]
+    [InlineData("event Changed: System.Action;", "event declarations")]
+    [InlineData("init(value: int) {}", "constructors")]
+    [InlineData("init {}", "constructors")]
+    [InlineData("static func +(left: Result, right: Result) -> Result => left", "operator declarations")]
+    [InlineData("class Metadata {}", "nested type declarations")]
+    public void Union_OnlyAllowsCasesPropertiesIndexersAndOrdinaryMethods(string member, string memberKind)
+    {
+        var source = $$"""
+union Result {
+    case Ok(value: int)
+
+    {{member}}
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.UnionMemberKindNotAllowed, diagnostic.Descriptor);
+        Assert.Contains(memberKind, diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Union_ComputedAndStaticPropertiesAndOrdinaryMethods_AreAllowed()
+    {
+        const string source = """
+union Result {
+    case Ok(value: int)
+
+    val IsOk: bool => self is .Ok(_)
+    static val DisplayName: string => "Result"
+
+    val self[index: int]: bool {
+        get => index == 0
+    }
+
+    func Describe() -> string => self.ToString()
+    static func Create(value: int) -> Result => .Ok(value)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void Union_StorageProperties_ReportDiagnostics()
+    {
+        const string source = """
+union Result {
+    case Ok
+
+    var Count: int = 0
+    static var GlobalCount: int = 0
+    val Cached: bool { get; }
+    val DisplayName: string {
+        get => field
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics().ToArray();
+
+        Assert.Equal(4, diagnostics.Length);
+        Assert.All(diagnostics, d => Assert.Equal(CompilerDiagnostics.UnionStoragePropertyNotAllowed, d.Descriptor));
+        Assert.Contains(diagnostics, d => d.GetMessage().Contains("Count", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.GetMessage().Contains("GlobalCount", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.GetMessage().Contains("Cached", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.GetMessage().Contains("DisplayName", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void UnnamedGenericCasePayloads_ProjectToTheirCarrierAgainstNet11References()
     {

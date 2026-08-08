@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Restricted authored union bodies to cases, computed properties, indexers,
+  ordinary methods, and computed static properties. Storage properties and
+  other member kinds now report diagnostics, keeping union representation and
+  construction compiler-controlled in line with the C# union model.
+
 - Changed the body-declared union case ABI to emit non-generic cases inside the
   union and generic-union cases inside an explicitly annotated non-generic
   companion. Raven merges the carrier and companion during metadata import, so
