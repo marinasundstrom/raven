@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `MacroInputSnapshot` as the compiler-owned combined view of a
+  token-tree invocation's classified tokens and embedded Raven regions.
+
 - Added compiler-owned macro token snapshots with provider raw kinds, authored
   spans, keyword overlays, and optional lightweight token classifications.
   Token providers remain independent of Raven's global `SyntaxKind` values.

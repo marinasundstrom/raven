@@ -69,6 +69,19 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
+    /// </summary>
+    public MacroInputSnapshot GetMacroInputSnapshot(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        var syntaxTree = expression.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(expression));
+        return GetSemanticModel(syntaxTree).GetMacroInputSnapshot(expression, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>

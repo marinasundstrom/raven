@@ -208,6 +208,10 @@ input.
 `Compilation` API resolve this capability. Provider failures return no regions
 instead of breaking unrelated semantic queries.
 
+Editor integrations normally call `GetMacroInputSnapshot(invocation)` to obtain
+both classified tokens and Raven-fragment regions from one immutable view. The
+narrower token and fragment queries remain available when only one is needed.
+
 **Future:** ordinary Raven completion is not yet delegated into these regions.
 Macro-introduced names, such as a query range variable, also need a
 compiler-owned semantic-scope contract before completion can see them.

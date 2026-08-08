@@ -28,6 +28,7 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
     private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
     private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
+    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, MacroInputSnapshot> _macroInputSnapshotCache = new();
 
     private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private readonly object _diagnosticsCollectionGate = new();
@@ -372,6 +373,34 @@ public partial class SemanticModel
 
         var tokens = MacroTokenInfoService.GetTokens(this, expression, cancellationToken);
         return _macroTokenInfoCache.GetOrAdd(expression, tokens);
+    }
+
+    /// <summary>
+    /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
+    /// </summary>
+    public MacroInputSnapshot GetMacroInputSnapshot(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (expression.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        if (_macroInputSnapshotCache.TryGetValue(expression, out var cached))
+            return cached;
+
+        var snapshot = new MacroInputSnapshot(
+            TextSpan.FromBounds(
+                expression.TokenTree?.OpenBraceToken.Span.End ?? expression.Span.End,
+                expression.TokenTree is { } tokenTree
+                    ? tokenTree.CloseBraceToken.IsMissing
+                        ? tokenTree.BodyToken.Span.End
+                        : tokenTree.CloseBraceToken.SpanStart
+                    : expression.Span.End),
+            GetMacroTokens(expression, cancellationToken),
+            GetMacroFragmentRegions(expression, cancellationToken));
+        return _macroInputSnapshotCache.GetOrAdd(expression, snapshot);
     }
 
     /// <summary>

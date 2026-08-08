@@ -613,6 +613,10 @@ absolute authored span, and an optional `MacroTokenClassification`.
 The classifier sees the same stream tokens used by expansion. It labels tokens;
 it does not publish the macro's parser nodes or alter ordinary Raven lexing.
 
+`GetMacroInputSnapshot` is the normal combined query for editor consumers. It
+groups the cached tokens and fragment regions for one authored body while
+retaining the narrower queries for callers that need only one side.
+
 ## Validation case: compile-time file embedding
 
 Status: **test macro implemented; tracked resource API deferred**

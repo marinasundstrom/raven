@@ -176,6 +176,8 @@ semantic model and recomputed for a new compilation snapshot.
 The language server maps available macro classifications to protocol semantic
 tokens when it can acquire the document's existing semantic model without
 waiting. Otherwise it retains ordinary syntax-only highlighting.
+`SemanticModel.GetMacroInputSnapshot` and its `Compilation` counterpart group
+the same cached tokens and fragment regions into one compiler-owned view.
 
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,
