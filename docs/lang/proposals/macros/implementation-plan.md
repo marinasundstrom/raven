@@ -536,6 +536,33 @@ let statement = context.ParseStatementResult(statementSpan)
 This adds an embedded-fragment category for DSL authors; it does not yet add a
 statement-position macro carrier or a public statement-quote spelling.
 
+## Active slice: Raven type, pattern, and compilation-unit fragments
+
+Status: **implemented**
+
+The fragment toolbox now applies the expression/statement API shape to three
+additional categories:
+
+```raven
+let type = context.ParseTypeResult(typeSpan)
+let pattern = context.ParsePatternResult(patternSpan)
+let unit = context.ParseCompilationUnitResult(declarationSpan)
+```
+
+* [x] provide concise syntax-only and diagnostic-bearing overloads
+* [x] accept the complete body or a selected body-relative span
+* [x] reject trailing input outside the selected fragment
+* [x] retain authored positions for recovered syntax and diagnostics
+* [x] expose matching `SyntaxFactory` entry points for standalone/generated
+  text
+* [ ] define the recovery contract for exactly one member or declaration before
+  adding a member-only convenience parser
+
+Compilation-unit parsing already enables macros to parse arbitrary Raven
+declaration text into an immutable syntax tree. The narrower member helper is
+deferred deliberately: it must diagnose zero or multiple declarations rather
+than silently select one.
+
 ## Validation case: compile-time file embedding
 
 Status: **test macro implemented; tracked resource API deferred**
@@ -1111,10 +1138,10 @@ The intended flow is:
 
 ### Raven fragment parsing
 
-Expression and statement helpers now provide diagnostic-bearing parse results.
-Extend the same pattern to members, declarations, types, and patterns while
-preserving authored locations for parser diagnostics and expansion source
-maps.
+Expression, statement, type, pattern, and compilation-unit helpers now provide
+diagnostic-bearing parse results. Define an exact single-member/declaration
+recovery contract before adding narrower member helpers. Preserve authored
+locations for parser diagnostics and future expansion source maps.
 
 ### Additional expansion positions
 

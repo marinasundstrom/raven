@@ -69,7 +69,19 @@ internal class LanguageParser
 
     private SyntaxNode? ParseRequestedType(BaseParseContext context, Type requestedSyntaxType)
     {
-        if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.StatementSyntax)))
+        if (requestedSyntaxType == typeof(Syntax.CompilationUnitSyntax))
+        {
+            return new CompilationUnitSyntaxParser(context).Parse();
+        }
+        else if (requestedSyntaxType == typeof(Syntax.PatternSyntax))
+        {
+            return new PatternSyntaxParser(context).ParsePattern();
+        }
+        else if (requestedSyntaxType == typeof(Syntax.TypeSyntax))
+        {
+            return new NameSyntaxParser(context).ParseTypeName();
+        }
+        else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.StatementSyntax)))
         {
             return new StatementSyntaxParser(context).ParseStatement();
         }

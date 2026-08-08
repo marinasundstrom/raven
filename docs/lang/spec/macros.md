@@ -120,9 +120,10 @@ so a macro can implement a custom DSL lexer/parser without producing unrelated
 Raven lexer diagnostics.
 
 `TokenTreeMacroContext` exposes the raw body text, its authored
-`BodySpan`, body-relative diagnostic helpers, and Raven expression or statement
-parsing for the complete body or a selected body-relative span. This supports
-both complete custom parsing and hybrid DSLs with embedded Raven fragments.
+`BodySpan`, body-relative diagnostic helpers, and Raven expression, statement,
+type, pattern, or compilation-unit parsing for the complete body or a selected
+body-relative span. This supports both complete custom parsing and hybrid DSLs
+with embedded Raven fragments.
 
 `ParseExpression()` and `ParseExpression(span)` return recovered Raven syntax
 directly. The corresponding `ParseExpressionResult` overloads return a
@@ -135,7 +136,18 @@ in the authored invocation tree and may be forwarded through
 syntax-only API for one complete Raven statement. Their
 `ParseStatementResult` counterparts return
 `MacroSyntaxParseResult<StatementSyntax>` with native diagnostics mapped to the
-authored body. Both expression and statement helpers reject trailing input.
+authored body.
+
+`ParseType`, `ParsePattern`, and `ParseCompilationUnit` follow the same concise
+syntax-only shape. Their corresponding `ParseTypeResult`,
+`ParsePatternResult`, and `ParseCompilationUnitResult` overloads retain native
+parser diagnostics and authored locations. All fragment helpers reject
+trailing input outside the selected fragment.
+
+The same parser categories are available for generated or standalone text
+through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,
+`ParsePattern`, and `ParseCompilationUnit`. Macro-context parsing is preferred
+for authored body fragments because it preserves their source coordinates.
 
 `FreestandingMacroExpansionResult.FromExpression(...)` creates an expression
 result, optionally forwarding native parser diagnostics.

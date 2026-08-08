@@ -60,4 +60,28 @@ public class SyntaxFactoryEntryPointTests
 
         Assert.IsType<ReturnStatementSyntax>(statement);
     }
+
+    [Fact]
+    public void ParseType_ParsesNullableType()
+    {
+        var type = SyntaxFactory.ParseType("string?");
+
+        Assert.IsType<NullableTypeSyntax>(type);
+    }
+
+    [Fact]
+    public void ParsePattern_ParsesVariablePattern()
+    {
+        var pattern = SyntaxFactory.ParsePattern("let value");
+
+        Assert.IsType<VariablePatternSyntax>(pattern);
+    }
+
+    [Fact]
+    public void ParseCompilationUnit_ParsesMembers()
+    {
+        var compilationUnit = SyntaxFactory.ParseCompilationUnit("class Widget { }");
+
+        Assert.IsType<ClassDeclarationSyntax>(Assert.Single(compilationUnit.Members));
+    }
 }

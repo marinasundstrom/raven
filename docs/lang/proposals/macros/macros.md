@@ -359,7 +359,10 @@ Remapping:
 
 * `ParseExpression(bodyRelativeSpan)`
 * `ParseExpressionResult(bodyRelativeSpan)`
-* planned `ParseStatement`, `ParseType`, and `ParseMember` counterparts
+* `ParseStatement`, `ParseType`, `ParsePattern`, and `ParseCompilationUnit`
+  counterparts, each with a diagnostic-bearing `Result` form
+* a planned single-member counterpart after its exact recovery contract is
+  defined
 
 These:
 

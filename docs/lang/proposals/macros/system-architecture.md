@@ -755,8 +755,9 @@ The stages are capability gates, not compatibility releases:
    cancellation, and category validation. Keep descriptors compiler-derived
    and replace current experimental APIs where doing so produces a cleaner
    model.
-2. **Complete fragment parsing.** Add type, pattern, member, declaration, and
-   compilation-unit parsers beside current expression/statement helpers.
+2. **Complete fragment parsing.** Build on the implemented expression,
+   statement, type, pattern, and compilation-unit parsers by defining the
+   exact-one recovery contract for member/declaration helpers.
 3. **Complete syntax construction.** Extend quote/splice by category, preserve
    trivia, provide list/repetition splices, and round out factory/inspection
    helpers.

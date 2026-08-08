@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added source-backed type, pattern, and compilation-unit parsing to token-tree
+  macro contexts, with diagnostic-bearing results mapped to authored body
+  locations, plus matching `SyntaxFactory` entry points for standalone text.
+  Recovered macro fragment syntax now also retains its authored source
+  position instead of being rooted at position zero.
+
 - Fixed empty collection expressions targeting `ImmutableArray<T>` crashing
   emission when the selected zero-argument static factory is metadata-marked
   as an extension method.

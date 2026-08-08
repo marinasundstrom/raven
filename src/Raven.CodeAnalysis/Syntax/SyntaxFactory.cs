@@ -53,4 +53,39 @@ public static partial class SyntaxFactory
         var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
         return (StatementSyntax)parser.ParseStatement(sourceText, position).CreateRed();
     }
+
+    public static TypeSyntax ParseType(string text, ParseOptions? options = null)
+        => ParseType(SourceText.From(text), options);
+
+    public static TypeSyntax ParseType(SourceText sourceText, ParseOptions? options = null, int position = 0)
+    {
+        var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
+        var node = parser.ParseSyntax(typeof(TypeSyntax), sourceText, position);
+
+        return node?.CreateRed() as TypeSyntax
+            ?? IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+    }
+
+    public static PatternSyntax ParsePattern(string text, ParseOptions? options = null)
+        => ParsePattern(SourceText.From(text), options);
+
+    public static PatternSyntax ParsePattern(SourceText sourceText, ParseOptions? options = null, int position = 0)
+    {
+        var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
+        var node = parser.ParseSyntax(typeof(PatternSyntax), sourceText, position);
+
+        return node?.CreateRed() as PatternSyntax
+            ?? ConstantPattern(new ExpressionSyntax.Missing());
+    }
+
+    public static CompilationUnitSyntax ParseCompilationUnit(string text, ParseOptions? options = null)
+        => ParseCompilationUnit(SourceText.From(text), options);
+
+    public static CompilationUnitSyntax ParseCompilationUnit(SourceText sourceText, ParseOptions? options = null)
+    {
+        var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
+        var result = parser.Parse(sourceText);
+
+        return (CompilationUnitSyntax)result.Root.CreateRed();
+    }
 }

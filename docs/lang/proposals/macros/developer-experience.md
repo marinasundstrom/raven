@@ -573,12 +573,13 @@ mapped to the invocation's original syntax tree, so a macro can forward them
 through `FreestandingMacroExpansionResult.Diagnostics` without translating
 generated-tree positions or wrapping them as macro failures.
 
-`ParseStatement(span)` and `ParseStatementResult(span)` provide the same two
-shapes for a complete Raven statement. The parse-result type remains generic so
-later type, pattern, member, and quote fragment entry points can share the same
-developer experience. Adding those remaining category-specific parsers is
-incremental work; the generic result does not make Raven's ordinary syntax
-hierarchy extensible.
+`ParseStatement`, `ParseType`, `ParsePattern`, and `ParseCompilationUnit`, plus
+their diagnostic-bearing `Result` forms, provide the same two shapes for other
+Raven categories. A selected body-relative span or the complete body can be
+parsed without changing the surrounding DSL representation. A narrower
+single-member parser remains future work because it needs an explicit recovery
+rule for zero or multiple declarations. The generic result does not make
+Raven's ordinary syntax hierarchy extensible.
 
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:

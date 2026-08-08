@@ -148,6 +148,51 @@ public class TokenTreeMacroContext
             bodyRelativeSpan,
             static () => SyntaxFactory.ExpressionStatement(new ExpressionSyntax.Missing()));
 
+    public TypeSyntax ParseType()
+        => ParseTypeResult().Syntax;
+
+    public TypeSyntax ParseType(TextSpan bodyRelativeSpan)
+        => ParseTypeResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<TypeSyntax> ParseTypeResult()
+        => ParseTypeResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<TypeSyntax> ParseTypeResult(TextSpan bodyRelativeSpan)
+        => ParseSyntaxResult<TypeSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            static () => SyntaxFactory.ParseType(string.Empty));
+
+    public PatternSyntax ParsePattern()
+        => ParsePatternResult().Syntax;
+
+    public PatternSyntax ParsePattern(TextSpan bodyRelativeSpan)
+        => ParsePatternResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<PatternSyntax> ParsePatternResult()
+        => ParsePatternResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<PatternSyntax> ParsePatternResult(TextSpan bodyRelativeSpan)
+        => ParseSyntaxResult<PatternSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            static () => SyntaxFactory.ParsePattern(string.Empty));
+
+    public CompilationUnitSyntax ParseCompilationUnit()
+        => ParseCompilationUnitResult().Syntax;
+
+    public CompilationUnitSyntax ParseCompilationUnit(TextSpan bodyRelativeSpan)
+        => ParseCompilationUnitResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<CompilationUnitSyntax> ParseCompilationUnitResult()
+        => ParseCompilationUnitResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<CompilationUnitSyntax> ParseCompilationUnitResult(TextSpan bodyRelativeSpan)
+        => ParseSyntaxResult<CompilationUnitSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            static () => SyntaxFactory.ParseCompilationUnit(string.Empty));
+
     private MacroSyntaxParseResult<TSyntax> ParseSyntaxResult<TSyntax>(
         string bodyText,
         TextSpan bodyRelativeSpan,
@@ -168,7 +213,7 @@ public class TokenTreeMacroContext
             sourceText,
             absoluteStart,
             consumeFullText: true);
-        var syntax = parseResult?.Root.CreateRed() as TSyntax
+        var syntax = parseResult?.Root.CreateRed(parent: null, position: absoluteStart) as TSyntax
             ?? createMissingSyntax();
         var diagnostics = parseResult?.Diagnostics
             .Select(diagnostic => Diagnostic.Create(
