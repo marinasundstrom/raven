@@ -605,6 +605,7 @@ absolute authored span, and an optional `MacroTokenClassification`.
 * [x] map token spans into authored source coordinates
 * [x] classify declared macro keyword overlays automatically
 * [x] allow a lightweight optional `IMacroTokenClassifier`
+* [x] expose standard and provider-defined token kind names
 * [x] isolate optional tokenization/classification failures from semantic tools
 * [x] cache token and fragment-region results in the owning semantic model
 * [x] consume available macro token classifications in semantic highlighting

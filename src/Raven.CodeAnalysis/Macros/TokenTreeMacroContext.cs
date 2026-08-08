@@ -136,6 +136,7 @@ public class TokenTreeMacroContext
 
     internal MacroTokenInfo CreateTokenInfo(
         SyntaxToken token,
+        string? kindName,
         MacroTokenClassification classification = MacroTokenClassification.Default)
     {
         if (!Enum.IsDefined(classification))
@@ -151,6 +152,7 @@ public class TokenTreeMacroContext
             new TextSpan(
                 BodySpan.Start + bodyRelativeSpan.Start,
                 bodyRelativeSpan.Length),
+            kindName,
             classification);
     }
 

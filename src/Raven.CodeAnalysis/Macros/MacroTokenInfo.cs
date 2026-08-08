@@ -12,11 +12,13 @@ public sealed class MacroTokenInfo
         SyntaxToken token,
         TextSpan bodyRelativeSpan,
         TextSpan span,
+        string? kindName,
         MacroTokenClassification classification)
     {
         Token = token;
         BodyRelativeSpan = bodyRelativeSpan;
         Span = span;
+        KindName = kindName;
         Classification = classification;
     }
 
@@ -25,6 +27,12 @@ public sealed class MacroTokenInfo
     public int RawKind => Token.RawKind;
 
     public string Text => Token.Text;
+
+    /// <summary>
+    /// Gets the provider-defined token kind name, or the Raven syntax kind name
+    /// when the token uses a standard Raven kind.
+    /// </summary>
+    public string? KindName { get; }
 
     public TextSpan BodyRelativeSpan { get; }
 

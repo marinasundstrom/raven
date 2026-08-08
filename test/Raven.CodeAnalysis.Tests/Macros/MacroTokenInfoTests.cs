@@ -24,6 +24,7 @@ public sealed class MacroTokenInfoTests
             token =>
             {
                 Assert.Equal(QueryMacro.FromRawKind, token.RawKind);
+                Assert.Equal("FromKeyword", token.KindName);
                 Assert.Equal("from", token.Text);
                 Assert.Equal(MacroTokenClassification.Keyword, token.Classification);
                 Assert.Equal("from", code.Substring(token.Span.Start, token.Span.Length));
@@ -31,6 +32,7 @@ public sealed class MacroTokenInfoTests
             token =>
             {
                 Assert.Equal((int)SyntaxKind.IdentifierToken, token.RawKind);
+                Assert.Equal(nameof(SyntaxKind.IdentifierToken), token.KindName);
                 Assert.Equal("users", token.Text);
                 Assert.Equal(MacroTokenClassification.Identifier, token.Classification);
                 Assert.Equal(
@@ -70,6 +72,7 @@ public sealed class MacroTokenInfoTests
     private sealed class QueryMacro :
         ITokenTreeExpressionMacro,
         IMacroKeywordProvider,
+        IMacroTokenKindProvider,
         IMacroTokenClassifier
     {
         public const int FromRawKind = 91001;
@@ -81,6 +84,9 @@ public sealed class MacroTokenInfoTests
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
+
+        public string? GetTokenKindName(int rawKind)
+            => rawKind == FromRawKind ? "FromKeyword" : null;
 
         public MacroTokenClassification ClassifyToken(
             TokenTreeMacroContext context,

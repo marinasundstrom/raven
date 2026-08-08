@@ -167,8 +167,10 @@ incomplete input. `SemanticModel.GetMacroFragmentRegions` and the corresponding
 `SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
 the standard or custom stream selected for a token-tree invocation. Each
 `MacroTokenInfo` retains its provider-owned `RawKind`, text, body-relative span,
-absolute authored span, and optional presentation classification. Macro keyword
-overlays are classified automatically; `IMacroTokenClassifier` can supply
+absolute authored span, stable kind name, and optional presentation
+classification. Standard Raven kinds receive their `SyntaxKind` name, while
+`IMacroTokenKindProvider` can name custom raw kinds. Macro keyword overlays are
+classified automatically; `IMacroTokenClassifier` can supply
 additional identifier, literal, operator, punctuation, or comment categories.
 These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
 Token and fragment-region results are cached by the invocation's owning

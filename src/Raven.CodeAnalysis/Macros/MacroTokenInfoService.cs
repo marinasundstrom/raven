@@ -36,6 +36,7 @@ internal static class MacroTokenInfoService
                 tokenTreeMacro,
                 cancellationToken);
             var classifier = loaded.Macro as IMacroTokenClassifier;
+            var kindProvider = loaded.Macro as IMacroTokenKindProvider;
             var stream = context.CreateTokenStream();
             var builder = ImmutableArray.CreateBuilder<MacroTokenInfo>();
 
@@ -43,12 +44,15 @@ internal static class MacroTokenInfoService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var token = stream.ReadToken();
+                var kindName = kindProvider?.GetTokenKindName(token.RawKind);
+                if (kindName is null && Enum.IsDefined(typeof(SyntaxKind), token.RawKind))
+                    kindName = ((SyntaxKind)token.RawKind).ToString();
                 var classification = classifier?.ClassifyToken(context, token)
                     ?? MacroTokenClassification.Default;
                 if (classification == MacroTokenClassification.Default)
                     classification = context.GetKeywordClassification(token);
 
-                builder.Add(context.CreateTokenInfo(token, classification));
+                builder.Add(context.CreateTokenInfo(token, kindName, classification));
             }
 
             return builder.ToImmutable();
