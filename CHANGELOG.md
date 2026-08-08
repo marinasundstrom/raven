@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed bare type patterns such as `value is BaseType` being bound as value
+  constants and emitting invalid equality calls.
+
+- Fixed `rvnc` runtime dependency copying for `Microsoft.NETCore.App.Ref` and
+  `Microsoft.AspNetCore.App.Ref` inputs so executable projects copy runtime
+  assemblies instead of unloadable reference assemblies.
+
 - Restricted authored union bodies to cases, computed properties, indexers,
   ordinary methods, and computed static properties. Storage properties and
   other member kinds now report diagnostics, keeping union representation and

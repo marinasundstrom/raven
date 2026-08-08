@@ -1,0 +1,155 @@
+@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Raven × Blazor</PageTitle>
+
+<main>
+    <nav class="nav-shell" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Raven home">
+            <span class="brand-mark">R</span>
+            <span>Raven</span>
+        </a>
+        <div class="nav-meta">
+            <span class="status-dot"></span>
+            Macro prototype
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="eyebrow"><span>Experimental</span> HTML-shaped DSL → native Blazor</div>
+        <h1>Components that read like the <em>web.</em></h1>
+        <p class="hero-copy">
+            A Raven macro turns familiar HTML into a real <code>RenderFragment</code>—with parameters,
+            state, nested elements, and event callbacks intact.
+        </p>
+        <div class="hero-actions">
+            <a class="primary-action" href="#playground">Try the components <span>↓</span></a>
+            <span class="build-note">Compiled by Raven · Rendered by Blazor</span>
+        </div>
+    </section>
+
+    <section class="showcase" id="playground">
+        <header class="section-heading">
+            <div>
+                <span class="section-number">01</span>
+                <h2>State, without ceremony</h2>
+            </div>
+            <p>The event expression becomes a typed Blazor callback. Click it—the Raven component owns the state.</p>
+        </header>
+
+        <div class="demo-grid">
+            <article class="code-card">
+                <div class="card-bar">
+                    <div class="traffic-lights"><i></i><i></i><i></i></div>
+                    <span>Counter.rvn</span>
+                    <span class="language-pill">RAVEN</span>
+                </div>
+                <pre><code>@CounterSource</code></pre>
+            </article>
+
+            <article class="preview-card counter-preview">
+                <div class="preview-label">LIVE PREVIEW</div>
+                <div class="component-stage">
+                    <DynamicComponent Type="typeof(Counter)" Parameters="CounterParameters" />
+                    <p>Each click crosses the generated <code>EventCallback</code>.</p>
+                </div>
+                <div class="preview-footer"><span></span> Interactive server renderer</div>
+            </article>
+        </div>
+    </section>
+
+    <section class="showcase greeting-showcase">
+        <header class="section-heading">
+            <div>
+                <span class="section-number">02</span>
+                <h2>Markup stays markup</h2>
+            </div>
+            <p>Nested elements and interpolated Raven expressions lower directly to deterministic render-tree frames.</p>
+        </header>
+
+        <div class="demo-grid reverse">
+            <article class="preview-card greeting-preview">
+                <div class="preview-label">LIVE PREVIEW</div>
+                <div class="component-stage">
+                    <DynamicComponent Type="typeof(Greeting)" Parameters="GreetingParameters" />
+                    <p>A parameter crossing the .NET component boundary.</p>
+                </div>
+                <div class="preview-footer"><span></span> Native ComponentBase subclass</div>
+            </article>
+
+            <article class="code-card light-code">
+                <div class="card-bar">
+                    <div class="traffic-lights"><i></i><i></i><i></i></div>
+                    <span>Greeting.rvn</span>
+                    <span class="language-pill">RAVEN</span>
+                </div>
+                <pre><code>@GreetingSource</code></pre>
+            </article>
+        </div>
+    </section>
+
+    <section class="proof-strip" aria-label="Prototype capabilities">
+        <div><strong>Html!</strong><span>Token-tree macro</span></div>
+        <div><strong>#[Component]</strong><span>Attached macro</span></div>
+        <div><strong>RenderFragment</strong><span>Native Blazor output</span></div>
+        <div><strong>Zero Razor</strong><span>In component source</span></div>
+    </section>
+
+    <footer>
+        <span>Raven language experiment</span>
+        <span class="footer-line"></span>
+        <span>HTML macro / Blazor target</span>
+    </footer>
+</main>
+
+@code {
+    private static readonly Dictionary<string, object?> CounterParameters = new()
+    {
+        ["initialCount"] = 7,
+    };
+
+    private static readonly Dictionary<string, object?> GreetingParameters = new()
+    {
+        ["name"] = "Raven",
+    };
+
+    private const string CounterSource = """
+        #[Component]
+        class Counter {
+            [Parameter]
+            var initialCount: int = 0
+
+            var count: int = 0
+
+            protected override func OnInitialized() -> unit {
+                count = initialCount
+            }
+
+            func increment() -> unit {
+                count = count + 1
+            }
+
+            func Render() -> RenderFragment =>
+                Html! {
+                    <button onClick={increment}>
+                        Count: {count}
+                    </button>
+                }
+        }
+        """;
+
+    private const string GreetingSource = """
+        #[Component]
+        class Greeting {
+            [Parameter]
+            var name: string = ""
+
+            func Render() -> RenderFragment =>
+                Html! {
+                    <section class="greeting">
+                        <h1>Hello {name}</h1>
+                    </section>
+                }
+        }
+        """;
+}

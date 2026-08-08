@@ -8,6 +8,40 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class PatternLocalCodeGenTests
 {
     [Fact]
+    public void BareTypePattern_PerformsRuntimeTypeTest()
+    {
+        var code = """
+open class Animal {}
+class Dog : Animal {}
+
+class TypePatterns {
+    public static func IsAnimal(value: object?) -> bool => value is Animal
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("bare_type_pattern", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var patternsType = loaded.Assembly.GetType("TypePatterns", throwOnError: true)!;
+        var animalType = loaded.Assembly.GetType("Animal", throwOnError: true)!;
+        var dogType = loaded.Assembly.GetType("Dog", throwOnError: true)!;
+        var method = patternsType.GetMethod("IsAnimal")!;
+
+        Assert.Equal(false, method.Invoke(null, [null]));
+        Assert.Equal(false, method.Invoke(null, ["not an animal"]));
+        Assert.Equal(true, method.Invoke(null, [Activator.CreateInstance(animalType)]));
+        Assert.Equal(true, method.Invoke(null, [Activator.CreateInstance(dogType)]));
+    }
+
+    [Fact]
     public void NullPattern_LoweredForIsAndMatchExpressions()
     {
         var code = """

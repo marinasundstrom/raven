@@ -1,0 +1,321 @@
+import System.*
+import System.Text.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
+
+class HtmlMacro : ITokenTreeExpressionMacro {
+    val Name: string => "Html"
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let parser = HtmlDslParser(context.GetBodyText())
+        let expansion = parser.Parse()
+
+        if let errorMessage: string = expansion.ErrorMessage {
+            return FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateBodyDiagnostic(
+                    TextSpan(expansion.ErrorPosition, 0),
+                    errorMessage,
+                    code: "HTML001"))
+        }
+
+        FreestandingMacroExpansionResult.FromExpression(ParseExpression(expansion.ExpressionText))
+    }
+}
+
+class HtmlDslExpansion {
+    val ExpressionText: string
+    val ErrorMessage: string?
+    val ErrorPosition: int
+
+    init(expressionText: string, errorMessage: string?, errorPosition: int) {
+        ExpressionText = expressionText
+        ErrorMessage = errorMessage
+        ErrorPosition = errorPosition
+    }
+}
+
+class HtmlDslParser {
+    private val _source: string
+    private val _builder = StringBuilder()
+    private var _position: int = 0
+    private var _sequence: int = 0
+    private var _errorMessage: string? = null
+    private var _errorPosition: int = 0
+
+    init(source: string) {
+        _source = source
+    }
+
+    func Parse() -> HtmlDslExpansion {
+        _builder.Append("(__htmlBuilder: Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder) -> unit => {")
+        SkipWhitespace()
+        ParseElement()
+        SkipWhitespace()
+
+        if _errorMessage is null && !IsEnd() {
+            Error("Expected a single root HTML element.")
+        }
+
+        _builder.Append("}")
+        HtmlDslExpansion(_builder.ToString(), _errorMessage, _errorPosition)
+    }
+
+    private func ParseElement() -> unit {
+        if !Consume("<") {
+            Error("Expected '<' to start an HTML element.")
+            return
+        }
+
+        let name = ReadName()
+        if name.Length == 0 {
+            Error("Expected an HTML element name.")
+            return
+        }
+
+        AppendCall("OpenElement", "\"${Escape(name)}\"")
+        SkipWhitespace()
+
+        while _errorMessage is null && !IsEnd() && !At(">") {
+            let attributeName = ReadName()
+            if attributeName.Length == 0 {
+                Error("Expected an attribute name or '>'.")
+                return
+            }
+
+            SkipWhitespace()
+            if !Consume("=") {
+                Error("Expected '=' after attribute '${attributeName}'.")
+                return
+            }
+            SkipWhitespace()
+
+            if At("\"") {
+                let value = ReadQuotedValue()
+                AppendAttribute(attributeName, "\"${Escape(value)}\"")
+            } else if At("{") {
+                let expression = ReadEmbeddedExpression()
+                if IsEventAttribute(attributeName) {
+                    AppendAttribute(
+                        NormalizeEventName(attributeName),
+                        "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(" +
+                        "self, () -> unit => { ${expression}() })")
+                } else {
+                    AppendAttribute(attributeName, expression)
+                }
+            } else {
+                Error("Expected a quoted value or Raven expression for attribute '${attributeName}'.")
+                return
+            }
+
+            SkipWhitespace()
+        }
+
+        if !Consume(">") {
+            Error("Expected '>' after element '${name}'.")
+            return
+        }
+
+        while _errorMessage is null && !IsEnd() {
+            if At("</") {
+                Consume("</")
+                let closingName = ReadName()
+                SkipWhitespace()
+                if !Consume(">") {
+                    Error("Expected '>' after closing element '${closingName}'.")
+                    return
+                }
+                if closingName != name {
+                    Error("Closing element '${closingName}' does not match '${name}'.")
+                    return
+                }
+                AppendCall("CloseElement", null)
+                return
+            }
+
+            if At("<") {
+                ParseElement()
+            } else if At("{") {
+                let expression = ReadEmbeddedExpression()
+                AppendCall("AddContent", expression)
+            } else {
+                let text = ReadText()
+                let normalized = NormalizeText(text)
+                if normalized.Length > 0 {
+                    AppendCall("AddContent", "\"${Escape(normalized)}\"")
+                }
+            }
+        }
+
+        if _errorMessage is null {
+            Error("Element '${name}' is missing a closing tag.")
+        }
+    }
+
+    private func AppendAttribute(name: string, value: string) -> unit {
+        AppendCall("AddAttribute", "\"${Escape(name)}\", ${value}")
+    }
+
+    private func AppendCall(methodName: string, arguments: string?) -> unit {
+        if arguments is null {
+            _builder.Append("__htmlBuilder.${methodName}();")
+        } else {
+            let sequence = _sequence
+            _sequence = _sequence + 1
+            _builder.Append("__htmlBuilder.${methodName}(${sequence}, ${arguments});")
+        }
+    }
+
+    private func ReadName() -> string {
+        let start = _position
+        while !IsEnd() && IsNameCharacter(Current()) {
+            _position = _position + 1
+        }
+        _source.Substring(start, _position - start)
+    }
+
+    private func ReadQuotedValue() -> string {
+        Consume("\"")
+        let start = _position
+        while !IsEnd() && !At("\"") {
+            _position = _position + 1
+        }
+        let value = _source.Substring(start, _position - start)
+        if !Consume("\"") {
+            Error("Unterminated quoted attribute value.")
+        }
+        value
+    }
+
+    private func ReadEmbeddedExpression() -> string {
+        let openingPosition = _position
+        Consume("{")
+        let start = _position
+        var depth = 1
+        var inString = false
+
+        while !IsEnd() {
+            let current = Current()
+            if current == "\"" {
+                inString = inString == false
+                _position = _position + 1
+            } else if !inString && current == "{" {
+                depth = depth + 1
+                _position = _position + 1
+            } else if !inString && current == "}" {
+                depth = depth - 1
+                if depth == 0 {
+                    let expression = _source.Substring(start, _position - start).Trim()
+                    _position = _position + 1
+                    if expression.Length == 0 {
+                        ErrorAt(openingPosition, "Embedded Raven expressions cannot be empty.")
+                    }
+                    return expression
+                }
+                _position = _position + 1
+            } else {
+                _position = _position + 1
+            }
+        }
+
+        ErrorAt(openingPosition, "Unterminated embedded Raven expression.")
+        ""
+    }
+
+    private func ReadText() -> string {
+        let start = _position
+        while !IsEnd() && !At("<") && !At("{") {
+            _position = _position + 1
+        }
+        _source.Substring(start, _position - start)
+    }
+
+    private static func NormalizeText(text: string) -> string {
+        let result = StringBuilder()
+        var pendingWhitespace = false
+
+        for character in text {
+            if Char.IsWhiteSpace(character) {
+                pendingWhitespace = true
+            } else {
+                if pendingWhitespace && result.Length > 0 {
+                    result.Append(" ")
+                }
+                result.Append(character)
+                pendingWhitespace = false
+            }
+        }
+
+        if pendingWhitespace && result.Length > 0 {
+            result.Append(" ")
+        }
+        result.ToString()
+    }
+
+    private static func IsNameCharacter(value: string) -> bool {
+        value.Length == 1 && (
+            Char.IsLetterOrDigit(value[0])
+            || value == "-"
+            || value == "_"
+            || value == ":")
+    }
+
+    private static func IsEventAttribute(name: string) -> bool {
+        name.StartsWith("on", StringComparison.OrdinalIgnoreCase)
+    }
+
+    private static func NormalizeEventName(name: string) -> string {
+        name.ToLowerInvariant()
+    }
+
+    private static func Escape(value: string) -> string {
+        value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+    }
+
+    private func Current() -> string {
+        if IsEnd() {
+            return ""
+        }
+        _source.Substring(_position, 1)
+    }
+
+    private func SkipWhitespace() -> unit {
+        while !IsEnd() && Char.IsWhiteSpace(_source[_position]) {
+            _position = _position + 1
+        }
+    }
+
+    private func At(value: string) -> bool {
+        _position + value.Length <= _source.Length
+            && _source.Substring(_position, value.Length) == value
+    }
+
+    private func Consume(value: string) -> bool {
+        if !At(value) {
+            return false
+        }
+        _position = _position + value.Length
+        true
+    }
+
+    private func IsEnd() -> bool {
+        _position >= _source.Length
+    }
+
+    private func Error(message: string) -> unit {
+        ErrorAt(_position, message)
+    }
+
+    private func ErrorAt(position: int, message: string) -> unit {
+        if _errorMessage is null {
+            _errorPosition = position
+            _errorMessage = message
+        }
+    }
+}

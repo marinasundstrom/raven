@@ -1,0 +1,51 @@
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+[assembly: RavenCompilerPlugin(typeof(ComponentMacro))]
+
+class ComponentMacro : IAttachedDeclarationMacro {
+    val Name: string => "Component"
+    val Targets: MacroTarget => MacroTarget.Type
+
+    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+        let current: ClassDeclarationSyntax = context.CurrentDeclaration else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Component] requires a class declaration.", code: "HTMLC001"))
+        }
+
+        if current.BaseList is not null {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic(
+                    "#[Component] prototype requires a class without an explicit base type.",
+                    syntax: current,
+                    code: "HTMLC002"))
+        }
+
+        let tree = ParseSyntaxTree(
+            "class __GeneratedComponent : Microsoft.AspNetCore.Components.ComponentBase { " +
+            "protected override func BuildRenderTree(" +
+            "builder: Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder) { " +
+            "Render()(builder) " +
+            "} }")
+
+        let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Component] could not construct its expansion.", code: "HTMLC003"))
+        }
+        let generatedBaseList: BaseListSyntax = container.BaseList else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Component] could not construct ComponentBase.", code: "HTMLC004"))
+        }
+        let method: MethodDeclarationSyntax = container.Members[0] else {
+            return MacroExpansionResult.FromDiagnostic(
+                context.CreateDiagnostic("#[Component] could not construct BuildRenderTree.", code: "HTMLC005"))
+        }
+
+        MacroExpansionResult {
+            ReplacementDeclaration = current.WithBaseList(generatedBaseList)
+            IntroducedMembers = [method]
+        }
+    }
+}

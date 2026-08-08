@@ -818,6 +818,15 @@ internal partial class BlockBinder
             ? BindMemberBindingExpression(memberBinding, inputType)
             : BindExpression(syntax.Expression);
 
+        // A bare name in pattern position is parsed as a constant-pattern expression so that
+        // value symbols (including enum members and static fields) remain available. Once that
+        // name binds to a type, however, it is a type test with an implicit discard designator.
+        if (expression is BoundTypeExpression && syntax.Expression is TypeSyntax typeSyntax)
+        {
+            var declaredType = BindDeclarationPatternType(typeSyntax, inputType);
+            return new BoundDeclarationPattern(declaredType, new BoundDiscardDesignator(declaredType));
+        }
+
         if (expression is BoundErrorExpression)
         {
             // HACK
@@ -893,11 +902,7 @@ internal partial class BlockBinder
             return BindIdentifierBindingPattern(identifier, inputType, _ambientPatternDeclarationBindingKeyword);
         }
 
-        var typeExpression = BindTypeSyntaxAsExpression(syntax.Type);
-        var declaredType = TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax.Type, inputType, out var inferredType)
-            ? inferredType
-            : InferDeclarationPatternTypeFromInput(typeExpression.Type, inputType);
-        declaredType = EnsureTypeAccessible(declaredType, syntax.Type.GetLocation());
+        var declaredType = BindDeclarationPatternType(syntax.Type, inputType);
 
         BoundDesignator designator;
         if (syntax.Designation is SingleVariableDesignationSyntax single &&
@@ -920,6 +925,15 @@ internal partial class BlockBinder
 
         var declarationPattern = new BoundDeclarationPattern(declaredType, designator);
         return declarationPattern;
+    }
+
+    private ITypeSymbol BindDeclarationPatternType(TypeSyntax syntax, ITypeSymbol inputType)
+    {
+        var typeExpression = BindTypeSyntaxAsExpression(syntax);
+        var declaredType = TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax, inputType, out var inferredType)
+            ? inferredType
+            : InferDeclarationPatternTypeFromInput(typeExpression.Type, inputType);
+        return EnsureTypeAccessible(declaredType, syntax.GetLocation());
     }
 
     private bool TryInferDeclarationPatternTypeFromIdentifierSyntax(

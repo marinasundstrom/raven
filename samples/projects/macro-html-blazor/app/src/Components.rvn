@@ -1,0 +1,89 @@
+import System.Console.*
+import Microsoft.AspNetCore.Components.*
+import Microsoft.AspNetCore.Components.Rendering.*
+
+func Main() -> unit {
+    let counter = Counter()
+    use counterBuilder = RenderTreeBuilder()
+    counter.Render()(counterBuilder)
+    let counterFrames = counterBuilder.GetFrames()
+
+    Require(counter is ComponentBase, "#[Component] must derive Counter from ComponentBase.")
+    Require(counterFrames.Count == 4, "Counter must emit four render-tree frames.")
+    Require(counterFrames.Array[0].ElementName == "button", "Counter root must be a button.")
+    Require(counterFrames.Array[1].AttributeName == "onclick", "onClick must become Blazor's onclick event.")
+    Require(counterFrames.Array[2].TextContent == "Count: ", "Counter must retain its text content.")
+    Require(counterFrames.Array[3].TextContent == "0", "Counter must render its initial state.")
+
+    Require(
+        counterFrames.Array[1].AttributeValue.GetType() == typeof(EventCallback),
+        "onclick must contain an EventCallback.")
+    counter.increment()
+
+    use updatedCounterBuilder = RenderTreeBuilder()
+    counter.Render()(updatedCounterBuilder)
+    let updatedCounterFrames = updatedCounterBuilder.GetFrames()
+    Require(
+        updatedCounterFrames.Array[3].TextContent == "1",
+        "Invoking onclick must update Counter state.")
+
+    let greeting = Greeting()
+    greeting.name = "Raven"
+    use greetingBuilder = RenderTreeBuilder()
+    greeting.Render()(greetingBuilder)
+    let greetingFrames = greetingBuilder.GetFrames()
+
+    Require(greeting is ComponentBase, "#[Component] must derive Greeting from ComponentBase.")
+    Require(greetingFrames.Count == 5, "Greeting must emit five nested render-tree frames.")
+    Require(greetingFrames.Array[0].ElementName == "section", "Greeting root must be a section.")
+    Require(greetingFrames.Array[1].AttributeName == "class", "Greeting must emit its class attribute.")
+    Require(greetingFrames.Array[1].AttributeValue.ToString() == "greeting", "Greeting class must be preserved.")
+    Require(greetingFrames.Array[2].ElementName == "h1", "Greeting must contain an h1.")
+    Require(greetingFrames.Array[3].TextContent == "Hello ", "Greeting text must be preserved.")
+    Require(greetingFrames.Array[4].TextContent == "Raven", "Greeting must render its parameter.")
+
+    WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[3].TextContent}")
+    WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")
+}
+
+func Require(condition: bool, message: string) -> unit {
+    if !condition {
+        throw System.InvalidOperationException(message)
+    }
+}
+
+#[Component]
+public class Counter {
+    [Parameter]
+    var initialCount: int = 0
+
+    var count: int = 0
+
+    protected override func OnInitialized() -> unit {
+        count = initialCount
+    }
+
+    func increment() -> unit {
+        count = count + 1
+    }
+
+    func Render() -> RenderFragment =>
+        Html! {
+            <button onClick={increment}>
+                Count: {count}
+            </button>
+        }
+}
+
+#[Component]
+public class Greeting {
+    [Parameter]
+    var name: string = ""
+
+    func Render() -> RenderFragment =>
+        Html! {
+            <section class="greeting">
+                <h1>Hello {name}</h1>
+            </section>
+        }
+}

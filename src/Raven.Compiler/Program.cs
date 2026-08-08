@@ -1266,7 +1266,7 @@ if (!noEmit)
         {
             ReplaceFile(tempOutputFilePath, outputFilePath);
             ReplaceFile(tempPdbFilePath, pdbFilePath);
-            CopyEmittedLocalDependencies(project, outputFilePath, outputDirectory);
+            CopyEmittedLocalDependencies(project, outputFilePath, outputDirectory, targetFramework);
             if (!string.IsNullOrWhiteSpace(dependencyFilePath))
                 WriteDependencyFile(dependencyFilePath, compilation.GetObservedMacroFilePaths());
         }
@@ -1929,7 +1929,8 @@ static Project AddMetadataReferenceIfMissing(Project project, string assemblyPat
 static void CopyEmittedLocalDependencies(
     Project project,
     string assemblyPath,
-    string outputDirectory)
+    string outputDirectory,
+    string targetFramework)
 {
     if (!File.Exists(assemblyPath))
         return;
@@ -1939,9 +1940,14 @@ static void CopyEmittedLocalDependencies(
     {
         if (!string.IsNullOrWhiteSpace(reference.FilePath) &&
             File.Exists(reference.FilePath))
+        {
+            var dependencyPath = ResolveNuGetRuntimeAssemblyPath(
+                Path.GetFullPath(reference.FilePath),
+                targetFramework);
             knownAssemblies.TryAdd(
                 Path.GetFileNameWithoutExtension(reference.FilePath),
-                Path.GetFullPath(reference.FilePath));
+                dependencyPath);
+        }
     }
 
     foreach (var directory in knownAssemblies.Values
@@ -2279,6 +2285,15 @@ static string ResolveNuGetRuntimeAssemblyPath(string referencePath, string targe
     if (refIndex < 0)
         return referencePath;
 
+    if (TryResolveSharedFrameworkRuntimeAssembly(
+            normalized,
+            refIndex,
+            targetFramework,
+            out var sharedFrameworkAssembly))
+    {
+        return sharedFrameworkAssembly;
+    }
+
     var libCandidate = normalized[..refIndex] +
                        $"{Path.DirectorySeparatorChar}lib{Path.DirectorySeparatorChar}" +
                        normalized[(refIndex + refSegment.Length)..];
@@ -2300,6 +2315,68 @@ static string ResolveNuGetRuntimeAssemblyPath(string referencePath, string targe
         : Enumerable.Empty<string>();
 
     return alternatives.FirstOrDefault() ?? referencePath;
+}
+
+static bool TryResolveSharedFrameworkRuntimeAssembly(
+    string normalizedReferencePath,
+    int refSegmentStartIndex,
+    string targetFramework,
+    out string assemblyPath)
+{
+    assemblyPath = string.Empty;
+
+    var packageRoot = FindNuGetPackageRoot(normalizedReferencePath, refSegmentStartIndex);
+    var packageId = packageRoot is null ? null : Path.GetFileName(packageRoot);
+    var frameworkName = packageId?.ToLowerInvariant() switch
+    {
+        "microsoft.aspnetcore.app.ref" => "Microsoft.AspNetCore.App",
+        "microsoft.netcore.app.ref" => "Microsoft.NETCore.App",
+        _ => null
+    };
+    if (frameworkName is null)
+        return false;
+
+    var targetMoniker = TargetFrameworkMoniker.Parse(targetFramework);
+    var fileName = Path.GetFileName(normalizedReferencePath);
+    foreach (var dotNetRoot in GetDotNetRootsForDependencyCopy())
+    {
+        var frameworkRoot = Path.Combine(dotNetRoot, "shared", frameworkName);
+        if (!Directory.Exists(frameworkRoot))
+            continue;
+
+        var exactVersion = $"{targetMoniker.Version.Major}.{targetMoniker.Version.Minor}.0";
+        var exactCandidate = Path.Combine(frameworkRoot, exactVersion, fileName);
+        if (File.Exists(exactCandidate))
+        {
+            assemblyPath = exactCandidate;
+            return true;
+        }
+
+        var candidate = Directory.EnumerateDirectories(frameworkRoot)
+            .Select(path => new
+            {
+                Path = path,
+                Name = Path.GetFileName(path),
+                Version = Version.TryParse(Path.GetFileName(path).Split('-')[0], out var version)
+                    ? version
+                    : null
+            })
+            .Where(candidate =>
+                candidate.Version is not null &&
+                candidate.Version.Major == targetMoniker.Version.Major &&
+                candidate.Version.Minor == targetMoniker.Version.Minor)
+            .OrderByDescending(static candidate => candidate.Version)
+            .ThenByDescending(static candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate => Path.Combine(candidate.Path, fileName))
+            .FirstOrDefault(File.Exists);
+        if (candidate is not null)
+        {
+            assemblyPath = candidate;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static string? FindNuGetPackageRoot(string normalizedReferencePath, int refSegmentStartIndex)
