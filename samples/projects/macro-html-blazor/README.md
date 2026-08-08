@@ -33,8 +33,8 @@ Supported by the prototype:
 - self-closing component tags with Blazor parameters;
 - scalar, `RenderFragment`, and sequences of fragment expressions as children;
 - Raven `if` expressions for conditional content and attributes;
-- canonical Raven `match value` expressions for exhaustive content, with the
-  special postfix form demonstrated secondarily;
+- canonical Raven `match value` expressions for exhaustive content and union
+  case destructuring;
 - Raven list comprehensions, including `if` filters, for repeated content;
 - `key={expression}` mapped to Blazor's native component/element key;
 - deterministic, preorder render-tree sequence numbers; and
@@ -66,6 +66,7 @@ app/src/
 │   ├── TodoItem.rvn
 │   └── TodoList.rvn
 └── Models/
+    ├── BuildStage.rvn
     └── Todo.rvn
 ```
 
@@ -84,9 +85,9 @@ and verifies its frame shape. The Todo scenario renders a filtered
 comprehension, changes the model, verifies that the list is re-evaluated, and
 then includes completed items. This proves macro expansion, Blazor binding,
 emit, keyed list rendering, and runtime execution without requiring a web host.
-The match scenario leads with the canonical prefix form, contrasts it with the
-special postfix form, advances the component state, and verifies that both
-expressions are re-evaluated.
+The match scenario uses the canonical prefix form over a closed union,
+destructures each case payload directly into rendered text, advances the
+component state, and verifies that the expression is re-evaluated.
 
 Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 

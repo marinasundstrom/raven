@@ -2,34 +2,33 @@ import Microsoft.AspNetCore.Components.*
 
 #[Component]
 public class MatchShowcase {
-    var phase: int = 0
+    var stage: BuildStage = .Designing("macro DSLs")
 
     func advance() {
-        phase = if phase == 2 { 0 } else { phase + 1 }
+        stage = next(stage)
     }
+
+    func next(current: BuildStage) -> BuildStage =>
+        match current {
+            .Designing(_) => .Compiling("Blazor")
+            .Compiling(_) => .Shipping("v0.1")
+            .Shipping(_) => .Designing("macro DSLs")
+        }
 
     func Render() -> RenderFragment =>
         Html! {
             <section class="match-board">
                 <header class="match-heading">
                     <span class="match-kicker">Expression-oriented UI</span>
-                    <h2>Match a value into UI</h2>
+                    <h2>Match union cases into UI</h2>
                 </header>
                 <div class="match-results">
                     <div class="match-result match-primary">
-                        <span class="match-label">Canonical · match value</span>
-                        <strong>{match phase {
-                            0 => "Design"
-                            1 => "Compile"
-                            _ => "Ship"
-                        }}</strong>
-                    </div>
-                    <div class="match-result">
-                        <span class="match-label">Special · value match</span>
-                        <strong>{phase match {
-                            0 => "Design"
-                            1 => "Compile"
-                            _ => "Ship"
+                        <span class="match-label">Prefix match + destructuring</span>
+                        <strong>{match stage {
+                            .Designing(let feature) => "Designing $feature"
+                            .Compiling(let target) => "Compiling $target"
+                            .Shipping(let version) => "Shipping $version"
                         }}</strong>
                     </div>
                 </div>

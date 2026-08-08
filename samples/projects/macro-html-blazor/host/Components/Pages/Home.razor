@@ -173,7 +173,7 @@
                 <span class="section-number">04</span>
                 <h2>Control flow is an expression</h2>
             </div>
-            <p>Canonical <code>match value</code> stays ordinary Raven code inside the template. The special postfix form is shown as a secondary contrast.</p>
+            <p>Canonical <code>match value</code> destructures closed union cases directly into UI, with exhaustiveness checked by the compiler.</p>
         </header>
 
         <div class="demo-grid reverse match-grid">
@@ -182,29 +182,32 @@
                 <div class="component-stage match-stage">
                     <DynamicComponent Type="typeof(MatchShowcase)" />
                 </div>
-                <div class="preview-footer"><span></span> Canonical match, native fragment</div>
+                <div class="preview-footer"><span></span> Prefix match, native fragment</div>
             </article>
 
             <article class="code-card light-code">
                 <div class="card-bar">
                     <div class="traffic-lights"><i></i><i></i><i></i></div>
-                    <span>MatchShowcase.rvn</span>
+                    <span>BuildStage.rvn + MatchShowcase.rvn</span>
                     <span class="language-pill">RAVEN</span>
                 </div>
-                <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
+                <pre><code class="raven-source"><span class="syntax-keyword">public union class</span> <span class="syntax-type">BuildStage</span> {
+    <span class="syntax-keyword">case</span> Designing(feature: <span class="syntax-type">string</span>)
+    <span class="syntax-keyword">case</span> Compiling(target: <span class="syntax-type">string</span>)
+    <span class="syntax-keyword">case</span> Shipping(version: <span class="syntax-type">string</span>)
+}
+
+<span class="syntax-attribute">#[Component]</span>
 <span class="syntax-keyword">class</span> <span class="syntax-type">MatchShowcase</span> {
-    <span class="syntax-keyword">var</span> phase = <span class="syntax-number">0</span>
+    <span class="syntax-keyword">var</span> stage: <span class="syntax-type">BuildStage</span> = .Designing(<span class="syntax-string">"macro DSLs"</span>)
 
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
         <span class="syntax-macro">Html!</span> {
-            &lt;<span class="syntax-tag">strong</span>&gt;{<span class="syntax-keyword">match</span> phase {
-                <span class="syntax-number">0</span> =&gt; <span class="syntax-string">"Design"</span>
-                <span class="syntax-number">1</span> =&gt; <span class="syntax-string">"Compile"</span>
-                _ =&gt; <span class="syntax-string">"Ship"</span>
+            &lt;<span class="syntax-tag">strong</span>&gt;{<span class="syntax-keyword">match</span> stage {
+                .Designing(<span class="syntax-keyword">let</span> feature) =&gt; <span class="syntax-string">"Designing $feature"</span>
+                .Compiling(<span class="syntax-keyword">let</span> target) =&gt; <span class="syntax-string">"Compiling $target"</span>
+                .Shipping(<span class="syntax-keyword">let</span> version) =&gt; <span class="syntax-string">"Shipping $version"</span>
             }}&lt;/<span class="syntax-tag">strong</span>&gt;
-
-            <span class="syntax-comment">// Special postfix form:</span>
-            {phase <span class="syntax-keyword">match</span> { ... }}
         }
 }</code></pre>
             </article>
@@ -215,7 +218,7 @@
         <div><strong>Html!</strong><span>Token-tree macro</span></div>
         <div><strong>#[Component]</strong><span>Attached macro</span></div>
         <div><strong>[for … if]</strong><span>List comprehension</span></div>
-        <div><strong>match value</strong><span>Exhaustive UI expression</span></div>
+        <div><strong>match value</strong><span>Exhaustive union rendering</span></div>
     </section>
 
     <footer>

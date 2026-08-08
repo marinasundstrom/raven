@@ -104,22 +104,22 @@ func Main() {
     matchShowcase.Render()(matchBuilder)
     let matchFrames = matchBuilder.GetFrames()
     Require(
-        CountText(matchFrames.Array, matchFrames.Count, "Design") == 2,
-        "Prefix and postfix match expressions must render their initial arms.")
+        CountText(matchFrames.Array, matchFrames.Count, "Designing macro DSLs") == 1,
+        "The prefix match expression must destructure its initial union case.")
 
     matchShowcase.advance()
     use advancedMatchBuilder = RenderTreeBuilder()
     matchShowcase.Render()(advancedMatchBuilder)
     let advancedMatchFrames = advancedMatchBuilder.GetFrames()
     Require(
-        CountText(advancedMatchFrames.Array, advancedMatchFrames.Count, "Compile") == 2,
-        "Changing component state must re-evaluate both match forms.")
+        CountText(advancedMatchFrames.Array, advancedMatchFrames.Count, "Compiling Blazor") == 1,
+        "Changing union state must re-evaluate and destructure the prefix match.")
 
     WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[3].TextContent}")
     WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")
     WriteLine("Gallery frames: ${galleryFrames.Count}; components: Greeting + Counter")
     WriteLine("Todo items: ${todoKeys.Count} open; ${filteredTodoCount} after toggle; 3 with completed")
-    WriteLine("Match forms: prefix + postfix; state after advance: Compile")
+    WriteLine("Prefix match union state after advance: Compiling Blazor")
 }
 
 func CountTodoItems(frames: RenderTreeFrame[], frameCount: int) -> int {

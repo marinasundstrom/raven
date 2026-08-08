@@ -35,10 +35,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   full expansion.
 
 - Extended the isolated HTML-to-Blazor macro sample with expression-based
-  conditional content, canonical prefix and secondary postfix match rendering,
-  filtered list-comprehension rendering, native Blazor keys, and interactive
+  conditional content, canonical prefix match rendering, filtered
+  list-comprehension rendering, native Blazor keys, and interactive
   Match and Todo showcases whose model changes re-evaluate the rendered
-  expressions.
+  expressions. The Match showcase now renders and destructures payload-bearing
+  union cases instead of matching integer phases.
 
 - Fixed collection-comprehension iteration locals captured by nested lambdas
   so each generated delegate snapshots the current iteration value instead of

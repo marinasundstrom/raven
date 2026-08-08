@@ -1,0 +1,5 @@
+public union class BuildStage {
+    case Designing(feature: string)
+    case Compiling(target: string)
+    case Shipping(version: string)
+}
