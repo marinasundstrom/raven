@@ -291,6 +291,25 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void FragmentContribution_RequiresTokenTreeMacroFunction()
+    {
+        var (compilation, _) = CreateCompilation("""
+            macro func ArgumentMacro(value: int) {
+                fragment value
+                expand value
+            }
+
+            macro func AttachedMacro() on Type {
+                fragment target
+            }
+            """);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
+    }
+
+    [Fact]
     public void TokenStreamMacroFunction_ExposesTypeDirectedParameterRoles()
     {
         var (baseCompilation, tree) = CreateCompilation("""

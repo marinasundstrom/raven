@@ -654,7 +654,7 @@
                 },
                 {
                     "name": "keyword.control.flow.raven",
-                    "match": "\\b(return|yield|throw|goto|break|continue|expand|replace|introduce)\\b"
+                    "match": "\\b(return|yield|throw|goto|break|continue|expand|replace|introduce|fragment)\\b"
                 },
                 {
                     "name": "keyword.control.async.raven",

@@ -302,12 +302,25 @@ The compiler lowers `macro func` declarations to adapters, but tools expose an
 | reached `expand` | replacement expression |
 | reached `replace` | replacement declaration |
 | reached `introduce` | ordered introduced members |
+| reached `fragment` | ordinary Raven fragment metadata |
 
-`IMacroFragmentProvider` does not yet have a `macro func` projection. Future
-syntax should contribute kind/span pairs through the same adapter result
-boundary without requiring a public DSL tree. A contribution form parallel to
-`expand`, `replace`, and `introduce` is plausible, but its spelling should wait
-until completion and repeated-region cases establish the smallest surface.
+Token-tree macro functions can publish editor regions through the same
+execution-ordered contribution model as expansion:
+
+```raven
+macro func RavenExpression(context: TokenTreeMacroContext) {
+    let span = TextSpan(0, context.BodySpan.Length)
+    fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
+    expand context.ParseExpression(span)
+}
+```
+
+`fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
+macro function. The generated adapter keeps reached regions on its expansion
+result; `SemanticModel` uses them when the macro does not implement a dedicated
+`IMacroFragmentProvider`. Implement that provider directly when tooling must
+remain independent from full expansion, especially for heavily recovered or
+incomplete DSL input.
 
 ## Working examples
 

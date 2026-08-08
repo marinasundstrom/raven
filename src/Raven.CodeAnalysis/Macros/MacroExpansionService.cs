@@ -458,6 +458,7 @@ internal static class MacroExpansionService
             Expression = contextualExpression,
             MacroDiagnostics = result.MacroDiagnostics,
             Diagnostics = result.Diagnostics,
+            FragmentRegions = result.FragmentRegions,
             FileDependencies = result.FileDependencies
         };
     }

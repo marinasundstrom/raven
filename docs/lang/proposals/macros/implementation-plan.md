@@ -192,9 +192,11 @@ state is carried across that boundary by this contract.
 These are dependency-ordered predictions, not promises. Each slice should be
 accepted only when the preceding use case demonstrates its value.
 
-1. **Project tooling contributions from `macro func`.** Add the smallest source
-   contribution form for fragment kind/span pairs and token metadata so common
+1. **Project tooling contributions from `macro func` (fragment regions
+   implemented).** The `fragment` contribution publishes kind/span pairs and
+   typed fragment locals through the ordinary expansion result, so common
    macros do not need a provider class. Keep the generated adapter private.
+   A source projection for custom token metadata remains a separate slice.
 2. **Route ordinary completion through fragment spans (implemented).** At a
    cursor selected by `FindFragmentRegion`, reuse Raven's existing expression,
    statement, type, pattern, or member completion against the authored
@@ -670,7 +672,7 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
 * [x] permit zero-width expected regions for incomplete-code completion
 * [x] resolve the optional provider through `SemanticModel` and `Compilation`
 * [x] isolate optional tooling-provider failures from other semantic queries
-* [ ] project fragment-region contributions from `macro func` syntax
+* [x] project fragment-region contributions from `macro func` syntax
 * [x] route ordinary Raven completion inside reported fragment regions using
   the invocation's caller scope
 * [x] describe explicitly typed fragment locals, including query-introduced

@@ -199,6 +199,27 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
+    public void MacroFunctionDeclaration_ParsesFragmentContribution()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro func Template(context: TokenTreeMacroContext) {
+                fragment context.CreateFragmentRegion(kind, span)
+                expand context.ParseExpression(span)
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members));
+        var contributions = declaration.Body!
+            .DescendantNodes()
+            .OfType<MacroExpansionStatementSyntax>()
+            .ToArray();
+
+        Assert.Equal(["fragment", "expand"], contributions.Select(static contribution => contribution.Keyword.ValueText));
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ExpansionWords_RemainIdentifiersOutsideMacroFunctions()
     {
         var tree = SyntaxTree.ParseText("""
@@ -206,6 +227,7 @@ public sealed class MacroFunctionDeclarationParsingTests
                 expand(value)
                 replace(value)
                 introduce(value)
+                fragment(value)
             }
             """);
 

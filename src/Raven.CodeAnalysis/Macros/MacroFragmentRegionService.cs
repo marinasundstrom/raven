@@ -23,8 +23,7 @@ internal static class MacroFragmentRegionService
                 name,
                 out var loaded,
                 out _) ||
-            loaded.Macro is not ITokenTreeExpressionMacro tokenTreeMacro ||
-            loaded.Macro is not IMacroFragmentProvider fragmentProvider)
+            loaded.Macro is not ITokenTreeExpressionMacro tokenTreeMacro)
         {
             return ImmutableArray<MacroFragmentRegion>.Empty;
         }
@@ -37,7 +36,10 @@ internal static class MacroFragmentRegionService
                 expression,
                 tokenTreeMacro,
                 cancellationToken);
-            var regions = fragmentProvider.GetFragmentRegions(context);
+            var regions = loaded.Macro is IMacroFragmentProvider fragmentProvider
+                ? fragmentProvider.GetFragmentRegions(context)
+                : semanticModel.GetMacroExpansion(expression, cancellationToken)?.FragmentRegions ??
+                    ImmutableArray<MacroFragmentRegion>.Empty;
             cancellationToken.ThrowIfCancellationRequested();
             return regions.IsDefaultOrEmpty
                 ? ImmutableArray<MacroFragmentRegion>.Empty

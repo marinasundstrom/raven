@@ -69,6 +69,42 @@ class MacroHost {
     }
 
     [Fact]
+    public void GetCompletions_InsideMacroFunctionFragmentContribution_UsesCallerScope()
+    {
+        const string code = """
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Text.*
+
+macro func RavenExpression(context: TokenTreeMacroContext) {
+    let span = TextSpan(0, context.BodySpan.Length)
+    fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
+    expand context.ParseExpression(span)
+}
+
+class MacroHost {
+    func Test() {
+        let message = "hello"
+        let value = RavenExpression! { mes }
+    }
+}
+""";
+        var authoredTree = SyntaxTree.ParseText(code, path: "main.rvn");
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(authoredTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var position = code.LastIndexOf("mes }", StringComparison.Ordinal) + "mes".Length;
+
+        var items = new CompletionService()
+            .GetCompletions(compilation, consumerTree, position)
+            .ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "message");
+    }
+
+    [Fact]
     public void GetCompletions_AtReportedEmptyExpressionFragment_ReturnsCallerSymbols()
     {
         const string code = """

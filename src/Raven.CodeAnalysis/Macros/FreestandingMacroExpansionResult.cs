@@ -82,6 +82,12 @@ public sealed class FreestandingMacroExpansionResult
 
     public ImmutableArray<Diagnostic> Diagnostics { get; set; } = ImmutableArray<Diagnostic>.Empty;
 
+    /// <summary>
+    /// Gets or sets the ordinary Raven fragments contributed for editor tooling.
+    /// </summary>
+    public ImmutableArray<MacroFragmentRegion> FragmentRegions { get; set; } =
+        ImmutableArray<MacroFragmentRegion>.Empty;
+
     internal ImmutableArray<MacroFileDependency> FileDependencies { get; set; } =
         ImmutableArray<MacroFileDependency>.Empty;
 

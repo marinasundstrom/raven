@@ -480,7 +480,9 @@ public partial class SemanticModel
             var instruction = contribution.Keyword.ValueText;
             var valid = symbol.MacroKind switch
             {
-                MacroKind.FreestandingExpression => instruction == "expand",
+                MacroKind.FreestandingExpression => instruction == "expand" ||
+                    instruction == "fragment" && symbol.Parameters.Any(static parameter =>
+                        parameter.MacroRole is MacroParameterRole.TokenStream or MacroParameterRole.Context),
                 MacroKind.AttachedDeclaration => instruction is "replace" or "introduce",
                 _ => false
             };

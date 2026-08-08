@@ -51,6 +51,54 @@ public sealed class MacroFragmentRegionTests
         Assert.Empty(regions);
     }
 
+    [Fact]
+    public void MacroFunctionFragmentContribution_ProjectsThroughGeneratedAdapter()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Text.*
+
+            macro func RavenExpression(context: TokenTreeMacroContext) {
+                let span = TextSpan(0, context.BodySpan.Length)
+                let local = context.CreateFragmentLocal(
+                    "editorValue",
+                    context.Compilation.GetSpecialType(Raven.CodeAnalysis.SpecialType.System_String))
+                fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span, [local])
+                expand context.ParseExpression(span)
+            }
+
+            func Main() {
+                let message = "hello"
+                let value = RavenExpression! { message }
+            }
+            """;
+        var authoredTree = SyntaxTree.ParseText(code, path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MacroFunctionFragmentRegions",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(authoredTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var expression = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var regions = compilation.GetMacroFragmentRegions(expression);
+
+        var region = Assert.Single(regions);
+        Assert.Equal(MacroFragmentKind.Expression, region.Kind);
+        Assert.Equal(" message ", code.Substring(region.Span.Start, region.Span.Length));
+        var local = Assert.Single(region.Locals);
+        Assert.Equal("editorValue", local.Name);
+        Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
+    }
+
     private static (Compilation Compilation, FreestandingMacroExpressionSyntax Expression) CreateCompilation(
         string code,
         IMacroDefinition macro)

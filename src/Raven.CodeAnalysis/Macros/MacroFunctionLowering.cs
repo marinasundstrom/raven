@@ -250,6 +250,7 @@ internal static class MacroFunctionLowering
                     "expand" => "Expand",
                     "replace" => "Replace",
                     "introduce" => "Introduce",
+                    "fragment" => "Fragment",
                     _ => throw new InvalidOperationException()
                 };
                 content.Remove(relativeStart, contribution.Span.Length);

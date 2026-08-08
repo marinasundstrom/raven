@@ -164,6 +164,19 @@ authored Raven source. Zero-width regions represent expected syntax in
 incomplete input. `SemanticModel.GetMacroFragmentRegions` and the corresponding
 `Compilation` API resolve this capability.
 
+A token-tree `macro func` may publish the same metadata with a reached
+`fragment` contribution whose expression has type `MacroFragmentRegion`:
+
+```raven
+fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
+```
+
+The generated adapter stores reached fragments in execution order on the
+freestanding expansion result. `fragment` is invalid on argument-style and
+attached macro functions. A direct `IMacroFragmentProvider` takes precedence
+when present, allowing editor-region discovery to remain independent of full
+macro expansion.
+
 A fragment region may also carry immutable `MacroFragmentLocal` values for
 names introduced by the DSL rather than the caller. A token-tree context can
 create the initial supported shape with

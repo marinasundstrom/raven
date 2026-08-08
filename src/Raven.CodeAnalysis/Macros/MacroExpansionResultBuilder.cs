@@ -17,6 +17,8 @@ public sealed class MacroExpansionResultBuilder
 {
     private readonly ImmutableArray<MemberDeclarationSyntax>.Builder _introducedMembers =
         ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
+    private readonly ImmutableArray<MacroFragmentRegion>.Builder _fragmentRegions =
+        ImmutableArray.CreateBuilder<MacroFragmentRegion>();
     private ExpressionSyntax? _expression;
     private FreestandingMacroExpansionResult? _freestandingResult;
     private SyntaxNode? _replacement;
@@ -55,12 +57,44 @@ public sealed class MacroExpansionResultBuilder
         _introducedMembers.AddRange(members);
     }
 
+    /// <summary>
+    /// Contributes an ordinary Raven fragment for editor tooling.
+    /// </summary>
+    public void Fragment(MacroFragmentRegion region)
+    {
+        ArgumentNullException.ThrowIfNull(region);
+        _fragmentRegions.Add(region);
+    }
+
+    /// <summary>
+    /// Contributes ordinary Raven fragments for editor tooling.
+    /// </summary>
+    public void Fragment(IEnumerable<MacroFragmentRegion> regions)
+    {
+        ArgumentNullException.ThrowIfNull(regions);
+        _fragmentRegions.AddRange(regions);
+    }
+
     public FreestandingMacroExpansionResult BuildFreestanding()
-        => _freestandingResult is not null
+    {
+        var result = _freestandingResult is not null
             ? _freestandingResult
             : _expression is null
             ? FreestandingMacroExpansionResult.Empty
             : FreestandingMacroExpansionResult.FromExpression(_expression);
+
+        if (_fragmentRegions.Count > 0)
+        {
+            if (ReferenceEquals(result, FreestandingMacroExpansionResult.Empty))
+                result = new FreestandingMacroExpansionResult();
+
+            result.FragmentRegions = result.FragmentRegions.IsDefault
+                ? _fragmentRegions.ToImmutable()
+                : result.FragmentRegions.AddRange(_fragmentRegions);
+        }
+
+        return result;
+    }
 
     public MacroExpansionResult BuildAttached()
     {
