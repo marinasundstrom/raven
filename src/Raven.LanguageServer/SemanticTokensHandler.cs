@@ -11,6 +11,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -149,7 +150,9 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
-            var useSemanticModel = identifier is SemanticTokensRangeParams;
+            var useSemanticModel = identifier is SemanticTokensRangeParams ||
+                root.DescendantNodesAndSelf().OfType<FreestandingMacroExpressionSyntax>()
+                    .Any(static expression => expression.TokenTree is not null);
             DocumentStore.DocumentSemanticAccess? semanticModelAccess = null;
             SemanticModel? semanticModel = null;
             if (useSemanticModel)
@@ -194,8 +197,13 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                     .Cast<SemanticTokenEntry>()
                     .ToArray();
 
+                var macroEntries = semanticModel is null
+                    ? []
+                    : CreateMacroTokenEntries(root, semanticModel, effectiveCancellationToken);
+
                 entries = tokenEntries
                     .Concat(triviaEntries)
+                    .Concat(macroEntries)
                     .OrderBy(static entry => entry.Span.Start)
                     .ThenBy(static entry => entry.Span.Length)
                     .ToArray();
@@ -421,6 +429,44 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticClassification.InactiveCode => InactiveCodeTokenType,
             _ => (SemanticTokenType?)null
         };
+
+    internal static SemanticTokenType? MapMacroTokenType(MacroTokenClassification classification)
+        => classification switch
+        {
+            MacroTokenClassification.Keyword or MacroTokenClassification.ReservedWord => SemanticTokenType.Keyword,
+            MacroTokenClassification.Identifier => SemanticTokenType.Variable,
+            MacroTokenClassification.Literal => SemanticTokenType.String,
+            MacroTokenClassification.Operator => SemanticTokenType.Operator,
+            MacroTokenClassification.Comment => SemanticTokenType.Comment,
+            _ => (SemanticTokenType?)null,
+        };
+
+    private static SemanticTokenEntry[] CreateMacroTokenEntries(
+        SyntaxNode root,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken)
+    {
+        var builder = ImmutableArray.CreateBuilder<SemanticTokenEntry>();
+        foreach (var expression in root.DescendantNodesAndSelf()
+                     .OfType<FreestandingMacroExpressionSyntax>()
+                     .Where(static expression => expression.TokenTree is not null))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var token in semanticModel.GetMacroTokens(expression, cancellationToken))
+            {
+                var tokenType = MapMacroTokenType(token.Classification);
+                if (tokenType is not null && token.Span.Length > 0)
+                {
+                    builder.Add(new SemanticTokenEntry(
+                        token.Span,
+                        tokenType,
+                        ImmutableArray<SemanticTokenModifier>.Empty));
+                }
+            }
+        }
+
+        return builder.ToArray();
+    }
 
     private static SemanticTokenType? MapTokenType(
         SemanticClassification classification,

@@ -97,6 +97,11 @@ classification. Keyword overlays are classified automatically. Implement
 operator, punctuation, or comment presentation. This metadata does not add
 global Raven token kinds.
 
+The language server projects available keyword, identifier, literal, operator,
+and comment categories to semantic tokens. It uses an already available
+semantic model and falls back to ordinary syntax highlighting when semantic
+work is cold or busy; highlighting never waits for macro tooling metadata.
+
 ## 4. Parse Raven fragments inside a DSL
 
 Use `TokenTreeMacroContext` when a custom outer grammar contains ordinary Raven

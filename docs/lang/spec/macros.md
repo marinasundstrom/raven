@@ -173,6 +173,9 @@ additional identifier, literal, operator, punctuation, or comment categories.
 These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
 Token and fragment-region results are cached by the invocation's owning
 semantic model and recomputed for a new compilation snapshot.
+The language server maps available macro classifications to protocol semantic
+tokens when it can acquire the document's existing semantic model without
+waiting. Otherwise it retains ordinary syntax-only highlighting.
 
 The same parser categories are available for generated or standalone text
 through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,

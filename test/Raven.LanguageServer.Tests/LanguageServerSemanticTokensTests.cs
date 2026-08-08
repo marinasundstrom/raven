@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
@@ -14,6 +15,32 @@ namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerSemanticTokensTests
 {
+    [Theory]
+    [InlineData(MacroTokenClassification.Keyword, "keyword")]
+    [InlineData(MacroTokenClassification.ReservedWord, "keyword")]
+    [InlineData(MacroTokenClassification.Identifier, "variable")]
+    [InlineData(MacroTokenClassification.Literal, "string")]
+    [InlineData(MacroTokenClassification.Operator, "operator")]
+    [InlineData(MacroTokenClassification.Comment, "comment")]
+    public void SemanticTokens_MapMacroTokenClassifications(
+        MacroTokenClassification classification,
+        string expectedTokenType)
+    {
+        var tokenType = SemanticTokensHandler.MapMacroTokenType(classification);
+
+        tokenType.ShouldNotBeNull();
+        tokenType.Value.ToString().ShouldBe(expectedTokenType);
+    }
+
+    [Theory]
+    [InlineData(MacroTokenClassification.Default)]
+    [InlineData(MacroTokenClassification.Punctuation)]
+    public void SemanticTokens_IgnoreMacroClassificationsWithoutProtocolTokenType(
+        MacroTokenClassification classification)
+    {
+        SemanticTokensHandler.MapMacroTokenType(classification).ShouldBeNull();
+    }
+
     [Fact]
     public async Task SemanticTokens_ClassifyCommonRavenSymbolsAsync()
     {

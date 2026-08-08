@@ -607,7 +607,7 @@ absolute authored span, and an optional `MacroTokenClassification`.
 * [x] allow a lightweight optional `IMacroTokenClassifier`
 * [x] isolate optional tokenization/classification failures from semantic tools
 * [x] cache token and fragment-region results in the owning semantic model
-* [ ] consume macro token classifications in semantic highlighting
+* [x] consume available macro token classifications in semantic highlighting
 * [ ] project token classification capabilities from `macro func` syntax
 
 The classifier sees the same stream tokens used by expansion. It labels tokens;
