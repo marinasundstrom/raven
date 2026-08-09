@@ -214,6 +214,13 @@ internal abstract partial class Binder
         if (symbol is null)
             return true;
 
+        if (symbol is not Symbol { IsFileScoped: true } &&
+            symbol.DeclaredAccessibility is (Accessibility.Internal or Accessibility.ProtectedOrInternal) &&
+            Compilation.IsPreviousSubmissionAssembly(symbol.ContainingAssembly))
+        {
+            return true;
+        }
+
         var within = GetAccessibilityContext();
         return AccessibilityUtilities.IsAccessible(symbol, within, GetCurrentSourceFilePath());
     }

@@ -2604,7 +2604,10 @@ public partial class SemanticModel
             ? (SourceMethodSymbol)asyncMain
             : mainMethod;
 
-        var topLevelBinder = new TopLevelBinder(parentBinder, this, scriptMethod, mainMethod, cu);
+        var executableParentBinder = Compilation.IsSubmission
+            ? new SubmissionBinder(parentBinder, Compilation)
+            : parentBinder;
+        var topLevelBinder = new TopLevelBinder(executableParentBinder, this, scriptMethod, mainMethod, cu);
 
         // Cache the compilation unit and its global statements before binding.
         //

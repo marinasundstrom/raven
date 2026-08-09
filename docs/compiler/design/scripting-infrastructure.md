@@ -27,6 +27,9 @@ Relevant Roslyn references:
 - [`ScriptOptions`](https://github.com/dotnet/roslyn/blob/main/src/Scripting/Core/ScriptOptions.cs)
 - [C# submission creation](https://github.com/dotnet/roslyn/blob/main/src/Scripting/CSharp/CSharpScriptCompiler.cs)
 - [compiler-level script compilation information](https://github.com/dotnet/roslyn/blob/main/src/Compilers/Core/Portable/Compilation/ScriptCompilationInfo.cs)
+- [submission member lookup](https://github.com/dotnet/roslyn/blob/main/src/Compilers/CSharp/Portable/Binder/InSubmissionClassBinder.cs)
+- [cross-submission storage](https://github.com/dotnet/roslyn/blob/main/src/Compilers/CSharp/Portable/Lowering/SynthesizedSubmissionFields.cs)
+- [cross-submission reference lowering](https://github.com/dotnet/roslyn/blob/main/src/Compilers/CSharp/Portable/Lowering/LocalRewriter/LocalRewriter_PreviousSubmissionReference.cs)
 
 ## Architectural boundary
 
@@ -74,6 +77,21 @@ This likely requires a Raven equivalent of `ScriptCompilationInfo`, plus a
 `Compilation.CreateScriptCompilation` or `CreateSubmissionCompilation` factory.
 Submission-specific state must be compilation-owned rather than added to normal
 project or language-server workspace state.
+
+Previous declarations enter executable binding through a dedicated
+`SubmissionBinder`. They are intentionally not copied into `TopLevelBinder`'s
+local and function tables: the current top-level method does not own them, and
+later emission must access them through persistent submission storage. A
+submission chain is also one logical internal-access domain, while file-scoped
+declarations remain file-scoped.
+
+This mirrors Roslyn's separation of responsibilities without copying its
+implementation. Roslyn's `InSubmissionClassBinder` searches the members of the
+current and previous submission classes. Its lowering then creates receiver
+fields for referenced earlier submissions. Raven has established the binder
+boundary first; the next compiler slice must replace the provisional source
+symbols returned from earlier submissions with emitted submission members and
+lower cross-submission accesses through their storage representation.
 
 ## Execution model
 
@@ -132,8 +150,10 @@ When the scripting engine is ready:
 
 1. Introduce script syntax/completeness classification and focused parser tests.
    This slice is implemented by `SyntaxTree.GetSubmissionCompleteness()`.
-2. Add compiler submission chaining and semantic tests proving that declarations
-   from a previous submission bind in the next one.
+2. Add compiler submission chaining and a dedicated submission binder, with
+   semantic tests proving that declarations from a previous submission bind in
+   the next one. This binder portion is implemented; runtime storage and emit
+   support remain deliberately separate.
 3. Emit and execute a single submission with a typed return value.
 4. Add `Script`, `ScriptOptions`, and `ScriptState` over those compiler
    primitives.

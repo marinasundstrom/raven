@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added compiler-owned script submission chains and a dedicated submission
+  binder. Variables, functions, and types from earlier submissions now
+  participate in semantic binding without being inserted into the current
+  top-level lexical scope; execution storage and lowering will follow in a
+  separate slice.
+
 - Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
   source. Hosts can distinguish complete submissions, trailing incomplete
   constructs that need more input, and complete submissions with syntax errors.

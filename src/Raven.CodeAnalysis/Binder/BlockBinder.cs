@@ -16346,6 +16346,16 @@ partial class BlockBinder : Binder
                         yield return param;
             }
 
+            // Previous submission declarations behave as script-class members, not
+            // locals of the current executable method. Keep them visible across static
+            // function boundaries; lowering will provide their persistent receiver.
+            if (current is SubmissionBinder submissionBinder)
+            {
+                foreach (var symbol in submissionBinder.LookupSubmissionSymbols(name))
+                    if (seen.Add(GetLookupKey(symbol)))
+                        yield return symbol;
+            }
+
             // Members/imports remain visible even after the boundary.
             if (current is TypeMemberBinder typeMemberBinder)
             {
@@ -16498,6 +16508,15 @@ partial class BlockBinder : Binder
                         yield return param;
                 }
 
+            }
+
+            if (current is SubmissionBinder submissionBinder)
+            {
+                foreach (var symbol in submissionBinder.GetSubmissionSymbols())
+                {
+                    if (seen.Add(symbol.Name))
+                        yield return symbol;
+                }
             }
 
             if (current is TypeMemberBinder typeMemberBinder)

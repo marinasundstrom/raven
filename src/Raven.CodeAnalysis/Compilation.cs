@@ -80,6 +80,8 @@ public partial class Compilation
     private SourceDeclarationIndex? _sourceDeclarationIndex;
     private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
     private ImmutableArray<Diagnostic> _generatorDiagnostics = ImmutableArray<Diagnostic>.Empty;
+    private readonly object _submissionDeclarationsGate = new();
+    private ImmutableArray<ISymbol> _visibleSubmissionDeclarations;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -114,14 +116,19 @@ public partial class Compilation
         MetadataReference[] references,
         MacroReference[] macroReferences,
         CompilationOptions? options = null,
-        ImmutableArray<Diagnostic> generatorDiagnostics = default)
+        ImmutableArray<Diagnostic> generatorDiagnostics = default,
+        ScriptCompilationInfo? scriptCompilationInfo = null)
     {
+        if (scriptCompilationInfo is not null)
+            ValidateScriptCompilation(syntaxTrees, scriptCompilationInfo);
+
         AssemblyName = string.IsNullOrWhiteSpace(assemblyName) ? "assembly" : assemblyName;
         _syntaxTrees = syntaxTrees;
         _macroSyntaxTrees = macroSyntaxTrees;
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
+        ScriptCompilationInfo = scriptCompilationInfo;
         _generatorDiagnostics = generatorDiagnostics.IsDefault
             ? ImmutableArray<Diagnostic>.Empty
             : generatorDiagnostics;
@@ -136,6 +143,17 @@ public partial class Compilation
     public string AssemblyName { get; }
 
     public CompilationOptions Options { get; }
+
+    /// <summary>
+    /// Gets information about this compilation's script submission chain, or <see langword="null"/>
+    /// when this is a regular compilation.
+    /// </summary>
+    public ScriptCompilationInfo? ScriptCompilationInfo { get; }
+
+    /// <summary>
+    /// Gets whether this compilation represents a script submission.
+    /// </summary>
+    public bool IsSubmission => ScriptCompilationInfo is not null;
 
     public PerformanceInstrumentation PerformanceInstrumentation => Options.PerformanceInstrumentation;
 
@@ -649,6 +667,52 @@ public partial class Compilation
         return new Compilation(assemblyName, syntaxTrees, [], references, macroReferences, options);
     }
 
+    /// <summary>
+    /// Creates a compilation for one script or interactive submission.
+    /// </summary>
+    public static Compilation CreateScriptCompilation(
+        string assemblyName,
+        SyntaxTree syntaxTree,
+        MetadataReference[]? references = null,
+        CompilationOptions? options = null,
+        Compilation? previousScriptCompilation = null)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
+        if (previousScriptCompilation is { IsSubmission: false })
+            throw new ArgumentException("The previous compilation must be a script submission.", nameof(previousScriptCompilation));
+
+        references ??= [];
+        if (references.Length == 0)
+            references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
+
+        if (previousScriptCompilation is not null)
+        {
+            var referenceBuilder = references.ToList();
+            for (var previous = previousScriptCompilation;
+                 previous is not null;
+                 previous = previous.ScriptCompilationInfo?.PreviousScriptCompilation)
+            {
+                if (!referenceBuilder.OfType<CompilationReference>().Any(reference =>
+                    ReferenceEquals(reference.Compilation, previous)))
+                {
+                    referenceBuilder.Add(previous.ToMetadataReference());
+                }
+            }
+
+            references = referenceBuilder.ToArray();
+        }
+
+        return new Compilation(
+            assemblyName,
+            [syntaxTree],
+            [],
+            references,
+            [],
+            options,
+            scriptCompilationInfo: new ScriptCompilationInfo(previousScriptCompilation));
+    }
+
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
         return new Compilation(
@@ -658,7 +722,8 @@ public partial class Compilation
             _references,
             _macroReferences,
             Options,
-            _generatorDiagnostics);
+            _generatorDiagnostics,
+            ScriptCompilationInfo);
     }
 
     /// <summary>
@@ -689,7 +754,8 @@ public partial class Compilation
             hasDeclarationPartition ? EnsureMacroContractsReference(_references) : _references,
             _macroReferences,
             Options,
-            _generatorDiagnostics);
+            _generatorDiagnostics,
+            ScriptCompilationInfo);
     }
 
     /// <summary>
@@ -709,11 +775,12 @@ public partial class Compilation
             _references,
             _macroReferences,
             Options,
-            _generatorDiagnostics);
+            _generatorDiagnostics,
+            ScriptCompilationInfo);
     }
 
     internal Compilation WithGeneratorDiagnostics(ImmutableArray<Diagnostic> diagnostics)
-        => new(AssemblyName, _syntaxTrees, _macroSyntaxTrees, _references, _macroReferences, Options, diagnostics);
+        => new(AssemblyName, _syntaxTrees, _macroSyntaxTrees, _references, _macroReferences, Options, diagnostics, ScriptCompilationInfo);
 
     public Compilation AddReferences(params MetadataReference[] references)
     {
@@ -724,17 +791,111 @@ public partial class Compilation
             _references.Concat(references).ToArray(),
             _macroReferences,
             Options,
-            _generatorDiagnostics);
+            _generatorDiagnostics,
+            ScriptCompilationInfo);
     }
 
     public Compilation AddMacroReferences(params MacroReference[] macroReferences)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, _macroSyntaxTrees, _references, macroReferences, Options, _generatorDiagnostics);
+        return new Compilation(AssemblyName, _syntaxTrees, _macroSyntaxTrees, _references, macroReferences, Options, _generatorDiagnostics, ScriptCompilationInfo);
     }
 
     public Compilation WithAssemblyName(string? assemblyName)
     {
-        return new Compilation(assemblyName, _syntaxTrees, _macroSyntaxTrees, _references, _macroReferences, Options, _generatorDiagnostics);
+        return new Compilation(assemblyName, _syntaxTrees, _macroSyntaxTrees, _references, _macroReferences, Options, _generatorDiagnostics, ScriptCompilationInfo);
+    }
+
+    private static void ValidateScriptCompilation(
+        IReadOnlyList<SyntaxTree> syntaxTrees,
+        ScriptCompilationInfo scriptCompilationInfo)
+    {
+        if (syntaxTrees.Count != 1)
+            throw new ArgumentException("A script compilation must contain exactly one syntax tree.", nameof(syntaxTrees));
+
+        if (syntaxTrees[0].Options.Kind is not (SourceCodeKind.Script or SourceCodeKind.Interactive))
+            throw new ArgumentException("A script compilation requires a script or interactive syntax tree.", nameof(syntaxTrees));
+
+        if (scriptCompilationInfo.PreviousScriptCompilation is { IsSubmission: false })
+            throw new ArgumentException("The previous compilation must be a script submission.", nameof(scriptCompilationInfo));
+    }
+
+    internal ImmutableArray<ISymbol> GetPreviousSubmissionDeclarations()
+        => ScriptCompilationInfo?.PreviousScriptCompilation?.GetVisibleSubmissionDeclarations()
+            ?? ImmutableArray<ISymbol>.Empty;
+
+    internal bool IsPreviousSubmissionAssembly(IAssemblySymbol? assembly)
+    {
+        if (assembly is null)
+            return false;
+
+        for (var previous = ScriptCompilationInfo?.PreviousScriptCompilation;
+             previous is not null;
+             previous = previous.ScriptCompilationInfo?.PreviousScriptCompilation)
+        {
+            if (SymbolEqualityComparer.Default.Equals(previous.Assembly, assembly))
+                return true;
+        }
+
+        return false;
+    }
+
+    private ImmutableArray<ISymbol> GetVisibleSubmissionDeclarations()
+    {
+        if (!_visibleSubmissionDeclarations.IsDefault)
+            return _visibleSubmissionDeclarations;
+
+        lock (_submissionDeclarationsGate)
+        {
+            if (!_visibleSubmissionDeclarations.IsDefault)
+                return _visibleSubmissionDeclarations;
+
+            var values = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
+            var functions = new List<IMethodSymbol>();
+
+            if (ScriptCompilationInfo?.PreviousScriptCompilation is { } previous)
+            {
+                foreach (var declaration in previous.GetVisibleSubmissionDeclarations())
+                    AddDeclaration(declaration);
+            }
+
+            foreach (var syntaxTree in SyntaxTrees)
+            {
+                var root = syntaxTree.GetRoot();
+                var semanticModel = GetSemanticModel(syntaxTree);
+
+                foreach (var global in GetBindableGlobalStatements(root))
+                {
+                    switch (global.Statement)
+                    {
+                        case LocalDeclarationStatementSyntax localDeclaration:
+                            foreach (var declarator in localDeclaration.Declaration.Declarators)
+                            {
+                                if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+                                    AddDeclaration(local);
+                            }
+                            break;
+
+                        case FunctionStatementSyntax function:
+                            if (semanticModel.GetDeclaredSymbol(function) is IMethodSymbol method)
+                                AddDeclaration(method);
+                            break;
+                    }
+                }
+            }
+
+            _visibleSubmissionDeclarations = values.Values
+                .Concat<ISymbol>(functions)
+                .ToImmutableArray();
+            return _visibleSubmissionDeclarations;
+
+            void AddDeclaration(ISymbol declaration)
+            {
+                if (declaration is IMethodSymbol method)
+                    functions.Add(method);
+                else
+                    values[declaration.Name] = declaration;
+            }
+        }
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);

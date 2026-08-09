@@ -39,7 +39,8 @@ public partial class Compilation
 
         diagnostics.RemoveAll(ShouldSuppressAsyncLacksAwait);
 
-        if (Options.OutputKind == OutputKind.ConsoleApplication
+        if (!IsSubmission
+            && Options.OutputKind == OutputKind.ConsoleApplication
             && entryPointDiagnostics.IsDefaultOrEmpty
             && GetEntryPoint(cancellationToken) is null)
         {
