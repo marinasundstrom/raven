@@ -154,7 +154,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Extended the HTML-to-Blazor sample with an ordinary Razor `StatusBadge`
   component from a referenced Blazor project. The HTML macro now also accepts
   qualified component tags and maps their terminal type token and parameters
-  to ordinary compiler symbols for editor tooling.
+  to ordinary compiler symbols for editor tooling. The badge's co-located
+  `.razor.css` demonstrates that components instantiated from Raven templates
+  retain Blazor's normal CSS-isolation pipeline.
 
 - Fixed workspace loading for compiler-plugin project references so the built
   plugin assembly is available as both a macro provider and an ordinary

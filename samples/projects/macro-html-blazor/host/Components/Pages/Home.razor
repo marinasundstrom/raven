@@ -173,7 +173,7 @@
                 <span class="section-number">04</span>
                 <h2>Blazor stays Blazor</h2>
             </div>
-            <p>A Raven template can instantiate an existing Razor component. Import its namespace, then use its normal component name and parameters.</p>
+            <p>A Raven template can instantiate an existing Razor component. Its co-located <code>.razor.css</code> also flows through Blazor CSS isolation unchanged.</p>
         </header>
 
         <div class="demo-grid reverse interop-grid">
@@ -183,7 +183,7 @@
                     <DynamicComponent Type="typeof(BlazorInteropShowcase)" />
                     <p>The rendered badge is an ordinary <code>.razor</code> component from a referenced .NET project.</p>
                 </div>
-                <div class="preview-footer"><span></span> Existing Blazor component frame</div>
+                <div class="preview-footer"><span></span> Component frame + scoped CSS</div>
             </article>
 
             <article class="code-card light-code">
@@ -196,6 +196,12 @@
 <span class="syntax-keyword">@@namespace</span> <span class="syntax-type">ExistingBlazorComponents</span>
 
 &lt;<span class="syntax-tag">strong</span>&gt;@@Label&lt;/<span class="syntax-tag">strong</span>&gt;
+
+<span class="syntax-comment">/* StatusBadge.razor.css */</span>
+.<span class="syntax-property">framework-badge</span> {
+    <span class="syntax-property">border-radius</span>: <span class="syntax-literal">12px</span>;
+    <span class="syntax-property">background</span>: <span class="syntax-function">rgba</span>(255, 255, 255, .88);
+}
 
 <span class="syntax-keyword">@@code</span> {
     [<span class="syntax-type">Parameter</span>]

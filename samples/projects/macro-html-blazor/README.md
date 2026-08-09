@@ -79,7 +79,8 @@ app/src/
 
 blazor/
 ├── ExistingBlazorComponents.csproj
-└── StatusBadge.razor
+├── StatusBadge.razor
+└── StatusBadge.razor.css
 ```
 
 `Program.rvn` contains only the executable render-tree verification. Component
@@ -102,7 +103,9 @@ destructures each case payload directly into rendered text, advances the
 component state, and verifies that the expression is re-evaluated.
 The interop scenario imports a conventional Razor component from a referenced
 .NET project, instantiates it in `Html!`, and verifies the resulting native
-Blazor component frame.
+Blazor component frame. `StatusBadge.razor.css` is processed by Blazor's normal
+CSS-isolation pipeline; the host links its generated `.styles.css` bundle just
+as an ordinary Blazor application does.
 
 Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 
@@ -147,11 +150,10 @@ TextMate/Oniguruma/Monaco pipeline remains outside this thin sample host.
 
 ## Planned follow-up work
 
-Later composition examples should remain separate so each teaches one ordinary
-Blazor application technique: one for CSS through normal component styling and
-asset conventions, and one for JavaScript interop through Blazor's existing
-`IJSRuntime` and module model. These examples should reuse Blazor rather than
-introducing CSS or JavaScript mechanisms owned by the HTML macro.
+The CSS composition example deliberately uses normal Razor CSS isolation on
+`StatusBadge`; the HTML macro does not parse, bundle, or scope CSS. A later
+JavaScript interop example should likewise use Blazor's existing `IJSRuntime`
+and module model rather than introduce a mechanism owned by the HTML macro.
 
 ## Editor-readiness fixture
 

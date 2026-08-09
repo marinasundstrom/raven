@@ -1,0 +1,33 @@
+.framework-badge {
+    display: grid;
+    gap: 10px;
+    padding: 26px;
+    border: 1px solid rgba(28, 63, 82, 0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 22px 55px rgba(28, 63, 82, 0.13);
+}
+
+.framework-badge-origin {
+    color: #39728b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+}
+
+.framework-badge strong {
+    color: #1c3f52;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 27px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+}
+
+.framework-badge p {
+    margin: 0;
+    color: #697376;
+    font-size: 13px;
+    line-height: 1.55;
+}
