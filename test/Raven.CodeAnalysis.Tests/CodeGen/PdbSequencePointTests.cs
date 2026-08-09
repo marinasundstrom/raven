@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
 using Raven.CodeAnalysis.Syntax;
@@ -35,9 +36,15 @@ class C {
         var moveNext = FindMethod(metadataReader, static (typeName, methodName) =>
             typeName.Contains("<>c__AsyncStateMachine", StringComparison.Ordinal) &&
             methodName == "MoveNext");
+        var setStateMachine = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName.Contains("<>c__AsyncStateMachine", StringComparison.Ordinal) &&
+            methodName == "SetStateMachine");
 
         AssertMethodHasOnlyHiddenSequencePoints(pdbReader, kickoff);
-        AssertMethodHasVisibleSequencePoint(pdbReader, moveNext);
+        AssertMethodHasVisibleSequencePoint(metadataReader, pdbReader, moveNext);
+        Assert.Equal([5, 6], GetVisibleSequencePointStartLines(pdbReader, moveNext).Distinct().ToArray());
+        AssertMethodHasNoOverlappingVisibleSequencePoints(pdbReader, moveNext);
+        Assert.Empty(GetVisibleSequencePoints(pdbReader, setStateMachine));
 
         peReader.Dispose();
     }
@@ -64,10 +71,61 @@ class C {
 
         var kickoff = FindMethod(metadataReader, static (typeName, methodName) =>
             typeName == "C" && methodName == "Values");
+        var currentGetter = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName.Contains("<>c__Iterator", StringComparison.Ordinal) &&
+            methodName == "get_Current");
 
         AssertMethodHasOnlyHiddenSequencePoints(pdbReader, kickoff);
-        AssertMethodHasVisibleSequencePoint(pdbReader, moveNext);
+        AssertMethodHasVisibleSequencePoint(metadataReader, pdbReader, moveNext);
+        Assert.Equal([5, 6], GetVisibleSequencePointStartLines(pdbReader, moveNext).Distinct().ToArray());
+        AssertMethodHasNoOverlappingVisibleSequencePoints(pdbReader, moveNext);
+        Assert.Empty(GetVisibleSequencePoints(pdbReader, currentGetter));
         AssertMethodHasAttribute(metadataReader, kickoff, "IteratorStateMachineAttribute");
+
+        peReader.Dispose();
+    }
+
+    [Fact]
+    public void MultipleStateMachines_KeepSequencePointsOnTheirOwnMoveNextMethods()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+class C {
+    async func First() -> Task<int> {
+        await Task.Delay(1)
+        return 1
+    }
+
+    async func Second() -> Task<int> {
+        await Task.Delay(1)
+        return 2
+    }
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var moveNextMethods = FindMethods(metadataReader, static (typeName, methodName) =>
+            typeName.Contains("<>c__AsyncStateMachine", StringComparison.Ordinal) &&
+            methodName == "MoveNext");
+        var helperMethods = FindMethods(metadataReader, static (typeName, methodName) =>
+            typeName.Contains("<>c__AsyncStateMachine", StringComparison.Ordinal) &&
+            methodName == "SetStateMachine");
+
+        Assert.Equal(2, moveNextMethods.Length);
+        Assert.All(moveNextMethods, method =>
+        {
+            AssertMethodHasVisibleSequencePoint(metadataReader, pdbReader, method);
+            AssertMethodHasNoOverlappingVisibleSequencePoints(pdbReader, method);
+        });
+        Assert.Equal(
+            [5, 6, 10, 11],
+            moveNextMethods
+                .SelectMany(method => GetVisibleSequencePointStartLines(pdbReader, method))
+                .Distinct()
+                .Order()
+                .ToArray());
+        Assert.All(helperMethods, method => Assert.Empty(GetVisibleSequencePoints(pdbReader, method)));
 
         peReader.Dispose();
     }
@@ -319,7 +377,7 @@ func Main() {
 
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var method = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
 
         var points = GetVisibleSequencePoints(pdbReader, method).ToArray();
         var lines = points.Select(static p => p.StartLine).Distinct().ToArray();
@@ -380,9 +438,9 @@ func AddTax(value: int) -> int {
 
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
         var helperMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "AddTax");
+            typeName == "NamespaceMembers" && methodName == "AddTax");
 
         var mainLines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
         Assert.Contains(4, mainLines);
@@ -466,7 +524,7 @@ func Main() {
 
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
 
         var lines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
         Assert.Contains(4, lines);
@@ -498,7 +556,7 @@ func Main() {
 
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
 
         var lines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
         Assert.Contains(5, lines);
@@ -534,7 +592,7 @@ func GetValue() -> int => 1
         var firstArmLine = matchExpression.Arms[0].Expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var secondArmLine = matchExpression.Arms[1].Expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
 
         var lines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
         Assert.Contains(guardLine, lines);
@@ -569,9 +627,9 @@ func Add(left: int, right: int) -> int {
 
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
         var addMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Add");
+            typeName == "NamespaceMembers" && methodName == "Add");
 
         var mainLines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
         Assert.Contains(4, mainLines);
@@ -643,9 +701,9 @@ func Main() {
 
         var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, new CompilationOptions(OutputKind.ConsoleApplication));
         var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName == "Main");
+            typeName == "NamespaceMembers" && methodName == "Main");
         var bumpMethod = FindMethod(metadataReader, static (typeName, methodName) =>
-            typeName == "Program" && methodName.Contains("Bump", StringComparison.Ordinal));
+            typeName == "NamespaceMembers" && methodName.Contains("Bump", StringComparison.Ordinal));
 
         var mainLines = GetVisibleSequencePointStartLines(pdbReader, mainMethod);
         Assert.Contains(4, mainLines);
@@ -794,6 +852,7 @@ class C {
         MetadataReader metadataReader,
         Func<string, string, bool> predicate)
     {
+        var emittedMethods = new List<string>();
         foreach (var typeHandle in metadataReader.TypeDefinitions)
         {
             var type = metadataReader.GetTypeDefinition(typeHandle);
@@ -803,13 +862,36 @@ class C {
             {
                 var method = metadataReader.GetMethodDefinition(methodHandle);
                 var methodName = metadataReader.GetString(method.Name);
+                emittedMethods.Add($"{typeName}.{methodName}");
 
                 if (predicate(typeName, methodName))
                     return methodHandle;
             }
         }
 
-        throw new InvalidOperationException("Expected method definition was not found in emitted metadata.");
+        throw new InvalidOperationException(
+            $"Expected method definition was not found in emitted metadata.{Environment.NewLine}" +
+            string.Join(Environment.NewLine, emittedMethods));
+    }
+
+    private static MethodDefinitionHandle[] FindMethods(
+        MetadataReader metadataReader,
+        Func<string, string, bool> predicate)
+    {
+        var methods = new List<MethodDefinitionHandle>();
+        foreach (var typeHandle in metadataReader.TypeDefinitions)
+        {
+            var type = metadataReader.GetTypeDefinition(typeHandle);
+            var typeName = metadataReader.GetString(type.Name);
+            foreach (var methodHandle in type.GetMethods())
+            {
+                var method = metadataReader.GetMethodDefinition(methodHandle);
+                if (predicate(typeName, metadataReader.GetString(method.Name)))
+                    methods.Add(methodHandle);
+            }
+        }
+
+        return methods.ToArray();
     }
 
     private static void AssertMethodHasVisibleSequencePoint(MetadataReader pdbReader, MethodDefinitionHandle methodHandle)
@@ -817,6 +899,49 @@ class C {
         var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
 
         Assert.NotEmpty(points);
+    }
+
+    private static void AssertMethodHasVisibleSequencePoint(
+        MetadataReader metadataReader,
+        MetadataReader pdbReader,
+        MethodDefinitionHandle methodHandle)
+    {
+        var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
+        Assert.True(points.Length > 0, FormatMethodsWithVisibleSequencePoints(metadataReader, pdbReader));
+    }
+
+    private static string FormatMethodsWithVisibleSequencePoints(
+        MetadataReader metadataReader,
+        MetadataReader pdbReader)
+    {
+        var methods = new List<string>();
+        foreach (var typeHandle in metadataReader.TypeDefinitions)
+        {
+            var type = metadataReader.GetTypeDefinition(typeHandle);
+            var typeName = metadataReader.GetString(type.Name);
+            foreach (var methodHandle in type.GetMethods())
+            {
+                var points = GetVisibleSequencePoints(pdbReader, methodHandle).ToArray();
+                if (points.Length == 0)
+                    continue;
+
+                var method = metadataReader.GetMethodDefinition(methodHandle);
+                var methodName = metadataReader.GetString(method.Name);
+                methods.Add(
+                    $"{typeName}.{methodName}: " +
+                    string.Join(", ", points.Select(static point =>
+                        $"{point.StartLine}:{point.StartColumn}-{point.EndLine}:{point.EndColumn}")));
+            }
+        }
+
+        return methods.Count == 0
+            ? "No emitted methods have visible sequence points." + Environment.NewLine +
+              string.Join(Environment.NewLine, metadataReader.MethodDefinitions.Select(handle =>
+              {
+                  var method = metadataReader.GetMethodDefinition(handle);
+                  return $"{MetadataTokens.GetRowNumber(handle)}: {metadataReader.GetString(method.Name)}";
+              }))
+            : string.Join(Environment.NewLine, methods);
     }
 
     private static void AssertMethodHasOnlyHiddenSequencePoints(MetadataReader pdbReader, MethodDefinitionHandle methodHandle)

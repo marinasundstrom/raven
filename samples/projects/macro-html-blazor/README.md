@@ -191,9 +191,12 @@ library. A later JavaScript interop example should likewise use Blazor's
 existing `IJSRuntime` and module model rather than introduce a mechanism owned
 by the HTML macro.
 
-Broader C#-like debugger parity—including the remaining async, iterator,
-top-level-function, match, and local-scope sequence-point gaps—is tracked as a
-separate compiler slice. It is not implemented by the HTML macro.
+Debugger sequence-point parity is compiler-owned rather than implemented by
+the HTML macro. Ordinary and top-level functions, match expressions, user
+locals, async methods, iterators, and mapped macro fragments now retain
+non-overlapping spans on the correct emitted methods. Future debugger work can
+therefore focus on advanced inspection and stepping behavior rather than
+template-specific source mapping.
 
 ## Editor-readiness fixture
 

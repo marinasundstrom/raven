@@ -253,6 +253,15 @@ hidden sequence-point `nop`s without a Debug/Release policy. The present output
 should therefore be described as a single debug-oriented mode, not Release
 output.
 
+Portable-PDB ownership is reconciled after the final PE rewrite. The assembly
+reference normalizer can renumber method-definition rows, so Raven matches raw
+and final methods by containing-type identity, name, and overload occurrence,
+then remaps method debug information, local scopes, state-machine records, and
+method-owned custom debug information. Sequence points within one method are
+also required to be non-overlapping; the first normalized authored span wins.
+This keeps generated state-machine helpers and other later-emitted methods from
+claiming an earlier method's source spans.
+
 A representative probe containing a namespace function, value-producing `if`,
 capturing lambda, and `Main` produced an assembly that:
 

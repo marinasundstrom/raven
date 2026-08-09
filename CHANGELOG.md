@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed portable-PDB method ownership after assembly-reference normalization.
+  Sequence points and local scopes are reconciled against the final PE method
+  rows, async and iterator bodies remain attached to their generated
+  `MoveNext` methods, and overlapping visible spans within a method are
+  suppressed. This restores stable stepping for ordinary, top-level, match,
+  async, iterator, and macro-authored executable code.
+
 - Added compiler-owned debugging provenance for executable macro fragments.
   Parsed expressions and statements retain authored `.rvn` locations,
   string-built expansions can provide span mappings, and portable PDBs hide

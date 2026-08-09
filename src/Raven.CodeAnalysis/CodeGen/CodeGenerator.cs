@@ -1400,12 +1400,17 @@ internal class CodeGenerator
             MethodDefinitionHandle entryPointHandle = EntryPoint is not null
                 ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
                 : default;
+            using var provisionalPdbStream = new MemoryStream();
+            var pdbFileName = pdbStream is FileStream fileStream && !string.IsNullOrWhiteSpace(fileStream.Name)
+                ? Path.GetFileName(fileStream.Name)
+                : $"{_compilation.AssemblyName}.pdb";
             DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(
                 pdbBuilder,
                 metadataBuilder.GetRowCounts(),
                 entryPointHandle,
-                pdbStream,
-                _compilation.AssemblyName);
+                provisionalPdbStream,
+                pdbFileName,
+                out var pdbContentId);
 
             Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
             {
@@ -1430,10 +1435,41 @@ internal class CodeGenerator
             // Reflection.Emit binds core types to System.Private.CoreLib runtime identities.
             // Normalize to System.Runtime for consumer-facing assemblies while retaining
             // System.Private.CoreLib where required for non-forwarded runtime types.
-            if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
-                AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, peStream);
+            rawPeStream.Position = 0;
+            if (pdbStream is null)
+            {
+                if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
+                    AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, peStream);
+                else
+                    rawPeStream.CopyTo(peStream);
+            }
             else
-                rawPeStream.WriteTo(peStream);
+            {
+                using var finalPeStream = new MemoryStream();
+                if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
+                    AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, finalPeStream);
+                else
+                    rawPeStream.CopyTo(finalPeStream);
+
+                provisionalPdbStream.Position = 0;
+                rawPeStream.Position = 0;
+                finalPeStream.Position = 0;
+                using var rawPeReader = new PEReader(rawPeStream, PEStreamOptions.LeaveOpen);
+                using var finalPeReader = new PEReader(finalPeStream, PEStreamOptions.LeaveOpen);
+                var corrections = GetMethodDebugInformationCorrections(
+                    rawPeReader.GetMetadataReader(),
+                    finalPeReader.GetMetadataReader());
+                EmitCorrectedPdb(
+                    provisionalPdbStream,
+                    metadataBuilder.GetRowCounts(),
+                    entryPointHandle,
+                    corrections,
+                    pdbContentId,
+                    pdbStream);
+
+                finalPeStream.Position = 0;
+                finalPeStream.CopyTo(peStream);
+            }
         }
         catch (Exception ex)
         {
@@ -2183,23 +2219,105 @@ internal class CodeGenerator
         }
     }
 
+    private static Dictionary<int, int> GetMethodDebugInformationCorrections(
+        MetadataReader sourceReader,
+        MetadataReader targetReader)
+    {
+        // Mono.Cecil may renumber MethodDef rows while normalizing assembly
+        // references. PDB method rows still describe the pre-normalized PE.
+        // Type identity and same-name declaration order remain stable across
+        // that rewrite, including overloads.
+        var corrections = new Dictionary<int, int>();
+        var sourceTypes = sourceReader.TypeDefinitions.ToDictionary(
+            handle => GetTypeIdentity(sourceReader, handle),
+            handle => handle,
+            StringComparer.Ordinal);
+
+        foreach (var targetTypeHandle in targetReader.TypeDefinitions)
+        {
+            if (!sourceTypes.TryGetValue(GetTypeIdentity(targetReader, targetTypeHandle), out var sourceTypeHandle))
+                continue;
+
+            var sourceMethods = GetMethodsByName(sourceReader, sourceTypeHandle);
+            var targetMethods = GetMethodsByName(targetReader, targetTypeHandle);
+            foreach (var (methodName, targetHandles) in targetMethods)
+            {
+                if (!sourceMethods.TryGetValue(methodName, out var sourceHandles) ||
+                    sourceHandles.Count != targetHandles.Count)
+                {
+                    continue;
+                }
+
+                for (var index = 0; index < targetHandles.Count; index++)
+                {
+                    var sourceRow = MetadataTokens.GetRowNumber(sourceHandles[index]);
+                    var targetRow = MetadataTokens.GetRowNumber(targetHandles[index]);
+                    corrections[targetRow] = sourceRow;
+                }
+            }
+        }
+
+        var sourceMethodCount = sourceReader.GetTableRowCount(TableIndex.MethodDef);
+        var targetMethodCount = targetReader.GetTableRowCount(TableIndex.MethodDef);
+        if (sourceMethodCount != targetMethodCount ||
+            corrections.Count != targetMethodCount ||
+            corrections.Values.Distinct().Count() != sourceMethodCount)
+        {
+            return [];
+        }
+
+        return corrections.All(static pair => pair.Key == pair.Value)
+            ? []
+            : corrections;
+    }
+
+    private static Dictionary<string, List<MethodDefinitionHandle>> GetMethodsByName(
+        MetadataReader reader,
+        TypeDefinitionHandle typeHandle)
+    {
+        var methods = new Dictionary<string, List<MethodDefinitionHandle>>(StringComparer.Ordinal);
+        foreach (var methodHandle in reader.GetTypeDefinition(typeHandle).GetMethods())
+        {
+            var method = reader.GetMethodDefinition(methodHandle);
+            var name = reader.GetString(method.Name);
+            if (!methods.TryGetValue(name, out var handles))
+            {
+                handles = [];
+                methods.Add(name, handles);
+            }
+
+            handles.Add(methodHandle);
+        }
+
+        return methods;
+    }
+
+    private static string GetTypeIdentity(MetadataReader reader, TypeDefinitionHandle typeHandle)
+    {
+        var type = reader.GetTypeDefinition(typeHandle);
+        var name = reader.GetString(type.Name);
+        var declaringType = type.GetDeclaringType();
+        if (!declaringType.IsNil)
+            return $"{GetTypeIdentity(reader, declaringType)}+{name}";
+
+        var namespaceName = reader.GetString(type.Namespace);
+        return string.IsNullOrEmpty(namespaceName) ? name : $"{namespaceName}.{name}";
+    }
+
     static DebugDirectoryBuilder EmitPdb(
         MetadataBuilder pdbBuilder,
         ImmutableArray<int> rowCounts,
         MethodDefinitionHandle entryPointHandle,
         Stream? pdbStream,
-        string assemblyName)
+        string pdbFileName,
+        out BlobContentId pdbContentId)
     {
         BlobBuilder portablePdbBlob = new BlobBuilder();
         PortablePdbBuilder portablePdbBuilder = new PortablePdbBuilder(pdbBuilder, rowCounts, entryPointHandle);
-        BlobContentId pdbContentId = portablePdbBuilder.Serialize(portablePdbBlob);
+        pdbContentId = portablePdbBuilder.Serialize(portablePdbBlob);
 
         if (pdbStream is not null)
             portablePdbBlob.WriteContentTo(pdbStream);
-
-        var pdbFileName = $"{assemblyName}.pdb";
-        if (pdbStream is FileStream fileStream && !string.IsNullOrWhiteSpace(fileStream.Name))
-            pdbFileName = Path.GetFileName(fileStream.Name);
 
         DebugDirectoryBuilder debugDirectoryBuilder = new DebugDirectoryBuilder();
         debugDirectoryBuilder.AddCodeViewEntry(pdbFileName, pdbContentId, portablePdbBuilder.FormatVersion);
@@ -2208,6 +2326,173 @@ internal class CodeGenerator
         // debugDirectoryBuilder.AddEmbeddedPortablePdbEntry(portablePdbBlob, portablePdbBuilder.FormatVersion);
         return debugDirectoryBuilder;
     }
+
+    private static void EmitCorrectedPdb(
+        Stream originalPdbStream,
+        ImmutableArray<int> rowCounts,
+        MethodDefinitionHandle entryPointHandle,
+        IReadOnlyDictionary<int, int> corrections,
+        BlobContentId contentId,
+        Stream outputStream)
+    {
+        if (corrections.Count == 0)
+        {
+            originalPdbStream.CopyTo(outputStream);
+            return;
+        }
+
+        using var provider = MetadataReaderProvider.FromPortablePdbStream(
+            originalPdbStream,
+            MetadataStreamOptions.LeaveOpen);
+        var reader = provider.GetMetadataReader();
+        var builder = new MetadataBuilder();
+
+        foreach (var handle in reader.Documents)
+        {
+            var document = reader.GetDocument(handle);
+            builder.AddDocument(
+                builder.GetOrAddDocumentName(reader.GetString(document.Name)),
+                CopyGuid(reader, builder, document.HashAlgorithm),
+                CopyBlob(reader, builder, document.Hash),
+                CopyGuid(reader, builder, document.Language));
+        }
+
+        var methodCount = rowCounts[(int)TableIndex.MethodDef];
+        for (var row = 1; row <= methodCount; row++)
+        {
+            var sourceRow = corrections[row];
+            var info = reader.GetMethodDebugInformation(
+                MetadataTokens.MethodDebugInformationHandle(sourceRow));
+            builder.AddMethodDebugInformation(
+                info.Document,
+                CopyBlob(reader, builder, info.SequencePointsBlob));
+        }
+
+        foreach (var handle in reader.ImportScopes)
+        {
+            var importScope = reader.GetImportScope(handle);
+            builder.AddImportScope(
+                importScope.Parent,
+                CopyBlob(reader, builder, importScope.ImportsBlob));
+        }
+
+        foreach (var handle in reader.LocalVariables)
+        {
+            var local = reader.GetLocalVariable(handle);
+            builder.AddLocalVariable(
+                local.Attributes,
+                local.Index,
+                CopyString(reader, builder, local.Name));
+        }
+
+        foreach (var handle in reader.LocalConstants)
+        {
+            var constant = reader.GetLocalConstant(handle);
+            builder.AddLocalConstant(
+                CopyString(reader, builder, constant.Name),
+                CopyBlob(reader, builder, constant.Signature));
+        }
+
+        var ownerToTarget = corrections.ToDictionary(static pair => pair.Value, static pair => pair.Key);
+        var localScopes = reader.LocalScopes
+            .Select(handle => reader.GetLocalScope(handle))
+            .Select(localScope =>
+            {
+                var methodRow = MetadataTokens.GetRowNumber(localScope.Method);
+                var correctedMethod = ownerToTarget.TryGetValue(methodRow, out var correctedMethodRow)
+                    ? MetadataTokens.MethodDefinitionHandle(correctedMethodRow)
+                    : localScope.Method;
+                return (Scope: localScope, Method: correctedMethod);
+            })
+            .OrderBy(static item => MetadataTokens.GetRowNumber(item.Method))
+            .ThenBy(static item => item.Scope.StartOffset)
+            .ThenByDescending(static item => item.Scope.Length);
+        foreach (var item in localScopes)
+        {
+            var localScope = item.Scope;
+            builder.AddLocalScope(
+                item.Method,
+                localScope.ImportScope,
+                localScope.GetLocalVariables().FirstOrDefault(),
+                localScope.GetLocalConstants().FirstOrDefault(),
+                localScope.StartOffset,
+                localScope.Length);
+        }
+
+        for (var row = 1; row <= methodCount; row++)
+        {
+            var info = reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(row));
+            var kickoffMethod = info.GetStateMachineKickoffMethod();
+            if (!kickoffMethod.IsNil)
+            {
+                var moveNextRow = ownerToTarget.TryGetValue(row, out var correctedRow)
+                    ? correctedRow
+                    : row;
+                builder.AddStateMachineMethod(
+                    MetadataTokens.MethodDefinitionHandle(moveNextRow),
+                    RemapMethod(kickoffMethod, ownerToTarget));
+            }
+        }
+
+        foreach (var handle in reader.CustomDebugInformation)
+        {
+            var customInfo = reader.GetCustomDebugInformation(handle);
+            builder.AddCustomDebugInformation(
+                RemapDebugParent(customInfo.Parent, ownerToTarget),
+                CopyGuid(reader, builder, customInfo.Kind),
+                CopyBlob(reader, builder, customInfo.Value));
+        }
+
+        var correctedBlob = new BlobBuilder();
+        var portablePdbBuilder = new PortablePdbBuilder(
+            builder,
+            rowCounts,
+            entryPointHandle,
+            _ => contentId);
+        portablePdbBuilder.Serialize(correctedBlob);
+        correctedBlob.WriteContentTo(outputStream);
+    }
+
+    private static EntityHandle RemapDebugParent(
+        EntityHandle parent,
+        IReadOnlyDictionary<int, int> ownerToTarget)
+    {
+        if (parent.Kind != HandleKind.MethodDefinition)
+            return parent;
+
+        var methodRow = MetadataTokens.GetRowNumber((MethodDefinitionHandle)parent);
+        return ownerToTarget.TryGetValue(methodRow, out var correctedMethodRow)
+            ? MetadataTokens.MethodDefinitionHandle(correctedMethodRow)
+            : parent;
+    }
+
+    private static MethodDefinitionHandle RemapMethod(
+        MethodDefinitionHandle method,
+        IReadOnlyDictionary<int, int> ownerToTarget)
+    {
+        var methodRow = MetadataTokens.GetRowNumber(method);
+        return ownerToTarget.TryGetValue(methodRow, out var correctedMethodRow)
+            ? MetadataTokens.MethodDefinitionHandle(correctedMethodRow)
+            : method;
+    }
+
+    private static BlobHandle CopyBlob(
+        MetadataReader reader,
+        MetadataBuilder builder,
+        BlobHandle handle)
+        => handle.IsNil ? default : builder.GetOrAddBlob(reader.GetBlobBytes(handle));
+
+    private static GuidHandle CopyGuid(
+        MetadataReader reader,
+        MetadataBuilder builder,
+        GuidHandle handle)
+        => handle.IsNil ? default : builder.GetOrAddGuid(reader.GetGuid(handle));
+
+    private static StringHandle CopyString(
+        MetadataReader reader,
+        MetadataBuilder builder,
+        StringHandle handle)
+        => handle.IsNil ? default : builder.GetOrAddString(reader.GetString(handle));
 
     private static ModuleBuilder DefineDynamicModuleWithSymbols(PersistedAssemblyBuilder assemblyBuilder, string moduleName)
     {
