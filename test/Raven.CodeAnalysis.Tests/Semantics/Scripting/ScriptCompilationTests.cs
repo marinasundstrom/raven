@@ -149,6 +149,20 @@ public sealed class ScriptCompilationTests : CompilationTestBase
     }
 
     [Fact]
+    public void FunctionDeclaredAfterEarlierSubmission_BindsInFollowingSubmission()
+    {
+        var (first, _) = CreateSubmission("let value = 40", "submission0");
+        var (second, _) = CreateSubmission(
+            "func addTwo(input: int) -> int => input + 2",
+            "submission1",
+            first);
+        var (third, _) = CreateSubmission("addTwo(value)", "submission2", second);
+
+        AssertNoErrors(second);
+        AssertNoErrors(third);
+    }
+
+    [Fact]
     public void PreviousSubmissionType_BindsThroughCompilationReference()
     {
         var (first, _) = CreateSubmission("class Widget {}", "submission0");

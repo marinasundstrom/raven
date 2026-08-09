@@ -28,6 +28,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   expression through `HasReturnValue` and `ReturnValue`, enabling `eval` and
   interactive hosts without rewriting source text.
 
+- Added `rvn eval <code>` and an MVP `rvn repl`. The REPL retains variables,
+  functions, and types across submissions, uses compiler-owned completeness for
+  multiline input, and supports `:load`, `:reset`, `:references`, `:help`, and
+  `:quit`.
+
+- Centralized top-level function classification and added a semantic-model
+  submission declaration projection. Submission functions now bind against
+  prior submission state, while PE code generation resolves repeated metadata
+  type names against their containing assembly rather than an unrelated cached
+  assembly. Normal compilation keeps its existing file-local function policy.
+
 - Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
   source. Hosts can distinguish complete submissions, trailing incomplete
   constructs that need more input, and complete submissions with syntax errors.

@@ -24,6 +24,12 @@ if (args.Length == 0 || IsHelp(args[0]))
 if (string.Equals(args[0], "init", StringComparison.OrdinalIgnoreCase))
     return RunInitCommand(args);
 
+if (string.Equals(args[0], "eval", StringComparison.OrdinalIgnoreCase))
+    return await ScriptCommand.ExecuteEvalAsync(args);
+
+if (string.Equals(args[0], "repl", StringComparison.OrdinalIgnoreCase))
+    return await ReplCommand.ExecuteAsync(args);
+
 if (RavenFileExtensions.HasRavenExtension(args[0]))
     return FileApplicationCommand.Execute(args, sourceArgumentIndex: 0);
 
@@ -49,7 +55,7 @@ if (string.Equals(args[0], "sdk", StringComparison.OrdinalIgnoreCase))
 if (string.Equals(args[0], "doctor", StringComparison.OrdinalIgnoreCase))
     return RunDoctorCommand(args);
 
-Console.Error.WriteLine($"Unknown rvn command '{args[0]}'. Use rvn build/run/clean, rvn init, rvn sdk path, rvn dev, or rvnc for direct compiler-driver invocations.");
+Console.Error.WriteLine($"Unknown rvn command '{args[0]}'. Use rvn build/run/clean, rvn eval, rvn repl, rvn init, rvn sdk path, rvn dev, or rvnc for direct compiler-driver invocations.");
 return 1;
 
 static int RunSdkCommand(string[] args)
@@ -918,6 +924,8 @@ static void PrintHelp()
     Console.WriteLine("  build             Build a Raven project through dotnet build.");
     Console.WriteLine("  run               Run a Raven source file or project.");
     Console.WriteLine("  clean             Clean a Raven project through dotnet clean.");
+    Console.WriteLine("  eval <code>       Compile and execute one script submission.");
+    Console.WriteLine("  repl              Start an interactive Raven session.");
     Console.WriteLine("  dev               Run internal compiler debug views.");
     Console.WriteLine("  sdk path          Print the root of the active Raven SDK.");
     Console.WriteLine("  doctor            Check the .NET SDK and Raven installation.");

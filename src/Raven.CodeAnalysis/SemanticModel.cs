@@ -9356,7 +9356,7 @@ public partial class SemanticModel
 
         if (functionStatement.Parent is not GlobalStatementSyntax globalStatement ||
             !Compilation.IsTopLevelFunctionMember(globalStatement) ||
-            IsFileScopeLocalFunction(globalStatement))
+            Compilation.IsFileScopeLocalFunction(globalStatement))
         {
             methodSymbol = null;
             return false;
@@ -14743,7 +14743,7 @@ public partial class SemanticModel
     private bool IsTopLevelProgramStatement(GlobalStatementSyntax global)
         => global.Statement is not FunctionStatementSyntax ||
             (Compilation.IsTopLevelFunctionMember(global) &&
-             IsFileScopeLocalFunction(global));
+             Compilation.IsFileScopeLocalFunction(global));
 
     private BoundBlockStatement CreateSyntheticTopLevelBlock(CompilationUnitSyntax compilationUnit)
     {

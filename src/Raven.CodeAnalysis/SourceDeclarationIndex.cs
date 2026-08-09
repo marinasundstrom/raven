@@ -84,7 +84,7 @@ internal sealed class SourceDeclarationIndex
 
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
-                         !IsFileScopeLocalFunction(globalStatement) &&
+                         !_compilation.IsFileScopeLocalFunction(globalStatement) &&
                          globalStatement.Statement is FunctionStatementSyntax functionStatement:
                     AddNamespaceFunction(namespaceFunctions, namespaceMetadataName, functionStatement);
                     break;
@@ -147,10 +147,6 @@ internal sealed class SourceDeclarationIndex
 
         return parentNamespaceMetadataName + "." + declaredName;
     }
-
-    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
-        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
-           _compilation.HasRunnableFileScopeCode(compilationUnit);
 
     private readonly record struct NamespaceMemberFunctionLookupKey(string NamespaceMetadataName, string Name);
 

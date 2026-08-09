@@ -1719,6 +1719,11 @@ public partial class Compilation
         => globalStatement.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax or NamespaceDeclarationSyntax
             && globalStatement.Statement is FunctionStatementSyntax;
 
+    internal bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
+        => !IsSubmission &&
+           globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
+           HasRunnableFileScopeCode(compilationUnit);
+
     private static bool HasRunnableFileScopeCode(IReadOnlyList<GlobalStatementSyntax> bindableGlobals)
     {
         var hasTopLevelMainFunction = false;
@@ -3148,13 +3153,17 @@ public partial class Compilation
 
         EnsureSetup();
 
-        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly)
-            RegisterRuntimeAssembly(peAssembly.GetAssemblyInfo());
-
         var metadataName = ((INamedTypeSymbol)symbol).ToFullyQualifiedMetadataName();
 
         if (string.IsNullOrEmpty(metadataName))
             return null;
+
+        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly &&
+            RegisterRuntimeAssembly(peAssembly.GetAssemblyInfo()) is { } containingRuntimeAssembly &&
+            GetTypeSafe(containingRuntimeAssembly, metadataName) is { } containingRuntimeType)
+        {
+            return containingRuntimeType;
+        }
 
         var resolved = ResolveRuntimeType(metadataName);
         if (resolved is not null)

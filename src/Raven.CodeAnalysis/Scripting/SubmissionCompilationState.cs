@@ -4,7 +4,6 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
-using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Scripting;
 
@@ -110,28 +109,24 @@ internal sealed class SubmissionCompilationState
 
             foreach (var syntaxTree in _compilation.SyntaxTrees)
             {
-                var root = syntaxTree.GetRoot();
                 var semanticModel = _compilation.GetSemanticModel(syntaxTree);
-
-                foreach (var global in _compilation.GetBindableGlobalStatements(root))
+                foreach (var declaration in semanticModel.GetSubmissionDeclarations())
                 {
-                    switch (global.Statement)
+                    switch (declaration)
                     {
-                        case LocalDeclarationStatementSyntax localDeclaration:
-                            foreach (var declarator in localDeclaration.Declaration.Declarators)
+                        case ILocalSymbol local:
+                            if (!_variables.TryGetValue(local, out var variable))
                             {
-                                if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
-                                {
-                                    var variable = new SubmissionVariableSymbol(local, nextVariableSlot++);
-                                    _variables.Add(local, variable);
-                                    AddDeclaration(variable);
-                                }
+                                variable = new SubmissionVariableSymbol(local, nextVariableSlot);
+                                _variables.Add(local, variable);
                             }
+
+                            nextVariableSlot = Math.Max(nextVariableSlot, variable.Slot + 1);
+                            AddDeclaration(variable);
                             break;
 
-                        case FunctionStatementSyntax function:
-                            if (semanticModel.GetDeclaredSymbol(function) is IMethodSymbol method)
-                                AddDeclaration(method);
+                        case IMethodSymbol method:
+                            AddDeclaration(method);
                             break;
                     }
                 }

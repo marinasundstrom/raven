@@ -249,7 +249,7 @@ public partial class SemanticModel
             {
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
-                         !IsFileScopeLocalFunction(globalStatement) &&
+                         !Compilation.IsFileScopeLocalFunction(globalStatement) &&
                          globalStatement.Statement is FunctionStatementSyntax functionStatement:
                     {
                         DeclareTopLevelFunctionSymbol(functionStatement, parentNamespace);
@@ -696,10 +696,6 @@ public partial class SemanticModel
 
     private static Accessibility DetermineNamespaceMemberAccessibility(SyntaxTokenList modifiers)
         => AccessibilityUtilities.DetermineAccessibility(modifiers, Accessibility.Internal);
-
-    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
-        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
-            Compilation.HasRunnableFileScopeCode(compilationUnit);
 
     private void ReportInvalidTopLevelFunctionModifiers(FunctionStatementSyntax functionStatement)
     {
@@ -3028,7 +3024,7 @@ public partial class SemanticModel
 
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
-                         !IsFileScopeLocalFunction(globalStatement) &&
+                         !Compilation.IsFileScopeLocalFunction(globalStatement) &&
                          globalStatement.Statement is FunctionStatementSyntax functionStatement:
                     {
                         if (!Compilation.Options.AllowNamespaceMembers)

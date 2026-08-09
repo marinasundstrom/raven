@@ -16239,11 +16239,7 @@ partial class BlockBinder : Binder
     private bool IsNamespaceLevelFunctionMember(FunctionStatementSyntax function)
         => function.Parent is GlobalStatementSyntax globalStatement &&
             Compilation.IsTopLevelFunctionMember(globalStatement) &&
-            !IsFileScopeLocalFunction(globalStatement);
-
-    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
-        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
-            Compilation.HasRunnableFileScopeCode(compilationUnit);
+            !Compilation.IsFileScopeLocalFunction(globalStatement);
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {

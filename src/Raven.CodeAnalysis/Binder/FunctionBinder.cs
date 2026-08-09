@@ -14,7 +14,7 @@ class FunctionBinder : Binder
     private SourceMethodSymbol? _methodSymbol;
 
     public FunctionBinder(Binder parent, FunctionStatementSyntax syntax)
-        : base(parent)
+        : base(CreateParentBinder(parent, syntax))
     {
         _syntax = syntax;
     }
@@ -295,11 +295,25 @@ class FunctionBinder : Binder
     private bool IsNamespaceLevelFunctionMember(FunctionStatementSyntax syntax)
         => syntax.Parent is GlobalStatementSyntax globalStatement &&
             Compilation.IsTopLevelFunctionMember(globalStatement) &&
-            !IsFileScopeLocalFunction(globalStatement);
+            !Compilation.IsFileScopeLocalFunction(globalStatement);
 
-    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
-        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
-            Compilation.HasRunnableFileScopeCode(compilationUnit);
+    private static Binder CreateParentBinder(Binder parent, FunctionStatementSyntax syntax)
+    {
+        if (!parent.Compilation.IsSubmission ||
+            syntax.Parent is not GlobalStatementSyntax globalStatement ||
+            !Compilation.IsTopLevelFunctionMember(globalStatement))
+        {
+            return parent;
+        }
+
+        for (var current = parent; current is not null; current = current.ParentBinder)
+        {
+            if (current is SubmissionBinder)
+                return parent;
+        }
+
+        return new SubmissionBinder(parent, parent.Compilation);
+    }
 
     public MethodBinder GetMethodBodyBinder()
     {

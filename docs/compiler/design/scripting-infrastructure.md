@@ -88,16 +88,15 @@ declarations remain file-scoped.
 This mirrors Roslyn's separation of responsibilities without copying its
 implementation. Roslyn's `InSubmissionClassBinder` searches the members of the
 current and previous submission classes. Its lowering then creates receiver
-fields for referenced earlier submissions. Raven has established the binder
-boundary first; the next compiler slice must replace the provisional source
-symbols returned from earlier submissions with emitted submission members and
-lower cross-submission accesses through their storage representation.
+fields for referenced earlier submissions. Raven uses a different but similarly
+compiler-owned split: persistent variables use typed runtime cells, while
+functions and types use ordinary emitted metadata references.
 
 The first executable representation uses typed state cells. Each submission
 variable has a stable slot, the declaring submission stores its value after
 initialization or assignment, and later submissions load and update that slot
 through `SubmissionRuntime`. The runtime scope is ambient and async-flow-aware,
-but is entered and owned by the future `ScriptState` host API. All related
+and is entered and owned by the `ScriptState` host API. All related
 code-generation hooks are gated by `Compilation.IsSubmission`; ordinary
 top-level programs continue to use normal locals exclusively.
 
@@ -108,6 +107,13 @@ lazy declaration projection, emitted-reference chain, accessibility domain, and
 variable slots; `SubmissionCodeGenerator` owns the runtime cell bridge. This
 keeps `Compilation`, the general binders, and the normal emitters as thin
 coordinators and avoids runtime reflection dispatch.
+
+The declaration projection is sourced from
+`SemanticModel.GetSubmissionDeclarations()`, which establishes authoritative
+top-level binding before returning persistent locals and top-level functions.
+Executable global statements and declared top-level members remain separate
+compiler concepts; submission state does not infer declarations by scanning
+the execution-only global-statement collection.
 
 Default top-level functions and types in a submission are emitted publicly so a
 later submission assembly can reference them through ordinary CLR metadata.
@@ -146,6 +152,14 @@ context, and `ScriptState` exposes it through `HasReturnValue` and
 policy is gated by `Compilation.IsSubmission`, so normal top-level programs
 continue to discard expression-statement values exactly as before.
 
+Top-level functions in a submission are stable namespace members even when the
+same submission also contains executable statements. Their binders receive a
+submission-state parent, so functions declared in later submissions can read
+variables from earlier submissions. A variable and a function declared in the
+same submission do not yet form a capture relationship; supporting that shape
+requires predeclared current-submission storage rather than a lexical-local
+fallback.
+
 ## Submission completeness
 
 `SyntaxTree.GetSubmissionCompleteness()` is the first compiler-facing scripting
@@ -168,12 +182,14 @@ delegate to the .NET SDK. Those behaviors remain valid during the transition,
 but they are now isolated behind command-specific classes rather than embedded
 in the CLI entry point.
 
-When the scripting engine is ready:
+The scripting engine is now consumed by `rvn eval` and `rvn repl`:
 
-- `FileApplicationCommand` can consume a one-shot Raven script runner instead
+- `eval` executes one string submission and prints its trailing value;
+- `repl` retains the latest successful `ScriptState`, uses submission
+  completeness for multiline input, and supports load/reset/reference/help/quit
+  commands;
+- `FileApplicationCommand` may later consume the one-shot script runner instead
   of constructing the compiler-driver process directly;
-- `eval` can use the same engine with a string source and result formatting;
-- `repl` can retain a `ScriptState` and add interactive input handling;
 - project `build`, `run`, and `clean` remain SDK operations and do not need to
   flow through the scripting engine.
 
@@ -190,8 +206,10 @@ When the scripting engine is ready:
    lifetime management.
 4. Capture and expose a typed trailing-expression result. Implemented through
    a compiler-owned result destination and the submission runtime bridge.
-5. Implement `rvn eval` as the first CLI consumer.
-6. Add reset/unload coverage and `rvn repl`.
+5. Implement `rvn eval` as the first CLI consumer. Implemented.
+6. Add reset/unload behavior and `rvn repl`. The MVP is implemented with
+   explicit state disposal and reset; collectible-unload observability remains
+   follow-up coverage.
 
 The public API should be introduced incrementally with each working compiler
 slice. Avoid publishing placeholder interfaces whose required state and

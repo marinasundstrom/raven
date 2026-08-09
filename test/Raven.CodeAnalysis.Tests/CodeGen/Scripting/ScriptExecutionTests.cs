@@ -43,6 +43,49 @@ public sealed class ScriptExecutionTests
     }
 
     [Fact]
+    public async Task ContinueWithAsync_UsesFunctionDeclaredAfterEarlierSubmission()
+    {
+        using var first = await RavenScript.RunAsync("var value = 40");
+        using var second = await first.ContinueWithAsync("value = value + 2");
+        using var third = await second.ContinueWithAsync(
+            "func addTwo(value: int) -> int {\nreturn value + 2\n}");
+        using var fourth = await third.ContinueWithAsync("addTwo(value)");
+
+        Assert.Equal(44, fourth.ReturnValue);
+    }
+
+    [Fact]
+    public async Task ContinueWithAsync_FunctionCapturesPreviousVariable()
+    {
+        using var first = await RavenScript.RunAsync("var offset = 2");
+        using var second = await first.ContinueWithAsync(
+            "func addOffset(value: int) -> int => value + offset");
+        using var third = await second.ContinueWithAsync("addOffset(40)");
+
+        Assert.Equal(42, third.ReturnValue);
+    }
+
+    [Fact]
+    public async Task ContinueWithAsync_UsesFunctionDeclaredWithExecutableCode()
+    {
+        using var first = await RavenScript.RunAsync(
+            "var offset = 2\nfunc addOne(value: int) -> int => value + 1");
+        using var second = await first.ContinueWithAsync("addOne(41) + offset - 2");
+
+        Assert.Equal(42, second.ReturnValue);
+    }
+
+    [Fact]
+    public async Task ContinueWithAsync_PreservesValueOfPreviousSubmissionType()
+    {
+        using var first = await RavenScript.RunAsync("class Widget {}");
+        using var second = await first.ContinueWithAsync("let widget = Widget()");
+        using var third = await second.ContinueWithAsync("widget.GetType().Name");
+
+        Assert.Equal("Widget", third.ReturnValue);
+    }
+
+    [Fact]
     public async Task RunAsync_ReportsNoReturnValueForUnitSubmission()
     {
         using var state = await RavenScript.RunAsync("let value = 42");
