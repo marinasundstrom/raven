@@ -10,6 +10,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+BUILD_CONFIG=Release "$repo_root/scripts/codex-build.sh"
+
 dotnet publish "$playground_dir/Raven.Playground.csproj" \
     -c Release \
     -o "$publish_dir" \
