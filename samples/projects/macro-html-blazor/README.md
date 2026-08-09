@@ -160,6 +160,13 @@ Run the styled interactive browser demo:
 dotnet run --project host/HtmlBlazorShowcase.csproj
 ```
 
+To debug the templates, open this sample directory in VS Code and press F5.
+The checked-in `.vscode/launch.json` builds the C# Blazor host as the startup
+project, loads `HtmlBlazorSample.pdb`, and opens the `http` launch profile.
+Breakpoints bind inside ordinary Raven component methods, callbacks, inline
+lambdas, and executable Raven expressions embedded in `Html!`; generated
+`RenderTreeBuilder` plumbing is skipped while stepping.
+
 The host is deliberately thin C#/Razor infrastructure. Its live Counter,
 Greeting, Gallery, Todo, Match, and interop showcases are public component
 classes authored in Raven and expanded by the sample macros. The interop
@@ -183,6 +190,10 @@ are intentionally local until this integration can be distributed as a
 library. A later JavaScript interop example should likewise use Blazor's
 existing `IJSRuntime` and module model rather than introduce a mechanism owned
 by the HTML macro.
+
+Broader C#-like debugger parity—including the remaining async, iterator,
+top-level-function, match, and local-scope sequence-point gaps—is tracked as a
+separate compiler slice. It is not implemented by the HTML macro.
 
 ## Editor-readiness fixture
 

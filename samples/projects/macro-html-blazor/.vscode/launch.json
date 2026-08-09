@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Raven: Debug Blazor template showcase",
+      "type": "raven",
+      "request": "launch",
+      "target": "${workspaceFolder}/app/HtmlBlazorSample.rvnproj",
+      "startupProject": "${workspaceFolder}/host/HtmlBlazorShowcase.csproj",
+      "launchProfile": "http"
+    }
+  ]
+}

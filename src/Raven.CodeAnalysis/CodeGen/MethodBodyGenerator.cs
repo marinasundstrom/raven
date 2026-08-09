@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -225,32 +226,49 @@ internal class MethodBodyGenerator
         if (syntax is BlockStatementSyntax or BlockSyntax)
             return;
 
+        syntax = ResolveMacroSequencePointSyntax(syntax);
         syntax = NormalizeSequencePointSyntaxForEmission(syntax);
         if (syntax is BlockStatementSyntax or BlockSyntax)
-            return;
-        if (syntax.SyntaxTree is null)
             return;
         if (ShouldSuppressStateMachineContainerSequencePoint(syntax))
             return;
 
-        var location = syntax switch
+        SyntaxTree sourceTree;
+        Location location;
+        if (MacroSyntaxOrigin.TryGetSourceSpan(syntax, Compilation, out sourceTree, out var macroSourceSpan) ||
+            (MacroSyntaxOrigin.IsHidden(syntax) &&
+             MacroSyntaxOrigin.TryGetFirstAuthoredSourceSpan(syntax, Compilation, out sourceTree, out macroSourceSpan)))
         {
-            MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
-            PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
-            MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
-            _ => syntax.GetLocation()
-        };
+            location = sourceTree.GetLocation(macroSourceSpan);
+        }
+        else
+        {
+            if (MacroSyntaxOrigin.IsHidden(syntax))
+                return;
+
+            if (syntax.SyntaxTree is null)
+                return;
+
+            sourceTree = syntax.SyntaxTree;
+            location = syntax switch
+            {
+                MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+                PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+                MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
+                _ => syntax.GetLocation()
+            };
+        }
         var span = location.SourceSpan;
 
         if (span.Length == 0 || !location.IsInSource)
             return;
 
-        var document = GetOrAddDocument(syntax.SyntaxTree);
+        var document = GetOrAddDocument(sourceTree);
 
         var lineSpan = location.GetLineSpan();
-        var (startLine, startColumn, endLine, endColumn) = NormalizeSequencePoint(lineSpan, syntax.SyntaxTree);
+        var (startLine, startColumn, endLine, endColumn) = NormalizeSequencePoint(lineSpan, sourceTree);
         var signature = new SequencePointSignature(
-            syntax.SyntaxTree.FilePath ?? string.Empty,
+            sourceTree.FilePath ?? string.Empty,
             startLine,
             startColumn,
             endLine,
@@ -272,7 +290,7 @@ internal class MethodBodyGenerator
             if (spanLines >= 8)
             {
                 Console.Error.WriteLine(
-                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={startLine}:{startColumn}-{endLine}:{endColumn} file={syntax.SyntaxTree.FilePath}");
+                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={startLine}:{startColumn}-{endLine}:{endColumn} file={sourceTree.FilePath}");
             }
         }
 
@@ -284,11 +302,23 @@ internal class MethodBodyGenerator
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "endColumn")
         {
             throw new InvalidOperationException(
-                $"Invalid sequence point for {syntax.GetType().Name} in {syntax.SyntaxTree.FilePath}: {startLine}:{startColumn}-{endLine}:{endColumn} (text length: {syntax.SyntaxTree.GetText()?.Length ?? 0})",
+                $"Invalid sequence point for {syntax.GetType().Name} in {sourceTree.FilePath}: {startLine}:{startColumn}-{endLine}:{endColumn} (text length: {sourceTree.GetText()?.Length ?? 0})",
                 ex);
         }
         _lastSequencePoint = signature;
         _emittedSequencePoints.Add(signature);
+    }
+
+    private SyntaxNode ResolveMacroSequencePointSyntax(SyntaxNode syntax)
+    {
+        if (syntax is not FreestandingMacroExpressionSyntax || syntax.SyntaxTree is null)
+            return syntax;
+
+        var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
+        return semanticModel.TryGetMacroReplacementSyntax(syntax, out var replacement) &&
+            MacroSyntaxOrigin.ContainsAuthoredOrigin(replacement)
+            ? replacement
+            : syntax;
     }
 
     private bool ShouldSuppressStateMachineContainerSequencePoint(SyntaxNode syntax)

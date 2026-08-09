@@ -1048,11 +1048,11 @@ function isRavenFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     return ext === '.rvn' || ext === '.rav' || ext === '.rvnproj';
 }
-function resolveDebugTarget(config) {
-    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+function resolveDebugTarget(config, workspaceFolder) {
+    const folder = workspaceFolder ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const configuredTarget = typeof config.target === 'string' ? config.target.trim() : '';
     const configuredProject = typeof config.project === 'string' ? config.project.trim() : '';
-    const candidate = configuredProject || configuredTarget;
+    const candidate = expandDebugPathVariables(configuredProject || configuredTarget, folder);
     if (candidate.length > 0) {
         return path.isAbsolute(candidate) ? candidate : path.resolve(folder ?? '', candidate);
     }
@@ -1205,6 +1205,70 @@ function resolveOutputLayout(targetPath, configuration) {
         targetFramework
     };
 }
+function resolveProjectOutputLayout(projectPath, configuration) {
+    const resolvedProjectPath = path.resolve(projectPath);
+    const projectDirectory = path.dirname(resolvedProjectPath);
+    const targetFramework = getProjectTargetFramework(resolvedProjectPath);
+    const tfmSegment = getTfmPathSegment(targetFramework, 'unknown-tfm');
+    const outputDirectory = path.join(projectDirectory, 'bin', configuration, tfmSegment);
+    return {
+        effectiveTargetPath: resolvedProjectPath,
+        targetIsProject: true,
+        outputDirectory,
+        outputDllPath: path.join(outputDirectory, `${getProjectAssemblyName(resolvedProjectPath)}.dll`),
+        workspaceFolder: getContainingWorkspaceFolderPath(resolvedProjectPath),
+        cwd: projectDirectory,
+        targetFramework
+    };
+}
+function resolveConfiguredPath(value, workspaceFolder) {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+        return undefined;
+    }
+    const configuredPath = expandDebugPathVariables(value.trim(), workspaceFolder);
+    return path.isAbsolute(configuredPath)
+        ? configuredPath
+        : path.resolve(workspaceFolder ?? '', configuredPath);
+}
+function expandDebugPathVariables(value, workspaceFolder) {
+    const activeFile = vscode.window.activeTextEditor?.document.uri.scheme === 'file'
+        ? vscode.window.activeTextEditor.document.fileName
+        : undefined;
+    return replaceAllLiteral(replaceAllLiteral(replaceAllLiteral(value, '${workspaceFolder}', workspaceFolder ?? ''), '${fileDirname}', activeFile ? path.dirname(activeFile) : ''), '${file}', activeFile ?? '');
+}
+function replaceAllLiteral(value, search, replacement) {
+    return value.split(search).join(replacement);
+}
+function readDotNetLaunchProfile(projectPath, requestedProfile) {
+    const launchSettingsPath = path.join(path.dirname(projectPath), 'Properties', 'launchSettings.json');
+    if (!fs.existsSync(launchSettingsPath)) {
+        return undefined;
+    }
+    try {
+        const document = JSON.parse(fs.readFileSync(launchSettingsPath, 'utf8'));
+        const profiles = document.profiles ?? {};
+        const requestedName = typeof requestedProfile === 'string' ? requestedProfile.trim() : '';
+        const selected = requestedName.length > 0
+            ? profiles[requestedName]
+            : Object.values(profiles).find(profile => profile.commandName === 'Project');
+        if (!selected || (selected.commandName && selected.commandName !== 'Project')) {
+            return undefined;
+        }
+        const applicationUrl = selected.applicationUrl
+            ?.split(';')
+            .map(value => value.trim())
+            .find(value => value.length > 0);
+        return {
+            environment: selected.environmentVariables ?? {},
+            applicationUrl,
+            launchBrowser: selected.launchBrowser === true
+        };
+    }
+    catch (error) {
+        output.appendLine(`Unable to read launch profile '${launchSettingsPath}': ${String(error)}`);
+        return undefined;
+    }
+}
 function writeBuildManifest(layout, mode) {
     const manifestPath = path.join(layout.outputDirectory, '.raven-build-manifest.json');
     const manifest = {
@@ -1219,7 +1283,49 @@ function writeBuildManifest(layout, mode) {
     };
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
-async function compileForDebug(targetPath) {
+async function compileForDebug(targetPath, startupProjectPath, launchProfile) {
+    if (startupProjectPath) {
+        const startupLayout = resolveProjectOutputLayout(startupProjectPath, 'Debug');
+        const dotnetArgs = [
+            'build',
+            startupLayout.effectiveTargetPath,
+            '--configuration',
+            'Debug',
+            ...(startupLayout.targetFramework ? ['--framework', startupLayout.targetFramework] : [])
+        ];
+        output.appendLine(`Compiling Raven debug host via dotnet: dotnet ${dotnetArgs.join(' ')}`);
+        try {
+            const { stdout, stderr } = await execFileText('dotnet', dotnetArgs, {
+                cwd: startupLayout.workspaceFolder,
+                maxBuffer: 10 * 1024 * 1024
+            });
+            if (stdout.trim().length > 0)
+                output.appendLine(stdout);
+            if (stderr.trim().length > 0)
+                output.appendLine(stderr);
+        }
+        catch (error) {
+            const e = error;
+            if (e.stdout)
+                output.appendLine(e.stdout);
+            if (e.stderr)
+                output.appendLine(e.stderr);
+            throw new Error(`Raven debug host build failed. See the Raven output channel for details. ${e.message}`);
+        }
+        if (!fs.existsSync(startupLayout.outputDllPath)) {
+            throw new Error(`Debug host assembly not found at '${startupLayout.outputDllPath}'.`);
+        }
+        const profile = readDotNetLaunchProfile(startupLayout.effectiveTargetPath, launchProfile);
+        return {
+            outputDllPath: startupLayout.outputDllPath,
+            cwd: startupLayout.cwd,
+            environment: profile?.applicationUrl
+                ? { ...profile.environment, ASPNETCORE_URLS: profile.applicationUrl }
+                : profile?.environment,
+            applicationUrl: profile?.applicationUrl,
+            launchBrowser: profile?.launchBrowser
+        };
+    }
     const layout = resolveOutputLayout(targetPath, 'Debug');
     const invocation = layout.targetIsProject
         ? resolveFrontendInvocation(layout.targetFramework)
@@ -1366,7 +1472,8 @@ class RavenDebugConfigurationProvider {
             }];
     }
     async resolveDebugConfiguration(_folder, config) {
-        const targetPath = resolveDebugTarget(config);
+        const workspaceFolder = _folder?.uri.fsPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const targetPath = resolveDebugTarget(config, workspaceFolder);
         if (!targetPath || !isRavenFile(targetPath)) {
             void vscode.window.showErrorMessage('Select a .rvn, .rvnproj, or .rav file, or set "target"/"project" in launch.json.');
             return undefined;
@@ -1375,7 +1482,11 @@ class RavenDebugConfigurationProvider {
             location: vscode.ProgressLocation.Notification,
             title: `Compiling ${path.basename(resolveEffectiveTargetPath(targetPath))}`
         }, async () => {
-            const { outputDllPath, cwd } = await compileForDebug(targetPath);
+            const startupProjectPath = resolveConfiguredPath(config.startupProject, workspaceFolder);
+            if (startupProjectPath && !fs.existsSync(startupProjectPath)) {
+                throw new Error(`Configured startup project was not found at '${startupProjectPath}'.`);
+            }
+            const launchOutput = await compileForDebug(targetPath, startupProjectPath, config.launchProfile);
             const ravenConfiguration = vscode.workspace.getConfiguration('raven');
             const stopAtEntry = ravenConfiguration.get('debugStopAtEntry', false);
             const justMyCode = ravenConfiguration.get('debugJustMyCode', false);
@@ -1395,14 +1506,14 @@ class RavenDebugConfigurationProvider {
                     ]
                 };
             }
-            return {
+            const debugConfiguration = {
                 name: config.name ?? 'Raven: Compile and Debug',
                 type: 'coreclr',
                 request: 'launch',
                 program: 'dotnet',
-                args: [outputDllPath],
-                cwd,
-                console: 'integratedTerminal',
+                args: [launchOutput.outputDllPath],
+                cwd: launchOutput.cwd,
+                console: launchOutput.applicationUrl ? 'internalConsole' : 'integratedTerminal',
                 stopAtEntry,
                 justMyCode,
                 requireExactSource: false,
@@ -1410,8 +1521,17 @@ class RavenDebugConfigurationProvider {
                     moduleLoad: moduleLoadMessages,
                     engineLogging
                 },
-                symbolOptions
+                symbolOptions,
+                ...(launchOutput.environment ? { env: launchOutput.environment } : {})
             };
+            if (launchOutput.launchBrowser && launchOutput.applicationUrl) {
+                debugConfiguration.serverReadyAction = {
+                    action: 'openExternally',
+                    pattern: '\\bNow listening on:\\s+(https?://\\S+)',
+                    uriFormat: '%s'
+                };
+            }
+            return debugConfiguration;
         });
     }
 }

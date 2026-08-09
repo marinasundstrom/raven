@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added compiler-owned debugging provenance for executable macro fragments.
+  Parsed expressions and statements retain authored `.rvn` locations,
+  string-built expansions can provide span mappings, and portable PDBs hide
+  unmapped generated plumbing. The VS Code Raven debugger can now build and
+  launch a separate .NET startup project, enabling F5 debugging of the Blazor
+  template sample through its web host and launch profile.
+
 - Fixed expanded macro documents so generated declarations retain line breaks
   between adjacent members and receive context-aware indentation in compiler
   expanded-source projections, including the VS Code expanded-syntax view.
