@@ -10,14 +10,16 @@ const raven = (hljs) => ({
       'default', 'delegate', 'do', 'else', 'enum', 'event', 'explicit',
       'extension', 'extern', 'field', 'fileprivate', 'final', 'finally', 'fixed',
       'for', 'func', 'get', 'global', 'goto', 'if', 'implicit', 'import', 'in',
-      'init', 'interface', 'internal', 'is', 'let', 'loop', 'match', 'method',
-      'module', 'namespace', 'new', 'nameof', 'not', 'notnull', 'open',
+      'init', 'interface', 'internal', 'is', 'let', 'loop', 'macro', 'match',
+      'method', 'module', 'namespace', 'new', 'nameof', 'not', 'notnull', 'open',
       'operator', 'or', 'out', 'override', 'param', 'parameter', 'params',
       'partial', 'permits', 'private', 'property', 'protected', 'public',
       'readonly', 'record', 'ref', 'remove', 'required', 'return', 'sealed',
-      'self', 'set', 'sizeof', 'static', 'struct', 'throw', 'try',
-      'type', 'typeof', 'union', 'unsafe', 'unmanaged', 'use', 'val', 'var',
-      'virtual', 'when', 'where', 'while', 'with', 'yield'
+      'scoped', 'self', 'set', 'sizeof', 'stackalloc', 'static', 'struct',
+      'throw', 'try', 'type', 'typeof', 'union', 'unsafe', 'unmanaged', 'use',
+      'val', 'var', 'lock',
+      'virtual', 'when', 'where', 'while', 'with', 'yield',
+      'expand', 'replace', 'introduce', 'fragment', 'token'
     ].join(' '),
     type: [
       'bool', 'byte', 'char', 'decimal', 'double', 'float', 'int', 'long',
@@ -32,6 +34,16 @@ const raven = (hljs) => ({
       begin: /^\s*#\s*pragma\b/,
       end: /$/,
       keywords: { keyword: 'warning disable-next-line disable restore' }
+    },
+    {
+      scope: 'meta',
+      begin: /#\[/,
+      end: /\]/,
+      contains: [
+        { scope: 'title.function.invoke', begin: /[A-Za-z_][A-Za-z0-9_]*/ },
+        hljs.QUOTE_STRING_MODE,
+        hljs.C_NUMBER_MODE
+      ]
     },
     hljs.COMMENT('///', '$', { contains: [{ scope: 'doctag', begin: /@[A-Za-z]+/ }] }),
     hljs.C_LINE_COMMENT_MODE,
@@ -64,8 +76,34 @@ const raven = (hljs) => ({
       relevance: 0
     },
     {
+      scope: 'keyword',
+      begin: /\bon(?=\s+(?:(?:[A-Za-z_][A-Za-z0-9_]*)\s*:\s*)?[A-Z_][A-Za-z0-9_.]*)/,
+      relevance: 0
+    },
+    {
+      scope: 'title.function.invoke',
+      begin: /\b[A-Za-z_][A-Za-z0-9_]*(?=\s*(?:<[^\r\n{}]*>)?\s*!\s*(?:\(|\{))/,
+      relevance: 0
+    },
+    {
+      beginKeywords: 'case',
+      end: /(?=\s*(?:\(|$))/,
+      contains: [
+        { scope: 'type', begin: /[A-Za-z_][A-Za-z0-9_]*/ }
+      ],
+      relevance: 0
+    },
+    {
+      begin: /\.(?=[A-Z][A-Za-z0-9_]*\s*\()/,
+      end: /(?=\s*\()/,
+      contains: [
+        { scope: 'type', begin: /[A-Z][A-Za-z0-9_]*/ }
+      ],
+      relevance: 0
+    },
+    {
       scope: 'title.function',
-      begin: /\b(?!(?:if|while|for|match|catch|typeof|nameof|sizeof|default|let|val|var|is|as|return|throw|new|init)\b)[A-Za-z_][A-Za-z0-9_]*(?=\s*\()/,
+      begin: /\b(?!(?:if|while|for|match|catch|typeof|nameof|sizeof|default|let|val|var|is|as|return|throw|new|init|public|internal|protected|private|fileprivate)\b)[A-Za-z_][A-Za-z0-9_]*(?=\s*\()/,
       relevance: 0
     },
     {

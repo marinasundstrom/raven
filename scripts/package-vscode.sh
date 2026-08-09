@@ -17,6 +17,7 @@ dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" 
   -c Release -f "$TFM" --self-contained false -o "$SERVER_DIR" /property:WarningLevel=0
 
 npm --prefix "$EXTENSION_DIR" ci
+node "$ROOT_DIR/scripts/test-raven-highlighting-sync.mjs"
 npm --prefix "$EXTENSION_DIR" run compile
 if [[ -n "$VERSION" ]]; then
   (cd "$EXTENSION_DIR" && npm exec -- vsce package "$VERSION" --out "$OUTPUT_DIR/raven-vscode.vsix")

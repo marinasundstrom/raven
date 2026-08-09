@@ -164,6 +164,48 @@ func Render(input: Option<int>) -> int {
         result.Tokens[noneToken].ShouldBe(SemanticClassification.Type);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnionCases_WithAndWithoutPayloads_AreClassifiedAsTypes(bool useSemanticModel)
+    {
+        const string source = """
+union GreenhouseStatus {
+    case Healthy
+    case TooCold(actual: decimal, minimum: decimal)
+}
+
+func Describe(status: GreenhouseStatus) -> string {
+    return status match {
+        .Healthy => "healthy"
+        .TooCold(let actual, let minimum) => "$actual / $minimum"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        SemanticClassificationResult result;
+        if (useSemanticModel)
+        {
+            var compilation = CreateCompilation(tree);
+            result = SemanticClassifier.Classify(root, compilation.GetSemanticModel(tree));
+        }
+        else
+        {
+            result = SemanticClassifier.Classify(root, allowBinding: false);
+        }
+
+        var caseTokens = root.DescendantTokens()
+            .Where(token => token.Kind == SyntaxKind.IdentifierToken &&
+                token.Text is "Healthy" or "TooCold")
+            .ToArray();
+
+        Assert.Equal(4, caseTokens.Length);
+        Assert.All(caseTokens, token =>
+            result.Tokens[token].ShouldBe(SemanticClassification.Type));
+    }
+
     [Fact]
     public void ReturnExpressionKeyword_IsClassifiedAsKeyword()
     {

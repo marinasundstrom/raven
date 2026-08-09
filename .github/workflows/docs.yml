@@ -12,6 +12,7 @@ on:
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
       - "scripts/build-html-macro-site.sh"
+      - "scripts/test-raven-highlighting-sync.mjs"
       - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
@@ -30,6 +31,7 @@ on:
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
       - "scripts/build-html-macro-site.sh"
+      - "scripts/test-raven-highlighting-sync.mjs"
       - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
@@ -69,6 +71,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: src/Raven.Playground/package-lock.json
+
+      - name: Check Raven highlighting parity
+        run: node scripts/test-raven-highlighting-sync.mjs
 
       - name: Build documentation
         run: scripts/build-docs.sh

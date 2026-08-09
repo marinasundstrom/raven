@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Aligned documentation and VS Code grammar highlighting for macro
+  declarations, contribution keywords, attributes, target clauses, and
+  freestanding `Name!` invocations, and made constructor access modifiers and
+  union cases with or without payloads consistent.
+
 - Added a standalone Blazor WebAssembly host and GitHub Pages publishing path
   for the experimental component-template showcase, sharing the same Raven
   components, source presentation, styles, and interactions as the Server host.

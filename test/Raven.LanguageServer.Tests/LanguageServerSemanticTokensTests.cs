@@ -134,6 +134,81 @@ class Customer(name: string, age: int? = null) {
     }
 
     [Fact]
+    public async Task SemanticTokens_ClassifyUnionCasesConsistentlyWithAndWithoutPayloadsAsync()
+    {
+        const string code = """
+union GreenhouseStatus {
+    case Healthy
+    case TooCold(actual: decimal, minimum: decimal)
+}
+
+func Describe(status: GreenhouseStatus) -> string {
+    return status match {
+        .Healthy => "healthy"
+        .TooCold(let actual, let minimum) => "$actual / $minimum"
+    }
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            await store.UpsertDocumentAsync(uri, code);
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var result = await handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+
+            result.ShouldNotBeNull();
+
+            var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
+            foreach (var line in new[] { 1, 2, 7, 8 })
+            {
+                var name = line is 1 or 7 ? "Healthy" : "TooCold";
+                Find(decoded, line, name).Type.ShouldBe(SemanticTokenType.Type);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task SemanticTokens_ClassifyBaseExpressionMemberAsync()
     {
         const string code = """
