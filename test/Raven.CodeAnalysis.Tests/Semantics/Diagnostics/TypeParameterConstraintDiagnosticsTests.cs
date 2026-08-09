@@ -29,7 +29,7 @@ public sealed class TypeParameterConstraintDiagnosticsTests : CompilationTestBas
         }
         """)]
     [InlineData("""
-        macro func Convert<T>(value: T)
+        macro Convert<T>(value: T)
             where U: struct {
             expand value
         }

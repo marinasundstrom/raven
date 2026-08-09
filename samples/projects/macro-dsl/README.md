@@ -68,7 +68,7 @@ False
 
 The explicit provider class is intentional for this reference because it
 shows the contracts that currently carry keywords, fragments, diagnostics,
-and expansion results. A later slice should let Raven's `macro func` syntax
+and expansion results. A later slice should let Raven's `macro` syntax
 express this same example without requiring authors to default to the class
 shape. That syntax must preserve all four capabilities above; reducing the
 boilerplate must not remove source mapping or editor integration.

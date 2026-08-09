@@ -9,14 +9,14 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
-public sealed class MacroFunctionSymbolTests : CompilationTestBase
+public sealed class MacroSymbolTests : CompilationTestBase
 {
     [Fact]
     public void AuthoredMacroBody_RejectsBreakFromExpressionBlockWithinLoop()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Broken() {
+            macro Broken() {
                 loop {
                     let value = {
                         break
@@ -27,7 +27,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionControlTransfer",
+                "MacroControlTransfer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -43,7 +43,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     public void AuthoredConsumerPosition_BindsLocalReferenceAfterMacroInvocation()
     {
         const string source = """
-            macro func Double(value: int) {
+            macro Double(value: int) {
                 let doubled = value * 2
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
             }
@@ -55,7 +55,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             """;
         var authoredTree = SyntaxTree.ParseText(SourceText.From(source), path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionConsumer",
+                "MacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default)
             .AddSyntaxTreesWithLocalMacros(authoredTree);
@@ -81,7 +81,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         const string source = """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Double(value: int) {
+            macro Double(value: int) {
                 let doubled = value * 2
                 let text = doubled.ToString()
                 expand SyntaxFactory.ParseExpression(text)
@@ -91,7 +91,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             """;
         var authoredTree = SyntaxTree.ParseText(SourceText.From(source), path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionConsumer",
+                "MacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default)
             .AddSyntaxTreesWithLocalMacros(authoredTree);
@@ -100,7 +100,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         var model = compilation.GetSemanticModel(authoredTree, bodyOffset);
         var declaration = model.SyntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
         var parameterSyntax = declaration.ParameterList.Parameters.Single();
         var bodyIdentifiers = declaration.Body!.DescendantNodes()
@@ -139,10 +139,10 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_DeclaresDistinctMacroFunctionSymbol()
+    public void MacroDeclaration_DeclaresDistinctMacroSymbol()
     {
         var (compilation, tree) = CreateCompilation("""
-            macro func Identity<T>(value: T) -> T
+            macro Identity<T>(value: T) -> T
                 where T: System.IDisposable
             {
                 return value
@@ -151,13 +151,13 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             model.GetDeclaredSymbol(declaration));
 
-        Assert.Equal(SymbolKind.MacroFunction, symbol.Kind);
+        Assert.Equal(SymbolKind.Macro, symbol.Kind);
         Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Null(symbol.TargetName);
@@ -167,8 +167,8 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         Assert.False(symbol is IMethodSymbol);
 
         var typeParameter = Assert.Single(symbol.TypeParameters);
-        Assert.Equal(TypeParameterOwnerKind.MacroFunction, typeParameter.OwnerKind);
-        Assert.Same(symbol, typeParameter.DeclaringMacroFunctionParameterOwner);
+        Assert.Equal(TypeParameterOwnerKind.Macro, typeParameter.OwnerKind);
+        Assert.Same(symbol, typeParameter.DeclaringMacroParameterOwner);
         Assert.Null(typeParameter.DeclaringMethodParameterOwner);
         Assert.Null(typeParameter.DeclaringTypeParameterOwner);
         Assert.Equal(TypeParameterConstraintKind.TypeConstraint, typeParameter.ConstraintKind);
@@ -191,7 +191,7 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
 
         var classifications = SemanticClassifier.Classify(tree.GetRoot(), model);
         Assert.Equal(
-            SemanticClassification.Method,
+            SemanticClassification.Macro,
             classifications.Tokens[declaration.Identifier]);
         Assert.Equal(
             SemanticClassification.Parameter,
@@ -200,20 +200,20 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_UsesItsNamespaceAsSemanticContainer()
+    public void MacroDeclaration_UsesItsNamespaceAsSemanticContainer()
     {
         var (compilation, tree) = CreateCompilation("""
             namespace Tools {
-                macro func Quote(value: int) -> int => value
+                macro Quote(value: int) -> int => value
             }
             """);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal("Tools", symbol.ContainingNamespace?.ToDisplayString());
@@ -223,10 +223,10 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_RejectsAsyncAndAwait()
+    public void MacroDeclaration_RejectsAsyncAndAwait()
     {
         var (compilation, _) = CreateCompilation("""
-            async macro func Fetch(task: System.Threading.Tasks.Task<int>) -> int {
+            async macro Fetch(task: System.Threading.Tasks.Task<int>) -> int {
                 return await task
             }
             """);
@@ -238,10 +238,10 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void AttachedMacroFunction_ExposesTargetSemantics()
+    public void AttachedMacro_ExposesTargetSemantics()
     {
         var (baseCompilation, tree) = CreateCompilation("""
-            macro func Observable() on property: Property {
+            macro Observable() on property: Property {
                 replace property
                 introduce property
             }
@@ -250,10 +250,10 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             MetadataReference.CreateFromFile(typeof(PropertyDeclarationSyntax).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
         var model = compilation.GetSemanticModel(tree);
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroKind.AttachedDeclaration, symbol.MacroKind);
@@ -276,11 +276,11 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     public void MacroContribution_ValidatesAgainstAttachmentKind()
     {
         var (compilation, _) = CreateCompilation("""
-            macro func Freestanding() {
+            macro Freestanding() {
                 replace quote! { 1 }
             }
 
-            macro func Attached() on Type {
+            macro Attached() on Type {
                 expand quote! { 1 }
             }
             """);
@@ -291,17 +291,35 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void DuplicateMacroSignature_ReportsMacroDiagnostic()
+    {
+        var (compilation, _) = CreateCompilation("""
+            macro Repeat(value: int) {
+                expand value
+            }
+
+            macro Repeat(value: int) {
+                expand value
+            }
+            """);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAV0934"));
+        Assert.Contains("macro named 'Repeat'", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void ExpandContribution_IsAControlFlowReturn()
     {
         var (compilation, tree) = CreateCompilation("""
-            macro func Choose() {
+            macro Choose() {
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
                 let unreachable = 2
             }
             """);
         var body = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single()
             .Body!;
 
@@ -313,16 +331,16 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void FragmentContribution_RequiresTokenTreeMacroFunction()
+    public void FragmentContribution_RequiresTokenTreeMacro()
     {
         var (compilation, _) = CreateCompilation("""
-            macro func ArgumentMacro(value: int) {
+            macro ArgumentMacro(value: int) {
                 fragment value
                 token value
                 expand value
             }
 
-            macro func AttachedMacro() on Type {
+            macro AttachedMacro() on Type {
                 fragment target
                 token target
             }
@@ -334,12 +352,12 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void TokenStreamMacroFunction_ExposesTypeDirectedParameterRoles()
+    public void TokenStreamMacro_ExposesTypeDirectedParameterRoles()
     {
         var (baseCompilation, tree) = CreateCompilation("""
             import Raven.CodeAnalysis.Macros.*
 
-            macro func Query(dialect: string, tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
+            macro Query(dialect: string, tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("0")
             }
             """);
@@ -347,9 +365,9 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
@@ -362,12 +380,12 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void ExpressionMacroFunction_ExposesSyntaxProjectionRole()
+    public void ExpressionMacro_ExposesSyntaxProjectionRole()
     {
         var (baseCompilation, tree) = CreateCompilation("""
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Rewrite(value: Raven.CodeAnalysis.Syntax.ExpressionSyntax) {
+            macro Rewrite(value: Raven.CodeAnalysis.Syntax.ExpressionSyntax) {
                 expand value
             }
             """);
@@ -375,9 +393,9 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         var parameter = Assert.Single(symbol.Parameters);
 
@@ -388,10 +406,10 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void ArgumentStyleMacroFunction_ExposesCompilerSuppliedFreestandingContextRole()
+    public void ArgumentStyleMacro_ExposesCompilerSuppliedFreestandingContextRole()
     {
         var (baseCompilation, tree) = CreateCompilation("""
-            macro func Embed(
+            macro Embed(
                 path: string,
                 context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
             ) {
@@ -402,9 +420,9 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
@@ -414,10 +432,10 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void AttachedMacroFunction_ExposesCompilerSuppliedAttachedContextRole()
+    public void AttachedMacro_ExposesCompilerSuppliedAttachedContextRole()
     {
         var (baseCompilation, tree) = CreateCompilation("""
-            macro func Validate(
+            macro Validate(
                 context: Raven.CodeAnalysis.Macros.AttachedMacroContext
             ) on Type {
                 context.ReportDiagnostic("Invalid type")
@@ -427,9 +445,9 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         var parameter = Assert.Single(symbol.Parameters);
@@ -442,11 +460,11 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
     public void MacroContextParameter_MustMatchMacroKind()
     {
         var (baseCompilation, _) = CreateCompilation("""
-            macro func Freestanding(context: Raven.CodeAnalysis.Macros.AttachedMacroContext) {
+            macro Freestanding(context: Raven.CodeAnalysis.Macros.AttachedMacroContext) {
                 context.ReportDiagnostic("Invalid")
             }
 
-            macro func Attached(context: Raven.CodeAnalysis.Macros.FreestandingMacroContext) on Type {
+            macro Attached(context: Raven.CodeAnalysis.Macros.FreestandingMacroContext) on Type {
                 context.ReportDiagnostic("Invalid")
             }
             """);
@@ -464,16 +482,16 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation("""
             class ExpressionSyntax {}
 
-            macro func Custom(value: ExpressionSyntax) {
+            macro Custom(value: ExpressionSyntax) {
                 expand value
             }
             """);
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
         var parameter = Assert.Single(
-            Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
                 compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration))
             .Parameters);
 
@@ -489,19 +507,19 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
             import Raven.CodeAnalysis.Macros.*
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Defaulted(content: Raven.CodeAnalysis.Macros.IMacroTokenStream = null) {
+            macro Defaulted(content: Raven.CodeAnalysis.Macros.IMacroTokenStream = null) {
                 expand content
             }
 
-            macro func Duplicate(first: Raven.CodeAnalysis.Macros.IMacroTokenStream, second: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
+            macro Duplicate(first: Raven.CodeAnalysis.Macros.IMacroTokenStream, second: Raven.CodeAnalysis.Macros.IMacroTokenStream) {
                 expand first
             }
 
-            macro func Attached(tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) on Type {
+            macro Attached(tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) on Type {
                 introduce tokens.ReadToken()
             }
 
-            macro func DefaultedExpression(value: Raven.CodeAnalysis.Syntax.ExpressionSyntax = 1) {
+            macro DefaultedExpression(value: Raven.CodeAnalysis.Syntax.ExpressionSyntax = 1) {
                 expand value
             }
             """);

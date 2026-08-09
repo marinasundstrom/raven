@@ -20,7 +20,7 @@ namespace Raven.Macros
 /// let template = embedFileContent!("assets/template.html")
 /// ```
 [Raven.CodeAnalysis.Macros.MacroAlias("embedFileContent")]
-public macro func EmbedFileContent(
+public macro EmbedFileContent(
     path: string,
     context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
 ) {

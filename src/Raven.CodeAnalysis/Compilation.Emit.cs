@@ -59,7 +59,7 @@ public partial class Compilation
             _macroReferences,
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var loweredMacroTrees = _macroSyntaxTrees
-            .Select(tree => MacroFunctionLowering.Lower(
+            .Select(tree => MacroLowering.Lower(
                 tree,
                 signatureCompilation.GetSemanticModel(tree)))
             .ToArray();

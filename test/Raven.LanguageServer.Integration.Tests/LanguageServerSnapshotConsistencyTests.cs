@@ -67,19 +67,19 @@ func Main() -> int => 0
     }
 
     [Fact]
-    public async Task HoverHandler_MacroFunctionBody_UsesMethodLikeSemanticProjectionAsync()
+    public async Task HoverHandler_MacroBody_UsesMethodLikeSemanticProjectionAsync()
     {
         const string text = """
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Macros.*
 
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     let text = doubled.ToString()
     expand SyntaxFactory.ParseExpression(text)
 }
 
-macro func FirstToken(tokens: IMacroTokenStream) {
+macro FirstToken(tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     expand SyntaxFactory.ParseExpression(token.Text)
 }
@@ -104,7 +104,7 @@ func Main() -> int => Double!(21)
     public async Task HoverHandler_ConsumerLocalAfterMacroInvocation_UsesConsumerProjectionAsync()
     {
         const string text = """
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
 }
@@ -133,10 +133,10 @@ func Main() {
     }
 
     [Fact]
-    public async Task HoverHandler_MacroFunctionEdits_InvalidateWarmStateAndRecoverAsync()
+    public async Task HoverHandler_MacroEdits_InvalidateWarmStateAndRecoverAsync()
     {
         const string initialText = """
-macro func Measure(value: int) {
+macro Measure(value: int) {
     let measured = value * 2
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(measured.ToString())
 }
@@ -148,7 +148,7 @@ macro func Measure(value: int) {
         await AssertHoverAsync(initialText, "measured.ToString", 1, "val measured: int");
 
         const string signatureEdit = """
-macro func Measure(value: string) {
+macro Measure(value: string) {
     let measured = value.Length
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(measured.ToString())
 }
@@ -158,7 +158,7 @@ macro func Measure(value: string) {
         await AssertHoverAsync(signatureEdit, "measured.ToString", 1, "val measured: int");
 
         const string invalidEdit = """
-macro func (value: string) {
+macro (value: string) {
     let measured = value.Length
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(measured.ToString())
 }
@@ -167,7 +167,7 @@ macro func (value: string) {
         await AssertHoverAsync(invalidEdit, "value.Length", 1, "value: string");
 
         const string restoredText = """
-macro func Measure(text: string) {
+macro Measure(text: string) {
     let length = text.Length
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
 }

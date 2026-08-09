@@ -22,14 +22,14 @@ scope.
 ## Authoring model
 
 The project under `src/Raven.Macros` is written in Raven. Each public macro has
-its own source file, uses `macro func`, and carries Markdown documentation
+its own source file, uses `macro`, and carries Markdown documentation
 comments. `AssemblyInfo.rvn` marks the output as a compiler plugin:
 
 ```raven
 [assembly: RavenCompilerPlugin]
 ```
 
-When a marked Raven library contains macro-function declarations, emission
+When a marked Raven library contains macro declarations, emission
 lowers those declarations into reusable provider types and includes them in the
 plugin assembly. This is the same general assembly-plugin mechanism available
 to other Raven macro libraries; the standard macros do not require a built-in
@@ -54,7 +54,7 @@ late type-load or invocation failure.
 `Quote.rvn` and `Compile.rvn` own the public macro declarations, namespace,
 aliases, and documentation. Their low-level expansion mechanics currently
 delegate to `StandardMacroExpansions` in `Raven.CodeAnalysis`. This is
-intentional while the macro-function API is still evolving.
+intentional while the macro API is still evolving.
 
 As the public API gains sufficient diagnostic, source-location, and
 syntax-construction support, suitable behavior can move wholly or partly into

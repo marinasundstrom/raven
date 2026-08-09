@@ -69,13 +69,13 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InsideMacroFunctionFragmentContribution_UsesCallerScope()
+    public void GetCompletions_InsideMacroFragmentContribution_UsesCallerScope()
     {
         const string code = """
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Text.*
 
-macro func RavenExpression(context: TokenTreeMacroContext) {
+macro RavenExpression(context: TokenTreeMacroContext) {
     let span = TextSpan(0, context.BodySpan.Length)
     fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
     expand context.ParseExpression(span)

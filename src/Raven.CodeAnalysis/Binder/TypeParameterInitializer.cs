@@ -157,8 +157,8 @@ internal static class TypeParameterInitializer
         methodSymbol.SetTypeParameters(builder);
     }
 
-    public static void InitializeMacroFunctionTypeParameters(
-        SourceMacroFunctionSymbol macroFunctionSymbol,
+    public static void InitializeMacroTypeParameters(
+        SourceMacroSymbol macroSymbol,
         TypeParameterListSyntax? typeParameterList,
         SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
         SyntaxTree syntaxTree,
@@ -210,9 +210,9 @@ internal static class TypeParameterInitializer
 
             builder.Add(new SourceTypeParameterSymbol(
                 identifier.ValueText,
-                macroFunctionSymbol,
+                macroSymbol,
                 containingType: null,
-                macroFunctionSymbol.ContainingNamespace,
+                macroSymbol.ContainingNamespace,
                 [location],
                 [reference],
                 ordinal++,
@@ -221,7 +221,7 @@ internal static class TypeParameterInitializer
                 GetDeclaredVariance(parameter)));
         }
 
-        macroFunctionSymbol.SetTypeParameters(builder.ToImmutable());
+        macroSymbol.SetTypeParameters(builder.ToImmutable());
     }
 
     internal static void ReportUnknownConstraintClauseTypeParameters(

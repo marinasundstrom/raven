@@ -5,18 +5,17 @@ using System.Linq;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
-internal sealed class MacroFunctionDeclarationParser : SyntaxParser
+internal sealed class MacroDeclarationParser : SyntaxParser
 {
-    public MacroFunctionDeclarationParser(ParseContext parent)
+    public MacroDeclarationParser(ParseContext parent)
         : base(parent)
     {
     }
 
-    public override bool IsInMacroFunction => true;
+    public override bool IsInMacro => true;
 
     public bool IsDeclarationStart()
-        => IsMacroKeyword(PeekToken()) &&
-           PeekToken(1).IsKind(SyntaxKind.FuncKeyword);
+        => IsMacroKeyword(PeekToken()) && IsDeclarationNameOrRecoveryStart(1);
 
     public bool IsDeclarationStartAfterModifiers()
     {
@@ -24,19 +23,17 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
         while (IsDeclarationModifier(PeekToken(offset).Kind))
             offset++;
 
-        return IsMacroKeyword(PeekToken(offset)) &&
-               PeekToken(offset + 1).IsKind(SyntaxKind.FuncKeyword);
+        return IsMacroKeyword(PeekToken(offset)) && IsDeclarationNameOrRecoveryStart(offset + 1);
     }
 
-    public MacroFunctionDeclarationSyntax Parse(
+    public MacroDeclarationSyntax Parse(
         SyntaxList attributeLists,
         SyntaxList modifiers)
     {
         if (!IsDeclarationStart())
-            throw new InvalidOperationException("The current token does not begin a macro function declaration.");
+            throw new InvalidOperationException("The current token does not begin a macro declaration.");
 
         var macroKeyword = ReadToken();
-        var funcKeyword = ExpectToken(SyntaxKind.FuncKeyword);
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -103,11 +100,10 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return MacroFunctionDeclaration(
+        return MacroDeclaration(
             attributeLists,
             modifiers,
             macroKeyword,
-            funcKeyword,
             identifier,
             typeParameterList,
             parameterList,
@@ -121,6 +117,12 @@ internal sealed class MacroFunctionDeclarationParser : SyntaxParser
 
     internal static bool IsMacroKeyword(SyntaxToken token)
         => IsContextualKeyword(token, "macro");
+
+    private bool IsDeclarationNameOrRecoveryStart(int offset)
+    {
+        var token = PeekToken(offset);
+        return CanTokenBeIdentifier(token) || token.IsKind(SyntaxKind.OpenParenToken);
+    }
 
     private static bool IsDeclarationModifier(SyntaxKind kind)
         => kind is SyntaxKind.PublicKeyword or

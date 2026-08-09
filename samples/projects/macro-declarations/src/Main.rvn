@@ -2,17 +2,17 @@ import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
 }
 
-macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+macro AddOffset(offset: int, expression: ExpressionSyntax) {
     let source = expression.ToString() + " + " + offset.ToString()
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
 }
 
-macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     let length = token.Text.Length + offset
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())

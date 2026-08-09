@@ -116,7 +116,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunction_GeneratesNamespaceMemberPage()
+    public void Macro_GeneratesNamespaceMemberPage()
     {
         var (compilation, _) = CreateCompilation("""
             namespace Samples.Macros
@@ -124,7 +124,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             /// Quotes a Raven expression.
             ///
             /// See the [syntax-tree API](https://example.com/syntax-tree).
-            public macro func Quote() { }
+            public macro Quote() { }
 
             /// Returns a greeting from the namespace.
             public func Greet() -> string => "Hello"

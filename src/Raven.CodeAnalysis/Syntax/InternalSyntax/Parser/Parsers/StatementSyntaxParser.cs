@@ -46,7 +46,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = ParseTypeDeclarationStatementSyntax();
         }
-        else if (IsInMacroFunction && IsMacroExpansionKeyword(token))
+        else if (IsInMacro && IsMacroExpansionKeyword(token))
         {
             statement = ParseMacroExpansionStatementSyntax();
         }

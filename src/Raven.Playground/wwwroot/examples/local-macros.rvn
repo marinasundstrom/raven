@@ -4,7 +4,7 @@ import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.Macros.*
 
-macro func AddGreeting() on Type {
+macro AddGreeting() on Type {
     let tree = ParseSyntaxTree(
         "class Generated { func Greeting() -> string => \"Hello from an attached macro\" }")
     if let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] {
@@ -14,13 +14,13 @@ macro func AddGreeting() on Type {
     }
 }
 
-macro func Twice(value: ExpressionSyntax) {
+macro Twice(value: ExpressionSyntax) {
     expand quote! {
         #(value) * 2
     }
 }
 
-macro func Unless(tokens: IMacroTokenStream) {
+macro Unless(tokens: IMacroTokenStream) {
     var source = ""
     while !tokens.IsEndOfFile {
         source = source + tokens.ReadToken().Text

@@ -92,7 +92,7 @@ internal static class MacroSemanticValidator
                 out loaded,
                 out var isAmbiguous))
         {
-            if (compilation.TryResolveLocalMacroFunctionSymbol(
+            if (compilation.TryResolveLocalMacroDeclarationSymbol(
                     attribute,
                     macroName,
                     out var localMacro,
@@ -154,7 +154,7 @@ internal static class MacroSemanticValidator
                 out loaded,
                 out var isAmbiguous))
         {
-            if (compilation.TryResolveLocalMacroFunctionSymbol(
+            if (compilation.TryResolveLocalMacroDeclarationSymbol(
                     expression,
                     macroName,
                     out var localMacro,

@@ -33,11 +33,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunction_CompilesIntoLocalProviderAndExpands()
+    public void Macro_CompilesIntoLocalProviderAndExpands()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Add(left: int, right: int = 1) {
+            macro Add(left: int, right: int = 1) {
                 let sum = left + right
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(sum.ToString())
             }
@@ -46,7 +46,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionConsumer",
+                "MacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -67,13 +67,13 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void NamespacedMacroFunction_AliasIsImportedWithItsNamespace()
+    public void NamespacedMacro_AliasIsImportedWithItsNamespace()
     {
         var macroTree = SyntaxTree.ParseText(
             """
             namespace Example.Macros {
                 [Raven.CodeAnalysis.Macros.MacroAlias("twiceAlias")]
-                macro func Double(value: int) {
+                macro Double(value: int) {
                     let doubled = value * 2
                     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
                 }
@@ -88,7 +88,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "NamespacedMacroFunctionConsumer",
+                "NamespacedMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
@@ -120,11 +120,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunction_UserParametersDoNotCollideWithLoweringNames()
+    public void Macro_UserParametersDoNotCollideWithLoweringNames()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Add(
+            macro Add(
                 context: int,
                 __macroResult: int,
                 __macroContext: int,
@@ -138,7 +138,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionLoweringNameConsumer",
+                "MacroLoweringNameConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -159,13 +159,13 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void ExpressionMacroFunction_ProjectsAuthoredArgumentSyntaxAlongsideValues()
+    public void ExpressionMacro_ProjectsAuthoredArgumentSyntaxAlongsideValues()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func AddOffset(offset: int, expression: LiteralExpressionSyntax) {
+            macro AddOffset(offset: int, expression: LiteralExpressionSyntax) {
                 let source = expression.ToString() + " + " + offset.ToString()
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
             }
@@ -174,7 +174,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "ExpressionMacroFunctionConsumer",
+                "ExpressionMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -195,14 +195,14 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void TokenStreamMacroFunction_CompilesIntoTypedLocalProviderAndExpands()
+    public void TokenStreamMacro_CompilesIntoTypedLocalProviderAndExpands()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            macro func FirstTokenLength(tokens: IMacroTokenStream, offset: int) {
+            macro FirstTokenLength(tokens: IMacroTokenStream, offset: int) {
                 let token = tokens.ReadToken()
                 let length = token.Text.Length + offset
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
@@ -212,7 +212,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "TokenStreamMacroFunctionConsumer",
+                "TokenStreamMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -239,7 +239,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """
             import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-            macro func Choose(first: bool) {
+            macro Choose(first: bool) {
                 if first {
                     expand ParseExpression("1")
                 }
@@ -251,7 +251,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "ReturningMacroFunction",
+                "ReturningMacro",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -277,12 +277,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
-            macro func Answer() { expand ParseExpression("42") }
+            macro Answer() { expand ParseExpression("42") }
             func Main() -> int => Answer!()
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "SingleLineMacroFunction",
+                "SingleLineMacro",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -305,11 +305,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void AttachedMacroFunction_CombinesReachedContributions()
+    public void AttachedMacro_CombinesReachedContributions()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Compose(shouldReplace: bool) on property: Property {
+            macro Compose(shouldReplace: bool) on property: Property {
                 if shouldReplace {
                     replace property
                 }
@@ -324,7 +324,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "AttachedMacroFunctionConsumer",
+                "AttachedMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -347,13 +347,13 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void AttachedMacroFunction_AccumulatesReportedDiagnostics()
+    public void AttachedMacro_AccumulatesReportedDiagnostics()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Macros.*
 
-            macro func Validate(context: AttachedMacroContext) on Type {
+            macro Validate(context: AttachedMacroContext) on Type {
                 context.ReportDiagnostic("Types are not accepted here")
                 context.ReportDiagnostic("Second problem")
             }
@@ -363,7 +363,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "AttachedMacroFunctionDiagnostic",
+                "AttachedMacroDiagnostic",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -560,19 +560,19 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void InvalidMacroFunction_DoesNotPreventValidSiblingFromExpanding()
+    public void InvalidMacro_DoesNotPreventValidSiblingFromExpanding()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Broken(expression: ExpressionSyntax) {
+            macro Broken(expression: ExpressionSyntax) {
                 match expression {
                 }
                 expand expression
             }
 
-            macro func Double(value: int) {
+            macro Double(value: int) {
                 let doubled = value * 2
                 expand SyntaxFactory.ParseExpression(doubled.ToString())
             }
@@ -584,7 +584,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "PartiallyInvalidMacroFunctionConsumer",
+                "PartiallyInvalidMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -618,7 +618,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var brokenSymbol = semanticModel.GetSymbolInfo(brokenInvocation).Symbol;
         var expansion = semanticModel.GetMacroExpansion(doubleInvocation);
 
-        Assert.IsAssignableFrom<IMacroFunctionSymbol>(brokenSymbol);
+        Assert.IsAssignableFrom<IMacroDeclarationSymbol>(brokenSymbol);
         Assert.Equal("Broken", brokenSymbol.Name);
         Assert.Equal("42", expansion!.Expression!.ToString());
     }
@@ -632,12 +632,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Broken<T>(value: T)
+            macro Broken<T>(value: T)
                 where U: struct {
                 expand value
             }
 
-            macro func Double(value: int) {
+            macro Double(value: int) {
                 let doubled = value * 2
                 expand SyntaxFactory.ParseExpression(doubled.ToString())
             }
@@ -661,10 +661,10 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerModel = compilation.GetSemanticModel(consumerTree);
         var macroModel = compilation.GetSemanticModel(
             sourceTree,
-            sourceTree.GetText()!.ToString().IndexOf("macro func Broken", StringComparison.Ordinal));
+            sourceTree.GetText()!.ToString().IndexOf("macro Broken", StringComparison.Ordinal));
         var declarations = macroModel.SyntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .ToDictionary(static declaration => declaration.Identifier.ValueText);
         var invocations = consumerTree.GetRoot()
             .DescendantNodes()
@@ -675,11 +675,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var doubleInvocation = Assert.Single(invocations, expression =>
             expression.Name.ToString() == "Double");
 
-        var brokenDeclaration = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var brokenDeclaration = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             macroModel.GetDeclaredSymbol(declarations["Broken"]));
-        var doubleDeclaration = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var doubleDeclaration = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             macroModel.GetDeclaredSymbol(declarations["Double"]));
-        var brokenInvocationSymbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+        var brokenInvocationSymbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             consumerModel.GetSymbolInfo(brokenInvocation).Symbol);
         var expansion = consumerModel.GetMacroExpansion(doubleInvocation);
         var diagnostics = compilation.GetDiagnostics();
@@ -695,11 +695,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunction_LetElseWithNonTerminatingLoop_UsesOrdinaryFlowAnalysis()
+    public void Macro_LetElseWithNonTerminatingLoop_UsesOrdinaryFlowAnalysis()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Select(value: int?) {
+            macro Select(value: int?) {
                 let actual: int = value else {
                     loop {
                     }
@@ -710,7 +710,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionFlowAnalysis",
+                "MacroFlowAnalysis",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -723,11 +723,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunction_LetElseWithConstantTrueWhileLoop_UsesOrdinaryFlowAnalysis()
+    public void Macro_LetElseWithConstantTrueWhileLoop_UsesOrdinaryFlowAnalysis()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Select(value: int?) {
+            macro Select(value: int?) {
                 let actual: int = value else {
                     while true {
                     }
@@ -738,7 +738,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionWhileFlowAnalysis",
+                "MacroWhileFlowAnalysis",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);
@@ -751,11 +751,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void MacroFunction_LetElseWithExhaustiveAbruptMatch_UsesOrdinaryFlowAnalysis()
+    public void Macro_LetElseWithExhaustiveAbruptMatch_UsesOrdinaryFlowAnalysis()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro func Select(value: int?, fallback: bool) {
+            macro Select(value: int?, fallback: bool) {
                 let actual: int = value else {
                     match fallback {
                         true => throw System.Exception()
@@ -768,7 +768,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionMatchFlowAnalysis",
+                "MacroMatchFlowAnalysis",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(sourceTree);

@@ -256,9 +256,9 @@ public partial class SemanticModel
                         break;
                     }
 
-                case MacroFunctionDeclarationSyntax macroFunction:
+                case MacroDeclarationSyntax macro:
                     {
-                        DeclareMacroFunctionSymbol(macroFunction, parentNamespace);
+                        DeclareMacroSymbol(macro, parentNamespace);
                         break;
                     }
 
@@ -272,19 +272,19 @@ public partial class SemanticModel
         }
     }
 
-    private void DeclareMacroFunctionSymbol(
-        MacroFunctionDeclarationSyntax declaration,
+    private void DeclareMacroSymbol(
+        MacroDeclarationSyntax declaration,
         INamespaceSymbol parentNamespace)
     {
-        if (TryGetMacroFunctionSymbol(declaration, out _))
+        if (TryGetMacroSymbol(declaration, out _))
             return;
 
-        ReportUnsupportedMacroFunctionAsyncSyntax(declaration);
+        ReportUnsupportedMacroAsyncSyntax(declaration);
 
         var sourceNamespace = parentNamespace.AsSourceNamespace()
-            ?? throw new InvalidOperationException("Macro functions require a source namespace.");
+            ?? throw new InvalidOperationException("Macro declarations require a source namespace.");
         ITypeSymbol returnType = Compilation.GetSpecialType(SpecialType.System_Unit);
-        var symbol = new SourceMacroFunctionSymbol(
+        var symbol = new SourceMacroSymbol(
             declaration.Identifier.ValueText,
             returnType,
             sourceNamespace,
@@ -328,13 +328,13 @@ public partial class SemanticModel
             }
         }
 
-        TypeParameterInitializer.InitializeMacroFunctionTypeParameters(
+        TypeParameterInitializer.InitializeMacroTypeParameters(
             symbol,
             declaration.TypeParameterList,
             declaration.ConstraintClauses,
             declaration.SyntaxTree,
             _declarationDiagnostics);
-        ResolveMacroFunctionConstraintTypes(symbol);
+        ResolveMacroConstraintTypes(symbol);
 
         if (declaration.ReturnType is { } returnTypeSyntax)
         {
@@ -350,7 +350,7 @@ public partial class SemanticModel
         var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
         foreach (var parameter in declaration.ParameterList.Parameters)
         {
-            var parameterType = ResolveMacroFunctionParameterType(
+            var parameterType = ResolveMacroParameterType(
                 parameter,
                 symbol.TypeParameters);
             var macroRole = MacroParameterRoleFacts.GetRole(parameterType);
@@ -365,15 +365,15 @@ public partial class SemanticModel
         }
 
         symbol.SetParameters(parameters.ToImmutable());
-        ValidateMacroFunctionParameters(declaration, symbol);
+        ValidateMacroParameters(declaration, symbol);
         ValidateMacroContributionStatements(declaration, symbol);
-        RegisterMacroFunctionSymbol(declaration, symbol);
+        RegisterMacroDeclarationSymbol(declaration, symbol);
 
         if (sourceNamespace.GetMembers(symbol.Name)
-            .OfType<IMacroFunctionSymbol>()
-            .Any(existing => HaveSameMacroFunctionSignature(existing, symbol)))
+            .OfType<IMacroDeclarationSymbol>()
+            .Any(existing => HaveSameMacroSignature(existing, symbol)))
         {
-            _declarationDiagnostics.ReportFunctionAlreadyDefined(
+            _declarationDiagnostics.ReportMacroAlreadyDefined(
                 symbol.Name,
                 declaration.Identifier.GetLocation());
         }
@@ -381,7 +381,7 @@ public partial class SemanticModel
         sourceNamespace.AddMember(symbol);
     }
 
-    private ITypeSymbol ResolveMacroFunctionParameterType(
+    private ITypeSymbol ResolveMacroParameterType(
         ParameterSyntax parameter,
         ImmutableArray<ITypeParameterSymbol> typeParameters)
     {
@@ -405,9 +405,9 @@ public partial class SemanticModel
                 : parameterType;
     }
 
-    private void ValidateMacroFunctionParameters(
-        MacroFunctionDeclarationSyntax declaration,
-        SourceMacroFunctionSymbol symbol)
+    private void ValidateMacroParameters(
+        MacroDeclarationSyntax declaration,
+        SourceMacroSymbol symbol)
     {
         var parameters = declaration.ParameterList.Parameters
             .Select((syntax, index) => (Syntax: syntax, Symbol: symbol.Parameters[index]))
@@ -504,8 +504,8 @@ public partial class SemanticModel
     }
 
     private void ValidateMacroContributionStatements(
-        MacroFunctionDeclarationSyntax declaration,
-        SourceMacroFunctionSymbol symbol)
+        MacroDeclarationSyntax declaration,
+        SourceMacroSymbol symbol)
     {
         foreach (var contribution in declaration.DescendantNodes()
             .OfType<MacroExpansionStatementSyntax>())
@@ -532,13 +532,13 @@ public partial class SemanticModel
         }
     }
 
-    private void ReportUnsupportedMacroFunctionAsyncSyntax(MacroFunctionDeclarationSyntax declaration)
+    private void ReportUnsupportedMacroAsyncSyntax(MacroDeclarationSyntax declaration)
     {
         foreach (var modifier in declaration.Modifiers)
         {
             if (modifier.Kind == SyntaxKind.AsyncKeyword)
             {
-                _declarationDiagnostics.ReportMacroFunctionCannotBeAsync(
+                _declarationDiagnostics.ReportMacroCannotBeAsync(
                     declaration.Identifier.ValueText,
                     modifier.GetLocation());
             }
@@ -548,12 +548,12 @@ public partial class SemanticModel
             .OfType<PrefixOperatorExpressionSyntax>()
             .Where(static expression => expression.Kind == SyntaxKind.AwaitExpression))
         {
-            _declarationDiagnostics.ReportAwaitNotSupportedInMacroFunction(
+            _declarationDiagnostics.ReportAwaitNotSupportedInMacro(
                 awaitExpression.OperatorToken.GetLocation());
         }
     }
 
-    private void ResolveMacroFunctionConstraintTypes(SourceMacroFunctionSymbol symbol)
+    private void ResolveMacroConstraintTypes(SourceMacroSymbol symbol)
     {
         foreach (var typeParameter in symbol.TypeParameters.OfType<SourceTypeParameterSymbol>())
         {
@@ -575,9 +575,9 @@ public partial class SemanticModel
         }
     }
 
-    private static bool HaveSameMacroFunctionSignature(
-        IMacroFunctionSymbol first,
-        IMacroFunctionSymbol second)
+    private static bool HaveSameMacroSignature(
+        IMacroDeclarationSymbol first,
+        IMacroDeclarationSymbol second)
     {
         if (first.Parameters.Length != second.Parameters.Length ||
             first.TypeParameters.Length != second.TypeParameters.Length)

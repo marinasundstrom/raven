@@ -158,13 +158,13 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
-    public void TypingEmptyMatchIntoMacroFunctionBody_MatchesFullParseAtEveryStep()
+    public void TypingEmptyMatchIntoMacroBody_MatchesFullParseAtEveryStep()
     {
         var text = SourceText.From(
             """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+            macro AddOffset(offset: int, expression: ExpressionSyntax) {
                 let source = expression.ToString() + " + " + offset.ToString()
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
             }

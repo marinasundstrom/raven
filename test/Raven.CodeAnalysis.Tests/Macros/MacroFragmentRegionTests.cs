@@ -66,13 +66,13 @@ public sealed class MacroFragmentRegionTests
     }
 
     [Fact]
-    public void MacroFunctionFragmentContribution_ProjectsThroughGeneratedAdapter()
+    public void MacroFragmentContribution_ProjectsThroughGeneratedAdapter()
     {
         const string code = """
             import Raven.CodeAnalysis.Macros.*
             import Raven.CodeAnalysis.Text.*
 
-            macro func RavenExpression(context: TokenTreeMacroContext) {
+            macro RavenExpression(context: TokenTreeMacroContext) {
                 let span = TextSpan(0, context.BodySpan.Length)
                 let local = context.CreateFragmentLocal(
                     "editorValue",
@@ -88,7 +88,7 @@ public sealed class MacroFragmentRegionTests
             """;
         var authoredTree = SyntaxTree.ParseText(code, path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionFragmentRegions",
+                "MacroFragmentRegions",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(authoredTree);

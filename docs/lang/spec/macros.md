@@ -184,7 +184,7 @@ fragment for semantic tooling, enabling ordinary target-typed behavior such as
 lambda parameter inference. Target types are not valid for non-expression
 regions and do not expose the macro's private DSL representation.
 
-A token-tree `macro func` may publish the same metadata with a reached
+A token-tree `macro` may publish the same metadata with a reached
 `fragment` contribution whose expression has type `MacroFragmentRegion`:
 
 ```raven
@@ -193,7 +193,7 @@ fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
 
 The generated adapter stores reached fragments in execution order on the
 freestanding expansion result. `fragment` is invalid on argument-style and
-attached macro functions. A direct `IMacroFragmentProvider` takes precedence
+attached macro declarations. A direct `IMacroFragmentProvider` takes precedence
 when present, allowing editor-region discovery to remain independent of full
 macro expansion.
 
@@ -265,7 +265,7 @@ Failures and invalid values from the optional kind-name or classification
 capabilities are normalized per token, preserving the remaining snapshot and
 compiler-owned keyword classification.
 
-A token-tree `macro func` can instead contribute a complete token metadata
+A token-tree `macro` can instead contribute a complete token metadata
 snapshot as it consumes its `IMacroTokenStream`:
 
 ```raven
@@ -279,7 +279,7 @@ token context.CreateTokenInfo(
 Reached `token` contributions are retained in authored source order. They are
 used only for generated adapters marked by the compiler; ordinary token-tree
 macros are not expanded merely to answer a token tooling query. `token` is
-invalid on argument-style and attached macro functions.
+invalid on argument-style and attached macro declarations.
 Token and fragment-region results are cached by the invocation's owning
 semantic model and recomputed for a new compilation snapshot.
 The language server maps available macro classifications to protocol semantic
@@ -359,35 +359,37 @@ raw text and token-stream APIs. A non-generic token-tree macro rejects supplied
 arguments. A token-tree macro must be invoked with braces; an argument-based
 macro must be invoked with parentheses.
 
-### Macro function declarations
+### Macro declarations
 
-Raven recognizes the initial function-oriented macro declaration syntax at
+Raven recognizes the concise macro declaration syntax at
 compilation-unit and namespace-member scope:
 
 ```raven
-macro func Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
+macro Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
     where TDelegate: Delegate
 {
     // Expansion implementation
 }
 ```
 
-`macro` is contextual. It remains an ordinary identifier unless it is followed
-by `func` where a member declaration may begin. The syntax tree represents the
-construct with a dedicated `MacroFunctionDeclarationSyntax`, retaining
+`macro` is contextual. At compilation-unit or namespace-member declaration
+boundaries it introduces a macro when followed by the declaration name. It
+remains an ordinary identifier in expression and local-binding contexts. The
+syntax tree represents the construct with a dedicated
+`MacroDeclarationSyntax`, retaining
 attributes, modifiers, generic parameters, ordinary parameters, a return
 clause, constraints, and either a block or expression body.
 
-Declaring a macro function necessarily places its compile-time partition in
+A macro declaration necessarily places its compile-time partition in
 the `Raven.CodeAnalysis` programming model. The compiler supplies that assembly
 reference when it builds local macros; source signatures and semantic tooling
 therefore expose actual compiler API types rather than language-only facades.
 
 This establishes syntax, the semantic declaration signature, and executable
-lowering for same-compilation argument-style and attached macro functions.
-`SemanticModel.GetDeclaredSymbol` returns an `IMacroFunctionSymbol` with
-`SymbolKind.MacroFunction`, its call-site return type, parameters, generic
-parameters, and constraints. A macro function is not an `IMethodSymbol`: it is
+lowering for same-compilation argument-style and attached macro declarations.
+`SemanticModel.GetDeclaredSymbol` returns an `IMacroDeclarationSymbol` with
+`SymbolKind.Macro`, its call-site return type, parameters, generic
+parameters, and constraints. A macro declaration is not an `IMethodSymbol`: it is
 compile-time language structure rather than a CLR method. Its body is therefore
 not emitted into the consumer program as an ordinary runtime function body.
 
@@ -395,7 +397,7 @@ An optional contextual `on` clause makes the macro attached and declares its
 allowed target:
 
 ```raven
-macro func Observe(enabled: bool) on property: Property {
+macro Observe(enabled: bool) on property: Property {
     if enabled {
         replace Rewrite(property)
     }
@@ -411,7 +413,7 @@ without `on` is an argument-style freestanding expression macro. Token-stream
 and syntax-projection inputs use the same parameter syntax:
 
 ```raven
-macro func AddOffset(offset: int, value: ExpressionSyntax) {
+macro AddOffset(offset: int, value: ExpressionSyntax) {
     expand ParseExpression(value.ToString() + " + " + offset.ToString())
 }
 ```
@@ -425,17 +427,17 @@ and named argument ordering. They cannot declare default values.
 Raw token-stream input is expressed in the same way:
 
 ```raven
-macro func Query(dialect: string, body: IMacroTokenStream) {
+macro Query(dialect: string, body: IMacroTokenStream) {
     let token = body.ReadToken()
     expand BuildQuery(dialect, token)
 }
 ```
 
 `IMacroTokenStream` is the real Raven.CodeAnalysis macro stream interface. In a
-macro function signature it denotes the single raw `{ ... }` invocation body;
+macro declaration signature it denotes the single raw `{ ... }` invocation body;
 it is not an argument supplied inside the invocation's argument list. Other
 parameters remain typed caller-supplied
-values, so the example is invoked as `Query!("sql") { ... }`. A macro function
+values, so the example is invoked as `Query!("sql") { ... }`. A macro declaration
 may declare at most one `IMacroTokenStream` parameter. It cannot have a default value
 or be combined with an attached `on` target. `IParameterSymbol.MacroRole`
 distinguishes caller-supplied `Value` parameters, caller-supplied
@@ -497,8 +499,8 @@ whose final value becomes `FreestandingMacroExpansionResult` or
 generated return. These synthesized types are implementation details and
 are not the semantic identity exposed to tools.
 
-Macro functions are synchronous. The `async` modifier and `await` expressions
-are not supported in a macro function. This describes the source expansion
+Macro declarations are synchronous. The `async` modifier and `await` expressions
+are not supported in a macro declaration. This describes the source expansion
 contract; a compiler host or provider implementation may still use
 asynchronous APIs internally without exposing asynchronous expansion semantics
 to Raven code.

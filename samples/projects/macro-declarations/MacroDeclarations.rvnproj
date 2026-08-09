@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>MacroFunctions</AssemblyName>
+    <AssemblyName>MacroDeclarations</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 </Project>

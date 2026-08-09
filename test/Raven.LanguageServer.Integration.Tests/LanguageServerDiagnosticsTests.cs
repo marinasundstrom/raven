@@ -126,7 +126,7 @@ func Main() -> () {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_MacroFunctionBodyPublishesMatchExhaustivenessImmediatelyAsync()
+    public async Task TryGetDiagnosticsAsync_MacroBodyPublishesMatchExhaustivenessImmediatelyAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -146,7 +146,7 @@ func Main() -> () {
         const string code = """
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Inspect(expression: ExpressionSyntax) {
+macro Inspect(expression: ExpressionSyntax) {
     match expression {}
     expand SyntaxFactory.ParseExpression("0")
 }
@@ -185,7 +185,7 @@ macro func Inspect(expression: ExpressionSyntax) {
     }
 
     [Fact]
-    public async Task TryGetDocumentCompilerDiagnosticsAsync_MacroFunctionBodyEditPublishesAuthoredDiagnosticsAsync()
+    public async Task TryGetDocumentCompilerDiagnosticsAsync_MacroBodyEditPublishesAuthoredDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -207,17 +207,17 @@ import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     expand SyntaxFactory.ParseExpression(doubled.ToString())
 }
 
-macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+macro AddOffset(offset: int, expression: ExpressionSyntax) {
     let source = expression.ToString() + " + " + offset.ToString()
     expand SyntaxFactory.ParseExpression(source)
 }
 
-macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     let length = token.Text.Length + offset
     expand SyntaxFactory.ParseExpression(length.ToString())
@@ -234,18 +234,18 @@ import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     expand SyntaxFactory.ParseExpression(doubled.ToString())
 }
 
-macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+macro AddOffset(offset: int, expression: ExpressionSyntax) {
     match expression {
     let source = expression.ToString() + " + " + offset.ToString()
     expand SyntaxFactory.ParseExpression(source)
 }
 
-macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     let length = token.Text.Length + offset
     expand SyntaxFactory.ParseExpression(length.ToString())
@@ -262,19 +262,19 @@ import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     expand SyntaxFactory.ParseExpression(doubled.ToString())
 }
 
-macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+macro AddOffset(offset: int, expression: ExpressionSyntax) {
     match expression {
     }
     let source = expression.ToString() + " + " + offset.ToString()
     expand SyntaxFactory.ParseExpression(source)
 }
 
-macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     let length = token.Text.Length + offset
     expand SyntaxFactory.ParseExpression(length.ToString())

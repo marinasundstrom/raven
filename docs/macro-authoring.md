@@ -1,7 +1,7 @@
 # Authoring Raven macros
 
 Raven macros are compile-time programs that validate input and produce ordinary
-Raven syntax. Start with `macro func`. Move to provider interfaces only when a
+Raven syntax. Start with `macro`. Move to provider interfaces only when a
 macro needs capabilities the compact declaration syntax does not yet project.
 
 > [!NOTE]
@@ -12,17 +12,17 @@ macro needs capabilities the compact declaration syntax does not yet project.
 
 | Need | Start with |
 | --- | --- |
-| Typed compile-time values | ordinary `macro func` parameters |
+| Typed compile-time values | ordinary `macro` parameters |
 | An authored Raven expression | an `ExpressionSyntax` parameter |
 | An unrestricted brace body | one `IMacroTokenStream` parameter |
 | Body text, parsing, diagnostics, or file APIs | a `TokenTreeMacroContext` parameter |
-| Replace or introduce declarations | an attached `macro func ... on ...` |
+| Replace or introduce declarations | an attached `macro ... on ...` |
 | Custom tokenization or fragment metadata | a class-authored provider interface |
 
 The compact and class-authored forms are two projections of one model. They use
 the same invocation syntax, registry, contexts, diagnostics, and results.
 
-## 1. Start with a local macro function
+## 1. Start with a local macro declaration
 
 A macro in the same project is compiled in Raven's compile-time partition and
 is not emitted as an ordinary runtime function:
@@ -30,7 +30,7 @@ is not emitted as an ordinary runtime function:
 ```raven
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-macro func Double(value: int) {
+macro Double(value: int) {
     let doubled = value * 2
     expand ParseExpression(doubled.ToString())
 }
@@ -39,8 +39,8 @@ let answer = Double!(21)
 ```
 
 `value` is a compile-time constant parameter. `expand` contributes the
-`ExpressionSyntax` that replaces the invocation. Normal Raven control flow can
-choose an expansion; the last reached `expand` wins.
+`ExpressionSyntax` that replaces the invocation and returns from that macro
+execution path. Normal Raven control flow can choose an expansion.
 
 Use typed parameters for configuration instead of recovering values from raw
 text. The normalized parameter schema also drives binding, completion, and
@@ -55,7 +55,7 @@ than its constant value:
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-macro func AddOffset(offset: int, expression: ExpressionSyntax) {
+macro AddOffset(offset: int, expression: ExpressionSyntax) {
     let source = expression.ToString() + " + " + offset.ToString()
     expand ParseExpression(source)
 }
@@ -76,7 +76,7 @@ compiler-supplied and does not appear in the argument list:
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     let token = tokens.ReadToken()
     let length = token.Text.Length + offset
     expand ParseExpression(length.ToString())
@@ -111,7 +111,7 @@ expressions, statements, types, patterns, or declarations:
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
-macro func Guard(context: TokenTreeMacroContext) {
+macro Guard(context: TokenTreeMacroContext) {
     let span = FindExpressionSpan(context.GetBodyText())
     let expression = context.ParseExpressionResult(span)
     context.ReportDiagnostics(expression.Diagnostics)
@@ -280,7 +280,7 @@ document version.
 Use an `on` clause for an attached macro:
 
 ```raven
-macro func Observable(enabled: bool) on property: Property {
+macro Observable(enabled: bool) on property: Property {
     if enabled {
         replace Rewrite(property)
         introduce CreateBackingField(property)
@@ -322,8 +322,8 @@ should consume that same package, not copy its parser.
 
 ## Projection from syntax to provider contracts
 
-The compiler lowers `macro func` declarations to adapters, but tools expose an
-`IMacroFunctionSymbol`, not the generated class.
+The compiler lowers `macro` declarations to adapters, but tools expose an
+`IMacroDeclarationSymbol`, not the generated class.
 
 | Source feature | Provider projection |
 | --- | --- |
@@ -340,11 +340,11 @@ The compiler lowers `macro func` declarations to adapters, but tools expose an
 | reached `fragment` | ordinary Raven fragment metadata |
 | reached `token` | token kind and classification metadata |
 
-Token-tree macro functions can publish editor regions through the same
+Token-tree macro declarations can publish editor regions through the same
 execution-ordered contribution model as expansion:
 
 ```raven
-macro func RavenExpression(context: TokenTreeMacroContext) {
+macro RavenExpression(context: TokenTreeMacroContext) {
     let span = TextSpan(0, context.BodySpan.Length)
     fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
     expand context.ParseExpression(span)
@@ -352,7 +352,7 @@ macro func RavenExpression(context: TokenTreeMacroContext) {
 ```
 
 `fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
-macro function. The generated adapter keeps reached regions on its expansion
+macro declaration. The generated adapter keeps reached regions on its expansion
 result; `SemanticModel` uses them when the macro does not implement a dedicated
 `IMacroFragmentProvider`. Implement that provider directly when tooling must
 remain independent from full expansion, especially for heavily recovered or
@@ -496,7 +496,7 @@ to read mutable build outputs from `obj`.
 
 The repository examples progress from compact syntax to full DSL handling:
 
-* `samples/projects/macro-functions` — typed, syntax, and token-stream inputs;
+* `samples/projects/macro-declarations` — typed, syntax, and token-stream inputs;
 * `samples/projects/macro-dsl` — the minimal provider-class reference for one
   DSL keyword, one embedded Raven expression, native diagnostics, fragment
   tooling, and debugger source provenance;

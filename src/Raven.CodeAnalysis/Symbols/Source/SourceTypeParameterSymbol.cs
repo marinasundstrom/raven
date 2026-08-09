@@ -33,7 +33,7 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
     public TypeParameterOwnerKind OwnerKind => ContainingSymbol switch
     {
         IMethodSymbol => TypeParameterOwnerKind.Method,
-        IMacroFunctionSymbol => TypeParameterOwnerKind.MacroFunction,
+        IMacroDeclarationSymbol => TypeParameterOwnerKind.Macro,
         _ => TypeParameterOwnerKind.Type,
     };
 
@@ -43,8 +43,8 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
     public IMethodSymbol? DeclaringMethodParameterOwner =>
         OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as IMethodSymbol) : null;
 
-    public IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner =>
-        OwnerKind == TypeParameterOwnerKind.MacroFunction ? (ContainingSymbol as IMacroFunctionSymbol) : null;
+    public IMacroDeclarationSymbol? DeclaringMacroParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Macro ? (ContainingSymbol as IMacroDeclarationSymbol) : null;
 
     public TypeParameterConstraintKind ConstraintKind { get; }
 

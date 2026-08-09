@@ -171,19 +171,19 @@ public sealed class ClosedHierarchyMetadataTests
     }
 
     [Fact]
-    public void SyntaxApi_EmptyMatchInMacroFunctionReportsExpressionKinds()
+    public void SyntaxApi_EmptyMatchInMacroReportsExpressionKinds()
     {
         AssertEmptyExpressionSyntaxMatchReportsMissingCases(
             """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Inspect(expression: ExpressionSyntax) {
+            macro Inspect(expression: ExpressionSyntax) {
                 match expression {
                 }
                 expand SyntaxFactory.ParseExpression("0")
             }
             """,
-            "SyntaxApi.EmptyMatch.MacroFunction");
+            "SyntaxApi.EmptyMatch.Macro");
     }
 
     private static void AssertEmptyExpressionSyntaxMatchReportsMissingCases(

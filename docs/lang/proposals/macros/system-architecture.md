@@ -198,14 +198,14 @@ one large macro-kind enumeration:
 | Contribution | replace, introduce members, introduce peers |
 | Capabilities | tokens, fragments, completion, hover, navigation |
 
-The current `macro func` direction remains a plausible concise source form:
+The current `macro` direction remains a plausible concise source form:
 
 ```raven
-macro func Html(body: IMacroTokenBody) -> RenderFragment {
+macro Html(body: IMacroTokenBody) -> RenderFragment {
     expand LowerHtml(body)
 }
 
-macro func Component() on Type {
+macro Component() on Type {
     replace ImplementComponent(target)
 }
 ```
@@ -224,7 +224,7 @@ maintaining adapters for experiments.
 
 The common authoring path has a strict budget:
 
-* one category-specific interface or one `macro func` declaration;
+* one category-specific interface or one `macro` declaration;
 * one `Expand` method;
 * one context containing the authored input and compiler services; and
 * one category-checked result factory.
@@ -237,7 +237,7 @@ opted into only when the macro needs them.
 For example, the Raven-authored shape should be approximately:
 
 ```raven
-macro func twice(value: ExpressionSyntax) -> ExpressionSyntax {
+macro twice(value: ExpressionSyntax) -> ExpressionSyntax {
     expand quote! {
         $(value) + $(value)
     }
@@ -266,7 +266,7 @@ The descriptor is immutable, inspectable without executing expansion, and is
 the source for lookup, diagnostics, completion, and signature help. It is a
 compiler model, not required boilerplate. The compiler derives it from a
 category-specific interface and its typed parameter schema, or directly from a
-`macro func` signature. Macro kind is not repeated as provider properties that
+`macro` signature. Macro kind is not repeated as provider properties that
 can disagree.
 
 ### Basic definition contract
@@ -811,7 +811,7 @@ The proposal intentionally leaves these decisions for focused experiments:
 
 * What is the exact default lookup rule for bare identifiers inside quotes?
 * Should preparation and expansion be one generic class contract, separate
-  capabilities, or compiler-generated adapters over `macro func` declarations?
+  capabilities, or compiler-generated adapters over `macro` declarations?
 * Which additional scope-bridge shapes are justified beyond the implemented
   sequence-element local, and what hygiene rules should they use?
 * Which semantic queries are legal during each expansion phase, and how are

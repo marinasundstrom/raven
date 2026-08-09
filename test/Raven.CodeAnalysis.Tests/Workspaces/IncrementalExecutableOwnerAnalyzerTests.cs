@@ -37,23 +37,23 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_ClassifiesMacroFunctionParameterNameEdit_AsSignatureOrDeclarationChange()
+    public void Analyze_ClassifiesMacroParameterNameEdit_AsSignatureOrDeclarationChange()
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(
             """
-            macro func Expand(value: int) {
+            macro Expand(value: int) {
                 expand value
             }
             """));
         var currentTree = SyntaxTree.ParseText(SourceText.From(
             """
-            macro func Expand(item: int) {
+            macro Expand(item: int) {
                 expand item
             }
             """));
         var currentMacro = currentTree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
         var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentMacro.Span, currentMacro.Kind);
 
@@ -99,25 +99,25 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_ClassifiesMacroFunctionLocalInitializerEdit_AsBodyDeclarationChange()
+    public void Analyze_ClassifiesMacroLocalInitializerEdit_AsBodyDeclarationChange()
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(
             """
-            macro func Expand(value: int) {
+            macro Expand(value: int) {
                 let doubled = value * 2
                 expand doubled
             }
             """));
         var currentTree = SyntaxTree.ParseText(SourceText.From(
             """
-            macro func Expand(value: int) {
+            macro Expand(value: int) {
                 let doubled = value * 3
                 expand doubled
             }
             """));
         var currentMacro = currentTree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
         var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentMacro.Span, currentMacro.Kind);
 

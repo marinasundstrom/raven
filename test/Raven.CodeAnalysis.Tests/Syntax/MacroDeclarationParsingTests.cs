@@ -6,25 +6,24 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.Syntax;
 
-public sealed class MacroFunctionDeclarationParsingTests
+public sealed class MacroDeclarationParsingTests
 {
     [Fact]
-    public void MacroFunctionDeclaration_ParsesAsTopLevelMember()
+    public void MacroDeclaration_ParsesAsTopLevelMember()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
+            macro Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
                 where TDelegate: Delegate
             {
                 return body
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
-            Assert.Single(tree.GetRoot().Members));
+        var declaration = Assert.Single(
+            tree.GetRoot().Members.OfType<MacroDeclarationSyntax>());
 
         Assert.Equal(SyntaxKind.IdentifierToken, declaration.MacroKeyword.Kind);
         Assert.Equal("macro", declaration.MacroKeyword.ValueText);
-        Assert.Equal(SyntaxKind.FuncKeyword, declaration.FuncKeyword.Kind);
         Assert.Equal("Compile", declaration.Identifier.ValueText);
         Assert.Equal("TDelegate", Assert.Single(declaration.TypeParameterList!.Parameters).Identifier.ValueText);
         Assert.Equal("body", Assert.Single(declaration.ParameterList.Parameters).Identifier.ValueText);
@@ -36,17 +35,17 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_ParsesInsideNamespace()
+    public void MacroDeclaration_ParsesInsideNamespace()
     {
         var tree = SyntaxTree.ParseText("""
             namespace Tools {
-                macro func Quote(body: ExpressionSyntax) -> ExpressionSyntax => body
+                macro Quote(body: ExpressionSyntax) -> ExpressionSyntax => body
             }
             """);
 
         var declaration = tree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Single();
 
         Assert.Equal("Quote", declaration.Identifier.ValueText);
@@ -56,16 +55,16 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_PreservesAttributesAndModifiers()
+    public void MacroDeclaration_PreservesAttributesAndModifiers()
     {
         var tree = SyntaxTree.ParseText("""
             [Obsolete]
-            public macro func Legacy(body: ExpressionSyntax) -> ExpressionSyntax {
+            public macro Legacy(body: ExpressionSyntax) -> ExpressionSyntax {
                 return body
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
 
         Assert.Single(declaration.AttributeLists);
@@ -78,36 +77,46 @@ public sealed class MacroFunctionDeclarationParsingTests
     {
         var tree = SyntaxTree.ParseText("""
             let macro = 42
+            macro + 1
             """);
 
-        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<MacroFunctionDeclarationSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<MacroDeclarationSyntax>());
         Assert.Empty(tree.GetDiagnostics());
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_MissingNameProducesRecoveredNode()
+    public void MacroDeclaration_MissingNameProducesRecoveredNode()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func () -> Expression {
+            macro () -> Expression {
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
-            Assert.Single(tree.GetRoot().Members));
+        var declaration = Assert.Single(
+            tree.GetRoot().Members.OfType<MacroDeclarationSyntax>());
 
         Assert.True(declaration.Identifier.IsMissing);
         Assert.Contains(tree.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV1001");
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_ClassifiesContextualKeywordAndName()
+    public void LegacyMacroFuncSpelling_IsRejected()
+    {
+        var tree = SyntaxTree.ParseText("macro func Legacy() {}");
+
+        Assert.Empty(tree.GetRoot().Members.OfType<MacroDeclarationSyntax>());
+        Assert.NotEmpty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroDeclaration_ClassifiesContextualKeywordAndName()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func Compile(body: ExpressionSyntax) -> ExpressionSyntax {
+            macro Compile(body: ExpressionSyntax) -> ExpressionSyntax {
                 return body
             }
             """);
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
 
         var classifications = SemanticClassifier.Classify(tree.GetRoot());
@@ -116,15 +125,15 @@ public sealed class MacroFunctionDeclarationParsingTests
             SemanticClassification.Keyword,
             classifications.Tokens[declaration.MacroKeyword]);
         Assert.Equal(
-            SemanticClassification.Method,
+            SemanticClassification.Macro,
             classifications.Tokens[declaration.Identifier]);
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_ParsesNamedTargetClause()
+    public void MacroDeclaration_ParsesNamedTargetClause()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func Observable(enabled: bool) on property: Property {
+            macro Observable(enabled: bool) on property: Property {
                 replace property
                 if enabled {
                     introduce CreateBackingField(property)
@@ -132,7 +141,7 @@ public sealed class MacroFunctionDeclarationParsingTests
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
         var target = Assert.IsType<MacroTargetClauseSyntax>(declaration.TargetClause);
 
@@ -159,15 +168,15 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_ParsesShorthandTargetClause()
+    public void MacroDeclaration_ParsesShorthandTargetClause()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func AddEquatable() on Type {
+            macro AddEquatable() on Type {
                 introduce CreateMembers()
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
         var target = Assert.IsType<MacroTargetClauseSyntax>(declaration.TargetClause);
 
@@ -178,16 +187,16 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_ParsesTokenStreamInputAsParameter()
+    public void MacroDeclaration_ParsesTokenStreamInputAsParameter()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
+            macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
                 let token = tokens.ReadToken()
                 expand ParseExpression((token.Text.Length + offset).ToString())
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
         var parameter = declaration.ParameterList.Parameters[1];
 
@@ -199,17 +208,17 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroFunctionDeclaration_ParsesFragmentContribution()
+    public void MacroDeclaration_ParsesFragmentContribution()
     {
         var tree = SyntaxTree.ParseText("""
-            macro func Template(context: TokenTreeMacroContext) {
+            macro Template(context: TokenTreeMacroContext) {
                 token context.CreateTokenInfo(next)
                 fragment context.CreateFragmentRegion(kind, span)
                 expand context.ParseExpression(span)
             }
             """);
 
-        var declaration = Assert.IsType<MacroFunctionDeclarationSyntax>(
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
         var contributions = declaration.Body!
             .DescendantNodes()
@@ -221,7 +230,7 @@ public sealed class MacroFunctionDeclarationParsingTests
     }
 
     [Fact]
-    public void ExpansionWords_RemainIdentifiersOutsideMacroFunctions()
+    public void ExpansionWords_RemainIdentifiersOutsideMacros()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() {

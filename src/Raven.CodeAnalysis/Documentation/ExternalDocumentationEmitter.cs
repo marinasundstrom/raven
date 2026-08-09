@@ -114,7 +114,7 @@ internal static class ExternalDocumentationEmitter
         foreach (var tree in compilation.MacroSyntaxTrees)
         {
             var semanticModel = compilation.GetSemanticModel(tree);
-            foreach (var declaration in tree.GetRoot().DescendantNodesAndSelf().OfType<MacroFunctionDeclarationSyntax>())
+            foreach (var declaration in tree.GetRoot().DescendantNodesAndSelf().OfType<MacroDeclarationSyntax>())
             {
                 if (semanticModel.GetDeclaredSymbol(declaration) is { } symbol &&
                     TryCreateEntry(symbol, includeMarkdown, seen, out var entry))

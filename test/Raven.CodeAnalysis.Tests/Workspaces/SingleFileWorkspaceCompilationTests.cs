@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class SingleFileWorkspaceCompilationTests
 {
     [Fact]
-    public void WorkspaceCompilation_MacroFunctionEditsInvalidateOnlyTheLocalMacroPartition()
+    public void WorkspaceCompilation_MacroEditsInvalidateOnlyTheLocalMacroPartition()
     {
         var instrumentation = new PerformanceInstrumentation();
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -25,7 +25,7 @@ public sealed class SingleFileWorkspaceCompilationTests
 
         var document = project.AddDocument(
             "main.rvn",
-            SourceText.From(CreateMixedMacroFunctionSource(42, 0)),
+            SourceText.From(CreateMixedMacroSource(42, 0)),
             "/tmp/main.rvn");
         workspace.TryApplyChanges(document.Project.Solution);
 
@@ -38,7 +38,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         workspace.TryApplyChanges(
             workspace.CurrentSolution.WithDocumentText(
                 document.Id,
-                SourceText.From(CreateMixedMacroFunctionSource(42, 1))));
+                SourceText.From(CreateMixedMacroSource(42, 1))));
 
         var consumerCompilation = workspace.GetCompilation(projectId);
         AssertNoErrors(consumerCompilation);
@@ -49,7 +49,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         workspace.TryApplyChanges(
             workspace.CurrentSolution.WithDocumentText(
                 document.Id,
-                SourceText.From(CreateMixedMacroFunctionSource(43, 1))));
+                SourceText.From(CreateMixedMacroSource(43, 1))));
 
         var macroCompilation = workspace.GetCompilation(projectId);
         AssertNoErrors(macroCompilation);
@@ -118,11 +118,11 @@ public sealed class SingleFileWorkspaceCompilationTests
         const string source = """
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func Inspect(expression: ExpressionSyntax) {
+            macro Inspect(expression: ExpressionSyntax) {
                 expand expression
             }
 
-            macro func Answer() {
+            macro Answer() {
                 expand SyntaxFactory.ParseExpression("42")
             }
 
@@ -173,7 +173,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         var answerExpansion = model.GetMacroExpansion(answerInvocation);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.IsAssignableFrom<IMacroFunctionSymbol>(inspectSymbol);
+        Assert.IsAssignableFrom<IMacroDeclarationSymbol>(inspectSymbol);
         Assert.Equal("Inspect", inspectSymbol.Name);
         Assert.Equal("42", answerExpansion!.Expression!.ToString());
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV2100");
@@ -336,9 +336,9 @@ public sealed class SingleFileWorkspaceCompilationTests
             func Main() -> int => localAnswer! { } + {{addend}}
             """;
 
-    private static string CreateMixedMacroFunctionSource(int answer, int addend)
+    private static string CreateMixedMacroSource(int answer, int addend)
         => $$"""
-            macro func Answer() {
+            macro Answer() {
                 let answer = {{answer}}
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(answer.ToString())
             }

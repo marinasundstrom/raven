@@ -15,7 +15,7 @@ public partial class Compilation
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, SourceUnionSymbol> _unionSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, SourceUnionCaseTypeSymbol> _unionCaseSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, IMethodSymbol> _methodSymbols = new();
-    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IMacroFunctionSymbol> _macroFunctionSymbols = new();
+    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IMacroDeclarationSymbol> _macroSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, IPropertySymbol> _propertySymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, IEventSymbol> _eventSymbols = new();
 
@@ -135,11 +135,11 @@ public partial class Compilation
     internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out IMethodSymbol symbol)
         => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterMacroFunctionSymbol(MacroFunctionDeclarationSyntax node, IMacroFunctionSymbol symbol)
-        => _macroFunctionSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
+    internal void RegisterMacroDeclarationSymbol(MacroDeclarationSyntax node, IMacroDeclarationSymbol symbol)
+        => _macroSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetMacroFunctionSymbol(MacroFunctionDeclarationSyntax node, out IMacroFunctionSymbol symbol)
-        => _macroFunctionSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
+    internal bool TryGetMacroSymbol(MacroDeclarationSyntax node, out IMacroDeclarationSymbol symbol)
+        => _macroSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
     internal void RegisterPropertySymbol(PropertyDeclarationSyntax node, IPropertySymbol symbol)
         => _propertySymbols[CreateDeclaredSyntaxKey(node)] = symbol;

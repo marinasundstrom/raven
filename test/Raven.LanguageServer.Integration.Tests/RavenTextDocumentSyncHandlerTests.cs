@@ -604,7 +604,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             import Raven.CodeAnalysis.Macros.*
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func AddOffset(expression: ExpressionSyntax) {
+            macro AddOffset(expression: ExpressionSyntax) {
                 expand expression
             }
 
@@ -616,7 +616,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             import Raven.CodeAnalysis.Macros.*
             import Raven.CodeAnalysis.Syntax.*
 
-            macro func AddOffset(expression: ExpressionSyntax) {
+            macro AddOffset(expression: ExpressionSyntax) {
                 match expression {
                 }
                 expand expression

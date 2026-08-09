@@ -1132,8 +1132,8 @@ partial class BlockBinder : Binder
                 {
                     pastBoundary = true;
                 }
-                else if (current is MacroFunctionBinder boundaryMacroBinder &&
-                         !SymbolEqualityComparer.Default.Equals(boundaryMacroBinder.GetMacroFunctionSymbol(), boundarySymbol))
+                else if (current is MacroBinder boundaryMacroBinder &&
+                         !SymbolEqualityComparer.Default.Equals(boundaryMacroBinder.GetMacroSymbol(), boundarySymbol))
                 {
                     pastBoundary = true;
                 }
@@ -1169,16 +1169,16 @@ partial class BlockBinder : Binder
                 }
             }
 
-            if (allowLocalsAndParams && current is MacroFunctionBinder macroFunctionBinder)
+            if (allowLocalsAndParams && current is MacroBinder macroBinder)
             {
-                var macroFunction = macroFunctionBinder.GetMacroFunctionSymbol();
-                foreach (var param in macroFunction.Parameters)
+                var macro = macroBinder.GetMacroSymbol();
+                foreach (var param in macro.Parameters)
                 {
                     if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
                 }
 
-                if (macroFunction.TargetParameter is { } targetParameter &&
+                if (macro.TargetParameter is { } targetParameter &&
                     targetParameter.Name == name &&
                     seen.Add(GetLookupKey(targetParameter)))
                 {
@@ -16220,7 +16220,7 @@ partial class BlockBinder : Binder
     {
         get
         {
-            if (_containingSymbol is IMacroFunctionSymbol)
+            if (_containingSymbol is IMacroDeclarationSymbol)
                 return true;
 
             if (_containingSymbol is not IMethodSymbol method)
@@ -16269,8 +16269,8 @@ partial class BlockBinder : Binder
                 {
                     pastBoundary = true;
                 }
-                else if (current is MacroFunctionBinder boundaryMacroBinder &&
-                         !SymbolEqualityComparer.Default.Equals(boundaryMacroBinder.GetMacroFunctionSymbol(), boundarySymbol))
+                else if (current is MacroBinder boundaryMacroBinder &&
+                         !SymbolEqualityComparer.Default.Equals(boundaryMacroBinder.GetMacroSymbol(), boundarySymbol))
                 {
                     pastBoundary = true;
                 }
@@ -16320,14 +16320,14 @@ partial class BlockBinder : Binder
                         yield return param;
             }
 
-            if (allowLocalsAndParams && current is MacroFunctionBinder macroFunctionBinder)
+            if (allowLocalsAndParams && current is MacroBinder macroBinder)
             {
-                var macroFunction = macroFunctionBinder.GetMacroFunctionSymbol();
-                foreach (var param in macroFunction.Parameters)
+                var macro = macroBinder.GetMacroSymbol();
+                foreach (var param in macro.Parameters)
                     if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
 
-                if (macroFunction.TargetParameter is { } targetParameter &&
+                if (macro.TargetParameter is { } targetParameter &&
                     targetParameter.Name == name &&
                     seen.Add(GetLookupKey(targetParameter)))
                 {
@@ -16480,16 +16480,16 @@ partial class BlockBinder : Binder
                 }
             }
 
-            if (current is MacroFunctionBinder macroFunctionBinder)
+            if (current is MacroBinder macroBinder)
             {
-                var macroFunction = macroFunctionBinder.GetMacroFunctionSymbol();
-                foreach (var param in macroFunction.Parameters)
+                var macro = macroBinder.GetMacroSymbol();
+                foreach (var param in macro.Parameters)
                 {
                     if (seen.Add(param.Name))
                         yield return param;
                 }
 
-                if (macroFunction.TargetParameter is { } targetParameter &&
+                if (macro.TargetParameter is { } targetParameter &&
                     seen.Add(targetParameter.Name))
                 {
                     yield return targetParameter;

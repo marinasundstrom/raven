@@ -105,9 +105,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 if (!EqualsCore(tpx.DeclaringMethodParameterOwner, tpy.DeclaringMethodParameterOwner, visited))
                     return false;
             }
-            else if (tpx.OwnerKind == TypeParameterOwnerKind.MacroFunction)
+            else if (tpx.OwnerKind == TypeParameterOwnerKind.Macro)
             {
-                if (!EqualsCore(tpx.DeclaringMacroFunctionParameterOwner, tpy.DeclaringMacroFunctionParameterOwner, visited))
+                if (!EqualsCore(tpx.DeclaringMacroParameterOwner, tpy.DeclaringMacroParameterOwner, visited))
                     return false;
             }
             else
@@ -325,7 +325,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
-        if (x is IMacroFunctionSymbol macroX && y is IMacroFunctionSymbol macroY)
+        if (x is IMacroDeclarationSymbol macroX && y is IMacroDeclarationSymbol macroY)
         {
             if (macroX.MacroKind != macroY.MacroKind ||
                 macroX.Targets != macroY.Targets ||
@@ -376,9 +376,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 }
             }
         }
-        else if (parameter.ContainingSymbol is IMacroFunctionSymbol macroFunction)
+        else if (parameter.ContainingSymbol is IMacroDeclarationSymbol macro)
         {
-            var parameters = macroFunction.Parameters;
+            var parameters = macro.Parameters;
             for (var i = 0; i < parameters.Length; i++)
             {
                 if (ReferenceEquals(parameters[i], parameter))
@@ -438,10 +438,10 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 if (tp.DeclaringMethodParameterOwner is { } methodOwner)
                     hash.Add(GetHashCodeCore(methodOwner, visited));
             }
-            else if (tp.OwnerKind == TypeParameterOwnerKind.MacroFunction)
+            else if (tp.OwnerKind == TypeParameterOwnerKind.Macro)
             {
-                if (tp.DeclaringMacroFunctionParameterOwner is { } macroFunctionOwner)
-                    hash.Add(GetHashCodeCore(macroFunctionOwner, visited));
+                if (tp.DeclaringMacroParameterOwner is { } macroOwner)
+                    hash.Add(GetHashCodeCore(macroOwner, visited));
             }
             else
             {
@@ -524,18 +524,18 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(GetHashCodeCore(typeArguments[i], visited));
         }
 
-        if (obj is IMacroFunctionSymbol macroFunction)
+        if (obj is IMacroDeclarationSymbol macro)
         {
-            hash.Add(macroFunction.MacroKind);
-            hash.Add(macroFunction.Targets);
-            hash.Add(macroFunction.TargetName, StringComparer.Ordinal);
-            hash.Add(macroFunction.Parameters.Length);
-            hash.Add(GetHashCodeCore(macroFunction.ReturnType, visited));
+            hash.Add(macro.MacroKind);
+            hash.Add(macro.Targets);
+            hash.Add(macro.TargetName, StringComparer.Ordinal);
+            hash.Add(macro.Parameters.Length);
+            hash.Add(GetHashCodeCore(macro.ReturnType, visited));
 
-            foreach (var parameter in macroFunction.Parameters)
+            foreach (var parameter in macro.Parameters)
                 hash.Add(GetHashCodeCore(parameter, visited));
 
-            hash.Add(macroFunction.TypeParameters.Length);
+            hash.Add(macro.TypeParameters.Length);
         }
 
         if (obj is INamedTypeSymbol namedType)

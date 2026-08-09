@@ -3,12 +3,12 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal sealed class MacroFunctionBinder : Binder
+internal sealed class MacroBinder : Binder
 {
-    private readonly MacroFunctionDeclarationSyntax _syntax;
-    private IMacroFunctionSymbol? _symbol;
+    private readonly MacroDeclarationSyntax _syntax;
+    private IMacroDeclarationSymbol? _symbol;
 
-    public MacroFunctionBinder(Binder parent, MacroFunctionDeclarationSyntax syntax)
+    public MacroBinder(Binder parent, MacroDeclarationSyntax syntax)
         : base(parent)
     {
         _syntax = syntax;
@@ -16,7 +16,7 @@ internal sealed class MacroFunctionBinder : Binder
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
         => node == _syntax
-            ? GetMacroFunctionSymbol()
+            ? GetMacroSymbol()
             : base.BindDeclaredSymbol(node);
 
     public override Compilation Compilation
@@ -28,14 +28,14 @@ internal sealed class MacroFunctionBinder : Binder
         => ParentBinder?.SemanticModel
             ?? Compilation.GetSemanticModel(_syntax.SyntaxTree);
 
-    public IMacroFunctionSymbol GetMacroFunctionSymbol()
+    public IMacroDeclarationSymbol GetMacroSymbol()
     {
         if (_symbol is not null)
             return _symbol;
 
         Compilation.EnsureSourceDeclarationsDeclared();
-        return Compilation.TryGetMacroFunctionSymbol(_syntax, out _symbol)
+        return Compilation.TryGetMacroSymbol(_syntax, out _symbol)
             ? _symbol
-            : throw new InvalidOperationException("Unable to resolve macro function declaration.");
+            : throw new InvalidOperationException("Unable to resolve macro declaration.");
     }
 }

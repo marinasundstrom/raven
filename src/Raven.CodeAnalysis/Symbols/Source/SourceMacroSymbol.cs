@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFunctionSymbol
+internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclarationSymbol
 {
     private ITypeSymbol _returnType;
     private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
@@ -15,7 +15,7 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
     private IParameterSymbol? _targetParameter;
     private bool _isAttached;
 
-    public SourceMacroFunctionSymbol(
+    public SourceMacroSymbol(
         string name,
         ITypeSymbol returnType,
         ISymbol containingSymbol,
@@ -24,7 +24,7 @@ internal sealed partial class SourceMacroFunctionSymbol : SourceSymbol, IMacroFu
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility)
         : base(
-            SymbolKind.MacroFunction,
+            SymbolKind.Macro,
             name,
             containingSymbol,
             containingType: null,

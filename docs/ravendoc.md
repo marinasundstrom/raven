@@ -183,7 +183,7 @@ visible in the generated documentation.
 Namespace functions are organized under their Raven namespace. Their pages
 also identify the emitted CLR container so consumers using C#, reflection, or
 another .NET language can locate the metadata member. Namespace-level
-`macro func` declarations are listed separately as macros and do not require a
+`macro` declarations are listed separately as macros and do not require a
 fabricated containing type in the Raven-facing reference.
 
 ## Relationship to metadata sidecars

@@ -667,12 +667,12 @@ public partial class SemanticModel
                 }
             }
 
-            if (node is MacroFunctionDeclarationSyntax macroFunction)
+            if (node is MacroDeclarationSyntax macro)
             {
-                var macroFunctionBinder = currentBinder as MacroFunctionBinder
-                    ?? GetBinderForDiagnostics(macroFunction, currentBinder) as MacroFunctionBinder;
-                if (macroFunctionBinder is not null)
-                    BindMacroFunctionBody(macroFunction, macroFunctionBinder);
+                var macroBinder = currentBinder as MacroBinder
+                    ?? GetBinderForDiagnostics(macro, currentBinder) as MacroBinder;
+                if (macroBinder is not null)
+                    BindMacroBody(macro, macroBinder);
 
                 return;
             }
@@ -810,20 +810,20 @@ public partial class SemanticModel
             }
         }
 
-        void BindMacroFunctionBody(
-            MacroFunctionDeclarationSyntax macroFunction,
-            MacroFunctionBinder macroFunctionBinder)
+        void BindMacroBody(
+            MacroDeclarationSyntax macro,
+            MacroBinder macroBinder)
         {
-            _ = macroFunctionBinder.GetMacroFunctionSymbol();
+            _ = macroBinder.GetMacroSymbol();
 
-            if (macroFunction.Body is { } body)
+            if (macro.Body is { } body)
             {
-                Traverse(body, GetBinderForDiagnostics(body, macroFunctionBinder));
+                Traverse(body, GetBinderForDiagnostics(body, macroBinder));
                 return;
             }
 
-            if (macroFunction.ExpressionBody is { } expressionBody)
-                Traverse(expressionBody, GetBinderForDiagnostics(expressionBody, macroFunctionBinder));
+            if (macro.ExpressionBody is { } expressionBody)
+                Traverse(expressionBody, GetBinderForDiagnostics(expressionBody, macroBinder));
         }
 
         void ReportStructUnionDefaultExpressionBodyReturn(
@@ -1263,7 +1263,7 @@ public partial class SemanticModel
                 EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
                 MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
                 FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
-                MacroFunctionDeclarationSyntax macroFunction => macroFunction.AttributeLists,
+                MacroDeclarationSyntax macro => macro.AttributeLists,
                 ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
                 ParameterlessConstructorDeclarationSyntax initDeclaration => initDeclaration.AttributeLists,
                 InitializerBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.AttributeLists,
@@ -1894,7 +1894,7 @@ public partial class SemanticModel
         static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
             => node is FunctionExpressionSyntax
                 or FunctionStatementSyntax
-                or MacroFunctionDeclarationSyntax
+                or MacroDeclarationSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax
@@ -1952,7 +1952,7 @@ public partial class SemanticModel
         => binderState is TypeMemberBinder
             or TypeDeclarationBinder
             or FunctionBinder
-            or MacroFunctionBinder
+            or MacroBinder
             or ImportBinder
             or CompilationUnitBinder
             or NamespaceBinder;
@@ -1999,7 +1999,7 @@ public partial class SemanticModel
                 macroSymbol = loadedMacroSymbol;
             }
             else if (
-                Compilation.TryResolveLocalMacroFunctionSymbol(
+                Compilation.TryResolveLocalMacroDeclarationSymbol(
                     macroExpression,
                     macroName,
                     out var localMacroSymbol,
@@ -2018,7 +2018,7 @@ public partial class SemanticModel
         }
 
         if (node is IdentifierNameSyntax macroParameterReference &&
-            TryGetMacroFunctionParameterReference(macroParameterReference, out var macroParameter))
+            TryGetMacroParameterReference(macroParameterReference, out var macroParameter))
         {
             var macroParameterInfo = new SymbolInfo(macroParameter);
             StoreSymbolMapping(node, macroParameterInfo);
@@ -2759,22 +2759,22 @@ public partial class SemanticModel
            TryGetTargetTypeForExpression(expression, out var targetType) &&
            targetType is { TypeKind: TypeKind.Delegate };
 
-    private bool TryGetMacroFunctionParameterReference(
+    private bool TryGetMacroParameterReference(
         IdentifierNameSyntax identifier,
         out IParameterSymbol parameter)
     {
         parameter = null!;
         var declaration = identifier.Ancestors()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .FirstOrDefault();
         if (declaration is null)
             return false;
 
         Compilation.EnsureSourceDeclarationsDeclared();
-        if (!TryGetMacroFunctionSymbol(declaration, out var macroFunction))
+        if (!TryGetMacroSymbol(declaration, out var macro))
             return false;
 
-        parameter = macroFunction.Parameters.FirstOrDefault(candidate =>
+        parameter = macro.Parameters.FirstOrDefault(candidate =>
             string.Equals(candidate.Name, identifier.Identifier.ValueText, StringComparison.Ordinal))!;
         return parameter is not null;
     }
@@ -7618,7 +7618,7 @@ public partial class SemanticModel
             {
                 BaseMethodDeclarationSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 FunctionStatementSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
-                MacroFunctionDeclarationSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                MacroDeclarationSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 SimpleFunctionExpressionSyntax { Parameter: { } parameter } => [parameter],
                 ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 _ => Enumerable.Empty<ParameterSyntax>()
@@ -9257,7 +9257,7 @@ public partial class SemanticModel
             or ConstructorDeclarationSyntax
             or ParameterlessConstructorDeclarationSyntax
             or FunctionStatementSyntax
-            or MacroFunctionDeclarationSyntax
+            or MacroDeclarationSyntax
             or PropertyDeclarationSyntax
             or EventDeclarationSyntax
             or AccessorDeclarationSyntax
@@ -9289,9 +9289,9 @@ public partial class SemanticModel
                 symbol = methodSymbol;
                 return true;
 
-            case MacroFunctionDeclarationSyntax macroFunctionDeclaration
-                when TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol):
-                symbol = macroFunctionSymbol;
+            case MacroDeclarationSyntax macroDeclaration
+                when TryGetMacroSymbol(macroDeclaration, out var macroSymbol):
+                symbol = macroSymbol;
                 return true;
 
             case ConstructorDeclarationSyntax constructorDeclaration when TryGetMethodSymbol(constructorDeclaration, out var constructorSymbol):
@@ -11163,7 +11163,7 @@ public partial class SemanticModel
 
                 case BaseConstructorDeclarationSyntax:
                 case BaseMethodDeclarationSyntax:
-                case MacroFunctionDeclarationSyntax:
+                case MacroDeclarationSyntax:
                 case ParameterlessConstructorDeclarationSyntax:
                 case PropertyDeclarationSyntax:
                 case EventDeclarationSyntax:
@@ -11205,7 +11205,7 @@ public partial class SemanticModel
 
             case BaseConstructorDeclarationSyntax:
             case BaseMethodDeclarationSyntax:
-            case MacroFunctionDeclarationSyntax:
+            case MacroDeclarationSyntax:
             case ParameterlessConstructorDeclarationSyntax:
             case PropertyDeclarationSyntax:
             case EventDeclarationSyntax:
@@ -11233,9 +11233,9 @@ public partial class SemanticModel
                 symbol = methodSymbol;
                 return true;
 
-            case MacroFunctionDeclarationSyntax macroFunctionDeclaration when
-                TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol):
-                symbol = macroFunctionSymbol;
+            case MacroDeclarationSyntax macroDeclaration when
+                TryGetMacroSymbol(macroDeclaration, out var macroSymbol):
+                symbol = macroSymbol;
                 return true;
 
             case BaseConstructorDeclarationSyntax constructorDeclaration when
@@ -12102,7 +12102,7 @@ public partial class SemanticModel
                 case BlockStatementSyntax:
                 case CompilationUnitSyntax:
                 case FunctionStatementSyntax:
-                case MacroFunctionDeclarationSyntax:
+                case MacroDeclarationSyntax:
                 case MethodDeclarationSyntax:
                 case AccessorDeclarationSyntax:
                 case ConstructorDeclarationSyntax:
@@ -12155,8 +12155,8 @@ public partial class SemanticModel
             case FunctionStatementSyntax function when function.ParameterList is { } parameterList:
                 AddParameters(parameterList.Parameters);
                 break;
-            case MacroFunctionDeclarationSyntax macroFunction:
-                AddParameters(macroFunction.ParameterList.Parameters);
+            case MacroDeclarationSyntax macro:
+                AddParameters(macro.ParameterList.Parameters);
                 break;
             case MethodDeclarationSyntax method when method.ParameterList is { } parameterList:
                 AddParameters(parameterList.Parameters);
@@ -12262,7 +12262,7 @@ public partial class SemanticModel
 
     private static bool IsNestedExecutableScope(SyntaxNode node)
         => node is FunctionStatementSyntax
-            or MacroFunctionDeclarationSyntax
+            or MacroDeclarationSyntax
             or MethodDeclarationSyntax
             or ConstructorDeclarationSyntax
             or OperatorDeclarationSyntax
@@ -12325,9 +12325,9 @@ public partial class SemanticModel
                     return typeSymbol;
                 case UnionDeclarationSyntax unionDeclaration when TryGetUnionSymbol(unionDeclaration, out var unionSymbol):
                     return unionSymbol;
-                case MacroFunctionDeclarationSyntax macroFunctionDeclaration
-                    when TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol):
-                    return macroFunctionSymbol;
+                case MacroDeclarationSyntax macroDeclaration
+                    when TryGetMacroSymbol(macroDeclaration, out var macroSymbol):
+                    return macroSymbol;
                 case NamespaceDeclarationSyntax:
                     return GetDeclaredSymbol(ancestor);
             }
@@ -12375,10 +12375,10 @@ public partial class SemanticModel
             return parameterSymbol is not null;
         }
 
-        if (parameterSyntax.Parent?.Parent is MacroFunctionDeclarationSyntax macroFunctionDeclaration &&
-            TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol))
+        if (parameterSyntax.Parent?.Parent is MacroDeclarationSyntax macroDeclaration &&
+            TryGetMacroSymbol(macroDeclaration, out var macroSymbol))
         {
-            parameterSymbol = macroFunctionSymbol.Parameters.FirstOrDefault(parameter =>
+            parameterSymbol = macroSymbol.Parameters.FirstOrDefault(parameter =>
                 SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
             return parameterSymbol is not null;
         }
@@ -13131,7 +13131,7 @@ public partial class SemanticModel
         {
             root = node.AncestorsAndSelf().FirstOrDefault(current =>
                 current is BlockStatementSyntax &&
-                current.Parent is BaseMethodDeclarationSyntax or FunctionStatementSyntax or MacroFunctionDeclarationSyntax or AccessorDeclarationSyntax);
+                current.Parent is BaseMethodDeclarationSyntax or FunctionStatementSyntax or MacroDeclarationSyntax or AccessorDeclarationSyntax);
 
             root ??= node.AncestorsAndSelf().FirstOrDefault(current =>
                 current is IfStatementSyntax or IfPatternStatementSyntax or WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax);
@@ -13180,7 +13180,7 @@ public partial class SemanticModel
         owner = node.AncestorsAndSelf().FirstOrDefault(static current =>
             current is FunctionExpressionSyntax
                 or FunctionStatementSyntax
-                or MacroFunctionDeclarationSyntax
+                or MacroDeclarationSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax
@@ -15016,7 +15016,7 @@ public partial class SemanticModel
         {
             MethodDeclarationSyntax => binder is MethodBinder,
             BlockStatementSyntax { Parent: BaseMethodDeclarationSyntax or FunctionStatementSyntax } => binder is MethodBodyBinder,
-            BlockStatementSyntax { Parent: MacroFunctionDeclarationSyntax } => binder is MacroFunctionBodyBinder,
+            BlockStatementSyntax { Parent: MacroDeclarationSyntax } => binder is MacroBodyBinder,
             _ => true
         };
     }
@@ -15217,7 +15217,7 @@ public partial class SemanticModel
             OperatorDeclarationSyntax or
             ConversionOperatorDeclarationSyntax or
             FunctionStatementSyntax or
-            MacroFunctionDeclarationSyntax or
+            MacroDeclarationSyntax or
             AccessorDeclarationSyntax or
             PropertyDeclarationSyntax or
             EventDeclarationSyntax or
@@ -15301,7 +15301,7 @@ public partial class SemanticModel
             WhilePatternStatementSyntax or
             ForStatementSyntax or
             FunctionStatementSyntax or
-            MacroFunctionDeclarationSyntax;
+            MacroDeclarationSyntax;
     }
 
     private bool TryResolveMethodSymbolForDeclaration(SyntaxNode declaration, out IMethodSymbol methodSymbol)

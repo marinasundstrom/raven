@@ -118,7 +118,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
             CompilationUnitSyntax => (owner.Kind, "root"),
             MethodDeclarationSyntax method => (owner.Kind, CreateMethodDeclarationMatchIdentity(method)),
             FunctionStatementSyntax function => (owner.Kind, CreateFunctionStatementMatchIdentity(function)),
-            MacroFunctionDeclarationSyntax macroFunction => (owner.Kind, CreateMacroFunctionDeclarationMatchIdentity(macroFunction)),
+            MacroDeclarationSyntax macro => (owner.Kind, CreateMacroDeclarationMatchIdentity(macro)),
             FunctionExpressionSyntax functionExpression => (owner.Kind, CreateFunctionExpressionMatchIdentity(functionExpression)),
             ConstructorDeclarationSyntax ctor => (owner.Kind, CreateConstructorDeclarationMatchIdentity(ctor)),
             ParameterlessConstructorDeclarationSyntax => (owner.Kind, "ctor:0"),
@@ -167,12 +167,12 @@ internal static class IncrementalExecutableOwnerAnalyzer
         return $"function:{function.Identifier.ValueText}:{function.TypeParameterList?.Parameters.Count ?? 0}:({parameterTypes}):{returnType}";
     }
 
-    private static string CreateMacroFunctionDeclarationMatchIdentity(MacroFunctionDeclarationSyntax function)
+    private static string CreateMacroDeclarationMatchIdentity(MacroDeclarationSyntax function)
     {
         var parameterTypes = FormatParameterTypeIdentity(function.ParameterList.Parameters);
         var returnType = function.ReturnType?.Type.ToString() ?? "?";
         var target = function.TargetClause?.ToString() ?? string.Empty;
-        return $"macro-function:{function.Identifier.ValueText}:{function.TypeParameterList?.Parameters.Count ?? 0}:({parameterTypes}):{returnType}:{target}";
+        return $"macro:{function.Identifier.ValueText}:{function.TypeParameterList?.Parameters.Count ?? 0}:({parameterTypes}):{returnType}:{target}";
     }
 
     private static string CreateConstructorDeclarationMatchIdentity(ConstructorDeclarationSyntax ctor)
@@ -487,7 +487,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
         {
             BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
             FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
-            MacroFunctionDeclarationSyntax macroFunction => (SyntaxNode?)macroFunction.Body ?? macroFunction.ExpressionBody,
+            MacroDeclarationSyntax macro => (SyntaxNode?)macro.Body ?? macro.ExpressionBody,
             AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
             PropertyDeclarationSyntax property => (SyntaxNode?)property.ExpressionBody ?? (SyntaxNode?)property.AccessorList ?? property.Initializer,
             EventDeclarationSyntax @event => (SyntaxNode?)@event.AccessorList,
@@ -543,7 +543,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
         {
             BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
             FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
-            MacroFunctionDeclarationSyntax macroFunction => (SyntaxNode?)macroFunction.Body ?? macroFunction.ExpressionBody,
+            MacroDeclarationSyntax macro => (SyntaxNode?)macro.Body ?? macro.ExpressionBody,
             AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
             PropertyDeclarationSyntax property => (SyntaxNode?)property.ExpressionBody ?? (SyntaxNode?)property.AccessorList ?? property.Initializer,
             EventDeclarationSyntax @event => @event.AccessorList,
@@ -600,7 +600,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
 
     private static bool IsExecutableOwnerNode(SyntaxNode node)
         => node is FunctionStatementSyntax
-            or MacroFunctionDeclarationSyntax
+            or MacroDeclarationSyntax
             or FunctionExpressionSyntax
             or BaseMethodDeclarationSyntax
             or BaseConstructorDeclarationSyntax

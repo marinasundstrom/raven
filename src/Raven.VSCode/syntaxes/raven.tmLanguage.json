@@ -536,14 +536,14 @@
                     "match": "\\b(extension)\\b"
                 },
                 {
-                    "name": "meta.declaration.macro-function.raven",
-                    "match": "\\b(macro)(\\s+)(func)\\b",
+                    "name": "meta.declaration.macro.raven",
+                    "match": "\\b(macro)(\\s+)([A-Za-z_][A-Za-z0-9_]*)\\b(?=\\s*(?:<[^\\r\\n{}]*>)?\\s*\\()",
                     "captures": {
                         "1": {
                             "name": "keyword.declaration.macro.raven storage.modifier.macro.raven"
                         },
                         "3": {
-                            "name": "keyword.declaration.function.raven storage.type.function.raven"
+                            "name": "entity.name.function.macro.raven"
                         }
                     }
                 },

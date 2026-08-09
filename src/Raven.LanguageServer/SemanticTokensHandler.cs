@@ -420,6 +420,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticClassification.Namespace => SemanticTokenType.Namespace,
             SemanticClassification.Type => SemanticTokenType.Type,
             SemanticClassification.Method => SemanticTokenType.Method,
+            SemanticClassification.Macro => SemanticTokenType.Macro,
             SemanticClassification.Parameter => SemanticTokenType.Parameter,
             SemanticClassification.Local => SemanticTokenType.Variable,
             SemanticClassification.Label => SemanticTokenType.Label,

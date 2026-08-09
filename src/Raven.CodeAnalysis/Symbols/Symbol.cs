@@ -178,7 +178,7 @@ internal abstract class Symbol : ISymbol
     {
         INamespaceOrTypeSymbol => true,
         IMethodSymbol => true,
-        IMacroFunctionSymbol => true,
+        IMacroDeclarationSymbol => true,
         IEventSymbol => true,
         IPropertySymbol => true,
         IFieldSymbol => true,

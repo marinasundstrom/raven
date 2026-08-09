@@ -30,7 +30,7 @@ internal static class LocalMacroSyntaxClassifier
         var members = syntaxTree.GetRoot().Members;
         return members.Count > 0 &&
             members.All(member =>
-                member is MacroFunctionDeclarationSyntax ||
+                member is MacroDeclarationSyntax ||
                 member is TypeDeclarationSyntax declaration &&
                 IsLocalMacroDeclaration(declaration));
     }
@@ -104,7 +104,7 @@ internal static class LocalMacroSyntaxClassifier
 
         foreach (var declaration in syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .Where(static declaration =>
                 declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax))
         {

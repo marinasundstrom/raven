@@ -2,10 +2,10 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-internal sealed class MacroFunctionBodyBinder : BlockBinder
+internal sealed class MacroBodyBinder : BlockBinder
 {
-    public MacroFunctionBodyBinder(IMacroFunctionSymbol macroFunction, Binder parent)
-        : base(macroFunction, parent)
+    public MacroBodyBinder(IMacroDeclarationSymbol macro, Binder parent)
+        : base(macro, parent)
     {
     }
 

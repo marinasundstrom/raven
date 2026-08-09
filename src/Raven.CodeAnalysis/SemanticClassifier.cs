@@ -30,8 +30,8 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
-            else if (descendant.Parent is MacroFunctionDeclarationSyntax macroFunction &&
-                     descendant == macroFunction.MacroKeyword)
+            else if (descendant.Parent is MacroDeclarationSyntax macro &&
+                     descendant == macro.MacroKeyword)
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
@@ -157,13 +157,13 @@ public static class SemanticClassifier
             DelegateDeclarationSyntax => true,
             BaseMethodDeclarationSyntax => true,
             FunctionStatementSyntax => true,
-            MacroFunctionDeclarationSyntax => true,
+            MacroDeclarationSyntax => true,
             PropertyDeclarationSyntax => true,
             EventDeclarationSyntax => true,
             AccessorDeclarationSyntax => true,
             ParameterSyntax parameter => parameter.Parent?.Parent is TypeDeclarationSyntax
                 or BaseMethodDeclarationSyntax
-                or MacroFunctionDeclarationSyntax,
+                or MacroDeclarationSyntax,
             _ => false
         };
 
@@ -180,7 +180,7 @@ public static class SemanticClassifier
             INamespaceSymbol => SemanticClassification.Namespace,
             ITypeSymbol => SemanticClassification.Type,
             IMethodSymbol => SemanticClassification.Method,
-            IMacroFunctionSymbol => SemanticClassification.Method,
+            IMacroDeclarationSymbol => SemanticClassification.Macro,
             IParameterSymbol => SemanticClassification.Parameter,
             ILocalSymbol => SemanticClassification.Local,
             ILabelSymbol => SemanticClassification.Label,
@@ -212,7 +212,7 @@ public static class SemanticClassifier
             DelegateDeclarationSyntax => SemanticClassification.Type,
             BaseMethodDeclarationSyntax => SemanticClassification.Method,
             FunctionStatementSyntax => SemanticClassification.Method,
-            MacroFunctionDeclarationSyntax => SemanticClassification.Method,
+            MacroDeclarationSyntax => SemanticClassification.Macro,
             PropertyDeclarationSyntax => SemanticClassification.Property,
             EventDeclarationSyntax => SemanticClassification.Event,
             InvocationExpressionSyntax => SemanticClassification.Method,
@@ -506,6 +506,7 @@ public enum SemanticClassification
     Namespace,
     Type,
     Method,
+    Macro,
     Parameter,
     Local,
     Label,

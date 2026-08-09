@@ -138,28 +138,28 @@ macro implementations.
 ### Macro declaration syntax
 
 A compact declaration can encode invocation inputs, attachment, and the
-call-site semantic type in a function-like signature. `macro` is a
-contextual modifier on the existing `func` declaration rather than as the start
-of an unrelated declaration grammar:
+call-site semantic type in a callable signature. `macro` contextually starts
+this dedicated declaration grammar at compilation-unit and namespace-member
+boundaries:
 
 ```raven
-macro func Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
+macro Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
     // ...
 }
 
-macro func Query(body: IMacroTokenStream) -> ExpressionSyntax {
+macro Query(body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
-macro func Query(dialect: string, body: IMacroTokenStream) -> ExpressionSyntax {
+macro Query(dialect: string, body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
-macro func AddEquatable() on Type {
+macro AddEquatable() on Type {
     introduce CreateEqualityMembers(target)
 }
 
-macro func Observable(enabled: bool) on property: Property {
+macro Observable(enabled: bool) on property: Property {
     if enabled {
         replace Rewrite(property)
     }
@@ -167,8 +167,8 @@ macro func Observable(enabled: bool) on property: Property {
 }
 ```
 
-This spelling reuses `func`, ordinary parameter lists, generic type-argument
-lists, `where` constraints, `->`, and the existing block form. New reserved
+This spelling reuses ordinary parameter lists, generic type-argument lists,
+`where` constraints, `->`, and the existing block form. New reserved
 keywords should be avoided unless they distinguish semantics that cannot be
 expressed clearly through contextual syntax. Compiler model types such as
 `ExpressionSyntax` and `IMacroTokenStream` remain visible by their real names.
@@ -213,7 +213,7 @@ Attached targets support `on Property`, which provides the implicit name
 `target`, and `on property: Property`, which chooses an explicit source name.
 The binding denotes the current declaration in the attached-macro composition
 pipeline. The original target remains available through
-`AttachedMacroContext`. A macro function may declare that context as a
+`AttachedMacroContext`. A macro declaration may declare that context as a
 compiler-supplied parameter without adding it to the call-site argument list.
 All macro contexts accumulate diagnostics through `ReportDiagnostic` and
 `ReportDiagnostics`; this ordinary API avoids adding another contextual
@@ -223,11 +223,11 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro func Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
-| `macro func Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
-| `macro func Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
-| `macro func AddEquatable() on Type` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
-| `macro func Observable() on Property` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
+| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
+| `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
+| `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
+| `macro AddEquatable() on Type` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
+| `macro Observable() on Property` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
 Optional capability interfaces require an intentional source-syntax
 projection. `IMacroFragmentProvider` is projected through reached `fragment`
@@ -255,10 +255,10 @@ The object-oriented API exposes its normalized typed-value schema through
 instances rather than repeating reflection over plugin classes. Constructor
 parameters describe ordered inputs; writable or init-style properties describe
 named inputs. This same schema drives named-argument completion and signature
-help and also shapes generated macro-function parameter objects without
+help and also shapes generated macro parameter objects without
 changing the expansion context contract.
 
-### Generic macro functions and semantic result types
+### Generic macro declarations and semantic result types
 
 Generic macro parameters need a stronger model than preserving
 `GenericNameSyntax` at the invocation. They are compile-time symbolic types,
@@ -276,7 +276,7 @@ symbolic type-argument value to the implementation.
 The intended direction can be illustrated by `compile!`:
 
 ```raven
-macro func compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
+macro compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
     where TDelegate: Delegate
 {
     expand quote! {
@@ -313,7 +313,7 @@ imports make the declared short name and any names supplied by
 `MacroAliasAttribute` available in scope. Qualification is the explicit escape
 hatch for collisions; aliases cannot be used as qualified name segments.
 
-For a macro function, its namespace and declaration name naturally form that
+For a macro declaration, its namespace and declaration name naturally form that
 identity. A class-authored provider exposes the same two parts through
 `IMacroDefinition.Namespace` and `IMacroDefinition.Name`; its implementation
 type name is not part of the language-facing identity.
@@ -343,13 +343,13 @@ symbols, descriptors, and language services retain the real types such as
 `ExpressionSyntax` and `IMacroTokenStream`.
 
 The semantic model represents that abstraction with
-`IMacroFunctionSymbol : ISymbol` and `SymbolKind.MacroFunction`.
-`IMacroFunctionSymbol` deliberately does not extend `IMethodSymbol`: the
+`IMacroDeclarationSymbol : ISymbol` and `SymbolKind.Macro`.
+`IMacroDeclarationSymbol` deliberately does not extend `IMethodSymbol`: the
 function-shaped declaration is not a CLR method and must not enter ordinary
 method lookup, overload resolution, metadata emission, or runtime code
 generation. Its parameters and generic parameters retain their familiar
 signature meaning, but generic ownership is
-`TypeParameterOwnerKind.MacroFunction`, not `Method`.
+`TypeParameterOwnerKind.Macro`, not `Method`.
 
 Parameter binding follows the type-directed model familiar from ASP.NET Core
 minimal APIs. Ordinary parameter types have the `Value` role and bind from the
@@ -367,7 +367,7 @@ body.
 `IParameterSymbol.MacroRole` exposes that distinction without adding a second
 parameter syntax.
 
-Macro functions are synchronous transformations. They do not support an
+Macro declarations are synchronous transformations. They do not support an
 `async` modifier or `await` expressions. Compiler scheduling and provider
 infrastructure may use asynchronous APIs internally, but that is an
 implementation concern and must not change the authored macro signature,
@@ -383,7 +383,7 @@ This syntax must lower to the shared macro infrastructure. Initially, the
 compiler may synthesize a parameter-object class, a category-specific adapter,
 and an `Expand` method whose body comes from the declaration body. Those are
 implementation details rather than the semantic identity of the declaration.
-The semantic identity is a macro function signature plus its expansion entry
+The semantic identity is a macro declaration signature plus its expansion entry
 point, so the adapter shape can evolve without changing the source model.
 Source locations, diagnostics, cancellation, and generated-member navigation
 must map back to the authored macro declaration rather than exposing generated
@@ -837,7 +837,7 @@ the Playground, but its names still obey ordinary namespace import rules.
 
 `Raven.Macros.Quote`, `Raven.Macros.Compile`,
 `Raven.Macros.EmbedFileContent`, and `Raven.Macros.Sha256Digest` are
-Raven-authored macro functions exported by that assembly. Their
+Raven-authored macro declarations exported by that assembly. Their
 `[MacroAlias(...)]` attributes supply conventional lowercase spellings after
 `import Raven.Macros.*`. This implementation distinction does not create a
 special name-resolution category.

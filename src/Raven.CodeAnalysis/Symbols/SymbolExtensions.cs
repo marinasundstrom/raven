@@ -122,11 +122,11 @@ public static partial class SymbolExtensions
             return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner);
         }
 
-        if (leftDefinition.OwnerKind == TypeParameterOwnerKind.MacroFunction)
+        if (leftDefinition.OwnerKind == TypeParameterOwnerKind.Macro)
         {
             return SymbolEqualityComparer.Default.Equals(
-                leftDefinition.DeclaringMacroFunctionParameterOwner,
-                rightDefinition.DeclaringMacroFunctionParameterOwner);
+                leftDefinition.DeclaringMacroParameterOwner,
+                rightDefinition.DeclaringMacroParameterOwner);
         }
 
         var leftTypeOwner = (INamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner);
@@ -170,9 +170,9 @@ public static partial class SymbolExtensions
                                                       ?? definition.DeclaringMethodParameterOwner) is { } method
                         ? $"{(method.ContainingType?.OriginalDefinition as INamedTypeSymbol ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"}::{method.MetadataName}"
                         : "<method>",
-                    TypeParameterOwnerKind.MacroFunction => definition.DeclaringMacroFunctionParameterOwner is { } macroFunction
-                        ? $"{macroFunction.ContainingNamespace?.ToDisplayString() ?? "<global>"}::{macroFunction.Name}/{macroFunction.Arity}"
-                        : "<macro-function>",
+                    TypeParameterOwnerKind.Macro => definition.DeclaringMacroParameterOwner is { } macro
+                        ? $"{macro.ContainingNamespace?.ToDisplayString() ?? "<global>"}::{macro.Name}/{macro.Arity}"
+                        : "<macro>",
                     _ => "<unknown>"
                 };
                 return $"!{definition.OwnerKind}:{ownerIdentity}:{definition.Ordinal}:{definition.Name}";
@@ -594,15 +594,15 @@ public static partial class SymbolExtensions
 
         }
 
-        if (symbol is IMacroFunctionSymbol macroFunctionSymbol)
+        if (symbol is IMacroDeclarationSymbol macroSymbol)
         {
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
-                !macroFunctionSymbol.TypeParameters.IsDefaultOrEmpty)
+                !macroSymbol.TypeParameters.IsDefaultOrEmpty)
             {
                 result.Append('<');
                 result.Append(string.Join(
                     ", ",
-                    macroFunctionSymbol.TypeParameters.Select(parameter =>
+                    macroSymbol.TypeParameters.Select(parameter =>
                         EscapeIdentifierIfNeeded(parameter.Name, format))));
                 result.Append('>');
             }
@@ -613,24 +613,24 @@ public static partial class SymbolExtensions
                 result.Append('(');
                 result.Append(string.Join(
                     ", ",
-                    macroFunctionSymbol.Parameters.Select(parameter => FormatParameter(parameter, format))));
+                    macroSymbol.Parameters.Select(parameter => FormatParameter(parameter, format))));
                 result.Append(')');
             }
 
-            if (macroFunctionSymbol.MacroKind == MacroKind.AttachedDeclaration)
+            if (macroSymbol.MacroKind == MacroKind.AttachedDeclaration)
             {
                 result.Append(" on ");
-                if (!string.Equals(macroFunctionSymbol.TargetName, "target", StringComparison.Ordinal))
+                if (!string.Equals(macroSymbol.TargetName, "target", StringComparison.Ordinal))
                 {
-                    result.Append(EscapeIdentifierIfNeeded(macroFunctionSymbol.TargetName ?? "target", format));
+                    result.Append(EscapeIdentifierIfNeeded(macroSymbol.TargetName ?? "target", format));
                     result.Append(": ");
                 }
-                result.Append(macroFunctionSymbol.Targets);
+                result.Append(macroSymbol.Targets);
             }
 
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
-                var returnDisplay = FormatType(macroFunctionSymbol.ReturnType, format);
+                var returnDisplay = FormatType(macroSymbol.ReturnType, format);
                 if (!string.IsNullOrEmpty(returnDisplay))
                 {
                     result.Append(" -> ");
@@ -1952,7 +1952,7 @@ public static partial class SymbolExtensions
             IMethodSymbol { MethodKind: MethodKind.StaticConstructor } => null,
             IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null,
             IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => null,
-            IMacroFunctionSymbol => "macro func",
+            IMacroDeclarationSymbol => "macro",
             IMethodSymbol => "func",
             _ => null
         };

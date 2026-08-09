@@ -115,7 +115,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
     {
-        return MacroFunctionDeclarationParser.IsMacroKeyword(token) ||
+        return MacroDeclarationParser.IsMacroKeyword(token) ||
             token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
             SyntaxKind.ConstKeyword or SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
@@ -188,9 +188,9 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             AddMemberDeclaration(memberDeclarations, namespaceDeclaration);
             order = MemberOrder.Members;
         }
-        else if (new MacroFunctionDeclarationParser(this).IsDeclarationStart())
+        else if (new MacroDeclarationParser(this).IsDeclarationStart())
         {
-            var macroDeclaration = new MacroFunctionDeclarationParser(this).Parse(
+            var macroDeclaration = new MacroDeclarationParser(this).Parse(
                 SyntaxList.Empty,
                 SyntaxList.Empty);
 
@@ -211,7 +211,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  (nextToken.IsKind(SyntaxKind.AsyncKeyword) &&
-                  new MacroFunctionDeclarationParser(this).IsDeclarationStartAfterModifiers()) ||
+                  new MacroDeclarationParser(this).IsDeclarationStartAfterModifiers()) ||
                  nextToken.IsKind(SyntaxKind.ExternKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken) ||
                  nextToken.IsKind(SyntaxKind.HashToken))
@@ -223,7 +223,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
-            var macroParser = new MacroFunctionDeclarationParser(this);
+            var macroParser = new MacroDeclarationParser(this);
             if (macroParser.IsDeclarationStart())
             {
                 var macroDeclaration = macroParser.Parse(attributeLists, modifiers);
@@ -517,8 +517,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             case FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration:
                 terminatorKind = fileScopedNamespaceDeclaration.TerminatorToken.Kind;
                 return true;
-            case MacroFunctionDeclarationSyntax macroFunctionDeclaration:
-                terminatorKind = macroFunctionDeclaration.TerminatorToken.Kind;
+            case MacroDeclarationSyntax macroDeclaration:
+                terminatorKind = macroDeclaration.TerminatorToken.Kind;
                 return true;
             default:
                 terminatorKind = SyntaxKind.None;

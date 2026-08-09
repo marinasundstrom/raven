@@ -4,11 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Simplified Raven-authored macro declarations to `macro Name(...)`, removing
+  the redundant `func` keyword. The compiler API now exposes
+  `MacroDeclarationSyntax`, `IMacroDeclarationSymbol`, and `SymbolKind.Macro`,
+  while semantic tokens classify macro names distinctly for editor clients.
+
 - Simplified Raven-authored macro control flow: `expand` now supplies the final
   expansion and returns from the current execution path, while `replace`,
   `introduce`, editor metadata, and reported diagnostics accumulate until an
   explicit expansion or body fall-through. All macro contexts now expose
-  ordinary diagnostic-reporting APIs, and attached macro functions can request
+  ordinary diagnostic-reporting APIs, and attached macro declarations can request
   a compiler-supplied `AttachedMacroContext` without adding an invocation
   argument.
 
@@ -233,7 +238,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   declaration spans let DSL-introduced locals navigate back to their authored
   token, without an HTML- or query-specific editor integration.
 
-- Added `fragment` and `token` contributions to token-tree `macro func`
+- Added `fragment` and `token` contributions to token-tree `macro`
   declarations, so Raven-authored DSL macros can publish ordinary Raven
   expression, statement, type, pattern, or member regions, typed locals, and
   token kind/classification metadata without separate provider classes.
@@ -569,7 +574,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   keeps inferred method symbols stable across cold queries, diagnostic queries,
   and workspace edits.
 - Constraint clauses that name undeclared type parameters now report `RAV0360`
-  for functions, methods, function expressions, and macro functions instead of
+  for functions, methods, function expressions, and macro declarations instead of
   being silently ignored.
 - Duplicate lexical bindings in the same scope now report `RAV0167` as binding
   errors. `RAV0168` remains a warning for intentional or accidental shadowing
@@ -652,7 +657,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Source fields model an absent or null constant value without violating their
   symbol contract. Failed type-resolution results without a detailed issue now
   produce the ordinary fallback diagnostic instead of throwing, and parser
-  recovery coverage now checks every incomplete prefix of a macro function with
+  recovery coverage now checks every incomplete prefix of a macro declaration with
   a match body.
 - Async lambda return-target and iterator signature recognition no longer
   assumes that every named type exposes an original definition or a complete
@@ -722,7 +727,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   after edits. Green-node replacement also preserves unchanged sibling
   identities instead of rebuilding the entire tree. Incremental parser tests
   compare exact syntax shape and diagnostics with an authoritative full parse,
-  including incomplete macro functions and repair edits.
+  including incomplete macro declarations and repair edits.
 - Raven's nullability and control-flow code actions are usable through the
   language server again: structured diagnostic arguments now survive the LSP
   round trip, null-identity guidance is registered by default, nullable-to-Option
@@ -732,15 +737,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and returned action counts for future editor-side diagnosis.
 - Match exhaustiveness quick fixes now add all missing arms in one
   deduplicated action for match statements and expressions, including matches
-  authored inside macro functions. Generated patterns follow the scrutinee:
+  authored inside macro declarations. Generated patterns follow the scrutinee:
   typed bindings for sealed classes and parenthesized unions, positional
   bindings for sealed records, target-typed cases for case-declared unions and
   enums, and literal patterns for finite literal cases.
-- Macro-function bodies now participate in primary semantic diagnostics like
+- Macro bodies now participate in primary semantic diagnostics like
   ordinary function bodies. Invalid local macros report against authored source
   immediately instead of waiting for the projected macro assembly, and project
   diagnostics no longer replace those errors with generated source positions.
-  A broken macro function no longer prevents valid sibling macros from compiling
+  A broken macro declaration no longer prevents valid sibling macros from compiling
   and expanding, and attached macro targets are modeled as implicit parameters
   for normal lookup and semantic tooling. Incremental recovery now preserves
   incomplete macro bodies, while language-service analysis retains the complete
@@ -809,14 +814,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `embedFileContent!` alias. It resolves paths relative to the invoking source
   file, embeds UTF-8 text as a string literal, diagnoses missing files, and
   invalidates cached expansions when observed files change or disappear.
-- Macro function declarations now appear in VS Code's document outline with a
+- Macro declarations now appear in VS Code's document outline with a
   distinct operator symbol, including local functions nested in their bodies.
 - The documentation build now publishes independent RavenDoc API sites for
   `Raven.Core` and `Raven.Macros` alongside the DocFX language site and browser
   Playground. Library documentation is prominent in the main navigation,
   compiler APIs are supporting tooling reference, and macro pages link to the
   compiler syntax-tree guide.
-- RavenDoc now renders namespace functions and `macro func` declarations on
+- RavenDoc now renders namespace functions and `macro` declarations on
   namespace pages. Namespace-function pages preserve the Raven-facing shape
   while identifying the emitted CLR container for consumers in other .NET
   languages.
@@ -824,14 +829,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `Raven.Macros` compiler-plugin assembly. Its aliases require
   `import Raven.Macros.*`, while canonical qualified names remain available.
 - Raven compiler-plugin projects marked with `RavenCompilerPlugin` can now emit
-  reusable `macro func` declarations, and compiler/MSBuild runtime dependency
+  reusable `macro` declarations, and compiler/MSBuild runtime dependency
   propagation follows actual emitted assembly references instead of scanning
   source for specific macro names.
 - Fixed a language-server hover regression that could recursively materialize
   metadata symbols while resolving qualified names. Metadata types now use a
   cached simple-name index, qualified namespace segments resolve from available
   semantic state, and cold consumer-local hovers recover correctly in files
-  partitioned for local macro functions.
+  partitioned for local macro declarations.
 - VS Code and the language server now treat a source file outside evaluated
   `.rvnproj` items as an isolated file-based application. Loose files no longer
   leak declarations into one another or nearby projects, standalone snapshots
@@ -856,37 +861,37 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   empty token-tree body, and freestanding macro samples now use this preferred
   form.
 - Fixed expanded-document commands for projects containing authored
-  `macro func` declarations. `rvn dev syntax --syntax-view expanded` and
+  `macro` declarations. `rvn dev syntax --syntax-view expanded` and
   `rvn dev macros` now resolve the workspace document's projected compilation
   tree, expand every sibling macro invocation, and preserve line breaks after
   multiline token-tree invocations.
-- Fixed language-server hover inside authored `macro func` declarations.
+- Fixed language-server hover inside authored `macro` declarations.
   Their signature semantic model now provides method-like body scopes, so
   parameter declarations, locals, references, member access, and invocations
   resolve without consulting the lowered macro implementation tree.
-- Made authored `macro func` declarations first-class incremental executable
+- Made authored `macro` declarations first-class incremental executable
   owners. Signature and body edits now invalidate their semantic state without
   discarding unrelated state, and language-service queries recover through
   malformed intermediate edits instead of reusing stale parameters or locals.
-- Prevented authored macro-function parameters and attached-target names from
+- Prevented authored macro parameters and attached-target names from
   colliding with compiler-generated adapter locals during local macro lowering.
-- Updated the Playground metaprogramming sample to use native macro functions
+- Updated the Playground metaprogramming sample to use native macro declarations
   with real `ExpressionSyntax` and `IMacroTokenStream` parameters, and made
   local macro partition emission work entirely in memory under WebAssembly.
-- Added type-directed `ExpressionSyntax` parameters to macro functions. They project
+- Added type-directed `ExpressionSyntax` parameters to macro declarations. They project
   authored invocation arguments as `ExpressionSyntax` and can be mixed with
   ordinary typed values, while semantic symbols and runtime parameter
   descriptors expose the shared `MacroParameterRole`.
-- Added native token-stream inputs to macro functions. An
+- Added native token-stream inputs to macro declarations. An
   `body: IMacroTokenStream` parameter selects token-tree invocation syntax and
   binds the raw body, while the remaining parameters continue
   to use the typed caller-supplied argument model.
-- Made `macro func` declarations executable as same-compilation argument-style
+- Made `macro` declarations executable as same-compilation argument-style
   and attached macros. Attached declarations use contextual `on Property` or
   `on property: Property` target clauses, and ordinary synchronous bodies can
   conditionally combine `expand`, `replace`, and `introduce` contribution
   statements. The compiler lowers them to isolated provider adapters and typed
-  parameter objects while preserving `IMacroFunctionSymbol` as their semantic
+  parameter objects while preserving `IMacroDeclarationSymbol` as their semantic
   identity.
 - Made the Playground own and serve its theme stylesheet directly so local
   development and standalone subpath deployments use the same asset URL.
@@ -968,11 +973,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and token-tree invocations. The semantic model now exposes normalized macro
   parameters and the active argument, and the language server presents that
   result including token-tree body shape.
-- Added the initial `macro func` declaration boundary at compilation-unit and
+- Added the initial `macro` declaration boundary at compilation-unit and
   namespace-member scope. It uses a dedicated
-  `MacroFunctionDeclarationSyntax`, treats `macro` contextually, and exposes a
-  distinct `IMacroFunctionSymbol` with macro-owned parameters, generic
-  parameters, constraints, and call-site return type. Macro functions do not
+  `MacroDeclarationSyntax`, treats `macro` contextually, and exposes a
+  distinct `IMacroDeclarationSymbol` with macro-owned parameters, generic
+  parameters, constraints, and call-site return type. Macro declarations do not
   implement `IMethodSymbol`, enter ordinary runtime method binding, or support
   `async`/`await`; semantic activation and lowering remain future work.
 - Added the compiler-owned expression-only `#quote { ... }` intrinsic. It

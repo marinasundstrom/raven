@@ -19,7 +19,7 @@
   },
   {
     "id": "local-macros",
-    "title": "Define and use macro functions",
+    "title": "Define and use macro declarations",
     "file": "local-macros.rvn",
     "category": "Metaprogramming"
   },

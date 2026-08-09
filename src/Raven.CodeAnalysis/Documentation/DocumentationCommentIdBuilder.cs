@@ -16,7 +16,7 @@ internal static class DocumentationCommentIdBuilder
             {
                 INamedTypeSymbol type => GetTypeMemberId(type),
                 IMethodSymbol method => GetMethodMemberId(method),
-                IMacroFunctionSymbol macroFunction => GetMacroFunctionMemberId(macroFunction),
+                IMacroDeclarationSymbol macro => GetMacroMemberId(macro),
                 IPropertySymbol property => GetPropertyMemberId(property),
                 IFieldSymbol field => GetFieldMemberId(field),
                 IEventSymbol @event => GetEventMemberId(@event),
@@ -58,25 +58,25 @@ internal static class DocumentationCommentIdBuilder
         return builder.ToString();
     }
 
-    public static string GetMacroFunctionMemberId(IMacroFunctionSymbol macroFunction)
+    public static string GetMacroMemberId(IMacroDeclarationSymbol macro)
     {
         var builder = new StringBuilder();
         builder.Append("M:");
 
-        if (macroFunction.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
+        if (macro.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
         {
             builder.Append(containingNamespace.ToMetadataName());
             builder.Append('.');
         }
 
-        builder.Append(GetMetadataName(macroFunction).Replace('.', '#'));
-        if (macroFunction.Arity > 0)
+        builder.Append(GetMetadataName(macro).Replace('.', '#'));
+        if (macro.Arity > 0)
         {
             builder.Append("``");
-            builder.Append(macroFunction.Arity);
+            builder.Append(macro.Arity);
         }
 
-        AppendParameterList(builder, macroFunction.Parameters);
+        AppendParameterList(builder, macro.Parameters);
         return builder.ToString();
     }
 
@@ -287,7 +287,7 @@ internal static class DocumentationCommentIdBuilder
             {
                 TypeParameterOwnerKind.Type => "`" + typeParameter.Ordinal,
                 TypeParameterOwnerKind.Method => "``" + typeParameter.Ordinal,
-                TypeParameterOwnerKind.MacroFunction => typeParameter.Name,
+                TypeParameterOwnerKind.Macro => typeParameter.Name,
                 _ => typeParameter.Name,
             };
 

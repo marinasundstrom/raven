@@ -26,8 +26,7 @@ public enum SymbolKind
     Error,
     ErrorType,
     TypeParameter,
-    Macro,
-    MacroFunction
+    Macro
 }
 
 /// <summary>
@@ -124,7 +123,7 @@ public interface ISymbol : IEquatable<ISymbol?>
     {
         INamespaceOrTypeSymbol => true,
         IMethodSymbol => true,
-        IMacroFunctionSymbol => true,
+        IMacroDeclarationSymbol => true,
         IEventSymbol => true,
         IPropertySymbol => true,
         IFieldSymbol => true,
@@ -334,13 +333,13 @@ public interface IMacroSymbol : ISymbol
 }
 
 /// <summary>
-/// Represents a Raven macro declared with <c>macro func</c>.
+/// Represents a Raven macro declared with <c>macro</c>.
 /// </summary>
 /// <remarks>
-/// A macro function has a function-shaped source signature, but it is not a
+/// A macro declaration has a callable-shaped source signature, but it is not a
 /// CLR method and does not implement <see cref="IMethodSymbol"/>.
 /// </remarks>
-public interface IMacroFunctionSymbol : IMacroSymbol
+public interface IMacroDeclarationSymbol : IMacroSymbol
 {
 
     /// <summary>
@@ -359,24 +358,24 @@ public interface IMacroFunctionSymbol : IMacroSymbol
     ITypeSymbol ReturnType { get; }
 
     /// <summary>
-    /// Gets the macro function parameters.
+    /// Gets the macro declaration parameters.
     /// </summary>
     ImmutableArray<IParameterSymbol> Parameters { get; }
 
     /// <summary>
-    /// Gets the macro function type parameters.
+    /// Gets the macro declaration type parameters.
     /// </summary>
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
 
     /// <summary>
-    /// Gets the generic arity of the macro function.
+    /// Gets the generic arity of the macro declaration.
     /// </summary>
     int Arity => TypeParameters.Length;
 
     /// <summary>
-    /// Gets whether this macro function is generic.
+    /// Gets whether this macro declaration is generic.
     /// </summary>
-    bool IsGenericMacroFunction => Arity > 0;
+    bool IsGenericMacro => Arity > 0;
 }
 
 public enum MethodKind
@@ -658,7 +657,7 @@ public enum TypeParameterOwnerKind
 {
     Type,
     Method,
-    MacroFunction
+    Macro
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
@@ -754,7 +753,7 @@ public interface ITypeParameterSymbol : ITypeSymbol
 
     IMethodSymbol? DeclaringMethodParameterOwner { get; }
 
-    IMacroFunctionSymbol? DeclaringMacroFunctionParameterOwner { get; }
+    IMacroDeclarationSymbol? DeclaringMacroParameterOwner { get; }
 
     TypeParameterConstraintKind ConstraintKind { get; }
 

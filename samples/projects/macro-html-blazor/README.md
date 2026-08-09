@@ -1,6 +1,6 @@
 # HTML-to-Blazor macro prototype
 
-For a progression from a minimal `macro func` to the provider and tooling
+For a progression from a minimal `macro` to the provider and tooling
 contracts used here, see the repository's
 [macro authoring guide](../../../docs/macro-authoring.md).
 

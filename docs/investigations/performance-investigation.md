@@ -56,7 +56,7 @@ representation inside compiler hot paths:
   before keeping a cache. Remove caches whose lookup and retention costs exceed
   the avoided work.
 
-The current macro-function adapter lowering is a representative candidate: it
+The current macro adapter lowering is a representative candidate: it
 copies the complete source, extracts substrings, builds replacement source, and
 reparses it. Structural lowering with an explicit authored-source map should
 eliminate those intermediate strings while improving diagnostic mapping.

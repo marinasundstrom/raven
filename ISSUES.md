@@ -96,9 +96,9 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
   member and preserve the line break after multiline token-tree invocations.
 - **Coverage:** The macro expanded-document suite covers multiple invocations
   in one function and multiline `name! { ... }` expansion; the VS Code command
-  shape was replayed against the `macro-functions` sample with source override.
+  shape was replayed against the `macro-declarations` sample with source override.
 
-### Macro function declaration hover
+### Macro declaration hover
 
 - **Fixed:** Authored macro syntax trees now use their signature compilation
   for semantic queries and have method-like binders for authored macro bodies.

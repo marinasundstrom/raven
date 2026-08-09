@@ -169,11 +169,11 @@ if true {
     }
 
     [Fact]
-    public void Outline_IncludesMacroFunctions_WithDistinctSymbolKind()
+    public void Outline_IncludesMacros_WithDistinctSymbolKind()
     {
         const string code = """
 namespace Tools {
-    macro func Quote(body: ExpressionSyntax) -> ExpressionSyntax {
+    macro Quote(body: ExpressionSyntax) -> ExpressionSyntax {
         func Preserve() -> ExpressionSyntax => body
         return Preserve()
     }

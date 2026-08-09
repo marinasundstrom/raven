@@ -56,7 +56,7 @@ surface needed to write the compiler:
 - Public semantic APIs agree with compiler diagnostics and the behavior used by
   lowering.
 - A broken declaration does not invalidate unrelated declarations. This
-  includes macro functions.
+  includes macro declarations.
 - Every accepted construct either binds and lowers according to a documented
   rule or produces a direct diagnostic.
 - The core type, conversion, overload-resolution, flow-analysis, and pattern
@@ -188,7 +188,7 @@ Fix behavior that could make the current compiler an unreliable reference:
 5. Definite assignment, nullability, control flow, and return analysis.
 6. Conversion and overload-resolution consistency.
 7. Pattern binding and exhaustiveness across every supported type family.
-8. Ordinary and macro-function declaration parity.
+8. Ordinary and macro declaration parity.
 9. Removal of reachable `NotImplementedException` and generic exception paths
    from syntax and semantic APIs.
 
@@ -281,7 +281,7 @@ to imply that every file must be rewritten before porting.
 | Overload resolution | `OverloadResolver.cs`, `Binder/BlockBinder.MemberAccess.cs` | Generic method groups, inference, ambiguity, and conversion ranking |
 | Pattern semantics | `BoundTree/BoundIsPatternExpression.cs`, pattern binding in `Binder/BlockBinder.cs`, `CodeGen/Generators/ExpressionGenerator.Patterns.cs` | Binding, flow, exhaustiveness, and lowering agreement |
 | Symbol contracts | `Symbols/Constructed/*`, `Symbols/Source/SourceModuleSymbol.cs`, `Symbols/PE/PEModuleSymbol.cs` | Reachable incomplete lookup and construction APIs; duplicated structural substitution across constructed wrappers |
-| Macro declarations | `Compilation.LocalMacros.cs`, macro-function declaration and binding paths | Signature/body isolation, diagnostics, and ordinary declaration parity |
+| Macro declarations | `Compilation.LocalMacros.cs`, macro declaration and binding paths | Signature/body isolation, diagnostics, and ordinary declaration parity |
 
 ### Incremental syntax diagnostics must remain equivalent
 
@@ -296,7 +296,7 @@ The workspace uses `WithChangedText`, so equivalence remains a correctness
 requirement even when an independent full-parse diagnostic lane could hide a
 compiler defect in the editor. Incremental syntax tests now compare exact tree
 shape and diagnostics with a full parse for representative valid, incomplete,
-repair, shifted-diagnostic, and macro-function edits. The matrix should expand
+repair, shifted-diagnostic, and macro edits. The matrix should expand
 alongside parser recovery coverage.
 
 ### Some malformed declarations can still throw
@@ -338,7 +338,7 @@ snapshot without retaining the previous target.
 
 ### Broad exception suppression can hide semantic differences
 
-Ordinary and macro functions now have focused coverage proving that a broken
+Ordinary and macro declarations now have focused coverage proving that a broken
 body retains its valid signature, does not invalidate a valid sibling, and
 confines body diagnostics to the broken declaration. The ordinary-function
 coverage includes an incremental workspace edit.
@@ -368,7 +368,7 @@ state of the associated `try` and `catch` clauses, while an abrupt `finally`
 makes the whole statement abrupt. Match flow evaluates exhaustiveness from
 already-bound match facts and stays conservative for missing coverage, guards,
 and completing arms. Focused tests cover these rules through public control-flow
-analysis, missing-return diagnostics, let-else validation, macro functions,
+analysis, missing-return diagnostics, let-else validation, macro declarations,
 and bodies that already contain binding errors.
 
 This is the first flow-semantics slice rather than a complete flow model.
@@ -513,7 +513,7 @@ inferred bound cannot rewrite a call-site type argument.
 
 Constraint clauses are declaration contracts rather than optional binder
 hints. A clause naming an undeclared type parameter reports `RAV0360` for
-namespace functions, type members, function expressions, and macro functions;
+namespace functions, type members, function expressions, and macro declarations;
 it is never silently discarded by whichever declaration path runs first.
 Metadata methods whose constraints refer to a containing type parameter are
 also covered at the constructed-symbol boundary. Both applicability and the
@@ -793,7 +793,7 @@ executable block binder; reaching the root now reports that invariant as an
 internal invalid operation. Ordinary top-level, namespace-level, and nested
 functions continue through block-owned declaration and body binding.
 
-### Macro functions need declaration parity
+### Macro declarations need declaration parity
 
 Recent work has improved local macro partitioning and isolation, but macro
 declarations still travel through specialized compilation and source-masking
@@ -905,7 +905,7 @@ a sibling method's declaration and call-site resolution, regardless of whether
 diagnostics or semantic queries force binding first. Diagnostics remain within
 the edited declaration instead of contaminating the containing type.
 
-Macro functions now carry that invariant through a workspace edit as well. An
+Macro declarations now carry that invariant through a workspace edit as well. An
 invalid match introduced into one macro body publishes its authored diagnostic,
 the macro invocation still resolves to the recognized declaration, and a valid
 sibling macro continues to expand. This is covered in both diagnostics-first

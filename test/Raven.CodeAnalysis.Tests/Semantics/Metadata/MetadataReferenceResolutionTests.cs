@@ -492,7 +492,7 @@ public union Choice {
     }
 
     [Fact]
-    public void ExternalDocumentationEmitter_EmitsMarkdownForMacroFunction()
+    public void ExternalDocumentationEmitter_EmitsMarkdownForMacro()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -502,7 +502,7 @@ namespace Example
 ///
 /// ## Parameters
 /// - `context`: The token tree context to expand.
-public macro func Expand(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+public macro Expand(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
     expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandQuote(context)
 }
 """,

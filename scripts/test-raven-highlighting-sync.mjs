@@ -126,6 +126,14 @@ for (const requiredScope of [
   }
 }
 
+const macroDeclarationRule = textMate.repository.keywords.patterns.find(rule =>
+  rule.name === 'meta.declaration.macro.raven')
+const macroDeclarationMatch = macroDeclarationRule &&
+  new RegExp(macroDeclarationRule.match).exec('macro Html<T>(context: T)')
+if (macroDeclarationMatch?.[1] !== 'macro' || macroDeclarationMatch[3] !== 'Html') {
+  throw new Error('TextMate grammar does not classify macro Name(...) declarations.')
+}
+
 if (!keywordRules.includes('entity.name.type.union-case.raven')) {
   throw new Error('TextMate grammar does not give union-case declarations a stable type scope.')
 }

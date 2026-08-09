@@ -1,7 +1,7 @@
-# Macro functions
+# Macro declarations
 
-This same-project sample demonstrates the function-oriented macro syntax. The
-compiler lowers `macro func Double` into the existing local provider contracts,
+This same-project sample demonstrates Raven's concise macro syntax. The
+compiler lowers `macro Double` into the existing local provider contracts,
 binds its ordinary `int` parameter, and evaluates the reached `expand`
 statement while compiling the invocation.
 
@@ -17,13 +17,13 @@ raw `{ ... }` invocation body. The provider class, typed parameter object, and
 `TokenTreeMacroContext.CreateTokenStream()` call remain lowering details.
 
 The generated provider class and parameter object are implementation details;
-the semantic model exposes both declarations as `IMacroFunctionSymbol`
+the semantic model exposes these declarations as `IMacroDeclarationSymbol`
 instances.
 
 Run it with:
 
 ```bash
-dotnet run --project MacroFunctions.rvnproj --property WarningLevel=0
+dotnet run --project MacroDeclarations.rvnproj --property WarningLevel=0
 ```
 
 Expected output:

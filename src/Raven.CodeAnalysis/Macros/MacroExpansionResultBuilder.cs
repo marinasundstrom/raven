@@ -6,12 +6,12 @@ using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Macros;
 
 /// <summary>
-/// Collects expansion contributions produced while a macro function executes.
+/// Collects expansion contributions produced while a macro declaration executes.
 /// </summary>
 /// <remarks>
 /// Contribution order follows execution order. Replacements supersede earlier
 /// replacements, while introduced members and editor metadata append in order.
-/// In source macro functions, <c>expand</c> finalizes the accumulated result and
+/// In source macro declarations, <c>expand</c> finalizes the accumulated result and
 /// returns it from the current execution path.
 /// </remarks>
 public sealed class MacroExpansionResultBuilder

@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// Implements low-level expansion mechanics used by the standard Raven macro library.
 /// </summary>
 /// <remarks>
-/// This is a transitional compiler-side implementation. As the Raven macro-function
+/// This is a transitional compiler-side implementation. As the Raven macro
 /// API gains the required file-observation and syntax-construction capabilities,
 /// this behavior should move wholly or partly into Raven.Macros.
 /// </remarks>

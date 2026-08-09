@@ -93,12 +93,12 @@ public sealed class MacroTokenInfoTests
     }
 
     [Fact]
-    public void MacroFunctionTokenContributions_ProjectThroughGeneratedAdapter()
+    public void MacroTokenContributions_ProjectThroughGeneratedAdapter()
     {
         const string code = """
             import Raven.CodeAnalysis.Macros.*
 
-            macro func Classified(tokens: IMacroTokenStream, context: TokenTreeMacroContext) {
+            macro Classified(tokens: IMacroTokenStream, context: TokenTreeMacroContext) {
                 let keyword = tokens.ReadToken()
                 token context.CreateTokenInfo(keyword, "DslKeyword", MacroTokenClassification.Keyword)
                 let identifier = tokens.ReadToken()
@@ -110,7 +110,7 @@ public sealed class MacroTokenInfoTests
             """;
         var authoredTree = SyntaxTree.ParseText(code, path: "main.rvn");
         var compilation = Compilation.Create(
-                "MacroFunctionTokens",
+                "MacroTokens",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddSyntaxTreesWithLocalMacros(authoredTree);

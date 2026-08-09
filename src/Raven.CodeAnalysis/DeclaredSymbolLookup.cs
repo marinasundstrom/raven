@@ -334,16 +334,16 @@ internal sealed class DeclaredSymbolLookup
             return symbol is not null;
         }
 
-        if (parameterSyntax.Parent?.Parent is MacroFunctionDeclarationSyntax macroFunctionDeclaration)
+        if (parameterSyntax.Parent?.Parent is MacroDeclarationSyntax macroDeclaration)
         {
-            var macroFunction = TryLookupKnownDeclaredSymbolFast(macroFunctionDeclaration, out var macroFunctionSymbol)
-                ? macroFunctionSymbol as IMacroFunctionSymbol
-                : _semanticModel.GetDeclaredSymbol(macroFunctionDeclaration) as IMacroFunctionSymbol;
+            var macro = TryLookupKnownDeclaredSymbolFast(macroDeclaration, out var macroSymbol)
+                ? macroSymbol as IMacroDeclarationSymbol
+                : _semanticModel.GetDeclaredSymbol(macroDeclaration) as IMacroDeclarationSymbol;
 
-            if (macroFunction is null)
+            if (macro is null)
                 return false;
 
-            symbol = macroFunction.Parameters.FirstOrDefault(parameter =>
+            symbol = macro.Parameters.FirstOrDefault(parameter =>
                 SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
             return symbol is not null;
         }
@@ -386,10 +386,10 @@ internal sealed class DeclaredSymbolLookup
                 symbol = functionSymbol;
                 return true;
 
-            case MacroFunctionDeclarationSyntax macroFunctionDeclaration when
-                _semanticModel.TryGetMacroFunctionSymbol(macroFunctionDeclaration, out var macroFunctionSymbol) &&
-                IsCurrentDeclarationSymbol(macroFunctionDeclaration, macroFunctionSymbol):
-                symbol = macroFunctionSymbol;
+            case MacroDeclarationSyntax macroDeclaration when
+                _semanticModel.TryGetMacroSymbol(macroDeclaration, out var macroSymbol) &&
+                IsCurrentDeclarationSymbol(macroDeclaration, macroSymbol):
+                symbol = macroSymbol;
                 return true;
 
             case PropertyDeclarationSyntax propertyDeclaration when

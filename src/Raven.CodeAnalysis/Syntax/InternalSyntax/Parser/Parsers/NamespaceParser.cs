@@ -149,7 +149,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
     {
         static bool IsLikelyNamespaceMemberStart(SyntaxToken token)
         {
-            return MacroFunctionDeclarationParser.IsMacroKeyword(token) ||
+            return MacroDeclarationParser.IsMacroKeyword(token) ||
                 token.Kind is
                 SyntaxKind.ImportKeyword or
                 SyntaxKind.AliasKeyword or
@@ -229,8 +229,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 case FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration:
                     terminatorKind = fileScopedNamespaceDeclaration.TerminatorToken.Kind;
                     return true;
-                case MacroFunctionDeclarationSyntax macroFunctionDeclaration:
-                    terminatorKind = macroFunctionDeclaration.TerminatorToken.Kind;
+                case MacroDeclarationSyntax macroDeclaration:
+                    terminatorKind = macroDeclaration.TerminatorToken.Kind;
                     return true;
                 default:
                     terminatorKind = SyntaxKind.None;
@@ -288,9 +288,9 @@ internal class NamespaceDeclarationParser : SyntaxParser
             AddMemberDeclarationWithSeparatorValidation(namespaceDeclaration);
             order = MemberOrder.Members;
         }
-        else if (new MacroFunctionDeclarationParser(this).IsDeclarationStart())
+        else if (new MacroDeclarationParser(this).IsDeclarationStart())
         {
-            var macroDeclaration = new MacroFunctionDeclarationParser(this).Parse(
+            var macroDeclaration = new MacroDeclarationParser(this).Parse(
                 SyntaxList.Empty,
                 SyntaxList.Empty);
 
@@ -310,7 +310,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  (nextToken.IsKind(SyntaxKind.AsyncKeyword) &&
-                  new MacroFunctionDeclarationParser(this).IsDeclarationStartAfterModifiers()) ||
+                  new MacroDeclarationParser(this).IsDeclarationStartAfterModifiers()) ||
                  nextToken.IsKind(SyntaxKind.ExternKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken) ||
                  nextToken.IsKind(SyntaxKind.HashToken))
@@ -322,7 +322,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             var tokenAfterModifiers = PeekToken();
 
-            var macroParser = new MacroFunctionDeclarationParser(this);
+            var macroParser = new MacroDeclarationParser(this);
             if (macroParser.IsDeclarationStart())
             {
                 var macroDeclaration = macroParser.Parse(attributeLists, modifiers);

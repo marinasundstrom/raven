@@ -1,12 +1,12 @@
 namespace Raven.CodeAnalysis.Macros;
 
 /// <summary>
-/// Identifies how a macro function parameter is supplied.
+/// Identifies how a macro declaration parameter is supplied.
 /// </summary>
 public enum MacroParameterRole
 {
     /// <summary>
-    /// The parameter does not belong to a macro function.
+    /// The parameter does not belong to a macro declaration.
     /// </summary>
     None = 0,
 

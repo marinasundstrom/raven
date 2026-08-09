@@ -114,11 +114,11 @@ public static class DocumentationGenerator
             .SelectMany(tree =>
             {
                 var semanticModel = compilation.GetSemanticModel(tree);
-                var macroFunctions = tree.GetRoot()
+                var macros = tree.GetRoot()
                     .DescendantNodesAndSelf()
-                    .OfType<MacroFunctionDeclarationSyntax>()
+                    .OfType<MacroDeclarationSyntax>()
                     .Select(semanticModel.GetDeclaredSymbol)
-                    .OfType<IMacroFunctionSymbol>()
+                    .OfType<IMacroDeclarationSymbol>()
                     .Cast<ISymbol>();
                 var namespaceFunctions = tree.GetRoot()
                     .DescendantNodesAndSelf()
@@ -128,7 +128,7 @@ public static class DocumentationGenerator
                     .Select(semanticModel.GetDeclaredSymbol)
                     .OfType<IMethodSymbol>()
                     .Cast<ISymbol>();
-                return macroFunctions.Concat(namespaceFunctions);
+                return macros.Concat(namespaceFunctions);
             })
             .Distinct(SymbolEqualityComparer.Default)
             .ToArray();
@@ -430,7 +430,7 @@ public static class DocumentationGenerator
         if (member is IFieldSymbol fs)
             return $"field:{fs.Name}";
 
-        if (member is IMacroFunctionSymbol macro)
+        if (member is IMacroDeclarationSymbol macro)
             return $"macro:{macro.Name}";
 
         return $"{member.Kind}:{member.Name}";
@@ -665,7 +665,7 @@ public static class DocumentationGenerator
             INamespaceSymbol => MemberSectionKind.Namespaces,
             ITypeSymbol => MemberSectionKind.Types,
             IMethodSymbol => MemberSectionKind.Functions,
-            IMacroFunctionSymbol => MemberSectionKind.Macros,
+            IMacroDeclarationSymbol => MemberSectionKind.Macros,
             _ => MemberSectionKind.Other
         };
     }
@@ -967,7 +967,7 @@ public static class DocumentationGenerator
         {
             INamespaceSymbol => RavenDocSymbolKind.Namespace,
             ITypeSymbol => RavenDocSymbolKind.Type,
-            IMacroFunctionSymbol => RavenDocSymbolKind.Macro,
+            IMacroDeclarationSymbol => RavenDocSymbolKind.Macro,
             IMethodSymbol method when IsOperatorLike(method) => RavenDocSymbolKind.Operator,
             IMethodSymbol => RavenDocSymbolKind.Function,
             IPropertySymbol => RavenDocSymbolKind.Property,
@@ -982,7 +982,7 @@ public static class DocumentationGenerator
         return symbol switch
         {
             INamespaceSymbol => "Namespace",
-            IMacroFunctionSymbol => "Macro",
+            IMacroDeclarationSymbol => "Macro",
             IMethodSymbol method when IsOperatorLike(method) => "Operator",
             IMethodSymbol { MethodKind: MethodKind.Constructor } => "Constructor",
             IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Namespace function",
@@ -1233,7 +1233,7 @@ public static class DocumentationGenerator
             INamespaceSymbol ns => ns.IsGlobalNamespace ? "" : $"N:{GetNamespaceFullName(ns)}",
             ITypeSymbol ts => $"T:{GetTypeDocName(ts)}",
             IMethodSymbol ms => $"M:{GetMethodDocName(ms)}",
-            IMacroFunctionSymbol macro => $"M:{GetMacroFunctionDocName(macro)}",
+            IMacroDeclarationSymbol macro => $"M:{GetMacroDocName(macro)}",
             IPropertySymbol ps => $"P:{GetPropertyDocName(ps)}",
             IFieldSymbol fs => $"F:{GetFieldDocName(fs)}",
             IEventSymbol es => $"E:{GetEventDocName(es)}",
@@ -1325,7 +1325,7 @@ public static class DocumentationGenerator
         return sb.ToString();
     }
 
-    private static string GetMacroFunctionDocName(IMacroFunctionSymbol macro)
+    private static string GetMacroDocName(IMacroDeclarationSymbol macro)
     {
         var sb = new StringBuilder();
         if (macro.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
@@ -1744,7 +1744,7 @@ public static class DocumentationGenerator
         {
             INamedTypeSymbol type => type.TypeParameters,
             IMethodSymbol method => method.TypeParameters,
-            IMacroFunctionSymbol macro => macro.TypeParameters,
+            IMacroDeclarationSymbol macro => macro.TypeParameters,
             _ => []
         };
 

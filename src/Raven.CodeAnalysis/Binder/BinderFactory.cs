@@ -39,7 +39,7 @@ class BinderFactory
             LoopStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             ForStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             FunctionStatementSyntax localFunc => new FunctionBinder(parentBinder!, localFunc),
-            MacroFunctionDeclarationSyntax macroFunction => new MacroFunctionBinder(parentBinder!, macroFunction),
+            MacroDeclarationSyntax macro => new MacroBinder(parentBinder!, macro),
             // Type declaration binders are created and cached by SemanticModel
             ClassDeclarationSyntax => parentBinder,
             RecordDeclarationSyntax => parentBinder,
@@ -113,8 +113,8 @@ class BinderFactory
 
     private Binder? CreateBlockBinder(Binder? parentBinder)
     {
-        if (parentBinder is MacroFunctionBinder macroFunctionBinder)
-            return new MacroFunctionBodyBinder(macroFunctionBinder.GetMacroFunctionSymbol(), parentBinder);
+        if (parentBinder is MacroBinder macroBinder)
+            return new MacroBodyBinder(macroBinder.GetMacroSymbol(), parentBinder);
 
         // A block directly under a method requires a MethodBodyBinder so the method body
         // can bind parameters and local declarations. Nested blocks use a forwarding

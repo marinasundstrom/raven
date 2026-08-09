@@ -21,6 +21,6 @@ namespace Raven.Macros
 /// }
 /// ```
 [Raven.CodeAnalysis.Macros.MacroAlias("quote")]
-public macro func Quote(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+public macro Quote(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
     expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandQuote(context)
 }

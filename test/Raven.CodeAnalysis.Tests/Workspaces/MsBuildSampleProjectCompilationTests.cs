@@ -53,15 +53,15 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
-    public void MacroFunctionsSample_RunsThroughDotnetBuild()
+    public void MacroDeclarationsSample_RunsThroughDotnetBuild()
     {
         var repoRoot = GetRepositoryRoot();
         var projectPath = Path.Combine(
             repoRoot,
             "samples",
             "projects",
-            "macro-functions",
-            "MacroFunctions.rvnproj");
+            "macro-declarations",
+            "MacroDeclarations.rvnproj");
         var result = RunProcess(
             "dotnet",
             $"run --project \"{projectPath}\" --property WarningLevel=0",

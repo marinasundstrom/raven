@@ -27,7 +27,7 @@ public class ParserTokenInsertionFuzzTests
         }
         """,
         """
-        macro func Inspect(expression: ExpressionSyntax) {
+        macro Inspect(expression: ExpressionSyntax) {
             match expression {
                 IdentifierNameSyntax => {}
                 > 0 => {}
@@ -106,10 +106,10 @@ public class ParserTokenInsertionFuzzTests
     }
 
     [Fact]
-    public void EveryMacroFunctionDeclarationPrefix_DoesNotHangOrThrow()
+    public void EveryMacroDeclarationPrefix_DoesNotHangOrThrow()
     {
         const string source = """
-macro func Inspect(expression: ExpressionSyntax) {
+macro Inspect(expression: ExpressionSyntax) {
     match expression {
         IdentifierNameSyntax identifier => identifier
         LiteralExpressionSyntax literal => literal
@@ -131,7 +131,7 @@ macro func Inspect(expression: ExpressionSyntax) {
 
         Assert.True(
             parseTask.Wait(TimeSpan.FromSeconds(5)),
-            "Parser timed out while recovering an incomplete macro function declaration.");
+            "Parser timed out while recovering an incomplete macro declaration.");
         parseTask.GetAwaiter().GetResult();
     }
 

@@ -133,7 +133,7 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroFunctionLibrary_EmitsReusableCompilerPlugin()
+    public void MacroLibrary_EmitsReusableCompilerPlugin()
     {
         var manifestTree = SyntaxTree.ParseText(
             """
@@ -147,7 +147,7 @@ public sealed class MacroReferenceTests
             namespace Example.Macros
 
             [Raven.CodeAnalysis.Macros.MacroAlias("answer")]
-            public macro func Answer(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+            public macro Answer(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
                 expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromExpression(
                     Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
             }
@@ -167,7 +167,7 @@ public sealed class MacroReferenceTests
 
         var macroReference = MacroReference.CreateFromImage(
             image.ToArray(),
-            display: "Raven macro function library");
+            display: "Raven macro declaration library");
         var macro = Assert.Single(macroReference.Macros);
         Assert.Equal("Example.Macros", macro.Namespace);
         Assert.Equal("Answer", macro.Name);

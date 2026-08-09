@@ -92,7 +92,7 @@ internal abstract class ParseContext
 
     public virtual bool IsInBlock => BlockDepth > 0;
 
-    public virtual bool IsInMacroFunction => Parent?.IsInMacroFunction ?? false;
+    public virtual bool IsInMacro => Parent?.IsInMacro ?? false;
 
     public ParseContext? Parent { get; protected set; }
 

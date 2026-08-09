@@ -352,7 +352,7 @@ func inspect(expression: ExpressionSyntax) {
         const string code = """
 import Raven.CodeAnalysis.Syntax.*
 
-macro func inspect(expression: ExpressionSyntax) {
+macro inspect(expression: ExpressionSyntax) {
     match expression {
     }
     expand SyntaxFactory.ParseExpression("0")

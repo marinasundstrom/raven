@@ -21,6 +21,6 @@ namespace Raven.Macros
 /// }
 /// ```
 [Raven.CodeAnalysis.Macros.MacroAlias("compile")]
-public macro func Compile(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+public macro Compile(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
     expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandCompile(context)
 }

@@ -75,7 +75,7 @@ public partial class Compilation
         }
 
         var loweredMacroTrees = macroTreesToCompile
-            .Select(tree => MacroFunctionLowering.Lower(
+            .Select(tree => MacroLowering.Lower(
                 tree,
                 macroImplementationCompilation.GetSemanticModel(tree)))
             .ToArray();
@@ -106,24 +106,24 @@ public partial class Compilation
         return reference;
     }
 
-    internal bool TryResolveLocalMacroFunctionSymbol(
+    internal bool TryResolveLocalMacroDeclarationSymbol(
         SyntaxNode context,
         string macroName,
-        out IMacroFunctionSymbol symbol,
+        out IMacroDeclarationSymbol symbol,
         out bool isAmbiguous)
     {
         EnsureSetup();
 
         var normalizedName = macroName.Replace("::", ".", StringComparison.Ordinal);
-        var matches = new List<IMacroFunctionSymbol>(2);
+        var matches = new List<IMacroDeclarationSymbol>(2);
         foreach (var tree in _macroSyntaxTrees)
         {
             var semanticModel = GetSemanticModel(tree);
             foreach (var declaration in tree.GetRoot()
                          .DescendantNodes()
-                         .OfType<MacroFunctionDeclarationSyntax>())
+                         .OfType<MacroDeclarationSyntax>())
             {
-                if (semanticModel.GetDeclaredSymbol(declaration) is not IMacroFunctionSymbol candidate)
+                if (semanticModel.GetDeclaredSymbol(declaration) is not IMacroDeclarationSymbol candidate)
                     continue;
 
                 var isMatch = MacroRegistry.IsQualifiedName(macroName)
@@ -134,7 +134,7 @@ public partial class Compilation
                           MacroRegistry.GetNamespace(candidate.CanonicalName)) &&
                       (string.Equals(candidate.Name, macroName, StringComparison.Ordinal) ||
                        string.Equals(
-                           MacroFunctionLowering.GetMacroAlias(declaration),
+                           MacroLowering.GetMacroAlias(declaration),
                            macroName,
                            StringComparison.Ordinal));
                 if (!isMatch)
@@ -182,7 +182,7 @@ public partial class Compilation
 
             var declaration = syntaxTree.GetRoot()
                 .DescendantNodes()
-                .OfType<MacroFunctionDeclarationSyntax>()
+                .OfType<MacroDeclarationSyntax>()
                 .FirstOrDefault(candidate =>
                     candidate.FullSpan.Contains(diagnostic.Location.SourceSpan));
             if (declaration is null)
@@ -203,7 +203,7 @@ public partial class Compilation
         var validDeclarationCount = _macroSyntaxTrees
             .SelectMany(static tree => tree.GetRoot()
                 .DescendantNodes()
-                .OfType<MacroFunctionDeclarationSyntax>())
+                .OfType<MacroDeclarationSyntax>())
             .Count(declaration =>
                 !invalidDeclarations.TryGetValue(declaration.SyntaxTree, out var spans) ||
                 !spans.Contains(declaration.FullSpan));

@@ -1208,13 +1208,13 @@
     Title="'params' requires a collection type"
     Message="Parameter '{parameterName}' uses 'params' and must declare a collection type."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0925" Identifier="MacroFunctionCannotBeAsync"
-    Title="Macro functions are synchronous"
-    Message="Macro function '{macroName}' cannot be declared 'async'; macro expansion is synchronous."
+  <Descriptor Id="RAV0925" Identifier="MacroCannotBeAsync"
+    Title="Macro declarations are synchronous"
+    Message="Macro declaration '{macroName}' cannot be declared 'async'; macro expansion is synchronous."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0926" Identifier="AwaitNotSupportedInMacroFunction"
-    Title="Macro functions do not support await"
-    Message="'await' is not supported in a macro function; macro expansion is synchronous."
+  <Descriptor Id="RAV0926" Identifier="AwaitNotSupportedInMacro"
+    Title="Macro declarations do not support await"
+    Message="'await' is not supported in a macro declaration; macro expansion is synchronous."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0927" Identifier="UnknownMacroTarget"
     Title="Unknown macro target"
@@ -1222,7 +1222,7 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0928" Identifier="InvalidMacroContribution"
     Title="Invalid macro contribution"
-    Message="'{instruction}' cannot be used in a {macroKind} macro function."
+    Message="'{instruction}' cannot be used in a {macroKind} macro declaration."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0929" Identifier="MacroTokenStreamParameterCannotHaveDefault"
     Title="Token-stream macro parameters are compiler supplied"
@@ -1230,11 +1230,11 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0930" Identifier="MacroTokenStreamCannotBeAttached"
     Title="Token-stream macros are freestanding"
-    Message="Macro function '{macroName}' cannot combine an attached target with an IMacroTokenStream parameter."
+    Message="Macro declaration '{macroName}' cannot combine an attached target with an IMacroTokenStream parameter."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0931" Identifier="MultipleMacroTokenStreamParameters"
     Title="Only one token-stream parameter is allowed"
-    Message="Macro function '{macroName}' cannot declare more than one IMacroTokenStream parameter."
+    Message="Macro declaration '{macroName}' cannot declare more than one IMacroTokenStream parameter."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0932" Identifier="ExpressionSyntaxMacroParameterCannotHaveDefault"
     Title="ExpressionSyntax macro parameters project invocation syntax"
@@ -1242,6 +1242,10 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0933" Identifier="MacroContextParameterKindMismatch"
     Title="Macro context does not match macro kind"
-    Message="Macro context parameter '{parameterName}' of type '{contextType}' can only be used by a {requiredMacroKind} macro function."
+    Message="Macro context parameter '{parameterName}' of type '{contextType}' can only be used by a {requiredMacroKind} macro declaration."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0934" Identifier="MacroAlreadyDefined"
+    Title="Macro already defined"
+    Message="A macro named '{name}' is already defined with the same parameter types."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

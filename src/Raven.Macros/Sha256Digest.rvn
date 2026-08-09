@@ -20,7 +20,7 @@ namespace Raven.Macros
 /// let digest = sha256Digest!("hello")
 /// ```
 [Raven.CodeAnalysis.Macros.MacroAlias("sha256Digest")]
-public macro func Sha256Digest(
+public macro Sha256Digest(
     value: Raven.CodeAnalysis.Syntax.ExpressionSyntax,
     context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
 ) {

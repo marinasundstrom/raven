@@ -62,7 +62,7 @@ authoring layer was added.
 
 Retained DSL structure, custom editor providers, and additional syntax
 categories remain post-MVP layers. The first dedicated declaration syntax,
-`macro func`, now lowers to the object-oriented contracts rather than replacing
+`macro`, now lowers to the object-oriented contracts rather than replacing
 them.
 
 A compiler-backed compile-and-load macro is also post-MVP work. The compiler
@@ -82,8 +82,8 @@ Macro activation has two origins but one result:
 
 Both paths produce the same active `MacroReference` registry consumed by
 binding and expansion. The registry does not branch on origin. The
-function-oriented source layer represents `macro func` declarations with
-`IMacroFunctionSymbol` and `SymbolKind.MacroFunction`; this symbol is distinct
+function-oriented source layer represents `macro` declarations with
+`IMacroDeclarationSymbol` and `SymbolKind.Macro`; this symbol is distinct
 from both `IMethodSymbol` and the object-oriented provider instance held by the
 registry. Projecting an active provider back to a common macro symbol remains a
 later tooling layer and was not required for the infrastructure MVP.
@@ -192,7 +192,7 @@ state is carried across that boundary by this contract.
 These are dependency-ordered predictions, not promises. Each slice should be
 accepted only when the preceding use case demonstrates its value.
 
-1. **Project tooling contributions from `macro func` (implemented).** The
+1. **Project tooling contributions from `macro` (implemented).** The
    `fragment` and `token` contributions publish fragment kind/span pairs,
    typed fragment locals, stable token kind names, and lightweight token
    classifications through the ordinary expansion result. Common macros do not
@@ -255,15 +255,15 @@ integration are intentionally absent. They can be reconsidered after slices 2
 through 6 provide evidence that spans, token semantics, and narrow capability
 providers are insufficient.
 
-## Active slice: function-oriented macro declarations
+## Active slice: concise macro declarations
 
 Status: **initial executable slice implemented and validated**
 
-`macro func` is the source-level authoring layer over the stable provider
+`macro` is the source-level authoring layer over the stable provider
 contracts:
 
 * [x] dedicated compilation-unit and namespace-member syntax
-* [x] `IMacroFunctionSymbol` semantic identity, parameters, generic parameters,
+* [x] `IMacroDeclarationSymbol` semantic identity, parameters, generic parameters,
   constraints, target information, and semantic classification
 * [x] same-compilation lowering for non-generic compilation-unit declarations
 * [x] argument-style, attached, `ExpressionSyntax`, and `IMacroTokenStream`
@@ -287,8 +287,8 @@ Validation record for this slice:
 
 * `scripts/test-feature-suite.sh macros`: 89 passed
 * `scripts/test-feature-suite.sh macros --runtime`: 17 passed
-* focused macro-function parser and symbol tests: 19 passed
-* `macro-functions` project build and runtime output: `42`, `42`, `6`
+* focused macro parser and symbol tests: 19 passed
+* `macro-declarations` project build and runtime output: `42`, `42`, `6`
 
 ## Active slice: macro invocation completion
 
@@ -697,7 +697,7 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
 * [x] permit zero-width expected regions for incomplete-code completion
 * [x] resolve the optional provider through `SemanticModel` and `Compilation`
 * [x] isolate optional tooling-provider failures from other semantic queries
-* [x] project fragment-region contributions from `macro func` syntax
+* [x] project fragment-region contributions from `macro` syntax
 * [x] route ordinary Raven completion inside reported fragment regions using
   the invocation's caller scope
 * [x] describe explicitly typed fragment locals, including query-introduced
@@ -749,7 +749,7 @@ absolute authored span, and an optional `MacroTokenClassification`.
 * [x] normalize optional metadata failures per token without losing the stream
 * [x] cache token and fragment-region results in the owning semantic model
 * [x] consume available macro token classifications in semantic highlighting
-* [x] project token kind and classification metadata from `macro func` syntax
+* [x] project token kind and classification metadata from `macro` syntax
 
 The classifier sees the same stream tokens used by expansion. It labels tokens;
 it does not publish the macro's parser nodes or alter ordinary Raven lexing.
@@ -952,15 +952,15 @@ semantic return type, an optional target clause, and body contributions to
 describe the macro:
 
 ```raven
-macro func Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
+macro Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
     // ...
 }
 
-macro func Query(body: IMacroTokenStream) -> ExpressionSyntax {
+macro Query(body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
-macro func AddEquatable() on Type {
+macro AddEquatable() on Type {
     introduce CreateEqualityMembers(target)
 }
 ```
@@ -970,7 +970,7 @@ keeping the new keyword surface narrow. This is defined as source-level
 lowering over the shared dynamic and typed macro infrastructure. The compiler
 currently synthesizes the corresponding parameter-object class,
 category-specific adapter, and `Expand` method, but these generated types are
-not the semantic identity of the macro function and are not a compatibility
+not the semantic identity of the macro declaration and are not a compatibility
 constraint. Local declarations enter the compile-time partition without
 assembly export metadata. Only an explicitly exported declaration in a
 provider assembly synthesizes provider manifest metadata.
@@ -984,7 +984,7 @@ must cover attached, argument-style, and token-tree macros without
 reintroducing a separate `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).
 
-Macro-function binding classifies ordinary-looking parameters by
+Macro binding classifies ordinary-looking parameters by
 `MacroParameterRole`. Value parameters populate the generated typed parameter
 object normally. `ExpressionSyntax` parameters retain that real compiler API
 type and receive the caller's authored node. A single
@@ -995,7 +995,7 @@ selects token-tree invocation syntax.
 The future strongly typed layer also includes symbolic generic arguments.
 Explicit macro type arguments bind to `ITypeSymbol` values, participate in
 constraint validation before expansion, and remain distinct from CLR generic
-parameters on the provider implementation. A macro function may eventually
+parameters on the provider implementation. A macro declaration may eventually
 declare a call-site semantic result type, while its implementation supplies
 syntax that the compiler binds and verifies against that result. Generic
 inference and overload resolution remain later layers.

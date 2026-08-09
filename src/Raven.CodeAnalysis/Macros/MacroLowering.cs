@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-internal static class MacroFunctionLowering
+internal static class MacroLowering
 {
     public static SyntaxTree Lower(
         SyntaxTree syntaxTree,
@@ -13,7 +13,7 @@ internal static class MacroFunctionLowering
     {
         var declarations = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<MacroFunctionDeclarationSyntax>()
+            .OfType<MacroDeclarationSyntax>()
             .OrderByDescending(static declaration => declaration.Span.Start)
             .ToArray();
         if (declarations.Length == 0)
@@ -37,14 +37,14 @@ internal static class MacroFunctionLowering
 
     private static string LowerDeclaration(
         string source,
-        MacroFunctionDeclarationSyntax declaration,
+        MacroDeclarationSyntax declaration,
         SemanticModel semanticModel)
     {
         var suffix = declaration.Span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var providerName = $"__RavenMacroFunction_{declaration.Identifier.ValueText}_{suffix}";
+        var providerName = $"__RavenMacro_{declaration.Identifier.ValueText}_{suffix}";
         var parametersName = $"{providerName}_Parameters";
         var isAttached = declaration.TargetClause is not null;
-        var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroFunctionSymbol;
+        var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroDeclarationSymbol;
         var parameters = declaration.ParameterList.Parameters
             .Select((syntax, index) => (
                 Syntax: syntax,
@@ -248,7 +248,7 @@ internal static class MacroFunctionLowering
     private static void AppendLoweredBody(
         StringBuilder builder,
         string source,
-        MacroFunctionDeclarationSyntax declaration,
+        MacroDeclarationSyntax declaration,
         string resultBuilderName,
         string buildMethod)
     {
@@ -320,11 +320,11 @@ internal static class MacroFunctionLowering
         return candidate;
     }
 
-    private static bool EndsWithExpand(MacroFunctionDeclarationSyntax declaration)
+    private static bool EndsWithExpand(MacroDeclarationSyntax declaration)
         => declaration.Body?.Statements.LastOrDefault() is MacroExpansionStatementSyntax statement &&
            statement.Keyword.ValueText == "expand";
 
-    internal static string? GetMacroAlias(MacroFunctionDeclarationSyntax declaration)
+    internal static string? GetMacroAlias(MacroDeclarationSyntax declaration)
     {
         foreach (var attribute in declaration.AttributeLists.SelectMany(static list => list.Attributes))
         {
@@ -350,7 +350,7 @@ internal static class MacroFunctionLowering
         return null;
     }
 
-    private static string GetDeclaredNamespace(MacroFunctionDeclarationSyntax declaration)
+    private static string GetDeclaredNamespace(MacroDeclarationSyntax declaration)
         => string.Join(
             ".",
             declaration.Ancestors()
