@@ -12,16 +12,6 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public class PersistenceService
 {
-    public virtual Solution OpenSolution(string filePath, Workspace workspace)
-    {
-        if (workspace is RavenWorkspace raven)
-            return SolutionFile.Open(filePath, raven);
-        throw new NotSupportedException("Solution persistence requires a RavenWorkspace.");
-    }
-
-    public virtual void SaveSolution(Solution solution, string filePath)
-        => SolutionFile.Save(solution, filePath);
-
     public virtual ProjectId OpenProject(Workspace workspace, string projectFilePath)
     {
         if (workspace.Services.ProjectSystemService is { } projectSystemService)

@@ -8,21 +8,6 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public static class PersistenceExtensions
 {
-    public static void OpenSolution(this Workspace workspace, string filePath)
-    {
-        var service = workspace.Services.PersistenceService
-            ?? throw new NotSupportedException("Persistence service is not available.");
-        var solution = service.OpenSolution(filePath, workspace);
-        workspace.OpenSolution(solution);
-    }
-
-    public static void SaveSolution(this Workspace workspace, string filePath)
-    {
-        var service = workspace.Services.PersistenceService
-            ?? throw new NotSupportedException("Persistence service is not available.");
-        service.SaveSolution(workspace.CurrentSolution, filePath);
-    }
-
     public static ProjectId OpenProject(this Workspace workspace, string projectFilePath)
     {
         var service = workspace.Services.PersistenceService
@@ -56,4 +41,3 @@ public static class PersistenceExtensions
         return service.EnableFileWatching(raven);
     }
 }
-

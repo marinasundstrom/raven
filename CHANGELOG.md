@@ -28,6 +28,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   analyzer-option, compiler-output, and file-watcher fixtures to SDK-style
   `.rvnproj` files, and removed obsolete custom-solution persistence coverage.
 
+- Removed the custom `ProjectFile` and `SolutionFile` XML serializers and the
+  obsolete file-path solution persistence APIs. Project loading and saving now
+  remain entirely on the MSBuild-backed `.rvnproj` path.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no

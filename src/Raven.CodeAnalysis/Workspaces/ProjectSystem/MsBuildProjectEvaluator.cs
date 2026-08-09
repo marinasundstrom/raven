@@ -107,7 +107,7 @@ internal static class MsBuildProjectEvaluator
             .ToImmutableArray();
 
         var packageReferences = project.GetItems("PackageReference")
-            .Select(item => new ProjectFile.PackageReferenceInfo(
+            .Select(item => new PackageReferenceInfo(
                 item.EvaluatedInclude,
                 item.GetMetadataValue("Version")))
             .Where(static item =>
@@ -120,7 +120,7 @@ internal static class MsBuildProjectEvaluator
                 item.EvaluatedInclude,
                 "Microsoft.NETCore.App",
                 StringComparison.OrdinalIgnoreCase))
-            .Select(item => new ProjectFile.FrameworkReferenceInfo(item.EvaluatedInclude))
+            .Select(item => new FrameworkReferenceInfo(item.EvaluatedInclude))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
             .ToImmutableArray();
 
@@ -493,8 +493,8 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<string> ProjectReferencePaths,
     ImmutableArray<string> AnalyzerReferencePaths,
     ImmutableArray<string> GeneratorReferencePaths,
-    ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,
-    ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
+    ImmutableArray<PackageReferenceInfo> PackageReferences,
+    ImmutableArray<FrameworkReferenceInfo> FrameworkReferences,
     ProjectPreludeOptions PreludeOptions,
     string GeneratedSourceDirectory,
     ProjectDocumentationOptions DocumentationOptions,

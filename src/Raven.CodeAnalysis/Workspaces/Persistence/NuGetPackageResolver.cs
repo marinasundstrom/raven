@@ -19,8 +19,8 @@ internal static class NuGetPackageResolver
     public static PackageResolutionResult ResolveReferences(
         string projectFilePath,
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
-        ImmutableArray<ProjectFile.FrameworkReferenceInfo> frameworkReferences)
+        ImmutableArray<PackageReferenceInfo> packageReferences,
+        ImmutableArray<FrameworkReferenceInfo> frameworkReferences)
     {
         if (packageReferences.IsDefaultOrEmpty && frameworkReferences.IsDefaultOrEmpty)
             return PackageResolutionResult.Empty;
@@ -100,7 +100,7 @@ internal static class NuGetPackageResolver
     private static bool TryResolveDirectlyFromGlobalCache(
         string globalPackagesFolder,
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
+        ImmutableArray<PackageReferenceInfo> packageReferences,
         out RestoreResolutionResult references)
     {
         var resolved = ImmutableArray.CreateBuilder<string>();
@@ -215,8 +215,8 @@ internal static class NuGetPackageResolver
         string projectFilePath,
         string globalPackagesFolder,
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
-        ImmutableArray<ProjectFile.FrameworkReferenceInfo> frameworkReferences)
+        ImmutableArray<PackageReferenceInfo> packageReferences,
+        ImmutableArray<FrameworkReferenceInfo> frameworkReferences)
     {
         var projectDirectory = Path.GetDirectoryName(projectFilePath)
             ?? throw new InvalidOperationException($"Unable to determine project directory for '{projectFilePath}'.");
@@ -252,8 +252,8 @@ internal static class NuGetPackageResolver
 
     private static string BuildTemporaryRestoreProject(
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
-        ImmutableArray<ProjectFile.FrameworkReferenceInfo> frameworkReferences)
+        ImmutableArray<PackageReferenceInfo> packageReferences,
+        ImmutableArray<FrameworkReferenceInfo> frameworkReferences)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<Project Sdk=\"Microsoft.NET.Sdk\">");
