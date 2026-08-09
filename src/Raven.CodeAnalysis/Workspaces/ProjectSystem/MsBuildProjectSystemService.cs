@@ -355,13 +355,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
             var macroWorkspace = RavenWorkspace.Create(
                 targetFramework: requestingProject.TargetFramework ?? workspace.DefaultTargetFramework,
-                projectSystemService: new CompositeProjectSystemService(
-                    new RavenProjectSystemService(),
-                    new MsBuildProjectSystemService(
-                        _conventions,
-                        resolvePackageReferences: true,
-                        requestedConfiguration: macroEvaluation.Configuration,
-                        requestedTargetFramework: effectiveTargetFramework)));
+                projectSystemService: new MsBuildProjectSystemService(
+                    _conventions,
+                    resolvePackageReferences: true,
+                    requestedConfiguration: macroEvaluation.Configuration,
+                    requestedTargetFramework: effectiveTargetFramework));
 
             var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
             var macroCompilation = macroWorkspace.GetCompilation(macroProjectId);

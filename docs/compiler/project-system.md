@@ -380,7 +380,6 @@ C# and other SDK projects can reference a Raven project with normal
 
 - `PersistenceService` delegates project open/save to `IProjectSystemService`.
 - `MsBuildProjectSystemService` opens Raven projects authored as MSBuild-backed `.rvnproj` files.
-- `CompositeProjectSystemService` lets hosts route between multiple project-system implementations when needed.
 - `RavenWorkspace.Create(..., projectSystemService: ...)` still allows overriding the project-system implementation explicitly.
 
 ### MSBuild-backed Raven projects

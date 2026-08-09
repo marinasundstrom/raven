@@ -538,7 +538,7 @@ func Main() -> unit { }
 """);
 
         var projectSystem = new ThrowingProjectSystemService(
-            new RavenProjectSystemService(),
+            new MsBuildProjectSystemService(),
             failingProjectPath: Path.Combine(_tempRoot, "broken", "Broken.rvnproj"));
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);

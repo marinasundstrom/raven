@@ -20,6 +20,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   compiler driver, documentation tool, workspace routing, and VS Code tooling.
   `.rvnproj` is now the sole Raven project-file extension.
 
+- Removed the legacy Raven and composite workspace project-system services.
+  `RavenWorkspace`, `rvnc`, and compiler-plugin builds now use the MSBuild
+  project-system service directly.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no

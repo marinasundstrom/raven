@@ -1008,13 +1008,11 @@ if (skipDefaultRavenCoreLookup)
     options = options.WithFrameworkProjectionMode(FrameworkProjectionMode.None);
 var workspace = RavenWorkspace.Create(
     targetFramework: targetFramework,
-    projectSystemService: new CompositeProjectSystemService(
-        new RavenProjectSystemService(),
-        new MsBuildProjectSystemService(
-            RavenProjectConventions.Default,
-            restoreProjectReferences,
-            projectConfiguration,
-            targetFrameworkTfm)));
+    projectSystemService: new MsBuildProjectSystemService(
+        RavenProjectConventions.Default,
+        restoreProjectReferences,
+        projectConfiguration,
+        targetFrameworkTfm));
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,

@@ -25,9 +25,7 @@ public sealed class RavenWorkspace : Workspace
             new HostServices(
                 new SyntaxTreeProvider(),
                 new PersistenceService(),
-                projectSystemService ?? new CompositeProjectSystemService(
-                    new RavenProjectSystemService(),
-                    new MsBuildProjectSystemService()),
+                projectSystemService ?? new MsBuildProjectSystemService(),
                 workspaceEventSink))
     {
         _sdkVersion = sdkVersion;

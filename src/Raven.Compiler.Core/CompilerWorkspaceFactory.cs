@@ -37,9 +37,7 @@ public static class CompilerWorkspaceFactory
             targetFramework: targetFramework,
             projectSystemService: workspaceOptions.RestoreProjectReferences
                 ? null
-                : new CompositeProjectSystemService(
-                    new RavenProjectSystemService(),
-                    new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false)));
+                : new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false));
 
         ProjectId projectId;
         Project project;
