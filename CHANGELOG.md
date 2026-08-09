@@ -12,6 +12,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   same `Compile` item contract as SDK-style C# projects, and checked-in Raven
   projects and test fixtures have been migrated accordingly.
 
+- Removed the legacy `Raven.MSBuild.targets` host-project bridge and its
+  `RavenProjectFile`/`RavenOutputDir` contract. Raven projects now build as
+  ordinary `.rvnproj` projects and participate through `ProjectReference`.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no

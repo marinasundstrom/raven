@@ -374,10 +374,6 @@ C# and other SDK projects can reference a Raven project with normal
 </ItemGroup>
 ```
 
-The old `build/Raven.MSBuild.targets` bridge remains for compatibility with
-host projects that set `RavenProjectFile`, but new projects should prefer
-building the `.rvnproj` itself and using `ProjectReference`.
-
 ## Workspace and project-system services
 
 `RavenWorkspace` now consumes project loading/saving through host services rather than hardcoding project-file persistence logic in workspace APIs.
