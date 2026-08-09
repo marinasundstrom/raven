@@ -97,6 +97,21 @@ not a security boundary and unload is cooperative. The first implementation
 should keep that choice replaceable and test that a reset releases submission
 assemblies.
 
+## Submission completeness
+
+`SyntaxTree.GetSubmissionCompleteness()` is the first compiler-facing scripting
+API. It applies to syntax trees parsed with `SourceCodeKind.Script` or
+`SourceCodeKind.Interactive` and returns one of three results:
+
+- `Complete` for syntactically valid input that is ready to compile;
+- `Incomplete` when the final construct needs more input, such as an open block,
+  missing operand, unterminated literal or comment, or unmatched `#if`;
+- `Invalid` when the input is complete but contains syntax errors.
+
+This lets an interactive host request continuation lines only for `Incomplete`.
+Both `Complete` and `Invalid` are final submissions: the former proceeds to
+compilation and the latter reports parser diagnostics immediately.
+
 ## CLI preparation
 
 The current `rvn` file runner shells out to `rvnc --run`, while project commands
@@ -116,6 +131,7 @@ When the scripting engine is ready:
 ## Delivery slices
 
 1. Introduce script syntax/completeness classification and focused parser tests.
+   This slice is implemented by `SyntaxTree.GetSubmissionCompleteness()`.
 2. Add compiler submission chaining and semantic tests proving that declarations
    from a previous submission bind in the next one.
 3. Emit and execute a single submission with a typed return value.

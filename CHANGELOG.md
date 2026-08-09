@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
+  source. Hosts can distinguish complete submissions, trailing incomplete
+  constructs that need more input, and complete submissions with syntax errors.
+
 - Fixed **Raven: Run Active File/Project** in the VS Code extension so an active
   project-backed source runs its owning `.rvnproj`, compiling all project source
   files, while standalone sources continue to run as isolated file applications.

@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public class SyntaxTree
+public partial class SyntaxTree
 {
     internal const int IncrementalParseMaxChangeLength = 4096;
 
