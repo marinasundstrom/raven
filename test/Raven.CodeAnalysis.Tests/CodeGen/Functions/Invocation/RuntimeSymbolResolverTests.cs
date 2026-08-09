@@ -340,8 +340,8 @@ func Test(window: Window, options: JsonSerializerOptions) -> string {
     {
         var coreDirectory = Path.GetFullPath(Path.Combine(
             "..", "..", "..", "..", "..", "src", "Raven.Core"));
-        var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Option.rav")));
-        var resultTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Result.rav")));
+        var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Option.rvn")));
+        var resultTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Result.rvn")));
         var compilation = Compilation.Create(
             "raven-core-result-runtime-resolver-fixture",
             [optionTree, resultTree],

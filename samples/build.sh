@@ -338,7 +338,7 @@ if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
   RAVEN_CORE_SOURCES=()
   while IFS= read -r source; do
     RAVEN_CORE_SOURCES+=("$source")
-  done < <(find "$REPO_ROOT/src/Raven.Core" -maxdepth 1 -name '*.rav' | sort)
+  done < <(find "$REPO_ROOT/src/Raven.Core" -maxdepth 1 -name '*.rvn' | sort)
   if [[ -x "$COMPILER_BIN" && ${#RAVEN_CORE_SOURCES[@]} -gt 0 ]]; then
     "$COMPILER_BIN" --emit-core-types-only --framework "$DOTNET_VERSION" --output-type classlib \
       -o "$DIRECT_RAVEN_CORE" "${RAVEN_CORE_SOURCES[@]}"

@@ -26,7 +26,7 @@ mkdir -p "$(dirname "$RAVEN_CORE_OUT")"
 RAVEN_CORE_SOURCES=()
 while IFS= read -r source_file; do
   RAVEN_CORE_SOURCES+=("$source_file")
-done < <(find "$ROOT_DIR/src/Raven.Core" -maxdepth 1 -name '*.rav' | sort)
+done < <(find "$ROOT_DIR/src/Raven.Core" -maxdepth 1 -name '*.rvn' | sort)
 if [ "${#RAVEN_CORE_SOURCES[@]}" -eq 0 ]; then
   echo "No Raven.Core sources found under src/Raven.Core"
   exit 1

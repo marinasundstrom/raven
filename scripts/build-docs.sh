@@ -70,7 +70,7 @@ for required_page in "${required_library_pages[@]}"; do
 done
 
 if ! grep -Fq \
-    "github.com/marinasundstrom/raven/blob/main/src/Raven.Core/Option.rav#L" \
+    "github.com/marinasundstrom/raven/blob/main/src/Raven.Core/Option.rvn#L" \
     "$core_api_output/System/Option\`1/index.html"; then
     echo "RavenDoc did not preserve the Raven.Core source link." >&2
     exit 1

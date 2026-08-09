@@ -32,6 +32,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   obsolete file-path solution persistence APIs. Project loading and saving now
   remain entirely on the MSBuild-backed `.rvnproj` path.
 
+- Renamed the Raven.Core sources from legacy `.rav` to `.rvn` and removed its
+  explicit `Compile` list. Raven.Core now uses the same implicit source-item
+  behavior as other SDK-style Raven projects.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no

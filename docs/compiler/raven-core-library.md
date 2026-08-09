@@ -19,7 +19,7 @@ comments.
 ## How Raven.Core is built
 
 The `src/Raven.Core` project builds directly from the Raven sources in
-`Option.rav` and `Result.rav`. During a solution build, MSBuild runs the
+`Option.rvn` and `Result.rvn`. During a solution build, MSBuild runs the
 `CompileRavenCore` target, which:
 
 - Invokes `Raven.Compiler` with `--emit-core-types-only` to compile the Raven
