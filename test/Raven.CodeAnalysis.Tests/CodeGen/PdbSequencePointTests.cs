@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,42 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class PdbSequencePointTests
 {
+    [Fact]
+    public void CorrectedPdb_PreservesMissingTrailingMethodDebugRows()
+    {
+        var metadata = new MetadataBuilder();
+        var document = metadata.AddDocument(
+            metadata.GetOrAddDocumentName("source.rvn"),
+            default,
+            default,
+            default);
+        metadata.AddMethodDebugInformation(document, default);
+        var rowCounts = new int[64];
+        rowCounts[(int)TableIndex.MethodDef] = 2;
+        var portablePdb = new PortablePdbBuilder(metadata, rowCounts.ToImmutableArray(), default);
+        var originalBlob = new BlobBuilder();
+        var contentId = portablePdb.Serialize(originalBlob);
+        using var original = new MemoryStream();
+        originalBlob.WriteContentTo(original);
+        original.Position = 0;
+        using var corrected = new MemoryStream();
+
+        Raven.CodeAnalysis.CodeGen.CodeGenerator.EmitCorrectedPdb(
+            original,
+            rowCounts.ToImmutableArray(),
+            default,
+            new Dictionary<int, int> { [1] = 2, [2] = 1 },
+            contentId,
+            corrected);
+
+        corrected.Position = 0;
+        using var provider = MetadataReaderProvider.FromPortablePdbStream(corrected);
+        var reader = provider.GetMetadataReader();
+        Assert.Equal(2, reader.GetTableRowCount(TableIndex.MethodDebugInformation));
+        Assert.True(reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(1)).Document.IsNil);
+        Assert.False(reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(2)).Document.IsNil);
+    }
+
     [Fact]
     public void AsyncMethod_KickoffIsHiddenAndMoveNext_HasVisibleSequencePoints()
     {

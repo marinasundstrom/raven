@@ -2327,7 +2327,7 @@ internal class CodeGenerator
         return debugDirectoryBuilder;
     }
 
-    private static void EmitCorrectedPdb(
+    internal static void EmitCorrectedPdb(
         Stream originalPdbStream,
         ImmutableArray<int> rowCounts,
         MethodDefinitionHandle entryPointHandle,
@@ -2358,11 +2358,17 @@ internal class CodeGenerator
         }
 
         var methodCount = rowCounts[(int)TableIndex.MethodDef];
+        var debugInformationCount = reader.GetTableRowCount(TableIndex.MethodDebugInformation);
         for (var row = 1; row <= methodCount; row++)
         {
             var sourceRow = corrections[row];
-            var info = reader.GetMethodDebugInformation(
-                MetadataTokens.MethodDebugInformationHandle(sourceRow));
+            if (sourceRow > debugInformationCount)
+            {
+                builder.AddMethodDebugInformation(default, default);
+                continue;
+            }
+
+            var info = reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(sourceRow));
             builder.AddMethodDebugInformation(
                 info.Document,
                 CopyBlob(reader, builder, info.SequencePointsBlob));
@@ -2419,7 +2425,7 @@ internal class CodeGenerator
                 localScope.Length);
         }
 
-        for (var row = 1; row <= methodCount; row++)
+        for (var row = 1; row <= debugInformationCount; row++)
         {
             var info = reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(row));
             var kickoffMethod = info.GetStateMachineKickoffMethod();
