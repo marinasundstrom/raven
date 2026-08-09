@@ -15,11 +15,17 @@ public sealed class ProjectFileCompilationOptionTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" RunAnalyzers="false" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+                <RavenRunAnalyzers>false</RavenRunAnalyzers>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -37,11 +43,17 @@ public sealed class ProjectFileCompilationOptionTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" DisabledAnalyzers="UnusedVariableAnalyzer;VarCanBeLetAnalyzer" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+                <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -60,11 +72,17 @@ public sealed class ProjectFileCompilationOptionTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" ReturnedValueHandlingMode="full" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+                <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -83,11 +101,17 @@ public sealed class ProjectFileCompilationOptionTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" EnableReturnedValueAnalyzer="true" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+                <RavenEnableReturnedValueAnalyzer>true</RavenEnableReturnedValueAnalyzer>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -103,7 +127,8 @@ public sealed class ProjectFileCompilationOptionTests
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        var projectPath = Path.Combine(root, "App.ravenproj");
+        var projectPath = Path.Combine(root, "App.rvnproj");
+        File.WriteAllText(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -115,7 +140,7 @@ public sealed class ProjectFileCompilationOptionTests
         workspace.SaveProject(projectId, projectPath);
 
         var document = XDocument.Load(projectPath);
-        var value = (string?)document.Root?.Attribute("RunAnalyzers");
+        var value = (string?)document.Descendants("RavenRunAnalyzers").SingleOrDefault();
         Assert.Equal("false", value);
     }
 
@@ -124,7 +149,8 @@ public sealed class ProjectFileCompilationOptionTests
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        var projectPath = Path.Combine(root, "App.ravenproj");
+        var projectPath = Path.Combine(root, "App.rvnproj");
+        File.WriteAllText(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -136,7 +162,7 @@ public sealed class ProjectFileCompilationOptionTests
         workspace.SaveProject(projectId, projectPath);
 
         var document = XDocument.Load(projectPath);
-        var value = (string?)document.Root?.Attribute("DisabledAnalyzers");
+        var value = (string?)document.Descendants("RavenDisabledAnalyzers").SingleOrDefault();
         Assert.Equal("UnusedVariableAnalyzer", value);
     }
 
@@ -145,7 +171,8 @@ public sealed class ProjectFileCompilationOptionTests
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        var projectPath = Path.Combine(root, "App.ravenproj");
+        var projectPath = Path.Combine(root, "App.rvnproj");
+        File.WriteAllText(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -157,7 +184,7 @@ public sealed class ProjectFileCompilationOptionTests
         workspace.SaveProject(projectId, projectPath);
 
         var document = XDocument.Load(projectPath);
-        var value = (string?)document.Root?.Attribute("ReturnedValueHandlingMode");
+        var value = (string?)document.Descendants("RavenReturnedValueHandlingMode").SingleOrDefault();
         Assert.Equal("full", value);
     }
 

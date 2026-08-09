@@ -38,12 +38,18 @@ public sealed class ProjectFileNuGetReferenceTests
         var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(sourcePath, "System.Console.WriteLine(\"hi\")");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <PackageReference Include="Fake.Package" Version="1.0.0" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Fake.Package" Version="1.0.0" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -88,12 +94,18 @@ public sealed class ProjectFileNuGetReferenceTests
         var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
         File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
 
-        var projectPath = Path.Combine(projectDirectory, "App.ravenproj");
+        var projectPath = Path.Combine(projectDirectory, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <PackageReference Include="Fake.Macro" Version="1.0.0" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Fake.Macro" Version="1.0.0" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -166,12 +178,18 @@ public sealed class ProjectFileNuGetReferenceTests
         var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
         File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
 
-        var projectPath = Path.Combine(projectDirectory, "App.ravenproj");
+        var projectPath = Path.Combine(projectDirectory, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <PackageReference Include="Fake.Macro" Version="1.0.0" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Fake.Macro" Version="1.0.0" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -359,12 +377,18 @@ public sealed class ProjectFileNuGetReferenceTests
         var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(sourcePath, "System.Console.WriteLine(\"hi\")");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -399,12 +423,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -438,12 +468,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -476,12 +512,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -539,12 +581,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -599,12 +647,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -1584,12 +1638,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -1817,12 +1877,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -1863,12 +1929,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -1907,12 +1979,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -1953,12 +2031,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -2001,12 +2085,18 @@ public sealed class ProjectFileNuGetReferenceTests
             app.Run()
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App">
-              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
             </Project>
             """);
 

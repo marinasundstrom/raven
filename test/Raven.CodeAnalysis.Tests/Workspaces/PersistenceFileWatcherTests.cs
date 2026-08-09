@@ -19,7 +19,7 @@ public class PersistenceFileWatcherTests
         try
         {
             var workspace = RavenWorkspace.Create();
-            var projectId = workspace.AddProject("Test", filePath: Path.Combine(dir, "Test.ravenproj"));
+            var projectId = workspace.AddProject("Test", filePath: Path.Combine(dir, "Test.rvnproj"));
             using var watcher = workspace.EnableFileWatching();
 
             var file = Path.Combine(dir, "main.rvn");

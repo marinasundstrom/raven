@@ -12,10 +12,15 @@ public sealed class RavenProjectOutputDeterminismTests
         try
         {
             var projectName = "DeterministicProject";
-            var projectPath = Path.Combine(tempRoot, $"{projectName}.ravenproj");
+            var projectPath = Path.Combine(tempRoot, $"{projectName}.rvnproj");
             var sourcePath = Path.Combine(tempRoot, "main.rvn");
             File.WriteAllText(projectPath, $$"""
-                                          <Project Name="{{projectName}}" TargetFramework="net10.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                              <AssemblyName>{{projectName}}</AssemblyName>
+                                              <OutputType>Exe</OutputType>
+                                            </PropertyGroup>
                                           </Project>
                                           """);
             File.WriteAllText(sourcePath, """
@@ -47,10 +52,15 @@ public sealed class RavenProjectOutputDeterminismTests
         try
         {
             var projectName = "DeterministicProject";
-            var projectPath = Path.Combine(tempRoot, $"{projectName}.ravenproj");
+            var projectPath = Path.Combine(tempRoot, $"{projectName}.rvnproj");
             var sourcePath = Path.Combine(tempRoot, "main.rvn");
             File.WriteAllText(projectPath, $$"""
-                                          <Project Name="{{projectName}}" TargetFramework="net10.0" Output="{{projectName}}" OutputKind="ConsoleApplication">
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                              <AssemblyName>{{projectName}}</AssemblyName>
+                                              <OutputType>Exe</OutputType>
+                                            </PropertyGroup>
                                           </Project>
                                           """);
             File.WriteAllText(sourcePath, """

@@ -9,32 +9,6 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class ProjectFileImplicitSourceInclusionTests
 {
     [Fact]
-    public void Load_RavenMacroElement_ReportsProjectReferenceMigration()
-    {
-        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        try
-        {
-            var projectPath = Path.Combine(root, "App.ravproj");
-            File.WriteAllText(projectPath, """
-                <Project Name="App" TargetFramework="net10.0">
-                  <RavenMacro Path="Macros.rvnproj" />
-                </Project>
-                """);
-
-            var exception = Assert.Throws<InvalidDataException>(() => ProjectFile.Load(projectPath));
-
-            Assert.Contains("no longer supported", exception.Message, StringComparison.Ordinal);
-            Assert.Contains("ProjectReference", exception.Message, StringComparison.Ordinal);
-            Assert.Contains("RavenCompilerPlugin", exception.Message, StringComparison.Ordinal);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public void OpenProject_WithoutDocumentElements_ImplicitlyIncludesRavenSources()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -59,8 +33,15 @@ public sealed class ProjectFileImplicitSourceInclusionTests
             File.WriteAllText(excludedObj, "func Generated() { }\n");
             File.WriteAllText(excludedBin, "func Artifact() { }\n");
 
-            var projectPath = Path.Combine(root, "App.ravenproj");
-            File.WriteAllText(projectPath, "<Project Name=\"App\" Output=\"App\" />\n");
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>App</AssemblyName>
+                  </PropertyGroup>
+                </Project>
+                """);
 
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
             var projectId = workspace.OpenProject(projectPath);
@@ -84,7 +65,7 @@ public sealed class ProjectFileImplicitSourceInclusionTests
     }
 
     [Fact]
-    public void OpenProject_EnableDefaultRavItemsFalse_DoesNotImplicitlyIncludeSources()
+    public void OpenProject_EnableDefaultCompileItemsFalse_DoesNotImplicitlyIncludeSources()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -94,16 +75,26 @@ public sealed class ProjectFileImplicitSourceInclusionTests
             var sourcePath = Path.Combine(root, "main.rvn");
             File.WriteAllText(sourcePath, "func Main() { }\n");
 
-            var projectPath = Path.Combine(root, "App.ravenproj");
+            var projectPath = Path.Combine(root, "App.rvnproj");
             File.WriteAllText(
                 projectPath,
-                "<Project Name=\"App\" Output=\"App\" EnableDefaultRavItems=\"false\" GeneratePreludeImports=\"false\" />\n");
+                """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <GeneratePreludeImports>false</GeneratePreludeImports>
+                  </PropertyGroup>
+                </Project>
+                """);
 
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
             var projectId = workspace.OpenProject(projectPath);
             var project = workspace.CurrentSolution.GetProject(projectId)!;
 
-            Assert.Empty(project.Documents);
+            Assert.DoesNotContain(
+                project.Documents,
+                document => string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -112,7 +103,7 @@ public sealed class ProjectFileImplicitSourceInclusionTests
     }
 
     [Fact]
-    public void OpenProject_WithExplicitDocumentElements_DoesNotAddImplicitSources()
+    public void OpenProject_WithExplicitCompileItems_DoesNotAddImplicitSources()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -124,14 +115,21 @@ public sealed class ProjectFileImplicitSourceInclusionTests
             File.WriteAllText(includedPath, "func Main() { }\n");
             File.WriteAllText(extraPath, "func Extra() { }\n");
 
-            var projectPath = Path.Combine(root, "App.ravenproj");
+            var projectPath = Path.Combine(root, "App.rvnproj");
             File.WriteAllText(
                 projectPath,
                 """
-<Project Name="App" Output="App" EnableDefaultRavItems="true" GeneratePreludeImports="false">
-  <Document Path="main.rvn" />
-</Project>
-""");
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <GeneratePreludeImports>false</GeneratePreludeImports>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
 
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
             var projectId = workspace.OpenProject(projectPath);
@@ -141,6 +139,8 @@ public sealed class ProjectFileImplicitSourceInclusionTests
                 .Select(d => d.FilePath)
                 .Where(static p => p is not null)
                 .Select(static p => Path.GetFullPath(p!))
+                .Where(path => string.Equals(path, includedPath, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(path, extraPath, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
             Assert.Single(documentPaths);

@@ -20,11 +20,17 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         var sourcePath = Path.Combine(sourceDir, "main.rvn");
         File.WriteAllText(sourcePath, "class C { }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -36,7 +42,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             static d => d.Name.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(generated.FilePath);
         Assert.Contains(
-            $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}raven{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
+            $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}net10.0{Path.DirectorySeparatorChar}raven{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
             generated.FilePath!,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(
@@ -77,11 +83,17 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             class C { }
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -115,11 +127,18 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" Configuration="Release" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Library</OutputType>
+                <Configuration>Release</Configuration>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -132,7 +151,7 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         Assert.NotNull(generated.FilePath);
 
         Assert.Contains(
-            $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}raven{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
+            $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}net10.0{Path.DirectorySeparatorChar}raven{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
             generated.FilePath!,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -145,11 +164,17 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -201,14 +226,21 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary">
-              <Import Include="SuperheroApp.Models" />
-              <Import Include="System.Console" Static="True" />
-              <Import Include="System.DateTime" Alias="DT" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+              <ItemGroup>
+                <Import Include="SuperheroApp.Models" />
+                <Import Include="System.Console" Static="True" />
+                <Import Include="System.DateTime" Alias="DT" />
+              </ItemGroup>
             </Project>
             """);
 
@@ -234,11 +266,18 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" GeneratePreludeImports="false" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Library</OutputType>
+                <GeneratePreludeImports>false</GeneratePreludeImports>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -258,11 +297,17 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
         Directory.CreateDirectory(projectDir);
         File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "let x = 1");
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="ConsoleApplication" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Exe</OutputType>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -296,11 +341,17 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             }
             """);
 
-        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="ConsoleApplication" />
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+                <OutputType>Exe</OutputType>
+              </PropertyGroup>
+            </Project>
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

@@ -12,69 +12,6 @@ namespace Raven.CodeAnalysis.Tests;
 public class SolutionProjectPersistenceTests
 {
     [Fact]
-    public void SaveAndOpenSolution_RoundTripsProject()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(dir);
-        var libPath = Path.Combine(dir, "Lib.ravenproj");
-        var appPath = Path.Combine(dir, "App.ravenproj");
-
-        var ws = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solution = ws.CurrentSolution;
-        var libId = ProjectId.CreateNew(solution.Id);
-        var appId = ProjectId.CreateNew(solution.Id);
-        solution = solution
-            .AddProject(libId, "Lib", libPath, assemblyName: "Lib", compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddProject(appId, "App", appPath);
-        foreach (var reference in TestMetadataReferences.Default) {
-            solution = solution.AddMetadataReference(libId, reference);
-            solution = solution.AddMetadataReference(appId, reference);
-        }
-        ws.TryApplyChanges(solution);
-
-        var libProj = ws.CurrentSolution.GetProject(libId)!;
-        var appProj = ws.CurrentSolution.GetProject(appId)!;
-        libProj.AddDocument("Lib.rvn", SourceText.From("fn add(a:int,b:int)=a+b"), "Lib.rvn");
-        var appDoc = appProj.AddDocument("Program.rvn", SourceText.From("System.Console.WriteLine(\"Hi\");"), "Program.rvn");
-        var sol = appDoc.Project.Solution.AddProjectReference(appId, new ProjectReference(libId));
-        ws.TryApplyChanges(sol);
-
-        var solutionPath = Path.Combine(dir, "App.ravensln");
-        ws.SaveSolution(solutionPath);
-
-        var programPath = Path.Combine(dir, "Program.rvn");
-        Assert.True(File.Exists(programPath));
-        Assert.Contains("WriteLine", File.ReadAllText(programPath));
-
-        var ws2 = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        ws2.OpenSolution(solutionPath);
-
-        Assert.Equal(2, ws2.CurrentSolution.Projects.Count());
-        var lib2 = ws2.CurrentSolution.Projects.First(p => p.Name == "Lib");
-        var app2 = ws2.CurrentSolution.Projects.First(p => p.Name == "App");
-        Assert.Equal("Lib", lib2.AssemblyName);
-        Assert.Single(app2.ProjectReferences);
-        Assert.Equal(lib2.Id, app2.ProjectReferences.Single().ProjectId);
-        var doc2 = app2.Documents.Single();
-        Assert.Equal("Program.rvn", doc2.Name);
-        Assert.Equal(programPath, doc2.FilePath);
-        var text = doc2.GetTextAsync().Result.ToString();
-        Assert.Contains("WriteLine", text);
-        var comp = ws2.GetCompilation(lib2.Id);
-        Assert.Equal(OutputKind.DynamicallyLinkedLibrary, comp.Options.OutputKind);
-    }
-
-    [Fact]
-    public void AdHocWorkspace_SaveSolution_Throws()
-    {
-        var ws = new AdhocWorkspace();
-        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, "Test.ravensln");
-        Assert.Throws<NotSupportedException>(() => ws.SaveSolution(path));
-    }
-
-    [Fact]
     public void AdHocWorkspace_SaveDocument_WritesFile()
     {
         var ws = new AdhocWorkspace();

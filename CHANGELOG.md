@@ -24,6 +24,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `RavenWorkspace`, `rvnc`, and compiler-plugin builds now use the MSBuild
   project-system service directly.
 
+- Migrated project-system, package/framework-reference, generated-source,
+  analyzer-option, compiler-output, and file-watcher fixtures to SDK-style
+  `.rvnproj` files, and removed obsolete custom-solution persistence coverage.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no
