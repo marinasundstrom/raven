@@ -150,6 +150,24 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 rebuildResult.ExitCode == 0,
                 $"Second dotnet build failed.\nstdout:\n{rebuildResult.StdOut}\nstderr:\n{rebuildResult.StdErr}");
             Assert.DoesNotContain("RavenCompile:", rebuildResult.StdOut, StringComparison.Ordinal);
+
+            var cleanResult = RunProcess(
+                "dotnet",
+                $"clean \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(cleanResult.StdOut);
+            output.WriteLine(cleanResult.StdErr);
+            Assert.True(
+                cleanResult.ExitCode == 0,
+                $"dotnet clean failed.\nstdout:\n{cleanResult.StdOut}\nstderr:\n{cleanResult.StdErr}");
+            Assert.False(File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.dll")));
+            Assert.False(File.Exists(xmlDocumentationPath));
+            Assert.False(Directory.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.docs")));
+            Assert.False(Directory.EnumerateFiles(
+                Path.Combine(projectRoot, "obj", "Debug", "net10.0"),
+                "*.rvn",
+                SearchOption.AllDirectories).Any());
         }
         finally
         {

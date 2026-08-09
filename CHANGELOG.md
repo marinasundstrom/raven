@@ -18,6 +18,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Logical package and framework-reference names are no longer treated as input
   file paths; their resolved assemblies remain tracked through `ReferencePath`.
 
+- `dotnet clean` now removes Raven-owned generated sources, intermediate and
+  copied documentation trees, dependency manifests, and runtime dependency
+  artifacts from the active build configuration and target framework.
+
 - Added optional target types to macro expression fragments through
   `CreateExpressionFragmentRegion`. Macro DSLs can now give authored inline
   lambdas normal parameter inference and hover without exposing private DSL

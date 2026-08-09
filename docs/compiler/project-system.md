@@ -341,6 +341,9 @@ wired to Raven's language targets:
 - `CoreCompile` tracks source files, resolved reference files, project files,
   extensions, and compiler-observed dependencies. An unchanged second build is
   skipped by MSBuild rather than invoking `rvnc` again.
+- `dotnet clean` removes the compiler-owned generated-source and documentation
+  directories along with the tracked assemblies, symbols, and dependency
+  manifests for the active build context.
 
 Inside this repository, `Directory.Build.props` wires `.rvnproj` files
 automatically, so sample projects build directly:

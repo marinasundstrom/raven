@@ -123,12 +123,14 @@
       Condition="'@(IntermediateRefAssembly)' != '' and Exists('@(IntermediateAssembly)')" />
 
     <ItemGroup>
+      <_RavenGeneratedFile Include="$(_RavenIntermediateOutputPath)raven/generated/**/*.rvn" />
       <FileWrites Include="@(IntermediateAssembly)" />
       <FileWrites Include="@(IntermediateRefAssembly)" Condition="'@(IntermediateRefAssembly)' != ''" />
       <FileWrites Include="@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).pdb')" />
       <FileWrites Include="$(IntermediateOutputPath)$(TargetName).runtimeconfig.json" />
       <FileWrites Include="$(IntermediateOutputPath)$(TargetName)$(ExeExtension)" Condition="'$(OutputType)' != 'Library'" />
       <FileWrites Include="$(_RavenCompilerDependencyFile)" />
+      <FileWrites Include="@(_RavenGeneratedFile)" />
     </ItemGroup>
   </Target>
 
@@ -156,6 +158,8 @@
       SkipUnchangedFiles="true"
       Condition="'@(_RavenMarkdownDocumentationFiles)' != ''" />
     <ItemGroup>
+      <FileWrites Include="$(_RavenXmlDocumentationFile)" Condition="Exists('$(_RavenXmlDocumentationFile)')" />
+      <FileWrites Include="@(_RavenMarkdownDocumentationFiles)" />
       <FileWrites Include="$(OutDir)$(TargetName).xml" Condition="('$(RavenGenerateDocumentation)' == 'true' or '$(GenerateDocumentationFile)' == 'true') and Exists('$(_RavenXmlDocumentationFile)')" />
       <FileWrites Include="@(_RavenMarkdownDocumentationFiles->'$(OutDir)$(TargetName).docs/%(RecursiveDir)%(Filename)%(Extension)')" />
     </ItemGroup>
@@ -211,6 +215,8 @@
         <ReferenceSourceTarget>RavenCompilerRuntime</ReferenceSourceTarget>
       </ReferenceDependencyPaths>
       <FileWrites Include="@(_RavenRuntimeDependency->'$(OutDir)%(Filename)%(Extension)')" />
+      <FileWrites Include="@(_RavenRuntimeDependency)" />
+      <FileWrites Include="$(_RavenRuntimeDependencyManifest)" Condition="Exists('$(_RavenRuntimeDependencyManifest)')" />
     </ItemGroup>
     <Delete
       Files="@(_StaleRavenRuntimeDependencyName->'$(_RavenRuntimeIntermediatePath)%(Identity)');@(_StaleRavenRuntimeDependencyName->'$(OutDir)%(Identity)');$(ProjectDepsFilePath)"
@@ -220,5 +226,14 @@
       DestinationFolder="$(OutDir)"
       SkipUnchangedFiles="true"
       Condition="'@(_RavenRuntimeDependency)' != ''" />
+  </Target>
+
+  <Target Name="_CleanRavenArtifacts" AfterTargets="CoreClean">
+    <PropertyGroup>
+      <_RavenCleanXmlDocumentationFile Condition="'$(DocumentationFile)' != ''">$(DocumentationFile)</_RavenCleanXmlDocumentationFile>
+      <_RavenCleanXmlDocumentationFile Condition="'$(_RavenCleanXmlDocumentationFile)' == ''">$(IntermediateOutputPath)$(TargetName).xml</_RavenCleanXmlDocumentationFile>
+    </PropertyGroup>
+    <Delete Files="$(_RavenCompilerDependencyFile);$(IntermediateOutputPath).raven-runtime-dependencies;$(_RavenCleanXmlDocumentationFile)" />
+    <RemoveDir Directories="$(IntermediateOutputPath)raven/generated;$(IntermediateOutputPath)$(TargetName).docs;$(OutDir)$(TargetName).docs" />
   </Target>
 </Project>
