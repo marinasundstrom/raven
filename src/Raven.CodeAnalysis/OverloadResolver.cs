@@ -1726,7 +1726,7 @@ internal sealed class OverloadResolver
                     var underlyingType = SubstituteType(nullable.UnderlyingType, substitutions);
                     return SymbolEqualityComparer.Default.Equals(underlyingType, nullable.UnderlyingType)
                         ? type
-                        : underlyingType.GetNullableType();
+                        : underlyingType.ApplySubstitutedNullability(nullable);
                 }
 
             case IArrayTypeSymbol array:

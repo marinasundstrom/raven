@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed nullable generic substitution so Raven's unified nullable symbol is
+  preserved independently from its CLR runtime projection. Constructed type
+  and method symbols now retain whether the original signature projects to its
+  underlying type or `Nullable<T>`, preventing invalid calls such as
+  `EventCallback<int>.InvokeAsync` while keeping compiler API nullability intact.
+- Metadata symbol loading now falls back safely when an optional dependency is
+  absent from a metadata load context instead of crashing type classification.
+
 - Raven MSBuild projects now implicitly include `.rvn` source files through the
   standard `Compile` item contract. Set `EnableDefaultCompileItems` to `false`
   and add explicit `Compile` items when a project needs a curated source list.

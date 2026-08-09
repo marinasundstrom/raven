@@ -49,6 +49,22 @@ public static class TypeSymbolNullabilityExtensions
             : new NullableTypeSymbol(typeSymbol, null, null, null, []);
     }
 
+    internal static ITypeSymbol ApplySubstitutedNullability(
+        this ITypeSymbol substitutedType,
+        NullableTypeSymbol originalNullableType)
+    {
+        if (substitutedType.IsNullable)
+            return substitutedType;
+
+        return new NullableTypeSymbol(
+            substitutedType,
+            originalNullableType.ContainingSymbol,
+            originalNullableType.ContainingType,
+            originalNullableType.ContainingNamespace,
+            originalNullableType.Locations.ToArray(),
+            originalNullableType.RuntimeProjection);
+    }
+
     internal static ITypeSymbol GetDefaultValueType(this ITypeSymbol typeSymbol)
     {
         if (typeSymbol.IsNullable ||

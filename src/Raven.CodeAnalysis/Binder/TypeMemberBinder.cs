@@ -227,7 +227,7 @@ internal partial class TypeMemberBinder : Binder
             var underlyingType = SubstituteTypeParameters(nullableType.UnderlyingType, map);
             return SymbolEqualityComparer.Default.Equals(underlyingType, nullableType.UnderlyingType)
                 ? type
-                : underlyingType.GetNullableType();
+                : underlyingType.ApplySubstitutedNullability(nullableType);
         }
 
         if (type is RefTypeSymbol refType)

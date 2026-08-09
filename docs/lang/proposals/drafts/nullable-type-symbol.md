@@ -146,6 +146,40 @@ Likely touch points:
 * How should missing or oblivious nullable metadata be projected without
   weakening an explicitly annotated Raven declaration?
 
+## Follow-up slices
+
+### Public compiler API
+
+The next nullability slice should expose a small, stable API that keeps the
+semantic type separate from its CLR projection without requiring consumers to
+know compiler-internal symbol classes. It should:
+
+* keep `ITypeSymbol.IsNullable` and the existing nullable transformation APIs
+  as the semantic surface;
+* provide a documented way to query whether a nullable type projects to its
+  underlying CLR type or to `System.Nullable<T>`;
+* define when `SymbolEqualityComparer.Default`,
+  `SymbolEqualityComparer.IgnoringNullability`, and metadata identity include
+  nullability and runtime projection;
+* consolidate nullable compatibility and conversion predicates so the binder,
+  language server, analyzers, macros, and third-party compiler API consumers
+  use the same rules;
+* keep nullable flow state out of the type API. Raven has no need for C#'s
+  migration-oriented nullable flow-analysis model.
+
+The compiler should migrate to this public surface as part of the slice. An API
+that is not sufficient for Raven's own binder, emitter, and language server is
+not sufficient for external consumers.
+
+### Explicit `is not null` narrowing
+
+A later language slice may reintroduce narrowing after `value is not null` as
+an explicit Raven construct. This is not a general nullable flow-analysis
+system: the declared symbol remains `T?`, and narrowing should be local,
+predictable, and invalidated conservatively for mutable or aliased storage.
+Typed pattern bindings and `if let` remain the canonical way to name the
+non-null value.
+
 ## Migration / compatibility
 
 This proposal keeps syntax unchanged and preserves existing nullable semantics. The primary changes are internal to symbol behavior and conversion/codegen pipelines.

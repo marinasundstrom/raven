@@ -163,6 +163,21 @@ The last rule is an intentional language boundary. Raven consumes the contract
 that determines a value's static type, but it does not adopt C#'s contextual
 null-state machinery.
 
+Generic substitution preserves Raven's unified nullable symbol while retaining
+the projection selected by the original CLR signature. For example, an
+unconstrained `T?` constructed with `int` is still `int?` in the Raven semantic
+model, but it projects to CLR `int` because the generic signature cannot become
+`Nullable<int>`. A `T?` whose type parameter has a value-type constraint
+projects to `Nullable<T>`. The same projection is used by conversions and
+emission, so constructed symbols, hover information, and emitted calls agree.
+
+This distinction is especially important at metadata boundaries. C# nullable
+annotations on an unconstrained type parameter are imported as Raven nullable
+types for a unified API experience, while their original underlying-type
+projection is retained. Concrete `int?` continues to project to
+`System.Nullable<int>`, and concrete `string?` continues to project to CLR
+`string` with nullable metadata.
+
 ## Prefer `Option` for domain absence
 
 If a missing value is an expected application state, represent it in the API:

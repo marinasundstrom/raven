@@ -266,10 +266,10 @@ internal class StatementGenerator : Generator
                 }
             }
             else if (expressionType is not null &&
-                     !SymbolEqualityComparer.Default.Equals(expressionType, returnType))
+                     RequiresNullableProjectionConversion(expressionType, returnType))
             {
                 var conversion = Compilation.ClassifyConversion(expressionType, returnType);
-                if (conversion.Exists && !conversion.IsIdentity)
+                if (conversion.Exists)
                 {
                     EmitConversion(expressionType, returnType, conversion);
                     expressionType = returnType;
@@ -1440,7 +1440,7 @@ internal class StatementGenerator : Generator
                 return;
             }
 
-            if (localSymbol.Type is NullableTypeSymbol nullableLocal && nullableLocal.UnderlyingType.IsValueType)
+            if (localSymbol.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableLocal)
             {
                 var localClr = ResolveClrType(localSymbol.Type);
                 if (expressionType?.TypeKind == TypeKind.Null)

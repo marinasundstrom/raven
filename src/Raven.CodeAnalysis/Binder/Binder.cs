@@ -2325,7 +2325,8 @@ internal abstract partial class Binder
                         nullable.ContainingSymbol,
                         nullable.ContainingType,
                         nullable.ContainingNamespace,
-                        nullable.Locations.ToArray());
+                        nullable.Locations.ToArray(),
+                        nullable.RuntimeProjection);
                 }
         }
 

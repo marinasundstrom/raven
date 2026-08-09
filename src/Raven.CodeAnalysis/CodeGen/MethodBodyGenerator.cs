@@ -2215,6 +2215,13 @@ internal class MethodBodyGenerator
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
         }
+        else if (expression.Type is { } projectedExpressionType &&
+                 Generator.RequiresNullableProjectionConversion(projectedExpressionType, returnType))
+        {
+            var conversion = _compilation.ClassifyConversion(projectedExpressionType, returnType);
+            if (conversion.Exists)
+                baseGenerator.EmitConversion(projectedExpressionType, returnType, conversion);
+        }
 
         if (includeReturn)
             ILGenerator.Emit(OpCodes.Ret);

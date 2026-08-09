@@ -552,7 +552,7 @@ internal class CodeGenerator
             case IPointerTypeSymbol pointerType:
                 CollectNullableTransformFlags(pointerType.PointedAtType, flags);
                 return;
-            case NullableTypeSymbol nullable when nullable.UnderlyingType.IsValueType:
+            case NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable:
                 CollectValueTypeNullableTransformFlags(nullable.UnderlyingType, flags);
                 return;
             case NullableTypeSymbol nullable:

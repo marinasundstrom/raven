@@ -275,7 +275,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 var underlyingType = SubstituteCore(nullableTypeSymbol.UnderlyingType, methodMap, inProgress, cache);
 
                 if (!IsEquivalentForSubstitution(underlyingType, nullableTypeSymbol.UnderlyingType))
-                    result = underlyingType.GetNullableType();
+                    result = underlyingType.ApplySubstitutedNullability(nullableTypeSymbol);
                 else
                     result = type;
 
@@ -346,6 +346,14 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
                     if (!IsEquivalentForSubstitution(substitutedArg, originalArg))
                         changed = true;
+                }
+
+                if ((named.ConstructedFrom ?? named).SpecialType == SpecialType.System_Nullable_T &&
+                    substitutedArgs.Length == 1)
+                {
+                    result = substitutedArgs[0].GetNullableType();
+                    cache[type] = result;
+                    return result;
                 }
 
                 if (!changed)
@@ -646,7 +654,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             var underlying = SubstituteInterfaceTypeArgument(nullableArgument.UnderlyingType, cache, visiting);
             return IsEquivalentForSubstitution(underlying, nullableArgument.UnderlyingType)
                 ? argument
-                : underlying.GetNullableType();
+                : underlying.ApplySubstitutedNullability(nullableArgument);
         }
 
         if (argument is IArrayTypeSymbol arrayArgument)

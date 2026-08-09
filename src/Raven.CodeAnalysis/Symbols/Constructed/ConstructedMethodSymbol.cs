@@ -290,9 +290,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 if (underlying.Changed)
                 {
                     var underlyingType = underlying.Type;
-                    var result = underlyingType.IsNullable
-                        ? underlyingType
-                        : underlyingType.GetNullableType();
+                    var result = underlyingType.ApplySubstitutedNullability(nullableTypeSymbol);
                     return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 

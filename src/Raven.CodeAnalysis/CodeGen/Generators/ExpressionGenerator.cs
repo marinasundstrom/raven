@@ -6553,7 +6553,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitComparableValue(IILocal local, ITypeSymbol runtimeType, ITypeSymbol targetType)
     {
-        if (runtimeType is NullableTypeSymbol nullable && nullable.UnderlyingType.IsValueType)
+        if (runtimeType is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable)
         {
             ILGenerator.Emit(OpCodes.Ldloca, local);
             ILGenerator.Emit(OpCodes.Call, GetNullableGetValueOrDefault(ResolveClrType(runtimeType)));
@@ -6891,8 +6891,7 @@ internal partial class ExpressionGenerator : Generator
 
         EmitWhenNotNull(conditional.WhenNotNull);
 
-        if (conditional.Type is NullableTypeSymbol nullableResult &&
-            nullableResult.UnderlyingType.IsValueType)
+        if (conditional.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableResult)
         {
             var whenNotNullType = conditional.WhenNotNull.Type;
 
@@ -7471,8 +7470,7 @@ internal partial class ExpressionGenerator : Generator
 
             var effectiveReceiverType = receiverType;
 
-            if (receiverType is NullableTypeSymbol nullable
-                && nullable.UnderlyingType.IsValueType
+            if (receiverType is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable
                 && target.ContainingType?.SpecialType != SpecialType.System_Nullable_T)
             {
                 if (receiverAlreadyLoaded)
@@ -7607,8 +7605,7 @@ internal partial class ExpressionGenerator : Generator
             else
             {
                 if (argument?.Type?.TypeKind == TypeKind.Null &&
-                    paramSymbol.Type is NullableTypeSymbol nullableParam &&
-                    nullableParam.UnderlyingType.IsValueType)
+                    paramSymbol.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableParam)
                 {
                     EmitDefaultValue(paramSymbol.Type);
                     continue;
@@ -7856,8 +7853,7 @@ internal partial class ExpressionGenerator : Generator
 
         // Special: null literal → Nullable<T>
         if (argument.Type?.TypeKind == TypeKind.Null &&
-            paramSymbol.Type is NullableTypeSymbol nullable &&
-            nullable.UnderlyingType.IsValueType)
+            paramSymbol.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable)
         {
             EmitDefaultValue(paramSymbol.Type);
             return;

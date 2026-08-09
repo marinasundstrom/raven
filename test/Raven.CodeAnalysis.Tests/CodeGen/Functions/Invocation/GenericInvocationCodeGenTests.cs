@@ -4,12 +4,97 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
 
 public class GenericInvocationCodeGenTests
 {
+    [Fact]
+    public void NullableAnnotatedUnconstrainedTypeParameter_ConstructedWithValueType_ExecutesWithoutInvalidProgram()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+import Microsoft.AspNetCore.Components.*
+
+class CallbackRunner {
+    var Callback: EventCallback<int> = default(EventCallback<int>)
+
+    func Run() -> Task => Callback.InvokeAsync(1)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default
+            .Append(CreateAspNetCoreComponentsRuntimeReference())
+            .ToArray();
+        var compilation = Compilation.Create("nullable_annotated_generic_value_argument", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(candidate => candidate.Expression.ToString().EndsWith("InvokeAsync", StringComparison.Ordinal));
+        var invokedMethod = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(syntaxTree).GetSymbolInfo(invocation).Symbol);
+        var callbackArgument = Assert.Single(invokedMethod.Parameters);
+        var nullableArgument = Assert.IsType<NullableTypeSymbol>(callbackArgument.Type);
+        Assert.Equal(SpecialType.System_Int32, nullableArgument.UnderlyingType.SpecialType);
+        Assert.False(nullableArgument.UsesNullableValueTypeRepresentation);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("CallbackRunner", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(method);
+
+        var task = (System.Threading.Tasks.Task?)method!.Invoke(instance, Array.Empty<object>());
+
+        Assert.NotNull(task);
+        task!.GetAwaiter().GetResult();
+    }
+
+    [Fact]
+    public void NullableAnnotatedConstructedGenericMethods_ExecuteWithValueTypeArguments()
+    {
+        const string code = """
+class NullableGenericMethods {
+    static func Echo<T>(value: T?) -> T? => value
+
+    static func EchoValue<T>(value: T?) -> T? where T: struct => value
+}
+
+class GenericMethodRunner {
+    static func RunUnconstrained() -> int? => NullableGenericMethods.Echo<int>(42)
+
+    static func RunValueConstrained() -> int? => NullableGenericMethods.EchoValue<int>(42)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("nullable_annotated_constructed_methods", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("GenericMethodRunner", true)!;
+
+        var unconstrained = type.GetMethod("RunUnconstrained", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        var valueConstrained = type.GetMethod("RunValueConstrained", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(unconstrained);
+        Assert.NotNull(valueConstrained);
+        Assert.Equal(42, (int?)unconstrained!.Invoke(null, Array.Empty<object>()));
+        Assert.Equal(42, (int?)valueConstrained!.Invoke(null, Array.Empty<object>()));
+    }
+
     [Fact]
     public void UnconstrainedTypeParameter_ToString_BoxesValueTypes()
     {
@@ -161,5 +246,25 @@ func Parse<T>(text: string) -> T
         var typeParameter = parseMethod.GetGenericArguments().Single();
         var constraints = typeParameter.GetGenericParameterConstraints();
         Assert.Single(constraints);
+    }
+
+    private static MetadataReference CreateAspNetCoreComponentsRuntimeReference()
+    {
+        var referenceDirectory = ReferenceAssemblyPaths.GetReferenceAssemblyDir(
+            targetFramework: "net10.0",
+            packId: "Microsoft.AspNetCore.App.Ref");
+        Assert.False(string.IsNullOrWhiteSpace(referenceDirectory));
+
+        var versionDirectory = Directory.GetParent(Directory.GetParent(referenceDirectory!)!.FullName)!.FullName;
+        var version = Path.GetFileName(versionDirectory);
+        var dotnetRoot = Directory.GetParent(Directory.GetParent(Directory.GetParent(versionDirectory)!.FullName)!.FullName)!.FullName;
+        var runtimePath = Path.Combine(
+            dotnetRoot,
+            "shared",
+            "Microsoft.AspNetCore.App",
+            version,
+            "Microsoft.AspNetCore.Components.dll");
+        Assert.True(File.Exists(runtimePath), $"Missing ASP.NET Core runtime assembly '{runtimePath}'.");
+        return MetadataReference.CreateFromFile(runtimePath);
     }
 }

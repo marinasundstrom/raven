@@ -5,10 +5,17 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 {
-    public NullableTypeSymbol(ITypeSymbol underlyingType, ISymbol? containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public NullableTypeSymbol(
+        ITypeSymbol underlyingType,
+        ISymbol? containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
+        NullableRuntimeProjection? runtimeProjection = null)
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {
         UnderlyingType = underlyingType;
+        RuntimeProjection = runtimeProjection ?? InferRuntimeProjection(underlyingType);
         BaseType = underlyingType.GetAbsoluteBaseType();
         TypeKind = TypeKind.Nullable;
     }
@@ -16,6 +23,11 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
     public override string Name => UnderlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat) + "?";
 
     public ITypeSymbol UnderlyingType { get; }
+
+    internal NullableRuntimeProjection RuntimeProjection { get; }
+
+    internal bool UsesNullableValueTypeRepresentation =>
+        RuntimeProjection == NullableRuntimeProjection.NullableValueType;
 
     public SpecialType SpecialType => SpecialType.None;
 
@@ -71,4 +83,24 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
     {
         return visitor.DefaultVisit(this);
     }
+
+    private static NullableRuntimeProjection InferRuntimeProjection(ITypeSymbol underlyingType)
+    {
+        if (underlyingType is ITypeParameterSymbol typeParameter)
+        {
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0
+                ? NullableRuntimeProjection.NullableValueType
+                : NullableRuntimeProjection.UnderlyingType;
+        }
+
+        return underlyingType.IsValueType
+            ? NullableRuntimeProjection.NullableValueType
+            : NullableRuntimeProjection.UnderlyingType;
+    }
+}
+
+internal enum NullableRuntimeProjection
+{
+    UnderlyingType,
+    NullableValueType,
 }

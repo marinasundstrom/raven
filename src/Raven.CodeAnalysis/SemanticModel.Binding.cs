@@ -4290,7 +4290,7 @@ public partial class SemanticModel
                 var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
                 return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
                     ? type
-                    : substituted.GetNullableType();
+                    : substituted.ApplySubstitutedNullability(nullableType);
             }
 
             if (type is RefTypeSymbol refType)

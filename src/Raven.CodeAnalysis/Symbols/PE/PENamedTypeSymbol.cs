@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Reflection;
@@ -221,7 +222,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             var baseTypeName = typeInfo.BaseType?.FullName;
             return baseTypeName == "System.ValueType" || baseTypeName == "System.Enum";
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or TypeLoadException)
         {
             // MetadataLoadContext can throw while resolving incomplete type graphs.
             // Fall back to stable runtime shape checks for known value-type families.
@@ -297,7 +298,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _isValueType = IsValueTypeLike(typeInfo);
 
-        if (typeInfo.Name == "Object" || typeInfo.BaseType?.Name == "Object")
+        if (typeInfo.Name == "Object" || TryGetBaseTypeName(typeInfo) == "Object")
         {
             TypeKind = TypeKind.Class;
             (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
@@ -329,7 +330,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (typeInfo.IsEnum)
                 return true;
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (IsIncompleteMetadataGraphException(exception))
         {
             // MetadataLoadContext can throw for incomplete type graphs.
         }
@@ -341,7 +342,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             return typeInfo.BaseType?.FullName == "System.Enum";
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (IsIncompleteMetadataGraphException(exception))
         {
             return false;
         }
@@ -803,26 +804,49 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     private static bool IsDelegateType(System.Reflection.TypeInfo typeInfo)
     {
-        if (typeInfo.FullName == typeof(MulticastDelegate).FullName ||
-            typeInfo.FullName == typeof(Delegate).FullName)
+        try
         {
-            return true;
-        }
+            if (typeInfo.FullName == typeof(MulticastDelegate).FullName ||
+                typeInfo.FullName == typeof(Delegate).FullName)
+            {
+                return true;
+            }
 
-        if (typeof(MulticastDelegate).IsAssignableFrom(typeInfo))
-            return true;
-
-        var baseType = typeInfo.BaseType;
-        while (baseType is not null)
-        {
-            if (baseType.FullName == typeof(MulticastDelegate).FullName)
+            if (typeof(MulticastDelegate).IsAssignableFrom(typeInfo))
                 return true;
 
-            baseType = baseType.BaseType;
+            var baseType = typeInfo.BaseType;
+            while (baseType is not null)
+            {
+                if (baseType.FullName == typeof(MulticastDelegate).FullName)
+                    return true;
+
+                baseType = baseType.BaseType;
+            }
+        }
+        catch (Exception exception) when (IsIncompleteMetadataGraphException(exception))
+        {
+            // An unresolved optional dependency cannot turn an otherwise unknown
+            // metadata type into a delegate.
         }
 
         return false;
     }
+
+    private static string? TryGetBaseTypeName(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            return typeInfo.BaseType?.Name;
+        }
+        catch (Exception exception) when (IsIncompleteMetadataGraphException(exception))
+        {
+            return null;
+        }
+    }
+
+    private static bool IsIncompleteMetadataGraphException(Exception exception)
+        => exception is ArgumentException or FileNotFoundException or TypeLoadException;
 
     public SpecialType SpecialType
     {

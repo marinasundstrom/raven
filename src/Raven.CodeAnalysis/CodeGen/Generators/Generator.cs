@@ -228,9 +228,9 @@ internal abstract class Generator
         return semanticModel;
     }
 
-    protected void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion)
+    protected internal void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion)
     {
-        if (conversion.IsIdentity)
+        if (conversion.IsIdentity && !RequiresNullableProjectionConversion(from, to))
             return;
 
         if (to is RefTypeSymbol && from is IAddressTypeSymbol)
@@ -239,8 +239,11 @@ internal abstract class Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
+        if (fromClrType == toClrType)
+            return;
+
         if (from.TypeKind == TypeKind.Null &&
-            to is NullableTypeSymbol { UnderlyingType.IsValueType: true } nullableValueType)
+            to is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableValueType)
         {
             ILGenerator.Emit(OpCodes.Pop);
             EmitDefaultValue(nullableValueType);
@@ -267,15 +270,15 @@ internal abstract class Generator
             return;
         }
 
-        if (to is NullableTypeSymbol nullableReference && !nullableReference.UnderlyingType.IsValueType)
+        if (to is NullableTypeSymbol { UsesNullableValueTypeRepresentation: false } nullableReference)
         {
             EmitConversion(from, nullableReference.UnderlyingType, conversion);
             return;
         }
 
-        if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
+        if (to is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableTo)
         {
-            if (conversion.IsLifted && from is NullableTypeSymbol fromNullable && fromNullable.UnderlyingType.IsValueType)
+            if (conversion.IsLifted && from is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } fromNullable)
             {
                 EmitLiftedNullableConversion(fromNullable, nullableTo, conversion);
                 return;
@@ -437,6 +440,12 @@ internal abstract class Generator
         throw new NotSupportedException("Unsupported conversion");
     }
 
+    internal static bool RequiresNullableProjectionConversion(ITypeSymbol from, ITypeSymbol to)
+        => from is NullableTypeSymbol fromNullable &&
+           to is NullableTypeSymbol toNullable &&
+           fromNullable.RuntimeProjection != toNullable.RuntimeProjection &&
+           SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, toNullable.UnderlyingType);
+
     private static bool IsReadOnlySpanCastUpMethod(IMethodSymbol method)
         => method.Name == "CastUp" &&
            method.IsStatic &&
@@ -451,7 +460,7 @@ internal abstract class Generator
     private void PrepareUnionConstructorArgument(ITypeSymbol from, ITypeSymbol parameterType)
     {
         if (from.TypeKind == TypeKind.Null &&
-            parameterType is NullableTypeSymbol { UnderlyingType.IsValueType: true })
+            parameterType is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true })
         {
             ILGenerator.Emit(OpCodes.Pop);
             EmitDefaultValue(parameterType);
@@ -591,10 +600,21 @@ internal abstract class Generator
 
         if (from is NullableTypeSymbol fromNullable)
         {
-            if (SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
+            if (fromNullable.RuntimeProjection == nullableTo.RuntimeProjection &&
+                SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
+            {
                 return;
+            }
 
-            throw new NotSupportedException("Unsupported nullable conversion");
+            if (!fromNullable.UsesNullableValueTypeRepresentation &&
+                SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
+            {
+                from = fromNullable.UnderlyingType;
+            }
+            else
+            {
+                throw new NotSupportedException("Unsupported nullable conversion");
+            }
         }
 
         var underlying = nullableTo.UnderlyingType;
