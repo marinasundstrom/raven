@@ -151,6 +151,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Updated the HTML-to-Blazor sample so component parameters and matching DSL
   attributes follow .NET PascalCase naming conventions.
 
+- Extended the HTML-to-Blazor sample with an ordinary Razor `StatusBadge`
+  component from a referenced Blazor project. The HTML macro now also accepts
+  qualified component tags and maps their terminal type token and parameters
+  to ordinary compiler symbols for editor tooling.
+
 - Fixed workspace loading for compiler-plugin project references so the built
   plugin assembly is available as both a macro provider and an ordinary
   metadata reference. Macro libraries can now expose runtime helper types used

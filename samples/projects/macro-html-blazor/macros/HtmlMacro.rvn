@@ -18,6 +18,13 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
         }
 
         let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation).Parse()
+        for component in expansion.Components {
+            if component.SymbolSpan.Start == token.Span.Start
+                && component.SymbolSpan.Length == token.Span.Length {
+                return context.Compilation.GetTypeByMetadataName(component.Name)
+            }
+        }
+
         for attribute in expansion.ComponentAttributes {
             if attribute.NameSpan.Start == token.Span.Start
                 && attribute.NameSpan.Length == token.Span.Length {
@@ -114,6 +121,7 @@ class HtmlDslExpansion {
     val ErrorMessage: string?
     val ErrorPosition: int
     val EmbeddedExpressionSpans: ImmutableArray<TextSpan>
+    val Components: ImmutableArray<HtmlComponentReference>
     val ComponentAttributes: ImmutableArray<HtmlComponentAttribute>
     val TypedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>
 
@@ -122,6 +130,7 @@ class HtmlDslExpansion {
         errorMessage: string?,
         errorPosition: int,
         embeddedExpressionSpans: ImmutableArray<TextSpan>,
+        components: ImmutableArray<HtmlComponentReference>,
         componentAttributes: ImmutableArray<HtmlComponentAttribute>,
         typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>
     ) {
@@ -129,6 +138,7 @@ class HtmlDslExpansion {
         ErrorMessage = errorMessage
         ErrorPosition = errorPosition
         EmbeddedExpressionSpans = embeddedExpressionSpans
+        Components = components
         ComponentAttributes = componentAttributes
         TypedExpressionTargets = typedExpressionTargets
     }
@@ -143,6 +153,11 @@ class HtmlDslExpansion {
         null
     }
 }
+
+class HtmlComponentReference(
+    val Name: string,
+    val SymbolSpan: TextSpan
+)
 
 class HtmlComponentAttribute(
     val ComponentName: string,
@@ -160,6 +175,7 @@ class HtmlDslParser {
     private val _compilation: Compilation
     private val _builder = StringBuilder()
     private var _embeddedExpressionSpans: ImmutableArray<TextSpan> = []
+    private var _components: ImmutableArray<HtmlComponentReference> = []
     private var _componentAttributes: ImmutableArray<HtmlComponentAttribute> = []
     private var _typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget> = []
     private var _lastEmbeddedExpressionSpan = TextSpan(0, 0)
@@ -189,6 +205,7 @@ class HtmlDslParser {
             _errorMessage,
             _errorPosition,
             _embeddedExpressionSpans,
+            _components,
             _componentAttributes,
             _typedExpressionTargets)
     }
@@ -199,14 +216,24 @@ class HtmlDslParser {
             return
         }
 
+        let nameStart = _position
         let name = ReadName()
         if name.Length == 0 {
             Error("Expected an HTML element name.")
             return
         }
+        if name.StartsWith(".") || name.EndsWith(".") || name.Contains("..") {
+            ErrorAt(nameStart, "Qualified element names cannot contain empty segments.")
+            return
+        }
 
         let isComponent = IsComponentName(name)
         if isComponent {
+            let symbolNameStart = nameStart + name.LastIndexOf(".") + 1
+            _components = _components.Add(
+                HtmlComponentReference(
+                    name,
+                    TextSpan(symbolNameStart, name.Length - (symbolNameStart - nameStart))))
             AppendOpenComponent(name)
         } else {
             AppendCall("OpenElement", "\"${Escape(name)}\"")
@@ -503,7 +530,8 @@ class HtmlDslParser {
             Char.IsLetterOrDigit(value[0])
             || value == "-"
             || value == "_"
-            || value == ":")
+            || value == ":"
+            || value == ".")
     }
 
     private static func IsEventAttribute(name: string) -> bool {
@@ -515,7 +543,9 @@ class HtmlDslParser {
     }
 
     private static func IsComponentName(name: string) -> bool {
-        name.Length > 0 && Char.IsUpper(name[0])
+        let separator = name.LastIndexOf(".")
+        let typeNameStart = separator + 1
+        typeNameStart < name.Length && Char.IsUpper(name[typeNameStart])
     }
 
     private func GetEventCallbackDelegateType(

@@ -157,6 +157,66 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInHtmlMacro_SupportsQualifiedComponentNames()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        const string source = """
+            namespace sample.Components {
+                class StatusBadge {
+                    var Label: string = ""
+                }
+            }
+
+            class Dashboard {
+                func Render() => Html! {
+                    <sample.Components.StatusBadge Label="Ready" />
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-qualified-component.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
+        var expansionText = Assert.IsAssignableFrom<ExpressionSyntax>(expansion?.Expression).ToString();
+        Assert.Contains("OpenComponent<sample.Components.StatusBadge>", expansionText, StringComparison.Ordinal);
+
+        var componentToken = Assert.Single(
+            compilation.GetMacroTokens(invocation),
+            static candidate => candidate.Text == "StatusBadge");
+        var component = Assert.IsAssignableFrom<INamedTypeSymbol>(componentToken.Symbol);
+        Assert.Equal("StatusBadge", component.Name);
+        Assert.Equal("Components", component.ContainingNamespace?.Name);
+
+        var attributeToken = Assert.Single(
+            compilation.GetMacroTokens(invocation),
+            static candidate => candidate.Text == "Label");
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(attributeToken.Symbol);
+        Assert.Equal("Label", property.Name);
+        Assert.Same(component, property.ContainingType);
+
+        const string invalidSource = """
+            let view = Html! {
+                <sample..Components.StatusBadge />
+            }
+            """;
+        var invalidTree = SyntaxTree.ParseText(invalidSource, path: "html-invalid-qualified-component.rvn");
+        var invalidCompilation = CreateConsumerCompilation(invalidTree, macroReference);
+        var invalidInvocation = invalidTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var invalidExpansion = invalidCompilation.GetSemanticModel(invalidTree)
+            .GetMacroExpansion(invalidInvocation);
+        var diagnostic = Assert.Single(invalidExpansion?.MacroDiagnostics ?? []);
+        Assert.Equal("HTML001", diagnostic.Code);
+        Assert.Contains("empty segments", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CheckedInHtmlMacro_LowersComponentEventCallbacksFromReferencesAndInlineLambdas()
     {
         var macroReference = CreateCheckedInHtmlMacroReference();

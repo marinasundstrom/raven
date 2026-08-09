@@ -31,6 +31,8 @@ Supported by the prototype:
   for normal hover and go-to-definition;
 - imported component types from referenced Blazor projects, using the same
   namespace lookup and component frames as Raven-authored components;
+- qualified component tags such as `<ExistingBlazorComponents.StatusBadge>`,
+  with the terminal type name and parameters retaining ordinary symbol tooling;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - component `EventCallback` and `EventCallback<T>` parameters accepting callback
@@ -145,10 +147,6 @@ TextMate/Oniguruma/Monaco pipeline remains outside this thin sample host.
 
 ## Planned follow-up work
 
-Qualified component tag names are the next macro/tooling slice, including
-binding and editor symbol mapping. They complete the authoring model but do not
-need a separate showcase section.
-
 Later composition examples should remain separate so each teaches one ordinary
 Blazor application technique: one for CSS through normal component styling and
 asset conventions, and one for JavaScript interop through Blazor's existing
@@ -179,9 +177,12 @@ and attribute names need distinct editor semantics.
 `IMacroTokenSymbolProvider` resolves component tags and component attributes
 against ordinary consumer symbols. `<Greeting Name="Raven" />` therefore gives
 `Greeting` normal type hover and definition behavior, while `Name` presents
-the `Greeting.Name` property. The macro uses its private parse result to supply
-context, but publishes only symbol metadata over each token span—not HTML nodes
-projected into Raven's syntax tree.
+the `Greeting.Name` property. Qualified tags are also accepted; for
+`<ExistingBlazorComponents.StatusBadge>`, the terminal `StatusBadge` token
+publishes the resolved type symbol and its attributes resolve against that full
+component name. The macro uses its private parse result to supply context, but
+publishes only symbol metadata over each token span—not HTML nodes projected
+into Raven's syntax tree.
 
 The macro invocation hint remains available on the `Html` name. Inside its
 braces, hover is reserved for explicit DSL token-symbol associations and
