@@ -19,6 +19,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   through normal CLR member references. Submission compilation state and its
   code-generation bridge are isolated behind dedicated internal components.
 
+- Added Raven-owned `RavenScript`, `Script`, `ScriptOptions`, and `ScriptState`
+  hosting APIs. Script states execute only the newest submission, retain
+  variables and emitted declarations across continuations, and own a
+  collectible assembly-loading session that can be released explicitly.
+
 - Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
   source. Hosts can distinguish complete submissions, trailing incomplete
   constructs that need more input, and complete submissions with syntax errors.

@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 
+using Raven.CodeAnalysis.Scripting;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -45,7 +46,7 @@ public static class RavenCompiler
                 $"Raven.RuntimeCompilation.{Guid.NewGuid():N}",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
-            .AddReferences(CreateReferences(references));
+            .AddReferences(RuntimeMetadataReferenceResolver.CreateReferences(references).ToArray());
 
         using var peStream = new MemoryStream();
         var emitResult = compilation.Emit(peStream);
@@ -65,44 +66,6 @@ public static class RavenCompiler
             ? result
             : throw new InvalidCastException(
                 $"The compiled Raven expression produced '{compiled?.GetType()}', not '{typeof(TDelegate)}'.");
-    }
-
-    private static MetadataReference[] CreateReferences(IEnumerable<MetadataReference>? additionalReferences)
-    {
-        var references = new Dictionary<string, MetadataReference>(StringComparer.OrdinalIgnoreCase);
-
-        void AddPath(string? path)
-        {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                return;
-
-            var fullPath = Path.GetFullPath(path);
-            references.TryAdd(fullPath, MetadataReference.CreateFromFile(fullPath));
-        }
-
-        if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is string platformAssemblies)
-        {
-            foreach (var path in platformAssemblies.Split(
-                         Path.PathSeparator,
-                         StringSplitOptions.RemoveEmptyEntries))
-            {
-                AddPath(path);
-            }
-        }
-
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            if (!assembly.IsDynamic)
-                AddPath(assembly.Location);
-        }
-
-        if (additionalReferences is not null)
-        {
-            foreach (var reference in additionalReferences.OfType<PortableExecutableReference>())
-                AddPath(reference.FilePath);
-        }
-
-        return references.Values.ToArray();
     }
 
     private static string FormatType(Type type)
@@ -151,7 +114,7 @@ public sealed class RavenCompilationException : Exception
 
     private static string CreateMessage(ImmutableArray<Diagnostic> diagnostics)
     {
-        var builder = new StringBuilder("The Raven expression could not be compiled.");
+        var builder = new StringBuilder("The Raven code could not be compiled.");
         foreach (var diagnostic in diagnostics.Where(static diagnostic =>
                      diagnostic.Severity == DiagnosticSeverity.Error))
         {

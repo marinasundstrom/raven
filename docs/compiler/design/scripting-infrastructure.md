@@ -130,11 +130,13 @@ Compilation diagnostics and runtime failures remain distinct:
 - cancellation is accepted by compile and execute APIs;
 - output formatting belongs to the host, not the compiler API.
 
-An assembly loader should abstract the runtime mechanism. A collectible
-`AssemblyLoadContext` is a candidate for reset and unload behavior, but it is
-not a security boundary and unload is cooperative. The first implementation
-should keep that choice replaceable and test that a reset releases submission
-assemblies.
+`ScriptExecutionSession` abstracts the runtime mechanism behind the public
+`RavenScript`, `Script`, `ScriptOptions`, and `ScriptState` APIs. It owns typed
+variable cells, sequential execution, emitted reference files, and a
+collectible `AssemblyLoadContext`. Disposing a state releases the entire chain;
+the load context is not a security boundary and unload remains cooperative.
+The host mechanism stays internal so it can evolve without leaking runtime
+loader details into compiler APIs.
 
 ## Submission completeness
 
@@ -173,14 +175,14 @@ When the scripting engine is ready:
    This slice is implemented by `SyntaxTree.GetSubmissionCompleteness()`.
 2. Add compiler submission chaining and a dedicated submission binder, with
    semantic tests proving that declarations from a previous submission bind in
-   the next one. This binder portion is implemented; runtime storage and emit
-   support remain deliberately separate.
-3. Emit and execute a single submission with a typed return value.
-4. Add `Script`, `ScriptOptions`, and `ScriptState` over those compiler
-   primitives.
+   the next one. Implemented together with typed runtime variable storage and
+   emitted references for functions and types.
+3. Add `RavenScript`, `Script`, `ScriptOptions`, and `ScriptState` over those
+   compiler primitives. Implemented with continuation execution and explicit
+   lifetime management.
+4. Capture and expose a typed trailing-expression result.
 5. Implement `rvn eval` as the first CLI consumer.
-6. Add state continuation, variable storage, reset/unload coverage, and
-   `rvn repl`.
+6. Add reset/unload coverage and `rvn repl`.
 
 The public API should be introduced incrementally with each working compiler
 slice. Avoid publishing placeholder interfaces whose required state and
