@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Raven MSBuild projects now implicitly include `.rvn` source files through the
+  standard `Compile` item contract. Set `EnableDefaultCompileItems` to `false`
+  and add explicit `Compile` items when a project needs a curated source list;
+  existing `RavenCompile` items remain supported for compatibility.
+
 - Added optional target types to macro expression fragments through
   `CreateExpressionFragmentRegion`. Macro DSLs can now give authored inline
   lambdas normal parameter inference and hover without exposing private DSL

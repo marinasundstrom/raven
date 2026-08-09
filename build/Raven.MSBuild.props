@@ -1,10 +1,10 @@
 <Project>
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.rvnproj' and '$(LanguageTargets)' == ''">
     <LanguageTargets>$(MSBuildThisFileDirectory)Raven.Language.targets</LanguageTargets>
+    <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
   </PropertyGroup>
 </Project>

@@ -101,9 +101,6 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <AssemblyName>RavenBuildOutput</AssemblyName>
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
-                  <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
-                  </ItemGroup>
                 </Project>
                 """);
 
@@ -141,6 +138,69 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 "<returns>A greeting from the SDK build.</returns>",
                 File.ReadAllText(xmlDocumentationPath),
                 StringComparison.Ordinal);
+
+            var rebuildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --no-restore --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(rebuildResult.StdOut);
+            output.WriteLine(rebuildResult.StdErr);
+            Assert.True(
+                rebuildResult.ExitCode == 0,
+                $"Second dotnet build failed.\nstdout:\n{rebuildResult.StdOut}\nstderr:\n{rebuildResult.StdErr}");
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
+    public void RavenProject_BuildsExplicitCompileItems_WhenDefaultItemsAreDisabled()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "Library.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Library</OutputType>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="src/main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), "class Included { }");
+            File.WriteAllText(Path.Combine(sourceDirectory, "excluded.rvn"), "func broken(");
+
+            var result = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(
+                File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "Library.dll")),
+                "Expected the explicitly included Raven source to build without the excluded source.");
         }
         finally
         {

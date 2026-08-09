@@ -44,8 +44,10 @@ internal static class MsBuildProjectEvaluator
             targetFramework = GetEffectiveTargetFramework(project);
 
         var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
-        var documents = project.GetItems("RavenCompile")
+        var documents = project.GetItems("Compile")
+            .Concat(project.GetItems("RavenCompile"))
             .Select(item => GetFullPath(projectDirectory, item))
+            .Where(RavenFileExtensions.HasRavenExtension)
             .Where(static path => File.Exists(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
@@ -78,6 +80,7 @@ internal static class MsBuildProjectEvaluator
 
         var managedSourcePaths = project.GetItems("Compile")
             .Select(item => GetFullPath(projectDirectory, item))
+            .Where(static path => string.Equals(Path.GetExtension(path), ".cs", StringComparison.OrdinalIgnoreCase))
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();

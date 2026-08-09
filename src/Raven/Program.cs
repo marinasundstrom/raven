@@ -1177,9 +1177,6 @@ static int RunInitCommand(string[] args)
                           <AssemblyName>{projectName}</AssemblyName>
                           <OutputType>{outputType}</OutputType>
                         </PropertyGroup>
-                        <ItemGroup>
-                          <RavenCompile Include="src/**/*{RavenFileExtensions.Raven}" />
-                        </ItemGroup>
                       </Project>
                       """;
     File.WriteAllText(projectFilePath, projectXml + Environment.NewLine);

@@ -257,7 +257,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         else
             RemoveProperty(root, "MarkdownDocumentationOutputPath");
 
-        RewriteRavenCompileItems(root, project, projectDirectory);
+        if (UsesExplicitCompileItems(root))
+            RewriteCompileItems(root, project, projectDirectory);
         RewriteManagedProjectReferences(root, project, projectDirectory);
 
         projectDocument.Save(filePath);
@@ -509,14 +510,35 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             || string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase)
             || string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase);
 
-    private static void RewriteRavenCompileItems(XElement root, Project project, string projectDirectory)
+    private static bool UsesExplicitCompileItems(XElement root)
     {
-        var ravenCompileElements = root
+        var value = root
             .Descendants()
-            .Where(static element => string.Equals(element.Name.LocalName, "RavenCompile", StringComparison.OrdinalIgnoreCase))
+            .Where(static element => string.Equals(element.Name.LocalName, "EnableDefaultCompileItems", StringComparison.OrdinalIgnoreCase))
+            .Select(static element => element.Value)
+            .LastOrDefault();
+
+        return bool.TryParse(value, out var enabled) && !enabled;
+    }
+
+    private static void RewriteCompileItems(XElement root, Project project, string projectDirectory)
+    {
+        var compileElements = root
+            .Descendants()
+            .Where(static element =>
+            {
+                if (string.Equals(element.Name.LocalName, "RavenCompile", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (!string.Equals(element.Name.LocalName, "Compile", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                var include = (string?)element.Attribute("Include");
+                return !string.IsNullOrWhiteSpace(include) && RavenFileExtensions.HasRavenExtension(include);
+            })
             .ToArray();
 
-        foreach (var element in ravenCompileElements)
+        foreach (var element in compileElements)
             element.Remove();
 
         var documents = project.Documents
@@ -535,7 +557,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         var itemGroup = new XElement(root.GetDefaultNamespace() + "ItemGroup");
         foreach (var path in documents)
-            itemGroup.Add(new XElement(root.GetDefaultNamespace() + "RavenCompile", new XAttribute("Include", path)));
+            itemGroup.Add(new XElement(root.GetDefaultNamespace() + "Compile", new XAttribute("Include", path)));
 
         root.Add(itemGroup);
     }

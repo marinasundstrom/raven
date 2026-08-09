@@ -121,6 +121,46 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void OpenProject_MsBuildProject_LoadsExplicitCompileItems_WhenDefaultItemsAreDisabled()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var sourceDirectory = Path.Combine(root, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var includedPath = Path.Combine(sourceDirectory, "included.rvn");
+            var excludedPath = Path.Combine(sourceDirectory, "excluded.rvn");
+            File.WriteAllText(includedPath, "class Included { }");
+            File.WriteAllText(excludedPath, "class Excluded { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="src/included.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            Assert.Contains(project.Documents, document => PathsEqual(document.FilePath, includedPath));
+            Assert.DoesNotContain(project.Documents, document => PathsEqual(document.FilePath, excludedPath));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_CoreTypesProject_DisablesFrameworkProjections()
     {
         var root = CreateTempDirectory();
@@ -463,6 +503,7 @@ let value = WidgetFactory.CreateDefault()
                                              <PropertyGroup>
                                                <TargetFramework>net10.0</TargetFramework>
                                                <OutputType>Exe</OutputType>
+                                               <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
                                                <RavenAllowGlobalStatements>true</RavenAllowGlobalStatements>
                                                <GenerateDocumentationFile>false</GenerateDocumentationFile>
                                              </PropertyGroup>
@@ -503,15 +544,16 @@ let value = WidgetFactory.CreateDefault()
 
             Assert.Contains(rootElement.Descendants(), e => e.Name.LocalName == "PackageReference" && (string?)e.Attribute("Include") == "Newtonsoft.Json");
             Assert.Contains(rootElement.Descendants(), e => e.Name.LocalName == "ProjectReference" && PathsEqual((string?)e.Attribute("Include"), Path.GetRelativePath(appDirectory, csProjectPath)));
-            var ravenCompileIncludes = rootElement.Descendants()
-                .Where(e => e.Name.LocalName == "RavenCompile")
+            var compileIncludes = rootElement.Descendants()
+                .Where(e => e.Name.LocalName == "Compile")
                 .Select(e => (string?)e.Attribute("Include"))
                 .Where(static value => !string.IsNullOrWhiteSpace(value))
                 .ToArray();
 
-            Assert.Contains("main.rvn", ravenCompileIncludes);
-            Assert.Contains("extra.rvn", ravenCompileIncludes);
-            Assert.DoesNotContain(ravenCompileIncludes, include => include!.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains("main.rvn", compileIncludes);
+            Assert.Contains("extra.rvn", compileIncludes);
+            Assert.DoesNotContain(compileIncludes, include => include!.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(rootElement.Descendants(), e => e.Name.LocalName == "RavenCompile");
 
             Assert.Equal("Library", rootElement.Descendants().First(e => e.Name.LocalName == "OutputType").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "AllowUnsafeBlocks").Value);
@@ -526,6 +568,45 @@ let value = WidgetFactory.CreateDefault()
 
             Assert.True(File.Exists(Path.Combine(appDirectory, "extra.rvn")));
             Assert.Contains("extra", File.ReadAllText(Path.Combine(appDirectory, "extra.rvn")));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void SaveProject_MsBuildProject_DoesNotMaterializeImplicitCompileItems()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var sourcePath = Path.Combine(root, "main.rvn");
+            var document = project.AddDocument(
+                "main.rvn",
+                Raven.CodeAnalysis.Text.SourceText.From("class App { }"),
+                sourcePath);
+            workspace.TryApplyChanges(document.Project.Solution);
+
+            workspace.SaveProject(projectId, projectPath);
+
+            var rootElement = System.Xml.Linq.XDocument.Load(projectPath).Root!;
+            Assert.DoesNotContain(
+                rootElement.Descendants(),
+                element => element.Name.LocalName is "Compile" or "RavenCompile");
+            Assert.True(File.Exists(sourcePath));
         }
         finally
         {

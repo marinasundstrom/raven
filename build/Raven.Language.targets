@@ -33,7 +33,7 @@
     <GenerateAssemblyInfo Condition="'$(GenerateAssemblyInfo)' == ''">false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute Condition="'$(GenerateTargetFrameworkAttribute)' == ''">false</GenerateTargetFrameworkAttribute>
     <ProduceReferenceAssembly Condition="'$(ProduceReferenceAssembly)' == ''">false</ProduceReferenceAssembly>
-    <EnableDefaultCompileItems Condition="'$(EnableDefaultCompileItems)' == ''">false</EnableDefaultCompileItems>
+    <EnableDefaultCompileItems Condition="'$(EnableDefaultCompileItems)' == ''">true</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems Condition="'$(EnableDefaultEmbeddedResourceItems)' == ''">false</EnableDefaultEmbeddedResourceItems>
     <RavenGenerateDocumentation Condition="'$(RavenGenerateDocumentation)' == '' and '$(OutputType)' == 'Library'">true</RavenGenerateDocumentation>
     <RavenGenerateDocumentation Condition="'$(RavenGenerateDocumentation)' == ''">false</RavenGenerateDocumentation>
@@ -65,6 +65,12 @@
 
   <Import Project="$(RavenCommonTargetsPath)" />
 
+  <ItemGroup Condition="'$(EnableDefaultCompileItems)' == 'true'">
+    <Compile Remove="@(Compile->WithMetadataValue('DefiningProjectName', 'Microsoft.NET.Sdk.DefaultItems'))" />
+    <Compile Include="**/*.rvn" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+    <Compile Remove="bin/**/*.rvn;obj/**/*.rvn;**/.*/**/*.rvn" />
+  </ItemGroup>
+
   <PropertyGroup>
     <_RavenCompilerDependencyFile>$(IntermediateOutputPath)$(TargetName).ravendeps</_RavenCompilerDependencyFile>
     <CoreCompileDependsOn>_ReadRavenCompilerDependencies;$(CoreCompileDependsOn)</CoreCompileDependsOn>
@@ -83,7 +89,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference);@(Analyzer);@(SourceGenerator)"
+    Inputs="$(MSBuildProjectFullPath);@(Compile);@(RavenCompile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference);@(Analyzer);@(SourceGenerator)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>

@@ -48,7 +48,9 @@ design notes.
 
 Primary MSBuild items Raven currently consumes:
 
-- `<RavenCompile Include="..."/>`
+- `<Compile Include="..."/>` when default compile items are disabled or sources
+  live outside the project directory
+- `<RavenCompile Include="..."/>` for compatibility with older Raven projects
 - `<ProjectReference Include="..."/>`
 - `<Reference Include="...">` with `HintPath`
 - `<PackageReference Include="Package.Id" Version="x.y.z"/>`
@@ -85,7 +87,9 @@ dotnet_diagnostic.RAV9014.severity = none
 
 ## Raven source inclusion
 
-Raven source files should be declared with `RavenCompile` items, just like C# uses `Compile` items.
+Raven projects implicitly include `**/*.rvn`, excluding the SDK's normal
+default-item exclusions such as `bin`, `obj`, and hidden directories. Like C#,
+ordinary source files do not need to be listed in the project file.
 
 Minimal example:
 
@@ -97,11 +101,28 @@ Minimal example:
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 </Project>
 ```
+
+Set the standard `EnableDefaultCompileItems` property to `false` when the
+project needs an explicit source list:
+
+```xml
+<PropertyGroup>
+  <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+</PropertyGroup>
+
+<ItemGroup>
+  <Compile Include="src/Main.rvn" />
+</ItemGroup>
+```
+
+`RavenCompile` remains supported so existing projects continue to build, but
+new projects should use the standard `Compile` item for explicit source files.
+Legacy `.rav` files are not implicitly included and must remain explicit while
+that extension is supported.
 
 Conditional-compilation symbols use the standard MSBuild property:
 
@@ -334,9 +355,6 @@ set `LanguageTargets` and, when needed, `RavenCompilerHost` explicitly:
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
-  <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
-  </ItemGroup>
 </Project>
 ```
 
@@ -377,7 +395,6 @@ Example:
   </PropertyGroup>
 
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
     <ProjectReference Include="..\Lib\Lib.csproj" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
