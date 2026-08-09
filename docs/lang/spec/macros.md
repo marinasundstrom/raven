@@ -48,8 +48,8 @@ providers should name each exported definition explicitly:
 
 The same attribute and contracts can be used from a C# compiler-plugin
 project. A project containing compact declarations uses the bare marker; it
-exports their compiler-generated provider adapters and may share a source file
-with those declarations:
+exports compiler-generated provider adapters for its `public` declarations and
+may share a source file with those declarations:
 
 ```raven
 [assembly: RavenCompilerPlugin]
@@ -69,6 +69,8 @@ compact declarations.
 Explicit and bare markers cannot be mixed. The marker is an inter-assembly
 export boundary, not part of declaring a same-project macro. Consumers use a
 normal project reference.
+Non-public compact declarations remain usable inside their own project and are
+not discovered from a referenced bare-marker plugin assembly.
 
 `MacroKind` is compiler-owned classification metadata. Concrete macro classes
 do not implement a `Kind` property. `MacroFacts.GetKind` derives it from the

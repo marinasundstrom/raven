@@ -124,7 +124,7 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin]
 
-            class FirstMacro : ITokenTreeExpressionMacro {
+            public class FirstMacro : ITokenTreeExpressionMacro {
                 val Name: string => "first"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
 
@@ -132,9 +132,16 @@ public sealed class MacroReferenceTests
                     => FreestandingMacroExpansionResult.Empty
             }
 
-            class SecondMacro : ITokenTreeExpressionMacro {
+            public class SecondMacro : ITokenTreeExpressionMacro {
                 val Name: string => "second"
                 val Kind: MacroKind => MacroKind.FreestandingExpression
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+
+            class HiddenMacro : ITokenTreeExpressionMacro {
+                val Name: string => "hidden"
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -165,6 +172,11 @@ public sealed class MacroReferenceTests
             public macro Answer(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
                 expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromExpression(
                     Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+
+            macro Hidden(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
+                expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromExpression(
+                    Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("0"))
             }
             """,
             path: "Answer.rvn");

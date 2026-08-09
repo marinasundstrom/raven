@@ -209,6 +209,9 @@ public sealed class MacroReference
         }
 
         var exportedTypes = assembly.GetTypes();
+        if (markers.Length > 0)
+            exportedTypes = exportedTypes.Where(static type => type.IsPublic).ToArray();
+
         return new MacroAssemblyExports(
             exportedTypes
                 .Where(IsConstructibleExportedType)

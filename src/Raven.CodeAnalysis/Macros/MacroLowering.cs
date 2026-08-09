@@ -45,6 +45,7 @@ internal static class MacroLowering
         var parametersName = $"{providerName}_Parameters";
         var isAttached = declaration.TargetClause is not null;
         var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroDeclarationSymbol;
+        var isPublic = symbol?.DeclaredAccessibility == Accessibility.Public;
         var parameters = declaration.ParameterList.Parameters
             .Select((syntax, index) => (
                 Syntax: syntax,
@@ -112,9 +113,9 @@ internal static class MacroLowering
 
         var builder = new StringBuilder();
         if (hasParameters)
-            AppendParametersClass(builder, valueParameters, parametersName);
+            AppendParametersClass(builder, valueParameters, parametersName, isPublic);
 
-        builder.AppendLine($"class {providerName} : {interfaceName} {{");
+        builder.AppendLine($"{(isPublic ? "public " : string.Empty)}class {providerName} : {interfaceName} {{");
         builder.AppendLine(
             $"    val Namespace: string => \"{EscapeString(GetDeclaredNamespace(declaration))}\"");
         builder.AppendLine(
@@ -182,9 +183,10 @@ internal static class MacroLowering
     private static void AppendParametersClass(
         StringBuilder builder,
         IReadOnlyList<(ParameterSyntax Syntax, MacroParameterRole Role)> parameters,
-        string parametersName)
+        string parametersName,
+        bool isPublic)
     {
-        builder.AppendLine($"class {parametersName} {{");
+        builder.AppendLine($"{(isPublic ? "public " : string.Empty)}class {parametersName} {{");
         foreach (var parameter in parameters)
         {
             builder.AppendLine(

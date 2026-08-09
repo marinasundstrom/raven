@@ -7,7 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Reusable compiler-plugin projects can now place a bare
   `[assembly: RavenCompilerPlugin]` marker and compact `macro` declarations in
   the same source file. Partitioning retains the marker in the emitted plugin
-  while lowering only the declarations into provider adapters.
+  while lowering only the declarations into provider adapters. Bare-marker
+  discovery exports public declarations and provider classes; non-public
+  macros remain local to their defining project.
 
 - Simplified Raven-authored macro declarations to `macro Name(...)`, removing
   the redundant `func` keyword. The compiler API now exposes

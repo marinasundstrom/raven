@@ -300,7 +300,7 @@ adds Blazor's normal parameter attribute.
 ## 8. Package a reusable library
 
 A reusable Raven macro project marks its assembly as a compiler plugin. A bare
-marker exports the adapters generated for compact declarations and may
+marker exports the adapters generated for public compact declarations and may
 appear in the same source file:
 
 ```raven
@@ -317,6 +317,8 @@ public macro Twice(expression: ExpressionSyntax) {
 
 For a class-authored provider, name each intentionally exported provider type
 with `[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]` instead.
+Declarations without `public` remain available within their own project but are
+not discovered through a referenced bare-marker plugin assembly.
 
 The consumer uses an ordinary project reference:
 

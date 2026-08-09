@@ -162,6 +162,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Null(symbol.TargetName);
         Assert.Equal("Identity", symbol.Name);
+        Assert.Equal(Accessibility.Internal, symbol.DeclaredAccessibility);
         Assert.True(symbol.IsStatic);
         Assert.True(symbol.CanBeReferencedByName);
         Assert.False(symbol is IMethodSymbol);
@@ -197,6 +198,25 @@ public sealed class MacroSymbolTests : CompilationTestBase
             SemanticClassification.Parameter,
             classifications.Tokens[declaration.ParameterList.Parameters.Single().Identifier]);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroDeclaration_UsesDeclaredAccessibility()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            public macro Exported() {
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42")
+            }
+            """);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroDeclarationSyntax>()
+            .Single();
+
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(Accessibility.Public, symbol.DeclaredAccessibility);
     }
 
     [Fact]
