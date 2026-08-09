@@ -36,6 +36,13 @@ _layout: landing
       </div>
       <pre><code class="lang-raven">import System.Console.*&#10;import System.Text.Json.JsonSerializer&#10;&#10;record Package(Name: string, Version: string)&#10;&#10;let package = Package(&#10;&#32;&#32;&#32;&#32;Name: "Raven.Core",&#10;&#32;&#32;&#32;&#32;Version: "0.1.0"&#10;)&#10;&#10;let json = JsonSerializer.Serialize(package)&#10;WriteLine(json)</code></pre>
     </div>
+    <div class="raven-code-slide" id="raven-sample-components" role="tabpanel" aria-labelledby="raven-sample-components-tab" hidden>
+      <div class="raven-code-titlebar">
+        <span>Counter.rvn · experimental</span>
+        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
+      </div>
+      <pre><code class="lang-raven">#[Component]&#10;class Counter {&#10;&#32;&#32;&#32;&#32;var count = 0&#10;&#10;&#32;&#32;&#32;&#32;func increment() {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;count = count + 1&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;func Render() -&gt; RenderFragment =&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Html! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;button onClick={increment}&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Count: {count}&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/button&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}</code></pre>
+    </div>
     <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">
       <button id="raven-sample-modeling-tab" type="button" role="tab" aria-controls="raven-sample-modeling" aria-selected="true">
         Modeling
@@ -45,6 +52,9 @@ _layout: landing
       </button>
       <button id="raven-sample-dotnet-tab" type="button" role="tab" aria-controls="raven-sample-dotnet" aria-selected="false" tabindex="-1">
         .NET
+      </button>
+      <button id="raven-sample-components-tab" type="button" role="tab" aria-controls="raven-sample-components" aria-selected="false" tabindex="-1">
+        Components
       </button>
     </div>
   </div>
@@ -73,5 +83,10 @@ _layout: landing
     <span class="raven-card-kicker">Reference</span>
     <strong>Explore the language</strong>
     <span>Find precise syntax, semantics, and language guidance.</span>
+  </a>
+  <a class="raven-feature-card" href="https://marinasundstrom.github.io/raven/experiments/html-macro/">
+    <span class="raven-card-kicker">Experimental</span>
+    <strong>Macro-powered Blazor components</strong>
+    <span>Try a live Blazor WebAssembly showcase—no Raven installation required.</span>
   </a>
 </div>

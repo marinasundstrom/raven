@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -35,7 +36,6 @@ internal class MethodBodyGenerator
     private IILocal? _returnValueLocal;
     private static readonly ConditionalWeakTable<ModuleBuilder, Dictionary<string, ISymbolDocumentWriter>> s_documentsByModule = new();
     private SemanticModel[]? _allSemanticModels;
-    private SequencePointSignature? _lastSequencePoint;
     private readonly HashSet<SequencePointSignature> _emittedSequencePoints = new();
     private bool _emittedMethodEntrySequencePoint;
     private static readonly Guid CSharpLanguageId = new("3f5162f8-07c6-11d3-9053-00c04fa302a1");
@@ -215,7 +215,14 @@ internal class MethodBodyGenerator
     {
         var syntax = TryGetSequencePointSyntax(statement);
         if (syntax is null)
+        {
+            if (string.Equals(Environment.GetEnvironmentVariable("RAVEN_SEQ_LOG"), "1", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine(
+                    $"[SEQ-MISSING] method={MethodSymbol.ContainingType?.Name}.{MethodSymbol.Name} statement={statement.GetType().Name}");
+            }
             return;
+        }
 
         EmitSequencePoint(syntax);
     }
@@ -225,46 +232,57 @@ internal class MethodBodyGenerator
         if (syntax is BlockStatementSyntax or BlockSyntax)
             return;
 
+        syntax = ResolveMacroSequencePointSyntax(syntax);
         syntax = NormalizeSequencePointSyntaxForEmission(syntax);
         if (syntax is BlockStatementSyntax or BlockSyntax)
-            return;
-        if (syntax.SyntaxTree is null)
             return;
         if (ShouldSuppressStateMachineContainerSequencePoint(syntax))
             return;
 
-        var location = syntax switch
+        SyntaxTree sourceTree;
+        Location location;
+        if (MacroSyntaxOrigin.TryGetSourceSpan(syntax, Compilation, out sourceTree, out var macroSourceSpan) ||
+            (MacroSyntaxOrigin.IsHidden(syntax) &&
+             MacroSyntaxOrigin.TryGetFirstAuthoredSourceSpan(syntax, Compilation, out sourceTree, out macroSourceSpan)))
         {
-            MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
-            PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
-            MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
-            _ => syntax.GetLocation()
-        };
+            location = sourceTree.GetLocation(macroSourceSpan);
+        }
+        else
+        {
+            if (MacroSyntaxOrigin.IsHidden(syntax))
+                return;
+
+            if (syntax.SyntaxTree is null)
+                return;
+
+            sourceTree = syntax.SyntaxTree;
+            location = syntax switch
+            {
+                MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+                PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+                MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
+                _ => syntax.GetLocation()
+            };
+        }
         var span = location.SourceSpan;
 
         if (span.Length == 0 || !location.IsInSource)
             return;
 
-        var document = GetOrAddDocument(syntax.SyntaxTree);
+        var document = GetOrAddDocument(sourceTree);
 
         var lineSpan = location.GetLineSpan();
-        var (startLine, startColumn, endLine, endColumn) = NormalizeSequencePoint(lineSpan, syntax.SyntaxTree);
+        var (startLine, startColumn, endLine, endColumn) = NormalizeSequencePoint(lineSpan, sourceTree);
         var signature = new SequencePointSignature(
-            syntax.SyntaxTree.FilePath ?? string.Empty,
+            sourceTree.FilePath ?? string.Empty,
             startLine,
             startColumn,
             endLine,
             endColumn);
         if (_emittedSequencePoints.Contains(signature))
             return;
-
-        if (_lastSequencePoint is SequencePointSignature last && last == signature)
+        if (_emittedSequencePoints.Any(existing => SequencePointsOverlap(existing, signature)))
             return;
-        if (_lastSequencePoint is SequencePointSignature previous &&
-            IsWiderBackwardOverlap(previous, signature))
-        {
-            return;
-        }
 
         if (string.Equals(Environment.GetEnvironmentVariable("RAVEN_SEQ_LOG"), "1", StringComparison.Ordinal))
         {
@@ -272,7 +290,7 @@ internal class MethodBodyGenerator
             if (spanLines >= 8)
             {
                 Console.Error.WriteLine(
-                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={startLine}:{startColumn}-{endLine}:{endColumn} file={syntax.SyntaxTree.FilePath}");
+                    $"[SEQ-WIDE] method={MethodSymbol.Name} syntax={syntax.GetType().Name} span={startLine}:{startColumn}-{endLine}:{endColumn} file={sourceTree.FilePath}");
             }
         }
 
@@ -284,11 +302,22 @@ internal class MethodBodyGenerator
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "endColumn")
         {
             throw new InvalidOperationException(
-                $"Invalid sequence point for {syntax.GetType().Name} in {syntax.SyntaxTree.FilePath}: {startLine}:{startColumn}-{endLine}:{endColumn} (text length: {syntax.SyntaxTree.GetText()?.Length ?? 0})",
+                $"Invalid sequence point for {syntax.GetType().Name} in {sourceTree.FilePath}: {startLine}:{startColumn}-{endLine}:{endColumn} (text length: {sourceTree.GetText()?.Length ?? 0})",
                 ex);
         }
-        _lastSequencePoint = signature;
         _emittedSequencePoints.Add(signature);
+    }
+
+    private SyntaxNode ResolveMacroSequencePointSyntax(SyntaxNode syntax)
+    {
+        if (syntax is not FreestandingMacroExpressionSyntax || syntax.SyntaxTree is null)
+            return syntax;
+
+        var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
+        return semanticModel.TryGetMacroReplacementSyntax(syntax, out var replacement) &&
+            MacroSyntaxOrigin.ContainsAuthoredOrigin(replacement)
+            ? replacement
+            : syntax;
     }
 
     private bool ShouldSuppressStateMachineContainerSequencePoint(SyntaxNode syntax)
@@ -314,17 +343,13 @@ internal class MethodBodyGenerator
         int EndLine,
         int EndColumn);
 
-    private static bool IsWiderBackwardOverlap(SequencePointSignature previous, SequencePointSignature current)
+    private static bool SequencePointsOverlap(SequencePointSignature left, SequencePointSignature right)
     {
-        if (!string.Equals(previous.FilePath, current.FilePath, StringComparison.Ordinal))
+        if (!string.Equals(left.FilePath, right.FilePath, StringComparison.Ordinal))
             return false;
 
-        // Suppress broad spans emitted after narrower spans in the same method.
-        // This reduces debugger confusion where async/match lowering introduces overlaps.
-        return ComparePosition(current.StartLine, current.StartColumn, previous.StartLine, previous.StartColumn) <= 0 &&
-               ComparePosition(current.EndLine, current.EndColumn, previous.EndLine, previous.EndColumn) >= 0 &&
-               ComparePosition(current.StartLine, current.StartColumn, previous.EndLine, previous.EndColumn) < 0 &&
-               !current.Equals(previous);
+        return ComparePosition(left.StartLine, left.StartColumn, right.EndLine, right.EndColumn) < 0 &&
+               ComparePosition(right.StartLine, right.StartColumn, left.EndLine, left.EndColumn) < 0;
     }
 
     private static int ComparePosition(int leftLine, int leftColumn, int rightLine, int rightColumn)
@@ -462,9 +487,10 @@ internal class MethodBodyGenerator
 
         if (statement is BoundBlockStatement block)
         {
-            return block.Statements
+            var childSyntax = block.Statements
                 .Select(TryGetSequencePointSyntax)
                 .FirstOrDefault(s => s is not null);
+            return childSyntax ?? NormalizeSequencePointSyntax(TryGetSyntax(block));
         }
 
         var direct = NormalizeSequencePointSyntax(TryGetSyntax(statement));
@@ -728,6 +754,8 @@ internal class MethodBodyGenerator
                 AssignmentStatementSyntax or
                 ReturnStatementSyntax or
                 ThrowStatementSyntax or
+                YieldReturnStatementSyntax or
+                YieldBreakStatementSyntax or
                 UseDeclarationStatementSyntax);
         if (!isMatchRelatedSyntax &&
             statementSyntax is not null &&
@@ -1849,6 +1877,8 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.MoveNextMethod))
+            RegisterStateMachineSyntaxMappings(body, iteratorType.IteratorMethod);
         DeclareLocals(body);
         EmitMethodBlock(body);
     }
@@ -1880,6 +1910,8 @@ internal class MethodBodyGenerator
 
         try
         {
+            if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
+                RegisterStateMachineSyntaxMappings(body, asyncStateMachine.AsyncMethod);
             DeclareLocals(body);
             EmitMethodBlock(body);
         }
@@ -1887,6 +1919,16 @@ internal class MethodBodyGenerator
         {
             _lambdaClosure = previousClosure;
         }
+    }
+
+    private void RegisterStateMachineSyntaxMappings(BoundBlockStatement body, IMethodSymbol sourceMethod)
+    {
+        var syntaxReference = sourceMethod.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference?.SyntaxTree is not { } syntaxTree)
+            return;
+
+        var semanticModel = Compilation.GetSemanticModel(syntaxTree);
+        semanticModel.RegisterLoweredSyntaxMappings(body, syntaxReference.GetSyntax());
     }
 
     private TypeGenerator.LambdaClosure? GetAsyncLambdaClosure(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
@@ -2516,6 +2558,9 @@ internal class MethodBodyGenerator
 
         if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
         {
+            if (!SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
+                return null;
+
             var asyncSyntax = asyncStateMachine.AsyncMethod.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
             if (asyncSyntax is not null)
                 return SelectBodySyntax(asyncSyntax);
@@ -2523,6 +2568,13 @@ internal class MethodBodyGenerator
 
         if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
         {
+            if (!SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.MoveNextMethod) &&
+                (iteratorType.AsyncMoveNextMethod is null ||
+                 !SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.AsyncMoveNextMethod)))
+            {
+                return null;
+            }
+
             var iteratorSyntax = iteratorType.IteratorMethod.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
             if (iteratorSyntax is not null)
                 return SelectBodySyntax(iteratorSyntax);

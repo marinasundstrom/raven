@@ -1,0 +1,75 @@
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+[assembly: RavenCompilerPlugin(typeof(GuardMacro))]
+
+class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragmentProvider {
+    static val UnlessKeywordRawKind: int => 81001
+
+    val Name: string => "guard"
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [MacroKeyword("unless", UnlessKeywordRawKind, MacroKeywordClassification.ReservedWord)]
+
+    func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+        let stream = context.CreateTokenStream()
+        if stream.IsEndOfFile {
+            return []
+        }
+
+        let unlessKeyword = stream.ReadToken()
+        if unlessKeyword.RawKind != UnlessKeywordRawKind {
+            return []
+        }
+
+        let conditionSpan = TextSpan.FromBounds(
+            unlessKeyword.Span.End,
+            context.BodySpan.Length)
+
+        [context.CreateFragmentRegion(MacroFragmentKind.Expression, conditionSpan)]
+    }
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let stream = context.CreateTokenStream()
+        if stream.IsEndOfFile {
+            return Error(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
+        }
+
+        let unlessKeyword = stream.ReadToken()
+        if unlessKeyword.RawKind != UnlessKeywordRawKind {
+            return Error(context, unlessKeyword.Span, "Expected the 'unless' keyword.")
+        }
+        if stream.IsEndOfFile {
+            return Error(
+                context,
+                TextSpan(unlessKeyword.Span.End, 0),
+                "Expected a Raven expression after 'unless'.")
+        }
+
+        let conditionSpan = TextSpan.FromBounds(
+            unlessKeyword.Span.End,
+            context.BodySpan.Length)
+        let condition = context.ParseExpressionResult(conditionSpan)
+        if condition.HasErrors {
+            return FreestandingMacroExpansionResult.FromDiagnostics(condition.Diagnostics)
+        }
+
+        FreestandingMacroExpansionResult.FromExpression(
+            PrefixOperatorExpression(
+                SyntaxKind.LogicalNotExpression,
+                ExclamationToken,
+                condition.Syntax))
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateBodyDiagnostic(span, message, code: "GUARD001"))
+    }
+}

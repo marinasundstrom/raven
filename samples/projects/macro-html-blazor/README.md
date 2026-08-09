@@ -160,6 +160,27 @@ Run the styled interactive browser demo:
 dotnet run --project host/HtmlBlazorShowcase.csproj
 ```
 
+The same showcase can run entirely in WebAssembly:
+
+```bash
+dotnet run --project wasm/HtmlBlazorShowcase.Wasm.csproj
+```
+
+The Server and WebAssembly hosts share the same `Home.razor`, stylesheet, and
+Raven component library. They differ only in startup and render-mode plumbing.
+The published WebAssembly host is the zero-install showcase linked from the
+Raven documentation site. It is labeled experimental because the macro remains
+a prototype rather than a committed framework surface. The thin C#/Razor host
+is temporary; a future milestone is to author the entire Blazor application in
+Raven.
+
+To debug the templates, open this sample directory in VS Code and press F5.
+The checked-in `.vscode/launch.json` builds the C# Blazor host as the startup
+project, loads `HtmlBlazorSample.pdb`, and opens the `http` launch profile.
+Breakpoints bind inside ordinary Raven component methods, callbacks, inline
+lambdas, and executable Raven expressions embedded in `Html!`; generated
+`RenderTreeBuilder` plumbing is skipped while stepping.
+
 The host is deliberately thin C#/Razor infrastructure. Its live Counter,
 Greeting, Gallery, Todo, Match, and interop showcases are public component
 classes authored in Raven and expanded by the sample macros. The interop
@@ -183,6 +204,13 @@ are intentionally local until this integration can be distributed as a
 library. A later JavaScript interop example should likewise use Blazor's
 existing `IJSRuntime` and module model rather than introduce a mechanism owned
 by the HTML macro.
+
+Debugger sequence-point parity is compiler-owned rather than implemented by
+the HTML macro. Ordinary and top-level functions, match expressions, user
+locals, async methods, iterators, and mapped macro fragments now retain
+non-overlapping spans on the correct emitted methods. Future debugger work can
+therefore focus on advanced inspection and stepping behavior rather than
+template-specific source mapping.
 
 ## Editor-readiness fixture
 

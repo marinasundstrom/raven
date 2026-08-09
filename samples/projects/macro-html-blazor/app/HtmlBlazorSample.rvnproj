@@ -9,7 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../macros/HtmlBlazorMacros.rvnproj" />
     <ProjectReference Include="../blazor/ExistingBlazorComponents.csproj" />
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Components" Version="10.0.0" />
     <RavenComponentCss
       Include="src/Components/Counter.rvn.css"
       ComponentSource="$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/src/Components/Counter.rvn'))"

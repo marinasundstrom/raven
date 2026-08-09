@@ -452,7 +452,8 @@ internal static class MacroExpansionService
         if (result.Expression is null)
             return result;
 
-        var contextualExpression = (ExpressionSyntax)result.Expression.WithParent(macroExpression.Parent, macroExpression.Position);
+        var expansionExpression = MacroSyntaxOrigin.MarkGeneratedSyntaxHidden(result.Expression);
+        var contextualExpression = (ExpressionSyntax)expansionExpression.WithParent(macroExpression.Parent, macroExpression.Position);
         return new FreestandingMacroExpansionResult
         {
             Expression = contextualExpression,

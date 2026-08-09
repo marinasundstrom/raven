@@ -142,6 +142,18 @@ syntax-only API for one complete Raven statement. Their
 `MacroSyntaxParseResult<StatementSyntax>` with native diagnostics mapped to the
 authored body.
 
+Executable syntax returned by the expression and statement fragment parsers
+retains its authored source origin. When that syntax participates in an
+expansion, portable-PDB sequence points map back to the selected span in the
+invocation rather than to generated expansion text.
+
+A macro that constructs Raven syntax can associate it with one authored span
+using `TokenTreeMacroContext.WithOrigin(syntax, bodyRelativeSpan)`. A macro that
+parses a complete generated expression from text can instead provide immutable
+`MacroExpansionSourceMap` values through `WithOrigins`; each value maps one
+expanded-syntax span to one equal-length body-relative span. Unmapped generated
+expansion plumbing is hidden from debugger stepping.
+
 `ParseType`, `ParsePattern`, and `ParseCompilationUnit` follow the same concise
 syntax-only shape. Their corresponding `ParseTypeResult`,
 `ParsePatternResult`, and `ParseCompilationUnitResult` overloads retain native

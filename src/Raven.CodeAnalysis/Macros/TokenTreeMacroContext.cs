@@ -286,6 +286,54 @@ public class TokenTreeMacroContext
     public ExpressionSyntax ParseExpression(TextSpan bodyRelativeSpan)
         => ParseExpressionResult(bodyRelativeSpan).Syntax;
 
+    /// <summary>
+    /// Associates generated Raven syntax with an authored span in this macro's
+    /// token-tree body for debugging.
+    /// </summary>
+    public TSyntax WithOrigin<TSyntax>(TSyntax syntax, TextSpan bodyRelativeSpan)
+        where TSyntax : SyntaxNode
+    {
+        ArgumentNullException.ThrowIfNull(syntax);
+        ValidateBodyRelativeSpan(bodyRelativeSpan);
+        return MacroSyntaxOrigin.AttachBodyOrigin(
+            syntax,
+            Syntax.SyntaxTree,
+            BodySpan,
+            bodyRelativeSpan);
+    }
+
+    /// <summary>
+    /// Associates spans in generated Raven syntax with authored spans in this
+    /// macro's token-tree body. Each mapping is one-to-one so offsets within a
+    /// mapped syntax node retain their authored positions.
+    /// </summary>
+    public TSyntax WithOrigins<TSyntax>(
+        TSyntax syntax,
+        ImmutableArray<MacroExpansionSourceMap> sourceMaps)
+        where TSyntax : SyntaxNode
+    {
+        ArgumentNullException.ThrowIfNull(syntax);
+        if (sourceMaps.IsDefault)
+            throw new ArgumentException("Macro source maps must be initialized.", nameof(sourceMaps));
+
+        foreach (var sourceMap in sourceMaps)
+        {
+            if (sourceMap.ExpandedSpan.Start < syntax.FullSpan.Start ||
+                sourceMap.ExpandedSpan.End > syntax.FullSpan.End ||
+                sourceMap.ExpandedSpan.Length != sourceMap.BodyRelativeSpan.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sourceMaps));
+            }
+            ValidateBodyRelativeSpan(sourceMap.BodyRelativeSpan);
+        }
+
+        return MacroSyntaxOrigin.AttachMappedOrigins(
+            syntax,
+            Syntax.SyntaxTree,
+            BodySpan,
+            sourceMaps);
+    }
+
     public MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult()
         => ParseExpressionResult(new TextSpan(0, BodySpan.Length));
 
@@ -433,6 +481,7 @@ public class TokenTreeMacroContext
             consumeFullText: true);
         var syntax = parseResult?.Root.CreateRed(parent: null, position: absoluteStart) as TSyntax
             ?? createMissingSyntax();
+        syntax = MacroSyntaxOrigin.AttachParsedOrigin(syntax, Syntax.SyntaxTree);
         var diagnostics = parseResult?.Diagnostics
             .Select(diagnostic => Diagnostic.Create(
                 diagnostic.Descriptor,
@@ -442,6 +491,12 @@ public class TokenTreeMacroContext
             ?? ImmutableArray<Diagnostic>.Empty;
 
         return new MacroSyntaxParseResult<TSyntax>(syntax, diagnostics);
+    }
+
+    private void ValidateBodyRelativeSpan(TextSpan bodyRelativeSpan)
+    {
+        if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
+            throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
     }
 
     private Location GetSingleMemberDiagnosticLocation(
