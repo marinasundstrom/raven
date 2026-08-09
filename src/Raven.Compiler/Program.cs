@@ -1114,7 +1114,8 @@ if (projectFileInput is not null)
             .WithAllowUnsafe(options.AllowUnsafe)
             .WithAllowGlobalStatements(options.AllowGlobalStatements)
             .WithEnableSuggestions(options.EnableSuggestions)
-            .WithRuntimeAsync(options.UseRuntimeAsync);
+            .WithRuntimeAsync(options.UseRuntimeAsync)
+            .WithEnableIsNotNullNarrowing(projectOptions.EnableIsNotNullNarrowing);
 
         if (executionOptions.AllowNamespaceMembersSpecified)
             options = options.WithAllowNamespaceMembers(executionOptions.AllowNamespaceMembers);

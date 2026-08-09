@@ -62,6 +62,7 @@ partial class BlockBinder : Binder
     private readonly BlockDeclarationState _declarationState = new();
     private readonly StatementDeclarationProgress _statementDeclarationProgress = new();
     private readonly HashSet<SyntaxReferenceKey> _localDeclarationUpgradesInProgress = new();
+    private readonly HashSet<ISymbol> _isNotNullNarrowedSymbols = new(SymbolEqualityComparer.Default);
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private bool _allowReturnsInBlockExpressionsOnly;
@@ -2423,6 +2424,7 @@ partial class BlockBinder : Binder
         private readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals;
         private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose;
         private readonly Dictionary<SyntaxReferenceKey, int> _statementDeclarationProgress;
+        private readonly HashSet<ISymbol> _isNotNullNarrowedSymbols;
         private readonly int _scopeDepth;
         private readonly SyntaxKind _ambientPatternDeclarationBindingKeyword;
 
@@ -2430,12 +2432,14 @@ partial class BlockBinder : Binder
             Dictionary<string, (ILocalSymbol Symbol, int Depth)> locals,
             List<(ILocalSymbol Local, int Depth)> localsToDispose,
             Dictionary<SyntaxReferenceKey, int> statementDeclarationProgress,
+            HashSet<ISymbol> isNotNullNarrowedSymbols,
             int scopeDepth,
             SyntaxKind ambientPatternDeclarationBindingKeyword)
         {
             _locals = locals;
             _localsToDispose = localsToDispose;
             _statementDeclarationProgress = statementDeclarationProgress;
+            _isNotNullNarrowedSymbols = isNotNullNarrowedSymbols;
             _scopeDepth = scopeDepth;
             _ambientPatternDeclarationBindingKeyword = ambientPatternDeclarationBindingKeyword;
         }
@@ -2445,6 +2449,7 @@ partial class BlockBinder : Binder
                 new Dictionary<string, (ILocalSymbol Symbol, int Depth)>(binder._locals, StringComparer.Ordinal),
                 new List<(ILocalSymbol Local, int Depth)>(binder._localsToDispose),
                 binder._statementDeclarationProgress.CreateSnapshot(),
+                new HashSet<ISymbol>(binder._isNotNullNarrowedSymbols, SymbolEqualityComparer.Default),
                 binder._scopeDepth,
                 binder._ambientPatternDeclarationBindingKeyword);
 
@@ -2458,6 +2463,8 @@ partial class BlockBinder : Binder
             binder._localsToDispose.AddRange(_localsToDispose);
 
             binder._statementDeclarationProgress.Restore(_statementDeclarationProgress);
+            binder._isNotNullNarrowedSymbols.Clear();
+            binder._isNotNullNarrowedSymbols.UnionWith(_isNotNullNarrowedSymbols);
             binder._scopeDepth = _scopeDepth;
             binder._ambientPatternDeclarationBindingKeyword = _ambientPatternDeclarationBindingKeyword;
         }
@@ -8346,13 +8353,13 @@ partial class BlockBinder : Binder
             }
 
             var b = new BoundLocalAccess(localEarly);
-            return b;
+            return applyFlowNarrowing ? ApplyIsNotNullNarrowing(b, localEarly) : b;
         }
 
         if (symbol is IParameterSymbol paramEarly)
         {
             var p = new BoundParameterAccess(paramEarly);
-            return p;
+            return applyFlowNarrowing ? ApplyIsNotNullNarrowing(p, paramEarly) : p;
         }
 
         if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out var memberExpr))
@@ -8519,10 +8526,10 @@ partial class BlockBinder : Binder
                 return new BoundMemberAccessExpression(null, @event);
             case ILocalSymbol local:
                 var b = new BoundLocalAccess(local);
-                return b;
+                return applyFlowNarrowing ? ApplyIsNotNullNarrowing(b, local) : b;
             case IParameterSymbol param:
                 var p = new BoundParameterAccess(param);
-                return p;
+                return applyFlowNarrowing ? ApplyIsNotNullNarrowing(p, param) : p;
             case IFieldSymbol field:
                 {
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
@@ -11261,6 +11268,26 @@ partial class BlockBinder : Binder
         _diagnostics.ReportNullableValueMemberAccess(
             receiver.Type.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
             receiverSyntax.GetLocation());
+    }
+
+    private BoundExpression ApplyIsNotNullNarrowing(BoundExpression expression, ISymbol symbol)
+    {
+        if (!Compilation.Options.EnableIsNotNullNarrowing ||
+            !_isNotNullNarrowedSymbols.Contains(symbol) ||
+            expression.Type is not { IsNullable: true } nullableType ||
+            !nullableType.TryGetNullableUnderlyingType(out var underlyingType))
+        {
+            return expression;
+        }
+
+        if (nullableType.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
+            return new BoundNullableValueExpression(expression, underlyingType);
+
+        return new BoundConversionExpression(
+            expression,
+            underlyingType,
+            new Conversion(isImplicit: true, isIdentity: true, isReference: !underlyingType.IsValueType),
+            isNullableSuppression: true);
     }
 
     private static bool IsErrorExpression(BoundExpression expression)

@@ -238,6 +238,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         UpdateProperty(root, "RavenAllowNamespaceMembers", (project.CompilationOptions?.AllowNamespaceMembers ?? true).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowNamespaceMemberImports", (project.CompilationOptions?.AllowNamespaceMemberImports ?? true).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenFrameworkProjections", (project.CompilationOptions?.FrameworkProjectionMode ?? FrameworkProjectionMode.Standard).ToString());
+        UpdateProperty(root, "EnableIsNotNullNarrowing", (project.CompilationOptions?.EnableIsNotNullNarrowing ?? false).ToString().ToLowerInvariant());
         var compilationOptions = project.CompilationOptions;
         UpdateProperty(root, "RavenRunAnalyzers", (compilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
         RemoveProperty(root, "EnableNullFlowAnalysis");

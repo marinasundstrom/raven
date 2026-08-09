@@ -15,6 +15,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `GetNullableAbiProjection()`. The total API distinguishes non-nullable types,
   annotated underlying-type projections, and `System.Nullable<T>` projections
   without exposing Raven's internal nullable symbol implementation.
+- Added the off-by-default `EnableIsNotNullNarrowing` compatibility option.
+  A direct `value is not null` condition narrows a local or parameter only in
+  its true branch, and semantic type information and hover show the contextual
+  non-null type there. Raven's canonical `if let` and type-pattern bindings are
+  unchanged.
 
 - Raven MSBuild projects now implicitly include `.rvn` source files through the
   standard `Compile` item contract. Set `EnableDefaultCompileItems` to `false`

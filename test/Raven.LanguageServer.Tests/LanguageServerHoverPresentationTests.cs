@@ -550,6 +550,55 @@ record ApplicationError(val Message: MessageText)
     }
 
     [Fact]
+    public void IsNotNullCompatibilityNarrowing_HoverUsesContextualNonNullableType()
+    {
+        const string code = """
+class Person {
+    val Name: string = ""
+}
+
+func Inspect(value: Person?) -> unit {
+    if value is not null {
+        let name = value.Name
+    }
+
+    let original = value
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableIsNotNullNarrowing(true);
+        var compilation = Compilation.Create("test", options)
+            .AddSyntaxTrees(syntaxTree);
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var identifiers = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => identifier.Identifier.ValueText == "value")
+            .ToArray();
+        var narrowedIdentifier = identifiers.Single(identifier => identifier.Parent is MemberAccessExpressionSyntax);
+        var outsideIdentifier = identifiers.Last();
+        var parameter = semanticModel.GetSymbolInfo(narrowedIdentifier).Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var narrowedSignature = (string)buildSignature.Invoke(
+            null,
+            [parameter, narrowedIdentifier, semanticModel])!;
+        var outsideSignature = (string)buildSignature.Invoke(
+            null,
+            [parameter, outsideIdentifier, semanticModel])!;
+
+        narrowedSignature.ShouldBe("value: Person");
+        outsideSignature.ShouldBe("value: Person?");
+    }
+
+    [Fact]
     public void RecordDeclarationHoverSignature_IndentsMultiLinePrimaryConstructorParameters()
     {
         const string code = """

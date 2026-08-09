@@ -10021,6 +10021,20 @@ public partial class SemanticModel
             return info;
         }
 
+        if (Compilation.Options.EnableIsNotNullNarrowing &&
+            GetBoundNode(expr) is BoundExpression
+            {
+                Type: { } narrowedType
+            } narrowedExpression &&
+            narrowedExpression is BoundNullableValueExpression or
+                BoundConversionExpression { IsNullableSuppression: true })
+        {
+            return Cache(new TypeInfo(
+                narrowedType,
+                narrowedType,
+                ComputeConversion(narrowedType, narrowedType)));
+        }
+
         if (TryGetAvailableTypeInfo(expr, out var availableTypeInfo))
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();

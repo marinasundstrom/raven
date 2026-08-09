@@ -1,0 +1,29 @@
+import System.*
+
+func canonicalBinding(value: string?) -> string {
+    if let text: string = value {
+        return text.Trim()
+    }
+
+    return "<none>"
+}
+
+func canonicalPattern(value: string?) -> string {
+    if value is string text {
+        return text.ToUpperInvariant()
+    }
+
+    return "<none>"
+}
+
+func compatibilityNarrowing(value: string?) -> string {
+    if value is not null {
+        return value.ToLowerInvariant()
+    }
+
+    return "<none>"
+}
+
+Console.WriteLine(canonicalBinding("  Raven  "))
+Console.WriteLine(canonicalPattern("Raven"))
+Console.WriteLine(compatibilityNarrowing("RAVEN"))

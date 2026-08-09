@@ -100,6 +100,14 @@ partial class BlockBinder
             ReportCannotConvertFromTypeToType(condition.Type, boolType, conditionSyntax.GetLocation());
         }
 
+        ISymbol? narrowedSymbol = null;
+        var narrowedSymbolWasAlreadyActive = false;
+        if (Compilation.Options.EnableIsNotNullNarrowing &&
+            TryGetDirectIsNotNullNarrowedSymbol(condition, out narrowedSymbol))
+        {
+            narrowedSymbolWasAlreadyActive = !_isNotNullNarrowedSymbols.Add(narrowedSymbol);
+        }
+
         foreach (var local in patternLocals)
         {
             if (!shadowedLocals.ContainsKey(local.Name))
@@ -108,7 +116,16 @@ partial class BlockBinder
             _locals[local.Name] = (local, patternDepth);
         }
 
-        var thenBound = BindStatement(thenStatementSyntax);
+        BoundStatement thenBound;
+        try
+        {
+            thenBound = BindStatement(thenStatementSyntax);
+        }
+        finally
+        {
+            if (narrowedSymbol is not null && !narrowedSymbolWasAlreadyActive)
+                _isNotNullNarrowedSymbols.Remove(narrowedSymbol);
+        }
         foreach (var local in patternLocals)
         {
             if (!shadowedLocals.TryGetValue(local.Name, out var shadowed) || shadowed is null)
@@ -142,6 +159,34 @@ partial class BlockBinder
         }
 
         return new BoundIfStatement(condition, thenBound, elseBound);
+    }
+
+    private static bool TryGetDirectIsNotNullNarrowedSymbol(
+        BoundExpression condition,
+        out ISymbol symbol)
+    {
+        if (condition is BoundIsPatternExpression
+            {
+                Expression: var testedExpression,
+                Pattern: BoundNotPattern
+                {
+                    Pattern: BoundConstantPattern { ConstantValue: null }
+                }
+            })
+        {
+            switch (testedExpression)
+            {
+                case BoundLocalAccess { Local.IsMutable: false } localAccess:
+                    symbol = localAccess.Local;
+                    return true;
+                case BoundParameterAccess parameterAccess:
+                    symbol = parameterAccess.Parameter;
+                    return true;
+            }
+        }
+
+        symbol = null!;
+        return false;
     }
 
     private BoundExpression BindIfPatternCondition(IfPatternStatementSyntax syntax)

@@ -125,6 +125,134 @@ func Inspect(value: Person?) -> unit {
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void IsNotNullCompatibilityOption_NarrowsOnlyInsideTrueBranch(bool diagnosticsFirst)
+    {
+        const string source = """
+class Person {
+    val Name: string = ""
+}
+
+func Inspect(value: Person?) -> unit {
+    if value is not null {
+        let name = value.Name
+    }
+
+    let original = value
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableIsNotNullNarrowing(true);
+        var (compilation, tree) = CreateCompilation(source, options);
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var identifiers = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => identifier.Identifier.ValueText == "value")
+            .ToArray();
+        var narrowedIdentifier = Assert.Single(identifiers.Where(identifier => identifier.Parent is MemberAccessExpressionSyntax));
+        var outsideIdentifier = identifiers.Last();
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(narrowedIdentifier).Symbol);
+
+        Assert.False(model.GetTypeInfo(narrowedIdentifier).Type?.IsNullable);
+        Assert.True(model.GetTypeInfo(outsideIdentifier).Type?.IsNullable);
+        Assert.True(parameter.Type.IsNullable);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableValueMemberAccess);
+    }
+
+    [Fact]
+    public void IsNotNullCompatibilityOption_DoesNotNarrowElseBranch()
+    {
+        const string source = """
+class Person {
+    val Name: string = ""
+}
+
+func Inspect(value: Person?) -> unit {
+    if value is not null {
+    } else {
+        let name = value.Name
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableIsNotNullNarrowing(true);
+        var (compilation, _) = CreateCompilation(source, options);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableValueMemberAccess);
+    }
+
+    [Fact]
+    public void IsNotNullCompatibilityOption_DoesNotNarrowMutableLocal()
+    {
+        const string source = """
+class Person {
+    val Name: string = ""
+}
+
+func Inspect(input: Person?) -> unit {
+    var value: Person? = input
+    if value is not null {
+        let name = value.Name
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableIsNotNullNarrowing(true);
+        var (compilation, tree) = CreateCompilation(source, options);
+        var receiver = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single()
+            .Expression;
+
+        Assert.True(compilation.GetSemanticModel(tree).GetTypeInfo(receiver).Type?.IsNullable);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableValueMemberAccess);
+    }
+
+    [Fact]
+    public void IsNotNullCompatibilityOption_IncompleteGuardedBody_RemainsQueryable()
+    {
+        const string source = """
+class Person {
+    val Name: string = ""
+}
+
+func Inspect(value: Person?) -> unit {
+    if value is not null {
+        value.
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEnableIsNotNullNarrowing(true);
+        var (compilation, tree) = CreateCompilation(source, options);
+        var model = compilation.GetSemanticModel(tree);
+        var guardedValue = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(identifier => identifier.Identifier.ValueText == "value");
+
+        _ = compilation.GetDiagnostics();
+        Assert.False(model.GetTypeInfo(guardedValue).Type?.IsNullable);
+        _ = compilation.GetDiagnostics();
+    }
+
+    [Theory]
     [InlineData("if value is Person person { let name = person.Name }")]
     [InlineData("if let person: Person = value { let name = person.Name }")]
     public void PatternBinding_ProducesSeparateNonNullableValue(string pattern)

@@ -16,6 +16,16 @@ reference.
 > Use `Option<T>` when absence is part of the domain. Use `T?` when null is part
 > of an interoperability or storage contract. Handle either form explicitly.
 
+This distinction does not remove the practical tools needed at a nullable
+boundary. A nullable value has a null case and a `T` case, so code can match
+and extract its value similarly to handling an option or union case. The
+similarity is in how the cases are eliminated, not in their representation or
+meaning. Raven also supports conditional access, explicit suppression, and
+opt-in `is not null` narrowing. `T?` describes a CLR null state, while
+`Option<T>` makes domain absence an explicit case in the program's model.
+Raven can enforce that distinction strictly because it does not need to
+preserve a legacy nullable-unaware source model.
+
 ## One unified nullable type model
 
 `T?` means that a value of `T` may also be null. Raven applies that rule
@@ -76,7 +86,8 @@ starts with nullable types as a strict source-language distinction: checking a
 storage location does not change its type. A successful pattern names the
 non-null value that subsequent code may use.
 
-Null checks remain valid conditions, but they do not change a value's type:
+By default, null checks remain valid conditions but do not change a value's
+type:
 
 ```raven
 if value is not null {
@@ -92,6 +103,42 @@ These familiar .NET forms can still select a branch. Bind the checked value to
 use it as non-null. Equality checks may also invoke user-defined equality;
 `RAV9015` can replace an equality comparison with the stricter `is null` or
 `is not null` form when that distinction matters.
+
+### Opt-in compatibility narrowing
+
+Projects that consume null-oriented .NET APIs and need the familiar direct
+null-check style can opt into a narrow compatibility feature:
+
+```xml
+<EnableIsNotNullNarrowing>true</EnableIsNotNullNarrowing>
+```
+
+With that option, a direct `value is not null` check narrows a stable local or
+parameter only inside the true branch:
+
+```raven
+if value is not null {
+    WriteLine(value.Length) // value is string here
+}
+// value is string? again here
+```
+
+The declared symbol remains `string?`; `TypeInfo.Type` for references inside
+the guarded branch is `string`, which also gives hover the contextual type.
+This option does not enable a general nullable flow engine: it does not infer
+through assignments, loops, early exits, equality operators, or arbitrary
+boolean expressions. `if let` and type patterns remain the canonical Raven
+forms because they introduce a stable, explicit non-null binding.
+
+The option changes the spelling of the proof for stable storage, not the
+strictness of nullable types. Code must still establish the `T` case before it
+can use a `T?` as `T`; Raven does not adopt C#'s broader flow-based flexibility.
+
+This remains an interop/storage facility, not a domain-modeling recommendation.
+Use `Option<T>` when a Raven value may meaningfully be present or absent; use
+nullable types when the underlying contract genuinely permits a null reference.
+Code that only needs to continue through a nullable member chain can use `?.`
+without enabling compatibility narrowing.
 
 ## Match every nullable state
 

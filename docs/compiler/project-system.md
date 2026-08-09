@@ -25,6 +25,8 @@ Primary MSBuild properties Raven currently consumes:
   commas, or whitespace)
 - `FrameworkProjections` or `RavenFrameworkProjections` (`Standard` by default,
   or `None` for the ordinary .NET API surface)
+- `EnableIsNotNullNarrowing` (`false` by default; enables direct
+  `value is not null` true-branch narrowing as a compatibility feature)
 - `IntermediateOutputPath`
 - `Configuration`
 - `RavenGenerateDocumentation` (`true` by default for libraries)

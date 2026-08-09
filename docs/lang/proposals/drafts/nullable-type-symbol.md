@@ -173,12 +173,13 @@ a speculative helper collection.
 
 ### Explicit `is not null` narrowing
 
-A later language slice may reintroduce narrowing after `value is not null` as
-an explicit Raven construct. This is not a general nullable flow-analysis
-system: the declared symbol remains `T?`, and narrowing should be local,
-predictable, and invalidated conservatively for mutable or aliased storage.
-Typed pattern bindings and `if let` remain the canonical way to name the
-non-null value.
+The compatibility slice exposes direct `value is not null` true-branch
+narrowing behind the off-by-default `EnableIsNotNullNarrowing` project
+option. It is not a general nullable flow-analysis system: the declared symbol
+remains `T?`, and the contextual expression type is narrowed only within the
+lexically guarded branch for stable locals and parameters. Mutable locals and
+properties are not narrowed. Typed pattern bindings and `if let` remain the
+canonical way to name a non-null value.
 
 ## Migration / compatibility
 

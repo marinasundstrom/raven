@@ -2845,6 +2845,9 @@ internal sealed class HoverHandler : IHoverHandler
         if (symbol is IParameterSymbol parameter)
         {
             var parameterTypeSymbol = parameter.Type;
+            if (TryGetNarrowedHoverType(parameterTypeSymbol, contextNode, semanticModel, out var narrowedParameterType))
+                parameterTypeSymbol = narrowedParameterType;
+
             if (parameterTypeSymbol.ContainsErrorType() &&
                 contextNode.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault() is { } parameterSyntax &&
                 semanticModel.GetFunctionExpressionParameterSymbol(parameterSyntax) is { Type: { } contextualParameterType } &&
@@ -2892,6 +2895,9 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var binding = local.IsMutable ? "var" : "val";
             var localTypeSymbol = local.Type;
+            if (TryGetNarrowedHoverType(localTypeSymbol, contextNode, semanticModel, out var narrowedLocalType))
+                localTypeSymbol = narrowedLocalType;
+
             if (localTypeSymbol.ContainsErrorType() &&
                 TryInferPatternDeclaredLocalType(
                     contextNode.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault()
@@ -2986,6 +2992,25 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+    }
+
+    private static bool TryGetNarrowedHoverType(
+        ITypeSymbol declaredType,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        [NotNullWhen(true)] out ITypeSymbol? narrowedType)
+    {
+        narrowedType = null;
+        if (!declaredType.IsNullable || contextNode is not ExpressionSyntax expression)
+            return false;
+
+        var typeInfo = semanticModel.GetTypeInfo(expression);
+        var contextualType = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (contextualType is null || contextualType.IsNullable || contextualType.TypeKind == TypeKind.Error)
+            return false;
+
+        narrowedType = contextualType;
+        return true;
     }
 
     private static bool TryInferLocalInitializerType(
