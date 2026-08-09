@@ -137,22 +137,22 @@
       "editor/title": [
         {
           "command": "raven.run.compileAndRun",
-          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .ravenproj || resourceExtname == .rvnproj",
+          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .rvnproj",
           "group": "navigation"
         },
         {
           "command": "raven.debug.compileAndDebug",
-          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .ravenproj || resourceExtname == .rvnproj",
+          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .rvnproj",
           "group": "navigation"
         },
         {
           "command": "raven.build.activeTarget",
-          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .ravenproj || resourceExtname == .rvnproj",
+          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .rvnproj",
           "group": "navigation@1"
         },
         {
           "command": "raven.build.clean",
-          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .ravenproj || resourceExtname == .rvnproj",
+          "when": "resourceExtname == .rvn || resourceExtname == .rav || resourceExtname == .rvnproj",
           "group": "navigation@2"
         }
       ]
@@ -170,7 +170,7 @@
             "properties": {
               "target": {
                 "type": "string",
-                "description": "Path to a .rvn, .rvnproj, .rav, or .ravenproj file. Defaults to the active editor file."
+                "description": "Path to a .rvn, .rvnproj, or .rav file. Defaults to the active editor file."
               },
               "project": {
                 "type": "string",
@@ -446,8 +446,7 @@
         "editor.colorDecorators": false
       },
       "files.associations": {
-        "*.rvnproj": "xml",
-        "*.ravenproj": "xml"
+        "*.rvnproj": "xml"
       }
     }
   },

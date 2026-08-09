@@ -21,7 +21,7 @@ public sealed class RavenProjectSystemService : IProjectSystemService
     }
 
     public bool CanOpenProject(string projectFilePath)
-        => string.Equals(Path.GetExtension(projectFilePath), RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase);
+        => false;
 
     public IReadOnlyList<string> GetProjectReferencePaths(string projectFilePath)
         => ProjectFile.Load(projectFilePath).ProjectReferences;

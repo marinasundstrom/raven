@@ -87,7 +87,7 @@ rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR"
 
 # Case 1: explicit top-level func Main
-hello_project="$ROOT_DIR/samples/projects/hello-world/HelloWorld.ravenproj"
+hello_project="$ROOT_DIR/samples/projects/hello-world/HelloWorld.rvnproj"
 hello_tfm="$(read_project_target_framework "$hello_project")"
 hello_output_dir="$TMP_DIR/hello-world"
 compile_project_for_debug "$hello_project" "$hello_output_dir" "$hello_tfm"
@@ -98,7 +98,7 @@ emit_sequence_listing "$hello_output_dir/HelloWorld.dll" "$hello_seq"
 validate_main_sequence_points "$hello_seq" "hello-world/src/main.rav" "HelloWorld"
 
 # Case 2: implicit top-level statements (no explicit Main declaration)
-nuget_project="$ROOT_DIR/samples/projects/nuget-demo/NuGetDemo.ravenproj"
+nuget_project="$ROOT_DIR/samples/projects/nuget-demo/NuGetDemo.rvnproj"
 nuget_tfm="$(read_project_target_framework "$nuget_project")"
 nuget_output_dir="$TMP_DIR/nuget-demo"
 compile_project_for_debug "$nuget_project" "$nuget_output_dir" "$nuget_tfm"
@@ -109,7 +109,7 @@ emit_sequence_listing "$nuget_output_dir/NuGetDemo.dll" "$nuget_seq"
 validate_main_sequence_points "$nuget_seq" "nuget-demo/src/main.rav" "NuGetDemo"
 
 # Case 3: async Main with synthesized entrypoint wrapper
-runtime_async_project="$ROOT_DIR/samples/projects/runtime-async-net11/RuntimeAsyncNet11.ravenproj"
+runtime_async_project="$ROOT_DIR/samples/projects/runtime-async-net11/RuntimeAsyncNet11.rvnproj"
 runtime_async_tfm="$(read_project_target_framework "$runtime_async_project")"
 runtime_async_output_dir="$TMP_DIR/runtime-async-net11"
 compile_project_for_debug "$runtime_async_project" "$runtime_async_output_dir" "$runtime_async_tfm"

@@ -651,13 +651,6 @@ var projectFileInput = sourceFiles.Count == 1 &&
     ? sourceFiles[0]
     : null;
 
-if (projectFileInput is not null &&
-    string.Equals(Path.GetExtension(projectFileInput), RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase))
-{
-    AnsiConsole.MarkupLine(
-        $"[yellow]Warning: legacy project files (*{RavenFileExtensions.LegacyProject}) are deprecated. Rename to *{RavenFileExtensions.Project} and use the MSBuild-backed project format.[/]");
-}
-
 var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
 var projectConfiguration = requestedConfiguration is null
     ? projectFileInput is null

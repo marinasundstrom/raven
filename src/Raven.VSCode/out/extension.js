@@ -1046,7 +1046,7 @@ function resolveTargetFramework(targetPath) {
 }
 function isRavenFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
-    return ext === '.rvn' || ext === '.rav' || ext === '.ravenproj' || ext === '.rvnproj';
+    return ext === '.rvn' || ext === '.rav' || ext === '.rvnproj';
 }
 function resolveDebugTarget(config) {
     const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -1119,7 +1119,7 @@ function findRavenProjectsInDirectory(directory) {
 }
 function isRavenProjectFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
-    return ext === '.ravenproj' || ext === '.rvnproj';
+    return ext === '.rvnproj';
 }
 function* enumerateAncestorDirectories(startPath, stopDirectory) {
     let current = path.resolve(startPath);
@@ -1368,7 +1368,7 @@ class RavenDebugConfigurationProvider {
     async resolveDebugConfiguration(_folder, config) {
         const targetPath = resolveDebugTarget(config);
         if (!targetPath || !isRavenFile(targetPath)) {
-            void vscode.window.showErrorMessage('Select a .rvn, .rvnproj, .rav, or .ravenproj file, or set "target"/"project" in launch.json.');
+            void vscode.window.showErrorMessage('Select a .rvn, .rvnproj, or .rav file, or set "target"/"project" in launch.json.');
             return undefined;
         }
         return vscode.window.withProgress({

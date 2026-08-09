@@ -13,17 +13,7 @@ severity entry silently enables an opt-in analyzer.
 Project files can configure analyzer participation when a whole analyzer mode should be
 selected. This is intended for coarse feature selection, not severity control.
 
-Deprecated legacy `.ravenproj` example:
-
-```xml
-<Project
-  Name="App"
-  TargetFramework="net10.0"
-  OutputKind="DynamicallyLinkedLibrary"
-  ReturnedValueHandlingMode="full" />
-```
-
-Example MSBuild-style `.rvnproj`:
+Example `.rvnproj`:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">

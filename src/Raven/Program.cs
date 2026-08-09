@@ -415,8 +415,7 @@ static bool TryParseSdkProjectCommand(
 static bool IsRavenProjectPath(string path)
 {
     var extension = Path.GetExtension(path);
-    return string.Equals(extension, RavenFileExtensions.Project, StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(extension, RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase);
+    return string.Equals(extension, RavenFileExtensions.Project, StringComparison.OrdinalIgnoreCase);
 }
 
 static string? TryFindDefaultProjectFile()
@@ -434,8 +433,7 @@ static string? TryFindDefaultProjectFile()
         return null;
     }
 
-    var legacyProjects = Directory.GetFiles(currentDirectory, $"*{RavenFileExtensions.LegacyProject}");
-    return legacyProjects.Length == 1 ? legacyProjects[0] : null;
+    return null;
 }
 
 static int RunDotnet(IReadOnlyList<string> dotnetArgs)

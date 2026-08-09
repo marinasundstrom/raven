@@ -16,6 +16,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `RavenProjectFile`/`RavenOutputDir` contract. Raven projects now build as
   ordinary `.rvnproj` projects and participate through `ProjectReference`.
 
+- Removed support for the legacy `.ravenproj` project format from Raven's CLI,
+  compiler driver, documentation tool, workspace routing, and VS Code tooling.
+  `.rvnproj` is now the sole Raven project-file extension.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no

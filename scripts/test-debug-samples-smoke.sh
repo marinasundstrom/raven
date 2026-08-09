@@ -41,7 +41,7 @@ compile_project_for_debug() {
     --framework "$tfm"
 }
 
-aspnet_project="$ROOT_DIR/samples/projects/aspnet-minimal-api/AspNetMinimalApi.ravenproj"
+aspnet_project="$ROOT_DIR/samples/projects/aspnet-minimal-api/AspNetMinimalApi.rvnproj"
 aspnet_tfm="$(read_project_target_framework "$aspnet_project")"
 aspnet_output_dir="$ROOT_DIR/samples/projects/aspnet-minimal-api/bin/Debug"
 mkdir -p "$aspnet_output_dir"
@@ -51,7 +51,7 @@ assert_file_exists "$aspnet_output_dir/AspNetMinimalApi.pdb"
 assert_file_exists "$aspnet_output_dir/AspNetMinimalApi.runtimeconfig.json"
 assert_file_exists "$aspnet_output_dir/Microsoft.AspNetCore.dll"
 
-efcore_project="$ROOT_DIR/samples/projects/efcore-expression-trees/EfCoreExpressionTrees.ravenproj"
+efcore_project="$ROOT_DIR/samples/projects/efcore-expression-trees/EfCoreExpressionTrees.rvnproj"
 efcore_tfm="$(read_project_target_framework "$efcore_project")"
 efcore_output_dir="$ROOT_DIR/samples/projects/efcore-expression-trees/bin/Debug"
 mkdir -p "$efcore_output_dir"

@@ -180,8 +180,7 @@ internal static class RavenDocCommand
     }
 
     private static bool IsProjectFile(string path)
-        => path.EndsWith(".rvnproj", StringComparison.OrdinalIgnoreCase) ||
-           path.EndsWith(".ravenproj", StringComparison.OrdinalIgnoreCase);
+        => path.EndsWith(".rvnproj", StringComparison.OrdinalIgnoreCase);
 
     private static string GetDefaultOutputPath(string inputPath)
     {

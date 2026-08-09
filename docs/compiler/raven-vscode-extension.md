@@ -53,7 +53,7 @@ When the extension discovers a workspace-built language server, it stages that b
 
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:
-- `Raven: Compile and Debug` compiles the active `.rvn` file or `.rvnproj` target using the `rvnc` compiler driver. Legacy `.rav` files and deprecated `.ravenproj` projects remain supported for compatibility.
+- `Raven: Compile and Debug` compiles the active `.rvn` file or `.rvnproj` target using the `rvnc` compiler driver. Legacy `.rav` source files remain supported for compatibility.
 - Build artifacts are emitted to `${workspaceFolder}/.raven-debug`.
 - After compile succeeds, the extension starts a `coreclr` debug session with `dotnet <compiled-output.dll>`.
 
@@ -63,7 +63,7 @@ You can start it by pressing F5 in a Raven file, or by running `Raven: Compile a
 
 **Raven: Run Active File/Project** uses the `rvn` frontend. Selecting a `.rvn`
 or legacy `.rav` source runs that file as an isolated file-based application
-through `rvn run`; selecting a `.rvnproj` or legacy `.ravenproj` file runs that
+through `rvn run`; selecting a `.rvnproj` file runs that
 project. The command opens an interactive terminal rooted beside the selected
 file so application input and output behave like an ordinary script or console
 application.

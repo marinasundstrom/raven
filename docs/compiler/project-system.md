@@ -134,7 +134,7 @@ trees used by the language server. Changing the value causes affected documents
 to be reparsed so editor diagnostics and inactive-code highlighting remain
 consistent with builds.
 
-Legacy `.ravenproj` files and legacy Raven-specific XML are deprecated. They remain loadable for compatibility, but new projects should use `.rvnproj` and the MSBuild-backed project shape.
+Raven project files use the `.rvnproj` extension and the MSBuild-backed project shape.
 
 ## Generated prelude imports
 
@@ -379,9 +379,8 @@ C# and other SDK projects can reference a Raven project with normal
 `RavenWorkspace` now consumes project loading/saving through host services rather than hardcoding project-file persistence logic in workspace APIs.
 
 - `PersistenceService` delegates project open/save to `IProjectSystemService`.
-- `RavenProjectSystemService` is the deprecated compatibility implementation for legacy `.ravenproj`.
 - `MsBuildProjectSystemService` opens Raven projects authored as MSBuild-backed `.rvnproj` files.
-- `CompositeProjectSystemService` lets the workspace route between legacy `.ravenproj` files and primary `.rvnproj` projects.
+- `CompositeProjectSystemService` lets hosts route between multiple project-system implementations when needed.
 - `RavenWorkspace.Create(..., projectSystemService: ...)` still allows overriding the project-system implementation explicitly.
 
 ### MSBuild-backed Raven projects

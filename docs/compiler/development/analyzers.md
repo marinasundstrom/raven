@@ -224,9 +224,7 @@ what the symbol represents, not which object instance was returned first. This a
 candidate maps, used-symbol sets, de-duplication, and comparisons against well-known symbols.
 
 Full returned-value handling for `RAV9034` is off by default. Project files control the
-analyzer mode, and `.editorconfig` controls severity. Deprecated `.ravenproj` files can use
-`ReturnedValueHandlingMode="full"` or
-`EnableReturnedValueAnalyzer="true|false"` while they remain supported. MSBuild-style `.rvnproj` files can use
+analyzer mode, and `.editorconfig` controls severity. `.rvnproj` files can use
 `<RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>` or
 `<RavenEnableReturnedValueAnalyzer>true|false</RavenEnableReturnedValueAnalyzer>`. The only
 non-off mode today is `full`.
