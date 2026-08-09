@@ -8,6 +8,22 @@ This isolated experiment tests whether Raven's existing raw token-tree macros
 are a practical foundation for embedded DSLs. It does not add HTML syntax to
 the compiler or promote these macros into `Raven.Macros`.
 
+The sample is therefore two demonstrations at once. At the application level,
+it shows a compact, React-like way to author Blazor components in Raven. At the
+macro-authoring level, it shows that a library can define its own token-based
+view or template DSL, lower that DSL to an existing framework, and participate
+in Raven's diagnostics and editor tooling. `Html!` is a provisional working
+name for an ordinary sample macro, not privileged compiler syntax. The DSL is
+broader than HTML: it composes components, embedded Raven expressions, control
+flow, callbacks, and framework services into Blazor render trees. Its final
+name and surface can be chosen if the experiment becomes a separate library.
+
+Because a token-tree macro invocation is an expression, these templates can be
+written inline in an ordinary `.rvn` code file. They are not restricted to a
+separate template-file format. This is especially useful with Blazor: the macro
+provides the concise embedded syntax, while the generated code still uses
+Blazor's normal component, parameter, event, rendering, CSS, and interop models.
+
 The Raven-authored `Html!` macro parses a deliberately small HTML-shaped DSL
 and lowers it directly to a Blazor `RenderFragment` implemented with
 `RenderTreeBuilder`. The Raven-authored `#[Component]` attached macro derives a
@@ -132,7 +148,6 @@ Control flow remains Raven code rather than becoming extra HTML-macro syntax:
     Html! { <TodoItem key={todo.Id} Title={todo.Title} /> }]}
 
 {match phase { 0 => "Design" 1 => "Compile" _ => "Ship" }}
-{phase match { 0 => "Design" 1 => "Compile" _ => "Ship" }}
 ```
 
 The small `HtmlContent` adapter is sample runtime support: it funnels scalar
