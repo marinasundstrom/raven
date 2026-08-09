@@ -102,11 +102,17 @@ code-generation hooks are gated by `Compilation.IsSubmission`; ordinary
 top-level programs continue to use normal locals exclusively.
 
 This cell representation proves continuation semantics without rerunning prior
-side effects. Cross-submission function and custom-type emission remain the next
-compiler slice because Raven's Reflection.Emit backend cannot resolve source
-member builders owned by an earlier compilation. That must be solved through a
-real emitted-submission reference or an equivalent compiler-owned member
-representation, not runtime reflection hidden in the binder.
+side effects. Functions and user-defined types cross the submission boundary
+through real emitted metadata references. `SubmissionCompilationState` owns the
+lazy declaration projection, emitted-reference chain, accessibility domain, and
+variable slots; `SubmissionCodeGenerator` owns the runtime cell bridge. This
+keeps `Compilation`, the general binders, and the normal emitters as thin
+coordinators and avoids runtime reflection dispatch.
+
+Default top-level functions and types in a submission are emitted publicly so a
+later submission assembly can reference them through ordinary CLR metadata.
+This affects submission compilations only; regular project accessibility is
+unchanged.
 
 ## Execution model
 

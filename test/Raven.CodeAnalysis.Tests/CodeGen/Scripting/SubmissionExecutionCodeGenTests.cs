@@ -12,8 +12,8 @@ public sealed class SubmissionExecutionCodeGenTests
     [Fact]
     public void PreviousSubmissionVariable_LoadsPersistedValue()
     {
-        var first = CreateSubmission("let value = 40", "submission0");
-        var second = CreateSubmission("System.Console.WriteLine(value + 2)", "submission1", first);
+        var first = CreateSubmission("let value = 40", "variable_load_submission0");
+        var second = CreateSubmission("System.Console.WriteLine(value + 2)", "variable_load_submission1", first);
 
         var firstImage = Emit(first);
         var secondImage = Emit(second);
@@ -45,9 +45,9 @@ public sealed class SubmissionExecutionCodeGenTests
     [Fact]
     public void PreviousSubmissionVariable_AssignmentPersistsAcrossChain()
     {
-        var first = CreateSubmission("var value = 40", "submission0");
-        var second = CreateSubmission("value = value + 1", "submission1", first);
-        var third = CreateSubmission("System.Console.WriteLine(value)", "submission2", second);
+        var first = CreateSubmission("var value = 40", "variable_assignment_submission0");
+        var second = CreateSubmission("value = value + 1", "variable_assignment_submission1", first);
+        var third = CreateSubmission("System.Console.WriteLine(value)", "variable_assignment_submission2", second);
 
         var variables = new object?[third.SubmissionVariableCount];
         using var loadContext = new SubmissionLoadContext();
@@ -73,10 +73,77 @@ public sealed class SubmissionExecutionCodeGenTests
         Assert.Equal(41, variables[0]);
     }
 
+    [Fact]
+    public void PreviousSubmissionFunction_ExecutesThroughEmittedReference()
+    {
+        var first = CreateSubmission(
+            "func twice(value: int) -> int => value * 2",
+            "function_submission0");
+        var firstImage = Emit(first);
+        var firstReference = MetadataReference.CreateFromImage(firstImage);
+        var second = CreateSubmission(
+            "System.Console.WriteLine(twice(21))",
+            "function_submission1",
+            first,
+            firstReference);
+
+        using var loadContext = new SubmissionLoadContext();
+        _ = loadContext.Load(firstImage);
+        var secondAssembly = loadContext.Load(Emit(second));
+        using var executionScope = SubmissionRuntime.Enter(new object?[second.SubmissionVariableCount]);
+
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+        try
+        {
+            Console.SetOut(writer);
+            InvokeEntryPoint(secondAssembly);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal("42", writer.ToString().Trim());
+    }
+
+    [Fact]
+    public void PreviousSubmissionType_ExecutesThroughEmittedReference()
+    {
+        var first = CreateSubmission("class Widget {}", "type_submission0");
+        var firstImage = Emit(first);
+        var firstReference = MetadataReference.CreateFromImage(firstImage);
+        var second = CreateSubmission(
+            "let widget = Widget()\nSystem.Console.WriteLine(widget.GetType().Name)",
+            "type_submission1",
+            first,
+            firstReference);
+
+        using var loadContext = new SubmissionLoadContext();
+        _ = loadContext.Load(firstImage);
+        var secondAssembly = loadContext.Load(Emit(second));
+        using var executionScope = SubmissionRuntime.Enter(new object?[second.SubmissionVariableCount]);
+
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+        try
+        {
+            Console.SetOut(writer);
+            InvokeEntryPoint(secondAssembly);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal("Widget", writer.ToString().Trim());
+    }
+
     private static Compilation CreateSubmission(
         string source,
         string assemblyName,
-        Compilation? previous = null)
+        Compilation? previous = null,
+        MetadataReference? previousReference = null)
     {
         var tree = SyntaxTree.ParseText(source, new ParseOptions { Kind = SourceCodeKind.Script });
         return Compilation.CreateScriptCompilation(
@@ -84,7 +151,8 @@ public sealed class SubmissionExecutionCodeGenTests
             tree,
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication),
-            previous);
+            previous,
+            previousReference);
     }
 
     private static byte[] Emit(Compilation compilation)

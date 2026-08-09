@@ -1511,15 +1511,7 @@ internal class StatementGenerator : Generator
 
     private void EmitSubmissionVariableStore(ILocalSymbol localSymbol, IILocal localBuilder)
     {
-        if (!Compilation.TryGetSubmissionVariable(localSymbol, out var submissionVariable))
-            return;
-
-        ILGenerator.Emit(OpCodes.Ldc_I4, submissionVariable.Slot);
-        ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-        var setMethod = typeof(Scripting.SubmissionRuntime)
-            .GetMethod(nameof(Scripting.SubmissionRuntime.Set), BindingFlags.Public | BindingFlags.Static)!
-            .MakeGenericMethod(ResolveClrType(localSymbol.Type));
-        ILGenerator.Emit(OpCodes.Call, setMethod);
+        _ = SubmissionCodeGenerator.TryEmitCurrentVariableStore(this, localSymbol, localBuilder);
     }
 
     private void EmitFixedDeclarator(ILocalSymbol localSymbol, IILocal? localBuilder, BoundVariableDeclarator declarator)

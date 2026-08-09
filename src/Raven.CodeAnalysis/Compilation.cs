@@ -11,6 +11,7 @@ using System.Runtime.Loader;
 using System.Threading;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Scripting;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -80,9 +81,7 @@ public partial class Compilation
     private SourceDeclarationIndex? _sourceDeclarationIndex;
     private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
     private ImmutableArray<Diagnostic> _generatorDiagnostics = ImmutableArray<Diagnostic>.Empty;
-    private readonly object _submissionDeclarationsGate = new();
-    private ImmutableArray<ISymbol> _visibleSubmissionDeclarations;
-    private readonly Dictionary<ILocalSymbol, SubmissionVariableSymbol> _submissionVariables = new(SymbolEqualityComparer.Default);
+    private SubmissionCompilationState? _submissionState;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -155,6 +154,11 @@ public partial class Compilation
     /// Gets whether this compilation represents a script submission.
     /// </summary>
     public bool IsSubmission => ScriptCompilationInfo is not null;
+
+    internal SubmissionCompilationState SubmissionState
+        => LazyInitializer.EnsureInitialized(
+            ref _submissionState,
+            () => new SubmissionCompilationState(this));
 
     public PerformanceInstrumentation PerformanceInstrumentation => Options.PerformanceInstrumentation;
 
@@ -676,12 +680,16 @@ public partial class Compilation
         SyntaxTree syntaxTree,
         MetadataReference[]? references = null,
         CompilationOptions? options = null,
-        Compilation? previousScriptCompilation = null)
+        Compilation? previousScriptCompilation = null,
+        MetadataReference? previousScriptCompilationReference = null)
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
         if (previousScriptCompilation is { IsSubmission: false })
             throw new ArgumentException("The previous compilation must be a script submission.", nameof(previousScriptCompilation));
+
+        if (previousScriptCompilation is null && previousScriptCompilationReference is not null)
+            throw new ArgumentException("A previous submission reference requires a previous script compilation.", nameof(previousScriptCompilationReference));
 
         references ??= [];
         if (references.Length == 0)
@@ -689,19 +697,10 @@ public partial class Compilation
 
         if (previousScriptCompilation is not null)
         {
-            var referenceBuilder = references.ToList();
-            for (var previous = previousScriptCompilation;
-                 previous is not null;
-                 previous = previous.ScriptCompilationInfo?.PreviousScriptCompilation)
-            {
-                if (!referenceBuilder.OfType<CompilationReference>().Any(reference =>
-                    ReferenceEquals(reference.Compilation, previous)))
-                {
-                    referenceBuilder.Add(previous.ToMetadataReference());
-                }
-            }
-
-            references = referenceBuilder.ToArray();
+            references = SubmissionCompilationState.AddPreviousReferences(
+                references,
+                previousScriptCompilation,
+                previousScriptCompilationReference);
         }
 
         return new Compilation(
@@ -711,7 +710,9 @@ public partial class Compilation
             references,
             [],
             options,
-            scriptCompilationInfo: new ScriptCompilationInfo(previousScriptCompilation));
+            scriptCompilationInfo: new ScriptCompilationInfo(
+                previousScriptCompilation,
+                previousScriptCompilationReference));
     }
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
@@ -821,8 +822,7 @@ public partial class Compilation
     }
 
     internal ImmutableArray<ISymbol> GetPreviousSubmissionDeclarations()
-        => ScriptCompilationInfo?.PreviousScriptCompilation?.GetVisibleSubmissionDeclarations()
-            ?? ImmutableArray<ISymbol>.Empty;
+        => IsSubmission ? SubmissionState.GetPreviousDeclarations() : ImmutableArray<ISymbol>.Empty;
 
     internal bool TryGetSubmissionVariable(ILocalSymbol local, out SubmissionVariableSymbol variable)
     {
@@ -832,99 +832,15 @@ public partial class Compilation
             return false;
         }
 
-        _ = GetVisibleSubmissionDeclarations();
-        return _submissionVariables.TryGetValue(local, out variable!);
+        return SubmissionState.TryGetVariable(local, out variable);
     }
 
     internal int SubmissionVariableCount
-        => GetVisibleSubmissionDeclarations()
-            .OfType<SubmissionVariableSymbol>()
-            .Select(static variable => variable.Slot + 1)
-            .DefaultIfEmpty()
-            .Max();
+        => SubmissionState.VariableCount;
 
     internal bool IsPreviousSubmissionAssembly(IAssemblySymbol? assembly)
     {
-        if (assembly is null)
-            return false;
-
-        for (var previous = ScriptCompilationInfo?.PreviousScriptCompilation;
-             previous is not null;
-             previous = previous.ScriptCompilationInfo?.PreviousScriptCompilation)
-        {
-            if (SymbolEqualityComparer.Default.Equals(previous.Assembly, assembly))
-                return true;
-        }
-
-        return false;
-    }
-
-    private ImmutableArray<ISymbol> GetVisibleSubmissionDeclarations()
-    {
-        if (!_visibleSubmissionDeclarations.IsDefault)
-            return _visibleSubmissionDeclarations;
-
-        lock (_submissionDeclarationsGate)
-        {
-            if (!_visibleSubmissionDeclarations.IsDefault)
-                return _visibleSubmissionDeclarations;
-
-            var values = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
-            var functions = new List<IMethodSymbol>();
-            var nextVariableSlot = 0;
-
-            if (ScriptCompilationInfo?.PreviousScriptCompilation is { } previous)
-            {
-                foreach (var declaration in previous.GetVisibleSubmissionDeclarations())
-                {
-                    AddDeclaration(declaration);
-                    if (declaration is SubmissionVariableSymbol previousVariable)
-                        nextVariableSlot = Math.Max(nextVariableSlot, previousVariable.Slot + 1);
-                }
-            }
-
-            foreach (var syntaxTree in SyntaxTrees)
-            {
-                var root = syntaxTree.GetRoot();
-                var semanticModel = GetSemanticModel(syntaxTree);
-
-                foreach (var global in GetBindableGlobalStatements(root))
-                {
-                    switch (global.Statement)
-                    {
-                        case LocalDeclarationStatementSyntax localDeclaration:
-                            foreach (var declarator in localDeclaration.Declaration.Declarators)
-                            {
-                                if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
-                                {
-                                    var variable = new SubmissionVariableSymbol(local, nextVariableSlot++);
-                                    _submissionVariables.Add(local, variable);
-                                    AddDeclaration(variable);
-                                }
-                            }
-                            break;
-
-                        case FunctionStatementSyntax function:
-                            if (semanticModel.GetDeclaredSymbol(function) is IMethodSymbol method)
-                                AddDeclaration(method);
-                            break;
-                    }
-                }
-            }
-
-            _visibleSubmissionDeclarations = values.Values
-                .Concat<ISymbol>(functions)
-                .ToImmutableArray();
-            return _visibleSubmissionDeclarations;
-
-            void AddDeclaration(ISymbol declaration)
-            {
-                if (declaration is IMethodSymbol method)
-                    functions.Add(method);
-                else
-                    values[declaration.Name] = declaration;
-            }
-        }
+        return IsSubmission && SubmissionState.IsPreviousAssembly(assembly);
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);

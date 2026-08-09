@@ -600,7 +600,9 @@ public partial class SemanticModel
         ITypeSymbol returnType = isAsync
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
-        var accessibility = DetermineNamespaceMemberAccessibility(functionStatement.Modifiers);
+        var accessibility = Compilation.IsSubmission
+            ? AccessibilityUtilities.DetermineAccessibility(functionStatement.Modifiers, Accessibility.Public)
+            : DetermineNamespaceMemberAccessibility(functionStatement.Modifiers);
 
         var methodSymbol = new SourceMethodSymbol(
             functionStatement.Identifier.ValueText,
@@ -764,7 +766,7 @@ public partial class SemanticModel
         var isFileScoped = HasFileScopeModifier(classDecl.Modifiers);
         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
             classDecl.Modifiers,
-            Accessibility.Internal);
+            Compilation.IsSubmission ? Accessibility.Public : Accessibility.Internal);
 
         var declarationLocation = classDecl.GetLocation();
         var declarationReference = classDecl.GetReference();
@@ -1571,7 +1573,7 @@ public partial class SemanticModel
         var isFileScoped = HasFileScopeModifier(interfaceDecl.Modifiers);
         var interfaceAccessibility = AccessibilityUtilities.DetermineAccessibility(
             interfaceDecl.Modifiers,
-            Accessibility.Internal);
+            Compilation.IsSubmission ? Accessibility.Public : Accessibility.Internal);
 
         var parentSourceNamespace = parentNamespace.AsSourceNamespace();
         var existingType = parentSourceNamespace is not null
@@ -1716,7 +1718,7 @@ public partial class SemanticModel
 
         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
             enumDecl.Modifiers,
-            Accessibility.Internal);
+            Compilation.IsSubmission ? Accessibility.Public : Accessibility.Internal);
         ReportExternalTypeRedeclaration(
             parentNamespace,
             enumDecl.Identifier,
@@ -1771,7 +1773,7 @@ public partial class SemanticModel
         var isFileScoped = HasFileScopeModifier(unionDecl.Modifiers);
         var unionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             unionDecl.Modifiers,
-            Accessibility.Internal);
+            Compilation.IsSubmission ? Accessibility.Public : Accessibility.Internal);
 
         var existingType = namespaceSymbol is not null
             ? FindExistingDeclaredType(namespaceSymbol, unionDecl.Identifier.ValueText, unionTypeKind, unionDecl.TypeParameterList?.Parameters.Count ?? 0)

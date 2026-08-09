@@ -7,13 +7,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added compiler-owned script submission chains and a dedicated submission
   binder. Variables, functions, and types from earlier submissions now
   participate in semantic binding without being inserted into the current
-  top-level lexical scope; execution storage and lowering will follow in a
-  separate slice.
+  top-level lexical scope.
 
 - Script submissions now persist top-level variable values in typed execution
   slots. Later submissions can read and update those values without rerunning
   earlier submission bodies; the storage code path is inactive for ordinary
   files and projects.
+
+- Script submission functions and user-defined types now flow through emitted
+  metadata references, allowing later submissions to call and instantiate them
+  through normal CLR member references. Submission compilation state and its
+  code-generation bridge are isolated behind dedicated internal components.
 
 - Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
   source. Hosts can distinguish complete submissions, trailing incomplete

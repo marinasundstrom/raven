@@ -67,9 +67,12 @@ class FunctionBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        var accessibility = isNamespaceMember
-            ? AccessibilityUtilities.DetermineAccessibility(_syntax.Modifiers, Accessibility.Internal)
-            : Accessibility.Internal;
+        var isSubmissionFunction = Compilation.IsSubmission && _syntax.Parent is GlobalStatementSyntax;
+        var accessibility = isSubmissionFunction
+            ? AccessibilityUtilities.DetermineAccessibility(_syntax.Modifiers, Accessibility.Public)
+            : isNamespaceMember
+                ? AccessibilityUtilities.DetermineAccessibility(_syntax.Modifiers, Accessibility.Internal)
+                : Accessibility.Internal;
 
         _methodSymbol = existingMethod is SourceMethodSymbol existingSkeleton
             ? existingSkeleton

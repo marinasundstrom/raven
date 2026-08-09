@@ -20,6 +20,37 @@ public sealed class ScriptCompilationTests : CompilationTestBase
     }
 
     [Fact]
+    public void CreateScriptCompilation_RecordsEmittedPreviousSubmissionReference()
+    {
+        var (first, _) = CreateSubmission("let value = 40", "submission0");
+        var emittedReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        var (second, _) = CreateSubmission(
+            "value + 2",
+            "submission1",
+            first,
+            emittedReference);
+
+        Assert.Same(emittedReference, second.ScriptCompilationInfo!.PreviousScriptCompilationReference);
+        Assert.Contains(emittedReference, second.References);
+    }
+
+    [Fact]
+    public void CreateScriptCompilation_RejectsEmittedReferenceWithoutPreviousSubmission()
+    {
+        var tree = ParseSubmission("let value = 40");
+        var emittedReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+
+        var exception = Assert.Throws<ArgumentException>(() => Compilation.CreateScriptCompilation(
+            "submission",
+            tree,
+            GetMetadataReferences(),
+            new CompilationOptions(OutputKind.ConsoleApplication),
+            previousScriptCompilationReference: emittedReference));
+
+        Assert.Contains("previous script compilation", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void CreateScriptCompilation_RequiresSubmissionSyntaxTree()
     {
         var tree = SyntaxTree.ParseText("let value = 40");
@@ -154,7 +185,8 @@ public sealed class ScriptCompilationTests : CompilationTestBase
     private (Compilation Compilation, SyntaxTree Tree) CreateSubmission(
         string source,
         string assemblyName,
-        Compilation? previous = null)
+        Compilation? previous = null,
+        MetadataReference? previousReference = null)
     {
         var tree = ParseSubmission(source);
         var compilation = Compilation.CreateScriptCompilation(
@@ -162,7 +194,8 @@ public sealed class ScriptCompilationTests : CompilationTestBase
             tree,
             GetMetadataReferences(),
             new CompilationOptions(OutputKind.ConsoleApplication),
-            previous);
+            previous,
+            previousReference);
         return (compilation, tree);
     }
 
