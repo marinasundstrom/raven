@@ -118,20 +118,20 @@ public partial class SemanticModel
                 continue;
 
             introducedMembers.AddRange(RewriteExpandedMembers(
-                expansion.IntroducedMembers.Select(FormatExpandedMember),
+                expansion.IntroducedMembers.Select(PrepareExpandedMember),
                 semanticModel.Compilation,
                 cancellationToken));
 
             if (expansion.ReplacementDeclaration is MemberDeclarationSyntax replacementMember)
             {
                 rewrittenMember = RewriteMemberInternals(
-                    FormatExpandedMember(replacementMember),
+                    PrepareExpandedMember(replacementMember),
                     GetSemanticModelForExpandedNode(semanticModel, replacementMember),
                     cancellationToken);
             }
 
             peerDeclarations.AddRange(RewriteExpandedMembers(
-                expansion.PeerDeclarations.Select(FormatExpandedMember),
+                expansion.PeerDeclarations.Select(PrepareExpandedMember),
                 semanticModel.Compilation,
                 cancellationToken));
         }
@@ -287,8 +287,18 @@ public partial class SemanticModel
         if (expandedMembers.Count == 0)
             yield break;
 
-        foreach (var expandedMember in expandedMembers)
-            yield return expandedMember;
+        var updatedMembers = expandedMembers.ToArray();
+        updatedMembers[0] = updatedMembers[0].WithLeadingTrivia(
+            originalMember.GetFirstToken(includeZeroWidth: true).LeadingTrivia);
+        updatedMembers[^1] = updatedMembers[^1].WithTrailingTrivia(
+            originalMember.GetLastToken(includeZeroWidth: true).TrailingTrivia);
+
+        for (var i = 0; i < updatedMembers.Length; i++)
+        {
+            yield return i < updatedMembers.Length - 1
+                ? EnsureTrailingLineBreaks(updatedMembers[i], lineBreakCount: 1)
+                : updatedMembers[i];
+        }
     }
 
     private static MemberDeclarationSyntax EnsureTrailingLineBreaks(
@@ -343,8 +353,9 @@ public partial class SemanticModel
             or SyntaxKind.EndOfLineTrivia;
     }
 
-    private static MemberDeclarationSyntax FormatExpandedMember(MemberDeclarationSyntax member)
-        => Formatter.Format(ElasticizeFormattingTrivia(DetachNode(member)));
+    private static MemberDeclarationSyntax PrepareExpandedMember(MemberDeclarationSyntax member)
+        => (MemberDeclarationSyntax)ElasticizeFormattingTrivia(DetachNode(member))
+            .WithAdditionalAnnotations(Formatter.Annotation);
 
     private static TNode PrepareExpandedExpression<TNode>(TNode node)
         where TNode : SyntaxNode

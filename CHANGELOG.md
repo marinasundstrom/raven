@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed expanded macro documents so generated declarations retain line breaks
+  between adjacent members and receive context-aware indentation in compiler
+  expanded-source projections, including the VS Code expanded-syntax view.
+
 - Added compiler-owned script submission chains and a dedicated submission
   binder. Variables, functions, and types from earlier submissions now
   participate in semantic binding without being inserted into the current

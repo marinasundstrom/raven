@@ -55,6 +55,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
 
         Assert.Contains("private var _Title: string", expandedText, StringComparison.Ordinal);
         Assert.Contains("return 20 + 22", expandedText, StringComparison.Ordinal);
+        Assert.Contains("\n    private var _Title: string", expandedText, StringComparison.Ordinal);
+        Assert.Contains("\n        get => _Title", expandedText, StringComparison.Ordinal);
         Assert.DoesNotContain("#add(", expandedText, StringComparison.Ordinal);
         Assert.DoesNotContain("#[Observable]", expandedText, StringComparison.Ordinal);
 
@@ -172,6 +174,26 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         Assert.True(firstPeerIndex < secondPeerIndex);
 
         Assert.DoesNotContain("var Second_Value: int", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_SeparatesIntroducedMemberFromReplacementDeclaration()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            #[ComponentBoundary]
+            class TodoList {
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new ComponentBoundaryMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.Matches("}\\r?\\n(?:\\r?\\n)*\\[#ComponentBoundary]", expandedText);
+        Assert.DoesNotContain("}[#ComponentBoundary]", expandedText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -369,6 +391,30 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 IntroducedMembers = [members[0]],
                 ReplacementDeclaration = members[1],
                 PeerDeclarations = [members[2]]
+            };
+        }
+    }
+
+    private sealed class ComponentBoundaryMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "ComponentBoundary";
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var method = ParseMembers("""
+                class __GeneratedContainer {
+                    protected func BuildRenderTree() {
+                        Render()
+                    }
+                }
+                """)[0];
+
+            return new MacroExpansionResult
+            {
+                IntroducedMembers = [method],
+                ReplacementDeclaration = context.CurrentDeclaration
             };
         }
     }
