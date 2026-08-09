@@ -135,7 +135,7 @@ func Main() -> () {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -194,7 +194,7 @@ macro func Inspect(expression: ExpressionSyntax) {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1297,7 +1297,7 @@ func Main() -> unit {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1384,7 +1384,7 @@ func Main(users: IQueryable<User>) {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1458,7 +1458,7 @@ func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1517,7 +1517,7 @@ for let (key: string, value: string) in doubled {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1567,7 +1567,7 @@ func Parse<T>(str: string) -> T
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1647,7 +1647,7 @@ func Run() -> int {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1718,7 +1718,7 @@ func Main() {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1798,7 +1798,7 @@ public func Format() -> string => Prefix
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1853,7 +1853,7 @@ func Test() {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1908,7 +1908,7 @@ func Test() {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -2090,7 +2090,7 @@ func Test() {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -2164,7 +2164,7 @@ public func OtherFile() -> int {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -2392,7 +2392,7 @@ union MyResult<T>(List<T> | int)
                 <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <RavenCompile Include="src/**/*.rvn" />
+                <Compile Include="src/**/*.rvn" />
               </ItemGroup>
             </Project>
             """);
@@ -2840,7 +2840,7 @@ union JsonValue(string | double | bool | JsonValue[])
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -2903,7 +2903,7 @@ record Person(
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -3118,7 +3118,7 @@ func Main( -> () {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);

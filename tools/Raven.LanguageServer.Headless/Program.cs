@@ -1376,7 +1376,7 @@ async Task RunStressScenarioAsync(string tempRoot, int stableFileCount, bool run
             <RavenRunAnalyzers>{{runAnalyzers.ToString().ToLowerInvariant()}}</RavenRunAnalyzers>
           </PropertyGroup>
           <ItemGroup>
-            <RavenCompile Include="src/**/*.rvn" />
+            <Compile Include="src/**/*.rvn" />
           </ItemGroup>
         </Project>
         """);

@@ -117,7 +117,7 @@ public sealed class NuGetProjectTestHarness : IDisposable
                 new XElement("OutputType", outputKind == OutputKind.DynamicallyLinkedLibrary ? "Library" : "Exe")),
             new XElement(
                 "ItemGroup",
-                new XElement("RavenCompile", new XAttribute("Include", documentPath))));
+                new XElement("Compile", new XAttribute("Include", documentPath))));
 
         foreach (var packageReference in packageReferences)
         {

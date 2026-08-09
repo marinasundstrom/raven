@@ -1565,7 +1565,7 @@ func Parse<T>(str: string) -> T
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1627,7 +1627,7 @@ func Main() -> () {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -2343,7 +2343,7 @@ class Runner {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -3209,7 +3209,7 @@ class C {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);

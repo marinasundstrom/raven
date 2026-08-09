@@ -208,7 +208,7 @@ public sealed class HeadlessEditSimulationTests : IDisposable
                     <TargetFramework>net10.0</TargetFramework>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
+                    <Compile Include="src/**/*.rvn" />
                   </ItemGroup>
                 </Project>
                 """);

@@ -99,7 +99,7 @@ func Main() {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -115,7 +115,7 @@ public class Greeter {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../lib/Lib.rvnproj" />
   </ItemGroup>
 </Project>
@@ -151,7 +151,7 @@ func Main() -> () {
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <Compile Include="main.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
     </Reference>
@@ -180,7 +180,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -216,7 +216,7 @@ class MyViewModel {
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <Compile Include="main.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
     </Reference>
@@ -245,7 +245,7 @@ class AnswerMacro : IFreestandingExpressionMacro {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/AnswerMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -278,7 +278,7 @@ func Main() -> int => answer!()
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <Compile Include="main.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
     </Reference>
@@ -314,7 +314,7 @@ class FragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/FragmentMacros.rvnproj" />
   </ItemGroup>
 </Project>

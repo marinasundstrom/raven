@@ -88,7 +88,7 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
-    public void OpenProject_MsBuildProject_LoadsRavenCompileItemsAndOptions()
+    public void OpenProject_MsBuildProject_LoadsCompileItemsAndOptions()
     {
         var root = CreateTempDirectory();
         try
@@ -121,7 +121,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <MarkdownDocumentationOutputPath>artifacts/App.docs</MarkdownDocumentationOutputPath>
                                           </PropertyGroup>
                                             <ItemGroup>
-                                              <RavenCompile Include="src/**/*.rvn" />
+                                              <Compile Include="src/**/*.rvn" />
                                             </ItemGroup>
                                           </Project>
                                           """);
@@ -224,7 +224,7 @@ public sealed class MsBuildProjectSystemServiceTests
                     <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="Core.rav" />
+                    <Compile Include="Core.rav" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -264,7 +264,7 @@ public sealed class MsBuildProjectSystemServiceTests
                     <TargetFramework>net10.0</TargetFramework>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="dependency.rvn" />
+                    <Compile Include="dependency.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -278,7 +278,7 @@ public sealed class MsBuildProjectSystemServiceTests
                     <TargetFramework>net10.0</TargetFramework>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <Analyzer Include="{{extensionAssemblyPath}}" />
                     <SourceGenerator Include="{{extensionAssemblyPath}}" />
                     <ProjectReference Include="{{Path.GetRelativePath(root, dependencyProjectPath)}}" />
@@ -320,7 +320,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                               <TargetFramework>net10.0</TargetFramework>
                                             </PropertyGroup>
                                             <ItemGroup>
-                                              <RavenCompile Include="main.rvn" />
+                                              <Compile Include="main.rvn" />
                                               <Import Include="SuperheroApp.Models" />
                                               <Import Include="System.Console" Static="True" />
                                               <Import Include="System.DateTime" Alias="DT" />
@@ -362,7 +362,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                               <GeneratePreludeImports>false</GeneratePreludeImports>
                                             </PropertyGroup>
                                             <ItemGroup>
-                                              <RavenCompile Include="main.rvn" />
+                                              <Compile Include="main.rvn" />
                                             </ItemGroup>
                                           </Project>
                                           """);
@@ -404,7 +404,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                                  <TargetFramework>net10.0</TargetFramework>
                                                </PropertyGroup>
                                                <ItemGroup>
-                                                 <RavenCompile Include="lib.rvn" />
+                                                 <Compile Include="lib.rvn" />
                                                </ItemGroup>
                                              </Project>
                                              """);
@@ -415,7 +415,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                                  <TargetFramework>net10.0</TargetFramework>
                                                </PropertyGroup>
                                                <ItemGroup>
-                                                 <RavenCompile Include="app.rvn" />
+                                                 <Compile Include="app.rvn" />
                                                  <ProjectReference Include="{{Path.GetRelativePath(appDirectory, libProjectPath)}}" />
                                                </ItemGroup>
                                              </Project>
@@ -469,7 +469,7 @@ let value = WidgetFactory.CreateDefault()
                                                  <TargetFramework>net10.0</TargetFramework>
                                                </PropertyGroup>
                                                <ItemGroup>
-                                                 <RavenCompile Include="lib.rvn" />
+                                                 <Compile Include="lib.rvn" />
                                                </ItemGroup>
                                              </Project>
                                              """);
@@ -480,7 +480,7 @@ let value = WidgetFactory.CreateDefault()
                                                  <TargetFramework>net10.0</TargetFramework>
                                                </PropertyGroup>
                                                <ItemGroup>
-                                                 <RavenCompile Include="app.rvn" />
+                                                 <Compile Include="app.rvn" />
                                                  <ProjectReference Include="{{Path.GetRelativePath(appDirectory, libProjectPath)}}" />
                                                </ItemGroup>
                                              </Project>
@@ -531,7 +531,7 @@ let value = WidgetFactory.CreateDefault()
                                                  <TargetFramework>net10.0</TargetFramework>
                                                </PropertyGroup>
                                                <ItemGroup>
-                                                 <RavenCompile Include="lib.rvn" />
+                                                 <Compile Include="lib.rvn" />
                                                </ItemGroup>
                                              </Project>
                                              """);
@@ -556,7 +556,7 @@ let value = WidgetFactory.CreateDefault()
                                                <ItemGroup>
                                                  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
                                                  <ProjectReference Include="{{Path.GetRelativePath(appDirectory, csProjectPath)}}" />
-                                                 <RavenCompile Include="main.rvn" />
+                                                 <Compile Include="main.rvn" />
                                                </ItemGroup>
                                              </Project>
                                              """);
@@ -599,7 +599,6 @@ let value = WidgetFactory.CreateDefault()
             Assert.Contains("main.rvn", compileIncludes);
             Assert.Contains("extra.rvn", compileIncludes);
             Assert.DoesNotContain(compileIncludes, include => include!.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
-            Assert.DoesNotContain(rootElement.Descendants(), e => e.Name.LocalName == "RavenCompile");
 
             Assert.Equal("Library", rootElement.Descendants().First(e => e.Name.LocalName == "OutputType").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "AllowUnsafeBlocks").Value);
@@ -651,7 +650,7 @@ let value = WidgetFactory.CreateDefault()
             var rootElement = System.Xml.Linq.XDocument.Load(projectPath).Root!;
             Assert.DoesNotContain(
                 rootElement.Descendants(),
-                element => element.Name.LocalName is "Compile" or "RavenCompile");
+                element => element.Name.LocalName == "Compile");
             Assert.True(File.Exists(sourcePath));
         }
         finally
@@ -736,7 +735,7 @@ let value = WidgetFactory.CreateDefault()
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <Reference Include="Raven.CodeAnalysis">
                       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
                     </Reference>
@@ -761,7 +760,7 @@ let value = WidgetFactory.CreateDefault()
                     <TargetFramework>net10.0</TargetFramework>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
@@ -867,7 +866,7 @@ let value = WidgetFactory.CreateDefault()
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
@@ -972,7 +971,7 @@ let value = WidgetFactory.CreateDefault()
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <Reference Include="Raven.CodeAnalysis">
                       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
                     </Reference>
@@ -1011,7 +1010,7 @@ let value = WidgetFactory.CreateDefault()
                     <TargetFramework>net10.0</TargetFramework>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
@@ -1094,7 +1093,7 @@ let value = WidgetFactory.CreateDefault()
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <Reference Include="Raven.CodeAnalysis">
                       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
                     </Reference>
@@ -1120,7 +1119,7 @@ let value = WidgetFactory.CreateDefault()
                     <TargetFramework>net10.0</TargetFramework>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
                   </ItemGroup>
                 </Project>
@@ -1214,7 +1213,7 @@ let value = WidgetFactory.CreateDefault()
                     <AssemblyName>ObservableMacros</AssemblyName>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                     <ProjectReference Include="{{Path.GetRelativePath(macrosDirectory, Path.Combine(helperDirectory, "Helper.csproj"))}}" />
                   </ItemGroup>
                 </Project>

@@ -292,7 +292,10 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         }
 
         return root.Descendants().Any(static element =>
-            string.Equals(element.Name.LocalName, "RavenCompile", StringComparison.OrdinalIgnoreCase));
+            (string.Equals(element.Name.LocalName, "Language", StringComparison.OrdinalIgnoreCase) &&
+             string.Equals(element.Value.Trim(), "Raven", StringComparison.OrdinalIgnoreCase)) ||
+            (string.Equals(element.Name.LocalName, "LanguageTargets", StringComparison.OrdinalIgnoreCase) &&
+             element.Value.Contains("Raven", StringComparison.OrdinalIgnoreCase)));
     }
 
     private static bool TryReadProjectDocument(string projectFilePath, out XDocument document)
@@ -555,14 +558,9 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     {
         var compileElements = root
             .Descendants()
+            .Where(static element => string.Equals(element.Name.LocalName, "Compile", StringComparison.OrdinalIgnoreCase))
             .Where(static element =>
             {
-                if (string.Equals(element.Name.LocalName, "RavenCompile", StringComparison.OrdinalIgnoreCase))
-                    return true;
-
-                if (!string.Equals(element.Name.LocalName, "Compile", StringComparison.OrdinalIgnoreCase))
-                    return false;
-
                 var include = (string?)element.Attribute("Include");
                 return !string.IsNullOrWhiteSpace(include) && RavenFileExtensions.HasRavenExtension(include);
             })

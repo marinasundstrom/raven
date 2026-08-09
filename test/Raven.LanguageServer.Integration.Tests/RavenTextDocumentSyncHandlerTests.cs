@@ -173,7 +173,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
                 <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <RavenCompile Include="src/**/*.rvn" />
+                <Compile Include="src/**/*.rvn" />
               </ItemGroup>
             </Project>
             """);
@@ -254,7 +254,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
                 <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <RavenCompile Include="src/**/*.rvn" />
+                <Compile Include="src/**/*.rvn" />
               </ItemGroup>
             </Project>
             """);
@@ -596,7 +596,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
                 <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <RavenCompile Include="src/**/*.rvn" />
+                <Compile Include="src/**/*.rvn" />
               </ItemGroup>
             </Project>
             """);

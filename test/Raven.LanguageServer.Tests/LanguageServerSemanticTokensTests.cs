@@ -72,7 +72,7 @@ class Customer(name: string, age: int? = null) {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -162,7 +162,7 @@ class Derived : App {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -226,7 +226,7 @@ func Main(value) -> unit {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -411,7 +411,7 @@ func Main() -> unit {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -508,7 +508,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -638,7 +638,7 @@ func Get() -> (int, string) {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -731,7 +731,7 @@ func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -817,7 +817,7 @@ func Main() -> string {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -894,7 +894,7 @@ func ReleaseOnly() {}
     <DefineConstants>DEBUG</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);

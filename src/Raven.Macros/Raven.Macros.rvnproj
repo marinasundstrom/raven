@@ -10,11 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <RavenCompile Include="AssemblyInfo.rvn" />
-    <RavenCompile Include="Compile.rvn" />
-    <RavenCompile Include="EmbedFileContent.rvn" />
-    <RavenCompile Include="Quote.rvn" />
-    <RavenCompile Include="Sha256Digest.rvn" />
     <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj"
                       PrivateAssets="all" />
     <ProjectReference Include="../Raven.Compiler/Raven.Compiler.csproj"

@@ -2421,7 +2421,7 @@ union Either<T1, T2>(T1 | T2)
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -3015,7 +3015,7 @@ class App {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -3476,7 +3476,7 @@ class C {
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);

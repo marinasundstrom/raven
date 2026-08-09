@@ -44,7 +44,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <AvailableItemName Include="RavenCompile" />
     <AvailableItemName Include="SourceGenerator" />
     <PropertyPageSchema Include="$(CommonXamlResourcesDirectory)CSharp.ProjectItemsSchema.xaml" Condition="'$(CommonXamlResourcesDirectory)' != ''" />
     <ProjectCapability Include="Managed" />
@@ -90,7 +89,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(Compile);@(RavenCompile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator)"
+    Inputs="$(MSBuildProjectFullPath);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>
@@ -112,7 +111,7 @@
       <RavenReferenceArguments>@(_RavenReferencePath->'--refs &quot;%(FullPath)&quot;', ' ')</RavenReferenceArguments>
     </PropertyGroup>
 
-    <Message Importance="High" Text="RavenCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
+    <Message Importance="High" Text="Raven CoreCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
       Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
 

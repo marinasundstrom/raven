@@ -6,8 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Raven MSBuild projects now implicitly include `.rvn` source files through the
   standard `Compile` item contract. Set `EnableDefaultCompileItems` to `false`
-  and add explicit `Compile` items when a project needs a curated source list;
-  existing `RavenCompile` items remain supported for compatibility.
+  and add explicit `Compile` items when a project needs a curated source list.
+
+- Removed the legacy `RavenCompile` MSBuild item. Raven projects now use the
+  same `Compile` item contract as SDK-style C# projects, and checked-in Raven
+  projects and test fixtures have been migrated accordingly.
 
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its

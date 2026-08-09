@@ -149,7 +149,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 rebuildResult.ExitCode == 0,
                 $"Second dotnet build failed.\nstdout:\n{rebuildResult.StdOut}\nstderr:\n{rebuildResult.StdErr}");
-            Assert.DoesNotContain("RavenCompile:", rebuildResult.StdOut, StringComparison.Ordinal);
+            Assert.DoesNotContain("Raven CoreCompile:", rebuildResult.StdOut, StringComparison.Ordinal);
 
             var cleanResult = RunProcess(
                 "dotnet",
@@ -308,7 +308,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <OutputType>Exe</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
+                    <Compile Include="src/**/*.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -422,7 +422,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <OutputType>Exe</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
+                    <Compile Include="src/**/*.rvn" />
                     <Reference Include="Raven.CodeAnalysis">
                       <HintPath>{{codeAnalysisPath}}</HintPath>
                       <Private>true</Private>
@@ -496,7 +496,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
+                    <Compile Include="src/**/*.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -565,7 +565,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <OutputType>Exe</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
+                    <Compile Include="src/**/*.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -624,7 +624,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);

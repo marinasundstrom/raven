@@ -48,7 +48,6 @@ internal static class MsBuildProjectEvaluator
 
         var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
         var documents = project.GetItems("Compile")
-            .Concat(project.GetItems("RavenCompile"))
             .Select(item => GetFullPath(projectDirectory, item))
             .Where(RavenFileExtensions.HasRavenExtension)
             .Where(static path => File.Exists(path))

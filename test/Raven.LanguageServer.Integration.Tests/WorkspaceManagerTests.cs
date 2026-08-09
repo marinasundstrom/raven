@@ -54,7 +54,7 @@ public sealed class WorkspaceManagerTests : IDisposable
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -94,7 +94,7 @@ public sealed class WorkspaceManagerTests : IDisposable
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -151,7 +151,7 @@ func Main() {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -162,7 +162,7 @@ func Main() {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -262,7 +262,7 @@ func Main() {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -276,7 +276,7 @@ func Main() -> () { }
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -372,7 +372,7 @@ class MacroPlugin { }
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -513,7 +513,7 @@ let x = 1
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -529,7 +529,7 @@ func Main() -> unit {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -569,7 +569,7 @@ func Main() -> unit { }
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -625,7 +625,7 @@ func test() {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -711,7 +711,7 @@ func Test2() -> IDisposable {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -778,7 +778,7 @@ func Test2() -> {{returnType}} {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -816,7 +816,7 @@ func Main() -> unit { }
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -861,7 +861,7 @@ func Main() -> unit {
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -903,7 +903,7 @@ func Main() -> unit { }
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -951,7 +951,7 @@ func Main() -> unit { }
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1010,7 +1010,7 @@ let value = 2
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1066,7 +1066,7 @@ let value = 1
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1123,7 +1123,7 @@ func Created() -> int => 2
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1174,7 +1174,7 @@ func Created() -> int => 2
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1220,7 +1220,7 @@ func Outside() -> int => 2
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1413,7 +1413,7 @@ dotnet_diagnostic.RAV9034.severity = error
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1596,7 +1596,7 @@ func Main() -> string => embedFileContent!("message.txt")
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1655,7 +1655,7 @@ record Data(val Value: int)
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1735,7 +1735,7 @@ record Data(val Value: int)
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
   </ItemGroup>
 </Project>
 """);
@@ -1862,7 +1862,7 @@ func Main() -> unit {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -1879,7 +1879,7 @@ func Main() -> () { }
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <Compile Include="main.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
     </Reference>
@@ -1915,7 +1915,7 @@ class ObservableMacro: IAttachedDeclarationMacro {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -1932,7 +1932,7 @@ func Main() -> int => #answer()
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <Compile Include="main.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
     </Reference>
@@ -1966,7 +1966,7 @@ class AnswerMacro: IFreestandingExpressionMacro {
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
+    <Compile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
   </ItemGroup>
 </Project>
@@ -1983,7 +1983,7 @@ func Main() -> int => #answer()
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="main.rvn" />
+    <Compile Include="main.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>{{ravenCodeAnalysisPath}}</HintPath>
     </Reference>

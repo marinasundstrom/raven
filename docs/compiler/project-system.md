@@ -50,7 +50,6 @@ Primary MSBuild items Raven currently consumes:
 
 - `<Compile Include="..."/>` when default compile items are disabled or sources
   live outside the project directory
-- `<RavenCompile Include="..."/>` for compatibility with older Raven projects
 - `<ProjectReference Include="..."/>`
 - `<Reference Include="...">` with `HintPath`
 - `<PackageReference Include="Package.Id" Version="x.y.z"/>`
@@ -119,8 +118,6 @@ project needs an explicit source list:
 </ItemGroup>
 ```
 
-`RavenCompile` remains supported so existing projects continue to build, but
-new projects should use the standard `Compile` item for explicit source files.
 Legacy `.rav` files are not implicitly included and must remain explicit while
 that extension is supported.
 
@@ -393,7 +390,9 @@ building the `.rvnproj` itself and using `ProjectReference`.
 
 ### MSBuild-backed Raven projects
 
-The workspace can now load Raven projects from ordinary MSBuild project files when they declare Raven sources through `RavenCompile`.
+The workspace loads `.rvnproj` projects and MSBuild projects whose evaluated
+language or language-target properties identify Raven. Source documents come
+from the standard evaluated `Compile` item list.
 
 Example:
 
@@ -422,7 +421,10 @@ Current behavior:
 - Referenced Raven MSBuild projects become workspace project references when they are loaded.
 - Referenced non-Raven MSBuild projects are consumed as metadata references when their evaluated `TargetPath` already exists on disk.
 
-Current behavior also includes save support for Raven-owned MSBuild state (`RavenCompile`, mapped Raven properties, and on-disk Raven source files) while preserving unrelated MSBuild items.
+Current behavior also includes save support for mapped Raven properties and
+on-disk Raven source files while preserving unrelated MSBuild items. Explicit
+source lists are persisted as standard `Compile` items when
+`EnableDefaultCompileItems` is `false`.
 
 ## Scaffolding with `rvn init`
 

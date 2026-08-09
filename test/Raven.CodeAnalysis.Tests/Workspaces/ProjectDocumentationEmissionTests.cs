@@ -34,7 +34,7 @@ public class Widget {
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -98,7 +98,7 @@ public class Widget {
                     <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -151,7 +151,7 @@ public class Widget {}
                     <DocumentationFile>artifacts/docs/DocsProject.xml</DocumentationFile>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -208,7 +208,7 @@ class Widget {
                     <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -262,7 +262,7 @@ public class Widget {}
                     <RavenGenerateDocumentation>false</RavenGenerateDocumentation>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -330,7 +330,7 @@ public class WidgetParser {
                     <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -405,7 +405,7 @@ class Widget(val Title: string) {
                     <MarkdownDocumentationOutputPath>artifacts/docs/DocsProject.docs</MarkdownDocumentationOutputPath>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="main.rvn" />
+                    <Compile Include="main.rvn" />
                   </ItemGroup>
                 </Project>
                 """);

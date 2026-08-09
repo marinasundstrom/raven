@@ -433,7 +433,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                     <RavenRunAnalyzers>{runAnalyzers.ToString().ToLowerInvariant()}</RavenRunAnalyzers>
                   </PropertyGroup>
                   <ItemGroup>
-                    <RavenCompile Include="src/**/*.rvn" />
+                    <Compile Include="src/**/*.rvn" />
                   </ItemGroup>
                 </Project>
                 """);

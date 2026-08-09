@@ -11,14 +11,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <RavenCompile Include="Error.rav" />
-    <RavenCompile Include="Option.rav" />
-    <RavenCompile Include="Parse.rav" />
-    <RavenCompile Include="Result.rav" />
-    <RavenCompile Include="TryGet.rav" />
-    <RavenCompile Include="LinqExtensions.rav" />
-    <RavenCompile Include="TopLevel.rav" />
-    <RavenCompile Include="UnionJsonConverter.rav" />
-    <RavenCompile Include="Union.rav" />
+    <Compile Include="Error.rav" />
+    <Compile Include="Option.rav" />
+    <Compile Include="Parse.rav" />
+    <Compile Include="Result.rav" />
+    <Compile Include="TryGet.rav" />
+    <Compile Include="LinqExtensions.rav" />
+    <Compile Include="TopLevel.rav" />
+    <Compile Include="UnionJsonConverter.rav" />
+    <Compile Include="Union.rav" />
   </ItemGroup>
 </Project>
