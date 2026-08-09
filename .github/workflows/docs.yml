@@ -11,6 +11,7 @@ on:
       - "build/**"
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
+      - "scripts/build-html-macro-site.sh"
       - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
@@ -18,6 +19,7 @@ on:
       - "src/Raven.Macros/**"
       - "src/RavenDoc/**"
       - "src/Raven.Playground/**"
+      - "samples/projects/macro-html-blazor/**"
       - "tools/**Generator/**"
   pull_request:
     paths:
@@ -27,6 +29,7 @@ on:
       - "build/**"
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
+      - "scripts/build-html-macro-site.sh"
       - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
@@ -34,6 +37,7 @@ on:
       - "src/Raven.Macros/**"
       - "src/RavenDoc/**"
       - "src/Raven.Playground/**"
+      - "samples/projects/macro-html-blazor/**"
       - "tools/**Generator/**"
   workflow_dispatch:
 
@@ -71,6 +75,9 @@ jobs:
 
       - name: Add playground
         run: scripts/build-playground-site.sh
+
+      - name: Add experimental component-template showcase
+        run: scripts/build-html-macro-site.sh
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'

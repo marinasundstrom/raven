@@ -86,6 +86,15 @@ The same Pages artifact includes the browser playground at:
 application and places it under `_site/playground/` after DocFX has built the
 main site. The playground and documentation therefore deploy atomically.
 
+The artifact also includes the zero-install experimental component-template
+showcase at:
+
+<https://marinasundstrom.github.io/raven/experiments/html-macro/>
+
+`scripts/build-html-macro-site.sh` publishes its standalone Blazor WebAssembly
+host under `_site/experiments/html-macro/`. It consumes the checked-in sample
+without embedding the experimental macro implementation into the Playground.
+
 The artifact also bundles two independent RavenDoc sites:
 
 - `Raven.Core` at `/raven/libraries/raven-core/`

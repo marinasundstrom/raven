@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <PublishTrimmed>false</PublishTrimmed>
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../app/HtmlBlazorSample.rvnproj" ReferenceOutputAssembly="false" />
+    <Reference Include="HtmlBlazorSample"
+               HintPath="../app/bin/$(Configuration)/net10.0/HtmlBlazorSample.dll"
+               Private="true"
+               ExternallyResolved="true" />
+    <Reference Include="ExistingBlazorComponents"
+               HintPath="../app/bin/$(Configuration)/net10.0/ExistingBlazorComponents.dll"
+               Private="true"
+               ExternallyResolved="true" />
+    <Reference Include="HtmlBlazorMacros"
+               HintPath="../app/bin/$(Configuration)/net10.0/HtmlBlazorMacros.dll"
+               Private="true"
+               ExternallyResolved="true" />
+    <Reference Include="Raven.Core"
+               HintPath="../app/bin/$(Configuration)/net10.0/Raven.Core.dll"
+               Private="true"
+               ExternallyResolved="true" />
+    <RazorComponent Include="../host/Components/Pages/Home.razor" Link="Components/Pages/Home.razor" />
+    <Content Include="../host/wwwroot/app.css" Link="wwwroot/app.css" />
+  </ItemGroup>
+</Project>

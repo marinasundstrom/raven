@@ -5,7 +5,7 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Components" Version="10.0.0" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>../../../../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll</HintPath>
     </Reference>

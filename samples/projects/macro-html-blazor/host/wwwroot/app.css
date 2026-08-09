@@ -73,6 +73,7 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .primary-action { display: inline-flex; gap: 36px; align-items: center; padding: 15px 19px; border-radius: 4px; color: white; background: var(--forest); font-size: 14px; font-weight: 700; text-decoration: none; box-shadow: 5px 5px 0 var(--acid); transition: transform 160ms ease, box-shadow 160ms ease; }
 .primary-action:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--acid); }
 .build-note { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.experiment-note { margin: 14px 0 0; color: var(--muted); font-size: 12px; }
 
 .showcase { padding: 88px 0; border-top: 1px solid var(--line); }
 .section-heading { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 60px; align-items: end; margin-bottom: 42px; }
@@ -160,6 +161,8 @@ pre { margin: 0; padding: 34px 36px; overflow: auto; font-size: clamp(12px, 1.2v
 .proof-strip span { color: var(--muted); font-size: 12px; }
 footer { display: flex; gap: 18px; align-items: center; padding: 38px 0 52px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 .footer-line { flex: 1; height: 1px; background: var(--line); }
+#blazor-error-ui { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; display: none; max-width: min(420px, calc(100% - 2rem)); padding: 0.9rem 1rem; border: 1px solid rgba(111, 35, 28, 0.24); border-radius: 8px; color: #6f231c; background: #fff3ef; box-shadow: 0 12px 32px rgba(49, 24, 20, 0.18); font-size: 13px; }
+#blazor-error-ui .reload { margin-left: 0.45rem; color: inherit; font-weight: 750; }
 
 @media (max-width: 820px) {
     .nav-shell, .hero, .showcase, .proof-strip, footer { width: min(100% - 28px, 680px); }
