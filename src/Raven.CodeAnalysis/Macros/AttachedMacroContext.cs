@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class AttachedMacroContext
+public class AttachedMacroContext : MacroContext
 {
     public AttachedMacroContext(
         Compilation compilation,
@@ -41,7 +41,7 @@ public class AttachedMacroContext
 
     public CancellationToken CancellationToken { get; }
 
-    public MacroExpansionDiagnostic CreateDiagnostic(
+    public override MacroExpansionDiagnostic CreateDiagnostic(
         string message,
         DiagnosticSeverity severity = DiagnosticSeverity.Error,
         SyntaxNode? syntax = null,

@@ -14,7 +14,10 @@ internal sealed class MacroFunctionBodyBinder : BlockBinder
         if (statement is not MacroExpansionStatementSyntax contribution)
             return base.BindStatement(statement);
 
-        var bound = new BoundExpressionStatement(BindExpression(contribution.Expression));
+        var expression = BindExpression(contribution.Expression);
+        BoundStatement bound = contribution.Keyword.ValueText == "expand"
+            ? new BoundReturnStatement(expression)
+            : new BoundExpressionStatement(expression);
         CacheBoundNode(statement, bound);
         return bound;
     }

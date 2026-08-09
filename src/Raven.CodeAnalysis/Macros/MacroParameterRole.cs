@@ -38,4 +38,9 @@ public enum MacroParameterRole
     /// context without requiring a token-tree body.
     /// </summary>
     FreestandingContext = 5,
+
+    /// <summary>
+    /// The compiler supplies the complete attached expansion context.
+    /// </summary>
+    AttachedContext = 6,
 }

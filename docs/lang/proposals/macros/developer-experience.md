@@ -197,21 +197,27 @@ The declaration model has four independent axes:
 | Input role | typed value, `ExpressionSyntax`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
 | Attachment | absent or `on Type` / `on Property` | freestanding versus attached invocation and the allowed target category |
 | Call-site type | `int`, `TDelegate`, a user type | semantic type expected from the expanded value |
-| Contributions | `expand`, `replace`, `introduce` | syntax shape accumulated by reached body statements |
+| Contributions | `expand`, `replace`, `introduce` | final expansion return, replacement, and accumulated members |
 
 The initial executable slice makes expansion output explicit in the body rather
 than treating an ordinary return type as provider plumbing. `expand`,
-`replace`, and `introduce` are contextual contribution statements. Reaching
-one updates a compiler-provided result state and execution continues. The last
-reached `expand` or `replace` wins, while reached `introduce` statements append
-in order. Consequently normal control flow can conditionally select or combine
-parts of an expansion without constructing `MacroExpansionResult` manually.
+`replace`, and `introduce` are contextual macro statements. `replace` and
+`introduce` update compiler-provided result state and execution continues. A
+later replacement wins, while introduced members append in order. `expand`
+supplies the final expansion and returns that accumulated state from the
+current execution path. Reaching the end of the body returns it automatically.
+Consequently normal control flow can select or combine parts of an expansion
+without constructing `MacroExpansionResult` manually.
 
 Attached targets support `on Property`, which provides the implicit name
 `target`, and `on property: Property`, which chooses an explicit source name.
 The binding denotes the current declaration in the attached-macro composition
-pipeline. The original target remains available through the lower-level
-`AttachedMacroContext` API when a class-authored provider needs it.
+pipeline. The original target remains available through
+`AttachedMacroContext`. A macro function may declare that context as a
+compiler-supplied parameter without adding it to the call-site argument list.
+All macro contexts accumulate diagnostics through `ReportDiagnostic` and
+`ReportDiagnostics`; this ordinary API avoids adding another contextual
+statement to the language.
 
 Those axes cover every MVP macro kind without a separate `kind` annotation:
 
@@ -227,8 +233,9 @@ Optional capability interfaces require an intentional source-syntax
 projection. `IMacroFragmentProvider` is projected through reached `fragment`
 contributions, and token metadata is projected through reached `token`
 contributions. Both accumulate through the same result/adapter boundary as
-`expand`, `replace`, and `introduce`. They preserve body-relative and authored
-spans without exposing generated adapter classes or a macro-private DSL tree.
+`replace` and `introduce`, and are finalized by `expand` or fall-through. They
+preserve body-relative and authored spans without exposing generated adapter
+classes or a macro-private DSL tree.
 Class-authored providers remain useful when incomplete input must publish
 tooling metadata independently from full expansion.
 

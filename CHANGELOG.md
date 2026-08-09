@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Simplified Raven-authored macro control flow: `expand` now supplies the final
+  expansion and returns from the current execution path, while `replace`,
+  `introduce`, editor metadata, and reported diagnostics accumulate until an
+  explicit expansion or body fall-through. All macro contexts now expose
+  ordinary diagnostic-reporting APIs, and attached macro functions can request
+  a compiler-supplied `AttachedMacroContext` without adding an invocation
+  argument.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

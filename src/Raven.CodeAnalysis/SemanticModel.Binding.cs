@@ -449,6 +449,39 @@ public partial class SemanticModel
                 expressionParameter.Symbol.Name,
                 expressionParameter.Syntax.DefaultValue!.GetLocation());
         }
+
+        foreach (var contextParameter in parameters.Where(static parameter =>
+            parameter.Symbol.MacroRole is
+                MacroParameterRole.Context or
+                MacroParameterRole.FreestandingContext or
+                MacroParameterRole.AttachedContext))
+        {
+            var requiredMacroKind = contextParameter.Symbol.MacroRole switch
+            {
+                MacroParameterRole.AttachedContext => "attached",
+                MacroParameterRole.Context => "token-tree freestanding",
+                _ => "argument-style freestanding"
+            };
+            var isValid = contextParameter.Symbol.MacroRole switch
+            {
+                MacroParameterRole.AttachedContext => declaration.TargetClause is not null,
+                MacroParameterRole.Context => declaration.TargetClause is null,
+                MacroParameterRole.FreestandingContext => declaration.TargetClause is null &&
+                    tokenStreamParameters.Length == 0 &&
+                    parameters.All(static parameter =>
+                        parameter.Symbol.MacroRole != MacroParameterRole.Context),
+                _ => true
+            };
+
+            if (!isValid)
+            {
+                _declarationDiagnostics.ReportMacroContextParameterKindMismatch(
+                    contextParameter.Symbol.Name,
+                    contextParameter.Symbol.Type.Name,
+                    requiredMacroKind,
+                    contextParameter.Syntax.TypeAnnotation!.Type.GetLocation());
+            }
+        }
     }
 
     private ITypeSymbol GetMacroTargetSyntaxType(MacroTarget target)
@@ -483,7 +516,7 @@ public partial class SemanticModel
                 MacroKind.FreestandingExpression => instruction == "expand" ||
                     (instruction is "fragment" or "token") && symbol.Parameters.Any(static parameter =>
                         parameter.MacroRole is MacroParameterRole.TokenStream or MacroParameterRole.Context),
-                MacroKind.AttachedDeclaration => instruction is "replace" or "introduce",
+                MacroKind.AttachedDeclaration => instruction is "expand" or "replace" or "introduce",
                 _ => false
             };
 

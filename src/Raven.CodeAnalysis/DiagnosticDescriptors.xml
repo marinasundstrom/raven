@@ -1240,4 +1240,8 @@
     Title="ExpressionSyntax macro parameters project invocation syntax"
     Message="ExpressionSyntax parameter '{parameterName}' cannot have a default value because it projects an authored invocation argument."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0933" Identifier="MacroContextParameterKindMismatch"
+    Title="Macro context does not match macro kind"
+    Message="Macro context parameter '{parameterName}' of type '{contextType}' can only be used by a {requiredMacroKind} macro function."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

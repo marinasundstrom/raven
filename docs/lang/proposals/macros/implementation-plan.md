@@ -976,7 +976,10 @@ assembly export metadata. Only an explicitly exported declaration in a
 provider assembly synthesizes provider manifest metadata.
 
 The model separates input roles, an optional attachment target, the call-site
-semantic type, and reached `expand`/`replace`/`introduce` contributions. It
+semantic type, and `expand`/`replace`/`introduce` behavior. `expand` is the
+semantic return for an expansion path; the other statements accumulate result
+state until `expand` or body fall-through. Diagnostics accumulate through the
+context API rather than another language statement. It
 must cover attached, argument-style, and token-tree macros without
 reintroducing a separate `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).

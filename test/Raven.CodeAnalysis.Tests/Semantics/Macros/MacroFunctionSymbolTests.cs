@@ -287,7 +287,29 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
 
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.Equal(2, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
+        Assert.Equal(1, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
+    }
+
+    [Fact]
+    public void ExpandContribution_IsAControlFlowReturn()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            macro func Choose() {
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
+                let unreachable = 2
+            }
+            """);
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single()
+            .Body!;
+
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        Assert.False(analysis.EndPointIsReachable);
+        Assert.IsType<MacroExpansionStatementSyntax>(Assert.Single(analysis.ReturnStatements));
+        Assert.IsType<LocalDeclarationStatementSyntax>(Assert.Single(analysis.UnreachableStatements));
     }
 
     [Fact]
@@ -389,6 +411,51 @@ public sealed class MacroFunctionSymbolTests : CompilationTestBase
         Assert.Equal(MacroParameterRole.FreestandingContext, symbol.Parameters[1].MacroRole);
         Assert.Equal("FreestandingMacroContext", symbol.Parameters[1].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void AttachedMacroFunction_ExposesCompilerSuppliedAttachedContextRole()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            macro func Validate(
+                context: Raven.CodeAnalysis.Macros.AttachedMacroContext
+            ) on Type {
+                context.ReportDiagnostic("Invalid type")
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroFunctionDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroFunctionSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        var parameter = Assert.Single(symbol.Parameters);
+        Assert.Equal(MacroParameterRole.AttachedContext, parameter.MacroRole);
+        Assert.Equal("AttachedMacroContext", parameter.Type.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroContextParameter_MustMatchMacroKind()
+    {
+        var (baseCompilation, _) = CreateCompilation("""
+            macro func Freestanding(context: Raven.CodeAnalysis.Macros.AttachedMacroContext) {
+                context.ReportDiagnostic("Invalid")
+            }
+
+            macro func Attached(context: Raven.CodeAnalysis.Macros.FreestandingMacroContext) on Type {
+                context.ReportDiagnostic("Invalid")
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
+
+        Assert.Equal(
+            2,
+            compilation.GetDiagnostics().Count(static diagnostic => diagnostic.Id == "RAV0933"));
     }
 
     [Fact]

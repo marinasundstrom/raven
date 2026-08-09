@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class FreestandingMacroContext
+public class FreestandingMacroContext : MacroContext
 {
     private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
         ImmutableArray.CreateBuilder<MacroFileDependency>();
@@ -36,7 +36,7 @@ public class FreestandingMacroContext
 
     public CancellationToken CancellationToken { get; }
 
-    public MacroExpansionDiagnostic CreateDiagnostic(
+    public override MacroExpansionDiagnostic CreateDiagnostic(
         string message,
         DiagnosticSeverity severity = DiagnosticSeverity.Error,
         SyntaxNode? syntax = null,

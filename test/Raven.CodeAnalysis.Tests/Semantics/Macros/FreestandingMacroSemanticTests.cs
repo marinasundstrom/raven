@@ -233,6 +233,78 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void ExpandContribution_ReturnsFromCurrentMacroExecutionPath()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+            macro func Choose(first: bool) {
+                if first {
+                    expand ParseExpression("1")
+                }
+
+                expand ParseExpression("2")
+            }
+
+            func Main() -> int => Choose!(true)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "ReturningMacroFunction",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("1", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void ExpandContribution_LowersFromSingleLineMacroBody()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+            macro func Answer() { expand ParseExpression("42") }
+            func Main() -> int => Answer!()
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "SingleLineMacroFunction",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal(
+            "42",
+            compilation.GetSemanticModel(consumerTree)
+                .GetMacroExpansion(invocation)!
+                .Expression!
+                .ToString());
+    }
+
+    [Fact]
     public void AttachedMacroFunction_CombinesReachedContributions()
     {
         var sourceTree = SyntaxTree.ParseText(
@@ -272,6 +344,49 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.All(
             expansion.IntroducedMembers,
             static member => Assert.IsType<PropertyDeclarationSyntax>(member));
+    }
+
+    [Fact]
+    public void AttachedMacroFunction_AccumulatesReportedDiagnostics()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Macros.*
+
+            macro func Validate(context: AttachedMacroContext) on Type {
+                context.ReportDiagnostic("Types are not accepted here")
+                context.ReportDiagnostic("Second problem")
+            }
+
+            #[Validate]
+            class Widget {}
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "AttachedMacroFunctionDiagnostic",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var attribute = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(attribute);
+
+        Assert.Collection(
+            expansion!.MacroDiagnostics,
+            diagnostic =>
+            {
+                Assert.Equal("Types are not accepted here", diagnostic.Message);
+                Assert.Equal(attribute.Name.Span, diagnostic.Location.SourceSpan);
+            },
+            diagnostic =>
+            {
+                Assert.Equal("Second problem", diagnostic.Message);
+                Assert.Equal(attribute.Name.Span, diagnostic.Location.SourceSpan);
+            });
     }
 
     [Fact]

@@ -276,6 +276,11 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 _returnStatements.Add(returnStatement);
                 _endPointIsReachable = false;
                 return false;
+            case MacroExpansionStatementSyntax { Keyword.ValueText: "expand" } expandStatement:
+                Visit(expandStatement.Expression);
+                _returnStatements.Add(expandStatement);
+                _endPointIsReachable = false;
+                return false;
             case ThrowStatementSyntax throwStatement:
                 base.VisitThrowStatement(throwStatement);
                 _endPointIsReachable = false;

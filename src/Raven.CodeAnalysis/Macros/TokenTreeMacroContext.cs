@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class TokenTreeMacroContext
+public class TokenTreeMacroContext : MacroContext
 {
     private static readonly DiagnosticDescriptor s_expectedSingleMemberDeclaration = DiagnosticDescriptor.Create(
         "RAVM022",
@@ -541,7 +541,7 @@ public class TokenTreeMacroContext
         return MacroTokenClassification.Default;
     }
 
-    public MacroExpansionDiagnostic CreateDiagnostic(
+    public override MacroExpansionDiagnostic CreateDiagnostic(
         string message,
         DiagnosticSeverity severity = DiagnosticSeverity.Error,
         SyntaxNode? syntax = null,

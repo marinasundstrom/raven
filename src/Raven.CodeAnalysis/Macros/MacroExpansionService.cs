@@ -67,6 +67,7 @@ internal static class MacroExpansionService
                 var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
                     ?? loaded.Macro.Expand(context)
                     ?? MacroExpansionResult.Empty;
+                result = AddReportedDiagnostics(result, context);
                 result = ContextualizeExpansionResult(targetDeclaration, result);
                 RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
 
@@ -124,6 +125,7 @@ internal static class MacroExpansionService
                 result = ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
                     ?? tokenTreeMacro.Expand(context)
                     ?? FreestandingMacroExpansionResult.Empty;
+                result = AddReportedDiagnostics(result, context);
                 result.FileDependencies = MergeFileDependencies(
                     result.FileDependencies,
                     context.GetFileDependencies());
@@ -139,6 +141,7 @@ internal static class MacroExpansionService
                 result = ExpandWithTypedParametersIfAvailable(freestandingMacro, context, diagnostics)
                     ?? freestandingMacro.Expand(context)
                     ?? FreestandingMacroExpansionResult.Empty;
+                result = AddReportedDiagnostics(result, context);
                 result.FileDependencies = MergeFileDependencies(
                     result.FileDependencies,
                     context.GetFileDependencies());
@@ -234,7 +237,9 @@ internal static class MacroExpansionService
             [typedContextType],
             modifiers: null);
 
-        return (MacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        var result = (MacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        context.AddReportedDiagnostics((AttachedMacroContext)typedContext!);
+        return result;
     }
 
     private static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
@@ -272,6 +277,7 @@ internal static class MacroExpansionService
             modifiers: null);
 
         var result = (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        context.AddReportedDiagnostics((FreestandingMacroContext)typedContext!);
         context.AddFileDependencies(
             ((FreestandingMacroContext)typedContext!).GetFileDependencies());
         return result;
@@ -318,10 +324,50 @@ internal static class MacroExpansionService
             modifiers: null);
 
         var result = (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
+        context.AddReportedDiagnostics((TokenTreeMacroContext)typedContext!);
         context.AddFileDependencies(
             ((TokenTreeMacroContext)typedContext!).GetFileDependencies());
         return result;
     }
+
+    private static MacroExpansionResult AddReportedDiagnostics(
+        MacroExpansionResult result,
+        MacroContext context)
+    {
+        var diagnostics = context.GetReportedDiagnostics();
+        var macroDiagnostics = context.GetReportedMacroDiagnostics();
+        if (diagnostics.IsDefaultOrEmpty && macroDiagnostics.IsDefaultOrEmpty)
+            return result;
+
+        if (ReferenceEquals(result, MacroExpansionResult.Empty))
+            result = new MacroExpansionResult();
+
+        result.Diagnostics = Append(result.Diagnostics, diagnostics);
+        result.MacroDiagnostics = Append(result.MacroDiagnostics, macroDiagnostics);
+        return result;
+    }
+
+    private static FreestandingMacroExpansionResult AddReportedDiagnostics(
+        FreestandingMacroExpansionResult result,
+        MacroContext context)
+    {
+        var diagnostics = context.GetReportedDiagnostics();
+        var macroDiagnostics = context.GetReportedMacroDiagnostics();
+        if (diagnostics.IsDefaultOrEmpty && macroDiagnostics.IsDefaultOrEmpty)
+            return result;
+
+        if (ReferenceEquals(result, FreestandingMacroExpansionResult.Empty))
+            result = new FreestandingMacroExpansionResult();
+
+        result.Diagnostics = Append(result.Diagnostics, diagnostics);
+        result.MacroDiagnostics = Append(result.MacroDiagnostics, macroDiagnostics);
+        return result;
+    }
+
+    private static ImmutableArray<T> Append<T>(
+        ImmutableArray<T> existing,
+        ImmutableArray<T> additions)
+        => existing.IsDefault ? additions : existing.AddRange(additions);
 
     private static MacroExpansionResult ContextualizeExpansionResult(
         SyntaxNode targetDeclaration,

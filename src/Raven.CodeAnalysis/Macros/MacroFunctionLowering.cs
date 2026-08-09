@@ -62,12 +62,17 @@ internal static class MacroFunctionLowering
             .Where(static parameter =>
                 parameter.Role == MacroParameterRole.FreestandingContext)
             .ToArray();
+        var attachedContextParameters = parameters
+            .Where(static parameter =>
+                parameter.Role == MacroParameterRole.AttachedContext)
+            .ToArray();
         var valueParameters = parameters
             .Where(static parameter =>
                 parameter.Role is not (
                     MacroParameterRole.TokenStream or
                     MacroParameterRole.Context or
-                    MacroParameterRole.FreestandingContext))
+                    MacroParameterRole.FreestandingContext or
+                    MacroParameterRole.AttachedContext))
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0 || contextParameters.Length > 0;
         var hasEditorMetadataContributions = declaration.DescendantNodes()
@@ -152,12 +157,23 @@ internal static class MacroFunctionLowering
             builder.AppendLine(
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.FreestandingMacroContext = {contextVariableName}");
         }
+        foreach (var contextParameter in attachedContextParameters)
+        {
+            builder.AppendLine(
+                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.AttachedMacroContext = {contextVariableName}");
+        }
 
         if (!hasTokenTreeBody && declaration.TargetClause is { } targetClause)
             AppendTargetBinding(builder, targetClause, resultName, contextVariableName);
 
-        AppendLoweredBody(builder, source, declaration, resultBuilderName);
-        builder.AppendLine($"        return {resultBuilderName}.{buildMethod}()");
+        AppendLoweredBody(
+            builder,
+            source,
+            declaration,
+            resultBuilderName,
+            buildMethod);
+        if (!EndsWithExpand(declaration))
+            builder.AppendLine($"        return {resultBuilderName}.{buildMethod}()");
         builder.AppendLine("    }");
         builder.AppendLine("}");
         return builder.ToString();
@@ -233,7 +249,8 @@ internal static class MacroFunctionLowering
         StringBuilder builder,
         string source,
         MacroFunctionDeclarationSyntax declaration,
-        string resultBuilderName)
+        string resultBuilderName,
+        string buildMethod)
     {
         if (declaration.Body is { } body)
         {
@@ -250,7 +267,18 @@ internal static class MacroFunctionLowering
                 var expression = source.Substring(
                     contribution.Expression.Span.Start,
                     contribution.Expression.Span.Length);
-                var method = contribution.Keyword.ValueText switch
+                var lineStart = source.LastIndexOf(
+                    '\n',
+                    Math.Max(0, contribution.Span.Start - 1));
+                var indentationStart = lineStart < 0 ? 0 : lineStart + 1;
+                var linePrefix = source.Substring(
+                    indentationStart,
+                    contribution.Span.Start - indentationStart);
+                var indentation = linePrefix.All(char.IsWhiteSpace)
+                    ? linePrefix
+                    : string.Empty;
+                var instruction = contribution.Keyword.ValueText;
+                var method = instruction switch
                 {
                     "expand" => "Expand",
                     "replace" => "Replace",
@@ -260,7 +288,14 @@ internal static class MacroFunctionLowering
                     _ => throw new InvalidOperationException()
                 };
                 content.Remove(relativeStart, contribution.Span.Length);
-                content.Insert(relativeStart, $"{resultBuilderName}.{method}({expression})");
+                var loweredContribution = $"{resultBuilderName}.{method}({expression})";
+                if (instruction == "expand")
+                {
+                    loweredContribution +=
+                        $"\n{indentation}return {resultBuilderName}.{buildMethod}()";
+                }
+
+                content.Insert(relativeStart, loweredContribution);
             }
 
             foreach (var line in content.ToString().Split('\n'))
@@ -284,6 +319,10 @@ internal static class MacroFunctionLowering
 
         return candidate;
     }
+
+    private static bool EndsWithExpand(MacroFunctionDeclarationSyntax declaration)
+        => declaration.Body?.Statements.LastOrDefault() is MacroExpansionStatementSyntax statement &&
+           statement.Keyword.ValueText == "expand";
 
     internal static string? GetMacroAlias(MacroFunctionDeclarationSyntax declaration)
     {

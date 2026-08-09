@@ -114,6 +114,7 @@ import Raven.CodeAnalysis.Macros.*
 macro func Guard(context: TokenTreeMacroContext) {
     let span = FindExpressionSpan(context.GetBodyText())
     let expression = context.ParseExpressionResult(span)
+    context.ReportDiagnostics(expression.Diagnostics)
     expand BuildGuardExpression(expression.Syntax)
 }
 ```
@@ -134,8 +135,12 @@ Selected spans are relative to the macro body. The member parser diagnoses
 empty input, multiple declarations, global statements, and compilation-unit
 content rather than silently choosing a node.
 
-The compact syntax does not yet have a diagnostic contribution statement. Use
-the provider contract when native diagnostics must be forwarded directly.
+Macro contexts accumulate diagnostics through the ordinary
+`ReportDiagnostic` and `ReportDiagnostics` APIs. This deliberately avoids a
+separate diagnostic statement in the language. `expand` supplies the final
+expansion and returns from the current macro execution path; diagnostics
+reported before it are retained. Reaching the end of the body also returns any
+accumulated diagnostics and contributions.
 
 ## 5. Report precise diagnostics
 
@@ -327,8 +332,9 @@ The compiler lowers `macro func` declarations to adapters, but tools expose an
 | `IMacroTokenStream` parameter | token-tree macro and token stream |
 | `TokenTreeMacroContext` parameter | complete token-tree context |
 | `FreestandingMacroContext` parameter | complete argument-style context |
+| `AttachedMacroContext` parameter | complete attached context |
 | `on Type` / `on Property` | attached target |
-| reached `expand` | replacement expression |
+| `expand` | final expansion and semantic return |
 | reached `replace` | replacement declaration |
 | reached `introduce` | ordered introduced members |
 | reached `fragment` | ordinary Raven fragment metadata |

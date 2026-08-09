@@ -460,29 +460,41 @@ a macro declared with an ordinary `path: string` parameter plus a
 `FreestandingMacroContext` parameter is invoked as `Macro!("path")`; only the
 ordinary value parameter is supplied by the caller.
 
+An attached macro may similarly declare an `AttachedMacroContext` parameter.
+The compiler supplies it rather than exposing it at the invocation site. It
+provides the attribute syntax, original and current declarations, semantic
+model, arguments, and diagnostic APIs.
+
 Macro bodies are ordinary synchronous Raven blocks augmented by three
 contextual contribution statements:
 
-* `expand expression` sets the expression produced by a freestanding macro;
+* `expand expansion` supplies the final expansion and returns from the current
+  macro execution path;
 * `replace declaration` sets the replacement of an attached macro; and
 * `introduce member-or-members` appends introduced members to an attached
   macro.
 
-These statements do not return from the macro body. They update the
-invocation's expansion result when execution reaches them, so they may coexist
-with declarations, conditionals, loops, and other ordinary statements. A later
-`expand` or `replace` supersedes the earlier value; repeated `introduce`
-statements append in execution order. This permits one attached expansion to
-both replace its target and introduce members. Using `replace` or `introduce`
-in a freestanding macro, or `expand` in an attached macro, is a compile-time
-error.
+`replace` and `introduce` update the invocation's accumulated result and
+execution continues. Repeated `introduce` statements append in execution order,
+and a later `replace` supersedes an earlier replacement. Reaching the end of the
+body returns the accumulated result. `expand` is different: it adds its final
+expansion value and immediately returns the accumulated result from that
+execution path. It can therefore be used in ordinary conditionals as the macro
+equivalent of a value-returning statement. Attached macros may use `expand`
+when returning a complete `MacroExpansionResult` from a lower-level API.
+
+Macro contexts accumulate zero or more diagnostics through the ordinary
+`ReportDiagnostic` and `ReportDiagnostics` methods. Reported diagnostics are
+included whether the macro exits through `expand` or reaches the end of its
+body. No diagnostic-specific language statement is defined.
 
 The compiler currently lowers an executable, non-generic compilation-unit
 declaration into an isolated provider adapter and, when needed, a parameter
 object implementing the existing typed macro contracts. `expand`, `replace`,
 and `introduce` lower to operations on a compiler-provided result builder,
 whose final value becomes `FreestandingMacroExpansionResult` or
-`MacroExpansionResult`. These synthesized types are implementation details and
+`MacroExpansionResult`. An `expand` operation is followed by the corresponding
+generated return. These synthesized types are implementation details and
 are not the semantic identity exposed to tools.
 
 Macro functions are synchronous. The `async` modifier and `await` expressions

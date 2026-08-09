@@ -293,7 +293,11 @@ partial class BlockBinder
     {
         return statement switch
         {
-            ReturnStatementSyntax or ThrowStatementSyntax or BreakStatementSyntax or ContinueStatementSyntax => true,
+            ReturnStatementSyntax or
+            MacroExpansionStatementSyntax { Keyword.ValueText: "expand" } or
+            ThrowStatementSyntax or
+            BreakStatementSyntax or
+            ContinueStatementSyntax => true,
             BlockStatementSyntax block when block.Statements.Count > 0 => IsEarlyExitStatement(block.Statements[^1]),
             IfStatementSyntax { ElseClause: { } elseClause } ifStatement =>
                 IsEarlyExitStatement(ifStatement.ThenStatement) &&
