@@ -116,6 +116,10 @@ internal static class MsBuildProjectEvaluator
             .ToImmutableArray();
 
         var frameworkReferences = project.GetItems("FrameworkReference")
+            .Where(static item => !string.Equals(
+                item.EvaluatedInclude,
+                "Microsoft.NETCore.App",
+                StringComparison.OrdinalIgnoreCase))
             .Select(item => new ProjectFile.FrameworkReferenceInfo(item.EvaluatedInclude))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
             .ToImmutableArray();

@@ -10,6 +10,39 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Fact]
+    public void Evaluate_DoesNotExposeSdkImplicitCoreFrameworkReference()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var evaluation = MsBuildProjectEvaluator.Evaluate(
+                projectPath,
+                RavenProjectConventions.Default);
+
+            Assert.DoesNotContain(
+                evaluation.FrameworkReferences,
+                reference => string.Equals(
+                    reference.Name,
+                    "Microsoft.NETCore.App",
+                    StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void Evaluate_UsesRequestedConfigurationAndTargetFramework()
     {
         var root = CreateTempDirectory();
