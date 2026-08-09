@@ -205,6 +205,25 @@ private. The compiler maps body-relative regions to absolute authored spans.
 Zero-width regions can say “an expression is expected here” in incomplete
 input.
 
+When the DSL already knows an embedded expression's expected type, report it
+without exposing the surrounding DSL structure:
+
+```raven
+let actionDefinition: INamedTypeSymbol = context.Compilation.GetTypeByMetadataName(
+    "System.Action`1") else {
+    return []
+}
+let actionType = actionDefinition.Construct(argumentType)
+let callback = context.CreateExpressionFragmentRegion(callbackSpan, actionType)
+```
+
+`CreateExpressionFragmentRegion` target-types the recovered expression for
+semantic tooling. This is particularly useful for inline lambdas: hover and
+completion can see the parameter types implied by `Action<T>`, an expression
+tree, or another delegate just as they would in ordinary Raven code. Use the
+untyped `CreateFragmentRegion` overload when the DSL has no real contextual
+type; do not manufacture one solely for display.
+
 `SemanticModel.GetMacroFragmentRegions(invocation)` and the corresponding
 `Compilation` API resolve this capability. Provider failures return no regions
 instead of breaking unrelated semantic queries.
@@ -240,6 +259,16 @@ fragment locals shadowing caller names. This is deliberately narrower than a
 general custom symbol or scope API. A macro that already knows the type, such
 as a schema-backed SQL macro, can instead call
 `CreateFragmentLocal(name, type)`.
+
+Fragment and token providers are optional editor capabilities. Treat malformed
+or incomplete user input as data: return recovered regions and diagnostics
+where possible, and reserve exceptions for provider defects. The compiler
+isolates a failed optional provider to that request and returns no contributed
+metadata; later requests and newer document snapshots remain independently
+queryable. Providers must honor `context.CancellationToken` during potentially
+long parsing or schema work. The language server consumes the immutable
+compiler snapshot and must not cache semantic truth independently of its
+document version.
 
 ## 7. Transform declarations
 

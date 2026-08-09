@@ -234,14 +234,15 @@ accepted only when the preceding use case demonstrates its value.
    and nested-compilation limits before supporting more powerful syntax-tree
    construction or compilation APIs. Consider process isolation only when the
    package and host model requires it.
-9. **Lower natural callbacks to Blazor event callbacks.** When a component
+9. **Lower natural callbacks to Blazor event callbacks (implemented).** When a component
    attribute resolves to an `EventCallback` property, accept an ordinary Raven
    callback reference or an inline lambda expression and let the HTML macro
    emit `EventCallback.Factory.Create(self, callback)`. Attribute bodies remain
    ordinary Raven expression fragments, so both
-   `Toggled={callback}` and `Toggled={() => toggleTodo(todo.Id)}` use the same
-   lowering. Keep this Blazor-aware conversion out of the generic macro
-   symbol/tooling contracts.
+   `Toggled={callback}` and `Toggled={(id) => toggleTodo(id)}` use the same
+   lowering. `EventCallback<T>` uses `Action<T>` target typing and the generic
+   factory call, as demonstrated by the Todo item ID callback. Keep this
+   Blazor-aware conversion out of the generic macro symbol/tooling contracts.
 10. **Extract the HTML/Blazor macros as distributable libraries.** Prove restore,
    reference, diagnostics, generated Blazor shape, and an external consumer
    before treating the React-like sample as a reusable product surface.
@@ -703,12 +704,26 @@ context.CreateFragmentRegion(MacroFragmentKind.Expression, expressionSpan)
   sequence-element locals visible inside selected fragments
 * [x] resolve ordinary symbol/type hover in expression and statement fragments
   through a compiler-owned span query, including caller and fragment locals
+* [x] let an expression span carry an optional target type so ordinary lambda
+  inference, hover, and completion can use the DSL's real contextual type
+* [x] isolate provider failures and detached recovered fragment syntax so a bad
+  optional tooling request cannot invalidate later semantic queries
 
 This is deliberately a token-and-span API. It does not require or expose a
 secondary DSL syntax tree. Completion reparses only the selected ordinary Raven
 fragment and delegates to the existing compiler completion provider. Semantic
 scope bridging beyond immutable name/type locals remains a later independently
 justified slice.
+
+The target-typed form is intentionally expression-specific:
+
+```csharp
+context.CreateExpressionFragmentRegion(expressionSpan, expectedDelegateType)
+```
+
+This avoids adding HTML, SQL, or other DSL structure to Raven's syntax and
+bound trees. A macro supplies only a span and an ordinary compiler type symbol;
+the existing binder provides normal target-typed semantics.
 
 The Raven-authored `query!` sample reports its source, predicate, and projection
 through this same API. Caller-scope completion works in those spans, and a

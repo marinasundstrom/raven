@@ -13,12 +13,14 @@ public sealed class MacroFragmentRegion
         MacroFragmentKind kind,
         TextSpan bodyRelativeSpan,
         TextSpan span,
-        ImmutableArray<MacroFragmentLocal> locals)
+        ImmutableArray<MacroFragmentLocal> locals,
+        ITypeSymbol? targetType)
     {
         Kind = kind;
         BodyRelativeSpan = bodyRelativeSpan;
         Span = span;
         Locals = locals.IsDefault ? ImmutableArray<MacroFragmentLocal>.Empty : locals;
+        TargetType = targetType;
     }
 
     /// <summary>Gets the Raven syntax category expected in this region.</summary>
@@ -32,4 +34,7 @@ public sealed class MacroFragmentRegion
 
     /// <summary>Gets the macro-introduced locals visible inside this region.</summary>
     public ImmutableArray<MacroFragmentLocal> Locals { get; }
+
+    /// <summary>Gets the optional target type used to bind an expression region.</summary>
+    public ITypeSymbol? TargetType { get; }
 }

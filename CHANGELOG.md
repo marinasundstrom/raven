@@ -4,6 +4,21 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added optional target types to macro expression fragments through
+  `CreateExpressionFragmentRegion`. Macro DSLs can now give authored inline
+  lambdas normal parameter inference and hover without exposing private DSL
+  trees. Optional provider failures remain isolated, and visible-value lookup
+  now handles detached recovered fragment syntax without crashing hover.
+
+- Fixed `TextSpan` value equality metadata so Raven code can use `==` and `!=`
+  without introducing an unsupported nullable conversion during emission.
+
+- Extended the HTML-to-Blazor macro prototype so component parameters of type
+  `EventCallback` or `EventCallback<T>` accept either callback references or
+  inline Raven lambdas. The macro now target-types the authored expression as
+  `Action` or `Action<T>` and emits the matching `EventCallback.Factory.Create`
+  wrapper, removing that boilerplate from component code.
+
 - Extended macro token symbol projection to contextual DSL references. The
   HTML-to-Blazor sample now resolves component attributes to their ordinary
   component property symbols, enabling standard hover and go-to-definition

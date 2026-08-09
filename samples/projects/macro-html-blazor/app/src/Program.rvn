@@ -63,9 +63,16 @@ func Main() {
     todoList.Render()(todoBuilder)
     let todoFrames = todoBuilder.GetFrames()
     let todoKeys = List<string>()
+    var todoCallbackCount = 0
 
     for index in 0..<todoFrames.Count {
         let frame = todoFrames.Array[index]
+        if frame.AttributeName == "Toggled" {
+            Require(
+                frame.AttributeValue.GetType() == typeof(EventCallback<int>),
+                "Toggled must contain an EventCallback<int> created by the HTML macro.")
+            todoCallbackCount = todoCallbackCount + 1
+        }
         if frame.ComponentType == typeof(TodoItem) {
             let componentKey: object = frame.ComponentKey else {
                 continue
@@ -80,6 +87,9 @@ func Main() {
     Require(
         todoKeys.Count == 2,
         "TodoList must initially render only incomplete items; rendered ${todoKeys.Count}.")
+    Require(
+        todoCallbackCount == 2,
+        "Each rendered TodoItem must receive an EventCallback; rendered ${todoCallbackCount}.")
     Require(
         todoKeys[0] == "2" && todoKeys[1] == "3",
         "TodoList must filter completed items and preserve Blazor component keys.")

@@ -4,15 +4,18 @@ import Microsoft.AspNetCore.Components.*
 #[Component]
 public class TodoItem {
     #[Parameter]
+    var Id: int = 0
+
+    #[Parameter]
     var Title: string = ""
 
     #[Parameter]
     var IsCompleted: bool = false
 
     #[Parameter]
-    var Toggled: EventCallback = default(EventCallback)
+    var Toggled: EventCallback<int> = default(EventCallback<int>)
 
-    func toggle() -> Task => Toggled.InvokeAsync()
+    func toggle() -> Task => Toggled.InvokeAsync(Id)
 
     func Render() -> RenderFragment =>
         Html! {

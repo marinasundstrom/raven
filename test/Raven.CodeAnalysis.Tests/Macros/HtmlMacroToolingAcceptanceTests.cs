@@ -157,6 +157,72 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInHtmlMacro_LowersComponentEventCallbacksFromReferencesAndInlineLambdas()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        const string source = """
+            import Microsoft.AspNetCore.Components.*
+
+            class CallbackComponent {
+                var Referenced: EventCallback = default(EventCallback)
+                var Inline: EventCallback = default(EventCallback)
+                var Generic: EventCallback<int> = default(EventCallback<int>)
+            }
+
+            class CallbackHost {
+                func callback() { }
+
+                func Render() => Html! {
+                    <CallbackComponent
+                        Referenced={callback}
+                        Inline={() => callback()}
+                        Generic={(value) => callback()} />
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-component-callbacks.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference)
+            .AddReferences(CreateAspNetCoreComponentsReference());
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
+        var expansionText = Assert.IsAssignableFrom<ExpressionSyntax>(expansion?.Expression).ToString();
+
+        Assert.Equal(2, CountOccurrences(expansionText, ": System.Action ="));
+        Assert.Equal(1, CountOccurrences(expansionText, ": System.Action<"));
+        Assert.Contains("= callback;", expansionText, StringComparison.Ordinal);
+        Assert.Contains("= () => callback();", expansionText, StringComparison.Ordinal);
+        Assert.Contains("= (value) => callback();", expansionText, StringComparison.Ordinal);
+        Assert.Equal(
+            2,
+            CountOccurrences(
+                expansionText,
+                "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(self,"));
+        Assert.Equal(
+            1,
+            CountOccurrences(
+                expansionText,
+                "Microsoft.AspNetCore.Components.EventCallback.Factory.Create<"));
+
+        var genericRegion = Assert.Single(
+            compilation.GetMacroFragmentRegions(invocation),
+            region => source.Substring(region.Span.Start, region.Span.Length)
+                .Contains("(value)", StringComparison.Ordinal));
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(genericRegion.TargetType);
+        Assert.Equal("Action", targetType.Name);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(targetType.TypeArguments).SpecialType);
+
+        var valueInfo = compilation.GetMacroFragmentSemanticInfo(
+            invocation,
+            source.LastIndexOf("(value)", StringComparison.Ordinal) + 2);
+        var lambda = Assert.IsAssignableFrom<ILambdaSymbol>(valueInfo?.SymbolInfo.Symbol);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(lambda.Parameters).Type.SpecialType);
+    }
+
+    [Fact]
     public void CheckedInHtmlMacro_ResolvesSymbolsInNestedComprehensionTemplate()
     {
         var macroReference = CreateCheckedInHtmlMacroReference();
@@ -237,6 +303,30 @@ public sealed class HtmlMacroToolingAcceptanceTests
             .AddSyntaxTrees(tree)
             .AddReferences(TestMetadataReferences.Default)
             .AddMacroReferences(macroReference);
+
+    private static MetadataReference CreateAspNetCoreComponentsReference()
+    {
+        var referenceDirectory = ReferenceAssemblyPaths.GetReferenceAssemblyDir(
+            targetFramework: "net10.0",
+            packId: "Microsoft.AspNetCore.App.Ref");
+        Assert.False(string.IsNullOrWhiteSpace(referenceDirectory));
+        var referencePath = Path.Combine(referenceDirectory!, "Microsoft.AspNetCore.Components.dll");
+        Assert.True(File.Exists(referencePath), $"Missing ASP.NET Core reference assembly '{referencePath}'.");
+        return MetadataReference.CreateFromFile(referencePath);
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var position = 0;
+        while ((position = text.IndexOf(value, position, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            position += value.Length;
+        }
+
+        return count;
+    }
 
     private static MacroReference CreateCheckedInHtmlMacroReference()
     {

@@ -52,6 +52,20 @@ public sealed class MacroFragmentRegionTests
     }
 
     [Fact]
+    public void GetMacroFragmentRegions_PreservesExpressionTargetType()
+    {
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #targetTyped { (value) => value }";
+        var (compilation, expression) = CreateCompilation(code, new TargetTypedMacro());
+
+        var region = Assert.Single(compilation.GetMacroFragmentRegions(expression));
+
+        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(region.TargetType);
+        Assert.Equal("Action", targetType.Name);
+        var argumentType = Assert.Single(targetType.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, argumentType.SpecialType);
+    }
+
+    [Fact]
     public void MacroFunctionFragmentContribution_ProjectsThroughGeneratedAdapter()
     {
         const string code = """
@@ -107,6 +121,7 @@ public sealed class MacroFragmentRegionTests
         var compilation = Compilation.Create(
                 "MacroFragmentRegions",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
             .AddSyntaxTrees(syntaxTree)
             .AddMacroReferences(new MacroReference(macro));
         var expression = syntaxTree.GetRoot()
@@ -148,5 +163,25 @@ public sealed class MacroFragmentRegionTests
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             => [context.CreateFragmentRegion(MacroFragmentKind.Expression, new TextSpan(0, context.BodySpan.Length + 1))];
+    }
+
+    private sealed class TargetTypedMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Name => "targetTyped";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+        {
+            var definition = context.Compilation.GetTypeByMetadataName("System.Action`1")!;
+            var intType = context.Compilation.GetSpecialType(SpecialType.System_Int32);
+            return
+            [
+                context.CreateExpressionFragmentRegion(
+                    new TextSpan(0, context.BodySpan.Length),
+                    definition.Construct(intType))
+            ];
+        }
     }
 }

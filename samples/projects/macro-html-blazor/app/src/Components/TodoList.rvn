@@ -14,7 +14,9 @@ public class TodoList {
         for index in 0..<todos.Length {
             let todo = todos[index]
             if todo.Id == id {
-                todos[index] = Todo(todo.Id, todo.Title, todo.IsCompleted == false)
+                todos[index] = todo with {
+                    IsCompleted = todo.IsCompleted == false
+                }
                 return
             }
         }
@@ -22,11 +24,6 @@ public class TodoList {
 
     func toggleCompletedVisibility() {
         showCompleted = showCompleted == false
-    }
-
-    func toggleCallback(id: int) -> EventCallback {
-        let callback: Action = () => toggleTodo(id)
-        return EventCallback.Factory.Create(self, callback)
     }
 
     func Render() -> RenderFragment {
@@ -46,9 +43,10 @@ public class TodoList {
                         Html! {
                             <TodoItem
                                 key={todo.Id}
+                                Id={todo.Id}
                                 Title={todo.Title}
                                 IsCompleted={todo.IsCompleted}
-                                Toggled={toggleCallback(todo.Id)} />
+                                Toggled={(id) => toggleTodo(id)} />
                         }]}
                 </ul>
             </section>

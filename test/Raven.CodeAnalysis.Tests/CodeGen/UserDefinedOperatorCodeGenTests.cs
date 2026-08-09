@@ -59,4 +59,42 @@ class Runner {
         Assert.True((bool)equal.Invoke(instance, Array.Empty<object>())!);
         Assert.False((bool)notEqual.Invoke(instance, Array.Empty<object>())!);
     }
+
+    [Fact]
+    public void BinaryExpression_InvokesMetadataValueTypeEqualityOperatorWithoutNullableConversion()
+    {
+        const string code = """
+import Raven.CodeAnalysis.Text.*
+
+class Runner {
+    public func Equal() -> bool {
+        return TextSpan(1, 2) == TextSpan(1, 2)
+    }
+
+    public func NotEqual() -> bool {
+        return TextSpan(1, 2) != TextSpan(2, 1)
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        MetadataReference[] references =
+        [
+            .. TestMetadataReferences.Default,
+            MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location)
+        ];
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+
+        Assert.True((bool)type.GetMethod("Equal")!.Invoke(instance, [])!);
+        Assert.True((bool)type.GetMethod("NotEqual")!.Invoke(instance, [])!);
+    }
 }

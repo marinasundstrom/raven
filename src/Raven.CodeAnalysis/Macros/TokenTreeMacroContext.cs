@@ -122,7 +122,22 @@ public class TokenTreeMacroContext
     public MacroFragmentRegion CreateFragmentRegion(
         MacroFragmentKind kind,
         TextSpan bodyRelativeSpan)
-        => CreateFragmentRegion(kind, bodyRelativeSpan, ImmutableArray<MacroFragmentLocal>.Empty);
+        => CreateFragmentRegion(kind, bodyRelativeSpan, ImmutableArray<MacroFragmentLocal>.Empty, targetType: null);
+
+    /// <summary>
+    /// Creates an ordinary Raven expression fragment with an expected target type.
+    /// </summary>
+    public MacroFragmentRegion CreateExpressionFragmentRegion(
+        TextSpan bodyRelativeSpan,
+        ITypeSymbol targetType)
+    {
+        ArgumentNullException.ThrowIfNull(targetType);
+        return CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            bodyRelativeSpan,
+            ImmutableArray<MacroFragmentLocal>.Empty,
+            targetType);
+    }
 
     /// <summary>
     /// Creates an ordinary Raven fragment and the macro-introduced locals visible inside it.
@@ -131,6 +146,17 @@ public class TokenTreeMacroContext
         MacroFragmentKind kind,
         TextSpan bodyRelativeSpan,
         ImmutableArray<MacroFragmentLocal> locals)
+        => CreateFragmentRegion(kind, bodyRelativeSpan, locals, targetType: null);
+
+    /// <summary>
+    /// Creates an ordinary Raven fragment with macro-introduced locals and an
+    /// optional expression target type.
+    /// </summary>
+    public MacroFragmentRegion CreateFragmentRegion(
+        MacroFragmentKind kind,
+        TextSpan bodyRelativeSpan,
+        ImmutableArray<MacroFragmentLocal> locals,
+        ITypeSymbol? targetType)
     {
         if (!Enum.IsDefined(kind))
             throw new ArgumentOutOfRangeException(nameof(kind));
@@ -143,6 +169,8 @@ public class TokenTreeMacroContext
             throw new ArgumentException("Macro fragment locals cannot contain null.", nameof(locals));
         if (locals.Select(static local => local.Name).Distinct(StringComparer.Ordinal).Count() != locals.Length)
             throw new ArgumentException("Macro fragment local names must be unique.", nameof(locals));
+        if (targetType is not null && kind != MacroFragmentKind.Expression)
+            throw new ArgumentException("Only expression fragments can have a target type.", nameof(targetType));
 
         return new MacroFragmentRegion(
             kind,
@@ -150,7 +178,8 @@ public class TokenTreeMacroContext
             new TextSpan(
                 BodySpan.Start + bodyRelativeSpan.Start,
                 bodyRelativeSpan.Length),
-            locals);
+            locals,
+            targetType);
     }
 
     /// <summary>

@@ -187,6 +187,63 @@ public sealed class MacroFragmentSemanticInfoTests
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
     }
 
+    [Fact]
+    public void GetMacroFragmentSemanticInfo_UsesExpressionTargetTypeForLambdaParameters()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            func Main() {
+                let value = targetTypedFragment! { (value) => value.ToString() }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroFragmentTargetTypedHover",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new TargetTypedFragmentMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var parameterPosition = code.LastIndexOf("(value)", StringComparison.Ordinal) + 2;
+        var referencePosition = code.LastIndexOf("value.ToString", StringComparison.Ordinal) + 2;
+
+        var parameterInfo = compilation.GetMacroFragmentSemanticInfo(expression, parameterPosition);
+        var referenceInfo = compilation.GetMacroFragmentSemanticInfo(expression, referencePosition);
+
+        var lambda = Assert.IsAssignableFrom<ILambdaSymbol>(parameterInfo?.SymbolInfo.Symbol);
+        var parameter = Assert.Single(lambda.Parameters);
+        Assert.Equal("value", parameter.Name);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
+
+        var reference = Assert.IsAssignableFrom<IParameterSymbol>(referenceInfo?.SymbolInfo.Symbol);
+        Assert.Equal("value", reference.Name);
+        Assert.Equal(SpecialType.System_Int32, reference.Type.SpecialType);
+    }
+
+    [Fact]
+    public void VisibleValueLookup_DoesNotRequireDetachedFragmentSyntaxTree()
+    {
+        var syntaxTree = SyntaxTree.ParseText("func Main() { }");
+        var compilation = Compilation.Create(
+                "DetachedMacroFragment",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var fragment = Assert.IsAssignableFrom<FunctionExpressionSyntax>(
+            SyntaxFactory.ParseExpression("(value: int) => value"));
+
+        var declarations = semanticModel.GetVisibleValueDeclarationsForTesting(fragment);
+
+        var declaration = Assert.Single(declarations);
+        Assert.Equal("value", declaration.Name);
+        Assert.Null(declaration.DeclarationNode.SyntaxTree);
+    }
+
     private sealed class FragmentHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
     {
         public string Name => "fragmentHover";
@@ -220,6 +277,27 @@ public sealed class MacroFragmentSemanticInfoTests
                     MacroFragmentKind.Expression,
                     new TextSpan(0, context.BodySpan.Length),
                     [item])
+            ];
+        }
+    }
+
+    private sealed class TargetTypedFragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Name => "targetTypedFragment";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+        {
+            var actionDefinition = context.Compilation.GetTypeByMetadataName("System.Action`1")!;
+            var intType = context.Compilation.GetSpecialType(SpecialType.System_Int32);
+            var actionType = actionDefinition.Construct(intType);
+            return
+            [
+                context.CreateExpressionFragmentRegion(
+                    new TextSpan(0, context.BodySpan.Length),
+                    actionType)
             ];
         }
     }

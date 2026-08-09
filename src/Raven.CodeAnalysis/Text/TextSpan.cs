@@ -74,16 +74,9 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan>
     }
 
     // Optional convenience operators
-    public static bool operator ==(TextSpan? left, TextSpan? right)
-    {
-        if (left is null)
-            return right is null;
+    public static bool operator ==(TextSpan left, TextSpan right)
+        => left.Equals(right);
 
-        return left.Equals(right);
-    }
-
-    public static bool operator !=(TextSpan? left, TextSpan? right)
-    {
-        return !(left == right);
-    }
+    public static bool operator !=(TextSpan left, TextSpan right)
+        => !(left == right);
 }

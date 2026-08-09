@@ -164,6 +164,14 @@ authored Raven source. Zero-width regions represent expected syntax in
 incomplete input. `SemanticModel.GetMacroFragmentRegions` and the corresponding
 `Compilation` API resolve this capability.
 
+An expression region may additionally carry a compiler symbol as its
+contextual target type. Macro authors create this form with
+`CreateExpressionFragmentRegion(bodyRelativeSpan, targetType)`. The resulting
+`MacroFragmentRegion.TargetType` is used when the compiler binds that authored
+fragment for semantic tooling, enabling ordinary target-typed behavior such as
+lambda parameter inference. Target types are not valid for non-expression
+regions and do not expose the macro's private DSL representation.
+
 A token-tree `macro func` may publish the same metadata with a reached
 `fragment` contribution whose expression has type `MacroFragmentRegion`:
 
@@ -213,6 +221,13 @@ including comprehension and pattern locals, while macro-name resolution uses
 the authored outer invocation's namespace and imports. Recursion is bounded;
 failure to resolve a nested region falls back without exposing expansion
 implementation symbols.
+
+Fragment, token-stream, classification, and token-symbol contributions are
+optional tooling capabilities. Failure in one of these providers produces no
+metadata for that capability rather than invalidating unrelated semantic
+queries. Cancellation requested through the macro context is propagated.
+Malformed user input should be represented by recovered syntax, incomplete
+regions, and diagnostics rather than provider exceptions.
 
 `SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
 the standard or custom stream selected for a token-tree invocation. Each

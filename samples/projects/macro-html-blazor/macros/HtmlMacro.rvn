@@ -17,7 +17,7 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
             return null
         }
 
-        let expansion = HtmlDslParser(context.GetBodyText()).Parse()
+        let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation).Parse()
         for attribute in expansion.ComponentAttributes {
             if attribute.NameSpan.Start == token.Span.Start
                 && attribute.NameSpan.Length == token.Span.Length {
@@ -68,19 +68,26 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
     }
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
-        let expansion = HtmlDslParser(context.GetBodyText()).Parse()
+        let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation).Parse()
         var regions: ImmutableArray<MacroFragmentRegion> = []
 
         for span in expansion.EmbeddedExpressionSpans {
-            regions = regions.Add(
-                context.CreateFragmentRegion(MacroFragmentKind.Expression, span))
+            if let targetType: ITypeSymbol = expansion.GetExpressionTargetType(span) {
+                regions = regions.Add(
+                    context.CreateExpressionFragmentRegion(
+                        span,
+                        targetType))
+            } else {
+                regions = regions.Add(
+                    context.CreateFragmentRegion(MacroFragmentKind.Expression, span))
+            }
         }
 
         regions
     }
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-        let parser = HtmlDslParser(context.GetBodyText())
+        let parser = HtmlDslParser(context.GetBodyText(), context.Compilation)
         let expansion = parser.Parse()
 
         if let errorMessage: string = expansion.ErrorMessage {
@@ -108,19 +115,32 @@ class HtmlDslExpansion {
     val ErrorPosition: int
     val EmbeddedExpressionSpans: ImmutableArray<TextSpan>
     val ComponentAttributes: ImmutableArray<HtmlComponentAttribute>
+    val TypedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>
 
     init(
         expressionText: string,
         errorMessage: string?,
         errorPosition: int,
         embeddedExpressionSpans: ImmutableArray<TextSpan>,
-        componentAttributes: ImmutableArray<HtmlComponentAttribute>
+        componentAttributes: ImmutableArray<HtmlComponentAttribute>,
+        typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>
     ) {
         ExpressionText = expressionText
         ErrorMessage = errorMessage
         ErrorPosition = errorPosition
         EmbeddedExpressionSpans = embeddedExpressionSpans
         ComponentAttributes = componentAttributes
+        TypedExpressionTargets = typedExpressionTargets
+    }
+
+    func GetExpressionTargetType(span: TextSpan) -> ITypeSymbol? {
+        for target in TypedExpressionTargets {
+            if target.Span == span {
+                return target.TargetType
+            }
+        }
+
+        null
     }
 }
 
@@ -130,18 +150,27 @@ class HtmlComponentAttribute(
     val NameSpan: TextSpan
 )
 
+class HtmlTypedExpressionTarget(
+    val Span: TextSpan,
+    val TargetType: ITypeSymbol
+)
+
 class HtmlDslParser {
     private val _source: string
+    private val _compilation: Compilation
     private val _builder = StringBuilder()
     private var _embeddedExpressionSpans: ImmutableArray<TextSpan> = []
     private var _componentAttributes: ImmutableArray<HtmlComponentAttribute> = []
+    private var _typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget> = []
+    private var _lastEmbeddedExpressionSpan = TextSpan(0, 0)
     private var _position: int = 0
     private var _sequence: int = 0
     private var _errorMessage: string? = null
     private var _errorPosition: int = 0
 
-    init(source: string) {
+    init(source: string, compilation: Compilation) {
         _source = source
+        _compilation = compilation
     }
 
     func Parse() -> HtmlDslExpansion {
@@ -160,7 +189,8 @@ class HtmlDslParser {
             _errorMessage,
             _errorPosition,
             _embeddedExpressionSpans,
-            _componentAttributes)
+            _componentAttributes,
+            _typedExpressionTargets)
     }
 
     private func ParseElement() {
@@ -217,6 +247,8 @@ class HtmlDslParser {
                         NormalizeEventName(attributeName),
                         "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(" +
                         "self, () => { ${expression}() })")
+                } else if isComponent {
+                    AppendComponentAttribute(name, attributeName, expression)
                 } else {
                     AppendAttribute(attributeName, expression)
                 }
@@ -281,6 +313,57 @@ class HtmlDslParser {
 
     private func AppendAttribute(name: string, value: string) {
         AppendCall("AddAttribute", "\"${Escape(name)}\", ${value}")
+    }
+
+    private func AppendComponentAttribute(
+        componentName: string,
+        attributeName: string,
+        expression: string
+    ) {
+        if expression.Length == 0 {
+            return
+        }
+
+        let delegateType: INamedTypeSymbol = GetEventCallbackDelegateType(
+            componentName,
+            attributeName) else {
+            AppendAttribute(attributeName, expression)
+            return
+        }
+
+        _typedExpressionTargets = _typedExpressionTargets.Add(
+            HtmlTypedExpressionTarget(_lastEmbeddedExpressionSpan, delegateType))
+
+        if delegateType.TypeArguments.Length == 0 {
+            AppendEventCallbackAttribute(attributeName, expression)
+        } else {
+            AppendGenericEventCallbackAttribute(
+                attributeName,
+                expression,
+                delegateType.TypeArguments[0].ToDisplayString())
+        }
+    }
+
+    private func AppendEventCallbackAttribute(name: string, expression: string) {
+        let callbackName = "__htmlCallback${_sequence}"
+        _ = _builder.Append("let ${callbackName}: System.Action = ${expression};")
+        AppendAttribute(
+            name,
+            "Microsoft.AspNetCore.Components.EventCallback.Factory.Create(self, ${callbackName})")
+    }
+
+    private func AppendGenericEventCallbackAttribute(
+        name: string,
+        expression: string,
+        argumentType: string
+    ) {
+        let callbackName = "__htmlCallback${_sequence}"
+        _ = _builder.Append(
+            "let ${callbackName}: System.Action<${argumentType}> = ${expression};")
+        AppendAttribute(
+            name,
+            "Microsoft.AspNetCore.Components.EventCallback.Factory.Create<${argumentType}>(" +
+            "self, ${callbackName})")
     }
 
     private func AppendAttributeOrKey(name: string, value: string) {
@@ -370,6 +453,7 @@ class HtmlDslParser {
                     if expression.Length == 0 {
                         ErrorAt(openingPosition, "Embedded Raven expressions cannot be empty.")
                     } else {
+                        _lastEmbeddedExpressionSpan = expressionSpan
                         _embeddedExpressionSpans = _embeddedExpressionSpans.Add(expressionSpan)
                     }
                     return expression
@@ -432,6 +516,48 @@ class HtmlDslParser {
 
     private static func IsComponentName(name: string) -> bool {
         name.Length > 0 && Char.IsUpper(name[0])
+    }
+
+    private func GetEventCallbackDelegateType(
+        componentName: string,
+        attributeName: string
+    ) -> INamedTypeSymbol? {
+        let eventCallbackType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+            "Microsoft.AspNetCore.Components.EventCallback") else {
+            return null
+        }
+        let genericEventCallbackType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+            "Microsoft.AspNetCore.Components.EventCallback`1") else {
+            return null
+        }
+        let actionType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+            "System.Action") else {
+            return null
+        }
+        let genericActionType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+            "System.Action`1") else {
+            return null
+        }
+        let componentType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(componentName) else {
+            return null
+        }
+
+        for member in componentType.GetMembers(attributeName) {
+            if member is IPropertySymbol property {
+                if SymbolEqualityComparer.Default.Equals(property.Type, eventCallbackType) {
+                    return actionType
+                }
+
+                if property.Type is INamedTypeSymbol propertyType
+                    && SymbolEqualityComparer.Default.Equals(
+                        propertyType.OriginalDefinition,
+                        genericEventCallbackType) {
+                    return genericActionType.Construct(propertyType.TypeArguments[0]) as INamedTypeSymbol
+                }
+            }
+        }
+
+        null
     }
 
     private static func NormalizeEventName(name: string) -> string {

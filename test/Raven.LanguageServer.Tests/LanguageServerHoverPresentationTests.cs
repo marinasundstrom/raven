@@ -22,6 +22,149 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerHoverPresentationTests
 {
     [Fact]
+    public void MacroFragmentHover_TargetTypesLambdaParameterFromProvider()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+func consume(id: int) { }
+
+func Main() {
+    let value = targetTypedHover! { (id) => consume(id) }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new TargetTypedHoverMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var declarationOffset = code.LastIndexOf("(id)", StringComparison.Ordinal) + 2;
+        var declarationResolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, declarationOffset, CancellationToken.None]);
+        declarationResolution.ShouldNotBeNull();
+        var declarationSignature = (string)buildSignature.Invoke(
+            null,
+            [declarationResolution!.Value, semanticModel, root, declarationOffset])!;
+        declarationSignature.ShouldBe("(id: int) -> ()");
+
+    }
+
+    [Fact]
+    public void MacroFragmentHover_FailingProviderDoesNotPoisonLaterRequest()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+func Main() {
+    let broken = throwingFragment! { value }
+    let stable = fragmentHover! { broken }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(
+                new MacroReference(new ThrowingFragmentMacro()),
+                new MacroReference(new FragmentHoverMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var brokenOffset = code.LastIndexOf("value", StringComparison.Ordinal) + 1;
+        var brokenResolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, brokenOffset, CancellationToken.None]);
+        brokenResolution.ShouldBeNull();
+
+        var stableOffset = code.LastIndexOf("broken", StringComparison.Ordinal) + 1;
+        var stableResolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, stableOffset, CancellationToken.None]);
+        stableResolution.ShouldNotBeNull();
+        stableResolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("broken");
+    }
+
+    [Fact]
+    public void MacroFragmentHover_WorkspaceRecoversFromIncompleteTargetTypedLambda()
+    {
+        const string incompleteCode = """
+import Raven.LanguageServer.Tests.*
+
+func Main() {
+    let value = targetTypedHover! { (id) =>
+}
+""";
+        const string validCode = """
+import Raven.LanguageServer.Tests.*
+
+func consume(id: int) { }
+
+func Main() {
+    let value = targetTypedHover! { (id) => consume(id) }
+}
+""";
+        const string targetFramework = "net10.0";
+        var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: targetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in LanguageServerTestReferences.Default)
+            project = project.AddMetadataReference(reference);
+        project = project.AddMacroReference(new MacroReference(new TargetTypedHoverMacro()));
+        project = project.AddDocument(
+            "main.rav",
+            SourceText.From(incompleteCode),
+            "/workspace/main.rav").Project;
+        workspace.TryApplyChanges(project.Solution).ShouldBeTrue();
+
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var incompleteCompilation = workspace.GetCompilation(projectId);
+        var incompleteTree = incompleteCompilation.SyntaxTrees.Single();
+        var incompleteRoot = incompleteTree.GetRoot();
+        var incompleteOffset = incompleteCode.LastIndexOf("(id)", StringComparison.Ordinal) + 2;
+        _ = tryResolve.Invoke(
+            null,
+            [incompleteCompilation.GetSemanticModel(incompleteTree), incompleteRoot, incompleteOffset, CancellationToken.None]);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From(validCode)))
+            .ShouldBeTrue();
+
+        var validCompilation = workspace.GetCompilation(projectId);
+        var validTree = validCompilation.SyntaxTrees.Single();
+        var validRoot = validTree.GetRoot();
+        var validOffset = validCode.LastIndexOf("(id)", StringComparison.Ordinal) + 2;
+        var validResolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [validCompilation.GetSemanticModel(validTree), validRoot, validOffset, CancellationToken.None]);
+        validResolution.ShouldNotBeNull();
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignature.Invoke(
+            null,
+            [validResolution!.Value, validCompilation.GetSemanticModel(validTree), validRoot, validOffset])!;
+        signature.ShouldBe("(id: int) -> ()");
+    }
+
+    [Fact]
     public void MacroFragmentHover_UsesOrdinaryRavenSymbolPresentation()
     {
         const string code = """
@@ -231,6 +374,37 @@ func Test(item: Foo) -> bool {
                     MacroFragmentKind.Expression,
                     new TextSpan(0, context.BodySpan.Length))
             ];
+    }
+
+    private sealed class TargetTypedHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Name => "targetTypedHover";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+        {
+            var action = context.Compilation.GetTypeByMetadataName("System.Action`1")!;
+            var intType = context.Compilation.GetSpecialType(SpecialType.System_Int32);
+            return
+            [
+                context.CreateExpressionFragmentRegion(
+                    new TextSpan(0, context.BodySpan.Length),
+                    action.Construct(intType))
+            ];
+        }
+    }
+
+    private sealed class ThrowingFragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    {
+        public string Name => "throwingFragment";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            => throw new InvalidOperationException("Synthetic optional tooling failure.");
     }
 
     private sealed class SymbolTokenMacro : ITokenTreeExpressionMacro, IMacroTokenSymbolProvider

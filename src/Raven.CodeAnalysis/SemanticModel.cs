@@ -12209,7 +12209,8 @@ public partial class SemanticModel
         if (descriptors.IsDefaultOrEmpty)
             return ImmutableArray<Compilation.VisibleValueDeclaration>.Empty;
 
-        var root = scopeNode.SyntaxTree.GetRoot();
+        var root = scopeNode.SyntaxTree?.GetRoot()
+            ?? scopeNode.AncestorsAndSelf().Last();
         var builder = ImmutableArray.CreateBuilder<Compilation.VisibleValueDeclaration>(descriptors.Length);
 
         foreach (var descriptor in descriptors)

@@ -156,7 +156,10 @@ public partial class SemanticModel
         switch (fragment)
         {
             case ExpressionSyntax fragmentExpression:
-                binder.BindExpression(fragmentExpression);
+                if (region.TargetType is { } targetType)
+                    binder.BindExpressionWithTargetTypeForSemanticQuery(fragmentExpression, targetType);
+                else
+                    binder.BindExpression(fragmentExpression);
                 break;
             case StatementSyntax fragmentStatement:
                 binder.BindStatement(fragmentStatement);
