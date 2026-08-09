@@ -1601,18 +1601,19 @@ function activate(context) {
             void vscode.window.showErrorMessage('No active Raven file to run.');
             return;
         }
-        const frontend = resolveFrontendInvocation(resolveTargetFramework(target));
+        const effectiveTarget = resolveEffectiveTargetPath(target);
+        const frontend = resolveFrontendInvocation(resolveTargetFramework(effectiveTarget));
         if (!frontend) {
             void vscode.window.showErrorMessage('Unable to locate rvn. Install the Raven SDK, set "raven.sdkPath", or build src/Raven/Raven.csproj.');
             return;
         }
-        const cwd = path.dirname(target);
+        const cwd = path.dirname(effectiveTarget);
         const terminal = vscode.window.createTerminal({
-            name: isRavenProjectFile(target) ? 'Raven: Run Project' : 'Raven: Run File',
+            name: isRavenProjectFile(effectiveTarget) ? 'Raven: Run Project' : 'Raven: Run File',
             cwd
         });
         terminal.show(true);
-        terminal.sendText(createTerminalCommand(frontend, ['run', target]));
+        terminal.sendText(createTerminalCommand(frontend, ['run', effectiveTarget]));
     }));
     context.subscriptions.push(vscode.commands.registerCommand('raven.build.activeTarget', async (uri) => {
         const target = resolveCommandTarget(uri);

@@ -62,11 +62,12 @@ You can start it by pressing F5 in a Raven file, or by running `Raven: Compile a
 ## Running a file or project
 
 **Raven: Run Active File/Project** uses the `rvn` frontend. Selecting a `.rvn`
-or legacy `.rav` source runs that file as an isolated file-based application
-through `rvn run`; selecting a `.rvnproj` file runs that
-project. The command opens an interactive terminal rooted beside the selected
-file so application input and output behave like an ordinary script or console
-application.
+or legacy `.rav` source that belongs to a Raven project runs its owning project
+through `rvn run`; selecting a `.rvnproj` file also runs that project. A source
+without an owning project runs as an isolated file-based application. The
+command opens an interactive terminal rooted beside the resolved project or
+source file so application input and output behave like an ordinary script or
+console application.
 
 Language features follow evaluated project membership. A source included by a
 project receives that project's semantic context; a source outside project

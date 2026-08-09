@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed **Raven: Run Active File/Project** in the VS Code extension so an active
+  project-backed source runs its owning `.rvnproj`, compiling all project source
+  files, while standalone sources continue to run as isolated file applications.
+
 - Fixed nullable generic substitution so Raven's unified nullable symbol is
   preserved independently from its CLR ABI projection. Constructed type
   and method symbols now retain whether the original signature projects to its
