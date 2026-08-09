@@ -90,7 +90,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(Compile);@(RavenCompile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference);@(Analyzer);@(SourceGenerator)"
+    Inputs="$(MSBuildProjectFullPath);@(Compile);@(RavenCompile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>

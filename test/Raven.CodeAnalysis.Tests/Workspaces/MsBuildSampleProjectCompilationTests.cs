@@ -149,6 +149,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 rebuildResult.ExitCode == 0,
                 $"Second dotnet build failed.\nstdout:\n{rebuildResult.StdOut}\nstderr:\n{rebuildResult.StdErr}");
+            Assert.DoesNotContain("RavenCompile:", rebuildResult.StdOut, StringComparison.Ordinal);
         }
         finally
         {

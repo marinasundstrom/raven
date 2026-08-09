@@ -14,6 +14,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   project references and compiler plugins. Multi-targeted Release builds no
   longer fall back to Debug or the first declared target framework.
 
+- Fixed Raven MSBuild incrementality so unchanged projects skip `CoreCompile`.
+  Logical package and framework-reference names are no longer treated as input
+  file paths; their resolved assemblies remain tracked through `ReferencePath`.
+
 - Added optional target types to macro expression fragments through
   `CreateExpressionFragmentRegion`. Macro DSLs can now give authored inline
   lambdas normal parameter inference and hover without exposing private DSL

@@ -338,6 +338,9 @@ wired to Raven's language targets:
   `rvnc` so conditional properties and items, generated-source paths, project
   references, and compiler plugins use the same MSBuild context as the outer
   build.
+- `CoreCompile` tracks source files, resolved reference files, project files,
+  extensions, and compiler-observed dependencies. An unchanged second build is
+  skipped by MSBuild rather than invoking `rvnc` again.
 
 Inside this repository, `Directory.Build.props` wires `.rvnproj` files
 automatically, so sample projects build directly:
