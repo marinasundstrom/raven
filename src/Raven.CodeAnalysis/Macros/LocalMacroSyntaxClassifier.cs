@@ -56,7 +56,21 @@ internal static class LocalMacroSyntaxClassifier
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
         if (IsCompilerPluginTree(syntaxTree))
-            return new LocalMacroSyntaxPartition(syntaxTree, null);
+        {
+            var macroDeclarations = GetTopLevelMacroDeclarations(syntaxTree)
+                .OfType<MacroDeclarationSyntax>()
+                .Cast<MemberDeclarationSyntax>()
+                .ToArray();
+            if (macroDeclarations.Length == 0)
+                return new LocalMacroSyntaxPartition(syntaxTree, null);
+
+            return new LocalMacroSyntaxPartition(
+                CreateConsumerProjection(syntaxTree, macroDeclarations),
+                CreateMacroProjection(
+                    syntaxTree,
+                    macroDeclarations,
+                    copyRootAttributes: false));
+        }
 
         if (IsLocalMacroTree(syntaxTree))
             return new LocalMacroSyntaxPartition(null, syntaxTree);
@@ -79,7 +93,13 @@ internal static class LocalMacroSyntaxClassifier
             throw new ArgumentOutOfRangeException(nameof(position));
 
         if (IsCompilerPluginTree(syntaxTree))
-            return false;
+        {
+            return GetTopLevelMacroDeclarations(syntaxTree)
+                .OfType<MacroDeclarationSyntax>()
+                .Any(declaration =>
+                    position >= declaration.FullSpan.Start &&
+                    position < declaration.FullSpan.End);
+        }
 
         return GetTopLevelMacroDeclarations(syntaxTree)
             .Any(declaration =>
@@ -176,7 +196,8 @@ internal static class LocalMacroSyntaxClassifier
 
     private static SyntaxTree CreateMacroProjection(
         SyntaxTree syntaxTree,
-        IReadOnlyList<MemberDeclarationSyntax> declarations)
+        IReadOnlyList<MemberDeclarationSyntax> declarations,
+        bool copyRootAttributes = true)
     {
         var source = syntaxTree.GetText()!.ToString();
         var text = source
@@ -188,8 +209,11 @@ internal static class LocalMacroSyntaxClassifier
             Copy(source, text, import.FullSpan);
         foreach (var alias in root.Aliases)
             Copy(source, text, alias.FullSpan);
-        foreach (var attributeList in root.AttributeLists)
-            Copy(source, text, attributeList.FullSpan);
+        if (copyRootAttributes)
+        {
+            foreach (var attributeList in root.AttributeLists)
+                Copy(source, text, attributeList.FullSpan);
+        }
         foreach (var declaration in declarations)
         {
             foreach (var namespaceDeclaration in declaration.Ancestors()

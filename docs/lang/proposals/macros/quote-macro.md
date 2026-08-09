@@ -166,8 +166,9 @@ hole and neighboring quoted tokens is retained on those quoted neighbors.
 Holes do not yet support token, identifier, list, or repeated insertion.
 
 The runnable `samples/projects/macro-quote` project demonstrates this authoring
-pattern with a Raven-authored `#twice` macro. It quotes an addition expression
-and splices the caller's argument syntax into both operands.
+pattern with a Raven-authored `twice!` macro declaration. Its
+`ExpressionSyntax` parameter receives the caller's authored expression; the
+macro quotes an addition expression and splices that syntax into both operands.
 
 ## Goals
 

@@ -31,6 +31,24 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void CompilerPluginTree_RecognizesCompactDeclarationAsMacroPosition()
+    {
+        const string source = """
+            [assembly: RavenCompilerPlugin]
+
+            public macro Answer() {
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42")
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.False(LocalMacroSyntaxClassifier.IsLocalMacroPosition(tree, 0));
+        Assert.True(LocalMacroSyntaxClassifier.IsLocalMacroPosition(
+            tree,
+            source.IndexOf("expand", System.StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void MacroReference_FromType_FindsDirectMacro()
     {
         var reference = new MacroReference(typeof(TestAttachedMacro));
@@ -133,17 +151,14 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroLibrary_EmitsReusableCompilerPlugin()
+    public void MacroLibrary_EmitsReusableCompilerPluginFromSingleSourceTree()
     {
-        var manifestTree = SyntaxTree.ParseText(
+        var macroTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Macros.*
 
             [assembly: RavenCompilerPlugin]
-            """,
-            path: "AssemblyInfo.rvn");
-        var macroTree = SyntaxTree.ParseText(
-            """
+
             namespace Example.Macros
 
             [Raven.CodeAnalysis.Macros.MacroAlias("answer")]
@@ -157,7 +172,7 @@ public sealed class MacroReferenceTests
                 "Example.Macros",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default)
-            .AddSyntaxTreesWithLocalMacros(manifestTree, macroTree);
+            .AddSyntaxTreesWithLocalMacros(macroTree);
 
         using var image = new MemoryStream();
         var emitResult = macroCompilation.Emit(image);

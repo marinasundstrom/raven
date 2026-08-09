@@ -299,13 +299,24 @@ adds Blazor's normal parameter attribute.
 
 ## 8. Package a reusable library
 
-A reusable Raven macro project marks its assembly as a compiler plugin:
+A reusable Raven macro project marks its assembly as a compiler plugin. A bare
+marker exports the adapters generated for compact declarations and may
+appear in the same source file:
 
 ```raven
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
 
-[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
+[assembly: RavenCompilerPlugin]
+
+[MacroAlias("twice")]
+public macro Twice(expression: ExpressionSyntax) {
+    expand expression
+}
 ```
+
+For a class-authored provider, name each intentionally exported provider type
+with `[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]` instead.
 
 The consumer uses an ordinary project reference:
 

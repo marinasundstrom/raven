@@ -39,21 +39,33 @@ must not require a workspace or any analyzer to be loaded.
 
 Macros are resolved from compiler-plugin assemblies. Their meaning is defined
 by the referenced macro implementation, not by the parser. A reusable Raven
-macro project marks its assembly with `RavenCompilerPlugin`, preferably naming
-each exported macro definition explicitly:
+macro project marks its assembly with `RavenCompilerPlugin`. Class-authored
+providers should name each exported definition explicitly:
 
 ```raven
 [assembly: RavenCompilerPlugin(typeof(QueryMacro))]
 ```
 
 The same attribute and contracts can be used from a C# compiler-plugin
-project.
+project. A project containing compact declarations uses the bare marker; it
+exports their compiler-generated provider adapters and may share a source file
+with those declarations:
 
-Apply the marker once for each macro definition intentionally exported from the
-assembly. The declared type must be a non-abstract macro implementation in the
-marked assembly with a public parameterless constructor. A bare
+```raven
+[assembly: RavenCompilerPlugin]
+
+public macro Answer() {
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42")
+}
+```
+
+Apply an explicit marker once for each class-authored definition intentionally
+exported from the assembly. The declared type must be a non-abstract macro
+implementation in the marked assembly with a public parameterless constructor.
+A single bare
 `[assembly: RavenCompilerPlugin]` marker authorizes fallback discovery of
-concrete `IMacroDefinition` implementations.
+concrete `IMacroDefinition` implementations, including adapters generated from
+compact declarations.
 Explicit and bare markers cannot be mixed. The marker is an inter-assembly
 export boundary, not part of declaring a same-project macro. Consumers use a
 normal project reference.

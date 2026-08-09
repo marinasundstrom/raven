@@ -1,21 +1,12 @@
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
 import Raven.Macros.*
 
-[assembly: RavenCompilerPlugin(typeof(TwiceMacro))]
+[assembly: RavenCompilerPlugin]
 
-class TwiceMacro : IFreestandingExpressionMacro {
-    val Name: string => "twice"
-    val AcceptsArguments: bool => true
-
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        if context.Arguments.Length != 1 {
-            return FreestandingMacroExpansionResult.Empty
-        }
-
-        FreestandingMacroExpansionResult {
-            Expression = quote! {
-                #(context.Arguments[0].Expression) + #(context.Arguments[0].Expression)
-            }
-        }
+[MacroAlias("twice")]
+public macro Twice(expression: ExpressionSyntax) {
+    expand quote! {
+        #(expression) + #(expression)
     }
 }
