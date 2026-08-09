@@ -6,6 +6,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+using Raven.CommandLine;
 using Raven.Compiler.Core;
 
 if (args.Length == 1 && args[0] is "--version" or "version")
@@ -24,19 +25,19 @@ if (string.Equals(args[0], "init", StringComparison.OrdinalIgnoreCase))
     return RunInitCommand(args);
 
 if (RavenFileExtensions.HasRavenExtension(args[0]))
-    return RunSourceFileCommand(args, sourceArgumentIndex: 0);
+    return FileApplicationCommand.Execute(args, sourceArgumentIndex: 0);
 
 if (string.Equals(args[0], "build", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(args[0], "clean", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(args[0], "run", StringComparison.OrdinalIgnoreCase))
 {
     if (string.Equals(args[0], "run", StringComparison.OrdinalIgnoreCase) &&
-        TryFindSourceArgument(args, startIndex: 1, out var sourceArgumentIndex))
+        FileApplicationCommand.TryFindSourceArgument(args, startIndex: 1, out var sourceArgumentIndex))
     {
-        return RunSourceFileCommand(args, sourceArgumentIndex);
+        return FileApplicationCommand.Execute(args, sourceArgumentIndex);
     }
 
-    return RunSdkProjectCommand(args[0].ToLowerInvariant(), args);
+    return SdkProjectCommand.Execute(args[0].ToLowerInvariant(), args);
 }
 
 if (string.Equals(args[0], "dev", StringComparison.OrdinalIgnoreCase))
@@ -55,7 +56,7 @@ static int RunSdkCommand(string[] args)
 {
     if (args.Length == 2 && string.Equals(args[1], "path", StringComparison.OrdinalIgnoreCase))
     {
-        var sdkRoot = TryFindSdkRoot();
+        var sdkRoot = SdkLocator.TryFindRoot();
         if (sdkRoot is null)
         {
             Console.Error.WriteLine("Unable to locate the Raven SDK. Set RAVEN_SDK_ROOT or run rvn from an installed Raven SDK.");
@@ -91,7 +92,7 @@ static int RunDoctorCommand(string[] args)
         hasErrors = true;
     }
 
-    var sdkRoot = TryFindSdkRoot();
+    var sdkRoot = SdkLocator.TryFindRoot();
     if (sdkRoot is null)
     {
         Console.Error.WriteLine("[missing] Raven SDK root. Set RAVEN_SDK_ROOT or install Raven and add its bin directory to PATH.");
@@ -169,301 +170,10 @@ static bool TryGetDotnetSdkVersion(out string version, out string error)
     }
 }
 
-static string? TryFindSdkRoot()
-{
-    var configuredRoot = Environment.GetEnvironmentVariable("RAVEN_SDK_ROOT");
-    if (!string.IsNullOrWhiteSpace(configuredRoot))
-    {
-        var fullPath = Path.GetFullPath(configuredRoot);
-        if (IsSdkRoot(fullPath))
-            return fullPath;
-    }
-
-    var directory = new DirectoryInfo(AppContext.BaseDirectory);
-    while (directory is not null)
-    {
-        if (IsSdkRoot(directory.FullName))
-            return directory.FullName;
-
-        directory = directory.Parent;
-    }
-
-    return null;
-}
-
-static bool IsSdkRoot(string path)
-    => File.Exists(Path.Combine(path, "VERSION")) &&
-       File.Exists(Path.Combine(path, "sdk", "build", "Raven.Language.targets"));
-
 static string GetVersion()
     => Assembly.GetEntryAssembly()?
            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
            .InformationalVersion ?? "unknown";
-
-static bool TryFindSourceArgument(string[] args, int startIndex, out int sourceArgumentIndex)
-{
-    var separatorIndex = Array.IndexOf(args, "--", startIndex);
-    var endIndex = separatorIndex >= 0 ? separatorIndex : args.Length;
-
-    for (var i = startIndex; i < endIndex; i++)
-    {
-        if (RavenFileExtensions.HasRavenExtension(args[i]))
-        {
-            sourceArgumentIndex = i;
-            return true;
-        }
-    }
-
-    sourceArgumentIndex = -1;
-    return false;
-}
-
-static int RunSourceFileCommand(string[] args, int sourceArgumentIndex)
-{
-    var sourcePath = Path.GetFullPath(args[sourceArgumentIndex]);
-    if (!File.Exists(sourcePath))
-    {
-        Console.Error.WriteLine($"Raven source file '{sourcePath}' does not exist.");
-        return 1;
-    }
-
-    var compilerPath = TryFindCompilerDriverPath();
-    if (compilerPath is null)
-    {
-        Console.Error.WriteLine("Unable to locate the Raven compiler driver (rvnc). Reinstall the Raven SDK or build src/Raven.Compiler.");
-        return 1;
-    }
-
-    var separatorIndex = Array.IndexOf(args, "--");
-    var toolArguments = new List<string>();
-    const int toolStartIndex = 1;
-    var toolEndIndex = sourceArgumentIndex == 0
-        ? 1
-        : separatorIndex >= 0 ? separatorIndex : args.Length;
-
-    for (var i = toolStartIndex; i < toolEndIndex; i++)
-    {
-        if (i == sourceArgumentIndex)
-            continue;
-
-        if (RavenFileExtensions.HasRavenExtension(args[i]))
-        {
-            Console.Error.WriteLine("File-based applications accept exactly one Raven source file.");
-            return 1;
-        }
-
-        toolArguments.Add(args[i]);
-    }
-
-    var applicationArguments = sourceArgumentIndex == 0
-        ? args.Skip(args.Length > 1 && args[1] == "--" ? 2 : 1).ToArray()
-        : separatorIndex >= 0
-            ? args.Skip(separatorIndex + 1).ToArray()
-            : [];
-    var outputDirectory = Path.Combine(Path.GetTempPath(), "raven", "run", Guid.NewGuid().ToString("N"));
-    var outputPath = Path.Combine(outputDirectory, $"{Path.GetFileNameWithoutExtension(sourcePath)}.dll");
-    Directory.CreateDirectory(outputDirectory);
-
-    try
-    {
-        var startInfo = new ProcessStartInfo("dotnet")
-        {
-            UseShellExecute = false
-        };
-        startInfo.Environment["RAVEN_FRONTEND_INVOCATION"] = "1";
-        startInfo.ArgumentList.Add(compilerPath);
-        foreach (var argument in toolArguments)
-            startInfo.ArgumentList.Add(argument);
-        startInfo.ArgumentList.Add("--run");
-        startInfo.ArgumentList.Add("--output");
-        startInfo.ArgumentList.Add(outputPath);
-        startInfo.ArgumentList.Add(sourcePath);
-
-        if (applicationArguments.Length > 0)
-        {
-            startInfo.ArgumentList.Add("--");
-            foreach (var argument in applicationArguments)
-                startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(startInfo);
-        if (process is null)
-        {
-            Console.Error.WriteLine("Failed to start the Raven compiler.");
-            return 1;
-        }
-
-        process.WaitForExit();
-        return process.ExitCode;
-    }
-    catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-    {
-        Console.Error.WriteLine($"Failed to start the Raven compiler: {ex.Message}");
-        return 1;
-    }
-    finally
-    {
-        try
-        {
-            Directory.Delete(outputDirectory, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-}
-
-static string? TryFindCompilerDriverPath()
-{
-    if (TryFindSdkRoot() is { } sdkRoot)
-    {
-        var installedCompilerPath = Path.Combine(sdkRoot, "tools", "rvnc", "rvnc.dll");
-        if (File.Exists(installedCompilerPath))
-            return installedCompilerPath;
-    }
-
-    var baseDirectory = new DirectoryInfo(AppContext.BaseDirectory);
-    var targetFramework = baseDirectory.Name;
-    var configuration = baseDirectory.Parent?.Name;
-    if (configuration is not null)
-    {
-        var developmentCompilerPath = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-            "Raven.Compiler",
-            "bin",
-            configuration,
-            targetFramework,
-            "rvnc.dll"));
-        if (File.Exists(developmentCompilerPath))
-            return developmentCompilerPath;
-    }
-
-    var adjacentCompilerPath = Path.Combine(AppContext.BaseDirectory, "rvnc.dll");
-    return File.Exists(adjacentCompilerPath) ? adjacentCompilerPath : null;
-}
-
-static int RunSdkProjectCommand(string commandName, string[] args)
-{
-    if (args.Length > 1 && IsHelp(args[1]))
-    {
-        PrintSdkProjectCommandHelp(commandName);
-        return 0;
-    }
-
-    if (!TryParseSdkProjectCommand(args, out var projectFilePath, out var forwardedArgs))
-        return 1;
-
-    var dotnetArgs = new List<string> { commandName };
-    if (commandName == "run")
-    {
-        dotnetArgs.Add("--project");
-        dotnetArgs.Add(projectFilePath);
-    }
-    else
-    {
-        dotnetArgs.Add(projectFilePath);
-    }
-
-    dotnetArgs.AddRange(forwardedArgs);
-    return RunDotnet(dotnetArgs);
-}
-
-static bool TryParseSdkProjectCommand(
-    string[] args,
-    out string projectFilePath,
-    out IReadOnlyList<string> forwardedArgs)
-{
-    string? project = null;
-    var rest = new List<string>();
-
-    for (var i = 1; i < args.Length; i++)
-    {
-        var arg = args[i];
-        if (project is null && !arg.StartsWith('-') && IsRavenProjectPath(arg))
-        {
-            project = arg;
-            continue;
-        }
-
-        rest.Add(arg);
-    }
-
-    project ??= TryFindDefaultProjectFile();
-    if (project is null)
-    {
-        Console.Error.WriteLine("No Raven project file was specified and the current directory does not contain exactly one .rvnproj file.");
-        Console.Error.WriteLine("Usage: rvn build [project.rvnproj] [dotnet-build-options]");
-        Console.Error.WriteLine("       rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]");
-        Console.Error.WriteLine("       rvn clean [project.rvnproj] [dotnet-clean-options]");
-        projectFilePath = string.Empty;
-        forwardedArgs = [];
-        return false;
-    }
-
-    projectFilePath = Path.GetFullPath(project);
-    forwardedArgs = rest;
-    return true;
-}
-
-static bool IsRavenProjectPath(string path)
-{
-    var extension = Path.GetExtension(path);
-    return string.Equals(extension, RavenFileExtensions.Project, StringComparison.OrdinalIgnoreCase);
-}
-
-static string? TryFindDefaultProjectFile()
-{
-    var currentDirectory = Directory.GetCurrentDirectory();
-    var projects = Directory.GetFiles(currentDirectory, $"*{RavenFileExtensions.Project}");
-    if (projects.Length == 1)
-        return projects[0];
-
-    if (projects.Length > 1)
-    {
-        Console.Error.WriteLine("Multiple .rvnproj files were found. Specify the project explicitly.");
-        foreach (var project in projects.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase))
-            Console.Error.WriteLine($"- {Path.GetFileName(project)}");
-        return null;
-    }
-
-    return null;
-}
-
-static int RunDotnet(IReadOnlyList<string> dotnetArgs)
-{
-    var startInfo = new ProcessStartInfo("dotnet")
-    {
-        UseShellExecute = false
-    };
-
-    foreach (var arg in dotnetArgs)
-        startInfo.ArgumentList.Add(arg);
-
-    try
-    {
-        using var process = Process.Start(startInfo);
-        if (process is null)
-        {
-            Console.Error.WriteLine("Failed to start dotnet.");
-            return 1;
-        }
-
-        process.WaitForExit();
-        return process.ExitCode;
-    }
-    catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-    {
-        Console.Error.WriteLine($"Failed to start dotnet: {ex.Message}");
-        return 1;
-    }
-}
 
 static int RunDevCommand(string[] args)
 {
@@ -1216,30 +926,6 @@ static void PrintHelp()
     Console.WriteLine("Use 'rvn run <file.rvn>' or 'rvn <file.rvn>' for a file-based application.");
     Console.WriteLine("Project build/run/clean commands are conveniences over the .NET SDK workflow.");
     Console.WriteLine("Use rvnc for direct compiler-driver invocations.");
-}
-
-static void PrintSdkProjectCommandHelp(string commandName)
-{
-    switch (commandName)
-    {
-        case "build":
-            Console.WriteLine("Usage: rvn build [project.rvnproj] [dotnet-build-options]");
-            Console.WriteLine("Runs: dotnet build <project.rvnproj> [dotnet-build-options]");
-            break;
-        case "run":
-            Console.WriteLine("Usage: rvn run <file.rvn> [compiler-options] [-- application-args]");
-            Console.WriteLine("       rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]");
-            Console.WriteLine("Runs a source file as an isolated file-based application, or runs a project through dotnet run.");
-            Console.WriteLine("Runs: dotnet run --project <project.rvnproj> [dotnet-run-options] [-- application-args]");
-            break;
-        case "clean":
-            Console.WriteLine("Usage: rvn clean [project.rvnproj] [dotnet-clean-options]");
-            Console.WriteLine("Runs: dotnet clean <project.rvnproj> [dotnet-clean-options]");
-            break;
-    }
-
-    Console.WriteLine();
-    Console.WriteLine("When no input is specified, rvn uses the single .rvnproj in the current directory.");
 }
 
 static void PrintDevHelp()
