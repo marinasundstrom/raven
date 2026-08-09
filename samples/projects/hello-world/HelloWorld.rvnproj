@@ -4,7 +4,4 @@
     <AssemblyName>HelloWorld</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
-  <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
-  </ItemGroup>
 </Project>

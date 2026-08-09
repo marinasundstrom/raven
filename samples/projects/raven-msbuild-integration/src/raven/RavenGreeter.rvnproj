@@ -4,7 +4,4 @@
     <AssemblyName>RavenGreeter</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
-  <ItemGroup>
-    <RavenCompile Include="Greeter.rvn" />
-  </ItemGroup>
 </Project>

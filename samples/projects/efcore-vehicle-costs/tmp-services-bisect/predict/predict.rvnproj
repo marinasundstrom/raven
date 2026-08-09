@@ -5,10 +5,8 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="../../src/Contracts/Contracts.rvn" />
-    <RavenCompile Include="../../src/Domain/Domain.rvn" />
-    <RavenCompile Include="Main.rvn" />
-    <RavenCompile Include="Services.rvn" />
+    <Compile Include="../../src/Contracts/Contracts.rvn" />
+    <Compile Include="../../src/Domain/Domain.rvn" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
   </ItemGroup>
 </Project>

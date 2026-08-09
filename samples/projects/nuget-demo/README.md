@@ -1,7 +1,7 @@
 # NuGet + .rvnproj sample
 
 This sample uses a Raven project file (`NuGetDemo.rvnproj`) at the sample root, with source in `src/` and outputs in `bin/`.
-It includes Raven source via `RavenCompile`, using the preferred `*.rvn` extension under this folder.
+It relies on the default Raven source glob, which automatically includes the preferred `*.rvn` files under this folder.
 
 The project file contains a NuGet package reference:
 

@@ -5,7 +5,6 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
     <ProjectReference Include="../library/MarkdownDocs.Library.rvnproj" />
   </ItemGroup>
 </Project>

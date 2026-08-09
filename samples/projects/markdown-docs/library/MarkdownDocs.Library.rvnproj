@@ -4,7 +4,4 @@
     <AssemblyName>MarkdownDocs.Library</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
-  <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
-  </ItemGroup>
 </Project>

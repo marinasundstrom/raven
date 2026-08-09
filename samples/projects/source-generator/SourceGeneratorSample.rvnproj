@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
 
     <ProjectReference
       Include="extension/RouteGenerator.rvnproj"

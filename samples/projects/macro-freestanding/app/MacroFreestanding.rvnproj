@@ -5,7 +5,6 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="src/**/*.rvn" />
     <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
   </ItemGroup>
 </Project>

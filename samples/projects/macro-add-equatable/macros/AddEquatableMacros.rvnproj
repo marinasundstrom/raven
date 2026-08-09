@@ -5,7 +5,6 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <RavenCompile Include="AddEquatableMacro.rvn" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>../../../../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll</HintPath>
     </Reference>
