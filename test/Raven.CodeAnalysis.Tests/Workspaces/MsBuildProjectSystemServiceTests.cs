@@ -10,6 +10,52 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Fact]
+    public void Evaluate_UsesRequestedConfigurationAndTargetFramework()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var releasePath = Path.Combine(root, "release.rvn");
+            var debugPath = Path.Combine(root, "debug.rvn");
+            File.WriteAllText(releasePath, "class ReleaseSource { }");
+            File.WriteAllText(debugPath, "class DebugSource { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="release.rvn" Condition="'$(Configuration)' == 'Release' and '$(TargetFramework)' == 'net10.0'" />
+                    <Compile Include="debug.rvn" Condition="'$(Configuration)' == 'Debug'" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var evaluation = MsBuildProjectEvaluator.Evaluate(
+                projectPath,
+                RavenProjectConventions.Default,
+                requestedTargetFramework: "net10.0",
+                requestedConfiguration: "Release");
+
+            Assert.Equal("Release", evaluation.Configuration);
+            Assert.Equal("net10.0", evaluation.TargetFramework);
+            Assert.Contains(evaluation.Documents, document => PathsEqual(document.FilePath, releasePath));
+            Assert.DoesNotContain(evaluation.Documents, document => PathsEqual(document.FilePath, debugPath));
+            Assert.Equal(
+                Path.Combine(root, "obj", "Release", "net10.0", "raven", "generated"),
+                evaluation.GeneratedSourceDirectory);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void Evaluate_RavenMacroProjectItem_ReportsProjectReferenceMigration()
     {
         var root = CreateTempDirectory();

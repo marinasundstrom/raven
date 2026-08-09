@@ -9,6 +9,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and add explicit `Compile` items when a project needs a curated source list;
   existing `RavenCompile` items remain supported for compatibility.
 
+- Raven's MSBuild compile target now preserves the active `Configuration` and
+  inner-build `TargetFramework` when `rvnc` evaluates a project, including its
+  project references and compiler plugins. Multi-targeted Release builds no
+  longer fall back to Debug or the first declared target framework.
+
 - Added optional target types to macro expression fragments through
   `CreateExpressionFragmentRegion`. Macro DSLs can now give authored inline
   lambdas normal parameter inference and hover without exposing private DSL

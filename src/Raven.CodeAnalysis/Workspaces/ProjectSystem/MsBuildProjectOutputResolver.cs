@@ -7,7 +7,8 @@ public static class MsBuildProjectOutputResolver
     public static string ResolveProjectOutputPath(
         string projectFilePath,
         string? requestedTargetFramework = null,
-        RavenProjectConventions? conventions = null)
+        RavenProjectConventions? conventions = null,
+        string? requestedConfiguration = null)
     {
         if (string.IsNullOrWhiteSpace(projectFilePath))
             throw new ArgumentException("Project file path is required.", nameof(projectFilePath));
@@ -17,7 +18,8 @@ public static class MsBuildProjectOutputResolver
         var evaluation = MsBuildProjectEvaluator.Evaluate(
             projectFilePath,
             conventions ?? RavenProjectConventions.Default,
-            requestedTargetFramework);
+            requestedTargetFramework,
+            requestedConfiguration);
 
         return evaluation.OutputPath;
     }
@@ -25,7 +27,8 @@ public static class MsBuildProjectOutputResolver
     public static string ResolveProjectOutputDirectory(
         string projectFilePath,
         string? requestedTargetFramework = null,
-        RavenProjectConventions? conventions = null)
+        RavenProjectConventions? conventions = null,
+        string? requestedConfiguration = null)
     {
         if (string.IsNullOrWhiteSpace(projectFilePath))
             throw new ArgumentException("Project file path is required.", nameof(projectFilePath));
@@ -35,7 +38,8 @@ public static class MsBuildProjectOutputResolver
         var evaluation = MsBuildProjectEvaluator.Evaluate(
             projectFilePath,
             conventions ?? RavenProjectConventions.Default,
-            requestedTargetFramework);
+            requestedTargetFramework,
+            requestedConfiguration);
 
         return evaluation.OutputDirectory;
     }

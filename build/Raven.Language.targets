@@ -24,6 +24,7 @@
     <RavenCoreArgument Condition="'$(RavenCoreArgument)' == ''">--emit-core-types-only</RavenCoreArgument>
     <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''"></RavenBuildArgs>
     <RavenTargetFrameworkArgument Condition="'$(TargetFramework)' != ''">--framework &quot;$(TargetFramework)&quot;</RavenTargetFrameworkArgument>
+    <RavenConfigurationArgument Condition="'$(Configuration)' != ''">--configuration &quot;$(Configuration)&quot;</RavenConfigurationArgument>
     <RavenOutputTypeArgument Condition="'$(OutputType)' == 'Library'">--output-type classlib</RavenOutputTypeArgument>
     <RavenOutputTypeArgument Condition="'$(RavenOutputTypeArgument)' == '' and '$(OutputType)' != ''">--output-type exe</RavenOutputTypeArgument>
 
@@ -113,7 +114,7 @@
 
     <Message Importance="High" Text="RavenCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
 
     <MakeDir Directories="@(IntermediateRefAssembly->'%(RootDir)%(Directory)')" Condition="'@(IntermediateRefAssembly)' != ''" />
     <Copy

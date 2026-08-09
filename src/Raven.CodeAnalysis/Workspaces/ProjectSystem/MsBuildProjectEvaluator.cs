@@ -19,10 +19,13 @@ internal static class MsBuildProjectEvaluator
     public static MsBuildProjectEvaluationResult Evaluate(
         string projectFilePath,
         RavenProjectConventions conventions,
-        string? requestedTargetFramework = null)
+        string? requestedTargetFramework = null,
+        string? requestedConfiguration = null)
     {
         var initialEvaluation = LoadProject(projectFilePath, globalProperties: null);
-        var configuration = GetNormalizedConfiguration(initialEvaluation, conventions);
+        var configuration = string.IsNullOrWhiteSpace(requestedConfiguration)
+            ? GetNormalizedConfiguration(initialEvaluation, conventions)
+            : conventions.NormalizeConfiguration(requestedConfiguration);
         var targetFramework = string.IsNullOrWhiteSpace(requestedTargetFramework)
             ? GetEffectiveTargetFramework(initialEvaluation)
             : requestedTargetFramework;

@@ -12,6 +12,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 {
     private readonly RavenProjectConventions _conventions;
     private readonly bool _resolvePackageReferences;
+    private readonly string? _requestedConfiguration;
+    private readonly string? _requestedTargetFramework;
 
     public MsBuildProjectSystemService()
         : this(RavenProjectConventions.Default, resolvePackageReferences: true)
@@ -24,9 +26,20 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     }
 
     public MsBuildProjectSystemService(RavenProjectConventions conventions, bool resolvePackageReferences)
+        : this(conventions, resolvePackageReferences, requestedConfiguration: null, requestedTargetFramework: null)
+    {
+    }
+
+    public MsBuildProjectSystemService(
+        RavenProjectConventions conventions,
+        bool resolvePackageReferences,
+        string? requestedConfiguration,
+        string? requestedTargetFramework)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
+        _requestedConfiguration = requestedConfiguration;
+        _requestedTargetFramework = requestedTargetFramework;
     }
 
     public bool CanOpenProject(string projectFilePath)
@@ -47,7 +60,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     public IReadOnlyList<string> GetProjectReferencePaths(string projectFilePath)
     {
         MsBuildLocatorRegistration.EnsureRegistered();
-        return MsBuildProjectEvaluator.Evaluate(projectFilePath, _conventions).ProjectReferencePaths;
+        return EvaluateProject(projectFilePath).ProjectReferencePaths;
     }
 
     public ProjectId OpenProject(Workspace workspace, string projectFilePath)
@@ -71,7 +84,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         }
 
         MsBuildLocatorRegistration.EnsureRegistered();
-        var evaluation = MsBuildProjectEvaluator.Evaluate(projectFilePath, _conventions);
+        var evaluation = EvaluateProject(projectFilePath);
         var projectId = raven.AddProject(
             evaluation.Name,
             projectFilePath,
@@ -128,7 +141,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             var referencedEvaluation = MsBuildProjectEvaluator.Evaluate(
                 referencedProjectPath,
                 _conventions,
-                evaluation.TargetFramework);
+                evaluation.TargetFramework,
+                evaluation.Configuration);
             if (referencedEvaluation.IsCompilerPlugin)
             {
                 var outputPath = string.Equals(
@@ -323,7 +337,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         MsBuildProjectEvaluationResult requestingProject,
         RavenWorkspace workspace)
     {
-        var macroEvaluation = MsBuildProjectEvaluator.Evaluate(projectFilePath, _conventions, requestingProject.TargetFramework);
+        var macroEvaluation = MsBuildProjectEvaluator.Evaluate(
+            projectFilePath,
+            _conventions,
+            requestingProject.TargetFramework,
+            requestingProject.Configuration);
         var effectiveTargetFramework = macroEvaluation.TargetFramework ?? requestingProject.TargetFramework ?? workspace.DefaultTargetFramework;
         var outputPath = GetCompilerPluginOutputPath(projectFilePath, macroEvaluation.Configuration, effectiveTargetFramework, macroEvaluation.AssemblyName);
         var rebuildInputs = GetCompilerPluginRebuildInputs(macroEvaluation).ToArray();
@@ -336,7 +354,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 targetFramework: requestingProject.TargetFramework ?? workspace.DefaultTargetFramework,
                 projectSystemService: new CompositeProjectSystemService(
                     new RavenProjectSystemService(),
-                    new MsBuildProjectSystemService(_conventions)));
+                    new MsBuildProjectSystemService(
+                        _conventions,
+                        resolvePackageReferences: true,
+                        requestedConfiguration: macroEvaluation.Configuration,
+                        requestedTargetFramework: effectiveTargetFramework)));
 
             var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
             var macroCompilation = macroWorkspace.GetCompilation(macroProjectId);
@@ -435,10 +457,18 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         var resolvedOutputPath = MsBuildProjectOutputResolver.ResolveProjectOutputPath(
             projectFilePath,
             targetFramework,
-            RavenProjectConventions.Default);
+            RavenProjectConventions.Default,
+            configuration);
 
         return resolvedOutputPath;
     }
+
+    private MsBuildProjectEvaluationResult EvaluateProject(string projectFilePath)
+        => MsBuildProjectEvaluator.Evaluate(
+            projectFilePath,
+            _conventions,
+            _requestedTargetFramework,
+            _requestedConfiguration);
 
     internal static IEnumerable<string> GetCompilerPluginRebuildInputs(MsBuildProjectEvaluationResult evaluation)
     {

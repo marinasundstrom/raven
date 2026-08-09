@@ -42,6 +42,7 @@ var isCompilerDriverInvocation =
 
 // Options:
 // --framework <tfm> - target framework
+// --configuration <name> - MSBuild configuration used to evaluate a project
 // --refs <path>     - additional metadata reference (repeatable)
 // --define <symbols> - conditional compilation symbols (comma/semicolon separated)
 // --raven-core <path> - path to a prebuilt Raven.Core.dll (skips embedded core types)
@@ -87,6 +88,7 @@ var applicationArguments = new List<string>();
 var additionalRefs = new List<string>();
 var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
+string? requestedConfiguration = null;
 string? outputPath = null;
 string? dependencyFilePath = null;
 var outputKind = OutputKind.ConsoleApplication;
@@ -435,6 +437,10 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length)
                 targetFrameworkTfm = args[++i];
             break;
+        case "--configuration":
+            if (i + 1 < args.Length)
+                requestedConfiguration = args[++i];
+            break;
         case "-h":
         case "--help":
             showHelp = true;
@@ -653,7 +659,11 @@ if (projectFileInput is not null &&
 }
 
 var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
-var projectConfiguration = projectFileInput is null ? RavenProjectConventions.Default.DefaultConfiguration : TryReadProjectConfiguration(projectFileInput);
+var projectConfiguration = requestedConfiguration is null
+    ? projectFileInput is null
+        ? RavenProjectConventions.Default.DefaultConfiguration
+        : TryReadProjectConfiguration(projectFileInput)
+    : RavenProjectConventions.Default.NormalizeConfiguration(requestedConfiguration);
 var hostDefaultFramework = TargetFrameworkUtil.Resolve(AppContext.TargetFrameworkName);
 var targetFramework = targetFrameworkTfm
     ?? projectTargetFramework
@@ -785,7 +795,10 @@ if (projectFileInput is not null)
     }
     else
     {
-        outputFilePath = MsBuildProjectOutputResolver.ResolveProjectOutputPath(projectFileInput, targetFramework);
+        outputFilePath = MsBuildProjectOutputResolver.ResolveProjectOutputPath(
+            projectFileInput,
+            targetFramework,
+            requestedConfiguration: projectConfiguration);
         outputDirectory = Path.GetDirectoryName(outputFilePath)!;
         assemblyName = Path.GetFileNameWithoutExtension(outputFilePath);
 
@@ -1002,11 +1015,13 @@ if (skipDefaultRavenCoreLookup)
     options = options.WithFrameworkProjectionMode(FrameworkProjectionMode.None);
 var workspace = RavenWorkspace.Create(
     targetFramework: targetFramework,
-    projectSystemService: restoreProjectReferences
-        ? null
-        : new CompositeProjectSystemService(
-            new RavenProjectSystemService(),
-            new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false)));
+    projectSystemService: new CompositeProjectSystemService(
+        new RavenProjectSystemService(),
+        new MsBuildProjectSystemService(
+            RavenProjectConventions.Default,
+            restoreProjectReferences,
+            projectConfiguration,
+            targetFrameworkTfm)));
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,
@@ -2485,6 +2500,8 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("Compiler options:");
         Console.WriteLine("  --version          Print the Raven version");
         Console.WriteLine("  --framework <tfm>  Target framework (e.g. net10.0)");
+        Console.WriteLine("  --configuration <name>");
+        Console.WriteLine("                     MSBuild configuration used to evaluate a project (default: Debug)");
         Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
         Console.WriteLine("  --define <symbols> Conditional compilation symbols separated by ',' or ';'");
         Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");

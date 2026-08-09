@@ -209,6 +209,64 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_UsesActiveConfigurationAndInnerTargetFramework()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(projectRoot, "ConfiguredLibrary.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+                    <OutputType>Library</OutputType>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="release-net10.rvn" Condition="'$(Configuration)' == 'Release' and '$(TargetFramework)' == 'net10.0'" />
+                    <Compile Include="wrong-context.rvn" Condition="'$(Configuration)' != 'Release' or '$(TargetFramework)' != 'net10.0'" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(projectRoot, "release-net10.rvn"), "class ConfiguredLibrary { }");
+            File.WriteAllText(Path.Combine(projectRoot, "wrong-context.rvn"), "func broken(");
+
+            var result = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --configuration Release --framework net10.0 --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(
+                File.Exists(Path.Combine(projectRoot, "bin", "Release", "net10.0", "ConfiguredLibrary.dll")),
+                "Expected the active Release/net10.0 inner build output.");
+            Assert.True(
+                Directory.EnumerateFiles(
+                    Path.Combine(projectRoot, "obj", "Release", "net10.0", "raven", "generated"),
+                    "*.TargetFrameworkAttribute.g.rvn").Any(),
+                "Expected generated Raven sources under the active inner-build intermediate directory.");
+            Assert.False(
+                Directory.Exists(Path.Combine(projectRoot, "obj", "Debug", "raven", "generated")),
+                "The compiler must not fall back to Debug project evaluation.");
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void RavenProject_CompileMacro_DiscoversRuntimeDependencyClosureFromOutput()
     {
         var repoRoot = GetRepositoryRoot();

@@ -334,6 +334,10 @@ wired to Raven's language targets:
 - MSBuild-resolved `ReferencePath` items are passed to `rvnc`; package restore
   and framework-reference resolution remain owned by the .NET SDK rather than
   the Raven compiler core.
+- The active `Configuration` and inner-build `TargetFramework` are passed to
+  `rvnc` so conditional properties and items, generated-source paths, project
+  references, and compiler plugins use the same MSBuild context as the outer
+  build.
 
 Inside this repository, `Directory.Build.props` wires `.rvnproj` files
 automatically, so sample projects build directly:
