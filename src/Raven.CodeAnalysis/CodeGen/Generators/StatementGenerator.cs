@@ -1440,7 +1440,8 @@ internal class StatementGenerator : Generator
                 return;
             }
 
-            if (localSymbol.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableLocal)
+            if (localSymbol.Type is NullableTypeSymbol nullableLocal &&
+                nullableLocal.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
             {
                 var localClr = ResolveClrType(localSymbol.Type);
                 if (expressionType?.TypeKind == TypeKind.Null)

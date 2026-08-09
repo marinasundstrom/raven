@@ -1,6 +1,5 @@
 using System.Linq;
 
-using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -70,7 +69,7 @@ class NullableGenericMethods {
     }
 
     [Fact]
-    public void SemanticEquality_RemainsUnifiedAcrossRuntimeProjections()
+    public void SemanticEquality_RemainsUnifiedAcrossAbiProjections()
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -81,8 +80,8 @@ class NullableGenericMethods {
 
         Assert.True(SymbolEqualityComparer.Default.Equals(projectedUnderlying, projectedNullableValue));
         Assert.NotEqual(
-            Assert.IsType<NullableTypeSymbol>(projectedUnderlying).RuntimeProjection,
-            Assert.IsType<NullableTypeSymbol>(projectedNullableValue).RuntimeProjection);
+            projectedUnderlying.GetNullableAbiProjection(),
+            projectedNullableValue.GetNullableAbiProjection());
     }
 
     private static Compilation CreateCompilation()
@@ -124,8 +123,12 @@ class NullableGenericMethods {
         ITypeSymbol expectedUnderlyingType,
         bool usesNullableValueTypeRepresentation)
     {
-        var nullableType = Assert.IsType<NullableTypeSymbol>(actualType);
-        Assert.Equal(usesNullableValueTypeRepresentation, nullableType.UsesNullableValueTypeRepresentation);
-        Assert.True(SymbolEqualityComparer.Default.Equals(expectedUnderlyingType, nullableType.UnderlyingType));
+        Assert.True(actualType.TryGetNullableUnderlyingType(out var underlyingType));
+        Assert.Equal(
+            usesNullableValueTypeRepresentation
+                ? NullableAbiProjection.NullableValueType
+                : NullableAbiProjection.AnnotatedUnderlyingType,
+            actualType.GetNullableAbiProjection());
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedUnderlyingType, underlyingType));
     }
 }

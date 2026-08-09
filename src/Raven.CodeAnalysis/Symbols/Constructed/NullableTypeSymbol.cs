@@ -11,11 +11,11 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        NullableRuntimeProjection? runtimeProjection = null)
+        NullableAbiProjection? abiProjection = null)
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {
         UnderlyingType = underlyingType;
-        RuntimeProjection = runtimeProjection ?? InferRuntimeProjection(underlyingType);
+        AbiProjection = abiProjection ?? TypeSymbolNullabilityExtensions.InferNullableAbiProjection(underlyingType);
         BaseType = underlyingType.GetAbsoluteBaseType();
         TypeKind = TypeKind.Nullable;
     }
@@ -24,10 +24,7 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 
     public ITypeSymbol UnderlyingType { get; }
 
-    internal NullableRuntimeProjection RuntimeProjection { get; }
-
-    internal bool UsesNullableValueTypeRepresentation =>
-        RuntimeProjection == NullableRuntimeProjection.NullableValueType;
+    internal NullableAbiProjection AbiProjection { get; }
 
     public SpecialType SpecialType => SpecialType.None;
 
@@ -84,23 +81,4 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
         return visitor.DefaultVisit(this);
     }
 
-    private static NullableRuntimeProjection InferRuntimeProjection(ITypeSymbol underlyingType)
-    {
-        if (underlyingType is ITypeParameterSymbol typeParameter)
-        {
-            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0
-                ? NullableRuntimeProjection.NullableValueType
-                : NullableRuntimeProjection.UnderlyingType;
-        }
-
-        return underlyingType.IsValueType
-            ? NullableRuntimeProjection.NullableValueType
-            : NullableRuntimeProjection.UnderlyingType;
-    }
-}
-
-internal enum NullableRuntimeProjection
-{
-    UnderlyingType,
-    NullableValueType,
 }

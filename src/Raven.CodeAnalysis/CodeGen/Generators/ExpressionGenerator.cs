@@ -6553,7 +6553,8 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitComparableValue(IILocal local, ITypeSymbol runtimeType, ITypeSymbol targetType)
     {
-        if (runtimeType is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable)
+        if (runtimeType is NullableTypeSymbol nullable &&
+            nullable.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
         {
             ILGenerator.Emit(OpCodes.Ldloca, local);
             ILGenerator.Emit(OpCodes.Call, GetNullableGetValueOrDefault(ResolveClrType(runtimeType)));
@@ -6891,7 +6892,8 @@ internal partial class ExpressionGenerator : Generator
 
         EmitWhenNotNull(conditional.WhenNotNull);
 
-        if (conditional.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableResult)
+        if (conditional.Type is NullableTypeSymbol nullableResult &&
+            nullableResult.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
         {
             var whenNotNullType = conditional.WhenNotNull.Type;
 
@@ -7470,7 +7472,8 @@ internal partial class ExpressionGenerator : Generator
 
             var effectiveReceiverType = receiverType;
 
-            if (receiverType is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable
+            if (receiverType is NullableTypeSymbol nullable
+                && nullable.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType
                 && target.ContainingType?.SpecialType != SpecialType.System_Nullable_T)
             {
                 if (receiverAlreadyLoaded)
@@ -7605,7 +7608,8 @@ internal partial class ExpressionGenerator : Generator
             else
             {
                 if (argument?.Type?.TypeKind == TypeKind.Null &&
-                    paramSymbol.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableParam)
+                    paramSymbol.Type is NullableTypeSymbol nullableParam &&
+                    nullableParam.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
                 {
                     EmitDefaultValue(paramSymbol.Type);
                     continue;
@@ -7853,7 +7857,8 @@ internal partial class ExpressionGenerator : Generator
 
         // Special: null literal → Nullable<T>
         if (argument.Type?.TypeKind == TypeKind.Null &&
-            paramSymbol.Type is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullable)
+            paramSymbol.Type is NullableTypeSymbol nullable &&
+            nullable.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
         {
             EmitDefaultValue(paramSymbol.Type);
             return;

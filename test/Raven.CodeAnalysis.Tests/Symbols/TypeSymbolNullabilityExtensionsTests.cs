@@ -46,6 +46,23 @@ public sealed class TypeSymbolNullabilityExtensionsTests
         Assert.Same(stringType, nonNullableAgain);
     }
 
+    [Fact]
+    public void GetNullableAbiProjection_IsTotalAndDistinguishesClrRepresentations()
+    {
+        var compilation = Compilation.Create("nullable_projection_api")
+            .AddReferences(TestMetadataReferences.Default);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        Assert.Equal(NullableAbiProjection.None, intType.GetNullableAbiProjection());
+        Assert.Equal(
+            NullableAbiProjection.NullableValueType,
+            intType.GetNullableType().GetNullableAbiProjection());
+        Assert.Equal(
+            NullableAbiProjection.AnnotatedUnderlyingType,
+            stringType.GetNullableType().GetNullableAbiProjection());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

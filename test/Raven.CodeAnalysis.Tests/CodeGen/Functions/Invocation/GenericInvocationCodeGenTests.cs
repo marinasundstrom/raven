@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
-using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -39,9 +38,9 @@ class CallbackRunner {
         var invokedMethod = Assert.IsAssignableFrom<IMethodSymbol>(
             compilation.GetSemanticModel(syntaxTree).GetSymbolInfo(invocation).Symbol);
         var callbackArgument = Assert.Single(invokedMethod.Parameters);
-        var nullableArgument = Assert.IsType<NullableTypeSymbol>(callbackArgument.Type);
-        Assert.Equal(SpecialType.System_Int32, nullableArgument.UnderlyingType.SpecialType);
-        Assert.False(nullableArgument.UsesNullableValueTypeRepresentation);
+        Assert.True(callbackArgument.Type.TryGetNullableUnderlyingType(out var nullableArgument));
+        Assert.Equal(SpecialType.System_Int32, nullableArgument.SpecialType);
+        Assert.Equal(NullableAbiProjection.AnnotatedUnderlyingType, callbackArgument.Type.GetNullableAbiProjection());
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);

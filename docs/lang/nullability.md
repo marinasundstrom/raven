@@ -178,6 +178,27 @@ projection is retained. Concrete `int?` continues to project to
 `System.Nullable<int>`, and concrete `string?` continues to project to CLR
 `string` with nullable metadata.
 
+Compiler API consumers can inspect this distinction without depending on an
+internal symbol implementation:
+
+```csharp
+if (type.TryGetNullableUnderlyingType(out var underlyingType))
+{
+    var projection = type.GetNullableAbiProjection();
+    // AnnotatedUnderlyingType or NullableValueType
+}
+```
+
+`GetNullableAbiProjection()` is total: it returns `None` for a non-nullable
+type, `AnnotatedUnderlyingType` for nullable reference types and nullable
+unconstrained type parameters, and `NullableValueType` for types represented as
+`System.Nullable<T>`. ABI projection is not part of semantic symbol
+identity. `SymbolEqualityComparer.Default` compares Raven nullability but treats
+two nullable types with the same underlying semantic type as equal even when
+their CLR projections differ. `SymbolEqualityComparer.IgnoringNullability`
+additionally ignores the nullable decoration. Emitters and other CLR-boundary
+consumers must query the projection explicitly.
+
 ## Prefer `Option` for domain absence
 
 If a missing value is an expected application state, represent it in the API:

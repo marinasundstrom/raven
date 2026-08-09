@@ -243,7 +243,8 @@ internal abstract class Generator
             return;
 
         if (from.TypeKind == TypeKind.Null &&
-            to is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableValueType)
+            to is NullableTypeSymbol nullableValueType &&
+            nullableValueType.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
         {
             ILGenerator.Emit(OpCodes.Pop);
             EmitDefaultValue(nullableValueType);
@@ -270,15 +271,19 @@ internal abstract class Generator
             return;
         }
 
-        if (to is NullableTypeSymbol { UsesNullableValueTypeRepresentation: false } nullableReference)
+        if (to is NullableTypeSymbol nullableReference &&
+            nullableReference.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
         {
             EmitConversion(from, nullableReference.UnderlyingType, conversion);
             return;
         }
 
-        if (to is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } nullableTo)
+        if (to is NullableTypeSymbol nullableTo &&
+            nullableTo.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
         {
-            if (conversion.IsLifted && from is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true } fromNullable)
+            if (conversion.IsLifted &&
+                from is NullableTypeSymbol fromNullable &&
+                fromNullable.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
             {
                 EmitLiftedNullableConversion(fromNullable, nullableTo, conversion);
                 return;
@@ -443,7 +448,7 @@ internal abstract class Generator
     internal static bool RequiresNullableProjectionConversion(ITypeSymbol from, ITypeSymbol to)
         => from is NullableTypeSymbol fromNullable &&
            to is NullableTypeSymbol toNullable &&
-           fromNullable.RuntimeProjection != toNullable.RuntimeProjection &&
+           fromNullable.GetNullableAbiProjection() != toNullable.GetNullableAbiProjection() &&
            SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, toNullable.UnderlyingType);
 
     private static bool IsReadOnlySpanCastUpMethod(IMethodSymbol method)
@@ -460,7 +465,8 @@ internal abstract class Generator
     private void PrepareUnionConstructorArgument(ITypeSymbol from, ITypeSymbol parameterType)
     {
         if (from.TypeKind == TypeKind.Null &&
-            parameterType is NullableTypeSymbol { UsesNullableValueTypeRepresentation: true })
+            parameterType is NullableTypeSymbol nullableParameter &&
+            nullableParameter.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
         {
             ILGenerator.Emit(OpCodes.Pop);
             EmitDefaultValue(parameterType);
@@ -600,13 +606,13 @@ internal abstract class Generator
 
         if (from is NullableTypeSymbol fromNullable)
         {
-            if (fromNullable.RuntimeProjection == nullableTo.RuntimeProjection &&
+            if (fromNullable.GetNullableAbiProjection() == nullableTo.GetNullableAbiProjection() &&
                 SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
             {
                 return;
             }
 
-            if (!fromNullable.UsesNullableValueTypeRepresentation &&
+            if (fromNullable.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType &&
                 SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
             {
                 from = fromNullable.UnderlyingType;

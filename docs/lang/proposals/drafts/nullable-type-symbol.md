@@ -150,26 +150,26 @@ Likely touch points:
 
 ### Public compiler API
 
-The next nullability slice should expose a small, stable API that keeps the
+The first public API slice exposes a small, stable surface that keeps the
 semantic type separate from its CLR projection without requiring consumers to
-know compiler-internal symbol classes. It should:
+know compiler-internal symbol classes:
 
 * keep `ITypeSymbol.IsNullable` and the existing nullable transformation APIs
   as the semantic surface;
-* provide a documented way to query whether a nullable type projects to its
-  underlying CLR type or to `System.Nullable<T>`;
-* define when `SymbolEqualityComparer.Default`,
-  `SymbolEqualityComparer.IgnoringNullability`, and metadata identity include
-  nullability and runtime projection;
-* consolidate nullable compatibility and conversion predicates so the binder,
-  language server, analyzers, macros, and third-party compiler API consumers
-  use the same rules;
+* use `GetNullableAbiProjection()` to query `None`,
+  `AnnotatedUnderlyingType`, or `NullableValueType`;
+* keep ABI projection outside semantic symbol identity:
+  `SymbolEqualityComparer.Default` includes Raven nullability but not CLR
+  projection, while `SymbolEqualityComparer.IgnoringNullability` ignores the
+  nullable decoration as well;
 * keep nullable flow state out of the type API. Raven has no need for C#'s
   migration-oriented nullable flow-analysis model.
 
-The compiler should migrate to this public surface as part of the slice. An API
-that is not sufficient for Raven's own binder, emitter, and language server is
-not sufficient for external consumers.
+The emitter uses the same public projection query as external consumers. A
+later API slice can consolidate nullable compatibility and conversion
+predicates when concrete binder, macro, analyzer, or language-service use cases
+show which operations deserve a public contract; they should not be exposed as
+a speculative helper collection.
 
 ### Explicit `is not null` narrowing
 
