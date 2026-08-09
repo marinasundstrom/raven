@@ -116,7 +116,9 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
             }
         }
 
-        FreestandingMacroExpansionResult.FromExpression(ParseExpression(expansion.ExpressionText))
+        let expandedExpression = ParseExpression(expansion.ExpressionText)
+        FreestandingMacroExpansionResult.FromExpression(
+            context.WithOrigins(expandedExpression, expansion.SourceMaps))
     }
 
     private static func GetCssScope(context: TokenTreeMacroContext) -> string? {
@@ -146,6 +148,7 @@ class HtmlDslExpansion {
     val Components: ImmutableArray<HtmlComponentReference>
     val ComponentAttributes: ImmutableArray<HtmlComponentAttribute>
     val TypedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>
+    val SourceMaps: ImmutableArray<MacroExpansionSourceMap>
 
     init(
         expressionText: string,
@@ -154,7 +157,8 @@ class HtmlDslExpansion {
         embeddedExpressionSpans: ImmutableArray<TextSpan>,
         components: ImmutableArray<HtmlComponentReference>,
         componentAttributes: ImmutableArray<HtmlComponentAttribute>,
-        typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>
+        typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget>,
+        sourceMaps: ImmutableArray<MacroExpansionSourceMap>
     ) {
         ExpressionText = expressionText
         ErrorMessage = errorMessage
@@ -163,6 +167,7 @@ class HtmlDslExpansion {
         Components = components
         ComponentAttributes = componentAttributes
         TypedExpressionTargets = typedExpressionTargets
+        SourceMaps = sourceMaps
     }
 
     func GetExpressionTargetType(span: TextSpan) -> ITypeSymbol? {
@@ -201,6 +206,7 @@ class HtmlDslParser {
     private var _components: ImmutableArray<HtmlComponentReference> = []
     private var _componentAttributes: ImmutableArray<HtmlComponentAttribute> = []
     private var _typedExpressionTargets: ImmutableArray<HtmlTypedExpressionTarget> = []
+    private var _sourceMaps: ImmutableArray<MacroExpansionSourceMap> = []
     private var _lastEmbeddedExpressionSpan = TextSpan(0, 0)
     private var _position: int = 0
     private var _sequence: int = 0
@@ -231,7 +237,8 @@ class HtmlDslParser {
             _embeddedExpressionSpans,
             _components,
             _componentAttributes,
-            _typedExpressionTargets)
+            _typedExpressionTargets,
+            _sourceMaps)
     }
 
     private func ParseElement() {
@@ -294,6 +301,7 @@ class HtmlDslParser {
                 AppendAttributeOrKey(attributeName, "\"${Escape(value)}\"")
             } else if At("{") {
                 let expression = ReadEmbeddedExpression()
+                let generatedStart = _builder.Length
                 if IsKeyAttribute(attributeName) {
                     AppendKey(expression)
                 } else if !isComponent && IsEventAttribute(attributeName) {
@@ -306,6 +314,7 @@ class HtmlDslParser {
                 } else {
                     AppendAttribute(attributeName, expression)
                 }
+                RecordExpressionSourceMap(expression, generatedStart)
             } else {
                 Error("Expected a quoted value or Raven expression for attribute '${attributeName}'.")
                 return
@@ -350,7 +359,9 @@ class HtmlDslParser {
                 ParseElement()
             } else if At("{") {
                 let expression = ReadEmbeddedExpression()
+                let generatedStart = _builder.Length
                 AppendContent(expression)
+                RecordExpressionSourceMap(expression, generatedStart)
             } else {
                 let text = ReadText()
                 let normalized = NormalizeText(text)
@@ -501,8 +512,10 @@ class HtmlDslParser {
             } else if !inString && current == "}" {
                 depth = depth - 1
                 if depth == 0 {
-                    let expression = _source.Substring(start, _position - start).Trim()
-                    let expressionSpan = TextSpan.FromBounds(start, _position)
+                    let untrimmedExpression = _source.Substring(start, _position - start)
+                    let expression = untrimmedExpression.Trim()
+                    let leadingWhitespace = untrimmedExpression.Length - untrimmedExpression.TrimStart().Length
+                    let expressionSpan = TextSpan(start + leadingWhitespace, expression.Length)
                     _position = _position + 1
                     if expression.Length == 0 {
                         ErrorAt(openingPosition, "Embedded Raven expressions cannot be empty.")
@@ -520,6 +533,25 @@ class HtmlDslParser {
 
         ErrorAt(openingPosition, "Unterminated embedded Raven expression.")
         ""
+    }
+
+    private func RecordExpressionSourceMap(expression: string, generatedStart: int) {
+        if expression.Length == 0 || _builder.Length <= generatedStart {
+            return
+        }
+
+        let generatedText = _builder.ToString(
+            generatedStart,
+            _builder.Length - generatedStart)
+        let expressionStart = generatedText.IndexOf(expression, StringComparison.Ordinal)
+        if expressionStart < 0 {
+            return
+        }
+
+        _sourceMaps = _sourceMaps.Add(
+            MacroExpansionSourceMap(
+                TextSpan(generatedStart + expressionStart, expression.Length),
+                _lastEmbeddedExpressionSpan))
     }
 
     private func ReadText() -> string {

@@ -4,6 +4,35 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a standalone Blazor WebAssembly host and GitHub Pages publishing path
+  for the experimental component-template showcase, sharing the same Raven
+  components, source presentation, styles, and interactions as the Server host.
+- Fixed portable-PDB correction when a normalized method maps to an omitted
+  trailing `MethodDebugInformation` row, preventing Release compiler bootstrap
+  failures in assemblies whose final methods have no debug information.
+- Fixed the experimental component-template WebAssembly host startup by
+  including the .NET runtime import map and the Raven component assembly's
+  explicit runtime dependencies in its published page.
+
+- Added `samples/projects/macro-dsl`, a minimal Raven-authored token DSL that
+  demonstrates macro-local keywords, embedded Raven expression regions,
+  native fragment diagnostics, expansion, and debugger source provenance in a
+  standalone plugin-and-application project.
+
+- Fixed portable-PDB method ownership after assembly-reference normalization.
+  Sequence points and local scopes are reconciled against the final PE method
+  rows, async and iterator bodies remain attached to their generated
+  `MoveNext` methods, and overlapping visible spans within a method are
+  suppressed. This restores stable stepping for ordinary, top-level, match,
+  async, iterator, and macro-authored executable code.
+
+- Added compiler-owned debugging provenance for executable macro fragments.
+  Parsed expressions and statements retain authored `.rvn` locations,
+  string-built expansions can provide span mappings, and portable PDBs hide
+  unmapped generated plumbing. The VS Code Raven debugger can now build and
+  launch a separate .NET startup project, enabling F5 debugging of the Blazor
+  template sample through its web host and launch profile.
+
 - Fixed expanded macro documents so generated declarations retain line breaks
   between adjacent members and receive context-aware indentation in compiler
   expanded-source projections, including the VS Code expanded-syntax view.

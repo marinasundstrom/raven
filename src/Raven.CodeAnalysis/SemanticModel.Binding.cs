@@ -7641,6 +7641,9 @@ public partial class SemanticModel
         }
     }
 
+    internal void RegisterLoweredSyntaxMappings(BoundNode loweredRoot, SyntaxNode fallbackSyntax)
+        => PropagateLoweredSyntaxMappings(loweredRoot, fallbackSyntax);
+
     private void PropagateLoweredSyntaxMappings(BoundNode loweredRoot, SyntaxNode fallbackSyntax)
     {
         var resolving = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);

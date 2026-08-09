@@ -428,6 +428,41 @@ do not need the macro's syntax-tree representation.
 An explicit DSL token-symbol association takes precedence over semantic
 inference from a broader embedded Raven fragment containing the same position.
 
+### Debugging executable fragments
+
+`TokenTreeMacroContext.ParseExpression` and `ParseStatement` attach the
+authored invocation origin to every executable syntax node they return. If a
+macro splices that syntax into its expansion, the compiler uses the origin for
+portable-PDB sequence points. A breakpoint inside the fragment therefore binds
+to the `.rvn` source while generated expansion plumbing remains hidden during
+stepping. Macro fragment regions and token-symbol associations remain the
+editor-facing APIs for diagnostics, hover, navigation, and completion.
+
+For generated syntax representing one authored DSL span, use `WithOrigin`:
+
+```raven
+let condition = SyntaxFactory.ParseExpression("enabled")
+let mapped = context.WithOrigin(condition, enabledToken.Span)
+```
+
+String-based expansion builders can retain precise origins without exposing
+their private DSL structure. Record the span where an authored expression was
+inserted into the generated Raven text and map it back to the corresponding
+body-relative span. The two spans must have equal lengths so nested syntax can
+retain exact offsets:
+
+```raven
+let maps: ImmutableArray<MacroExpansionSourceMap> = [
+    MacroExpansionSourceMap(generatedExpressionSpan, authoredExpressionSpan)
+]
+let expanded = ParseExpression(generatedText)
+expand context.WithOrigins(expanded, maps)
+```
+
+Both APIs validate body-relative spans. Use mappings for executable Raven
+fragments and intentionally associated operations, not every DSL token. Tags,
+punctuation, and generated builder calls normally have no stepping point.
+
 ### Evaluated build options
 
 MSBuild projects can provide immutable macro configuration through evaluated
@@ -456,6 +491,9 @@ to read mutable build outputs from `obj`.
 The repository examples progress from compact syntax to full DSL handling:
 
 * `samples/projects/macro-functions` — typed, syntax, and token-stream inputs;
+* `samples/projects/macro-dsl` — the minimal provider-class reference for one
+  DSL keyword, one embedded Raven expression, native diagnostics, fragment
+  tooling, and debugger source provenance;
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
 * `samples/projects/macro-freestanding` — LINQ-like query parsing, three

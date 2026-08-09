@@ -69,4 +69,25 @@ When the extension launches a language server from a workspace build, it stages 
 ## Debugging Raven code (F5)
 1. Open a `.rvn`, `.rvnproj`, or `.rav` file.
 2. Press F5 and choose `Raven: Compile and Debug` (or run `Raven: Compile and Debug Active File` from the command palette).
-3. The extension compiles into `${workspaceFolder}/.raven-debug` and launches `dotnet <output.dll>` under the debugger.
+3. Standalone files compile under `.raven-build`; projects use their normal
+   `bin/Debug/<tfm>` output. The extension launches `dotnet <output.dll>` under
+   the .NET debugger.
+
+A Raven library or component project can be debugged through a separate .NET
+startup project. This is useful when a Blazor or ASP.NET host references Raven
+code:
+
+```json
+{
+  "type": "raven",
+  "request": "launch",
+  "name": "Raven: Debug Blazor host",
+  "target": "${workspaceFolder}/app/App.rvnproj",
+  "startupProject": "${workspaceFolder}/host/Host.csproj",
+  "launchProfile": "http"
+}
+```
+
+The extension builds the startup project, loads the referenced Raven PDBs, and
+applies the selected `Project` profile's environment and application URL. When
+that profile enables `launchBrowser`, F5 opens the listening web address.

@@ -175,6 +175,14 @@
               "project": {
                 "type": "string",
                 "description": "Alias for target when launching a Raven project file."
+              },
+              "startupProject": {
+                "type": "string",
+                "description": "Optional .NET startup project to build and launch while debugging the Raven target, such as a Blazor host that references a Raven component project."
+              },
+              "launchProfile": {
+                "type": "string",
+                "description": "Optional Project launch profile from the startup project's Properties/launchSettings.json."
               }
             }
           }

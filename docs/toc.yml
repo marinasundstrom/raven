@@ -45,5 +45,7 @@
       href: https://github.com/marinasundstrom/raven/tree/main/samples/projects
 - name: Playground
   href: https://marinasundstrom.github.io/raven/playground/
+- name: Component template experiment
+  href: https://marinasundstrom.github.io/raven/experiments/html-macro/
 - name: GitHub
   href: https://github.com/marinasundstrom/raven

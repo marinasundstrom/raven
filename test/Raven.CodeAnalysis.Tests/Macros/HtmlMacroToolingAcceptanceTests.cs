@@ -251,6 +251,41 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInHtmlMacro_MapsEmbeddedExpressionToAuthoredSourceOrigin()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        var sourcePath = Path.GetFullPath("html-debug-origin.rvn");
+        const string source = """
+            class DebugView {
+                val count: int = 41
+
+                func Render() => Html! {
+                    <p>{count + 1}</p>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: sourcePath);
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
+
+        var mappedExpression = Assert.Single(
+            expansion!.Expression!.DescendantNodesAndSelf(),
+            node => MacroSyntaxOrigin.TryGetSourceSpan(node, compilation, out _, out var span) &&
+                source.Substring(span.Start, span.Length) == "count + 1");
+        Assert.True(MacroSyntaxOrigin.TryGetSourceSpan(
+            mappedExpression,
+            compilation,
+            out var mappedTree,
+            out var mappedSpan));
+        Assert.Same(syntaxTree, mappedTree);
+        Assert.Equal("count + 1", source.Substring(mappedSpan.Start, mappedSpan.Length));
+    }
+
+    [Fact]
     public void CheckedInHtmlMacro_LowersComponentEventCallbacksFromReferencesAndInlineLambdas()
     {
         var macroReference = CreateCheckedInHtmlMacroReference();

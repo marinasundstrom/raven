@@ -1,31 +1,31 @@
 @page "/"
-@rendermode InteractiveServer
 
 <PageTitle>Raven × Blazor</PageTitle>
 
 <main>
     <nav class="nav-shell" aria-label="Main navigation">
-        <a class="brand" href="/" aria-label="Raven home">
+        <a class="brand" href="../../" aria-label="Raven documentation">
             <span class="brand-mark">R</span>
             <span>Raven</span>
         </a>
         <div class="nav-meta">
             <span class="status-dot"></span>
-            Macro prototype
+            Component template experiment
         </div>
     </nav>
 
     <section class="hero">
-        <div class="eyebrow"><span>Experimental</span> HTML-shaped DSL → native Blazor</div>
+        <div class="eyebrow"><span>Experimental</span> Macro-powered component templates → native Blazor</div>
         <h1>Components that read like the <em>web.</em></h1>
         <p class="hero-copy">
-            A Raven macro turns familiar HTML into a real <code>RenderFragment</code>—with parameters,
+            Raven macros turn familiar inline templates into real <code>RenderFragment</code>s—with parameters,
             state, nested components, list comprehensions, pattern matching, and event callbacks intact.
         </p>
         <div class="hero-actions">
             <a class="primary-action" href="#playground">Try the components <span>↓</span></a>
             <span class="build-note">Compiled by Raven · Rendered by Blazor</span>
         </div>
+        <p class="experiment-note">Experimental component-template prototype—not a committed Raven framework.</p>
     </section>
 
     <section class="showcase" id="playground">
@@ -276,7 +276,7 @@
         </div>
     </section>
 
-    <section class="proof-strip" aria-label="Prototype capabilities">
+    <section class="proof-strip" aria-label="Component template capabilities">
         <div><strong>Html!</strong><span>Token-tree macro</span></div>
         <div><strong>#[Component]</strong><span>Attached macro</span></div>
         <div><strong>[for … if]</strong><span>List comprehension</span></div>
@@ -286,7 +286,7 @@
     <footer>
         <span>Raven language experiment</span>
         <span class="footer-line"></span>
-        <span>HTML macro / Blazor target</span>
+        <span>Macro-powered templates / native Blazor</span>
     </footer>
 </main>
 
