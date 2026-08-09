@@ -1,0 +1,3 @@
+<Project>
+  <Import Project="$(StaticWebAssetsSdkDirectoryRoot)targets/Microsoft.NET.Sdk.StaticWebAssets.ScopedCss.targets" />
+</Project>

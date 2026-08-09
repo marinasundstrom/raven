@@ -109,9 +109,6 @@ pre { margin: 0; padding: 34px 36px; overflow: auto; font-size: clamp(12px, 1.2v
 .match-preview { background: linear-gradient(145deg, #e6def8, #fff5df); }
 .preview-label { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; letter-spacing: 0.12em; }
 .component-stage { display: grid; flex: 1; align-content: center; justify-items: center; padding: 48px 12px; text-align: center; }
-.component-stage > button, .component-stage .composition button { min-width: 190px; padding: 20px 26px; border: 0; border-radius: 8px; color: white; background: var(--forest); font: inherit; font-size: 18px; font-weight: 750; cursor: pointer; box-shadow: 7px 7px 0 var(--acid); transition: transform 140ms ease, box-shadow 140ms ease; }
-.component-stage > button:hover, .component-stage .composition button:hover { transform: translate(2px, 2px); box-shadow: 5px 5px 0 var(--acid); }
-.component-stage > button:active, .component-stage .composition button:active { transform: translate(6px, 6px); box-shadow: 1px 1px 0 var(--acid); }
 .component-stage p { max-width: 290px; margin: 34px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .component-stage p code { color: var(--forest); }
 .component-stage .greeting { padding: 22px 30px; border: 1px solid rgba(23,33,28,0.12); border-radius: 50%; background: rgba(255,255,255,0.55); box-shadow: 0 12px 30px rgba(78,41,29,0.09); }

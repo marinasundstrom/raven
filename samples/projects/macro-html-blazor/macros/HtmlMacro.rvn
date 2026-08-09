@@ -1,5 +1,6 @@
 import System.*
 import System.Collections.Immutable.*
+import System.IO.*
 import System.Text.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.*
@@ -94,7 +95,10 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
     }
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-        let parser = HtmlDslParser(context.GetBodyText(), context.Compilation)
+        let parser = HtmlDslParser(
+            context.GetBodyText(),
+            context.Compilation,
+            GetCssScope(context))
         let expansion = parser.Parse()
 
         if let errorMessage: string = expansion.ErrorMessage {
@@ -113,6 +117,24 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
         }
 
         FreestandingMacroExpansionResult.FromExpression(ParseExpression(expansion.ExpressionText))
+    }
+
+    private static func GetCssScope(context: TokenTreeMacroContext) -> string? {
+        let syntaxTree: SyntaxTree = context.Syntax.SyntaxTree else {
+            return null
+        }
+        let filePath = syntaxTree.FilePath
+        if String.IsNullOrWhiteSpace(filePath) {
+            return null
+        }
+
+        let key = "html.blazor.css-scope:${Path.GetFullPath(filePath)}"
+        let features = syntaxTree.Options.Features
+        if features.ContainsKey(key) {
+            return features[key]
+        }
+
+        null
     }
 }
 
@@ -173,6 +195,7 @@ class HtmlTypedExpressionTarget(
 class HtmlDslParser {
     private val _source: string
     private val _compilation: Compilation
+    private val _cssScope: string?
     private val _builder = StringBuilder()
     private var _embeddedExpressionSpans: ImmutableArray<TextSpan> = []
     private var _components: ImmutableArray<HtmlComponentReference> = []
@@ -184,9 +207,10 @@ class HtmlDslParser {
     private var _errorMessage: string? = null
     private var _errorPosition: int = 0
 
-    init(source: string, compilation: Compilation) {
+    init(source: string, compilation: Compilation, cssScope: string? = null) {
         _source = source
         _compilation = compilation
+        _cssScope = cssScope
     }
 
     func Parse() -> HtmlDslExpansion {
@@ -237,6 +261,9 @@ class HtmlDslParser {
             AppendOpenComponent(name)
         } else {
             AppendCall("OpenElement", "\"${Escape(name)}\"")
+            if let cssScope: string = _cssScope {
+                AppendAttribute(cssScope, "\"\"")
+            }
         }
         SkipWhitespace()
 

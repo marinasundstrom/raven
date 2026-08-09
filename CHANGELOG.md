@@ -158,6 +158,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `.razor.css` demonstrates that components instantiated from Raven templates
   retain Blazor's normal CSS-isolation pipeline.
 
+- Added evaluated `MacroOption` project items as a general immutable build-to-
+  macro configuration channel. The HTML-to-Blazor sample now uses it with the
+  Static Web Assets SDK to rewrite, bundle, publish, and apply isolated
+  `Counter.rvn.css` without generating Razor files or implementing a CSS parser.
+
 - Fixed workspace loading for compiler-plugin project references so the built
   plugin assembly is available as both a macro provider and an ordinary
   metadata reference. Macro libraries can now expose runtime helper types used

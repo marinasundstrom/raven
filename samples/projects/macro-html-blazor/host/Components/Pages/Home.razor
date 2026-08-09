@@ -34,15 +34,15 @@
                 <span class="section-number">01</span>
                 <h2>State, without ceremony</h2>
             </div>
-            <p>The event expression becomes a typed Blazor callback. Click it—the Raven component owns the state.</p>
+            <p>The Raven component owns its state and co-located CSS. Blazor's build pipeline scopes the stylesheet; the macro emits the matching element attribute.</p>
         </header>
 
         <div class="demo-grid">
             <article class="code-card">
                 <div class="card-bar">
                     <div class="traffic-lights"><i></i><i></i><i></i></div>
-                    <span>Counter.rvn</span>
-                    <span class="language-pill">RAVEN</span>
+                    <span>Counter.rvn + Counter.rvn.css</span>
+                    <span class="language-pill">RAVEN + CSS</span>
                 </div>
                 <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
 <span class="syntax-keyword">class</span> <span class="syntax-type">Counter</span> {
@@ -61,10 +61,16 @@
 
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
         <span class="syntax-macro">Html!</span> {
-            &lt;<span class="syntax-tag">button</span> <span class="syntax-property">onClick</span>={<span class="syntax-function">increment</span>}&gt;
+            &lt;<span class="syntax-tag">button</span> <span class="syntax-property">class</span>=<span class="syntax-string">"counter-button"</span> <span class="syntax-property">onClick</span>={<span class="syntax-function">increment</span>}&gt;
                 Count: {count}
             &lt;/<span class="syntax-tag">button</span>&gt;
         }
+}
+
+<span class="syntax-comment">/* Counter.rvn.css — rewritten and bundled by Blazor */</span>
+.<span class="syntax-property">counter-button</span> {
+    <span class="syntax-property">background</span>: <span class="syntax-keyword">var</span>(--forest);
+    <span class="syntax-property">box-shadow</span>: 7px 7px 0 <span class="syntax-keyword">var</span>(--acid);
 }</code></pre>
             </article>
 
@@ -74,7 +80,7 @@
                     <DynamicComponent Type="typeof(Counter)" Parameters="CounterParameters" />
                     <p>Each click crosses the generated <code>EventCallback</code>.</p>
                 </div>
-                <div class="preview-footer"><span></span> Interactive server renderer</div>
+                <div class="preview-footer"><span></span> Interactive renderer + scoped CSS</div>
             </article>
         </div>
     </section>

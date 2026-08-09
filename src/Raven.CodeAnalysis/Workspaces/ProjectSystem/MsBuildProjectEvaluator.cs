@@ -164,8 +164,21 @@ internal static class MsBuildProjectEvaluator
             : ParseFrameworkProjectionMode(
                 GetOptionalProperty(project, "FrameworkProjections") ??
                 GetOptionalProperty(project, "RavenFrameworkProjections"));
-        var parseOptions = new ParseOptions().WithPreprocessorSymbols(
-            ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
+        var macroOptions = project.GetItems("MacroOption")
+            .Select(item => new
+            {
+                Key = item.EvaluatedInclude.Trim(),
+                Value = item.GetMetadataValue("Value")
+            })
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Key))
+            .GroupBy(static item => item.Key, StringComparer.Ordinal)
+            .ToImmutableDictionary(
+                static group => group.Key,
+                static group => group.Last().Value,
+                StringComparer.Ordinal);
+        var parseOptions = new ParseOptions { Features = macroOptions }
+            .WithPreprocessorSymbols(
+                ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
             .WithAllowUnsafe(allowUnsafe)

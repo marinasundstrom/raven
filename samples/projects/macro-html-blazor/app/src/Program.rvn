@@ -12,14 +12,17 @@ func Main() {
     let counterFrames = counterBuilder.GetFrames()
 
     Require(counter is ComponentBase, "#[Component] must derive Counter from ComponentBase.")
-    Require(counterFrames.Count == 4, "Counter must emit four render-tree frames.")
+    Require(counterFrames.Count == 6, "Counter must emit element, scoped CSS, event, and content frames.")
     Require(counterFrames.Array[0].ElementName == "button", "Counter root must be a button.")
-    Require(counterFrames.Array[1].AttributeName == "onclick", "onClick must become Blazor's onclick event.")
-    Require(counterFrames.Array[2].TextContent == "Count: ", "Counter must retain its text content.")
-    Require(counterFrames.Array[3].TextContent == "0", "Counter must render its initial state.")
+    Require(counterFrames.Array[1].AttributeName == "b-htmlblazorsample-counter", "Counter must emit its build-provided CSS scope.")
+    Require(counterFrames.Array[2].AttributeName == "class", "Counter must emit its authored CSS class.")
+    Require(counterFrames.Array[2].AttributeValue.ToString() == "counter-button", "Counter CSS class must be preserved.")
+    Require(counterFrames.Array[3].AttributeName == "onclick", "onClick must become Blazor's onclick event.")
+    Require(counterFrames.Array[4].TextContent == "Count: ", "Counter must retain its text content.")
+    Require(counterFrames.Array[5].TextContent == "0", "Counter must render its initial state.")
 
     Require(
-        counterFrames.Array[1].AttributeValue.GetType() == typeof(EventCallback),
+        counterFrames.Array[3].AttributeValue.GetType() == typeof(EventCallback),
         "onclick must contain an EventCallback.")
     counter.increment()
 
@@ -27,7 +30,7 @@ func Main() {
     counter.Render()(updatedCounterBuilder)
     let updatedCounterFrames = updatedCounterBuilder.GetFrames()
     Require(
-        updatedCounterFrames.Array[3].TextContent == "1",
+        updatedCounterFrames.Array[5].TextContent == "1",
         "Invoking onclick must update Counter state.")
 
     let greeting = Greeting()
@@ -151,7 +154,7 @@ func Main() {
         foundStatusBadge && foundStatusBadgeLabel && foundStatusBadgeDetail,
         "An imported existing Blazor component and its parameters must resolve inside Html! markup.")
 
-    WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[3].TextContent}")
+    WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[5].TextContent}")
     WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")
     WriteLine("Gallery frames: ${galleryFrames.Count}; components: Greeting + Counter")
     WriteLine("Todo items: ${todoKeys.Count} open; ${filteredTodoCount} after toggle; 3 with completed")

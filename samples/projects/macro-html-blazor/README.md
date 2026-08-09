@@ -33,6 +33,9 @@ Supported by the prototype:
   namespace lookup and component frames as Raven-authored components;
 - qualified component tags such as `<ExistingBlazorComponents.StatusBadge>`,
   with the terminal type name and parameters retaining ordinary symbol tooling;
+- Raven component CSS isolation through explicit `RavenComponentCss` project
+  items, Blazor's existing Static Web Assets pipeline, and build-provided scope
+  attributes emitted by `Html!`;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - component `EventCallback` and `EventCallback<T>` parameters accepting callback
@@ -68,6 +71,7 @@ app/src/
 ├── Components/
 │   ├── BlazorInteropShowcase.rvn
 │   ├── Counter.rvn
+│   ├── Counter.rvn.css
 │   ├── Gallery.rvn
 │   ├── Greeting.rvn
 │   ├── MatchShowcase.rvn
@@ -106,6 +110,14 @@ The interop scenario imports a conventional Razor component from a referenced
 Blazor component frame. `StatusBadge.razor.css` is processed by Blazor's normal
 CSS-isolation pipeline; the host links its generated `.styles.css` bundle just
 as an ordinary Blazor application does.
+
+`Counter.rvn.css` demonstrates the Raven side of the same pipeline. The project
+declares one stable scope through `RavenComponentCss`; the sample target
+registers the stylesheet with Microsoft's `ScopedCssInput` processing and
+projects that identical value as a source-file macro option. `Html!` adds the
+scope attribute to ordinary element frames, while the Static Web Assets SDK
+rewrites, bundles, fingerprints, and publishes the CSS. No CSS parser or
+bundler is implemented by Raven or the macro.
 
 Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 
@@ -150,10 +162,12 @@ TextMate/Oniguruma/Monaco pipeline remains outside this thin sample host.
 
 ## Planned follow-up work
 
-The CSS composition example deliberately uses normal Razor CSS isolation on
-`StatusBadge`; the HTML macro does not parse, bundle, or scope CSS. A later
-JavaScript interop example should likewise use Blazor's existing `IJSRuntime`
-and module model rather than introduce a mechanism owned by the HTML macro.
+The CSS composition examples use normal Razor isolation for `StatusBadge` and
+the same Static Web Assets machinery for Raven's `Counter`. The sample targets
+are intentionally local until this integration can be distributed as a
+library. A later JavaScript interop example should likewise use Blazor's
+existing `IJSRuntime` and module model rather than introduce a mechanism owned
+by the HTML macro.
 
 ## Editor-readiness fixture
 

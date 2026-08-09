@@ -89,6 +89,40 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void Evaluate_ProjectsMacroOptionsIntoParseOptions()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <MacroOption Include="sample.theme" Value="light" />
+                    <MacroOption Include="sample.theme" Value="dark" />
+                    <MacroOption Include="sample.scope" Value="b-sample" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var evaluation = MsBuildProjectEvaluator.Evaluate(
+                projectPath,
+                RavenProjectConventions.Default);
+
+            Assert.Equal("dark", evaluation.ParseOptions.Features["sample.theme"]);
+            Assert.Equal("b-sample", evaluation.ParseOptions.Features["sample.scope"]);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void Evaluate_RavenMacroProjectItem_ReportsProjectReferenceMigration()
     {
         var root = CreateTempDirectory();

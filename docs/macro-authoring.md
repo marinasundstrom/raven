@@ -428,6 +428,29 @@ do not need the macro's syntax-tree representation.
 An explicit DSL token-symbol association takes precedence over semantic
 inference from a broader embedded Raven fragment containing the same position.
 
+### Evaluated build options
+
+MSBuild projects can provide immutable macro configuration through evaluated
+`MacroOption` items:
+
+```xml
+<ItemGroup>
+  <MacroOption Include="sample.theme" Value="dark" />
+</ItemGroup>
+```
+
+The compiler projects these items into `SyntaxTree.Options.Features`, using the
+item identity as the key and its `Value` metadata as the value. When duplicate
+keys are evaluated, the last item wins. Because the normal project evaluator
+owns this projection, command-line builds and project-backed language-server
+snapshots observe the same values.
+
+This channel is appropriate for small, deterministic build facts that affect a
+macro expansion. For example, the HTML/Blazor sample maps a component source
+file to the CSS scope selected by MSBuild. It is not a replacement for a DSL's
+private parser, and macros should not use it to expose their internal trees or
+to read mutable build outputs from `obj`.
+
 ## Working examples
 
 The repository examples progress from compact syntax to full DSL handling:

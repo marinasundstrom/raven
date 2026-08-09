@@ -17,7 +17,7 @@ public class Counter {
 
     func Render() -> RenderFragment =>
         Html! {
-            <button onClick={increment}>
+            <button class="counter-button" onClick={increment}>
                 Count: {count}
             </button>
         }

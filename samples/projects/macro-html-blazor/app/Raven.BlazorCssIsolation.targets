@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <ResolveScopedCssOutputsDependsOn>ComputeCssScope;$(ResolveScopedCssOutputsDependsOn)</ResolveScopedCssOutputsDependsOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ScopedCssInput Include="@(RavenComponentCss)" />
+    <MacroOption Include="@(RavenComponentCss->'html.blazor.css-scope:%(ComponentSource)')">
+      <Value>%(CssScope)</Value>
+    </MacroOption>
+  </ItemGroup>
+</Project>

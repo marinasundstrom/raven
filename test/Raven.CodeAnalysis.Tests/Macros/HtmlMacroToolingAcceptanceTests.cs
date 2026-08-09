@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -214,6 +215,39 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var diagnostic = Assert.Single(invalidExpansion?.MacroDiagnostics ?? []);
         Assert.Equal("HTML001", diagnostic.Code);
         Assert.Contains("empty segments", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CheckedInHtmlMacro_AppliesBuildProvidedCssScopeToElements()
+    {
+        var macroReference = CreateCheckedInHtmlMacroReference();
+        var sourcePath = Path.GetFullPath("scoped-component.rvn");
+        var featureKey = $"html.blazor.css-scope:{sourcePath}";
+        var parseOptions = new ParseOptions
+        {
+            Features = new Dictionary<string, string>
+            {
+                [featureKey] = "b-scoped-component"
+            }
+        };
+        const string source = """
+            class ScopedComponent {
+                func Render() => Html! {
+                    <section><span>Scoped</span></section>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, parseOptions, path: sourcePath);
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
+        var expansionText = Assert.IsAssignableFrom<ExpressionSyntax>(expansion?.Expression).ToString();
+
+        Assert.Equal(2, CountOccurrences(expansionText, "\"b-scoped-component\", \"\""));
     }
 
     [Fact]
