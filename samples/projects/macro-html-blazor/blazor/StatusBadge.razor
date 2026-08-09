@@ -1,0 +1,15 @@
+@namespace ExistingBlazorComponents
+
+<aside class="framework-badge">
+    <span class="framework-badge-origin">Existing Razor component</span>
+    <strong>@Label</strong>
+    <p>@Detail</p>
+</aside>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public string Detail { get; set; } = "";
+}

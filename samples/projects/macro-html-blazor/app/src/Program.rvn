@@ -3,6 +3,7 @@ import System.Collections.Generic.*
 import Microsoft.AspNetCore.Components.*
 import Microsoft.AspNetCore.Components.Rendering.*
 import Microsoft.AspNetCore.Components.RenderTree.*
+import ExistingBlazorComponents.*
 
 func Main() {
     let counter = Counter()
@@ -125,11 +126,37 @@ func Main() {
         CountText(advancedMatchFrames.Array, advancedMatchFrames.Count, "Compiling Blazor") == 1,
         "Changing union state must re-evaluate and destructure the prefix match.")
 
+    let interopShowcase = BlazorInteropShowcase()
+    use interopBuilder = RenderTreeBuilder()
+    interopShowcase.Render()(interopBuilder)
+    let interopFrames = interopBuilder.GetFrames()
+    var foundStatusBadge = false
+    var foundStatusBadgeLabel = false
+    var foundStatusBadgeDetail = false
+
+    for index in 0..<interopFrames.Count {
+        let frame = interopFrames.Array[index]
+        if frame.ComponentType == typeof(StatusBadge) {
+            foundStatusBadge = true
+        }
+        if frame.AttributeName == "Label" && frame.AttributeValue.ToString() == "Blazor component, Raven template" {
+            foundStatusBadgeLabel = true
+        }
+        if frame.AttributeName == "Detail" && frame.AttributeValue.ToString() == "Resolved through an ordinary namespace import." {
+            foundStatusBadgeDetail = true
+        }
+    }
+
+    Require(
+        foundStatusBadge && foundStatusBadgeLabel && foundStatusBadgeDetail,
+        "An imported existing Blazor component and its parameters must resolve inside Html! markup.")
+
     WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[3].TextContent}")
     WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")
     WriteLine("Gallery frames: ${galleryFrames.Count}; components: Greeting + Counter")
     WriteLine("Todo items: ${todoKeys.Count} open; ${filteredTodoCount} after toggle; 3 with completed")
     WriteLine("Prefix match union state after advance: Compiling Blazor")
+    WriteLine("Blazor interop: imported StatusBadge component frame")
 }
 
 func CountTodoItems(frames: RenderTreeFrame[], frameCount: int) -> int {

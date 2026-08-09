@@ -29,6 +29,8 @@ Supported by the prototype:
   compiler's classified token-stream API;
 - component tag identifiers resolved to their ordinary Raven component symbols
   for normal hover and go-to-definition;
+- imported component types from referenced Blazor projects, using the same
+  namespace lookup and component frames as Raven-authored components;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - component `EventCallback` and `EventCallback<T>` parameters accepting callback
@@ -62,6 +64,7 @@ of a normal component project:
 app/src/
 ├── Program.rvn
 ├── Components/
+│   ├── BlazorInteropShowcase.rvn
 │   ├── Counter.rvn
 │   ├── Gallery.rvn
 │   ├── Greeting.rvn
@@ -71,6 +74,10 @@ app/src/
 └── Models/
     ├── BuildStage.rvn
     └── Todo.rvn
+
+blazor/
+├── ExistingBlazorComponents.csproj
+└── StatusBadge.razor
 ```
 
 `Program.rvn` contains only the executable render-tree verification. Component
@@ -91,6 +98,9 @@ emit, keyed list rendering, and runtime execution without requiring a web host.
 The match scenario uses the canonical prefix form over a closed union,
 destructures each case payload directly into rendered text, advances the
 component state, and verifies that the expression is re-evaluated.
+The interop scenario imports a conventional Razor component from a referenced
+.NET project, instantiates it in `Html!`, and verifies the resulting native
+Blazor component frame.
 
 Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 
@@ -119,16 +129,31 @@ dotnet run --project host/HtmlBlazorShowcase.csproj
 ```
 
 The host is deliberately thin C#/Razor infrastructure. Its live Counter,
-Greeting, Gallery, Todo, and Match instances are public component classes
-authored in Raven and expanded by the sample macros. The Todo preview uses a
-checkbox to update the parent model through an ordinary Blazor `EventCallback`;
-the filtered comprehension then produces the next set of keyed components.
+Greeting, Gallery, Todo, Match, and interop showcases are public component
+classes authored in Raven and expanded by the sample macros. The interop
+showcase renders `StatusBadge`, an ordinary component authored in a `.razor`
+file and resolved through `import ExistingBlazorComponents.*`. The Todo preview
+uses a checkbox to update the parent model through an ordinary Blazor
+`EventCallback`; the filtered comprehension then produces the next set of
+keyed components.
 
-The showcase's four fixed source listings use static semantic spans and no
+The showcase's five fixed source listings use static semantic spans and no
 highlighting runtime. Any future editable or generated listing should consume
 `src/Raven.VSCode/syntaxes/raven.tmLanguage.json` through the repository's
 existing TextMate integration instead of adding another Raven tokenizer. The
 TextMate/Oniguruma/Monaco pipeline remains outside this thin sample host.
+
+## Planned follow-up work
+
+Qualified component tag names are the next macro/tooling slice, including
+binding and editor symbol mapping. They complete the authoring model but do not
+need a separate showcase section.
+
+Later composition examples should remain separate so each teaches one ordinary
+Blazor application technique: one for CSS through normal component styling and
+asset conventions, and one for JavaScript interop through Blazor's existing
+`IJSRuntime` and module model. These examples should reuse Blazor rather than
+introducing CSS or JavaScript mechanisms owned by the HTML macro.
 
 ## Editor-readiness fixture
 

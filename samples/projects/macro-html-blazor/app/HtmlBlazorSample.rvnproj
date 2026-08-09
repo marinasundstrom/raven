@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../macros/HtmlBlazorMacros.rvnproj" />
+    <ProjectReference Include="../blazor/ExistingBlazorComponents.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 </Project>

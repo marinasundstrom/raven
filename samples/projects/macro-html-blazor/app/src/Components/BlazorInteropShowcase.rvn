@@ -1,0 +1,14 @@
+import Microsoft.AspNetCore.Components.*
+import ExistingBlazorComponents.*
+
+#[Component]
+public class BlazorInteropShowcase {
+    func Render() -> RenderFragment =>
+        Html! {
+            <section class="interop-board">
+                <StatusBadge
+                    Label="Blazor component, Raven template"
+                    Detail="Resolved through an ordinary namespace import." />
+            </section>
+        }
+}
