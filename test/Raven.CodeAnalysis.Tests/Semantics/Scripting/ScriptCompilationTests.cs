@@ -64,8 +64,9 @@ public sealed class ScriptCompilationTests : CompilationTestBase
             .Single(identifier => identifier.Identifier.ValueText == "value");
         var referencedValue = second.GetSemanticModel(secondTree).GetSymbolInfo(valueReference).Symbol;
 
-        Assert.Same(declaredValue, referencedValue);
-        Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<ILocalSymbol>(referencedValue).Type.SpecialType);
+        var submissionVariable = Assert.IsType<SubmissionVariableSymbol>(referencedValue);
+        Assert.Same(declaredValue, submissionVariable.OriginalVariable);
+        Assert.Equal(SpecialType.System_Int32, submissionVariable.Type.SpecialType);
     }
 
     [Fact]

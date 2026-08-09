@@ -82,6 +82,7 @@ public partial class Compilation
     private ImmutableArray<Diagnostic> _generatorDiagnostics = ImmutableArray<Diagnostic>.Empty;
     private readonly object _submissionDeclarationsGate = new();
     private ImmutableArray<ISymbol> _visibleSubmissionDeclarations;
+    private readonly Dictionary<ILocalSymbol, SubmissionVariableSymbol> _submissionVariables = new(SymbolEqualityComparer.Default);
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -823,6 +824,25 @@ public partial class Compilation
         => ScriptCompilationInfo?.PreviousScriptCompilation?.GetVisibleSubmissionDeclarations()
             ?? ImmutableArray<ISymbol>.Empty;
 
+    internal bool TryGetSubmissionVariable(ILocalSymbol local, out SubmissionVariableSymbol variable)
+    {
+        if (!IsSubmission)
+        {
+            variable = null!;
+            return false;
+        }
+
+        _ = GetVisibleSubmissionDeclarations();
+        return _submissionVariables.TryGetValue(local, out variable!);
+    }
+
+    internal int SubmissionVariableCount
+        => GetVisibleSubmissionDeclarations()
+            .OfType<SubmissionVariableSymbol>()
+            .Select(static variable => variable.Slot + 1)
+            .DefaultIfEmpty()
+            .Max();
+
     internal bool IsPreviousSubmissionAssembly(IAssemblySymbol? assembly)
     {
         if (assembly is null)
@@ -851,11 +871,16 @@ public partial class Compilation
 
             var values = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
             var functions = new List<IMethodSymbol>();
+            var nextVariableSlot = 0;
 
             if (ScriptCompilationInfo?.PreviousScriptCompilation is { } previous)
             {
                 foreach (var declaration in previous.GetVisibleSubmissionDeclarations())
+                {
                     AddDeclaration(declaration);
+                    if (declaration is SubmissionVariableSymbol previousVariable)
+                        nextVariableSlot = Math.Max(nextVariableSlot, previousVariable.Slot + 1);
+                }
             }
 
             foreach (var syntaxTree in SyntaxTrees)
@@ -871,7 +896,11 @@ public partial class Compilation
                             foreach (var declarator in localDeclaration.Declaration.Declarators)
                             {
                                 if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
-                                    AddDeclaration(local);
+                                {
+                                    var variable = new SubmissionVariableSymbol(local, nextVariableSlot++);
+                                    _submissionVariables.Add(local, variable);
+                                    AddDeclaration(variable);
+                                }
                             }
                             break;
 

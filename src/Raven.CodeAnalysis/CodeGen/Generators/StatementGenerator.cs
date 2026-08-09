@@ -1449,12 +1449,14 @@ internal class StatementGenerator : Generator
                     ILGenerator.Emit(OpCodes.Pop);
                     ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
                     ILGenerator.Emit(OpCodes.Initobj, localClr);
+                    EmitSubmissionVariableStore(localSymbol, localBuilder);
                     return;
                 }
 
                 if (expressionType is NullableTypeSymbol)
                 {
                     ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+                    EmitSubmissionVariableStore(localSymbol, localBuilder);
                     return;
                 }
 
@@ -1466,6 +1468,7 @@ internal class StatementGenerator : Generator
 
                 var ctor = GetNullableConstructor(localClr, underlyingClr);
                 ILGenerator.Emit(OpCodes.Call, ctor);
+                EmitSubmissionVariableStore(localSymbol, localBuilder);
                 return;
             }
 
@@ -1492,6 +1495,7 @@ internal class StatementGenerator : Generator
             }
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+            EmitSubmissionVariableStore(localSymbol, localBuilder);
             return;
         }
 
@@ -1502,6 +1506,20 @@ internal class StatementGenerator : Generator
         // to satisfy IL verification in all control-flow shapes.
         ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
         ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(localSymbol.Type));
+        EmitSubmissionVariableStore(localSymbol, localBuilder);
+    }
+
+    private void EmitSubmissionVariableStore(ILocalSymbol localSymbol, IILocal localBuilder)
+    {
+        if (!Compilation.TryGetSubmissionVariable(localSymbol, out var submissionVariable))
+            return;
+
+        ILGenerator.Emit(OpCodes.Ldc_I4, submissionVariable.Slot);
+        ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+        var setMethod = typeof(Scripting.SubmissionRuntime)
+            .GetMethod(nameof(Scripting.SubmissionRuntime.Set), BindingFlags.Public | BindingFlags.Static)!
+            .MakeGenericMethod(ResolveClrType(localSymbol.Type));
+        ILGenerator.Emit(OpCodes.Call, setMethod);
     }
 
     private void EmitFixedDeclarator(ILocalSymbol localSymbol, IILocal? localBuilder, BoundVariableDeclarator declarator)

@@ -93,6 +93,21 @@ boundary first; the next compiler slice must replace the provisional source
 symbols returned from earlier submissions with emitted submission members and
 lower cross-submission accesses through their storage representation.
 
+The first executable representation uses typed state cells. Each submission
+variable has a stable slot, the declaring submission stores its value after
+initialization or assignment, and later submissions load and update that slot
+through `SubmissionRuntime`. The runtime scope is ambient and async-flow-aware,
+but is entered and owned by the future `ScriptState` host API. All related
+code-generation hooks are gated by `Compilation.IsSubmission`; ordinary
+top-level programs continue to use normal locals exclusively.
+
+This cell representation proves continuation semantics without rerunning prior
+side effects. Cross-submission function and custom-type emission remain the next
+compiler slice because Raven's Reflection.Emit backend cannot resolve source
+member builders owned by an earlier compilation. That must be solved through a
+real emitted-submission reference or an equivalent compiler-owned member
+representation, not runtime reflection hidden in the binder.
+
 ## Execution model
 
 `Script.RunAsync` executes a chain from its beginning. Continuing an already

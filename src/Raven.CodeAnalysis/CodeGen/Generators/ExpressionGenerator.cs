@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Scripting;
 using Raven.CodeAnalysis.Symbols;
 
 using static Raven.CodeAnalysis.CodeGen.DebugUtils;
@@ -2153,6 +2154,16 @@ internal partial class ExpressionGenerator : Generator
     }
     private EmitInfo EmitLocalAccess(BoundLocalAccess localAccess, EmitContext context)
     {
+        if (localAccess.Local is SubmissionVariableSymbol submissionVariable)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4, submissionVariable.Slot);
+            var getMethod = typeof(SubmissionRuntime)
+                .GetMethod(nameof(SubmissionRuntime.Get), BindingFlags.Public | BindingFlags.Static)!
+                .MakeGenericMethod(ResolveClrType(submissionVariable.Type));
+            ILGenerator.Emit(OpCodes.Call, getMethod);
+            return EmitInfo.ForValue(submissionVariable);
+        }
+
         if (_carrierPayloadSymbol is not null &&
             _carrierPayloadLocal is not null &&
             SymbolEqualityComparer.Default.Equals(localAccess.Local, _carrierPayloadSymbol))
@@ -4984,6 +4995,12 @@ internal partial class ExpressionGenerator : Generator
         switch (assignmentExpression)
         {
             case BoundLocalAssignmentExpression localAssignmentExpression:
+                if (localAssignmentExpression.Local is SubmissionVariableSymbol submissionVariable)
+                {
+                    EmitSubmissionVariableAssignment(submissionVariable, localAssignmentExpression.Right, preserveResult);
+                    break;
+                }
+
                 if (TryEmitCapturedAssignment(localAssignmentExpression.Local, localAssignmentExpression.Right))
                     break;
 
@@ -5010,6 +5027,9 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Dup);
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+
+                if (Compilation.TryGetSubmissionVariable(localAssignmentExpression.Local, out var currentSubmissionVariable))
+                    EmitSubmissionVariableStore(currentSubmissionVariable, localBuilder);
                 break;
 
             case BoundParameterAssignmentExpression parameterAssignmentExpression:
@@ -5293,6 +5313,42 @@ internal partial class ExpressionGenerator : Generator
 
         if (preserveResult && assignmentExpression.Type?.SpecialType == SpecialType.System_Unit)
             EmitUnitValue();
+    }
+
+    private void EmitSubmissionVariableAssignment(
+        SubmissionVariableSymbol variable,
+        BoundExpression value,
+        bool preserveResult)
+    {
+        EmitRequiredValue(value);
+
+        if (value.Type is not null &&
+            !SymbolEqualityComparer.Default.Equals(value.Type, variable.Type))
+        {
+            var conversion = Compilation.ClassifyConversion(value.Type, variable.Type);
+            if (conversion.Exists && !conversion.IsIdentity)
+                EmitConversion(value.Type, variable.Type, conversion);
+        }
+
+        var temporary = ILGenerator.DeclareLocal(ResolveClrType(variable.Type));
+        ILGenerator.Emit(OpCodes.Stloc, temporary);
+        EmitSubmissionVariableStore(variable, temporary);
+
+        if (preserveResult &&
+            variable.Type.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, temporary);
+        }
+    }
+
+    private void EmitSubmissionVariableStore(SubmissionVariableSymbol variable, IILocal value)
+    {
+        ILGenerator.Emit(OpCodes.Ldc_I4, variable.Slot);
+        ILGenerator.Emit(OpCodes.Ldloc, value);
+        var setMethod = typeof(SubmissionRuntime)
+            .GetMethod(nameof(SubmissionRuntime.Set), BindingFlags.Public | BindingFlags.Static)!
+            .MakeGenericMethod(ResolveClrType(variable.Type));
+        ILGenerator.Emit(OpCodes.Call, setMethod);
     }
 
     private void EmitParameterAssignmentExpression(BoundParameterAssignmentExpression node, bool preserveResult)

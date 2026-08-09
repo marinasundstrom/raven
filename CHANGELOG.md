@@ -10,6 +10,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   top-level lexical scope; execution storage and lowering will follow in a
   separate slice.
 
+- Script submissions now persist top-level variable values in typed execution
+  slots. Later submissions can read and update those values without rerunning
+  earlier submission bodies; the storage code path is inactive for ordinary
+  files and projects.
+
 - Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
   source. Hosts can distinguish complete submissions, trailing incomplete
   constructs that need more input, and complete submissions with syntax errors.
