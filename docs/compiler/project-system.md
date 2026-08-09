@@ -15,7 +15,8 @@ rvn init
 Primary MSBuild properties Raven currently consumes:
 
 - `TargetFramework`
-- `TargetFrameworks` (first TFM is used for now)
+- `TargetFrameworks` (the active inner-build TFM is honored; standalone
+  workspace evaluation uses the first TFM when no target is requested)
 - `AssemblyName`
 - `OutputType` (`Exe` or `Library`)
 - `AllowUnsafeBlocks` or `AllowUnsafe`
@@ -253,7 +254,7 @@ Dependency copy details:
 
 For project builds, Raven can generate intermediate Raven source files under:
 
-- `<project-dir>/obj/<Configuration>/raven/generated/`
+- `<project-dir>/obj/<Configuration>/<TargetFramework>/raven/generated/`
 
 Current generated source:
 
@@ -373,6 +374,40 @@ C# and other SDK projects can reference a Raven project with normal
   <ProjectReference Include="..\raven\RavenGreeter.rvnproj" />
 </ItemGroup>
 ```
+
+## Remaining C# project-system parity work
+
+The `.rvnproj` authoring model now uses the same standard properties and items
+as an SDK-style C# project for sources, references, target frameworks, output
+type, configuration, incremental build, clean, and project references. Raven's
+language-specific behavior remains opt-in through Raven properties and items.
+
+The main remaining gap is distribution of the build integration. Projects in
+this repository work because `Directory.Build.props` assigns
+`Raven.Language.targets` to `LanguageTargets`. A standalone project currently
+needs the explicit `LanguageTargets`/`RavenCompilerHost` setup shown above. The
+next project-system rewrite should package Raven as a resolvable MSBuild SDK
+with conventional `Sdk.props` and `Sdk.targets`, so a project can select Raven
+without machine-specific paths and build directly with `dotnet build`.
+
+That SDK rewrite should also own these currently reduced or custom behaviors:
+
+- design-time build targets and IDE capability metadata beyond the current
+  language/project capability declarations;
+- proper reference-assembly production instead of copying the implementation
+  assembly into the reference-assembly slot;
+- compiler invocation through a dedicated MSBuild task or tool contract rather
+  than a monolithic `Exec` command line;
+- standard SDK dependency and publish item flow, replacing Raven's custom
+  runtime-dependency manifest reconciliation where the normal SDK items can
+  represent the same information;
+- a single evaluated-project snapshot contract shared by command-line builds
+  and workspace/LSP loading, avoiding duplicate project evaluation and fallback
+  restore logic.
+
+These are targets/SDK implementation concerns. They should not add source lists
+or Raven-specific replacements for standard MSBuild properties back into user
+project files.
 
 ## Workspace and project-system services
 

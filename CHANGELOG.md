@@ -36,6 +36,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   explicit `Compile` list. Raven.Core now uses the same implicit source-item
   behavior as other SDK-style Raven projects.
 
+- Documented the remaining MSBuild parity boundary: Raven still needs a
+  distributable MSBuild SDK with conventional props/targets, stronger
+  design-time and reference-assembly support, and less custom dependency flow.
+
 - Raven's MSBuild compile target now preserves the active `Configuration` and
   inner-build `TargetFramework` when `rvnc` evaluates a project, including its
   project references and compiler plugins. Multi-targeted Release builds no
