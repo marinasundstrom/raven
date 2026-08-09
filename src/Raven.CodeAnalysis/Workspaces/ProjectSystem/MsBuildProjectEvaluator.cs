@@ -181,6 +181,11 @@ internal static class MsBuildProjectEvaluator
         if (returnedValueHandling is { } returnedValueHandlingMode)
             compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);
 
+        compilationOptions = EditorConfigDiagnosticOptions.ApplyDiagnosticSeverityOptions(
+            compilationOptions,
+            projectFilePath,
+            documents.Select(static document => document.FilePath));
+
         var intermediateOutputPath = project.GetPropertyValue("IntermediateOutputPath");
         var generatedSourceDirectory = GetGeneratedSourceDirectory(projectDirectory, intermediateOutputPath, configuration, conventions);
         var name = GetProjectName(project, projectFilePath);

@@ -176,7 +176,7 @@ func GetValue() -> int {
 
         try
         {
-            var projectPath = Path.Combine(dir, "App.ravenproj");
+            var projectPath = Path.Combine(dir, "App.rvnproj");
             var sourcePath = Path.Combine(dir, "main.rvn");
             var editorConfigPath = Path.Combine(dir, ".editorconfig");
 
@@ -194,8 +194,11 @@ func Main() {
 
             File.WriteAllText(projectPath,
                 """
-<Project Name="App" TargetFramework="net10.0" Output="App">
-  <Document Path="main.rvn" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+  </PropertyGroup>
 </Project>
 """);
 
@@ -241,15 +244,18 @@ dotnet_diagnostic.RAV9014.severity = none
 
         try
         {
-            var projectPath = Path.Combine(dir, "App.ravenproj");
+            var projectPath = Path.Combine(dir, "App.rvnproj");
             var sourcePath = Path.Combine(dir, "main.rvn");
             var editorConfigPath = Path.Combine(dir, ".editorconfig");
 
             File.WriteAllText(sourcePath, "TODO");
             File.WriteAllText(projectPath,
                 """
-<Project Name="App" TargetFramework="net10.0" Output="App">
-  <Document Path="main.rvn" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+  </PropertyGroup>
 </Project>
 """);
             File.WriteAllText(editorConfigPath,

@@ -34,6 +34,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   target framework reference assemblies, so package-only projects no longer
   trigger a redundant restore.
 
+- MSBuild-backed `.rvnproj` workspace evaluation now applies `.editorconfig`
+  diagnostic severity and suppression settings to compilation options.
+
 - Fixed Raven MSBuild incrementality so unchanged projects skip `CoreCompile`.
   Logical package and framework-reference names are no longer treated as input
   file paths; their resolved assemblies remain tracked through `ReferencePath`.
