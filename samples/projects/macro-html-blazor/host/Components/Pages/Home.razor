@@ -47,12 +47,12 @@
                 <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
 <span class="syntax-keyword">class</span> <span class="syntax-type">Counter</span> {
     <span class="syntax-attribute">#[Parameter]</span>
-    <span class="syntax-keyword">var</span> initialCount: <span class="syntax-type">int</span> = <span class="syntax-number">0</span>
+    <span class="syntax-keyword">var</span> InitialCount: <span class="syntax-type">int</span> = <span class="syntax-number">0</span>
 
     <span class="syntax-keyword">var</span> count: <span class="syntax-type">int</span> = <span class="syntax-number">0</span>
 
     <span class="syntax-keyword">protected override func</span> <span class="syntax-function">OnInitialized</span>() {
-        count = initialCount
+        count = InitialCount
     }
 
     <span class="syntax-keyword">func</span> <span class="syntax-function">increment</span>() {
@@ -109,8 +109,8 @@
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
         <span class="syntax-macro">Html!</span> {
             &lt;<span class="syntax-tag">div</span> <span class="syntax-property">class</span>=<span class="syntax-string">"composition"</span>&gt;
-                &lt;<span class="syntax-type">Greeting</span> <span class="syntax-property">name</span>=<span class="syntax-string">"Raven"</span> /&gt;
-                &lt;<span class="syntax-type">Counter</span> <span class="syntax-property">initialCount</span>={<span class="syntax-number">3</span>} /&gt;
+                &lt;<span class="syntax-type">Greeting</span> <span class="syntax-property">Name</span>=<span class="syntax-string">"Raven"</span> /&gt;
+                &lt;<span class="syntax-type">Counter</span> <span class="syntax-property">InitialCount</span>={<span class="syntax-number">3</span>} /&gt;
             &lt;/<span class="syntax-tag">div</span>&gt;
         }
 }</code></pre>
@@ -147,9 +147,9 @@
                     <span class="syntax-macro">Html!</span> {
                         &lt;<span class="syntax-type">TodoItem</span>
                             <span class="syntax-property">key</span>={todo.Id}
-                            <span class="syntax-property">title</span>={todo.Title}
-                            <span class="syntax-property">isCompleted</span>={todo.IsCompleted}
-                            <span class="syntax-property">toggled</span>={<span class="syntax-function">toggleCallback</span>(todo.Id)} /&gt;
+                            <span class="syntax-property">Title</span>={todo.Title}
+                            <span class="syntax-property">IsCompleted</span>={todo.IsCompleted}
+                            <span class="syntax-property">Toggled</span>={<span class="syntax-function">toggleCallback</span>(todo.Id)} /&gt;
                     }]}
             &lt;/<span class="syntax-tag">ul</span>&gt;
         }
@@ -231,7 +231,7 @@
 @code {
     private static readonly Dictionary<string, object?> CounterParameters = new()
     {
-        ["initialCount"] = 7,
+        ["InitialCount"] = 7,
     };
 
 }
