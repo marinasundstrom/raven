@@ -4987,6 +4987,16 @@ internal partial class ExpressionGenerator : Generator
         switch (assignmentExpression)
         {
             case BoundLocalAssignmentExpression localAssignmentExpression:
+                if (localAssignmentExpression.Local is SubmissionResultSymbol submissionResult)
+                {
+                    EmitRequiredValue(localAssignmentExpression.Right);
+                    _ = SubmissionCodeGenerator.TryEmitResultStore(
+                        this,
+                        submissionResult,
+                        submissionResult.Type);
+                    break;
+                }
+
                 if (localAssignmentExpression.Local is SubmissionVariableSymbol submissionVariable)
                 {
                     EmitSubmissionVariableAssignment(submissionVariable, localAssignmentExpression.Right, preserveResult);

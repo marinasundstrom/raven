@@ -91,6 +91,8 @@ class TopLevelBinder : BlockBinder
                 boundStatements.Add(BindStatement(stmt.Statement));
         }
 
+        CaptureSubmissionResult(globalStatements, boundStatements);
+
         var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
         foreach (var stmt in globalStatements)
         {
@@ -107,6 +109,29 @@ class TopLevelBinder : BlockBinder
         var block = new BoundBlockStatement(boundStatements, localsToDispose.ToImmutable());
         CacheBoundNode(_compilationUnit, block);
         _globalStatementsBound = true;
+    }
+
+    private void CaptureSubmissionResult(
+        IReadOnlyList<GlobalStatementSyntax> syntaxStatements,
+        IList<BoundStatement> boundStatements)
+    {
+        if (!Compilation.IsSubmission ||
+            syntaxStatements.Count == 0 ||
+            syntaxStatements[^1].Statement is not ExpressionStatementSyntax ||
+            boundStatements[^1] is not BoundExpressionStatement expressionStatement ||
+            expressionStatement.Expression.Type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+        {
+            return;
+        }
+
+        var result = new SubmissionResultSymbol(expressionStatement.Expression.Type, _scriptMethod);
+        var resultAccess = new BoundLocalAccess(result);
+        var assignment = new BoundLocalAssignmentExpression(
+            result,
+            resultAccess,
+            expressionStatement.Expression,
+            Compilation.UnitTypeSymbol);
+        boundStatements[^1] = new BoundExpressionStatement(assignment);
     }
 
     private void ApplyInferredTopLevelReturnTypes(IReadOnlyList<GlobalStatementSyntax> globalStatements)

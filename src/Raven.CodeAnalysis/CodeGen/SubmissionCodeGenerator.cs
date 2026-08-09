@@ -42,6 +42,20 @@ internal static class SubmissionCodeGenerator
         return true;
     }
 
+    internal static bool TryEmitResultStore(
+        Generator generator,
+        ILocalSymbol local,
+        ITypeSymbol resultType)
+    {
+        if (local is not SubmissionResultSymbol)
+            return false;
+
+        generator.ILGenerator.Emit(OpCodes.Call, GetRuntimeMethod(
+            nameof(SubmissionRuntime.SetResult),
+            generator.ResolveClrType(resultType)));
+        return true;
+    }
+
     internal static void EmitVariableStore(
         Generator generator,
         SubmissionVariableSymbol variable,

@@ -14,7 +14,7 @@ namespace Raven.CodeAnalysis.Scripting;
 [EditorBrowsable(EditorBrowsableState.Never)]
 public static class SubmissionRuntime
 {
-    private static readonly AsyncLocal<object?[]?> s_currentVariables = new();
+    private static readonly AsyncLocal<SubmissionContext?> s_currentContext = new();
 
     /// <summary>
     /// Enters an execution scope backed by the specified submission variables.
@@ -23,8 +23,8 @@ public static class SubmissionRuntime
     public static IDisposable Enter(object?[] variables)
     {
         ArgumentNullException.ThrowIfNull(variables);
-        var previous = s_currentVariables.Value;
-        s_currentVariables.Value = variables;
+        var previous = s_currentContext.Value;
+        s_currentContext.Value = new SubmissionContext(variables);
         return new Scope(previous);
     }
 
@@ -42,13 +42,41 @@ public static class SubmissionRuntime
     public static void Set<T>(int slot, T value)
         => GetVariables()[slot] = value;
 
+    /// <summary>
+    /// Stores the value produced by the trailing expression of a submission.
+    /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static void SetResult<T>(T value)
+    {
+        var context = GetContext();
+        context.Result = value;
+        context.HasResult = true;
+    }
+
+    internal static bool TryGetResult(out object? result)
+    {
+        var context = GetContext();
+        result = context.Result;
+        return context.HasResult;
+    }
+
     private static object?[] GetVariables()
-        => s_currentVariables.Value
+        => GetContext().Variables;
+
+    private static SubmissionContext GetContext()
+        => s_currentContext.Value
             ?? throw new InvalidOperationException("No Raven script submission is currently executing.");
 
-    private sealed class Scope(object?[]? previous) : IDisposable
+    private sealed class SubmissionContext(object?[] variables)
     {
-        private object?[]? _previous = previous;
+        internal object?[] Variables { get; } = variables;
+        internal bool HasResult { get; set; }
+        internal object? Result { get; set; }
+    }
+
+    private sealed class Scope(SubmissionContext? previous) : IDisposable
+    {
+        private SubmissionContext? _previous = previous;
         private bool _disposed;
 
         public void Dispose()
@@ -56,7 +84,7 @@ public static class SubmissionRuntime
             if (_disposed)
                 return;
 
-            s_currentVariables.Value = _previous;
+            s_currentContext.Value = _previous;
             _previous = null;
             _disposed = true;
         }

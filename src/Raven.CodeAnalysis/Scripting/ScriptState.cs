@@ -11,12 +11,16 @@ public sealed class ScriptState : IDisposable
         ScriptExecutionSession session,
         Script script,
         Compilation compilation,
-        MetadataReference emittedReference)
+        MetadataReference emittedReference,
+        bool hasReturnValue,
+        object? returnValue)
     {
         _session = session;
         Script = script;
         Compilation = compilation;
         EmittedReference = emittedReference;
+        HasReturnValue = hasReturnValue;
+        ReturnValue = returnValue;
     }
 
     /// <summary>
@@ -28,6 +32,16 @@ public sealed class ScriptState : IDisposable
     /// Gets the compilation for this submission.
     /// </summary>
     public Compilation Compilation { get; }
+
+    /// <summary>
+    /// Gets whether this submission ended with a value-producing expression.
+    /// </summary>
+    public bool HasReturnValue { get; }
+
+    /// <summary>
+    /// Gets the value produced by this submission's trailing expression, if any.
+    /// </summary>
+    public object? ReturnValue { get; }
 
     internal MetadataReference EmittedReference { get; }
 

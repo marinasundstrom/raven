@@ -24,6 +24,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   variables and emitted declarations across continuations, and own a
   collectible assembly-loading session that can be released explicitly.
 
+- Script states now expose the typed value of a submission's trailing
+  expression through `HasReturnValue` and `ReturnValue`, enabling `eval` and
+  interactive hosts without rewriting source text.
+
 - Added `SyntaxTree.GetSubmissionCompleteness()` for script and interactive
   source. Hosts can distinguish complete submissions, trailing incomplete
   constructs that need more input, and complete submissions with syntax errors.

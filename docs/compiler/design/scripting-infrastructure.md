@@ -138,6 +138,14 @@ the load context is not a security boundary and unload remains cooperative.
 The host mechanism stays internal so it can evolve without leaking runtime
 loader details into compiler APIs.
 
+For a submission ending in a value-producing expression, `TopLevelBinder`
+routes that expression to a compiler-owned `SubmissionResultSymbol`.
+`SubmissionCodeGenerator` stores the typed value in the active execution
+context, and `ScriptState` exposes it through `HasReturnValue` and
+`ReturnValue`. Unit-producing statements leave `HasReturnValue` false. This
+policy is gated by `Compilation.IsSubmission`, so normal top-level programs
+continue to discard expression-statement values exactly as before.
+
 ## Submission completeness
 
 `SyntaxTree.GetSubmissionCompleteness()` is the first compiler-facing scripting
@@ -180,7 +188,8 @@ When the scripting engine is ready:
 3. Add `RavenScript`, `Script`, `ScriptOptions`, and `ScriptState` over those
    compiler primitives. Implemented with continuation execution and explicit
    lifetime management.
-4. Capture and expose a typed trailing-expression result.
+4. Capture and expose a typed trailing-expression result. Implemented through
+   a compiler-owned result destination and the submission runtime bridge.
 5. Implement `rvn eval` as the first CLI consumer.
 6. Add reset/unload coverage and `rvn repl`.
 

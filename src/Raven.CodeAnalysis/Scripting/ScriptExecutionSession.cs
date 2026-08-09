@@ -56,10 +56,21 @@ internal sealed class ScriptExecutionSession : IDisposable
             if (_variables.Length < compilation.SubmissionVariableCount)
                 Array.Resize(ref _variables, compilation.SubmissionVariableCount);
 
+            object? returnValue;
+            bool hasReturnValue;
             using (SubmissionRuntime.Enter(_variables))
+            {
                 await InvokeEntryPointAsync(assembly).ConfigureAwait(false);
+                hasReturnValue = SubmissionRuntime.TryGetResult(out returnValue);
+            }
 
-            var state = new ScriptState(this, script, compilation, emittedReference);
+            var state = new ScriptState(
+                this,
+                script,
+                compilation,
+                emittedReference,
+                hasReturnValue,
+                returnValue);
             _latestState = state;
             return state;
         }

@@ -23,6 +23,35 @@ public sealed class ScriptExecutionTests
     }
 
     [Fact]
+    public async Task RunAsync_ReturnsTrailingExpressionValue()
+    {
+        using var state = await RavenScript.RunAsync("1 + 2");
+
+        Assert.True(state.HasReturnValue);
+        Assert.Equal(3, state.ReturnValue);
+    }
+
+    [Fact]
+    public async Task ContinueWithAsync_ReturnsValueFromPreviousFunction()
+    {
+        using var first = await RavenScript.RunAsync(
+            "func twice(value: int) -> int => value * 2");
+        using var second = await first.ContinueWithAsync("twice(21)");
+
+        Assert.True(second.HasReturnValue);
+        Assert.Equal(42, second.ReturnValue);
+    }
+
+    [Fact]
+    public async Task RunAsync_ReportsNoReturnValueForUnitSubmission()
+    {
+        using var state = await RavenScript.RunAsync("let value = 42");
+
+        Assert.False(state.HasReturnValue);
+        Assert.Null(state.ReturnValue);
+    }
+
+    [Fact]
     public async Task ContinueWithAsync_PreservesAndMutatesVariables()
     {
         using var first = await RavenScript.RunAsync("var value = 40");
