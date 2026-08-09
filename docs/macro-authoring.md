@@ -491,6 +491,9 @@ to read mutable build outputs from `obj`.
 The repository examples progress from compact syntax to full DSL handling:
 
 * `samples/projects/macro-functions` — typed, syntax, and token-stream inputs;
+* `samples/projects/macro-dsl` — the minimal provider-class reference for one
+  DSL keyword, one embedded Raven expression, native diagnostics, fragment
+  tooling, and debugger source provenance;
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
 * `samples/projects/macro-freestanding` — LINQ-like query parsing, three

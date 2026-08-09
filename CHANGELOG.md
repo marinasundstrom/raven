@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `samples/projects/macro-dsl`, a minimal Raven-authored token DSL that
+  demonstrates macro-local keywords, embedded Raven expression regions,
+  native fragment diagnostics, expansion, and debugger source provenance in a
+  standalone plugin-and-application project.
+
 - Fixed portable-PDB method ownership after assembly-reference normalization.
   Sequence points and local scopes are reconciled against the final PE method
   rows, async and iterator bodies remain attached to their generated

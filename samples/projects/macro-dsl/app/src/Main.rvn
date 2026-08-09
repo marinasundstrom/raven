@@ -1,0 +1,11 @@
+import System.Console.*
+
+func Main() {
+    let answer = 42
+    let shouldRetry = guard! {
+        unless answer == 42
+    }
+
+    WriteLine(answer)
+    WriteLine(shouldRetry)
+}
