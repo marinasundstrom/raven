@@ -15,10 +15,11 @@ public class AttachedMacroContext : MacroContext
         SyntaxNode targetDeclaration,
         SyntaxNode currentDeclaration,
         CancellationToken cancellationToken = default)
+        : base(syntax ?? throw new ArgumentNullException(nameof(syntax)))
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
-        Syntax = syntax ?? throw new ArgumentNullException(nameof(syntax));
+        Syntax = syntax;
         TargetDeclaration = targetDeclaration ?? throw new ArgumentNullException(nameof(targetDeclaration));
         CurrentDeclaration = currentDeclaration ?? throw new ArgumentNullException(nameof(currentDeclaration));
         Arguments = CreateArguments(syntax.ArgumentList, semanticModel);

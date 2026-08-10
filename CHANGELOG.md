@@ -30,6 +30,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   lambda parameters through that expansion even when the macro has not already
   been bound by another query.
 
+- Added deterministic `MacroContext.CreateUniqueName` allocation for generated
+  bindings. It avoids identifiers authored in the invocation document and
+  names previously allocated by the same macro context, without conflating
+  textual collision avoidance with future call-site/definition-site hygiene.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

@@ -18,7 +18,7 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
             return null
         }
 
-        let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation).Parse()
+        let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation, context).Parse()
         for component in expansion.Components {
             if component.SymbolSpan.Start == token.Span.Start
                 && component.SymbolSpan.Length == token.Span.Length {
@@ -76,7 +76,7 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
     }
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
-        let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation).Parse()
+        let expansion = HtmlDslParser(context.GetBodyText(), context.Compilation, context).Parse()
         var regions: ImmutableArray<MacroFragmentRegion> = []
 
         for span in expansion.EmbeddedExpressionSpans {
@@ -98,6 +98,7 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
         let parser = HtmlDslParser(
             context.GetBodyText(),
             context.Compilation,
+            context,
             GetCssScope(context))
         let expansion = parser.Parse()
 
@@ -200,7 +201,9 @@ class HtmlTypedExpressionTarget(
 class HtmlDslParser {
     private val _source: string
     private val _compilation: Compilation
+    private val _context: MacroContext
     private val _cssScope: string?
+    private val _builderName: string
     private val _builder = StringBuilder()
     private var _embeddedExpressionSpans: ImmutableArray<TextSpan> = []
     private var _components: ImmutableArray<HtmlComponentReference> = []
@@ -213,14 +216,21 @@ class HtmlDslParser {
     private var _errorMessage: string? = null
     private var _errorPosition: int = 0
 
-    init(source: string, compilation: Compilation, cssScope: string? = null) {
+    init(
+        source: string,
+        compilation: Compilation,
+        context: MacroContext,
+        cssScope: string? = null
+    ) {
         _source = source
         _compilation = compilation
+        _context = context
         _cssScope = cssScope
+        _builderName = context.CreateUniqueName("htmlBuilder")
     }
 
     func Parse() -> HtmlDslExpansion {
-        _builder.Append("(__htmlBuilder: Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder) => {")
+        _builder.Append("(${_builderName}: Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder) => {")
         SkipWhitespace()
         ParseElement()
         SkipWhitespace()
@@ -410,7 +420,7 @@ class HtmlDslParser {
     }
 
     private func AppendEventCallbackAttribute(name: string, expression: string) {
-        let callbackName = "__htmlCallback${_sequence}"
+        let callbackName = _context.CreateUniqueName("htmlCallback")
         _ = _builder.Append("let ${callbackName}: System.Action = ${expression};")
         AppendAttribute(
             name,
@@ -422,7 +432,7 @@ class HtmlDslParser {
         expression: string,
         argumentType: string
     ) {
-        let callbackName = "__htmlCallback${_sequence}"
+        let callbackName = _context.CreateUniqueName("htmlCallback")
         _ = _builder.Append(
             "let ${callbackName}: System.Action<${argumentType}> = ${expression};")
         AppendAttribute(
@@ -440,19 +450,19 @@ class HtmlDslParser {
     }
 
     private func AppendKey(value: string) {
-        _ = _builder.Append("__htmlBuilder.SetKey(${value});")
+        _ = _builder.Append("${_builderName}.SetKey(${value});")
     }
 
     private func AppendContent(expression: string) {
         let sequence = _sequence
         _sequence = _sequence + 1
-        _ = _builder.Append("HtmlBlazorMacros.HtmlContent.Add(__htmlBuilder, ${sequence}, (${expression}));")
+        _ = _builder.Append("HtmlBlazorMacros.HtmlContent.Add(${_builderName}, ${sequence}, (${expression}));")
     }
 
     private func AppendOpenComponent(name: string) {
         let sequence = _sequence
         _sequence = _sequence + 1
-        _ = _builder.Append("__htmlBuilder.OpenComponent<${name}>(${sequence});")
+        _ = _builder.Append("${_builderName}.OpenComponent<${name}>(${sequence});")
     }
 
     private func AppendClose(isComponent: bool) {
@@ -465,11 +475,11 @@ class HtmlDslParser {
 
     private func AppendCall(methodName: string, arguments: string?) {
         if arguments is null {
-            _ = _builder.Append("__htmlBuilder.${methodName}();")
+            _ = _builder.Append("${_builderName}.${methodName}();")
         } else {
             let sequence = _sequence
             _sequence = _sequence + 1
-            _ = _builder.Append("__htmlBuilder.${methodName}(${sequence}, ${arguments});")
+            _ = _builder.Append("${_builderName}.${methodName}(${sequence}, ${arguments});")
         }
     }
 

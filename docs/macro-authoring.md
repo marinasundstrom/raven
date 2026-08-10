@@ -142,6 +142,27 @@ expansion and returns from the current macro execution path; diagnostics
 reported before it are retained. Reaching the end of the body also returns any
 accumulated diagnostics and contributions.
 
+### Generated binding names
+
+When an expansion needs a temporary local or another generated binding, ask
+the context for a collision-free name:
+
+```raven
+let temporaryName = context.CreateUniqueName("item")
+let temporary = SyntaxFactory.IdentifierName(temporaryName)
+```
+
+`CreateUniqueName` is deterministic for one invocation. It avoids every
+identifier authored in the invocation document and every name previously
+allocated by that context. The hint is normalized into an identifier; it is a
+readability aid rather than part of the uniqueness contract.
+
+This helper prevents accidental textual capture for a binding that the macro
+both declares and references. It does not choose definition-site or call-site
+lookup for a constructed reference. Keep caller-authored references as
+source-backed/spliced syntax until Raven's broader hygiene model supplies
+explicit APIs for those lookup choices.
+
 ## 5. Report precise diagnostics
 
 The provider interface gives full control over diagnostics and results:

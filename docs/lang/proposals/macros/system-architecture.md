@@ -532,9 +532,13 @@ origins:
 4. **Explicit call-site names** intentionally ask the caller's scope to resolve
    a constructed identifier.
 
-Proposed helpers include `CreateUniqueName`, `CreateDefinitionSiteReference`,
-and `CreateCallSiteIdentifier`. Constructing an identifier from a string must
-not silently select whichever scope happens to bind it.
+`MacroContext.CreateUniqueName` now provides deterministic textual collision
+avoidance for generated bindings. It reserves every identifier in the authored
+invocation document and every name previously allocated by that context. It is
+deliberately not presented as complete hygiene: proposed
+`CreateDefinitionSiteReference` and `CreateCallSiteIdentifier` helpers still
+need semantic identities and explicit lookup rules. Constructing a reference
+from a string must not silently select whichever scope happens to bind it.
 
 The precise default resolution of bare identifiers written inside a quote is
 still a design decision. Before declaration and statement quotes become stable,

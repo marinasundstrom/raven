@@ -143,6 +143,29 @@ public sealed class TokenTreeMacroContextTests
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Descriptor.Id == "RAVM022");
     }
 
+    [Fact]
+    public void CreateUniqueName_AvoidsAuthoredAndPreviouslyGeneratedNames()
+    {
+        var context = CreateContext("let __macro_item_0 = 0");
+
+        var first = context.CreateUniqueName("item");
+        var second = context.CreateUniqueName("item");
+
+        Assert.Equal("__macro_item_1", first);
+        Assert.Equal("__macro_item_2", second);
+    }
+
+    [Theory]
+    [InlineData("item value", "__macro_item_value_0")]
+    [InlineData("", "__macro_value_0")]
+    [InlineData("$$", "__macro_value_0")]
+    public void CreateUniqueName_NormalizesHints(string hint, string expected)
+    {
+        var context = CreateContext(string.Empty);
+
+        Assert.Equal(expected, context.CreateUniqueName(hint));
+    }
+
     private static TokenTreeMacroContext CreateContext(string body)
     {
         var tree = SyntaxTree.ParseText($"func Main() -> unit => probe! {{ {body} }}");

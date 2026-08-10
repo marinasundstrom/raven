@@ -16,10 +16,11 @@ public class FreestandingMacroContext : MacroContext
         SemanticModel semanticModel,
         FreestandingMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
+        : base(syntax ?? throw new ArgumentNullException(nameof(syntax)))
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
-        Syntax = syntax ?? throw new ArgumentNullException(nameof(syntax));
+        Syntax = syntax;
         Arguments = CreateArguments(syntax.ArgumentList, semanticModel);
         CancellationToken = cancellationToken;
     }

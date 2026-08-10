@@ -65,10 +65,11 @@ public class TokenTreeMacroContext : MacroContext
         IMacroTokenStreamProvider? tokenStreamProvider,
         ImmutableArray<MacroKeyword> keywords,
         CancellationToken cancellationToken)
+        : base(syntax ?? throw new ArgumentNullException(nameof(syntax)))
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
-        Syntax = syntax ?? throw new ArgumentNullException(nameof(syntax));
+        Syntax = syntax;
         TokenTree = syntax.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(syntax));

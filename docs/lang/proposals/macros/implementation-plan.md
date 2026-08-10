@@ -1344,6 +1344,21 @@ helpers now provide diagnostic-bearing parse results with authored locations.
 Future fragment categories should preserve the same source mapping and result
 shape rather than adding an untyped syntax-node parser.
 
+### Fresh generated binding names
+
+Status: **textual collision avoidance implemented**
+
+All macro contexts expose `CreateUniqueName(hint)`. Allocation is deterministic
+within an invocation and avoids identifiers authored anywhere in its document
+plus names returned by earlier calls on the same context. This is the Raven
+counterpart to the immediately useful part of Nim's `genSym`: macro authors no
+longer need to invent temporary-name suffixes themselves.
+
+The helper does not yet encode a hygienic symbol identity or choose
+definition-site versus call-site lookup. Those semantic facilities remain a
+later slice and must be designed before declaration and statement quotation is
+stabilized.
+
 ### Additional expansion positions
 
 Add compiler-known invocation carriers plus typed contracts for statement and
