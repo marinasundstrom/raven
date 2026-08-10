@@ -81,7 +81,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
         }
     }
 
-    protected override void OnFreestandingMacroExpressionBinding(FreestandingMacroExpressionSyntax syntax)
+    protected override void OnInvocableMacroExpressionBinding(InvocableMacroExpressionSyntax syntax)
     {
         var builder = ImmutableArray.CreateBuilder<MacroFragmentVisibleSymbol>();
         var localSymbols = new HashSet<ISymbol>(ReferenceEqualityComparer.Instance);
@@ -101,7 +101,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
     }
 
     internal bool TryGetNestedMacroVisibleSymbols(
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         out ImmutableArray<MacroFragmentVisibleSymbol> visibleSymbols)
         => _nestedMacroVisibleSymbols.TryGetValue((syntax.Span.Start, syntax.Span.Length), out visibleSymbols);
 

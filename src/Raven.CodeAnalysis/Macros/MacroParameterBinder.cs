@@ -97,13 +97,13 @@ internal static class MacroParameterBinder
     public static bool TryBind(
         string macroName,
         Type parametersType,
-        FreestandingMacroContext context,
+        InvocableMacroContext context,
         DiagnosticBag diagnostics,
         out object? parameters)
         => TryBindCore(
             macroName,
             parametersType,
-            context.Syntax.Name.GetLocation(),
+            context.Name.GetLocation(),
             context.Arguments,
             diagnostics,
             out parameters);
@@ -117,7 +117,7 @@ internal static class MacroParameterBinder
         => TryBindCore(
             macroName,
             parametersType,
-            context.Syntax.Name.GetLocation(),
+            context.Name.GetLocation(),
             context.Arguments,
             diagnostics,
             out parameters);

@@ -186,7 +186,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         }
 
         var invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .FirstOrDefault();
         return invocation?.TokenTree is null
             ? null
@@ -210,7 +210,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         }
 
         var invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .FirstOrDefault();
         return invocation?.TokenTree is null
             ? null
@@ -248,12 +248,12 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         }
         else
         {
-            var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
-            if (freestandingMacro is null || !freestandingMacro.Name.Span.Contains(token.Span) || !freestandingMacro.TryGetMacroName(out var freestandingMacroName))
+            var invocableMacro = token.Parent?.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>().FirstOrDefault();
+            if (invocableMacro is null || !invocableMacro.Name.Span.Contains(token.Span) || !invocableMacro.TryGetMacroName(out var invocableMacroName))
                 return false;
 
-            macroName = freestandingMacroName;
-            originSpan = freestandingMacro.Name.Span;
+            macroName = invocableMacroName;
+            originSpan = invocableMacro.Name.Span;
         }
 
         var workspace = project.Solution.Workspace;

@@ -360,12 +360,12 @@ func Test(item: Foo) -> bool {
         }
     }
 
-    private sealed class FragmentHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class FragmentHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "fragmentHover";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -376,12 +376,12 @@ func Test(item: Foo) -> bool {
             ];
     }
 
-    private sealed class TargetTypedHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class TargetTypedHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "targetTypedHover";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {
@@ -396,23 +396,23 @@ func Test(item: Foo) -> bool {
         }
     }
 
-    private sealed class ThrowingFragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class ThrowingFragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "throwingFragment";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             => throw new InvalidOperationException("Synthetic optional tooling failure.");
     }
 
-    private sealed class SymbolTokenMacro : ITokenTreeExpressionMacro, IMacroTokenSymbolProvider
+    private sealed class SymbolTokenMacro : ITokenTreeMacro, IMacroTokenSymbolProvider
     {
         public string Name => "symbolToken";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.FromExpression(
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromExpression(
                 SyntaxFactory.LiteralExpression(
                     SyntaxKind.NumericLiteralExpression,
                     SyntaxFactory.Literal(42)));
@@ -422,14 +422,14 @@ func Test(item: Foo) -> bool {
     }
 
     private sealed class ConflictingSymbolMacro :
-        ITokenTreeExpressionMacro,
+        ITokenTreeMacro,
         IMacroFragmentProvider,
         IMacroTokenSymbolProvider
     {
         public string Name => "conflictingSymbol";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>

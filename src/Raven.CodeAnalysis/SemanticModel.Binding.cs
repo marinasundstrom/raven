@@ -187,7 +187,7 @@ public partial class SemanticModel
         // Type-like declarations must be available before member signatures are
         // resolved, because top-level functions can reference source types that
         // are declared later in the same file or namespace.
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {
@@ -243,7 +243,7 @@ public partial class SemanticModel
             }
         }
 
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {
@@ -489,14 +489,14 @@ public partial class SemanticModel
             var requiredMacroKind = contextKind switch
             {
                 MacroContextKind.Attached => "attached",
-                MacroContextKind.TokenTree => "token-tree freestanding",
-                _ => "argument-style freestanding"
+                MacroContextKind.TokenTree => "token-tree macro",
+                _ => "argument-style macro"
             };
             var isValid = contextKind switch
             {
                 MacroContextKind.Attached => targetParameters.Length > 0,
                 MacroContextKind.TokenTree => targetParameters.Length == 0,
-                MacroContextKind.Freestanding => targetParameters.Length == 0 &&
+                MacroContextKind.Invocable => targetParameters.Length == 0 &&
                     tokenStreamParameters.Length == 0 &&
                     parameters.All(static parameter =>
                         MacroParameterRoleFacts.GetContextKind(parameter.Symbol.Type) != MacroContextKind.TokenTree),
@@ -562,6 +562,19 @@ public partial class SemanticModel
         ITypeSymbol type,
         TypeSyntax? syntax = null)
     {
+        if (type is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+            Compilation.GetTypeByMetadataName(
+                "Raven.CodeAnalysis.Syntax.SyntaxList`1") is INamedTypeSymbol syntaxListType &&
+            SymbolEqualityComparer.Default.Equals(
+                namedType.OriginalDefinition,
+                syntaxListType) &&
+            IsMacroSyntaxType(
+                namedType.TypeArguments[0],
+                "Raven.CodeAnalysis.Syntax.MemberDeclarationSyntax"))
+        {
+            return MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+        }
+
         if (syntax is UnionTypeSyntax && type is INamedTypeSymbol inlineUnion)
         {
             var targets = MacroInvocationTargets.None;
@@ -622,7 +635,7 @@ public partial class SemanticModel
             var instruction = contribution.Keyword.ValueText;
             var valid = symbol.MacroKind switch
             {
-                MacroKind.FreestandingExpression => instruction == "expand" ||
+                MacroKind.Invocable => instruction == "expand" ||
                     (instruction is "fragment" or "token") && symbol.Parameters.Any(static parameter =>
                         parameter.MacroRole is MacroParameterRole.TokenBody or MacroParameterRole.Context),
                 MacroKind.AttachedDeclaration => instruction is "expand" or "replace" or "introduce",
@@ -633,8 +646,8 @@ public partial class SemanticModel
             {
                 _declarationDiagnostics.ReportInvalidMacroContribution(
                     instruction,
-                    symbol.MacroKind == MacroKind.FreestandingExpression
-                        ? "freestanding"
+                    symbol.MacroKind == MacroKind.Invocable
+                        ? "invocable"
                         : "attached",
                     contribution.Keyword.GetLocation());
             }
@@ -1222,6 +1235,33 @@ public partial class SemanticModel
         ImmutableArray<EffectiveMemberDeclaration>.Builder builder,
         MemberDeclarationSyntax member)
     {
+        if (member is InvocableMacroMemberDeclarationSyntax invocation)
+        {
+            var expansion = GetMacroExpansion(invocation);
+            if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))
+            {
+                builder.Add(new EffectiveMemberDeclaration(member));
+                return;
+            }
+
+            var expandedMembers = expansion.HasMemberExpansion
+                ? expansion.Members
+                : expansion.Node is MemberDeclarationSyntax expandedMember
+                    ? ImmutableArray.Create(expandedMember)
+                    : ImmutableArray<MemberDeclarationSyntax>.Empty;
+            if (expandedMembers.Length > 0)
+                RegisterMacroReplacementSyntaxTrees(invocation, expandedMembers);
+
+            var containingType = (TypeDeclarationSyntax)member.Parent!;
+            foreach (var generatedMember in expandedMembers)
+            {
+                RegisterMacroContainingTypeSyntax(generatedMember, containingType);
+                builder.Add(new EffectiveMemberDeclaration(generatedMember));
+            }
+
+            return;
+        }
+
         MemberDeclarationSyntax effectiveMember = member;
         var peerDeclarations = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
 
@@ -3071,7 +3111,7 @@ public partial class SemanticModel
 
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {

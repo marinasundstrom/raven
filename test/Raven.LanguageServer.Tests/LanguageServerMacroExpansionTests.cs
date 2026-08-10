@@ -169,7 +169,7 @@ class MyViewModel {
     }
 
     [Fact]
-    public void MacroExpansionDisplayService_BuildsPreviewForFreestandingMacroExpression()
+    public void MacroExpansionDisplayService_BuildsPreviewForArgumentInvocation()
     {
         const string code = """
 import Raven.LanguageServer.Tests.*
@@ -189,7 +189,7 @@ class Harness {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
         var root = syntaxTree.GetRoot();
-        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
 
         var success = MacroExpansionDisplayService.TryCreateForOffset(
             sourceText,
@@ -225,7 +225,7 @@ class Harness {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
         var root = syntaxTree.GetRoot();
-        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
 
         var success = MacroExpansionDisplayService.TryCreateForOffset(
             sourceText,
@@ -241,7 +241,7 @@ class Harness {
     }
 
     [Fact]
-    public void MacroExpansionDisplayService_BuildsPreviewForBangMacroExpression()
+    public void MacroExpansionDisplayService_BuildsPreviewForImportedTokenTreeInvocation()
     {
         const string code = """
 import Raven.LanguageServer.Tests.*
@@ -261,7 +261,7 @@ class Harness {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
         var root = syntaxTree.GetRoot();
-        var expression = root.DescendantNodes().OfType<BangMacroExpressionSyntax>().Single();
+        var expression = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
 
         var success = MacroExpansionDisplayService.TryCreateForOffset(
             sourceText,
@@ -277,7 +277,7 @@ class Harness {
     }
 
     [Fact]
-    public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideFreestandingMacroArguments()
+    public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideInvocableMacroArguments()
     {
         const string code = """
 import Raven.LanguageServer.Tests.*
@@ -342,7 +342,7 @@ class MyViewModel {
     }
 
     [Fact]
-    public void SymbolResolver_FreestandingMacroLambdaArgument_ResolvesLambdaParameter()
+    public void SymbolResolver_InvocableMacroLambdaArgument_ResolvesLambdaParameter()
     {
         const string code = """
 import System.*
@@ -549,43 +549,43 @@ class Program {
         }
     }
 
-    public sealed class AnswerMacro : IFreestandingExpressionMacro
+    public sealed class AnswerMacro : IInvocableMacro
     {
         public string Name => "answer";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
             => new()
             {
                 Expression = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(42))
             };
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    public sealed class RavenBodyMacro : ITokenTreeMacro
     {
         public string Name => "raven";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
             {
                 Expression = context.ParseExpression()
             };
     }
 
-    public sealed class SubscribeMacro : IFreestandingExpressionMacro
+    public sealed class SubscribeMacro : IInvocableMacro
     {
         public string Name => "subscribe";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
         {
             var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
             var callback = context.Arguments[1].Expression;
             var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
             var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.MemberAccessExpression(
@@ -606,20 +606,20 @@ class Program {
         }
     }
 
-    public sealed class ReactiveSubscribeMacro : IFreestandingExpressionMacro
+    public sealed class ReactiveSubscribeMacro : IInvocableMacro
     {
         public string Name => "subscribe";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
         {
             var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
             var callback = context.Arguments[1].Expression;
             var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
             var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.MemberAccessExpression(

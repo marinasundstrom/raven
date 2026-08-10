@@ -28,7 +28,7 @@ public static class MacroFacts
             GetTargets(macro),
             parameters,
             acceptsDeclaredArguments || macro.AcceptsArguments,
-            macro is ITokenTreeExpressionMacro);
+            macro is ITokenTreeMacro);
     }
 
     public static bool AcceptsArguments(IMacroDefinition macro)
@@ -72,17 +72,12 @@ public static class MacroFacts
     /// <summary>
     /// Gets the grammar positions supported by an invocable macro.
     /// </summary>
-    /// <remarks>
-    /// Current class-authored freestanding providers are expression providers.
-    /// Return-type projection will replace this compatibility projection when
-    /// multi-position macro declarations are enabled.
-    /// </remarks>
     public static MacroInvocationTargets GetInvocationTargets(IMacroDefinition macro)
     {
         ArgumentNullException.ThrowIfNull(macro);
 
         return GetApplicationKind(macro) == MacroApplicationKind.Invocable
-            ? MacroInvocationTargets.Expression
+            ? macro.InvocationTargets
             : MacroInvocationTargets.None;
     }
 
@@ -118,9 +113,9 @@ public static class MacroFacts
         ArgumentNullException.ThrowIfNull(macro);
 
         var isAttached = macro is IAttachedDeclarationMacro;
-        var isFreestanding = macro is IFreestandingExpressionMacro;
-        var isTokenTree = macro is ITokenTreeExpressionMacro;
-        if ((isAttached ? 1 : 0) + (isFreestanding ? 1 : 0) + (isTokenTree ? 1 : 0) != 1)
+        var isInvocable = macro is IInvocableMacro;
+        var isTokenTree = macro is ITokenTreeMacro;
+        if ((isAttached ? 1 : 0) + (isInvocable ? 1 : 0) + (isTokenTree ? 1 : 0) != 1)
         {
             kind = default;
             return false;
@@ -128,13 +123,13 @@ public static class MacroFacts
 
         kind = isAttached
             ? MacroKind.AttachedDeclaration
-            : MacroKind.FreestandingExpression;
+            : MacroKind.Invocable;
         return true;
     }
 
     /// <summary>
     /// Gets the declaration targets supported by an attached macro, or
-    /// <see cref="MacroTarget.None"/> for a freestanding macro.
+    /// <see cref="MacroTarget.None"/> for an invocable macro.
     /// </summary>
     public static MacroTarget GetTargets(IMacroDefinition macro)
     {

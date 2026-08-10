@@ -18,6 +18,24 @@ macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
     expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(length.ToString())
 }
 
+macro Declare(context: TokenTreeMacroContext) -> SyntaxList<MemberDeclarationSyntax> {
+    expand context.ParseCompilationUnit().Members
+}
+
+Declare! {
+    class Generated {
+        static func Value() -> int => 7
+    }
+}
+
+class Container {
+    Declare! {
+        class Nested {
+            static func Value() -> int => 9
+        }
+    }
+}
+
 func Main() {
     let answer = Double!(21)
     let projectedExpression = AddOffset!(2, 40)
@@ -25,4 +43,6 @@ func Main() {
     WriteLine(answer)
     WriteLine(projectedExpression)
     WriteLine(tokenLength)
+    WriteLine(Generated.Value())
+    WriteLine(Container.Nested.Value())
 }

@@ -3,5 +3,5 @@ namespace Raven.CodeAnalysis.Macros;
 public enum MacroKind
 {
     AttachedDeclaration = 0,
-    FreestandingExpression = 1,
+    Invocable = 1,
 }

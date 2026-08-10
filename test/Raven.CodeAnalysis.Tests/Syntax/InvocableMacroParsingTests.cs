@@ -6,10 +6,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
-public sealed class FreestandingMacroParsingTests
+public sealed class InvocableMacroParsingTests
 {
     [Fact]
-    public void FreestandingMacroExpression_ParsesBangIdentifierAndArguments()
+    public void InvocableMacroExpression_ParsesBangIdentifierAndArguments()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => add!(1, right: 2)
@@ -17,7 +17,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.True(expression.TryGetMacroName(out var macroName));
@@ -29,22 +29,114 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void HashDirective_IsNotParsedAsFreestandingMacroExpression()
+    public void InvocableMacroInvocation_AtCompilationUnitScopeKeepsStatementEnvelope()
+    {
+        var tree = SyntaxTree.ParseText("""
+            GenerateModels! {
+                model User
+            }
+
+            class Existing {}
+            """);
+
+        var root = tree.GetRoot();
+        var globalStatement = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        var statement = Assert.IsType<ExpressionStatementSyntax>(globalStatement.Statement);
+        var invocation = Assert.IsType<InvocableMacroExpressionSyntax>(statement.Expression);
+
+        Assert.Equal("GenerateModels", invocation.Name.ToString());
+        Assert.Contains("model User", Assert.IsType<MacroTokenTreeSyntax>(invocation.TokenTree).BodyToken.Text);
+        Assert.IsType<ClassDeclarationSyntax>(root.Members[1]);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void InvocableMacroInvocation_InNamespaceKeepsStatementEnvelope()
+    {
+        var tree = SyntaxTree.ParseText("""
+            namespace Models {
+                Tools.Generate!(2, Visibility: "public") {
+                    model User
+                }
+            }
+            """);
+
+        var globalStatement = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .Single();
+        var statement = Assert.IsType<ExpressionStatementSyntax>(globalStatement.Statement);
+        var invocation = Assert.IsType<InvocableMacroExpressionSyntax>(statement.Expression);
+
+        Assert.Equal("Tools.Generate", invocation.Name.ToString());
+        Assert.Equal(2, invocation.ArgumentList.Arguments.Count);
+        Assert.Equal("Visibility", invocation.ArgumentList.Arguments[1].NameColon?.Name.Identifier.ValueText);
+        Assert.NotNull(invocation.TokenTree);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void InvocableMacroMember_ParsesInTypeBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Model {
+                GenerateProperties! { Id, Name }
+            }
+            """);
+
+        var type = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
+        var invocation = Assert.IsType<InvocableMacroMemberDeclarationSyntax>(type.Members.Single());
+
+        Assert.Equal("GenerateProperties", invocation.Name.ToString());
+        Assert.Contains("Id, Name", Assert.IsType<MacroTokenTreeSyntax>(invocation.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void InvocableMacroMember_UnterminatedBodyReportsMissingBrace()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Model {
+                GenerateProperties! {
+                    Id, Name
+            """);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroMemberDeclarationSyntax>()
+            .Single();
+
+        Assert.True(Assert.IsType<MacroTokenTreeSyntax>(invocation.TokenTree).CloseBraceToken.IsMissing);
+        Assert.Contains(tree.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV1003");
+    }
+
+    [Fact]
+    public void BareBangExpression_IsNotReclassifiedAsMacroMember()
+    {
+        var tree = SyntaxTree.ParseText("value!");
+
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<InvocableMacroMemberDeclarationSyntax>());
+        Assert.Contains(tree.GetRoot().DescendantNodes(), static node =>
+            node is PostfixOperatorExpressionSyntax { Kind: SyntaxKind.SuppressNullableWarningExpression });
+    }
+
+    [Fact]
+    public void HashDirective_IsNotParsedAsInvocableMacroExpression()
     {
         var tree = SyntaxTree.ParseText("""
             #pragma warning disable RAV0001
             func Main() -> int => 1
             """);
 
-        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>());
     }
 
     [Fact]
-    public void HashInvocation_IsNotParsedAsFreestandingMacroExpression()
+    public void HashInvocation_IsNotParsedAsInvocableMacroExpression()
     {
         var tree = SyntaxTree.ParseText("func Main() -> int => #answer()");
 
-        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>());
         Assert.NotEmpty(tree.GetDiagnostics());
     }
 
@@ -61,7 +153,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var tokenTree = Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree);
@@ -83,7 +175,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.Equal(2, expression.ArgumentList.Arguments.Count);
@@ -128,7 +220,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void BangMacroExpression_ParsesDedicatedNodeAndPreservesRawBody()
+    public void InvocableMacroExpression_ParsesDedicatedNodeAndPreservesRawBody()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => quote! {
@@ -138,7 +230,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.True(expression.TryGetMacroName(out var macroName));
@@ -150,7 +242,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void BangMacroExpression_ParsesGenericNameArgumentsAndRawBody()
+    public void InvocableMacroExpression_ParsesGenericNameArgumentsAndRawBody()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => repeat<int>!(3, Label: "item") {
@@ -160,7 +252,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.IsType<GenericNameSyntax>(expression.Name);
@@ -171,7 +263,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void BangMacroExpression_ParsesArgumentStyleInvocationWithoutBody()
+    public void InvocableMacroExpression_ParsesArgumentStyleInvocationWithoutBody()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => twice!(21)
@@ -179,7 +271,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.Equal("twice", expression.Name.ToString());
@@ -189,7 +281,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void BangMacroExpression_ParsesContextualKeywordName()
+    public void InvocableMacroExpression_ParsesContextualKeywordName()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => add!(20, Right: 22)
@@ -197,7 +289,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.Equal("add", expression.Name.ToString());
@@ -207,7 +299,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void BangMacroExpression_ParsesQualifiedGenericNameAndRawBody()
+    public void InvocableMacroExpression_ParsesQualifiedGenericNameAndRawBody()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => Raven.Macros.Compile<Func<int>>! {
@@ -217,7 +309,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.IsType<QualifiedNameSyntax>(expression.Name);
@@ -228,7 +320,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void BangMacroExpression_ParsesQualifiedNameAndArguments()
+    public void InvocableMacroExpression_ParsesQualifiedNameAndArguments()
     {
         var tree = SyntaxTree.ParseText("""
             func Main() -> int => Example.Macros.Answer!()
@@ -236,7 +328,7 @@ public sealed class FreestandingMacroParsingTests
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<BangMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.IsType<QualifiedNameSyntax>(expression.Name);
@@ -252,7 +344,7 @@ public sealed class FreestandingMacroParsingTests
             func Main(value: string?) -> string => value!.ToString()
             """);
 
-        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<BangMacroExpressionSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>());
         Assert.Contains(
             tree.GetRoot().DescendantNodes().OfType<PostfixOperatorExpressionSyntax>(),
             static expression => expression.Kind == SyntaxKind.SuppressNullableWarningExpression);
@@ -260,7 +352,7 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void LineBreakAfterExclamation_DoesNotStartBangMacroExpression()
+    public void LineBreakAfterExclamation_DoesNotStartInvocableMacroExpression()
     {
         var tree = SyntaxTree.ParseText("""
             func Main(value: string?) -> string {
@@ -269,7 +361,7 @@ public sealed class FreestandingMacroParsingTests
             }
             """);
 
-        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<BangMacroExpressionSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>());
         Assert.Contains(
             tree.GetRoot().DescendantNodes().OfType<PostfixOperatorExpressionSyntax>(),
             static expression => expression.Kind == SyntaxKind.SuppressNullableWarningExpression);

@@ -34,7 +34,7 @@ In a macro you can put any content and parse it however you want.
   resolution, dependency tracking, incremental invalidation, diagnostics, and
   file-access policy. The test-only `#embedText` macro currently proves direct
   expansion-time loading only.
-* [x] Add factory methods for freestanding expression success, forwarded
+* [x] Add factory methods for invocable expression success, forwarded
   parser diagnostics, and macro-authored diagnostics.
 * [x] Add corresponding factories for attached replacement,
   introduced-member, peer-declaration, and diagnostic-only result shapes.

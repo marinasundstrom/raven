@@ -1699,13 +1699,40 @@ public partial class Compilation
     internal IReadOnlyList<GlobalStatementSyntax> GetBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
     {
         var syntaxTree = compilationUnit.SyntaxTree;
-        if (syntaxTree is null)
-            return CollectBindableGlobalStatementsCore(compilationUnit);
+        var globals = syntaxTree is null
+            ? CollectBindableGlobalStatementsCore(compilationUnit)
+            : _bindableGlobalStatementsCache.GetOrAdd(
+                syntaxTree,
+                static (_, root) => CollectBindableGlobalStatementsCore(root),
+                compilationUnit);
 
-        return _bindableGlobalStatementsCache.GetOrAdd(
-            syntaxTree,
-            static (_, root) => CollectBindableGlobalStatementsCore(root),
-            compilationUnit);
+        return globals
+            .Where(global => !IsDeclarationOnlyMacroCarrier(global))
+            .ToImmutableArray();
+    }
+
+    private bool IsDeclarationOnlyMacroCarrier(GlobalStatementSyntax global)
+    {
+        if (global.Statement is not ExpressionStatementSyntax
+            {
+                Expression: InvocableMacroExpressionSyntax expression
+            } ||
+            !InvocableMacroInvocation.TryCreate(expression, out var invocation) ||
+            !invocation.TryGetMacroName(out var macroName) ||
+            !GetMacroRegistry().TryResolveInvocableMacro(
+                this,
+                expression,
+                macroName,
+                out var macro,
+                out var isAmbiguous) ||
+            isAmbiguous)
+        {
+            return false;
+        }
+
+        var targets = macro.Descriptor.InvocationTargets;
+        return targets.HasFlag(MacroInvocationTargets.NamespaceMember) &&
+            (targets & (MacroInvocationTargets.Expression | MacroInvocationTargets.Statement)) == 0;
     }
 
     internal bool HasRunnableFileScopeCode(CompilationUnitSyntax compilationUnit)

@@ -46,7 +46,7 @@ public partial class Compilation
     /// Gets ordinary Raven fragment regions reported for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -60,7 +60,7 @@ public partial class Compilation
     /// fragment reported by a token-tree macro.
     /// </summary>
     public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
     {
@@ -74,7 +74,7 @@ public partial class Compilation
     /// Gets the token stream and optional classifications for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroTokenInfo> GetMacroTokens(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -87,7 +87,7 @@ public partial class Compilation
     /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
     /// </summary>
     public MacroInputSnapshot GetMacroInputSnapshot(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -310,6 +310,47 @@ public partial class Compilation
             return;
 
         _generatedSemanticModels[syntaxTree] = semanticModel;
+    }
+
+    internal IEnumerable<SyntaxNode> GetEffectiveNamespaceMembers(
+        SyntaxNode containerNode,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(containerNode);
+
+        var semanticModel = GetSemanticModel(containerNode.SyntaxTree!);
+        foreach (var member in containerNode.ChildNodes())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (member is not GlobalStatementSyntax
+                {
+                    Statement: ExpressionStatementSyntax
+                    {
+                        Expression: InvocableMacroExpressionSyntax invocation
+                    }
+                })
+            {
+                yield return member;
+                continue;
+            }
+
+            var expansion = semanticModel.GetMacroExpansion(invocation, cancellationToken);
+            if (expansion?.HasMemberExpansion == true)
+            {
+                foreach (var expandedMember in expansion.Members)
+                    yield return expandedMember;
+
+                continue;
+            }
+
+            if (expansion?.Node is MemberDeclarationSyntax expandedDeclaration)
+            {
+                yield return expandedDeclaration;
+                continue;
+            }
+
+            yield return member;
+        }
     }
 
     internal void EnsureSourceDeclarationsComplete()

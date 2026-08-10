@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>FreestandingMacros</AssemblyName>
+    <AssemblyName>InvocableMacros</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../../src/Raven.Macros/Raven.Macros.rvnproj" />
     <Reference Include="Raven.CodeAnalysis">
       <HintPath>../../../../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll</HintPath>
     </Reference>

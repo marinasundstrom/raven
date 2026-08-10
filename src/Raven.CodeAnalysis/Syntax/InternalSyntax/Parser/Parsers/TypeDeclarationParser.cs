@@ -449,6 +449,10 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var keywordOrIdentifier = PeekToken();
 
+        var memberMacroParser = new MacroInvocationSyntaxParser(this);
+        if (memberMacroParser.IsBangInvocationStart())
+            return memberMacroParser.ParseMember(attributeLists, modifiers);
+
         if (!IsPossibleTypeMemberStart(keywordOrIdentifier))
         {
             var skippedToken = ParseIncompleteTypeMemberTokens();

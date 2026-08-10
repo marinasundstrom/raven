@@ -24,7 +24,7 @@ public sealed class MacroFragmentLocalTests
             .AddMacroReferences(new MacroReference(new ScopedMacro()));
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var position = code.IndexOf("row.", StringComparison.Ordinal) + "row.".Length;
 
@@ -39,14 +39,14 @@ public sealed class MacroFragmentLocalTests
         Assert.Contains(completions, static item => item.DisplayText == "Length");
     }
 
-    private sealed class ScopedMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class ScopedMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 
         public string Name => "scoped";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {

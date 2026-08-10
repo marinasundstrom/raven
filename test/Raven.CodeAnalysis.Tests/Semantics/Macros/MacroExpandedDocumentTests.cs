@@ -31,7 +31,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_RewritesAttachedAndFreestandingMacros()
+    public void GetExpandedRoot_RewritesAttachedAndInvocableMacros()
     {
         var (compilation, tree) = CreateCompilation("""
             class Harness {
@@ -47,7 +47,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         compilation = compilation.AddMacroReferences(
             new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
             new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()),
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var expandedRoot = model.GetExpandedRoot();
@@ -68,7 +68,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_PreservesBlankLinesAndFormatsFreestandingLambdaBodies()
+    public void GetExpandedRoot_PreservesBlankLinesAndFormatsInvocableLambdaBodies()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -102,7 +102,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_RewritesEveryFreestandingMacroInSameMember()
+    public void GetExpandedRoot_RewritesEveryInvocableMacroInSameMember()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -111,7 +111,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
 
         var expandedText = compilation.GetSemanticModel(tree)
             .GetExpandedRoot()
@@ -123,7 +123,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_PreservesLineBreakAfterBangMacro()
+    public void GetExpandedRoot_PreservesLineBreakAfterInvocableMacro()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -134,7 +134,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(FreestandingMacroSemanticTests.RavenBodyMacro)));
+            new MacroReference(typeof(InvocableMacroSemanticTests.RavenBodyMacro)));
 
         var expandedText = compilation.GetSemanticModel(tree)
             .GetExpandedRoot()
@@ -142,6 +142,142 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
 
         Assert.Contains("let answer = 6\n    WriteLine(answer)", expandedText, StringComparison.Ordinal);
         Assert.DoesNotContain("raven!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_ReplacesTypeMemberInvocationWithOrderedMembers()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Model {
+                GenerateMembers! { Id, Name }
+                func Existing() -> int => 3
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateMembersMacro()));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroMemberDeclarationSyntax>()
+            .Single();
+        var expansion = model.GetMacroExpansion(invocation);
+        var expandedText = model.GetExpandedRoot().ToFullString();
+
+        Assert.NotNull(expansion);
+        Assert.True(expansion.HasMemberExpansion);
+        Assert.Equal(2, expansion.Members.Length);
+        Assert.True(expandedText.IndexOf("GeneratedFirst", StringComparison.Ordinal) <
+                    expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal));
+        Assert.True(expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal) <
+                    expandedText.IndexOf("Existing", StringComparison.Ordinal));
+        Assert.DoesNotContain("GenerateMembers!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_ExplicitEmptyMemberListRemovesInvocation()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Model {
+                RemoveMember! { ignored }
+                func Existing() -> int => 3
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new RemoveMemberMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.DoesNotContain("RemoveMember!", expandedText, StringComparison.Ordinal);
+        Assert.Contains("Existing", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_AcceptsSingleMemberNodeAtTypeMemberInvocation()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Model {
+                GenerateSingleMember! { ignored }
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateSingleMemberMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.Contains("GeneratedSingle", expandedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("GenerateSingleMember!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_ReportsWrongCategoryAndPreservesTypeMemberInvocation()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            class Model {
+                GenerateExpression! { ignored }
+                func Existing() -> int => 3
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateExpressionMacro()));
+
+        var model = compilation.GetSemanticModel(tree);
+        var expandedText = model.GetExpandedRoot().ToFullString();
+        var diagnostic = Assert.Single(
+            model.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM022"));
+
+        Assert.Contains("expression syntax where member syntax is required", diagnostic.GetMessage());
+        Assert.Contains("GenerateExpression!", expandedText, StringComparison.Ordinal);
+        Assert.Contains("Existing", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_ReplacesFileMemberInvocationWithOrderedMembers()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            GenerateNamespaceMembers! { Id, Name }
+            func Existing() -> int => 3
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateNamespaceMembersMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.True(expandedText.IndexOf("GeneratedFirst", StringComparison.Ordinal) <
+                    expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal));
+        Assert.True(expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal) <
+                    expandedText.IndexOf("Existing", StringComparison.Ordinal));
+        Assert.DoesNotContain("GenerateNamespaceMembers!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_ReplacesNamespaceMemberInvocationWithOrderedMembers()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            namespace Example {
+                GenerateNamespaceMembers! { Id, Name }
+                func Existing() -> int => 3
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateNamespaceMembersMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.Contains("namespace Example", expandedText, StringComparison.Ordinal);
+        Assert.True(expandedText.IndexOf("GeneratedFirst", StringComparison.Ordinal) <
+                    expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal));
+        Assert.True(expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal) <
+                    expandedText.IndexOf("Existing", StringComparison.Ordinal));
+        Assert.DoesNotContain("GenerateNamespaceMembers!", expandedText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -262,12 +398,12 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 new MacroReference(new WrapMacro()));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
 
         _ = model.GetMacroExpansion(expression);
         _ = model.GetMacroExpansion(expression);
 
-        Assert.Equal(1, instrumentation.Macros.FreestandingExpansionInvocations);
+        Assert.Equal(1, instrumentation.Macros.InvocableExpansionInvocations);
         Assert.Equal(0, instrumentation.Macros.AttachedExpansionInvocations);
     }
 
@@ -318,17 +454,17 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         }
     }
 
-    private sealed class WrapMacro : IFreestandingExpressionMacro
+    private sealed class WrapMacro : IInvocableMacro
     {
         public string Name => "wrap";
 
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
         {
             var callback = context.Arguments.Single().Expression;
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.IdentifierName("Observe"),
@@ -339,6 +475,62 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                         ])))
             };
         }
+    }
+
+    private sealed class GenerateMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "GenerateMembers";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromMembers(ParseMembers("""
+                class __GeneratedContainer {
+                    func GeneratedFirst() -> int => 1
+                    func GeneratedSecond() -> int => 2
+                }
+                """));
+    }
+
+    private sealed class GenerateNamespaceMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "GenerateNamespaceMembers";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromMembers(ParseNamespaceMembers("""
+                class GeneratedFirst {}
+                class GeneratedSecond {}
+                """));
+    }
+
+    private sealed class RemoveMemberMacro : ITokenTreeMacro
+    {
+        public string Name => "RemoveMember";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromMembers(
+                ImmutableArray<MemberDeclarationSyntax>.Empty);
+    }
+
+    private sealed class GenerateSingleMemberMacro : ITokenTreeMacro
+    {
+        public string Name => "GenerateSingleMember";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromNode(ParseMembers("""
+                class __GeneratedContainer {
+                    func GeneratedSingle() -> int => 1
+                }
+                """).Single());
+    }
+
+    private sealed class GenerateExpressionMacro : ITokenTreeMacro
+    {
+        public string Name => "GenerateExpression";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromExpression(
+                SyntaxFactory.LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression,
+                    SyntaxFactory.Literal(1)));
     }
 
     private sealed class FirstMacro : IAttachedDeclarationMacro
@@ -425,4 +617,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         var container = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
         return [.. container.Members];
     }
+
+    private static ImmutableArray<MemberDeclarationSyntax> ParseNamespaceMembers(string source)
+        => [.. SyntaxFactory.ParseSyntaxTree(source).GetRoot().Members];
 }

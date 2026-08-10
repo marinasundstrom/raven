@@ -1,6 +1,6 @@
 # Macro Reactive (`.rvnproj`)
 
-This sample shows attached and freestanding macros working together in a Raven-authored macro plugin.
+This sample shows attached and invocable macros working together in a Raven-authored macro plugin.
 
 The sample shape is:
 
@@ -38,7 +38,7 @@ Files:
 - `app/MacroReactive.rvnproj`: Raven application using `#[Observable]` and `subscribe!(...)`
 - `app/src/Program.rvn`: executable sample plus a tiny `Signal<T>` runtime
 - `macros/ReactiveMacros.rvnproj`: Raven macro plugin project
-- `macros/ReactiveMacros.rvn`: related exported `IAttachedDeclarationMacro` and `IFreestandingExpressionMacro` implementations
+- `macros/ReactiveMacros.rvn`: related exported `IAttachedDeclarationMacro` and `IInvocableMacro` implementations
 
 Build the macro plugin first:
 

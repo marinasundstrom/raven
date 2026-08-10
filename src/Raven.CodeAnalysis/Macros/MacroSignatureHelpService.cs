@@ -35,17 +35,17 @@ internal static class MacroSignatureHelpService
                 hasTokenTreeBody = false;
                 break;
 
-            case FreestandingMacroExpressionSyntax expression
+            case InvocableMacroExpressionSyntax expression
                 when expression.TryGetMacroName(out name) &&
                      semanticModel.Compilation.GetMacroRegistry()
-                         .TryResolveFreestandingMacro(
+                         .TryResolveInvocableMacro(
                              semanticModel.Compilation,
                              expression,
                              name,
-                             out var freestanding,
+                             out var invocable,
                              out _):
-                descriptor = freestanding.Descriptor;
-                kind = MacroKind.FreestandingExpression;
+                descriptor = invocable.Descriptor;
+                kind = MacroKind.Invocable;
                 hasTokenTreeBody = descriptor.HasTokenBody;
                 break;
 

@@ -2982,30 +2982,20 @@ public static class CompletionProvider
             return true;
         }
 
-        var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
-        var freestandingInvocationStart = freestandingMacro?.ArgumentList.OpenParenToken.IsMissing == false
-            ? freestandingMacro.ArgumentList.OpenParenToken.SpanStart
-            : freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart;
-        var freestandingNameStart = freestandingMacro is BangMacroExpressionSyntax invocationBang
-            ? invocationBang.Name.Span.Start
-            : int.MaxValue;
-        var freestandingNameEnd = freestandingMacro switch
-        {
-            BangMacroExpressionSyntax bangMacro => bangMacro.ExclamationToken.SpanStart,
-            { } macro => freestandingInvocationStart ?? macro.Name.Span.End,
-            _ => int.MinValue
-        };
-        if (freestandingMacro is not null &&
-            position >= freestandingNameStart &&
-            position <= freestandingNameEnd)
+        var invocableMacro = token.Parent?.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>().FirstOrDefault();
+        var invocableNameStart = invocableMacro?.Name.Span.Start ?? int.MaxValue;
+        var invocableNameEnd = invocableMacro?.ExclamationToken.SpanStart ?? int.MinValue;
+        if (invocableMacro is not null &&
+            position >= invocableNameStart &&
+            position <= invocableNameEnd)
         {
             CreateMacroCompletionContext(
-                freestandingMacro.Name,
-                MacroKind.FreestandingExpression,
+                invocableMacro.Name,
+                MacroKind.Invocable,
                 sourceText,
                 position,
                 out context,
-                preserveInvocationSuffix: freestandingMacro is BangMacroExpressionSyntax);
+                preserveInvocationSuffix: true);
             return true;
         }
 
@@ -3055,9 +3045,9 @@ public static class CompletionProvider
                     out var loaded,
                     out _) =>
                 loaded.Macro,
-            FreestandingMacroExpressionSyntax expression when
+            InvocableMacroExpressionSyntax expression when
                 expression.TryGetMacroName(out var name) &&
-                compilation.GetMacroRegistry().TryResolveFreestandingMacro(
+                compilation.GetMacroRegistry().TryResolveInvocableMacro(
                     compilation,
                     expression,
                     name,
@@ -3169,21 +3159,21 @@ public static class CompletionProvider
                 ? name
                 : macro switch
                 {
-                    ITokenTreeExpressionMacro when MacroFacts.AcceptsArguments(macro) => name + "() { }",
-                    ITokenTreeExpressionMacro => name + " { }",
+                    ITokenTreeMacro when MacroFacts.AcceptsArguments(macro) => name + "() { }",
+                    ITokenTreeMacro => name + " { }",
                     _ when context.WrapAttachedAttribute && MacroFacts.AcceptsArguments(macro) => $"[{name}()]",
                     _ when context.WrapAttachedAttribute => $"[{name}]",
-                    _ when context.Kind == MacroKind.FreestandingExpression => name + "()",
+                    _ when context.Kind == MacroKind.Invocable => name + "()",
                     _ => name
                 };
             var cursorOffset = context.PreserveInvocationSuffix
                 ? null
                 : macro switch
                 {
-                    ITokenTreeExpressionMacro when MacroFacts.AcceptsArguments(macro) => name.Length + 1,
-                    ITokenTreeExpressionMacro => insertionText.Length - 1,
+                    ITokenTreeMacro when MacroFacts.AcceptsArguments(macro) => name.Length + 1,
+                    ITokenTreeMacro => insertionText.Length - 1,
                     _ when context.WrapAttachedAttribute && MacroFacts.AcceptsArguments(macro) => name.Length + 2,
-                    _ when context.Kind == MacroKind.FreestandingExpression && MacroFacts.AcceptsArguments(macro) => insertionText.Length - 1,
+                    _ when context.Kind == MacroKind.Invocable && MacroFacts.AcceptsArguments(macro) => insertionText.Length - 1,
                     _ => (int?)null
                 };
 
@@ -3208,7 +3198,7 @@ public static class CompletionProvider
         var kindDisplay = MacroFacts.GetKind(macro) switch
         {
             MacroKind.AttachedDeclaration => "attached declaration macro",
-            MacroKind.FreestandingExpression => "freestanding expression macro",
+            MacroKind.Invocable => "invocable macro",
             _ => "macro"
         };
         var targets = MacroFacts.GetTargets(macro);
@@ -3217,8 +3207,8 @@ public static class CompletionProvider
             : $"targets: {FormatMacroTargets(targets)}";
         var argumentsDisplay = macro switch
         {
-            ITokenTreeExpressionMacro when MacroFacts.AcceptsArguments(macro) => "accepts arguments and a token-tree body",
-            ITokenTreeExpressionMacro => "accepts a token-tree body",
+            ITokenTreeMacro when MacroFacts.AcceptsArguments(macro) => "accepts arguments and a token-tree body",
+            ITokenTreeMacro => "accepts a token-tree body",
             _ when MacroFacts.AcceptsArguments(macro) => "accepts arguments",
             _ => "no arguments"
         };

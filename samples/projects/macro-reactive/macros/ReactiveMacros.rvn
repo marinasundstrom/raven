@@ -180,28 +180,28 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 }
 
-class SubscribeMacro : IFreestandingExpressionMacro {
+class SubscribeMacro : IInvocableMacro {
     val Name: string => "subscribe"
     val AcceptsArguments: bool => true
 
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
         if context.Arguments.Length != 2 {
-            return FreestandingMacroExpansionResult.Empty
+            return InvocableMacroExpansionResult.Empty
         }
 
         let propertyAccess: MemberAccessExpressionSyntax = context.Arguments[0].Expression else {
-            return FreestandingMacroExpansionResult.Empty
+            return InvocableMacroExpansionResult.Empty
         }
 
         let callback = context.Arguments[1].Expression
 
         let propertyIdentifier: IdentifierNameSyntax = propertyAccess.Name else {
-            return FreestandingMacroExpansionResult.Empty
+            return InvocableMacroExpansionResult.Empty
         }
 
         let signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
 
-        FreestandingMacroExpansionResult {
+        InvocableMacroExpansionResult {
             Expression = InvocationExpression(
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,

@@ -22,13 +22,13 @@ public partial class SemanticModel
     private readonly SemanticBindingState _bindingState = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
     private readonly ConcurrentDictionary<SyntaxNode, ImmutableDictionary<AttributeSyntax, MacroExpansionResult?>> _macroExpansionCache = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, FreestandingMacroExpansionCacheEntry> _freestandingMacroExpansionCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, InvocableMacroExpansionCacheEntry> _invocableMacroExpansionCache = new();
     private readonly ConcurrentDictionary<AttributeSyntax, ImmutableArray<SyntaxNode>> _expandedDeclarationCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, MacroInputSnapshot> _macroInputSnapshotCache = new();
+    private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
+    private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
+    private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, MacroInputSnapshot> _macroInputSnapshotCache = new();
 
     private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private readonly object _diagnosticsCollectionGate = new();
@@ -341,7 +341,7 @@ public partial class SemanticModel
     /// Gets ordinary Raven fragment regions reported for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -360,7 +360,7 @@ public partial class SemanticModel
     /// Gets the token stream and optional classifications for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroTokenInfo> GetMacroTokens(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -379,7 +379,7 @@ public partial class SemanticModel
     /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
     /// </summary>
     public MacroInputSnapshot GetMacroInputSnapshot(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -427,7 +427,7 @@ public partial class SemanticModel
     {
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
-        InvalidateStaleFreestandingMacroExpansions();
+        InvalidateStaleInvocableMacroExpansions();
 
         if (_diagnostics is null)
             EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: true, cancellationToken);
@@ -437,7 +437,7 @@ public partial class SemanticModel
 
     internal IImmutableList<Diagnostic> GetDocumentDiagnostics(CancellationToken cancellationToken = default)
     {
-        InvalidateStaleFreestandingMacroExpansions();
+        InvalidateStaleInvocableMacroExpansions();
 
         if (_documentDiagnostics is null)
             EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false, cancellationToken);
@@ -1979,9 +1979,9 @@ public partial class SemanticModel
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
-        var macroExpression = node as FreestandingMacroExpressionSyntax
+        var macroExpression = node as InvocableMacroExpressionSyntax
             ?? node.Ancestors()
-                .OfType<FreestandingMacroExpressionSyntax>()
+                .OfType<InvocableMacroExpressionSyntax>()
                 .FirstOrDefault(expression =>
                     ReferenceEquals(expression.Name, node) ||
                     expression.Name.DescendantNodes().Any(descendant => ReferenceEquals(descendant, node)));
@@ -2017,7 +2017,7 @@ public partial class SemanticModel
             }
         }
 
-        EnsureContainingFreestandingMacroReplacementSyntax(node);
+        EnsureContainingInvocableMacroReplacementSyntax(node);
         if (TryGetMacroReplacementSyntax(node, out var macroReplacement) &&
             !ReferenceEquals(macroReplacement, node))
         {
@@ -9889,47 +9889,71 @@ public partial class SemanticModel
             : null;
     }
 
-    public FreestandingMacroExpansionResult? GetMacroExpansion(
-        FreestandingMacroExpressionSyntax expression,
+    public InvocableMacroExpansionResult? GetMacroExpansion(
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetInvocableMacroExpansion(expression, cancellationToken);
+
+    public InvocableMacroExpansionResult? GetMacroExpansion(
+        InvocableMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetInvocableMacroExpansion(member, cancellationToken);
+
+    private InvocableMacroExpansionResult? GetInvocableMacroExpansion(
+        SyntaxNode invocation,
+        CancellationToken cancellationToken)
     {
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
-        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(invocation);
+        if (!InvocableMacroInvocation.TryCreate(invocation, out _))
+            throw new ArgumentException("Syntax is not an invocable macro carrier.", nameof(invocation));
 
-        if (_freestandingMacroExpansionCache.TryGetValue(expression, out var cached) &&
+        if (_invocableMacroExpansionCache.TryGetValue(invocation, out var cached) &&
             cached.IsCurrent())
         {
             return cached.Result;
         }
 
         if (cached is not null)
-            InvalidateFreestandingMacroExpansion(expression);
+            InvalidateInvocableMacroExpansion(invocation);
 
-        var result = MacroExpansionService.ExpandFreestandingMacro(
-            Compilation,
-            this,
-            expression,
-            _declarationDiagnostics,
-            cancellationToken);
-        _freestandingMacroExpansionCache[expression] =
-            new FreestandingMacroExpansionCacheEntry(result);
+        var result = invocation switch
+        {
+            InvocableMacroExpressionSyntax expression => MacroExpansionService.ExpandInvocableMacro(
+                Compilation,
+                this,
+                expression,
+                _declarationDiagnostics,
+                cancellationToken),
+            InvocableMacroMemberDeclarationSyntax member => MacroExpansionService.ExpandInvocableMacro(
+                Compilation,
+                this,
+                member,
+                _declarationDiagnostics,
+                cancellationToken),
+            _ => null
+        };
+        _invocableMacroExpansionCache[invocation] =
+            new InvocableMacroExpansionCacheEntry(result);
+        _diagnostics = null;
+        _documentDiagnostics = null;
         return result;
     }
 
-    private void InvalidateStaleFreestandingMacroExpansions()
+    private void InvalidateStaleInvocableMacroExpansions()
     {
-        foreach (var (expression, entry) in _freestandingMacroExpansionCache)
+        foreach (var (invocation, entry) in _invocableMacroExpansionCache)
         {
             if (!entry.IsCurrent())
-                InvalidateFreestandingMacroExpansion(expression);
+                InvalidateInvocableMacroExpansion(invocation);
         }
     }
 
-    private void InvalidateFreestandingMacroExpansion(FreestandingMacroExpressionSyntax expression)
+    private void InvalidateInvocableMacroExpansion(SyntaxNode invocation)
     {
-        _freestandingMacroExpansionCache.TryRemove(expression, out _);
-        _declarationDiagnostics.ClearDiagnostics(expression.Span);
+        _invocableMacroExpansionCache.TryRemove(invocation, out _);
+        _declarationDiagnostics.ClearDiagnostics(invocation.Span);
         _diagnostics = null;
         _documentDiagnostics = null;
         _expandedRoot = null;
@@ -9937,7 +9961,7 @@ public partial class SemanticModel
     }
 
     internal IEnumerable<string> GetObservedMacroFilePaths()
-        => _freestandingMacroExpansionCache.Values
+        => _invocableMacroExpansionCache.Values
             .SelectMany(static entry =>
                 entry.Result?.FileDependencies ?? ImmutableArray<MacroFileDependency>.Empty)
             .Select(static dependency => dependency.Path);
@@ -9945,13 +9969,13 @@ public partial class SemanticModel
     internal bool TryGetMacroReplacementSyntax(SyntaxNode node, out SyntaxNode replacement)
         => _macroReplacementSyntaxMap.TryGetValue(node, out replacement!);
 
-    private void EnsureContainingFreestandingMacroReplacementSyntax(SyntaxNode node)
+    private void EnsureContainingInvocableMacroReplacementSyntax(SyntaxNode node)
     {
         if (_macroReplacementSyntaxMap.ContainsKey(node))
             return;
 
         var invocation = node.Ancestors()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .FirstOrDefault();
         if (invocation is null)
             return;
@@ -10029,7 +10053,7 @@ public partial class SemanticModel
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
 
-        EnsureContainingFreestandingMacroReplacementSyntax(expr);
+        EnsureContainingInvocableMacroReplacementSyntax(expr);
         if (TryGetMacroReplacementSyntax(expr, out var macroReplacement) &&
             macroReplacement is ExpressionSyntax replacementExpression &&
             !ReferenceEquals(replacementExpression, expr))
@@ -11579,7 +11603,7 @@ public partial class SemanticModel
             : null;
 
     internal ITypeSymbol? GetMacroFragmentExpressionType(
-        FreestandingMacroExpressionSyntax invocation,
+        SyntaxNode invocation,
         ExpressionSyntax expression)
     {
         using var semanticQueryBinding = EnterSemanticQueryBinding();
@@ -11605,7 +11629,7 @@ public partial class SemanticModel
     }
 
     internal TypeInfo GetMacroFragmentTypeInfo(
-        FreestandingMacroExpressionSyntax invocation,
+        SyntaxNode invocation,
         ExpressionSyntax expression)
     {
         var type = GetMacroFragmentExpressionType(invocation, expression);
@@ -11613,7 +11637,7 @@ public partial class SemanticModel
     }
 
     internal SymbolInfo GetMacroFragmentSymbolInfo(
-        FreestandingMacroExpressionSyntax invocation,
+        SyntaxNode invocation,
         ExpressionSyntax expression)
     {
         using var semanticQueryBinding = EnterSemanticQueryBinding();
@@ -13478,7 +13502,7 @@ public partial class SemanticModel
     {
         EnsureBindingReadyForSemanticQuery();
 
-        EnsureContainingFreestandingMacroReplacementSyntax(node);
+        EnsureContainingInvocableMacroReplacementSyntax(node);
         if (TryGetMacroReplacementSyntax(node, out var replacementNode) &&
             !ReferenceEquals(replacementNode, node))
         {
@@ -13550,7 +13574,7 @@ public partial class SemanticModel
 
         EnsureBindingReady();
 
-        EnsureContainingFreestandingMacroReplacementSyntax(node);
+        EnsureContainingInvocableMacroReplacementSyntax(node);
 
         if (view is BoundTreeView.Original &&
             TryGetMacroReplacementSyntax(node, out var replacementNode) &&
@@ -14214,7 +14238,7 @@ public partial class SemanticModel
 
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
-        EnsureContainingFreestandingMacroReplacementSyntax(parameterSyntax);
+        EnsureContainingInvocableMacroReplacementSyntax(parameterSyntax);
         if (TryGetMacroReplacementSyntax(parameterSyntax, out var macroReplacement) &&
             macroReplacement is ParameterSyntax replacementParameter &&
             !ReferenceEquals(replacementParameter, parameterSyntax))

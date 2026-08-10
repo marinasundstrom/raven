@@ -156,7 +156,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocations = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .ToArray();
         var inspectInvocation = Assert.Single(
             invocations,
@@ -250,12 +250,12 @@ public sealed class SingleFileWorkspaceCompilationTests
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.Macros.*
 
-                class LocalAnswerMacro : ITokenTreeExpressionMacro {
+                class LocalAnswerMacro : ITokenTreeMacro {
                     val Name: string => "localAnswer"
-                    val Kind: MacroKind => MacroKind.FreestandingExpression
+                    val Kind: MacroKind => MacroKind.Invocable
 
-                    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                        FreestandingMacroExpansionResult {
+                    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                        InvocableMacroExpansionResult {
                             Expression = quote! { 42 }
                         }
                     }
@@ -281,7 +281,7 @@ public sealed class SingleFileWorkspaceCompilationTests
 
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
         Assert.Equal("42", expansion!.Expression!.ToString());
@@ -322,12 +322,12 @@ public sealed class SingleFileWorkspaceCompilationTests
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+            class LocalAnswerMacro : ITokenTreeMacro {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote! { {{answer}} }
                     }
                 }
@@ -351,7 +351,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         return compilation.GetSemanticModel(consumerTree)
             .GetMacroExpansion(invocation)!

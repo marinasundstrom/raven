@@ -244,8 +244,8 @@ public sealed class MacroReference
 
     private static bool HasExactlyOneMacroRole(Type type)
         => (typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ? 1 : 0) +
-            (typeof(IFreestandingExpressionMacro).IsAssignableFrom(type) ? 1 : 0) +
-            (typeof(ITokenTreeExpressionMacro).IsAssignableFrom(type) ? 1 : 0) == 1;
+            (typeof(IInvocableMacro).IsAssignableFrom(type) ? 1 : 0) +
+            (typeof(ITokenTreeMacro).IsAssignableFrom(type) ? 1 : 0) == 1;
 
     private sealed record MacroAssemblyExports(
         Type[] MacroTypes,

@@ -102,15 +102,15 @@ if (!functionMode?.begin || functionMode.begin.test('private (Value: int)')) {
   throw new Error('Documentation lexer misclassifies a primary-constructor access modifier as a function.')
 }
 
-const freestandingRules = JSON.stringify(textMate.repository.freestandingMacros)
-if (!freestandingRules.includes('entity.name.function.macro.raven') ||
-    !freestandingRules.includes('punctuation.definition.macro.raven')) {
+const invocableRules = JSON.stringify(textMate.repository.invocableMacros)
+if (!invocableRules.includes('entity.name.function.macro.raven') ||
+    !invocableRules.includes('punctuation.definition.macro.raven')) {
   throw new Error('TextMate grammar does not classify both the Name and ! of Name! macro invocations.')
 }
 
-const bangMacroRule = textMate.repository.freestandingMacros.patterns.find(rule =>
+const invocableMacroRule = textMate.repository.invocableMacros.patterns.find(rule =>
   rule.captures?.[3]?.name === 'punctuation.definition.macro.raven')
-const genericMacroMatch = bangMacroRule && new RegExp(bangMacroRule.match).exec('Typed<string>! { value }')
+const genericMacroMatch = invocableMacroRule && new RegExp(invocableMacroRule.match).exec('Typed<string>! { value }')
 if (genericMacroMatch?.[1] !== 'Typed' || genericMacroMatch[3] !== '!') {
   throw new Error('TextMate grammar does not preserve generic Name<T>! macro invocations.')
 }
