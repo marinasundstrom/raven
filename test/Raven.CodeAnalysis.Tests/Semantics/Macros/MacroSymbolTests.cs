@@ -395,7 +395,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
-        Assert.Equal(MacroParameterRole.TokenStream, symbol.Parameters[1].MacroRole);
+        Assert.Equal(MacroParameterRole.TokenBody, symbol.Parameters[1].MacroRole);
         Assert.Equal("IMacroTokenStream", symbol.Parameters[1].Type.Name);
         Assert.Contains("tokens: IMacroTokenStream", symbol.ToDisplayString());
         Assert.Empty(compilation.GetDiagnostics());
@@ -448,7 +448,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
-        Assert.Equal(MacroParameterRole.FreestandingContext, symbol.Parameters[1].MacroRole);
+        Assert.Equal(MacroParameterRole.Context, symbol.Parameters[1].MacroRole);
         Assert.Equal("FreestandingMacroContext", symbol.Parameters[1].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
@@ -475,7 +475,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var parameter = Assert.Single(symbol.Parameters);
         Assert.Equal(MacroApplicationKind.Attached, symbol.ApplicationKind);
         Assert.Equal(MacroInvocationTargets.None, symbol.InvocationTargets);
-        Assert.Equal(MacroParameterRole.AttachedContext, parameter.MacroRole);
+        Assert.Equal(MacroParameterRole.Context, parameter.MacroRole);
         Assert.Equal("AttachedMacroContext", parameter.Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }

@@ -9,29 +9,8 @@ internal static class MacroParameterRoleFacts
 {
     public static MacroParameterRole GetRole(ITypeSymbol parameterType)
     {
-        if (IsOrDerivesFrom(
-            parameterType,
-            "Raven.CodeAnalysis.Macros",
-            nameof(AttachedMacroContext)))
-        {
-            return MacroParameterRole.AttachedContext;
-        }
-
-        if (IsOrDerivesFrom(
-            parameterType,
-            "Raven.CodeAnalysis.Macros",
-            nameof(FreestandingMacroContext)))
-        {
-            return MacroParameterRole.FreestandingContext;
-        }
-
-        if (IsOrDerivesFrom(
-            parameterType,
-            "Raven.CodeAnalysis.Macros",
-            nameof(TokenTreeMacroContext)))
-        {
+        if (GetContextKind(parameterType) != MacroContextKind.None)
             return MacroParameterRole.Context;
-        }
 
         if (IsOrDerivesFrom(
             parameterType,
@@ -52,7 +31,7 @@ internal static class MacroParameterRoleFacts
                     "Raven.CodeAnalysis.Macros",
                     nameof(IMacroTokenStream))))
         {
-            return MacroParameterRole.TokenStream;
+            return MacroParameterRole.TokenBody;
         }
 
         return MacroParameterRole.Value;
@@ -60,20 +39,14 @@ internal static class MacroParameterRoleFacts
 
     public static MacroParameterRole GetRole(Type parameterType)
     {
-        if (typeof(AttachedMacroContext).IsAssignableFrom(parameterType))
-            return MacroParameterRole.AttachedContext;
-
-        if (typeof(FreestandingMacroContext).IsAssignableFrom(parameterType))
-            return MacroParameterRole.FreestandingContext;
-
-        if (typeof(TokenTreeMacroContext).IsAssignableFrom(parameterType))
+        if (GetContextKind(parameterType) != MacroContextKind.None)
             return MacroParameterRole.Context;
 
         if (typeof(ExpressionSyntax).IsAssignableFrom(parameterType))
             return MacroParameterRole.SyntaxInput;
 
         if (typeof(IMacroTokenStream).IsAssignableFrom(parameterType))
-            return MacroParameterRole.TokenStream;
+            return MacroParameterRole.TokenBody;
 
         return MacroParameterRole.Value;
     }
@@ -118,12 +91,55 @@ internal static class MacroParameterRoleFacts
             MacroParameterRole.SyntaxInput =>
                 parameter.TypeAnnotation?.Type.ToString() ??
                 "Raven.CodeAnalysis.Syntax.ExpressionSyntax",
-            MacroParameterRole.TokenStream => "Raven.CodeAnalysis.Macros.IMacroTokenStream",
-            MacroParameterRole.Context => "Raven.CodeAnalysis.Macros.TokenTreeMacroContext",
-            MacroParameterRole.FreestandingContext => "Raven.CodeAnalysis.Macros.FreestandingMacroContext",
-            MacroParameterRole.AttachedContext => "Raven.CodeAnalysis.Macros.AttachedMacroContext",
+            MacroParameterRole.TokenBody => "Raven.CodeAnalysis.Macros.IMacroTokenStream",
+            MacroParameterRole.Context =>
+                parameter.TypeAnnotation?.Type.ToString() ??
+                "Raven.CodeAnalysis.Macros.MacroContext",
             _ => parameter.TypeAnnotation?.Type.ToString() ?? "object"
         };
+
+    public static MacroContextKind GetContextKind(ITypeSymbol parameterType)
+    {
+        if (IsOrDerivesFrom(
+            parameterType,
+            "Raven.CodeAnalysis.Macros",
+            nameof(AttachedMacroContext)))
+        {
+            return MacroContextKind.Attached;
+        }
+
+        if (IsOrDerivesFrom(
+            parameterType,
+            "Raven.CodeAnalysis.Macros",
+            nameof(FreestandingMacroContext)))
+        {
+            return MacroContextKind.Freestanding;
+        }
+
+        if (IsOrDerivesFrom(
+            parameterType,
+            "Raven.CodeAnalysis.Macros",
+            nameof(TokenTreeMacroContext)))
+        {
+            return MacroContextKind.TokenTree;
+        }
+
+        return MacroContextKind.None;
+    }
+
+    public static MacroContextKind GetContextKind(Type parameterType)
+    {
+        if (typeof(AttachedMacroContext).IsAssignableFrom(parameterType))
+            return MacroContextKind.Attached;
+
+        if (typeof(FreestandingMacroContext).IsAssignableFrom(parameterType))
+            return MacroContextKind.Freestanding;
+
+        if (typeof(TokenTreeMacroContext).IsAssignableFrom(parameterType))
+            return MacroContextKind.TokenTree;
+
+        return MacroContextKind.None;
+    }
 
     private static bool IsOrDerivesFrom(
         ITypeSymbol type,
@@ -174,4 +190,12 @@ internal static class MacroParameterRoleFacts
 
         return false;
     }
+}
+
+internal enum MacroContextKind
+{
+    None,
+    TokenTree,
+    Freestanding,
+    Attached,
 }

@@ -6,8 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
-  the general `SyntaxInput` role, preserve source-backed expression arguments,
-  and rely on ordinary call-site binding to infer and validate expanded values.
+  the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve
+  source-backed expression arguments, and rely on ordinary call-site binding to
+  infer and validate expanded values.
 
 - Reusable compiler-plugin projects can now place a bare
   `[assembly: RavenCompilerPlugin]` marker and compact `macro` declarations in

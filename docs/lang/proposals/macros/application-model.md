@@ -296,20 +296,29 @@ invocation appears:
 let x: double = evaluate!(2 + 3)
 ```
 
-Typed syntax wrappers remain a post-MVP design decision. An illustrative future
-shape is:
+Typed syntax wrappers remain a post-MVP design decision and belong to a special
+macro-infrastructure layer. They are not syntax nodes, do not appear in ordinary
+Raven syntax trees, and do not extend the generated syntax-node hierarchy. They
+wrap existing immutable syntax nodes together with a compiler-verified semantic
+constraint. Ordinary syntax-node parameters and returns remain supported as the
+category-only, or “untyped,” forms.
+
+Illustrative future shapes are:
 
 ```raven
+ExpressionSyntax<T>        // Any expression whose resulting type is compatible with T.
+LiteralExpressionSyntax<T> // A literal syntax node whose resulting type is compatible with T.
+
 macro Double(expr: ExpressionSyntax<double>) -> ExpressionSyntax<double> {
     // ...
 }
 ```
 
-This would add a semantic constraint to the existing syntax node, not introduce
-a new syntax-node category. A wrapper on a more specific existing node type
-could constrain both syntax shape and semantic type. The compiler would bind and
-verify the input before execution, then bind the expansion and verify its
-resulting type after execution, mapping diagnostics through provenance. The
+`ExpressionSyntax<T>` constrains only the semantic result while
+`LiteralExpressionSyntax<T>` constrains both existing syntax shape and semantic
+type. Each wrapper retains access to its underlying ordinary node. The compiler
+would bind and verify the input before execution, then unwrap, bind, and verify
+the expansion after execution, mapping diagnostics through provenance. The
 macro cannot assert or bypass either check.
 
 The final wrapper API is deliberately undecided. Semantic promises must remain

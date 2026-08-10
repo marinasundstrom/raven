@@ -43,6 +43,12 @@ The dependency-ordered slices are:
 6. statement invocation and recovery coverage; and
 7. later member, type, pattern, and quote-category work.
 
+After the application model is stable, evaluate macro-only typed syntax wrappers
+such as `ExpressionSyntax<T>` and `LiteralExpressionSyntax<T>`. They wrap
+existing ordinary nodes with compiler-verified semantic constraints; they are
+not additions to the Raven syntax tree, and untyped/category-only syntax nodes
+remain fully supported.
+
 Each slice is committed independently. Syntax-model changes require generator
 rebuilds; compiler behavior changes require focused macro tests, and editor-facing
 changes require the corresponding language-server tests. A broad baseline is

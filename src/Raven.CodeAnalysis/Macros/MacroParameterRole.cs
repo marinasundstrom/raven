@@ -26,21 +26,17 @@ public enum MacroParameterRole
     /// The compiler supplies the parameter from the invocation's raw
     /// token-tree body.
     /// </summary>
-    TokenStream = 3,
+    TokenBody = 3,
 
     /// <summary>
-    /// The compiler supplies the complete token-tree expansion context.
+    /// The compiler supplies a recognized macro context object. The parameter
+    /// type identifies the concrete context capabilities.
     /// </summary>
     Context = 4,
 
     /// <summary>
-    /// The compiler supplies the complete argument-style freestanding expansion
-    /// context without requiring a token-tree body.
+    /// The compiler supplies the syntax node to which an attached macro is
+    /// applied.
     /// </summary>
-    FreestandingContext = 5,
-
-    /// <summary>
-    /// The compiler supplies the complete attached expansion context.
-    /// </summary>
-    AttachedContext = 6,
+    AttachedTarget = 5,
 }

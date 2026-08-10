@@ -49,31 +49,33 @@ internal static class MacroLowering
         var parameters = declaration.ParameterList.Parameters
             .Select((syntax, index) => (
                 Syntax: syntax,
-                Role: symbol?.Parameters[index].MacroRole ?? MacroParameterRole.Value))
+                Role: symbol?.Parameters[index].MacroRole ?? MacroParameterRole.Value,
+                ContextKind: symbol is null
+                    ? MacroContextKind.None
+                    : MacroParameterRoleFacts.GetContextKind(symbol.Parameters[index].Type)))
             .ToArray();
         var tokenStreamParameters = parameters
             .Where(static parameter =>
-                parameter.Role == MacroParameterRole.TokenStream)
+                parameter.Role == MacroParameterRole.TokenBody)
             .ToArray();
         var contextParameters = parameters
             .Where(static parameter =>
-                parameter.Role == MacroParameterRole.Context)
+                parameter.ContextKind == MacroContextKind.TokenTree)
             .ToArray();
         var freestandingContextParameters = parameters
             .Where(static parameter =>
-                parameter.Role == MacroParameterRole.FreestandingContext)
+                parameter.ContextKind == MacroContextKind.Freestanding)
             .ToArray();
         var attachedContextParameters = parameters
             .Where(static parameter =>
-                parameter.Role == MacroParameterRole.AttachedContext)
+                parameter.ContextKind == MacroContextKind.Attached)
             .ToArray();
         var valueParameters = parameters
             .Where(static parameter =>
                 parameter.Role is not (
-                    MacroParameterRole.TokenStream or
+                    MacroParameterRole.TokenBody or
                     MacroParameterRole.Context or
-                    MacroParameterRole.FreestandingContext or
-                    MacroParameterRole.AttachedContext))
+                    MacroParameterRole.AttachedTarget))
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0 || contextParameters.Length > 0;
         var hasEditorMetadataContributions = declaration.DescendantNodes()
@@ -182,7 +184,7 @@ internal static class MacroLowering
 
     private static void AppendParametersClass(
         StringBuilder builder,
-        IReadOnlyList<(ParameterSyntax Syntax, MacroParameterRole Role)> parameters,
+        IReadOnlyList<(ParameterSyntax Syntax, MacroParameterRole Role, MacroContextKind ContextKind)> parameters,
         string parametersName,
         bool isPublic)
     {
@@ -214,7 +216,7 @@ internal static class MacroLowering
     }
 
     private static string GetParameterType(
-        (ParameterSyntax Syntax, MacroParameterRole Role) parameter)
+        (ParameterSyntax Syntax, MacroParameterRole Role, MacroContextKind ContextKind) parameter)
         => MacroParameterRoleFacts.GetLoweredTypeName(
             parameter.Syntax,
             parameter.Role);

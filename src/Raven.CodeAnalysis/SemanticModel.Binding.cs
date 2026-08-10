@@ -414,7 +414,7 @@ public partial class SemanticModel
             .ToArray();
         var tokenStreamParameters = parameters
             .Where(static parameter =>
-                parameter.Symbol.MacroRole == MacroParameterRole.TokenStream)
+                parameter.Symbol.MacroRole == MacroParameterRole.TokenBody)
             .ToArray();
 
         foreach (var defaultedParameter in tokenStreamParameters
@@ -451,25 +451,23 @@ public partial class SemanticModel
         }
 
         foreach (var contextParameter in parameters.Where(static parameter =>
-            parameter.Symbol.MacroRole is
-                MacroParameterRole.Context or
-                MacroParameterRole.FreestandingContext or
-                MacroParameterRole.AttachedContext))
+            parameter.Symbol.MacroRole == MacroParameterRole.Context))
         {
-            var requiredMacroKind = contextParameter.Symbol.MacroRole switch
+            var contextKind = MacroParameterRoleFacts.GetContextKind(contextParameter.Symbol.Type);
+            var requiredMacroKind = contextKind switch
             {
-                MacroParameterRole.AttachedContext => "attached",
-                MacroParameterRole.Context => "token-tree freestanding",
+                MacroContextKind.Attached => "attached",
+                MacroContextKind.TokenTree => "token-tree freestanding",
                 _ => "argument-style freestanding"
             };
-            var isValid = contextParameter.Symbol.MacroRole switch
+            var isValid = contextKind switch
             {
-                MacroParameterRole.AttachedContext => declaration.TargetClause is not null,
-                MacroParameterRole.Context => declaration.TargetClause is null,
-                MacroParameterRole.FreestandingContext => declaration.TargetClause is null &&
+                MacroContextKind.Attached => declaration.TargetClause is not null,
+                MacroContextKind.TokenTree => declaration.TargetClause is null,
+                MacroContextKind.Freestanding => declaration.TargetClause is null &&
                     tokenStreamParameters.Length == 0 &&
                     parameters.All(static parameter =>
-                        parameter.Symbol.MacroRole != MacroParameterRole.Context),
+                        MacroParameterRoleFacts.GetContextKind(parameter.Symbol.Type) != MacroContextKind.TokenTree),
                 _ => true
             };
 
@@ -515,7 +513,7 @@ public partial class SemanticModel
             {
                 MacroKind.FreestandingExpression => instruction == "expand" ||
                     (instruction is "fragment" or "token") && symbol.Parameters.Any(static parameter =>
-                        parameter.MacroRole is MacroParameterRole.TokenStream or MacroParameterRole.Context),
+                        parameter.MacroRole is MacroParameterRole.TokenBody or MacroParameterRole.Context),
                 MacroKind.AttachedDeclaration => instruction is "expand" or "replace" or "introduce",
                 _ => false
             };
