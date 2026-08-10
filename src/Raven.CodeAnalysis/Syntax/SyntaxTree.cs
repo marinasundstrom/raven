@@ -368,7 +368,16 @@ public partial class SyntaxTree
                 return null;
             }
 
-            if (parent is BlockStatementSyntax)
+            if (parent is TypeDeclarationSyntax && nodeToReplace is MemberDeclarationSyntax)
+            {
+                // A standalone MemberDeclaration parse has compilation-unit context and may
+                // classify a method-shaped declaration as a global statement. Preserve the
+                // concrete member category while reparsing inside a type. If an edit truly
+                // changes the declaration category, the type check below triggers the safe
+                // full-tree fallback.
+                requestedSyntaxType = nodeToReplace.GetType();
+            }
+            else if (parent is BlockStatementSyntax)
             {
                 //block.ReplaceNode(nodeToReplace, );
 

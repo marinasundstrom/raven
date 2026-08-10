@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed incremental parsing of edited type members so method signature changes
+  retain type-member context instead of being misclassified as file-scoped
+  function statements. Category-changing edits still fall back to a full parse.
+
 - Removed the alternate `#Name` invocable-macro syntax. Freestanding macros now
   use the single `Name!` carrier for argument lists, raw token bodies, or both;
   `#` remains available for directives and attached macro attributes.
