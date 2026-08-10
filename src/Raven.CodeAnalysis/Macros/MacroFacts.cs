@@ -11,6 +11,58 @@ namespace Raven.CodeAnalysis.Macros;
 public static class MacroFacts
 {
     /// <summary>
+    /// Gets how the macro is applied to authored Raven syntax.
+    /// </summary>
+    public static MacroApplicationKind GetApplicationKind(IMacroDefinition macro)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+        if (TryGetApplicationKind(macro, out var applicationKind))
+            return applicationKind;
+
+        throw new ArgumentException(
+            "A macro definition must implement exactly one supported macro category interface.",
+            nameof(macro));
+    }
+
+    /// <summary>
+    /// Tries to get how the macro is applied to authored Raven syntax.
+    /// </summary>
+    public static bool TryGetApplicationKind(
+        IMacroDefinition macro,
+        out MacroApplicationKind applicationKind)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+
+        if (!TryGetKind(macro, out var kind))
+        {
+            applicationKind = default;
+            return false;
+        }
+
+        applicationKind = kind == MacroKind.AttachedDeclaration
+            ? MacroApplicationKind.Attached
+            : MacroApplicationKind.Invocable;
+        return true;
+    }
+
+    /// <summary>
+    /// Gets the grammar positions supported by an invocable macro.
+    /// </summary>
+    /// <remarks>
+    /// Current class-authored freestanding providers are expression providers.
+    /// Return-type projection will replace this compatibility projection when
+    /// multi-position macro declarations are enabled.
+    /// </remarks>
+    public static MacroInvocationTargets GetInvocationTargets(IMacroDefinition macro)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+
+        return GetApplicationKind(macro) == MacroApplicationKind.Invocable
+            ? MacroInvocationTargets.Expression
+            : MacroInvocationTargets.None;
+    }
+
+    /// <summary>
     /// Gets the macro category implied by the definition's single
     /// category-specific interface.
     /// </summary>

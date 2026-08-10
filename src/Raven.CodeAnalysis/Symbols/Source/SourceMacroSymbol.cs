@@ -42,6 +42,16 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
 
     public override bool CanBeReferencedByName => true;
 
+    public MacroApplicationKind ApplicationKind =>
+        _isAttached
+            ? MacroApplicationKind.Attached
+            : MacroApplicationKind.Invocable;
+
+    public MacroInvocationTargets InvocationTargets =>
+        _isAttached
+            ? MacroInvocationTargets.None
+            : MacroInvocationTargets.Expression;
+
     public MacroKind MacroKind =>
         _isAttached
             ? MacroKind.AttachedDeclaration

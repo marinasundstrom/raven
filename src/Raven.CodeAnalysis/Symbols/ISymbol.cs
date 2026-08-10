@@ -309,6 +309,17 @@ public interface IMethodSymbol : ISymbol
 public interface IMacroSymbol : ISymbol
 {
     /// <summary>
+    /// Gets how this macro is applied to authored Raven syntax.
+    /// </summary>
+    MacroApplicationKind ApplicationKind { get; }
+
+    /// <summary>
+    /// Gets the grammar positions in which this macro can be invoked, or
+    /// <see cref="MacroInvocationTargets.None"/> for an attached macro.
+    /// </summary>
+    MacroInvocationTargets InvocationTargets { get; }
+
+    /// <summary>
     /// Gets the category of macro represented by this symbol.
     /// </summary>
     MacroKind MacroKind { get; }

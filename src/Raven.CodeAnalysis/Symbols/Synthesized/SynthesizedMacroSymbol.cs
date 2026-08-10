@@ -33,6 +33,10 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
 
     public override bool CanBeReferencedByName => true;
 
+    public MacroApplicationKind ApplicationKind => MacroFacts.GetApplicationKind(Definition);
+
+    public MacroInvocationTargets InvocationTargets => MacroFacts.GetInvocationTargets(Definition);
+
     public MacroKind MacroKind => MacroFacts.GetKind(Definition);
 
     public MacroTarget Targets => Definition is IAttachedDeclarationMacro attached

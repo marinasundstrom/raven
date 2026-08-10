@@ -57,6 +57,8 @@ public sealed class MacroReferenceTests
         Assert.Same(macro, Assert.Single(reference.Macros));
 
         Assert.Equal("AddEquatable", macro.Name);
+        Assert.Equal(MacroApplicationKind.Attached, MacroFacts.GetApplicationKind(macro));
+        Assert.Equal(MacroInvocationTargets.None, MacroFacts.GetInvocationTargets(macro));
         Assert.Equal(MacroKind.AttachedDeclaration, MacroFacts.GetKind(macro));
         Assert.Equal(MacroTarget.Type, MacroFacts.GetTargets(macro));
     }
@@ -494,7 +496,11 @@ public sealed class MacroReferenceTests
     [Fact]
     public void MacroFacts_ReturnsNoDeclarationTargetsForFreestandingMacro()
     {
-        Assert.Equal(MacroTarget.None, MacroFacts.GetTargets(new TestTokenTreeMacro()));
+        var macro = new TestTokenTreeMacro();
+
+        Assert.Equal(MacroApplicationKind.Invocable, MacroFacts.GetApplicationKind(macro));
+        Assert.Equal(MacroInvocationTargets.Expression, MacroFacts.GetInvocationTargets(macro));
+        Assert.Equal(MacroTarget.None, MacroFacts.GetTargets(macro));
     }
 
     public sealed class TestAttachedMacro : IAttachedDeclarationMacro

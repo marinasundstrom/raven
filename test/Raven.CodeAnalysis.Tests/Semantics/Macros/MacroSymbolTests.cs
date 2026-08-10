@@ -158,6 +158,8 @@ public sealed class MacroSymbolTests : CompilationTestBase
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(SymbolKind.Macro, symbol.Kind);
+        Assert.Equal(MacroApplicationKind.Invocable, symbol.ApplicationKind);
+        Assert.Equal(MacroInvocationTargets.Expression, symbol.InvocationTargets);
         Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Null(symbol.TargetName);
@@ -471,6 +473,8 @@ public sealed class MacroSymbolTests : CompilationTestBase
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         var parameter = Assert.Single(symbol.Parameters);
+        Assert.Equal(MacroApplicationKind.Attached, symbol.ApplicationKind);
+        Assert.Equal(MacroInvocationTargets.None, symbol.InvocationTargets);
         Assert.Equal(MacroParameterRole.AttachedContext, parameter.MacroRole);
         Assert.Equal("AttachedMacroContext", parameter.Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
