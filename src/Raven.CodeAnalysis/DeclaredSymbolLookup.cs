@@ -19,7 +19,7 @@ internal sealed class DeclaredSymbolLookup
         if (_semanticModel.TryGetMacroReplacementSyntax(node, out var replacementNode))
             node = replacementNode;
 
-        if (node is TypeDeclarationSyntax generatedContainingType &&
+        if (node is BaseTypeDeclarationSyntax generatedContainingType &&
             _semanticModel.TryGetMacroContainingTypeSyntax(generatedContainingType, out var containingTypeReplacement))
         {
             node = containingTypeReplacement;
@@ -48,7 +48,7 @@ internal sealed class DeclaredSymbolLookup
             if (_semanticModel.TryGetMacroReplacementSyntax(node, out replacementNode))
                 node = replacementNode;
 
-            if (node is TypeDeclarationSyntax reboundGeneratedContainingType &&
+            if (node is BaseTypeDeclarationSyntax reboundGeneratedContainingType &&
                 _semanticModel.TryGetMacroContainingTypeSyntax(reboundGeneratedContainingType, out containingTypeReplacement))
             {
                 node = containingTypeReplacement;

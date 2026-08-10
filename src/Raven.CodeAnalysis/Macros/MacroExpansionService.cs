@@ -425,17 +425,18 @@ internal static class MacroExpansionService
             return result;
         }
 
-        if (targetMember.Parent is not TypeDeclarationSyntax containingType)
+        if (targetMember.Parent is not BaseTypeDeclarationSyntax containingType)
             return ContextualizeTopLevelReplacement(targetMember, result);
 
-        var rewrittenMembers = new List<MemberDeclarationSyntax>(containingType.Members.Count +
+        var containingMembers = GetContainingTypeMembers(containingType);
+        var rewrittenMembers = new List<MemberDeclarationSyntax>(containingMembers.Count +
             result.IntroducedMembers.Length +
             result.PeerDeclarations.Length);
         var introducedStartIndex = -1;
         var replacementIndex = -1;
         var peerStartIndex = -1;
 
-        foreach (var member in containingType.Members)
+        foreach (var member in containingMembers)
         {
             if (!IsTargetMember(member, targetMember))
             {
@@ -460,8 +461,8 @@ internal static class MacroExpansionService
         if (rewrittenContainingType is null)
             return result;
 
-        var contextualContainingType = (TypeDeclarationSyntax)rewrittenContainingType.WithParent(containingType.Parent, containingType.Position);
-        var contextualMembers = contextualContainingType.Members;
+        var contextualContainingType = (BaseTypeDeclarationSyntax)rewrittenContainingType.WithParent(containingType.Parent, containingType.Position);
+        var contextualMembers = GetContainingTypeMembers(contextualContainingType);
 
         return new MacroExpansionResult
         {
@@ -562,8 +563,8 @@ internal static class MacroExpansionService
         return builder.ToImmutable();
     }
 
-    private static TypeDeclarationSyntax? RewriteContainingTypeMembers(
-        TypeDeclarationSyntax containingType,
+    private static BaseTypeDeclarationSyntax? RewriteContainingTypeMembers(
+        BaseTypeDeclarationSyntax containingType,
         SyntaxList<MemberDeclarationSyntax> members)
     {
         return containingType switch
@@ -572,9 +573,19 @@ internal static class MacroExpansionService
             StructDeclarationSyntax structDeclaration => structDeclaration.WithMembers(members),
             RecordDeclarationSyntax recordDeclaration => recordDeclaration.WithMembers(members),
             InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.WithMembers(members),
+            UnionDeclarationSyntax unionDeclaration => unionDeclaration.WithMembers(members),
             _ => null
         };
     }
+
+    private static SyntaxList<MemberDeclarationSyntax> GetContainingTypeMembers(
+        BaseTypeDeclarationSyntax containingType)
+        => containingType switch
+        {
+            TypeDeclarationSyntax typeDeclaration => typeDeclaration.Members,
+            UnionDeclarationSyntax unionDeclaration => unionDeclaration.Members,
+            _ => default
+        };
 
     private static void RegisterGeneratedSyntaxTrees(
         Compilation compilation,

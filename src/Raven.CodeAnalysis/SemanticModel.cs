@@ -25,7 +25,7 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<SyntaxNode, InvocableMacroExpansionCacheEntry> _invocableMacroExpansionCache = new();
     private readonly ConcurrentDictionary<AttributeSyntax, ImmutableArray<SyntaxNode>> _expandedDeclarationCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
-    private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
+    private readonly ConcurrentDictionary<BaseTypeDeclarationSyntax, BaseTypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
     private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
     private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
     private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, MacroInputSnapshot> _macroInputSnapshotCache = new();
@@ -10034,10 +10034,10 @@ public partial class SemanticModel
         }
     }
 
-    internal bool TryGetMacroContainingTypeSyntax(TypeDeclarationSyntax generatedType, out TypeDeclarationSyntax containingType)
+    internal bool TryGetMacroContainingTypeSyntax(BaseTypeDeclarationSyntax generatedType, out BaseTypeDeclarationSyntax containingType)
         => _macroContainingTypeSyntaxMap.TryGetValue(generatedType, out containingType!);
 
-    internal void RegisterMacroContainingTypeSyntax(TypeDeclarationSyntax generatedType, TypeDeclarationSyntax containingType)
+    internal void RegisterMacroContainingTypeSyntax(BaseTypeDeclarationSyntax generatedType, BaseTypeDeclarationSyntax containingType)
         => _macroContainingTypeSyntaxMap[generatedType] = containingType;
 
     /// <summary>

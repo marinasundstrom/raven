@@ -3,15 +3,24 @@ namespace System
 import System.*
 
 /// Describes an error with a human-readable message and an optional underlying cause.
+///
+/// Error types can implement this contract directly. Union-based errors can
+/// alternatively use Raven.Macros.Error to derive the same ordinary interface
+/// implementation; the macro does not change this runtime contract.
 public interface IError {
-    /// Gets the human-readable error message.
+    /// Gets a human-readable description of this error value.
     val Message: string
 
-    /// Gets the error that caused this error, or `null` when no cause is available.
+    /// Gets the lower-level error that caused this error, or `null` when this
+    /// error has no causal chain.
     val Cause: IError? => null
 }
 
-/// Adds contextual information to an existing error.
+/// Adds contextual information around an existing main error.
+///
+/// The contextual message describes the current operation. `Cause` preserves
+/// the underlying typed error so explicit error propagation does not erase the
+/// original failure.
 ///
 /// @typeparam TError The type of the underlying error.
 public record ContextError<TError: IError>(

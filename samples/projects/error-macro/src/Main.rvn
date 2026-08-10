@@ -3,13 +3,25 @@ import Raven.Macros.*
 
 #[Error]
 union ParseError {
+    #[ErrorMessage("Invalid value: $value")]
     case InvalidValue(value: string)
+
+    #[ErrorMessage("A required value is missing")]
     case MissingValue
 }
 
-func Main() {
-    let failure: ParseError = .InvalidValue("age")
-    let error: IError = failure
+func parseAge(text: string) -> Result<int, ParseError> {
+    if text == "42" {
+        return Ok(42)
+    }
+    return Error(ParseError.InvalidValue(text))
+}
 
-    Console.WriteLine(error.Message)
+func Main() {
+    let result = parseAge("age").WithContext("Reading the configured age")
+
+    if result is Error(let error) {
+        Console.WriteLine(error.Message)
+        Console.WriteLine(error.Cause.Message)
+    }
 }

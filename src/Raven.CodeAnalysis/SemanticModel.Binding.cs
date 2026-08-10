@@ -535,6 +535,15 @@ public partial class SemanticModel
 
     private MacroTarget GetMacroTarget(ITypeSymbol type)
     {
+        var unionCaseType = Compilation.GetTypeByMetadataName(
+            "Raven.CodeAnalysis.Syntax.CaseDeclarationSyntax");
+        if (unionCaseType is not null &&
+            (SymbolEqualityComparer.Default.Equals(type, unionCaseType) ||
+             type.IsDerivedFrom(unionCaseType)))
+        {
+            return MacroTarget.Type;
+        }
+
         foreach (var target in new[]
         {
             MacroTarget.Type,
@@ -1302,9 +1311,9 @@ public partial class SemanticModel
             builder.Add(new EffectiveMemberDeclaration(peerDeclaration));
     }
 
-    private void RegisterMacroContainingTypeSyntax(MemberDeclarationSyntax member, TypeDeclarationSyntax containingTypeDeclaration)
+    private void RegisterMacroContainingTypeSyntax(MemberDeclarationSyntax member, BaseTypeDeclarationSyntax containingTypeDeclaration)
     {
-        if (member.Parent is TypeDeclarationSyntax generatedContainingType)
+        if (member.Parent is BaseTypeDeclarationSyntax generatedContainingType)
             RegisterMacroContainingTypeSyntax(generatedContainingType, containingTypeDeclaration);
     }
 
@@ -3380,6 +3389,9 @@ public partial class SemanticModel
 
             introducedMembers.AddRange(expansion.IntroducedMembers);
         }
+
+        foreach (var introducedMember in introducedMembers)
+            RegisterMacroContainingTypeSyntax(introducedMember, declaration);
 
         if (!ReferenceEquals(effectiveDeclaration, declaration))
         {
@@ -8186,7 +8198,7 @@ public partial class SemanticModel
 
     private SourceNamedTypeSymbol GetDeclaredTypeSymbol(SyntaxNode node)
     {
-        if (node is TypeDeclarationSyntax generatedType &&
+        if (node is BaseTypeDeclarationSyntax generatedType &&
             TryGetMacroContainingTypeSyntax(generatedType, out var containingType))
         {
             node = containingType;

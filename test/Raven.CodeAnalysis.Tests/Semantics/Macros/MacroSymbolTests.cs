@@ -345,6 +345,25 @@ public sealed class MacroSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void AttachedMacro_UnionCaseSyntaxTarget_IsATypeTarget()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            macro CaseMetadata(on target: Raven.CodeAnalysis.Syntax.CaseDeclarationSyntax) {
+                expand target
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(CaseDeclarationSyntax).Assembly.Location));
+        var declaration = tree.GetRoot().DescendantNodes().OfType<MacroDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(MacroTarget.Type, symbol.Targets);
+        Assert.Equal("CaseDeclarationSyntax", symbol.TargetParameter!.Type.Name);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV0927");
+    }
+
+    [Fact]
     public void InvocableMacro_ReturnTypeProjectsGrammarTargets()
     {
         var (compilation, tree) = CreateCompilation("""

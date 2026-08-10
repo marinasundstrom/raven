@@ -267,7 +267,8 @@ public class ResultJsonConverterFactory : JsonConverterFactory {
 
 /// Provides contextual error operations for results whose error implements `IError`.
 public extension ResultErrorContextExtensions<T, E: IError> for Result<T, E> {
-    /// Wraps the error channel with additional context while preserving the original error type.
+    /// Wraps only the error channel with operation context. The original typed
+    /// error is preserved as the contextual error's cause.
     func WithContext(message: string) -> Result<T, ContextError<E>> {
         self.MapError(error => error.WithContext(message))
     }

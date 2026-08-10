@@ -91,6 +91,57 @@ projections proposal for the planned mapping-file extension model.
 
 ## Types included in Raven.Core
 
+### `IError`
+
+`IError` is Raven.Core's explicit error-value contract. It is not an exception
+base class and does not imply stack unwinding. Errors are normally returned in
+the `Error` channel of `Result<T, E>`, then matched, transformed, or propagated
+as ordinary values. Reserve exceptions for unexpected faults and .NET APIs
+whose contracts throw.
+
+The main error is the most specific modeled failure. It implements `IError`
+with a human-readable `Message` and normally has no `Cause`:
+
+```raven
+#[Error]
+union ParseError {
+    #[ErrorMessage("Invalid integer: $text")]
+    case InvalidInteger(text: string)
+}
+
+func parse(text: string) -> Result<int, ParseError> {
+    if text == "42" {
+        return Ok(42)
+    }
+    return Error(ParseError.InvalidInteger(text))
+}
+```
+
+As an error crosses an operation boundary, add context rather than replacing
+the main error. `WithContext` maps only the error channel and returns
+`Result<T, ContextError<E>>`; the original typed error becomes `Cause`:
+
+```raven
+func readCount(text: string) -> Result<int, ContextError<ParseError>> {
+    return parse(text).WithContext("Reading the configured item count")
+}
+```
+
+Context therefore reads from the outside inward: “Reading the configured item
+count” is the current operation, and its `Cause` is the concrete
+`InvalidInteger` error. More boundaries may add more context, producing a
+causal chain while preserving each error value. Use `MapError` when a boundary
+needs to translate errors into a different domain model instead.
+
+`IError` remains an ordinary .NET interface: records, classes, structs, and
+unions may implement it directly, and consumers do not depend on the macro
+system.
+
+`Raven.Macros` provides `#[Error]` and case-level `#[ErrorMessage(...)]` as an
+authoring convenience for union errors. They expand to a normal `IError`
+implementation; see the [Raven Macro Library](raven-macros-library.md) for the
+authored and expanded forms.
+
 ### `Option<T>`
 
 A union carrier with two cases:

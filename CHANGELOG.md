@@ -15,7 +15,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added the reusable `#[Error]` macro to `Raven.Macros`. It makes a union
   implement `System.IError` and supplies a case-aware `Message` property unless
-  the union already declares one.
+  the union already declares one. Case-level `#[ErrorMessage(...)]` can now
+  provide a Raven string expression with payload interpolation; unannotated
+  cases retain the default case-aware message.
+
+- Macro declarations can now bind a union case through an `on` parameter typed
+  as `CaseDeclarationSyntax`. Case-level attached-macro replacements are
+  contextualized inside union declarations instead of being left detached.
+
+- Union members can match cases from their own declaring union without an
+  import or carrier qualifier, including `self is MissingValue` and match arms
+  such as `InvalidValue(let value)`.
 
 - Hardened macro-reference activation so provider-construction failures report
   the provider type and underlying error through `RAVM001`, remain stable across

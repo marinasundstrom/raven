@@ -63,6 +63,125 @@ public sealed class ErrorMacroCodeGenTests
         Assert.Equal("custom message:404", result);
     }
 
+    [Fact]
+    public void ErrorMessageMacro_UsesCasePayloadInRavenInterpolation()
+    {
+        var result = InvokeRun("""
+            import System.*
+            import Raven.Macros.*
+
+            #[Error]
+            union ParseError {
+                #[ErrorMessage("Invalid value: $value")]
+                case InvalidValue(value: string)
+
+                #[ErrorMessage("A value is required")]
+                case MissingValue
+            }
+
+            class Harness {
+                public static func Run() -> string {
+                    let invalid: IError = ParseError.InvalidValue("age")
+                    let missing: IError = ParseError.MissingValue
+                    return invalid.Message + "; " + missing.Message
+                }
+            }
+            """);
+
+        Assert.Equal("Invalid value: age; A value is required", result);
+    }
+
+    [Fact]
+    public void ErrorMessageMacro_UnannotatedCaseUsesDefaultMessage()
+    {
+        var result = InvokeRun("""
+            import System.*
+            import Raven.Macros.*
+
+            #[Error]
+            union ParseError {
+                #[ErrorMessage("Invalid value: $value")]
+                case InvalidValue(value: string)
+                case MissingValue
+            }
+
+            class Harness {
+                public static func Run() -> string {
+                    let missing: IError = ParseError.MissingValue
+                    return missing.Message
+                }
+            }
+            """);
+
+        Assert.Equal("ParseError.MissingValue", result);
+    }
+
+    [Theory]
+    [InlineData("#[ErrorMessage(42)] case Invalid", "ERRORMESSAGE001")]
+    [InlineData("#[ErrorMessage(\"Invalid\")] case Invalid", "ERRORMESSAGE002")]
+    public void ErrorMessageMacro_InvalidUseReportsDiagnostic(string declaration, string expectedCode)
+    {
+        var source = $$"""
+            import Raven.Macros.*
+
+            union ParseError {
+                {{declaration}}
+            }
+            """;
+        if (expectedCode == "ERRORMESSAGE001")
+            source = source.Replace("union ParseError", "#[Error]\nunion ParseError", StringComparison.Ordinal);
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(
+                [
+                    .. TestMetadataReferences.Default,
+                    TestMetadataReferences.RavenCore,
+                    TestMetadataReferences.RavenMacros
+                ]);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic =>
+                diagnostic.Id == "RAVM021" &&
+                diagnostic.GetMessage().Contains(expectedCode, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ErrorMessageMacro_DuplicateMessageReportsDiagnostic()
+    {
+        const string source = """
+            import Raven.Macros.*
+
+            #[Error]
+            union ParseError {
+                #[ErrorMessage("First")]
+                #[ErrorMessage("Second")]
+                case Invalid
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(
+                [
+                    .. TestMetadataReferences.Default,
+                    TestMetadataReferences.RavenCore,
+                    TestMetadataReferences.RavenMacros
+                ]);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic =>
+                diagnostic.Id == "RAVM021" &&
+                diagnostic.GetMessage().Contains("ERRORMESSAGE003", StringComparison.Ordinal));
+    }
+
     private static object? InvokeRun(string source)
     {
         var syntaxTree = SyntaxTree.ParseText(source);

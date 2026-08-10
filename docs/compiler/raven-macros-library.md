@@ -29,14 +29,42 @@ import Raven.Macros.*
 
 #[Error]
 union ParseError {
+    #[ErrorMessage("Invalid value: $value")]
     case InvalidValue(value: string)
+
+    #[ErrorMessage("A value is required")]
     case MissingValue
 }
 ```
 
-The generated `Message` uses the union's normal case-aware string
-representation. Authors can declare `Message` or `Cause` themselves when the
-default is not appropriate.
+`ErrorMessage` accepts Raven expression syntax. In the common string form,
+ordinary Raven interpolation can refer to the payload names of that case; no
+macro-specific formatting language is involved. A case without
+`ErrorMessage` falls back to the union's normal case-aware string
+representation.
+
+Conceptually, the macros above expand to ordinary Raven code:
+
+```raven
+union ParseError: System.IError {
+    case InvalidValue(value: string)
+    case MissingValue
+
+    val Message: string => self match {
+        InvalidValue(let value) => "Invalid value: $value"
+        MissingValue => "A value is required"
+        _ => self.ToString()
+    }
+
+    val Cause: System.IError? => null
+}
+```
+
+The expansion shown here explains the behavior rather than promising an exact
+lowered syntax-tree shape. `Error` adds `Message` or `Cause` only when the union
+does not already declare that property, so an authored implementation always
+takes precedence. `ErrorMessage` is valid only on a case nested in an
+`#[Error]` union and accepts a string literal or interpolated string.
 
 ## Authoring model
 

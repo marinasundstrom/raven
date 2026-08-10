@@ -4,6 +4,27 @@ Raven models exceptions as a last-resort control transfer for unexpected
 conditions. The language offers both statement-based structured exception
 handling and expression forms that surface errors as values.
 
+## Explicit error values
+
+Expected failures should normally be modeled as a specific error type and
+returned through `Result<T, E>`. When `E` implements Raven.Core's `IError`, the
+result can gain operation context with `WithContext(message)`. This wraps the
+main error in `ContextError<E>` and preserves it as `Cause`; it does not throw or
+erase the original error value.
+
+```raven
+func load(input: string) -> Result<Model, ContextError<ParseError>> {
+    return parse(input).WithContext("Loading the model")
+}
+```
+
+Use `MapError` when a boundary should translate one typed error model into
+another. Use `WithContext` when the error identity is still correct but the
+caller needs to know what operation was underway. See the
+[Raven Core Library](../../compiler/raven-core-library.md#ierror) for the full
+contract and the [Raven Macro Library](../../compiler/raven-macros-library.md)
+for deriving `IError` on unions.
+
 ## `throw` statements and expressions
 
 `throw` aborts the current evaluation path by propagating an exception value.

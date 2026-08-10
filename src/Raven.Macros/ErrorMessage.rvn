@@ -1,0 +1,24 @@
+namespace Raven.Macros
+
+/// Supplies the message for one case of a union derived with `#[Error]`.
+///
+/// The message is Raven expression syntax and is evaluated in the matching
+/// case's payload scope. This allows ordinary string interpolation to refer to
+/// payload names without introducing a separate formatting language.
+///
+/// ## Example
+///
+/// ```raven
+/// #[Error]
+/// union ParseError {
+///     #[ErrorMessage("Invalid value: $value")]
+///     case InvalidValue(value: string)
+/// }
+/// ```
+public macro ErrorMessage(
+    message: Raven.CodeAnalysis.Syntax.ExpressionSyntax,
+    on target: Raven.CodeAnalysis.Syntax.CaseDeclarationSyntax,
+    context: Raven.CodeAnalysis.Macros.AttachedMacroContext
+) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandErrorMessage(context, target, message)
+}
