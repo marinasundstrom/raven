@@ -27,12 +27,27 @@ public class TokenTreeMacroContext : MacroContext
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
             semanticModel,
-            syntax,
+            InvocableMacroInvocation.Create(syntax),
+            tokenStreamProvider: null,
+            keywords: ImmutableArray<MacroKeyword>.Empty,
+            cancellationToken)
+    {
+    }
+
+    public TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroMemberDeclarationSyntax syntax,
+        CancellationToken cancellationToken = default)
+        : this(
+            compilation,
+            semanticModel,
+            InvocableMacroInvocation.Create(syntax),
             tokenStreamProvider: null,
             keywords: ImmutableArray<MacroKeyword>.Empty,
             cancellationToken)
@@ -42,13 +57,32 @@ public class TokenTreeMacroContext : MacroContext
     internal TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        ITokenTreeExpressionMacro macro,
+        InvocableMacroExpressionSyntax syntax,
+        ITokenTreeMacro macro,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
             semanticModel,
-            syntax,
+            InvocableMacroInvocation.Create(syntax),
+            macro as IMacroTokenStreamProvider,
+            macro is IMacroKeywordProvider keywordProvider
+                ? keywordProvider.Keywords
+                : ImmutableArray<MacroKeyword>.Empty,
+            cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+    }
+
+    internal TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroInvocation invocation,
+        ITokenTreeMacro macro,
+        CancellationToken cancellationToken = default)
+        : this(
+            compilation,
+            semanticModel,
+            invocation,
             macro as IMacroTokenStreamProvider,
             macro is IMacroKeywordProvider keywordProvider
                 ? keywordProvider.Keywords
@@ -61,19 +95,23 @@ public class TokenTreeMacroContext : MacroContext
     private TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroInvocation invocation,
         IMacroTokenStreamProvider? tokenStreamProvider,
         ImmutableArray<MacroKeyword> keywords,
         CancellationToken cancellationToken)
-        : base(syntax ?? throw new ArgumentNullException(nameof(syntax)))
+        : base(invocation.Syntax)
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
-        Syntax = syntax;
-        TokenTree = syntax.TokenTree ?? throw new ArgumentException(
+        Syntax = invocation.Syntax;
+        Invocation = invocation;
+        Name = invocation.Name;
+        ExclamationToken = invocation.ExclamationToken;
+        ArgumentList = invocation.ArgumentList;
+        TokenTree = invocation.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
-            nameof(syntax));
-        Arguments = CreateArguments(syntax.ArgumentList, semanticModel);
+            nameof(invocation));
+        Arguments = CreateArguments(invocation.ArgumentList, semanticModel);
         _tokenStreamProvider = tokenStreamProvider;
         _keywords = keywords.IsDefault ? ImmutableArray<MacroKeyword>.Empty : keywords;
         CancellationToken = cancellationToken;
@@ -83,15 +121,21 @@ public class TokenTreeMacroContext : MacroContext
 
     public SemanticModel SemanticModel { get; }
 
-    public FreestandingMacroExpressionSyntax Syntax { get; }
+    public SyntaxNode Syntax { get; }
+
+    public NameSyntax Name { get; }
+
+    public SyntaxToken ExclamationToken { get; }
 
     public MacroTokenTreeSyntax TokenTree { get; }
 
-    public ArgumentListSyntax ArgumentList => Syntax.ArgumentList;
+    public ArgumentListSyntax ArgumentList { get; }
 
     public ImmutableArray<MacroArgument> Arguments { get; }
 
     public CancellationToken CancellationToken { get; }
+
+    internal InvocableMacroInvocation Invocation { get; }
 
     public TextSpan BodySpan => TextSpan.FromBounds(
         TokenTree.OpenBraceToken.Span.End,
@@ -748,7 +792,18 @@ public sealed class TokenTreeMacroContext<TParameters> : TokenTreeMacroContext
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
+        TParameters parameters,
+        CancellationToken cancellationToken = default)
+        : base(compilation, semanticModel, syntax, cancellationToken)
+    {
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+    }
+
+    public TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroMemberDeclarationSyntax syntax,
         TParameters parameters,
         CancellationToken cancellationToken = default)
         : base(compilation, semanticModel, syntax, cancellationToken)
@@ -759,11 +814,23 @@ public sealed class TokenTreeMacroContext<TParameters> : TokenTreeMacroContext
     internal TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        ITokenTreeExpressionMacro macro,
+        InvocableMacroExpressionSyntax syntax,
+        ITokenTreeMacro macro,
         TParameters parameters,
         CancellationToken cancellationToken = default)
         : base(compilation, semanticModel, syntax, macro, cancellationToken)
+    {
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+    }
+
+    internal TokenTreeMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroInvocation invocation,
+        ITokenTreeMacro macro,
+        TParameters parameters,
+        CancellationToken cancellationToken = default)
+        : base(compilation, semanticModel, invocation, macro, cancellationToken)
     {
         Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
     }

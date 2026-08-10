@@ -118,7 +118,7 @@ public sealed class QueryMacroCodeGenTests
             .AddReferences(TestMetadataReferences.Default)
             .AddMacroReferences(new MacroReference(typeof(QueryMacro)));
 
-    public sealed class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    public sealed class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider
     {
         private const int FromKeywordRawKind = 80_005;
         private const int SelectKeywordRawKind = 80_006;
@@ -133,7 +133,7 @@ public sealed class QueryMacroCodeGenTests
             new("select", SelectKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ];
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -208,7 +208,7 @@ public sealed class QueryMacroCodeGenTests
                 "Select",
                 CreateLambda(rangeVariable.ValueText, selectorResult.Syntax));
 
-            return FreestandingMacroExpansionResult.FromExpression(query, diagnostics);
+            return InvocableMacroExpansionResult.FromExpression(query, diagnostics);
         }
 
         private static ExpressionSyntax CreateLambda(string parameterName, ExpressionSyntax expression)
@@ -239,11 +239,11 @@ public sealed class QueryMacroCodeGenTests
                         new SyntaxNodeOrToken(SyntaxFactory.Argument(argument))
                     ])));
 
-        private static FreestandingMacroExpansionResult Error(
+        private static InvocableMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)
-            => FreestandingMacroExpansionResult.FromDiagnostic(
+            => InvocableMacroExpansionResult.FromDiagnostic(
                 context.CreateBodyDiagnostic(span, message, code: "QUERY001"));
     }
 }

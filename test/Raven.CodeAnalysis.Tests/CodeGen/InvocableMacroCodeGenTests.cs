@@ -12,10 +12,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public sealed class FreestandingMacroCodeGenTests
+public sealed class InvocableMacroCodeGenTests
 {
     [Fact]
-    public void FreestandingMacro_ExpandedStatement_IsEmitted()
+    public void InvocableMacro_ExpandedStatement_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -46,7 +46,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_WrongExpansionCategory_ReportsDiagnostic()
+    public void InvocableMacro_WrongExpansionCategory_ReportsDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -68,18 +68,182 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
+    public void InvocableMacro_MemberListInExpressionPosition_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            func Run() -> int => members!{ }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(MemberListMacro)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM022"));
+
+        Assert.Contains(
+            "member-list syntax where expression syntax is required",
+            diagnostic.GetMessage(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InvocableMacro_TypeMemberExpansion_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            class Harness {
+                generatedMembers!{ }
+            }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GeneratedMembersMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Generated", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void InvocableMacro_FileMemberExpansion_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            generatedNamespaceMembers!{ }
+
+            class Harness {
+                public static func Run() -> int => Generated.Value()
+            }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GeneratedNamespaceMembersMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void InvocableMacro_NamespaceMemberExpansion_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            namespace Example {
+                generatedNamespaceMembers!{ }
+
+                class Harness {
+                    public static func Run() -> int => Generated.Value()
+                }
+            }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GeneratedNamespaceMembersMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Example.Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void CompactMacro_MemberListExpansion_IsEmitted()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro Generate(context: TokenTreeMacroContext) -> SyntaxList<MemberDeclarationSyntax> {
+                expand context.ParseCompilationUnit().Members
+            }
+
+            Generate! {
+                class Generated {
+                    static func Value() -> int => 20
+                }
+            }
+
+            class Harness {
+                Generate! {
+                    class Nested {
+                        static func Value() -> int => 22
+                    }
+                }
+
+                static func Run() -> int => Generated.Value() + Nested.Value()
+            }
+
+            func Main() {}
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "CompactMemberMacroConsumer",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var macro = Assert.Single(
+            compilation.GetMacroRegistry().GetMacros(MacroKind.Invocable),
+            static macro => macro.Name == "Generate");
+        Assert.Equal(
+            MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember,
+            MacroFacts.GetInvocationTargets(macro));
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
     public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
     {
         var macroTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+            class LocalAnswerMacro : ITokenTreeMacro {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -111,7 +275,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_ExpandedExpression_IsEmitted()
+    public void InvocableMacro_ExpandedExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -140,7 +304,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_LoadsFileContentDuringExpansion()
+    public void InvocableMacro_LoadsFileContentDuringExpansion()
     {
         var path = Path.GetTempFileName();
         try
@@ -180,7 +344,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_MissingFileReportsArgumentDiagnostic()
+    public void InvocableMacro_MissingFileReportsArgumentDiagnostic()
     {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
         var syntaxTree = SyntaxTree.ParseText($$"""
@@ -327,25 +491,25 @@ public sealed class FreestandingMacroCodeGenTests
         Assert.Equal("then", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
     }
 
-    public sealed class AddMacro : IFreestandingExpressionMacro<AddMacroParameters>
+    public sealed class AddMacro : IInvocableMacro<AddMacroParameters>
     {
         public string Name => "add";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<AddMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext<AddMacroParameters> context)
             => new()
             {
                 Expression = ParseExpression($"{context.Parameters.Left} + {context.Parameters.Right}")
             };
     }
 
-    public sealed class SetAnswerMacro : ITokenTreeExpressionMacro
+    public sealed class SetAnswerMacro : ITokenTreeMacro
     {
         public string Name => "setAnswer";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.FromStatement(
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromStatement(
                 SyntaxFactory.ParseStatement("result = 42"));
     }
 
@@ -356,20 +520,20 @@ public sealed class FreestandingMacroCodeGenTests
         public int Right { get; set; }
     }
 
-    public sealed class EmbedTextMacro : IFreestandingExpressionMacro<EmbedTextMacroParameters>
+    public sealed class EmbedTextMacro : IInvocableMacro<EmbedTextMacroParameters>
     {
         public string Name => "embedText";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<EmbedTextMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(
+            InvocableMacroContext<EmbedTextMacroParameters> context)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
             try
             {
                 var content = File.ReadAllText(context.Parameters.Path);
-                return new FreestandingMacroExpansionResult
+                return new InvocableMacroExpansionResult
                 {
                     Expression = SyntaxFactory.LiteralExpression(
                         SyntaxKind.StringLiteralExpression,
@@ -381,7 +545,7 @@ public sealed class FreestandingMacroCodeGenTests
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException)
             {
-                return new FreestandingMacroExpansionResult
+                return new InvocableMacroExpansionResult
                 {
                     MacroDiagnostics =
                     [
@@ -400,18 +564,64 @@ public sealed class FreestandingMacroCodeGenTests
         public string Path { get; } = path;
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    public sealed class RavenBodyMacro : ITokenTreeMacro
     {
         public string Name => "raven";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
             {
                 Expression = context.ParseExpression()
             };
     }
 
-    public sealed class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    public sealed class MemberListMacro : ITokenTreeMacro
+    {
+        public string Name => "members";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
+            return InvocableMacroExpansionResult.FromMembers(
+                SyntaxFactory.SingletonList(member));
+        }
+    }
+
+    public sealed class GeneratedMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "generatedMembers";
+        public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.TypeMember;
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var container = Assert.IsType<ClassDeclarationSyntax>(
+                SyntaxFactory.ParseSyntaxTree("""
+                    class __GeneratedContainer {
+                        public static func Generated() -> int => 42
+                    }
+                    """).GetRoot().Members.Single());
+            return InvocableMacroExpansionResult.FromMembers(container.Members);
+        }
+    }
+
+    public sealed class GeneratedNamespaceMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "generatedNamespaceMembers";
+        public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.NamespaceMember;
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var member = SyntaxFactory.ParseSyntaxTree("""
+                class Generated {
+                    static func Value() -> int => 42
+                }
+                """).GetRoot().Members.Single();
+            return InvocableMacroExpansionResult.FromMembers(
+                SyntaxFactory.SingletonList(member));
+        }
+    }
+
+    public sealed class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider
     {
         private const int UnlessKeywordRawKind = 80_001;
 
@@ -422,7 +632,7 @@ public sealed class FreestandingMacroCodeGenTests
             new("unless", UnlessKeywordRawKind)
         ];
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -438,7 +648,7 @@ public sealed class FreestandingMacroCodeGenTests
             var condition = context.ParseExpression(
                 TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length));
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.PrefixOperatorExpression(
                     SyntaxKind.LogicalNotExpression,
@@ -447,7 +657,7 @@ public sealed class FreestandingMacroCodeGenTests
             };
         }
 
-        private static FreestandingMacroExpansionResult Error(
+        private static InvocableMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)
@@ -460,7 +670,7 @@ public sealed class FreestandingMacroCodeGenTests
             };
     }
 
-    public sealed class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    public sealed class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider
     {
         private const int TestKeywordRawKind = 80_002;
         private const int ThenKeywordRawKind = 80_003;
@@ -475,7 +685,7 @@ public sealed class FreestandingMacroCodeGenTests
             new("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ];
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -498,7 +708,7 @@ public sealed class FreestandingMacroCodeGenTests
             var whenFalse = context.ParseExpression(
                 TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length));
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.IfExpression(
                     SyntaxFactory.IfKeyword,
@@ -527,7 +737,7 @@ public sealed class FreestandingMacroCodeGenTests
             return false;
         }
 
-        private static FreestandingMacroExpansionResult Error(
+        private static InvocableMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)

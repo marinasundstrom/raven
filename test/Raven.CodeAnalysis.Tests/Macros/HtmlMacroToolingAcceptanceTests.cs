@@ -30,7 +30,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var position = source.IndexOf("message.", StringComparison.Ordinal) + "message.".Length;
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var items = compilation.GetSemanticModel(syntaxTree)
@@ -61,7 +61,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var validCompilation = CreateConsumerCompilation(validTree, macroReference);
         var invocation = validTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var semanticModel = validCompilation.GetSemanticModel(validTree);
 
@@ -101,7 +101,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var invalidCompilation = CreateConsumerCompilation(invalidTree, macroReference);
         var invalidInvocation = invalidTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var invalidSemanticModel = invalidCompilation.GetSemanticModel(invalidTree);
         var invalidExpansion = invalidSemanticModel.GetMacroExpansion(invalidInvocation);
@@ -137,7 +137,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var token = Assert.Single(
@@ -178,7 +178,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
@@ -208,7 +208,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var invalidCompilation = CreateConsumerCompilation(invalidTree, macroReference);
         var invalidInvocation = invalidTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var invalidExpansion = invalidCompilation.GetSemanticModel(invalidTree)
             .GetMacroExpansion(invalidInvocation);
@@ -241,7 +241,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
@@ -268,7 +268,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
 
@@ -314,7 +314,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
             .AddReferences(CreateAspNetCoreComponentsReference());
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var expansion = compilation.GetSemanticModel(syntaxTree).GetMacroExpansion(invocation);
@@ -381,7 +381,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .First();
         var todosPosition = source.LastIndexOf("todos if", StringComparison.Ordinal) + 1;
         var todoPosition = source.IndexOf("todo.Title", StringComparison.Ordinal) + 1;

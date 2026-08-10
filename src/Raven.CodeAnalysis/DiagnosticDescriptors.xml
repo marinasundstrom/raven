@@ -1229,7 +1229,7 @@
     Message="IMacroTokenStream parameter '{parameterName}' cannot have a default value because the compiler supplies it from the invocation body."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0930" Identifier="MacroTokenStreamCannotBeAttached"
-    Title="Token-stream macros are freestanding"
+    Title="Token-stream macros are invocable"
     Message="Macro declaration '{macroName}' cannot combine an attached target with an IMacroTokenStream parameter."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0931" Identifier="MultipleMacroTokenStreamParameters"

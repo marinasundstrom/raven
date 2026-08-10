@@ -24,7 +24,7 @@ public sealed class MacroToolingSnapshotCacheTests
             .AddMacroReferences(new MacroReference(macro));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
@@ -42,7 +42,7 @@ public sealed class MacroToolingSnapshotCacheTests
     }
 
     private sealed class CachedToolingMacro :
-        ITokenTreeExpressionMacro,
+        ITokenTreeMacro,
         IMacroTokenClassifier,
         IMacroFragmentProvider
     {
@@ -52,8 +52,8 @@ public sealed class MacroToolingSnapshotCacheTests
 
         public int FragmentProviderCount { get; private set; }
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public MacroTokenClassification ClassifyToken(
             TokenTreeMacroContext context,

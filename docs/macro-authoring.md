@@ -17,7 +17,7 @@ the usual way.
 
 Keep four rules in mind:
 
-1. Invoke a freestanding macro with `Name!(...)`, `Name! { ... }`, or both.
+1. Invoke an invocable macro with `Name!(...)`, `Name! { ... }`, or both.
    `#` is reserved for directives and attached macro attributes.
 2. Use `expand` once the invocable result is ready. It sets the expansion and
    returns from that execution path.
@@ -52,6 +52,35 @@ authors do not need to begin there.
 The compact and class-authored forms are two projections of one model. They use
 the same invocation syntax, registry, contexts, diagnostics, and results.
 
+## Macros and source generators solve different problems
+
+Use a macro when the programmer should opt into a transformation at a specific
+source location. An invocable macro replaces `Name!(...)` or `Name! { ... }`;
+an attached macro transforms the declaration carrying it. The compiler retains
+that relationship for diagnostics, source mapping, hover, navigation, and
+debugging. A macro can inspect its explicit inputs, but it should not behave
+like a hidden project-wide pass.
+
+Use a source generator when a project-wide input should contribute separate
+generated files—for example, a registry derived from all declarations in a
+compilation. Generators run under workspace or build-host orchestration and add
+syntax trees to the compilation. They do not replace an inline invocation and
+do not own an authored macro-body span. They can also supply the implementation
+half of an authored partial declaration: source establishes the shape, and a
+generated partial declaration augments it through normal partial-type merging.
+
+| Question | Macro | Source generator |
+| --- | --- | --- |
+| What triggers it? | An explicit invocation or attachment in source | A registered project generator |
+| What does it produce? | Syntax replacing or augmenting that source site | Additional generated source files, often partial implementations |
+| What input should it use? | Declared arguments, target syntax, or token body | The compilation and generator inputs |
+| Who runs it? | The compiler during semantic expansion | The workspace or build host before the resulting compilation is consumed |
+| How do tools relate output to source? | Through the macro invocation, fragment spans, and expansion mappings | Through generated-document identity and generator diagnostics |
+
+See [Source generators](compiler/source-generators.md) for the standalone
+generator guide and [Extending Raven projects](compiler/extending-projects.md)
+for the broader analyzer and generator model.
+
 ## 1. Start with a local macro declaration
 
 A macro in the same project is compiled in Raven's compile-time partition and
@@ -77,6 +106,8 @@ The omitted return annotation is the compact expression-macro default. Write
 types select other grammar positions: `StatementSyntax` selects statement
 position, `ExpressionSyntax | StatementSyntax` permits either, and
 category-untyped `SyntaxNode` permits every supported single-node position.
+`SyntaxList<MemberDeclarationSyntax>` selects file, namespace, and type-member
+positions and permits zero or more declarations.
 The expanded node is then bound as ordinary Raven syntax, so its eventual value
 type comes from normal semantic analysis rather than the macro annotation.
 
@@ -325,9 +356,42 @@ throwing for expected invalid input; an exception means the macro itself
 failed.
 
 Class-authored providers use the same context APIs. Their `Expand` method
-returns `FreestandingMacroExpansionResult`, which can carry syntax and
+returns `InvocableMacroExpansionResult`, which can carry syntax and
 diagnostics together. Use that lower-level form only when the compact
 declaration cannot project a required capability.
+
+For compact declarations, return a syntax list when an invocation produces
+declarations:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+macro Generate(context: TokenTreeMacroContext)
+    -> SyntaxList<MemberDeclarationSyntax> {
+    let unit = context.ParseCompilationUnit()
+    expand unit.Members
+}
+```
+
+The return annotation offers `Generate! { ... }` in file, namespace, and type
+member positions. The compiler preserves source order, and an explicitly empty
+list removes the invocation.
+
+Class-authored providers declare the same applicability through
+`IMacroDefinition.InvocationTargets` and return members with
+`InvocableMacroExpansionResult.FromMembers(...)`. Returning `Empty` leaves the
+invocation in place as recoverable source. `FromNode(...)` may be used for
+exactly one member. The compiler reports `RAVM022` if the result is an
+expression or statement instead of a member, so a malformed provider cannot
+force the expanded document into an invalid syntax category.
+
+The same result form works at file and namespace scope. At those sites the
+parser deliberately keeps `Name! { ... }` inside a global-statement carrier;
+the semantic result decides whether it supplies a statement or declarations.
+Return declarations that are legal in the containing scope—for example, a type
+at namespace scope rather than a method declaration intended for a type body.
+Generated declarations participate in normal lookup, binding, and emission.
 
 ## 6. Surface fragment spans for tooling
 
@@ -496,7 +560,7 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | `ExpressionSyntax` parameter | authored expression projection |
 | `IMacroTokenStream` parameter | token-tree macro and token stream |
 | `TokenTreeMacroContext` parameter | complete token-tree context |
-| `FreestandingMacroContext` parameter | complete argument-style context |
+| `InvocableMacroContext` parameter | complete argument-style context |
 | `AttachedMacroContext` parameter | complete attached context |
 | `on target: BaseTypeDeclarationSyntax` / `on property: PropertyDeclarationSyntax` | compiler-supplied attached target |
 | `expand` | final expansion and semantic return |
@@ -504,6 +568,12 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | reached `introduce` | ordered introduced members |
 | reached `fragment` | ordinary Raven fragment metadata |
 | reached `token` | token kind and classification metadata |
+
+The two invocable contexts expose a normalized carrier surface:
+`Syntax` is the authored `SyntaxNode`, while `Name`, `ExclamationToken`,
+`ArgumentList`, and `TokenTree` provide the shared `Name!` parts. This keeps a
+macro independent of whether the parser used an expression carrier or a
+type-member carrier unless the macro deliberately inspects `Syntax`.
 
 `fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
 macro declaration. The generated adapter keeps reached regions on its expansion
@@ -656,7 +726,7 @@ The repository examples progress from compact syntax to full DSL handling:
   tooling, and debugger source provenance;
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
-* `samples/projects/macro-freestanding` — LINQ-like query parsing, three
+* `samples/projects/macro-invocable` — LINQ-like query parsing, three
   embedded Raven expression regions, caller-scope completion, and an
   introduced sequence-element range variable;
 * `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven

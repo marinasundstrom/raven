@@ -29,34 +29,53 @@ public sealed class MacroExpansionResultBuilder
     private readonly ImmutableArray<MacroTokenInfo>.Builder _tokenInfos =
         ImmutableArray.CreateBuilder<MacroTokenInfo>();
     private SyntaxNode? _node;
+    private ImmutableArray<MemberDeclarationSyntax> _members;
     private SyntaxNode? _replacement;
 
     public void Expand(ExpressionSyntax expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        _node = expression;
+        SetNode(expression);
     }
 
     public void Expand(StatementSyntax statement)
     {
         ArgumentNullException.ThrowIfNull(statement);
-        _node = statement;
+        SetNode(statement);
     }
 
     public void Expand(SyntaxNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        _node = node;
+        SetNode(node);
+    }
+
+    public void Expand<TMember>(SyntaxList<TMember> members)
+        where TMember : MemberDeclarationSyntax
+    {
+        var builder = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>(members.Count);
+        foreach (var member in members)
+            builder.Add(member);
+
+        _node = null;
+        _members = builder.MoveToImmutable();
     }
 
     /// <summary>
     /// Applies a complete expansion result produced by a lower-level macro API.
     /// </summary>
-    public void Expand(FreestandingMacroExpansionResult result)
+    public void Expand(InvocableMacroExpansionResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        if (result.Node is not null)
-            _node = result.Node;
+        if (result.HasMemberExpansion)
+        {
+            _node = null;
+            _members = result.Members;
+        }
+        else if (result.Node is not null)
+        {
+            SetNode(result.Node);
+        }
 
         AddRange(_diagnostics, result.Diagnostics);
         AddRange(_macroDiagnostics, result.MacroDiagnostics);
@@ -134,18 +153,19 @@ public sealed class MacroExpansionResultBuilder
         _tokenInfos.AddRange(tokenInfos);
     }
 
-    public FreestandingMacroExpansionResult BuildFreestanding()
+    public InvocableMacroExpansionResult BuildInvocable()
     {
         if (_node is null &&
+            _members.IsDefault &&
             _diagnostics.Count == 0 &&
             _macroDiagnostics.Count == 0 &&
             _fragmentRegions.Count == 0 &&
             _tokenInfos.Count == 0)
         {
-            return FreestandingMacroExpansionResult.Empty;
+            return InvocableMacroExpansionResult.Empty;
         }
 
-        return new FreestandingMacroExpansionResult
+        var result = new InvocableMacroExpansionResult
         {
             Node = _node,
             Diagnostics = _diagnostics.ToImmutable(),
@@ -153,6 +173,11 @@ public sealed class MacroExpansionResultBuilder
             FragmentRegions = _fragmentRegions.ToImmutable(),
             TokenInfos = _tokenInfos.ToImmutable()
         };
+
+        if (!_members.IsDefault)
+            result.Members = _members;
+
+        return result;
     }
 
     public MacroExpansionResult BuildAttached()
@@ -186,6 +211,12 @@ public sealed class MacroExpansionResultBuilder
     {
         if (!values.IsDefaultOrEmpty)
             builder.AddRange(values);
+    }
+
+    private void SetNode(SyntaxNode node)
+    {
+        _node = node;
+        _members = default;
     }
 
 }

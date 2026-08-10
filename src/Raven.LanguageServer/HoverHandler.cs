@@ -625,7 +625,7 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         var tokenTreeInvocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .FirstOrDefault(static invocation => invocation.TokenTree is not null);
         if (tokenTreeInvocation is not null && !tokenTreeInvocation.Name.Span.Contains(token.Span))
             return null;
@@ -669,7 +669,7 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
-        foreach (var invocation in token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>() ?? [])
+        foreach (var invocation in token.Parent?.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>() ?? [])
         {
             if (invocation.TokenTree is not { } tokenTree)
                 continue;
@@ -714,7 +714,7 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             var invocation = token.Parent?.AncestorsAndSelf()
-                .OfType<FreestandingMacroExpressionSyntax>()
+                .OfType<InvocableMacroExpressionSyntax>()
                 .FirstOrDefault();
             if (invocation?.TokenTree is null)
                 continue;
@@ -757,7 +757,7 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             var invocation = token.Parent?.AncestorsAndSelf()
-                .OfType<FreestandingMacroExpressionSyntax>()
+                .OfType<InvocableMacroExpressionSyntax>()
                 .FirstOrDefault();
             if (invocation?.TokenTree is null)
                 continue;
@@ -798,7 +798,7 @@ internal sealed class HoverHandler : IHoverHandler
                 var kindDisplay = MacroFacts.GetKind(macro) switch
                 {
                     MacroKind.AttachedDeclaration => "Attached declaration macro",
-                    MacroKind.FreestandingExpression => "Freestanding expression macro",
+                    MacroKind.Invocable => "Invocable macro",
                     _ => "Macro"
                 };
                 var targets = MacroFacts.GetTargets(macro);

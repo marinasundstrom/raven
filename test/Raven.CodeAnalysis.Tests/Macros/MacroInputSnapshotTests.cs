@@ -24,7 +24,7 @@ public sealed class MacroInputSnapshotTests
             .AddMacroReferences(new MacroReference(new SnapshotMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var snapshot = compilation.GetMacroInputSnapshot(expression);
@@ -50,7 +50,7 @@ public sealed class MacroInputSnapshotTests
             .AddMacroReferences(new MacroReference(new RegionLookupMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var snapshot = compilation.GetMacroInputSnapshot(expression);
         var innerPosition = code.IndexOf("inner", StringComparison.Ordinal) + 2;
@@ -70,14 +70,14 @@ public sealed class MacroInputSnapshotTests
     }
 
     private sealed class SnapshotMacro :
-        ITokenTreeExpressionMacro,
+        ITokenTreeMacro,
         IMacroTokenClassifier,
         IMacroFragmentProvider
     {
         public string Name => "snapshot";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public MacroTokenClassification ClassifyToken(
             TokenTreeMacroContext context,
@@ -93,12 +93,12 @@ public sealed class MacroInputSnapshotTests
             ];
     }
 
-    private sealed class RegionLookupMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class RegionLookupMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "regions";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>

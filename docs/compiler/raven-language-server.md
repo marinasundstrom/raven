@@ -7,7 +7,7 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 - **Diagnostics:** Publishes Raven diagnostics for the current file after each change, keeping previous semantic results visible while newer snapshot diagnostics are pending when their ranges can be translated safely.
 - **Completions:** Maps the compiler's completion items into LSP responses with
   snippet ranges for insertion. `#` triggers context-aware macro completion:
-  expression positions offer freestanding and token-tree macros, while
+  expression positions offer invocable and token-tree macros, while
   declaration attributes offer attached macros.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
 - **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.

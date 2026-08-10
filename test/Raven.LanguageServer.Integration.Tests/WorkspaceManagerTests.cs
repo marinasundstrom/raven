@@ -433,7 +433,7 @@ let x = 1
     public async Task SwitchingBetweenSiblingProjectDocuments_DoesNotDetachAppDocumentFromCompilationAsync()
     {
         Directory.CreateDirectory(_tempRoot);
-        WriteMacroFreestandingLayout(_tempRoot);
+        WriteMacroInvocableLayout(_tempRoot);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -470,7 +470,7 @@ let x = 1
     public async Task TryGetDocumentContext_ReturnsMatchingDocumentAndCompilationAfterSiblingSwitchAsync()
     {
         Directory.CreateDirectory(_tempRoot);
-        WriteMacroFreestandingLayout(_tempRoot);
+        WriteMacroInvocableLayout(_tempRoot);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -1278,7 +1278,7 @@ dotnet_diagnostic.RAV9034.severity = error
     public async Task UpdatingMacroProjectDocument_RefreshesConsumingProjectMacroExpansionAsync()
     {
         Directory.CreateDirectory(_tempRoot);
-        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+        WriteInvocableMacroExpansionLayout(_tempRoot, "1");
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -1301,23 +1301,23 @@ dotnet_diagnostic.RAV9034.severity = error
 
         manager.TryGetDocumentContext(appUri, out var initialDocument, out _).ShouldBeTrue();
         var initialMacroReferenceInfo = initialDocument!.Project.MacroReferences.Single();
-        initialMacroReferenceInfo.SourceProjectFilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj"));
+        initialMacroReferenceInfo.SourceProjectFilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "InvocableMacros.rvnproj"));
         var initialMacroReference = initialMacroReferenceInfo.Display;
 
-        var initialExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        var initialExpansion = await GetInvocableMacroExpansionTextAsync(manager, appUri);
         initialExpansion.ShouldBe("1");
 
-        var updatedMacroSource = CreateFreestandingMacroExpansionSource("2");
+        var updatedMacroSource = CreateInvocableMacroExpansionSource("2");
         _ = await manager.UpsertDocumentAsync(macroUri, updatedMacroSource);
 
         manager.TryGetDocumentContext(macroUri, out var refreshedMacroDocument, out _).ShouldBeTrue();
-        refreshedMacroDocument!.Project.FilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj"));
+        refreshedMacroDocument!.Project.FilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "InvocableMacros.rvnproj"));
 
         manager.TryGetDocumentContext(appUri, out var refreshedDocument, out _).ShouldBeTrue();
         var refreshedMacroReference = refreshedDocument!.Project.MacroReferences.Single().Display;
         refreshedMacroReference.ShouldNotBe(initialMacroReference);
 
-        var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        var refreshedExpansion = await GetInvocableMacroExpansionTextAsync(manager, appUri);
         refreshedExpansion.ShouldBe("2");
     }
 
@@ -1325,7 +1325,7 @@ dotnet_diagnostic.RAV9034.severity = error
     public async Task DeferredMacroProjectDocumentUpdate_RefreshesConsumingProjectAfterFlushAsync()
     {
         Directory.CreateDirectory(_tempRoot);
-        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+        WriteInvocableMacroExpansionLayout(_tempRoot, "1");
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -1349,7 +1349,7 @@ dotnet_diagnostic.RAV9034.severity = error
         manager.TryGetDocumentContext(appUri, out var initialDocument, out _).ShouldBeTrue();
         var initialMacroReference = initialDocument!.Project.MacroReferences.Single().Display;
 
-        var updatedMacroSource = SourceText.From(CreateFreestandingMacroExpansionSource("2"));
+        var updatedMacroSource = SourceText.From(CreateInvocableMacroExpansionSource("2"));
         _ = await manager.UpsertDocumentAsync(macroUri, updatedMacroSource, deferMacroConsumerRefresh: true);
 
         manager.TryGetDocumentContext(appUri, out var pendingDocument, out _).ShouldBeTrue();
@@ -1360,7 +1360,7 @@ dotnet_diagnostic.RAV9034.severity = error
         manager.TryGetDocumentContext(appUri, out var refreshedDocument, out _).ShouldBeTrue();
         refreshedDocument!.Project.MacroReferences.Single().Display.ShouldNotBe(initialMacroReference);
 
-        var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        var refreshedExpansion = await GetInvocableMacroExpansionTextAsync(manager, appUri);
         refreshedExpansion.ShouldBe("2");
     }
 
@@ -1368,7 +1368,7 @@ dotnet_diagnostic.RAV9034.severity = error
     public async Task WatchedMacroProjectDocumentChange_RefreshesConsumingProjectMacroExpansionAsync()
     {
         Directory.CreateDirectory(_tempRoot);
-        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+        WriteInvocableMacroExpansionLayout(_tempRoot, "1");
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -1387,10 +1387,10 @@ dotnet_diagnostic.RAV9034.severity = error
 
         _ = await manager.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
 
-        var initialExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        var initialExpansion = await GetInvocableMacroExpansionTextAsync(manager, appUri);
         initialExpansion.ShouldBe("1");
 
-        File.WriteAllText(macroPath, CreateFreestandingMacroExpansionSource("2"));
+        File.WriteAllText(macroPath, CreateInvocableMacroExpansionSource("2"));
         await manager.ReloadForWatchedFilesAsync([
             new FileEvent
             {
@@ -1399,7 +1399,7 @@ dotnet_diagnostic.RAV9034.severity = error
             }
         ]);
 
-        var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        var refreshedExpansion = await GetInvocableMacroExpansionTextAsync(manager, appUri);
         refreshedExpansion.ShouldBe("2");
     }
 
@@ -1441,7 +1441,7 @@ func Main() -> string => embedFileContent!("message.txt")
         var sourceUri = DocumentUri.FromFileSystemPath(sourcePath);
         var assetUri = DocumentUri.FromFileSystemPath(assetPath);
         _ = await manager.UpsertDocumentAsync(sourceUri, source);
-        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+        (await GetInvocableMacroExpansionTextAsync(manager, sourceUri))
             .ShouldBe("\"first\"");
 
         File.WriteAllText(assetPath, "second");
@@ -1449,7 +1449,7 @@ func Main() -> string => embedFileContent!("message.txt")
             new FileEvent { Uri = assetUri, Type = FileChangeType.Changed }
         ]);
         changedDocuments.ShouldContain(sourceUri);
-        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+        (await GetInvocableMacroExpansionTextAsync(manager, sourceUri))
             .ShouldBe("\"second\"");
 
         File.Delete(assetPath);
@@ -1457,7 +1457,7 @@ func Main() -> string => embedFileContent!("message.txt")
             new FileEvent { Uri = assetUri, Type = FileChangeType.Deleted }
         ]);
         deletedDocuments.ShouldContain(sourceUri);
-        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+        (await GetInvocableMacroExpansionTextAsync(manager, sourceUri))
             .ShouldBeNull();
 
         File.WriteAllText(assetPath, "third");
@@ -1465,7 +1465,7 @@ func Main() -> string => embedFileContent!("message.txt")
             new FileEvent { Uri = assetUri, Type = FileChangeType.Created }
         ]);
         recreatedDocuments.ShouldContain(sourceUri);
-        (await GetFreestandingMacroExpansionTextAsync(manager, sourceUri))
+        (await GetInvocableMacroExpansionTextAsync(manager, sourceUri))
             .ShouldBe("\"third\"");
     }
 
@@ -1547,10 +1547,10 @@ func Main() -> string => embedFileContent!("message.txt")
         var attribute = root.DescendantNodes()
             .OfType<AttributeSyntax>()
             .Single(candidate => candidate.Name.ToString() == "Observable");
-        var freestanding = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var invocable = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
 
         semanticModel.GetMacroExpansion(attribute).ShouldNotBeNull();
-        semanticModel.GetMacroExpansion(freestanding).ShouldNotBeNull();
+        semanticModel.GetMacroExpansion(invocable).ShouldNotBeNull();
     }
 
     [Fact]
@@ -1903,20 +1903,20 @@ class ObservableMacro: IAttachedDeclarationMacro {
 """);
     }
 
-    private static void WriteMacroFreestandingLayout(string root)
+    private static void WriteMacroInvocableLayout(string root)
     {
         var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
 
-        _ = WriteProject(Path.Combine(root, "app"), "MacroFreestanding", """
+        _ = WriteProject(Path.Combine(root, "app"), "MacroInvocable", """
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>MacroFreestanding</AssemblyName>
+    <AssemblyName>MacroInvocable</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.rvn" />
-    <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
+    <ProjectReference Include="../macros/InvocableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1924,11 +1924,11 @@ class ObservableMacro: IAttachedDeclarationMacro {
 func Main() -> int => answer!()
 """);
 
-        _ = WriteProject(Path.Combine(root, "macros"), "FreestandingMacros", $$"""
+        _ = WriteProject(Path.Combine(root, "macros"), "InvocableMacros", $$"""
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>FreestandingMacros</AssemblyName>
+    <AssemblyName>InvocableMacros</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
@@ -1944,30 +1944,30 @@ import Raven.CodeAnalysis.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-class AnswerMacro: IFreestandingExpressionMacro {
+class AnswerMacro: IInvocableMacro {
     val Name: string => "answer"
 
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult.Empty
+    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
+        InvocableMacroExpansionResult.Empty
     }
 }
 """);
     }
 
-    private static void WriteFreestandingMacroExpansionLayout(string root, string expansionText)
+    private static void WriteInvocableMacroExpansionLayout(string root, string expansionText)
     {
         var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
 
-        _ = WriteProject(Path.Combine(root, "app"), "MacroFreestanding", """
+        _ = WriteProject(Path.Combine(root, "app"), "MacroInvocable", """
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>MacroFreestanding</AssemblyName>
+    <AssemblyName>MacroInvocable</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.rvn" />
-    <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
+    <ProjectReference Include="../macros/InvocableMacros.rvnproj" />
   </ItemGroup>
 </Project>
 """);
@@ -1975,11 +1975,11 @@ class AnswerMacro: IFreestandingExpressionMacro {
 func Main() -> int => answer!()
 """);
 
-        _ = WriteProject(Path.Combine(root, "macros"), "FreestandingMacros", $$"""
+        _ = WriteProject(Path.Combine(root, "macros"), "InvocableMacros", $$"""
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>FreestandingMacros</AssemblyName>
+    <AssemblyName>InvocableMacros</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
@@ -1990,10 +1990,10 @@ func Main() -> int => answer!()
   </ItemGroup>
 </Project>
 """);
-        WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), CreateFreestandingMacroExpansionSource(expansionText));
+        WriteRavenFile(Path.Combine(root, "macros", "main.rvn"), CreateInvocableMacroExpansionSource(expansionText));
     }
 
-    private static string CreateFreestandingMacroExpansionSource(string expansionText)
+    private static string CreateInvocableMacroExpansionSource(string expansionText)
     {
         return $$"""
 import Raven.CodeAnalysis.Macros.*
@@ -2002,17 +2002,17 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-class AnswerMacro: IFreestandingExpressionMacro {
+class AnswerMacro: IInvocableMacro {
     val Name: string => "answer"
 
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult.FromExpression(ParseExpression("{{expansionText}}"))
+    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
+        InvocableMacroExpansionResult.FromExpression(ParseExpression("{{expansionText}}"))
     }
 }
 """;
     }
 
-    private static async Task<string?> GetFreestandingMacroExpansionTextAsync(WorkspaceManager manager, DocumentUri appUri)
+    private static async Task<string?> GetInvocableMacroExpansionTextAsync(WorkspaceManager manager, DocumentUri appUri)
     {
         manager.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
         document.ShouldNotBeNull();
@@ -2022,7 +2022,7 @@ class AnswerMacro: IFreestandingExpressionMacro {
         syntaxTree.ShouldNotBeNull();
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree!);
-        var expression = syntaxTree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = syntaxTree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = semanticModel.GetMacroExpansion(expression);
         return expansion?.Expression?.ToFullString().Trim();
     }

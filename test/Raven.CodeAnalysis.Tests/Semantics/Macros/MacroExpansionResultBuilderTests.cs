@@ -6,21 +6,21 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public class MacroExpansionResultBuilderTests
 {
     [Fact]
-    public void ExpandCompleteFreestandingResult_MergesContributionsAndUsesLatestExpression()
+    public void ExpandCompleteInvocableResult_MergesContributionsAndUsesLatestExpression()
     {
         var builder = new MacroExpansionResultBuilder();
         var diagnostic = new MacroExpansionDiagnostic(
             DiagnosticSeverity.Warning,
             "warning",
             Location.None);
-        builder.Expand(new FreestandingMacroExpansionResult
+        builder.Expand(new InvocableMacroExpansionResult
         {
             Expression = SyntaxFactory.ParseExpression("1"),
             MacroDiagnostics = [diagnostic]
         });
         builder.Expand(SyntaxFactory.ParseExpression("2"));
 
-        var result = builder.BuildFreestanding();
+        var result = builder.BuildInvocable();
 
         Assert.Equal("2", result.Expression!.ToString());
         Assert.Same(diagnostic, Assert.Single(result.MacroDiagnostics));
@@ -54,6 +54,27 @@ public class MacroExpansionResultBuilderTests
         Assert.Same(introduced, Assert.Single(result.IntroducedMembers));
         Assert.Same(peer, Assert.Single(result.PeerDeclarations));
         Assert.Same(diagnostic, Assert.Single(result.MacroDiagnostics));
+    }
+
+    [Fact]
+    public void LatestInvocableExpansionSelectsOneCardinality()
+    {
+        var builder = new MacroExpansionResultBuilder();
+        var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
+
+        builder.Expand(SyntaxFactory.List([member]));
+        builder.Expand(SyntaxFactory.ParseExpression("42"));
+        var expressionResult = builder.BuildInvocable();
+
+        Assert.False(expressionResult.HasMemberExpansion);
+        Assert.NotNull(expressionResult.Expression);
+
+        builder.Expand(SyntaxFactory.List([member]));
+        var memberResult = builder.BuildInvocable();
+
+        Assert.True(memberResult.HasMemberExpansion);
+        Assert.Null(memberResult.Node);
+        Assert.Equal(member.ToString(), Assert.Single(memberResult.Members).ToString());
     }
 
 }

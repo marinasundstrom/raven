@@ -34,7 +34,7 @@ internal static class MacroExpansionDisplayService
         if (attribute is not null)
             return TryCreateDisplay(semanticModel, attribute, out display);
 
-        var macroExpression = FindFreestandingMacroExpression(root, offset);
+        var macroExpression = FindInvocableMacroExpression(root, offset);
         if (macroExpression is null)
             return false;
 
@@ -68,12 +68,12 @@ internal static class MacroExpansionDisplayService
         if (attribute is not null)
             return TryCreateDisplay(semanticModel, attribute, out display);
 
-        var macroExpression = FindFreestandingMacroExpression(root, start)
-            ?? FindFreestandingMacroExpression(root, start + ((end - start) / 2))
-            ?? FindFreestandingMacroExpression(root, end)
-            ?? FindFreestandingMacroExpression(root, end > start ? end - 1 : end)
+        var macroExpression = FindInvocableMacroExpression(root, start)
+            ?? FindInvocableMacroExpression(root, start + ((end - start) / 2))
+            ?? FindInvocableMacroExpression(root, end)
+            ?? FindInvocableMacroExpression(root, end > start ? end - 1 : end)
             ?? root.DescendantNodes()
-                .OfType<FreestandingMacroExpressionSyntax>()
+                .OfType<InvocableMacroExpressionSyntax>()
                 .FirstOrDefault(expressionSyntax =>
                     Intersects(GetInvocationHeadSpan(expressionSyntax), start, end));
 
@@ -114,7 +114,7 @@ internal static class MacroExpansionDisplayService
 
     private static bool TryCreateDisplay(
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax macroExpression,
+        InvocableMacroExpressionSyntax macroExpression,
         out MacroExpansionDisplay display)
     {
         display = default;
@@ -140,14 +140,12 @@ internal static class MacroExpansionDisplayService
     }
 
     private static string CreateInvocationDisplay(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         string macroName)
     {
         var arguments = expression.ArgumentList.OpenParenToken.IsMissing ? string.Empty : "(...)";
         var body = expression.TokenTree is null ? string.Empty : " { ... }";
-        return expression is BangMacroExpressionSyntax
-            ? $"{macroName}!{arguments}{body}"
-            : $"#{macroName}{arguments}{body}";
+        return $"{macroName}!{arguments}{body}";
     }
 
     private static string FormatNode(SyntaxNode node)
@@ -188,7 +186,7 @@ internal static class MacroExpansionDisplayService
         return null;
     }
 
-    private static FreestandingMacroExpressionSyntax? FindFreestandingMacroExpression(SyntaxNode root, int offset)
+    private static InvocableMacroExpressionSyntax? FindInvocableMacroExpression(SyntaxNode root, int offset)
     {
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
@@ -202,7 +200,7 @@ internal static class MacroExpansionDisplayService
                 continue;
             }
 
-            var expression = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+            var expression = token.Parent?.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>().FirstOrDefault();
             if (expression is not null && !GetInvocationHeadSpan(expression).Contains(candidateOffset))
                 continue;
 
@@ -261,7 +259,7 @@ internal static class MacroExpansionDisplayService
         return TextSpan.FromBounds(attribute.HashToken.Span.Start, end);
     }
 
-    private static TextSpan GetInvocationHeadSpan(FreestandingMacroExpressionSyntax expression)
+    private static TextSpan GetInvocationHeadSpan(InvocableMacroExpressionSyntax expression)
     {
         var end = expression.TokenTree?.OpenBraceToken.Span.Start
             ?? (!expression.ArgumentList.OpenParenToken.IsMissing

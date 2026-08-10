@@ -2162,8 +2162,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         if (CanTokenBeIdentifier(token))
         {
-            if (IsBangMacroExpressionStart())
-                return ParseBangMacroExpression();
+            if (IsInvocableMacroExpressionStart())
+                return ParseInvocableMacroExpression();
 
             return new NameSyntaxParser(this).ParseSimpleName();
         }
@@ -2708,65 +2708,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return expr;
     }
 
-    private bool IsBangMacroExpressionStart()
-    {
-        if (!CanTokenBeIdentifier(PeekToken()))
-            return false;
+    private bool IsInvocableMacroExpressionStart()
+        => new MacroInvocationSyntaxParser(this).IsBangInvocationStart();
 
-        var checkpoint = CreateCheckpoint("bang-macro-lookahead");
-        var name = new NameSyntaxParser(this).ParseName();
-        var isStart = !name.IsMissing &&
-            !HasLineBreakBeforePeekToken() &&
-            ConsumeToken(SyntaxKind.ExclamationToken, out _);
-
-        if (isStart && PeekToken().IsKind(SyntaxKind.OpenParenToken))
-        {
-            _ = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
-            checkpoint.Rewind();
-            return true;
-        }
-
-        isStart = isStart &&
-            !HasLineBreakBeforePeekToken() &&
-            PeekToken().IsKind(SyntaxKind.OpenBraceToken);
-        checkpoint.Rewind();
-        return isStart;
-    }
-
-    private ExpressionSyntax ParseBangMacroExpression()
-    {
-        var name = new NameSyntaxParser(this).ParseName();
-        var exclamationToken = ReadToken();
-        var argumentList = CreateMissingArgumentList();
-
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-            argumentList = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
-
-        var tokenTree = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
-            ? ParseMacroTokenTree()
-            : null;
-        return BangMacroExpression(name, exclamationToken, argumentList, tokenTree);
-    }
-
-    private MacroTokenTreeSyntax ParseMacroTokenTree()
-    {
-        var openBraceToken = ReadToken();
-        var bodyToken = ReadMacroBodyToken(out var isTerminated);
-        var closeBraceToken = isTerminated
-            ? ReadToken()
-            : MissingToken(SyntaxKind.CloseBraceToken);
-
-        if (!isTerminated)
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.CharacterExpected,
-                    GetSpanOfLastToken(),
-                    SyntaxFacts.GetSyntaxTokenText(SyntaxKind.CloseBraceToken) ?? "}"));
-        }
-
-        return MacroTokenTree(openBraceToken, bodyToken, closeBraceToken);
-    }
+    private ExpressionSyntax ParseInvocableMacroExpression()
+        => new MacroInvocationSyntaxParser(this).ParseExpression();
 
     private bool TryReadEncodedStringSuffix(
         SyntaxToken stringLiteralToken,

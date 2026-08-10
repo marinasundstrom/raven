@@ -29,13 +29,13 @@ Current implementation status:
   Implementation-adjacent helper assemblies are resolved by the macro load
   context, and runtime assets from transitive packages remain private macro
   dependency probes.
-* Freestanding expression macros now use `name!(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
+* Invocable macros now use `name!(...)` syntax, resolve through the same plugin registry, and support the same typed parameter-object binding direction as attached macros.
 * Unknown macros, duplicate exports, invalid targets, plugin load failures, plugin-thrown expansion failures, and macro-reported validation failures now produce compiler diagnostics.
 * Attached macros are invoked through a generic semantic-model expansion path and expansion results are cached per compilation.
 * `MacroExpansionResult` now models both additive members and optional declaration replacement.
-* Generated members, replacement declarations, and freestanding expression
+* Generated members, replacement declarations, and invocable
   results participate in normal binding and code generation.
-* Raw-body freestanding expression macros use `name!{ ... }`, preserve DSL
+* Raw-body invocable macros use `name!{ ... }`, preserve DSL
   source without ordinary Raven tokenization, and can delegate selected spans
   back to Raven expression parsing.
 
@@ -57,7 +57,7 @@ Raven macros provide:
 * Full tooling compatibility
 
 Macros are **compiler-integrated syntax transformers**, not textual preprocessors.
-Freestanding procedural macros are invoked with function-like or delimited
+Invocable procedural macros are invoked with function-like or delimited
 syntax, while attached macros are applied as attributes. During binding, the
 compiler resolves the macro implementation and expands the invocation or
 attribute into typed ordinary Raven syntax. Binding then continues over that
@@ -174,7 +174,7 @@ linq!{
 
 Characteristics:
 
-* Uses the same `Name!` family as argument-based freestanding macros.
+* Uses the same `Name!` family as argument-based invocable macros.
 * The compiler captures the body as lossless raw source inside a balanced brace
   envelope.
 * The macro may parse the body completely itself or delegate selected

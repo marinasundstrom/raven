@@ -1,6 +1,6 @@
 # Macro application model
 
-Status: **design proposal**
+Status: **MVP and member-list extension implemented**
 
 This proposal defines where macros can be applied, what a macro declaration
 must communicate, and how the compiler validates expansion. It does not change
@@ -10,7 +10,7 @@ The central rule is that application position, input representation, output
 syntax, and optional capabilities are independent dimensions. Token bodies,
 editor metadata, and custom DSL structure are not separate macro kinds.
 
-For an invocable freestanding macro, the declared **return type decides its
+For an invocable macro, the declared **return type decides its
 invocation target**. It is not an ordinary runtime return-type annotation:
 `ExpressionSyntax` makes the macro invocable in expression targets,
 `StatementSyntax` makes it invocable in statement targets, and a union declares
@@ -29,7 +29,7 @@ several targets. `expand` must then produce syntax valid for the actual target.
 
 | Dimension | Examples |
 | --- | --- |
-| Application | freestanding; attached to a declaration |
+| Application | invocable; attached to a declaration |
 | Input | constants; syntax nodes; token body; compiler context |
 | Return type / invocation target | expression; statement; member; type; pattern |
 | Cardinality | one node; a list in a list-valued grammar position |
@@ -39,7 +39,7 @@ several targets. `expand` must then produce syntax valid for the actual target.
 The normalized contract records these separately. A macro does not become a
 new kind merely because it uses a token body or supplies hover metadata.
 
-## Freestanding positions
+## Invocable positions
 
 ### Expression
 
@@ -93,7 +93,7 @@ it against the actual invocation carrier before insertion.
 ### Flexible single-node output
 
 `SyntaxNode` is the explicit wildcard for a macro that intentionally supports
-every single-node freestanding position known to the compiler:
+every single-node invocable position known to the compiler:
 
 ```raven
 macro Forward(context: TokenTreeMacroContext) -> SyntaxNode {
@@ -125,23 +125,49 @@ The return-type-to-target projection is therefore:
 | omitted | expression |
 | `ExpressionSyntax` | expression |
 | `ExpressionSyntax \| StatementSyntax` | expression and statement |
-| `SyntaxNode` | every supported single-node freestanding position |
+| `SyntaxNode` | every supported single-node invocable position |
 
 ### Member
 
 A member macro occupies a namespace-member or type-member list position:
 
 ```raven
-macro Properties(context: TokenTreeMacroContext) -> MemberDeclarationSyntax* {
-    expand BuildProperties(context)
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+macro Properties(context: TokenTreeMacroContext)
+    -> SyntaxList<MemberDeclarationSyntax> {
+    let properties = List<MemberDeclarationSyntax>([
+        BuildIdProperty(context),
+        BuildNameProperty(context)
+    ])
+    expand properties
 }
 ```
 
-Member positions naturally need zero-or-more output. The `T*` notation is
-illustrative; the final list spelling remains a syntax decision.
-`CompilationUnitSyntax` must not be used as an accidental list container.
-Namespace-member and type-member positions may remain distinct because not
-every declaration is legal in both.
+Member positions naturally need zero-or-more output. Raven uses the existing
+immutable `SyntaxList<TMember>` compiler API as that source-level contract; it
+does not add a macro-only `T*` type spelling or a new keyword. `TMember` must be
+`MemberDeclarationSyntax` or one of its syntax subtypes. An empty list removes
+the invocation carrier, and a nonempty list preserves source order.
+
+The normalized expansion result stores the output as
+`ImmutableArray<MemberDeclarationSyntax>`. The generated adapter copies the
+source `SyntaxList<TMember>` into that result, preserving each node and its
+provenance. `CompilationUnitSyntax` is not accepted as an accidental list
+container.
+
+`SyntaxList<TMember>` declares the namespace-member and type-member target set.
+The actual carrier records which of those positions was authored. Before any
+member is inserted, the compiler validates every returned node against that
+position. Validation is atomic: an invalid member produces diagnostics and the
+entire list is discarded, so binding, language services, and emission never
+observe a partial expansion. A macro that supports both positions can inspect
+`context.Position` when its output differs between them.
+
+List-valued member output is a distinct cardinality contract. It is not
+included by `SyntaxNode`, cannot be mixed into a single-node return union, and
+does not imply attached replacement or introduction.
 
 ### Type
 
@@ -374,7 +400,7 @@ class Customer { }
 
 ## Actual invocation position
 
-Every freestanding context exposes the compiler-determined position:
+Every invocable context exposes the compiler-determined position:
 
 ```raven
 context.Position
@@ -429,7 +455,7 @@ The driver follows one category-safe path:
 A union-typed multi-position macro remains category-typed at the source level
 even if the normalized ABI transports its result as `SyntaxNode`. A declaration
 written directly as `-> SyntaxNode` is category-untyped by design. Its supported
-set remains inspectable as “all single-node freestanding positions,” and every
+set remains inspectable as “all single-node invocable positions,” and every
 result is validated against the actual carrier.
 
 ## Normalized compiler model
@@ -441,7 +467,7 @@ but the separation and invariants are design requirements.
 ### Application kind
 
 `MacroKind` must stop encoding both application and output grammar. Replace its
-current `AttachedDeclaration` and `FreestandingExpression` cases with the
+current `AttachedDeclaration` and `Invocable` cases with the
 application-only distinction:
 
 ```csharp
@@ -580,16 +606,17 @@ pipelines for macros with and without an explicit context.
 
 ### Expansion and contribution results
 
-The expression-specific `FreestandingMacroExpansionResult.Expression` is not
+The expression-specific `InvocableMacroExpansionResult.Expression` is not
 the normalized result boundary. The MVP invocable expansion carries one
 category-erased node:
 
 ```csharp
-public sealed class FreestandingMacroExpansionResult
+public sealed class InvocableMacroExpansionResult
 {
     public SyntaxNode? Node { get; }
     public ExpressionSyntax? Expression { get; }
     public StatementSyntax? Statement { get; }
+    public ImmutableArray<MemberDeclarationSyntax> Members { get; }
     public ImmutableArray<Diagnostic> Diagnostics { get; }
     // Provenance, dependencies, fragments, and token metadata are retained.
 }
@@ -597,10 +624,12 @@ public sealed class FreestandingMacroExpansionResult
 
 `Expression` and `Statement` are typed projections over `Node`, while
 `FromExpression`, `FromStatement`, and `FromNode` preserve convenient creation.
-The MVP deliberately permits exactly zero or one expansion node. Multi-node
-member expansion remains a post-MVP cardinality extension rather than an
-ambiguous second payload. The driver validates the node category against the
-actual carrier and reports a diagnostic instead of casting or throwing.
+The single-node `Node` and list-valued `Members` payloads are mutually
+exclusive. The driver validates the node category or every member against the
+actual carrier and reports diagnostics instead of casting or throwing. Empty
+member output is represented by an explicitly selected member-list result, not
+by guessing from the absence of `Node`; the selected output cardinality remains
+available even when the list has no elements.
 
 Attached execution produces a contribution result containing replacements,
 introduced members or peers, diagnostics, provenance, and editor metadata. It
@@ -709,17 +738,18 @@ placement must not be distorted to solve quotation.
 
 ## Proposed decisions
 
-1. A freestanding macro's return type declares its allowed invocation targets.
+1. An invocable macro's return type declares its allowed invocation targets.
 2. An omitted annotation defaults to `ExpressionSyntax`.
 3. A union annotation is the canonical precise multi-position declaration.
-4. `SyntaxNode` explicitly means all single-node freestanding positions and is
+4. `SyntaxNode` explicitly means all single-node invocable positions and is
    the advanced wildcard, not a synonym for attached or list-valued expansion.
 5. Actual position is compiler-owned context, not a macro argument.
 6. Single-position APIs are typed; the advanced ABI carries `SyntaxNode` and
    is validated by the driver.
 7. Whole-statement syntax selects a statement carrier; parentheses force an
    expression carrier.
-8. Member-list output receives a real list contract.
+8. Member-list output uses `SyntaxList<TMember>` in Raven source and an
+   immutable member array in the normalized result.
 9. Token bodies and editor services remain capabilities, not macro kinds.
 10. Attached targets are compiler-supplied `on` parameters whose syntax type
     declares the attachment target.
@@ -749,8 +779,8 @@ placement must not be distorted to solve quotation.
 6. Add a statement carrier, position-aware resolution, expansion, diagnostics,
    malformed-input recovery, and editor tests.
 7. Unify typed and multi-position class APIs behind the validated driver path.
-8. Add member carriers after deciding and documenting the list output syntax and
-   ABI.
+8. Add member carriers using the documented `SyntaxList<TMember>` source
+   contract and immutable normalized result ABI.
 9. Add type and pattern carriers after declaration binding and incremental
    invalidation impact is covered.
 10. Design quote-body categories on top of the stable application model.

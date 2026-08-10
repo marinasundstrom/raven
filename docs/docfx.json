@@ -31,6 +31,7 @@
           "compiler/raven-compiler.md",
           "compiler/project-system.md",
           "compiler/extending-projects.md",
+          "compiler/source-generators.md",
           "compiler/distribution.md",
           "compiler/raven-core-library.md",
           "compiler/raven-macros-library.md",

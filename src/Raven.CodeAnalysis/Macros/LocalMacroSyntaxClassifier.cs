@@ -16,8 +16,8 @@ internal static class LocalMacroSyntaxClassifier
     private static readonly HashSet<string> s_macroInterfaceNames =
     [
         nameof(IAttachedDeclarationMacro),
-        nameof(IFreestandingExpressionMacro),
-        nameof(ITokenTreeExpressionMacro)
+        nameof(IInvocableMacro),
+        nameof(ITokenTreeMacro)
     ];
 
     public static bool IsLocalMacroTree(SyntaxTree syntaxTree)

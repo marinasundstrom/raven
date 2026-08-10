@@ -187,16 +187,20 @@
   <Node Name="DiscardExpression" Inherits="Expression">
     <Slot Name="UnderscoreToken" Type="Token" DefaultToken="UnderscoreToken" />
   </Node>
-  <Node Name="FreestandingMacroExpression" Inherits="Expression" IsAbstract="true">
-    <Slot Name="Name" Type="Name" IsAbstract="true" />
-    <Slot Name="ArgumentList" Type="ArgumentList" IsAbstract="true" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" IsAbstract="true" />
-  </Node>
-  <Node Name="BangMacroExpression" Inherits="FreestandingMacroExpression">
-    <Slot Name="Name" Type="Name" IsInherited="true" />
+  <Node Name="InvocableMacroExpression" Inherits="Expression">
+    <Slot Name="Name" Type="Name" />
     <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />
-    <Slot Name="ArgumentList" Type="ArgumentList" IsInherited="true" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" IsInherited="true" />
+    <Slot Name="ArgumentList" Type="ArgumentList" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+  </Node>
+  <Node Name="InvocableMacroMemberDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="Name" Type="Name" />
+    <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />
+    <Slot Name="ArgumentList" Type="ArgumentList" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="MacroTokenTree" Inherits="Node">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />

@@ -77,7 +77,7 @@ diagnostics, completion, and safe construction.
 
 The complete system should provide:
 
-* explicit attached and freestanding invocation forms;
+* explicit attached and invocable application forms;
 * lossless raw bodies for arbitrary token DSLs;
 * typed value, syntax, token-body, and symbolic-type inputs;
 * expression, statement, declaration, member, type, and pattern outputs;
@@ -183,7 +183,7 @@ let names = query!(Dialect: "raven") {
 }
 ```
 
-Attached macros transform or contribute to a declaration. Freestanding macros
+Attached macros transform or contribute to a declaration. Invocable macros
 expand at a grammar position. Delimited token-body macros preserve their body
 without ordinary Raven lexing.
 
@@ -192,7 +192,7 @@ one large macro-kind enumeration:
 
 | Dimension | Examples |
 | --- | --- |
-| Attachment | freestanding, attached to type/property/method |
+| Attachment | invocable, attached to type/property/method |
 | Input | constants, `ExpressionSyntax`, raw token body, symbolic types |
 | Output | expression, statement, member, declaration, type, pattern |
 | Contribution | replace, introduce members, introduce peers |
@@ -306,7 +306,7 @@ public interface IExpressionMacro<TParameters> : IMacroDefinition
 Multi-position class-authored macros use an advanced contract that declares
 their supported positions and returns a `SyntaxNode` through the normalized
 result carrier. A Raven union return annotation projects to an exact position
-set. `-> SyntaxNode` projects to the explicit “all single-node freestanding
+set. `-> SyntaxNode` projects to the explicit “all single-node invocable
 positions” wildcard. The wildcard excludes attached contributions and
 list-valued member expansion, and the driver validates the concrete node for
 every invocation.
@@ -790,7 +790,7 @@ and the adaptation.
 | --- | --- | --- | --- |
 | Nim | Macros receive `NimNode`; `typed` and `untyped` inputs; `quote do`, node builders, `parseExpr`, `parseStmt`, `genSym`, type/implementation inspection, and line information. | Even `untyped` input must be parsable Nim, so literal HTML-like syntax needs a carrier or string-shaped escape. Direct tree construction can also require manual location care. | Provide the same broad syntax toolbox for Raven fragments, but preserve arbitrary raw DSL bodies and make source-backed spans/provenance compiler primitives. |
 | Rust | Procedural macros consume and produce `TokenStream`; tokens carry `Span`; hygiene and diagnostics build on spans; expansion is explicit. | A token stream is intentionally weak semantic structure, and IDEs must map between macro input/output while procedural macros remain relatively opaque. | Keep a lossless token boundary, then add provider classifications, Raven fragment spans, and compiler-owned semantic/editor snapshots as first-class optional data. |
-| Swift | Freestanding/attached roles, syntax-checked input and output, constrained expansion regions, and sandboxed implementations make expansion predictable. | Swift macros operate on SwiftSyntax-shaped input and output; arbitrary token DSL authoring is not their primary model. | Retain explicit roles, validation, isolation, and incremental locality while allowing raw bodies whose private grammar is not Raven syntax. |
+| Swift | Invocable/attached roles, syntax-checked input and output, constrained expansion regions, and sandboxed implementations make expansion predictable. | Swift macros operate on SwiftSyntax-shaped input and output; arbitrary token DSL authoring is not their primary model. | Retain explicit roles, validation, isolation, and incremental locality while allowing raw bodies whose private grammar is not Raven syntax. |
 | Scala 3 | Typed quotes/splices and quote reflection provide type-safe construction plus deep typed-tree inspection. | Typed reflection is powerful but complex and couples advanced macro code to compiler-context-dependent tree APIs. It is also not a general raw-token DSL editor contract. | Make quote/splice the convenient path and Roslyn-like semantic APIs the advanced path, while keeping custom DSL input separate and optional. |
 | Elixir | Explicit quote/unquote, metadata, hygienic variables, unique variables, and deliberate hygiene escape hatches. | The quoted representation is dynamically shaped and does not provide Raven's desired statically typed syntax/output categories or integrated DSL editor snapshot. | Adopt explicit hygiene intent and source metadata while retaining immutable typed syntax nodes and compiler validation. |
 | Roslyn | Immutable, full-fidelity syntax trees, factories, parsing APIs, source locations, semantic models, and operations form a mature compiler service architecture. | Roslyn does not itself define this Raven macro/DSL execution model, and ordinary syntax trees cannot represent every custom language. | Keep Raven's public compiler APIs Roslyn-like, use them for expansion output and semantics, and add a bounded token/span/provenance layer instead of making syntax extensible by plugins. |

@@ -64,9 +64,9 @@ internal static class MacroLowering
             .Where(static parameter =>
                 parameter.ContextKind == MacroContextKind.TokenTree)
             .ToArray();
-        var freestandingContextParameters = parameters
+        var invocableContextParameters = parameters
             .Where(static parameter =>
-                parameter.ContextKind == MacroContextKind.Freestanding)
+                parameter.ContextKind == MacroContextKind.Invocable)
             .ToArray();
         var attachedContextParameters = parameters
             .Where(static parameter =>
@@ -91,21 +91,21 @@ internal static class MacroLowering
         var contextVariableName = AllocateGeneratedName(usedNames, "__macroContext");
         var resultBuilderName = AllocateGeneratedName(usedNames, "__macroResultBuilder");
         var interfaceName = hasTokenTreeBody
-            ? "Raven.CodeAnalysis.Macros.ITokenTreeExpressionMacro"
+            ? "Raven.CodeAnalysis.Macros.ITokenTreeMacro"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.IAttachedDeclarationMacro"
-            : "Raven.CodeAnalysis.Macros.IFreestandingExpressionMacro";
+            : "Raven.CodeAnalysis.Macros.IInvocableMacro";
         var contextName = hasTokenTreeBody
             ? "Raven.CodeAnalysis.Macros.TokenTreeMacroContext"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.AttachedMacroContext"
-            : "Raven.CodeAnalysis.Macros.FreestandingMacroContext";
+            : "Raven.CodeAnalysis.Macros.InvocableMacroContext";
         var resultName = hasTokenTreeBody
-            ? "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult"
+            ? "Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.MacroExpansionResult"
-            : "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult";
-        var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildFreestanding";
+            : "Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult";
+        var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildInvocable";
 
         if (hasParameters)
         {
@@ -128,6 +128,11 @@ internal static class MacroLowering
         {
             builder.AppendLine(
                 $"    val Alias: string? => \"{EscapeString(alias)}\"");
+        }
+        if (!isAttached)
+        {
+            builder.AppendLine(
+                $"    val InvocationTargets: Raven.CodeAnalysis.Macros.MacroInvocationTargets => {GetInvocationTargetsExpression(symbol?.InvocationTargets ?? MacroInvocationTargets.Expression)}");
         }
         if (isAttached)
         {
@@ -157,10 +162,10 @@ internal static class MacroLowering
             builder.AppendLine(
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.TokenTreeMacroContext = {contextVariableName}");
         }
-        foreach (var contextParameter in freestandingContextParameters)
+        foreach (var contextParameter in invocableContextParameters)
         {
             builder.AppendLine(
-                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.FreestandingMacroContext = {contextVariableName}");
+                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.InvocableMacroContext = {contextVariableName}");
         }
         foreach (var contextParameter in attachedContextParameters)
         {
@@ -315,6 +320,22 @@ internal static class MacroLowering
             candidate = $"{baseName}{++suffix}";
 
         return candidate;
+    }
+
+    private static string GetInvocationTargetsExpression(MacroInvocationTargets targets)
+    {
+        const string prefix = "Raven.CodeAnalysis.Macros.MacroInvocationTargets.";
+        if (targets == MacroInvocationTargets.None)
+            return prefix + nameof(MacroInvocationTargets.None);
+
+        return string.Join(
+            " | ",
+            Enum.GetValues<MacroInvocationTargets>()
+                .Where(static target =>
+                    target != MacroInvocationTargets.None &&
+                    ((int)target & ((int)target - 1)) == 0)
+                .Where(target => targets.HasFlag(target))
+                .Select(target => prefix + target));
     }
 
     private static bool EndsWithExpand(MacroDeclarationSyntax declaration)

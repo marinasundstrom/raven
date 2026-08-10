@@ -17,7 +17,7 @@
             "include": "#attributes"
         },
         {
-            "include": "#freestandingMacros"
+            "include": "#invocableMacros"
         },
         {
             "include": "#strings"
@@ -143,10 +143,10 @@
                 }
             ]
         },
-        "freestandingMacros": {
+        "invocableMacros": {
             "patterns": [
                 {
-                    "name": "meta.macro.freestanding.raven",
+                    "name": "meta.macro.invocable.raven",
                     "match": "([A-Za-z_][A-Za-z0-9_]*)(\\s*(?:<[^\\r\\n{}]*>)?\\s*)(!)(?=\\s*(?:\\(|\\{))",
                     "captures": {
                         "1": {

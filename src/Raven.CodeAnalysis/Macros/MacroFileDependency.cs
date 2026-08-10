@@ -62,7 +62,7 @@ internal enum MacroFileReadStatus
 internal static class MacroFileReader
 {
     public static MacroFileReadResult Read(
-        FreestandingMacroExpressionSyntax syntax,
+        SyntaxNode syntax,
         string path,
         ImmutableArray<MacroFileDependency>.Builder dependencies)
     {

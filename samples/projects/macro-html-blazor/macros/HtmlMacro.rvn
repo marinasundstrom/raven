@@ -10,7 +10,7 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
 
-class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
+class HtmlMacro : ITokenTreeMacro, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
     val Name: string => "Html"
 
     func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
@@ -94,7 +94,7 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
         regions
     }
 
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
         let parser = HtmlDslParser(
             context.GetBodyText(),
             context.Compilation,
@@ -103,7 +103,7 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
         let expansion = parser.Parse()
 
         if let errorMessage: string = expansion.ErrorMessage {
-            return FreestandingMacroExpansionResult.FromDiagnostic(
+            return InvocableMacroExpansionResult.FromDiagnostic(
                 context.CreateBodyDiagnostic(
                     TextSpan(expansion.ErrorPosition, 0),
                     errorMessage,
@@ -113,12 +113,12 @@ class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider, IMacroToken
         for span in expansion.EmbeddedExpressionSpans {
             let expression = context.ParseExpressionResult(span)
             if expression.HasErrors {
-                return FreestandingMacroExpansionResult.FromDiagnostics(expression.Diagnostics)
+                return InvocableMacroExpansionResult.FromDiagnostics(expression.Diagnostics)
             }
         }
 
         let expandedExpression = ParseExpression(expansion.ExpressionText)
-        FreestandingMacroExpansionResult.FromExpression(
+        InvocableMacroExpansionResult.FromExpression(
             context.WithOrigins(expandedExpression, expansion.SourceMaps))
     }
 

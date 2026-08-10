@@ -33,7 +33,7 @@ reuse normal Raven presentation. Component tags and schema-backed identifiers
 fit this model; keywords or prose hints do not and should justify a separate,
 narrow affordance only when a real DSL requires one.
 
-In user-facing terms, freestanding procedural macros use function-like or
+In user-facing terms, invocable procedural macros use function-like or
 delimited invocations, while attached macros use attributes. During binding,
 the compiler resolves the macro implementation and expands the invocation or
 attribute into typed ordinary Raven syntax. It is not unconstrained textual
@@ -183,7 +183,7 @@ roles:
 * exactly one parameter marked with contextual `on` selects an attached macro
   and constrains its target using the ordinary syntax-node type system.
 
-Thus `Foo` is an argument-style freestanding expression macro, either `Query`
+Thus `Foo` is an argument-style invocable macro, either `Query`
 form is a raw token-stream expression macro, and `AddEquatable` is an attached
 type macro whose reached contribution statements introduce members. A
 token-stream macro may combine typed value parameters with one unrestricted
@@ -196,7 +196,7 @@ The declaration model has four independent axes:
 | Axis | Examples | What it controls |
 | --- | --- | --- |
 | Input role | typed value, `ExpressionSyntax`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
-| Attachment | absent or `on target: BaseTypeDeclarationSyntax` | freestanding versus attached invocation and the allowed target syntax |
+| Attachment | absent or `on target: BaseTypeDeclarationSyntax` | invocable versus attached invocation and the allowed target syntax |
 | Result syntax | omitted/`ExpressionSyntax`, `StatementSyntax`, `SyntaxNode` | grammar positions where the macro can be invoked |
 | Contributions | `expand`, `replace`, `introduce` | final expansion return, replacement, and accumulated members |
 
@@ -224,9 +224,9 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
-| `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
-| `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
+| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IInvocableMacro` with `InvocableMacroContext` |
+| `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeMacro` with `TokenTreeMacroContext` |
+| `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
 | `macro AddEquatable(on target: BaseTypeDeclarationSyntax)` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
 | `macro Observable(on property: PropertyDeclarationSyntax)` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
@@ -361,9 +361,9 @@ following raw token-tree body.
 `TokenTreeMacroContext` has the compiler-supplied `Context` role and exposes
 the complete low-level provider context for advanced library macros; it does
 not consume a caller argument.
-`FreestandingMacroContext` similarly has the compiler-supplied
-`FreestandingContext` role for argument-style macros. It exposes the complete
-freestanding provider context without requiring or consuming a raw token-tree
+`InvocableMacroContext` similarly has the compiler-supplied
+`InvocableContext` role for argument-style macros. It exposes the complete
+invocable provider context without requiring or consuming a raw token-tree
 body.
 `IParameterSymbol.MacroRole` exposes that distinction without adding a second
 parameter syntax.
@@ -377,7 +377,7 @@ expansion ordering, or call-site semantics.
 Likewise, target applicability belongs only to the attached-macro contract.
 The source declaration derives it from one typed `on` parameter;
 `IAttachedDeclarationMacro.Targets` is the legacy class-provider projection
-used by the current adapter. Freestanding and token-tree macro classes do not
+used by the current adapter. Invocable and token-tree macro classes do not
 implement a meaningless `Targets = None` member. Common tooling can query the
 normalized value through `MacroFacts.GetTargets`.
 
@@ -424,8 +424,8 @@ adapter interfaces may change as the macro model develops.
 
 The Raven syntax tree contains compiler-known carrier nodes at valid grammar
 positions. Expression carriers share the abstract
-`FreestandingMacroExpressionSyntax` base. The preferred invocation-like
-spelling uses `BangMacroExpressionSyntax`:
+`InvocableMacroExpressionSyntax` base. The preferred invocation-like
+spelling uses `InvocableMacroExpressionSyntax`:
 
 ```raven
 let result = query! {
@@ -438,7 +438,7 @@ This spelling reads as an invocation that owns a region of code instead of
 visually resembling a preprocessor directive. Macros are parsed expression
 carriers and do not select source text for compilation. Directive styling is
 reserved for facilities closer to preprocessing, such as `#if`. Invocable
-macros have one syntax carrier: `BangMacroExpressionSyntax`.
+macros have one syntax carrier: `InvocableMacroExpressionSyntax`.
 
 Future carriers may represent statement and member/declaration positions. A
 carrier preserves the macro name, delimiters, and lossless raw body. It means
@@ -617,7 +617,7 @@ themselves. `ParseExpressionResult(span)` returns
 `MacroSyntaxParseResult<ExpressionSyntax>`, containing the recovered syntax,
 native Raven parser diagnostics, and `HasErrors`. Diagnostic locations are
 mapped to the invocation's original syntax tree, so a macro can forward them
-through `FreestandingMacroExpansionResult.Diagnostics` without translating
+through `InvocableMacroExpansionResult.Diagnostics` without translating
 generated-tree positions or wrapping them as macro failures.
 
 `ParseStatement`, `ParseType`, `ParsePattern`, and `ParseCompilationUnit`, plus
@@ -923,7 +923,7 @@ For the dedicated-file MVP, the compiler recognizes direct macro declarations:
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
-class AnswerMacro: ITokenTreeExpressionMacro {
+class AnswerMacro: ITokenTreeMacro {
     // ...
 }
 ```
@@ -948,7 +948,7 @@ compile-time declarations:
 import Raven.CodeAnalysis.Macros.*
 
 [LocalMacro]
-class AnswerMacro: ITokenTreeExpressionMacro {
+class AnswerMacro: ITokenTreeMacro {
     // ...
 }
 
@@ -995,8 +995,8 @@ dependency resolution for the in-memory image.
 
 ## Expansion result construction
 
-Freestanding expression macros can use
-`FreestandingMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
+Invocable macros can use
+`InvocableMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
 `FromDiagnostics` instead of discovering valid property combinations through
 object initializers. The overloads cover expression success, forwarded Raven
 parser diagnostics, macro-authored diagnostics, and combined diagnostic

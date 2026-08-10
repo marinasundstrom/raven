@@ -326,7 +326,7 @@ public interface IMacroSymbol : ISymbol
 
     /// <summary>
     /// Gets the declaration targets accepted by this macro, or
-    /// <see cref="Macros.MacroTarget.None"/> for a freestanding macro.
+    /// <see cref="Macros.MacroTarget.None"/> for an invocable macro.
     /// </summary>
     MacroTarget Targets { get; }
 

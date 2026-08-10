@@ -58,37 +58,50 @@ internal sealed class SourceDeclarationIndex
         Dictionary<NamespaceMemberFunctionLookupKey, ImmutableArray<FunctionStatementSyntax>.Builder> namespaceFunctions,
         Dictionary<NamespaceTypeLookupKey, ImmutableArray<SyntaxNode>.Builder> namespaceTypes)
     {
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in _compilation.GetEffectiveNamespaceMembers(containerNode))
         {
-            switch (member)
-            {
-                case BaseNamespaceDeclarationSyntax namespaceDeclaration:
-                    IndexContainer(
-                        namespaceDeclaration,
-                        GetNamespaceDeclarationMetadataName(namespaceMetadataName, namespaceDeclaration),
-                        namespaceFunctions,
-                        namespaceTypes);
-                    break;
+            IndexMember(
+                member,
+                namespaceMetadataName,
+                namespaceFunctions,
+                namespaceTypes);
+        }
+    }
 
-                case BaseTypeDeclarationSyntax typeDeclaration:
-                    AddType(namespaceTypes, namespaceMetadataName, typeDeclaration.Identifier.ValueText, typeDeclaration);
-                    break;
+    private void IndexMember(
+        SyntaxNode member,
+        string namespaceMetadataName,
+        Dictionary<NamespaceMemberFunctionLookupKey, ImmutableArray<FunctionStatementSyntax>.Builder> namespaceFunctions,
+        Dictionary<NamespaceTypeLookupKey, ImmutableArray<SyntaxNode>.Builder> namespaceTypes)
+    {
+        switch (member)
+        {
+            case BaseNamespaceDeclarationSyntax namespaceDeclaration:
+                IndexContainer(
+                    namespaceDeclaration,
+                    GetNamespaceDeclarationMetadataName(namespaceMetadataName, namespaceDeclaration),
+                    namespaceFunctions,
+                    namespaceTypes);
+                break;
 
-                case DelegateDeclarationSyntax delegateDeclaration:
-                    AddType(namespaceTypes, namespaceMetadataName, delegateDeclaration.Identifier.ValueText, delegateDeclaration);
-                    break;
+            case BaseTypeDeclarationSyntax typeDeclaration:
+                AddType(namespaceTypes, namespaceMetadataName, typeDeclaration.Identifier.ValueText, typeDeclaration);
+                break;
 
-                case ExtensionDeclarationSyntax extensionDeclaration:
-                    AddType(namespaceTypes, namespaceMetadataName, extensionDeclaration.Identifier.ValueText, extensionDeclaration);
-                    break;
+            case DelegateDeclarationSyntax delegateDeclaration:
+                AddType(namespaceTypes, namespaceMetadataName, delegateDeclaration.Identifier.ValueText, delegateDeclaration);
+                break;
 
-                case GlobalStatementSyntax globalStatement
-                    when Compilation.IsTopLevelFunctionMember(globalStatement) &&
-                         !_compilation.IsFileScopeLocalFunction(globalStatement) &&
-                         globalStatement.Statement is FunctionStatementSyntax functionStatement:
-                    AddNamespaceFunction(namespaceFunctions, namespaceMetadataName, functionStatement);
-                    break;
-            }
+            case ExtensionDeclarationSyntax extensionDeclaration:
+                AddType(namespaceTypes, namespaceMetadataName, extensionDeclaration.Identifier.ValueText, extensionDeclaration);
+                break;
+
+            case GlobalStatementSyntax globalStatement
+                when Compilation.IsTopLevelFunctionMember(globalStatement) &&
+                     !_compilation.IsFileScopeLocalFunction(globalStatement) &&
+                     globalStatement.Statement is FunctionStatementSyntax functionStatement:
+                AddNamespaceFunction(namespaceFunctions, namespaceMetadataName, functionStatement);
+                break;
         }
     }
 

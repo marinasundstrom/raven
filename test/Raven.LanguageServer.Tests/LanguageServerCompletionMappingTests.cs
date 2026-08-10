@@ -233,7 +233,7 @@ public class LanguageServerCompletionMappingTests
         {
         }
 
-        public MacroKind MacroKind => MacroKind.FreestandingExpression;
+        public MacroKind MacroKind => MacroKind.Invocable;
 
         public MacroApplicationKind ApplicationKind => MacroApplicationKind.Invocable;
 
