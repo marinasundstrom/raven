@@ -37,7 +37,7 @@ public static class AttributeSyntaxExtensions
             _ => name.ToString()
         };
 
-    public static bool TryGetMacroName(this FreestandingMacroExpressionSyntax macroExpression, out string macroName)
+    public static bool TryGetMacroName(this InvocableMacroExpressionSyntax macroExpression, out string macroName)
     {
         if (macroExpression is null)
             throw new ArgumentNullException(nameof(macroExpression));

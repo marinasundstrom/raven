@@ -132,11 +132,11 @@ internal static class MacroSemanticValidator
         return true;
     }
 
-    public static bool TryResolveFreestandingMacro(
+    public static bool TryResolveInvocableMacro(
         Compilation compilation,
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         DiagnosticBag? diagnostics,
-        out LoadedFreestandingMacro loaded)
+        out LoadedInvocableMacro loaded)
     {
         ArgumentNullException.ThrowIfNull(expression);
 
@@ -147,7 +147,7 @@ internal static class MacroSemanticValidator
         }
 
         var registry = compilation.GetMacroRegistry();
-        if (!registry.TryResolveFreestandingMacro(
+        if (!registry.TryResolveInvocableMacro(
                 compilation,
                 expression,
                 macroName,
@@ -159,7 +159,7 @@ internal static class MacroSemanticValidator
                     macroName,
                     out var localMacro,
                     out var localIsAmbiguous) &&
-                localMacro.MacroKind == MacroKind.FreestandingExpression)
+                localMacro.MacroKind == MacroKind.Invocable)
             {
                 return false;
             }
@@ -173,7 +173,7 @@ internal static class MacroSemanticValidator
 
         if (expression.TokenTree is not null)
         {
-            if (loaded.Macro is not ITokenTreeExpressionMacro)
+            if (loaded.Macro is not ITokenTreeMacro)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroInvocationFormNotSupported,
@@ -195,7 +195,7 @@ internal static class MacroSemanticValidator
             return true;
         }
 
-        if (loaded.Macro is not IFreestandingExpressionMacro)
+        if (loaded.Macro is not IInvocableMacro)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroInvocationFormNotSupported,

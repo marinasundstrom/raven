@@ -9,7 +9,7 @@ class CustomTokenParameters {
     var Value: int = 0
 }
 
-class CustomTokenMacro : ITokenTreeExpressionMacro<CustomTokenParameters>, IMacroTokenStreamProvider {
+class CustomTokenMacro : ITokenTreeMacro<CustomTokenParameters>, IMacroTokenStreamProvider {
     static val AnswerTokenRawKind: int => 80101
 
     val Name: string => "customToken"
@@ -18,17 +18,17 @@ class CustomTokenMacro : ITokenTreeExpressionMacro<CustomTokenParameters>, IMacr
         CustomTokenStream(context, AnswerTokenRawKind)
     }
 
-    func Expand(context: TokenTreeMacroContext<CustomTokenParameters>) -> FreestandingMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext<CustomTokenParameters>) -> InvocableMacroExpansionResult {
         let stream = context.CreateTokenStream()
         let token = stream.ReadToken()
         if token.RawKind != AnswerTokenRawKind
             || token.Text != "⟨answer⟩"
             || !stream.IsEndOfFile {
-            return FreestandingMacroExpansionResult.FromDiagnostic(
+            return InvocableMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic("Expected the custom token '⟨answer⟩'."))
         }
 
-        FreestandingMacroExpansionResult.FromExpression(
+        InvocableMacroExpansionResult.FromExpression(
             ParseExpression(context.Parameters.Value.ToString()))
     }
 }

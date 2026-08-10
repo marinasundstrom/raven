@@ -17,7 +17,7 @@ the usual way.
 
 Keep four rules in mind:
 
-1. Invoke a freestanding macro with `Name!(...)`, `Name! { ... }`, or both.
+1. Invoke an invocable macro with `Name!(...)`, `Name! { ... }`, or both.
    `#` is reserved for directives and attached macro attributes.
 2. Use `expand` once the invocable result is ready. It sets the expansion and
    returns from that execution path.
@@ -325,7 +325,7 @@ throwing for expected invalid input; an exception means the macro itself
 failed.
 
 Class-authored providers use the same context APIs. Their `Expand` method
-returns `FreestandingMacroExpansionResult`, which can carry syntax and
+returns `InvocableMacroExpansionResult`, which can carry syntax and
 diagnostics together. Use that lower-level form only when the compact
 declaration cannot project a required capability.
 
@@ -496,7 +496,7 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | `ExpressionSyntax` parameter | authored expression projection |
 | `IMacroTokenStream` parameter | token-tree macro and token stream |
 | `TokenTreeMacroContext` parameter | complete token-tree context |
-| `FreestandingMacroContext` parameter | complete argument-style context |
+| `InvocableMacroContext` parameter | complete argument-style context |
 | `AttachedMacroContext` parameter | complete attached context |
 | `on target: BaseTypeDeclarationSyntax` / `on property: PropertyDeclarationSyntax` | compiler-supplied attached target |
 | `expand` | final expansion and semantic return |
@@ -656,7 +656,7 @@ The repository examples progress from compact syntax to full DSL handling:
   tooling, and debugger source provenance;
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
-* `samples/projects/macro-freestanding` — LINQ-like query parsing, three
+* `samples/projects/macro-invocable` — LINQ-like query parsing, three
   embedded Raven expression regions, caller-scope completion, and an
   introduced sequence-element range variable;
 * `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven

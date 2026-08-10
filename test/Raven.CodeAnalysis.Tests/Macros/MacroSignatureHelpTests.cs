@@ -31,7 +31,7 @@ class Host {
 
         Assert.NotNull(signature);
         Assert.Equal("typedQuery", signature.Name);
-        Assert.Equal(MacroKind.FreestandingExpression, signature.Kind);
+        Assert.Equal(MacroKind.Invocable, signature.Kind);
         Assert.True(signature.HasTokenTreeBody);
         Assert.Collection(
             signature.Parameters,
@@ -130,12 +130,12 @@ class Host {
         public bool Optimize { get; set; }
     }
 
-    private sealed class TypedQueryMacro : ITokenTreeExpressionMacro<TypedQueryParameters>
+    private sealed class TypedQueryMacro : ITokenTreeMacro<TypedQueryParameters>
     {
         public string Name => "typedQuery";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
     private sealed class TypedObservableParameters
@@ -164,12 +164,12 @@ class Host {
     }
 
     private sealed class ExpressionProjectionMacro :
-        IFreestandingExpressionMacro<ExpressionProjectionParameters>
+        IInvocableMacro<ExpressionProjectionParameters>
     {
         public string Name => "project";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<ExpressionProjectionParameters> context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(
+            InvocableMacroContext<ExpressionProjectionParameters> context)
+            => InvocableMacroExpansionResult.Empty;
     }
 }

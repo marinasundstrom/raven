@@ -19,7 +19,7 @@ These facilities can be combined, but they are not interchangeable.
 > tooling integration remain subject to change.
 
 Procedural macros are Raven's native facility for compile-time metaprogramming.
-A freestanding macro looks like a function-style or delimited expression, while
+An invocable macro looks like a function-style or delimited expression, while
 an attached macro is applied as an attribute. The compiler resolves and expands
 it during binding, before ordinary code generation.
 

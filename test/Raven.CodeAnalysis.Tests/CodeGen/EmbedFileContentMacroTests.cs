@@ -91,7 +91,7 @@ public sealed class EmbedFileContentMacroTests
             var model = compilation.GetSemanticModel(syntaxTree);
             var invocation = syntaxTree.GetRoot()
                 .DescendantNodes()
-                .OfType<BangMacroExpressionSyntax>()
+                .OfType<InvocableMacroExpressionSyntax>()
                 .Single();
 
             var initial = model.GetMacroExpansion(invocation);
@@ -121,7 +121,7 @@ public sealed class EmbedFileContentMacroTests
         }
     }
 
-    private static string? GetEmbeddedValue(FreestandingMacroExpansionResult? expansion)
+    private static string? GetEmbeddedValue(InvocableMacroExpansionResult? expansion)
         => (expansion?.Expression as LiteralExpressionSyntax)?.Token.ValueText;
 
     private static object? InvokeRun(string source, string sourcePath)

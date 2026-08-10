@@ -21,14 +21,14 @@ public static partial class StandardMacroExpansions
     /// <summary>
     /// Computes the SHA-256 digest of a literal value during compilation.
     /// </summary>
-    public static FreestandingMacroExpansionResult ExpandSha256Digest(
-        FreestandingMacroContext context,
+    public static InvocableMacroExpansionResult ExpandSha256Digest(
+        InvocableMacroContext context,
         ExpressionSyntax expression)
     {
         if (!ConstantValueEvaluator.TryEvaluate(expression, out var value) ||
             !TryGetCanonicalBytes(value, out var bytes))
         {
-            return FreestandingMacroExpansionResult.FromDiagnostic(
+            return InvocableMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic(
                     "The sha256Digest macro requires a literal string, character, Boolean, numeric, or null value.",
                     syntax: expression,
@@ -39,7 +39,7 @@ public static partial class StandardMacroExpansions
         var expansion = SyntaxFactory.LiteralExpression(
             SyntaxKind.StringLiteralExpression,
             SyntaxFactory.Literal($"\"{digest}\"", digest));
-        return FreestandingMacroExpansionResult.FromExpression(expansion);
+        return InvocableMacroExpansionResult.FromExpression(expansion);
     }
 
     private static bool TryGetCanonicalBytes(object? value, out byte[] bytes)

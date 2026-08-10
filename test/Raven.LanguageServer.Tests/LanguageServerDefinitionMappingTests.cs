@@ -203,7 +203,7 @@ class MyViewModel {
     }
 
     [Fact]
-    public async Task DefinitionHandler_FreestandingMacro_ResolvesToMacroDeclarationProject()
+    public async Task DefinitionHandler_InvocableMacro_ResolvesToMacroDeclarationProject()
     {
         using var fixture = new DefinitionWorkspaceFixture();
         var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;
@@ -230,11 +230,11 @@ import Raven.CodeAnalysis.Syntax.*
 
 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-class AnswerMacro : IFreestandingExpressionMacro {
+class AnswerMacro : IInvocableMacro {
     val Name: string => "answer"
 
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult.Empty
+    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
+        InvocableMacroExpansionResult.Empty
     }
 }
 """);
@@ -293,11 +293,11 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(FragmentMacro))]
 
-class FragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider {
+class FragmentMacro : ITokenTreeMacro, IMacroFragmentProvider {
     val Name: string => "fragment"
 
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult.Empty
+    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+        InvocableMacroExpansionResult.Empty
     }
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
@@ -403,12 +403,12 @@ func Main() {
         }
     }
 
-    private sealed class SymbolTokenMacro : ITokenTreeExpressionMacro, IMacroTokenSymbolProvider
+    private sealed class SymbolTokenMacro : ITokenTreeMacro, IMacroTokenSymbolProvider
     {
         public string Name => "symbolToken";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);

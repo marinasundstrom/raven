@@ -162,7 +162,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(SymbolKind.Macro, symbol.Kind);
         Assert.Equal(MacroApplicationKind.Invocable, symbol.ApplicationKind);
         Assert.Equal(MacroInvocationTargets.Expression, symbol.InvocationTargets);
-        Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
+        Assert.Equal(MacroKind.Invocable, symbol.MacroKind);
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Null(symbol.TargetName);
         Assert.Equal("Identity", symbol.Name);
@@ -397,7 +397,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
     public void MacroContribution_ValidatesAgainstAttachmentKind()
     {
         var (compilation, _) = CreateCompilation("""
-            macro Freestanding() {
+            macro Invocable() {
                 replace quote! { 1 }
             }
 
@@ -491,7 +491,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
-        Assert.Equal(MacroKind.FreestandingExpression, symbol.MacroKind);
+        Assert.Equal(MacroKind.Invocable, symbol.MacroKind);
         Assert.Equal(MacroTarget.None, symbol.Targets);
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
         Assert.Equal(MacroParameterRole.TokenBody, symbol.Parameters[1].MacroRole);
@@ -527,12 +527,12 @@ public sealed class MacroSymbolTests : CompilationTestBase
     }
 
     [Fact]
-    public void ArgumentStyleMacro_ExposesCompilerSuppliedFreestandingContextRole()
+    public void ArgumentStyleMacro_ExposesCompilerSuppliedInvocableContextRole()
     {
         var (baseCompilation, tree) = CreateCompilation("""
             macro Embed(
                 path: string,
-                context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
+                context: Raven.CodeAnalysis.Macros.InvocableMacroContext
             ) {
                 expand path
             }
@@ -548,7 +548,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
 
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
         Assert.Equal(MacroParameterRole.Context, symbol.Parameters[1].MacroRole);
-        Assert.Equal("FreestandingMacroContext", symbol.Parameters[1].Type.Name);
+        Assert.Equal("InvocableMacroContext", symbol.Parameters[1].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -585,12 +585,12 @@ public sealed class MacroSymbolTests : CompilationTestBase
     public void MacroContextParameter_MustMatchMacroKind()
     {
         var (baseCompilation, _) = CreateCompilation("""
-            macro Freestanding(context: Raven.CodeAnalysis.Macros.AttachedMacroContext) {
+            macro Invocable(context: Raven.CodeAnalysis.Macros.AttachedMacroContext) {
                 context.ReportDiagnostic("Invalid")
             }
 
             macro Attached(
-                context: Raven.CodeAnalysis.Macros.FreestandingMacroContext,
+                context: Raven.CodeAnalysis.Macros.InvocableMacroContext,
                 on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax
             ) {
                 context.ReportDiagnostic("Invalid")

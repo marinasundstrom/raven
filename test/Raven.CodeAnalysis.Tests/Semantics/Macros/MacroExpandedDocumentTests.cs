@@ -31,7 +31,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_RewritesAttachedAndFreestandingMacros()
+    public void GetExpandedRoot_RewritesAttachedAndInvocableMacros()
     {
         var (compilation, tree) = CreateCompilation("""
             class Harness {
@@ -47,7 +47,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         compilation = compilation.AddMacroReferences(
             new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
             new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()),
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var expandedRoot = model.GetExpandedRoot();
@@ -68,7 +68,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_PreservesBlankLinesAndFormatsFreestandingLambdaBodies()
+    public void GetExpandedRoot_PreservesBlankLinesAndFormatsInvocableLambdaBodies()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -102,7 +102,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_RewritesEveryFreestandingMacroInSameMember()
+    public void GetExpandedRoot_RewritesEveryInvocableMacroInSameMember()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -111,7 +111,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
 
         var expandedText = compilation.GetSemanticModel(tree)
             .GetExpandedRoot()
@@ -123,7 +123,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_PreservesLineBreakAfterBangMacro()
+    public void GetExpandedRoot_PreservesLineBreakAfterInvocableMacro()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -134,7 +134,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(FreestandingMacroSemanticTests.RavenBodyMacro)));
+            new MacroReference(typeof(InvocableMacroSemanticTests.RavenBodyMacro)));
 
         var expandedText = compilation.GetSemanticModel(tree)
             .GetExpandedRoot()
@@ -262,12 +262,12 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 new MacroReference(new WrapMacro()));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
 
         _ = model.GetMacroExpansion(expression);
         _ = model.GetMacroExpansion(expression);
 
-        Assert.Equal(1, instrumentation.Macros.FreestandingExpansionInvocations);
+        Assert.Equal(1, instrumentation.Macros.InvocableExpansionInvocations);
         Assert.Equal(0, instrumentation.Macros.AttachedExpansionInvocations);
     }
 
@@ -318,17 +318,17 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         }
     }
 
-    private sealed class WrapMacro : IFreestandingExpressionMacro
+    private sealed class WrapMacro : IInvocableMacro
     {
         public string Name => "wrap";
 
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
         {
             var callback = context.Arguments.Single().Expression;
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.IdentifierName("Observe"),

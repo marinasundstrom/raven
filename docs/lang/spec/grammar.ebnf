@@ -690,7 +690,7 @@ PrimaryExpression        ::= Literal
                            | DefaultExpression
                            | TypeOfExpression
                            | NameOfExpression
-                           | FreestandingMacroExpression
+                           | InvocableMacroExpression
                            | CollectionExpression
                            | ArrayExpression
                            | Identifier
@@ -710,10 +710,7 @@ DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 
 TypeOfExpression         ::= 'typeof' '(' Type ')' ;
 NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
-FreestandingMacroExpression
-                         ::= BangMacroExpression ;
-
-BangMacroExpression      ::= QualifiedName '!'
+InvocableMacroExpression ::= QualifiedName '!'
                              ( ArgumentList
                              | [ArgumentList] MacroTokenTree ) ;
 

@@ -12,7 +12,7 @@ for current syntax and compiler contracts.
 
 ## Overview
 
-Raven supports attached declaration macros and freestanding expression macros. A macro is a compiler-driven expansion that produces ordinary Raven syntax before normal semantic analysis continues.
+Raven supports attached declaration macros and invocable macros. A macro is a compiler-driven expansion that produces ordinary Raven syntax before normal semantic analysis continues.
 
 Use a macro when code needs to generate or transform Raven declarations or
 expressions—something an ordinary function cannot do. A macro expands to normal
@@ -77,11 +77,11 @@ do not implement a `Kind` property. `MacroFacts.GetKind` derives it from the
 single category-specific interface implemented by the definition:
 
 * `IAttachedDeclarationMacro` implies `AttachedDeclaration`
-* `IFreestandingExpressionMacro` implies `FreestandingExpression`
-* `ITokenTreeExpressionMacro` implies `FreestandingExpression`
+* `IInvocableMacro` implies `Invocable`
+* `ITokenTreeMacro` implies `Invocable`
 
 Target applicability belongs to `IAttachedDeclarationMacro`. Attached
-definitions expose `Targets`; freestanding and token-tree definitions do not
+definitions expose `Targets`; invocable and token-tree definitions do not
 declare a redundant `MacroTarget.None` property. Code that handles the common
 `IMacroDefinition` surface can use `MacroFacts.GetTargets`, which returns
 `MacroTarget.None` for non-attached definitions.
@@ -112,9 +112,9 @@ var Title: string
 
 `#pragma` and other directive forms remain directives. They do not parse as macros.
 
-## Freestanding macro syntax
+## Invocable macro syntax
 
-A freestanding expression macro uses `name!(...)` in expression position:
+An invocable macro uses `name!(...)` in expression position:
 
 ```raven
 func Main() -> int => answer!()
@@ -122,7 +122,7 @@ func Main() -> int => answer!()
 
 The expression expands to an ordinary Raven expression before normal expression binding continues.
 
-A token-tree expression macro uses a raw brace-delimited body:
+A token-tree macro uses a raw brace-delimited body:
 
 ```raven
 func Main() -> string => query! {
@@ -148,7 +148,7 @@ directly. The corresponding `ParseExpressionResult` overloads return a
 `MacroSyntaxParseResult<ExpressionSyntax>` containing that syntax, immutable
 native parser diagnostics, and `HasErrors`. These diagnostics retain locations
 in the authored invocation tree and may be forwarded through
-`FreestandingMacroExpansionResult.Diagnostics`.
+`InvocableMacroExpansionResult.Diagnostics`.
 
 `ParseStatement()` and `ParseStatement(span)` provide the equivalent
 syntax-only API for one complete Raven statement. Their
@@ -206,7 +206,7 @@ fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
 ```
 
 The generated adapter stores reached fragments in execution order on the
-freestanding expansion result. `fragment` is invalid on argument-style and
+invocable expansion result. `fragment` is invalid on argument-style and
 attached macro declarations. A direct `IMacroFragmentProvider` takes precedence
 when present, allowing editor-region discovery to remain independent of full
 macro expansion.
@@ -319,7 +319,7 @@ Standalone `ParseMemberDeclaration` returns null unless its input contains
 exactly one declaration. Macro-context parsing is preferred for authored body
 fragments because it preserves their source coordinates and diagnostics.
 
-The normalized freestanding result carries either zero or one `SyntaxNode`, or
+The normalized invocable result carries either zero or one `SyntaxNode`, or
 an immutable list of `MemberDeclarationSyntax` nodes. `Members` and
 `HasMemberExpansion` expose the list-valued form, while
 `FromMembers(...)` accepts a `SyntaxList<TMember>` or immutable member array.
@@ -344,9 +344,9 @@ Attached declaration results use the corresponding
 members and peer declarations. `MacroExpansionResult.Empty` represents no
 declaration change.
 
-Token-tree expression macros implement `ITokenTreeExpressionMacro`. They may
+Token-tree expression macros implement `ITokenTreeMacro`. They may
 accept a typed argument list before the body by implementing
-`ITokenTreeExpressionMacro<TParameters>`:
+`ITokenTreeMacro<TParameters>`:
 
 ```raven
 let result = query!(Dialect: "sql") {
@@ -355,7 +355,7 @@ let result = query!(Dialect: "sql") {
 }
 ```
 
-Token-tree macros use the same bang invocation spelling:
+Token-tree macros use the same `Name!` invocation spelling:
 
 ```raven
 let result = query!(Dialect: "sql") {
@@ -365,17 +365,16 @@ let result = query!(Dialect: "sql") {
 ```
 
 The syntax tree represents expression, statement, file-scope, and namespace-scope
-invocations with `BangMacroExpressionSyntax` under the abstract
-`FreestandingMacroExpressionSyntax` base. File and namespace scope deliberately
+invocations with the concrete `InvocableMacroExpressionSyntax` node. File and namespace scope deliberately
 retain the existing global-statement envelope: the macro's resolved output
 target, rather than parser lookahead, decides whether expansion supplies a
 statement or declarations. Inside a type body, where a statement is not a valid
-member, the parser uses `FreestandingMacroMemberDeclarationSyntax`.
+member, the parser uses `InvocableMacroMemberDeclarationSyntax`.
 
 An invocation may supply an argument list, a brace-delimited token-tree body,
 or both. There must be no line break between the macro name and `!`, or between
 `!` (or its argument list) and the opening brace; this lookahead keeps ordinary
-postfix `!` expressions unambiguous. A freestanding macro is a
+postfix `!` expressions unambiguous. An invocable macro is a
 parsed expression invocation that expands an owned region of syntax; it is not
 a preprocessor directive. Directive-looking syntax remains appropriate for
 lexical compilation controls such as `#if`, while `name! { ... }` preserves the
@@ -447,7 +446,7 @@ declaration to `property`. Its type is an ordinary Raven.CodeAnalysis syntax
 type and determines the accepted target; there is no separate target-name
 vocabulary. The current provider adapter projects declaration syntax into its
 coarser `MacroTarget` category where required. A declaration without an `on`
-parameter is an argument-style freestanding expression macro. Token-stream and
+parameter is an argument-style invocable macro. Token-stream and
 syntax-projection inputs use the same parameter syntax:
 
 ```raven
@@ -491,13 +490,13 @@ low-level diagnostic, token-tree, and expansion APIs; `Raven.Macros` currently
 uses it to forward its Raven-authored declarations to the transitional
 `StandardMacroExpansions` implementations.
 
-An argument-style macro may instead declare a `FreestandingMacroContext`
-parameter. It has the compiler-supplied `FreestandingContext` role and exposes
+An argument-style macro may instead declare a `InvocableMacroContext`
+parameter. It has the compiler-supplied `InvocableContext` role and exposes
 the invocation, arguments, semantic model, diagnostics, and other
-freestanding-expansion services without changing the call site into a
+invocable-expansion services without changing the call site into a
 token-tree macro. It therefore does not require a `{ ... }` body. For example,
 a macro declared with an ordinary `path: string` parameter plus a
-`FreestandingMacroContext` parameter is invoked as `Macro!("path")`; only the
+`InvocableMacroContext` parameter is invoked as `Macro!("path")`; only the
 ordinary value parameter is supplied by the caller.
 
 An attached macro may similarly declare an `AttachedMacroContext` parameter.
@@ -532,7 +531,7 @@ The compiler currently lowers an executable, non-generic compilation-unit
 declaration into an isolated provider adapter and, when needed, a parameter
 object implementing the existing typed macro contracts. `expand`, `replace`,
 and `introduce` lower to operations on a compiler-provided result builder,
-whose final value becomes `FreestandingMacroExpansionResult` or
+whose final value becomes `InvocableMacroExpansionResult` or
 `MacroExpansionResult`. An `expand` operation is followed by the corresponding
 generated return. These synthesized types are implementation details and
 are not the semantic identity exposed to tools.
@@ -740,13 +739,13 @@ The compiler parses and preserves these arguments generically. Their interpretat
 
 For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`.
 
-For freestanding expression macros, the equivalent APIs are `FreestandingMacroContext.ArgumentList` and `FreestandingMacroContext.Arguments`.
+For invocable macros, the equivalent APIs are `InvocableMacroContext.ArgumentList` and `InvocableMacroContext.Arguments`.
 
 Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
 
-For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `FreestandingMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
+For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `InvocableMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
 
-This raw-argument model remains available for unrestricted macro implementations. Typed macro parameter objects allow macro signatures to be validated and later presented like normal attributes in completion and signature help. The public contract includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, `IFreestandingExpressionMacro<TParameters>`, and `ITokenTreeExpressionMacro<TParameters>` for that bound-parameter model.
+This raw-argument model remains available for unrestricted macro implementations. Typed macro parameter objects allow macro signatures to be validated and later presented like normal attributes in completion and signature help. The public contract includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, `IInvocableMacro<TParameters>`, and `ITokenTreeMacro<TParameters>` for that bound-parameter model.
 
 Example direction:
 
@@ -860,7 +859,7 @@ The current attached-macro system supports these generic result shapes:
 
 Expansion must remain generic. The compiler does not hardcode macro-specific behaviors such as property notification or equality semantics.
 
-Freestanding expression macros return a generic expression-expansion result shape:
+Invocable macros return a generic expansion result shape:
 
 * compiler-owned macro expansion diagnostics with custom messages and precise locations
 * raw compiler diagnostics for advanced scenarios
@@ -885,7 +884,7 @@ import Raven.CodeAnalysis.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(QueryMacro))]
 
-class QueryMacro: ITokenTreeExpressionMacro {
+class QueryMacro: ITokenTreeMacro {
     // ...
 }
 ```
@@ -943,7 +942,7 @@ macro declarations:
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
-class QueryMacro: ITokenTreeExpressionMacro {
+class QueryMacro: ITokenTreeMacro {
     // ...
 }
 ```
@@ -988,7 +987,7 @@ A mixed source file uses `[LocalMacro]` instead:
 import Raven.CodeAnalysis.Macros.*
 
 [LocalMacro]
-class AnswerMacro: ITokenTreeExpressionMacro {
+class AnswerMacro: ITokenTreeMacro {
     // ...
 }
 

@@ -27,7 +27,7 @@ public class TokenTreeMacroContext : MacroContext
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
@@ -42,8 +42,8 @@ public class TokenTreeMacroContext : MacroContext
     internal TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        ITokenTreeExpressionMacro macro,
+        InvocableMacroExpressionSyntax syntax,
+        ITokenTreeMacro macro,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
@@ -61,7 +61,7 @@ public class TokenTreeMacroContext : MacroContext
     private TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         IMacroTokenStreamProvider? tokenStreamProvider,
         ImmutableArray<MacroKeyword> keywords,
         CancellationToken cancellationToken)
@@ -83,7 +83,7 @@ public class TokenTreeMacroContext : MacroContext
 
     public SemanticModel SemanticModel { get; }
 
-    public FreestandingMacroExpressionSyntax Syntax { get; }
+    public InvocableMacroExpressionSyntax Syntax { get; }
 
     public MacroTokenTreeSyntax TokenTree { get; }
 
@@ -748,7 +748,7 @@ public sealed class TokenTreeMacroContext<TParameters> : TokenTreeMacroContext
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         TParameters parameters,
         CancellationToken cancellationToken = default)
         : base(compilation, semanticModel, syntax, cancellationToken)
@@ -759,8 +759,8 @@ public sealed class TokenTreeMacroContext<TParameters> : TokenTreeMacroContext
     internal TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        ITokenTreeExpressionMacro macro,
+        InvocableMacroExpressionSyntax syntax,
+        ITokenTreeMacro macro,
         TParameters parameters,
         CancellationToken cancellationToken = default)
         : base(compilation, semanticModel, syntax, macro, cancellationToken)

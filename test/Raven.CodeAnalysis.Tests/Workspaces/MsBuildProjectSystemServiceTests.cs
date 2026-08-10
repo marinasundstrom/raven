@@ -897,13 +897,13 @@ let value = WidgetFactory.CreateDefault()
 
                 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-                public sealed class AnswerMacro : ITokenTreeExpressionMacro
+                public sealed class AnswerMacro : ITokenTreeMacro
                 {
                     public string Name => "answer";
-                    public MacroKind Kind => MacroKind.FreestandingExpression;
+                    public MacroKind Kind => MacroKind.Invocable;
 
-                    public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-                        => FreestandingMacroExpansionResult.FromExpression(
+                    public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+                        => InvocableMacroExpansionResult.FromExpression(
                             SyntaxFactory.ParseExpression("42"));
                 }
                 """);

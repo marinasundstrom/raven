@@ -12,10 +12,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public sealed class FreestandingMacroCodeGenTests
+public sealed class InvocableMacroCodeGenTests
 {
     [Fact]
-    public void FreestandingMacro_ExpandedStatement_IsEmitted()
+    public void InvocableMacro_ExpandedStatement_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -46,7 +46,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_WrongExpansionCategory_ReportsDiagnostic()
+    public void InvocableMacro_WrongExpansionCategory_ReportsDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -68,7 +68,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_MemberListInExpressionPosition_ReportsDiagnostic()
+    public void InvocableMacro_MemberListInExpressionPosition_ReportsDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -96,12 +96,12 @@ public sealed class FreestandingMacroCodeGenTests
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+            class LocalAnswerMacro : ITokenTreeMacro {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -133,7 +133,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_ExpandedExpression_IsEmitted()
+    public void InvocableMacro_ExpandedExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -162,7 +162,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_LoadsFileContentDuringExpansion()
+    public void InvocableMacro_LoadsFileContentDuringExpansion()
     {
         var path = Path.GetTempFileName();
         try
@@ -202,7 +202,7 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
-    public void FreestandingMacro_MissingFileReportsArgumentDiagnostic()
+    public void InvocableMacro_MissingFileReportsArgumentDiagnostic()
     {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
         var syntaxTree = SyntaxTree.ParseText($$"""
@@ -349,25 +349,25 @@ public sealed class FreestandingMacroCodeGenTests
         Assert.Equal("then", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
     }
 
-    public sealed class AddMacro : IFreestandingExpressionMacro<AddMacroParameters>
+    public sealed class AddMacro : IInvocableMacro<AddMacroParameters>
     {
         public string Name => "add";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<AddMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext<AddMacroParameters> context)
             => new()
             {
                 Expression = ParseExpression($"{context.Parameters.Left} + {context.Parameters.Right}")
             };
     }
 
-    public sealed class SetAnswerMacro : ITokenTreeExpressionMacro
+    public sealed class SetAnswerMacro : ITokenTreeMacro
     {
         public string Name => "setAnswer";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.FromStatement(
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromStatement(
                 SyntaxFactory.ParseStatement("result = 42"));
     }
 
@@ -378,20 +378,20 @@ public sealed class FreestandingMacroCodeGenTests
         public int Right { get; set; }
     }
 
-    public sealed class EmbedTextMacro : IFreestandingExpressionMacro<EmbedTextMacroParameters>
+    public sealed class EmbedTextMacro : IInvocableMacro<EmbedTextMacroParameters>
     {
         public string Name => "embedText";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<EmbedTextMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(
+            InvocableMacroContext<EmbedTextMacroParameters> context)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
             try
             {
                 var content = File.ReadAllText(context.Parameters.Path);
-                return new FreestandingMacroExpansionResult
+                return new InvocableMacroExpansionResult
                 {
                     Expression = SyntaxFactory.LiteralExpression(
                         SyntaxKind.StringLiteralExpression,
@@ -403,7 +403,7 @@ public sealed class FreestandingMacroCodeGenTests
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException)
             {
-                return new FreestandingMacroExpansionResult
+                return new InvocableMacroExpansionResult
                 {
                     MacroDiagnostics =
                     [
@@ -422,30 +422,30 @@ public sealed class FreestandingMacroCodeGenTests
         public string Path { get; } = path;
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    public sealed class RavenBodyMacro : ITokenTreeMacro
     {
         public string Name => "raven";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
             {
                 Expression = context.ParseExpression()
             };
     }
 
-    public sealed class MemberListMacro : ITokenTreeExpressionMacro
+    public sealed class MemberListMacro : ITokenTreeMacro
     {
         public string Name => "members";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
-            return FreestandingMacroExpansionResult.FromMembers(
+            return InvocableMacroExpansionResult.FromMembers(
                 SyntaxFactory.SingletonList(member));
         }
     }
 
-    public sealed class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    public sealed class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider
     {
         private const int UnlessKeywordRawKind = 80_001;
 
@@ -456,7 +456,7 @@ public sealed class FreestandingMacroCodeGenTests
             new("unless", UnlessKeywordRawKind)
         ];
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -472,7 +472,7 @@ public sealed class FreestandingMacroCodeGenTests
             var condition = context.ParseExpression(
                 TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length));
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.PrefixOperatorExpression(
                     SyntaxKind.LogicalNotExpression,
@@ -481,7 +481,7 @@ public sealed class FreestandingMacroCodeGenTests
             };
         }
 
-        private static FreestandingMacroExpansionResult Error(
+        private static InvocableMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)
@@ -494,7 +494,7 @@ public sealed class FreestandingMacroCodeGenTests
             };
     }
 
-    public sealed class ChooseMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    public sealed class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider
     {
         private const int TestKeywordRawKind = 80_002;
         private const int ThenKeywordRawKind = 80_003;
@@ -509,7 +509,7 @@ public sealed class FreestandingMacroCodeGenTests
             new("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ];
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -532,7 +532,7 @@ public sealed class FreestandingMacroCodeGenTests
             var whenFalse = context.ParseExpression(
                 TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length));
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.IfExpression(
                     SyntaxFactory.IfKeyword,
@@ -561,7 +561,7 @@ public sealed class FreestandingMacroCodeGenTests
             return false;
         }
 
-        private static FreestandingMacroExpansionResult Error(
+        private static InvocableMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)

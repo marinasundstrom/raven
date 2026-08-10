@@ -6,7 +6,7 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(GuardMacro))]
 
-class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragmentProvider {
+class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragmentProvider {
     static val UnlessKeywordRawKind: int => 81001
 
     val Name: string => "guard"
@@ -32,7 +32,7 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
             condition.BodyRelativeSpan)]
     }
 
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
         let stream = context.CreateTokenStream()
         if stream.IsEndOfFile {
             return Error(context, TextSpan(0, 0), "Expected 'unless' followed by a Raven expression.")
@@ -51,7 +51,7 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
 
         let condition = stream.ParseExpression()
         if condition.HasErrors {
-            return FreestandingMacroExpansionResult.FromDiagnostics(condition.Diagnostics)
+            return InvocableMacroExpansionResult.FromDiagnostics(condition.Diagnostics)
         }
         if !stream.IsEndOfFile {
             let unexpectedToken = stream.PeekToken()
@@ -61,7 +61,7 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
                 "Expected the Raven expression to end before '${unexpectedToken.Text}'.")
         }
 
-        FreestandingMacroExpansionResult.FromExpression(
+        InvocableMacroExpansionResult.FromExpression(
             PrefixOperatorExpression(
                 SyntaxKind.LogicalNotExpression,
                 ExclamationToken,
@@ -72,8 +72,8 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string
-    ) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult.FromDiagnostic(
+    ) -> InvocableMacroExpansionResult {
+        InvocableMacroExpansionResult.FromDiagnostic(
             context.CreateBodyDiagnostic(span, message, code: "GUARD001"))
     }
 }

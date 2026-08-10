@@ -26,7 +26,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var regions = compilation.GetSemanticModel(syntaxTree)
@@ -96,7 +96,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var position = source.LastIndexOf("customer.", StringComparison.Ordinal) + "customer.".Length;
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var region = compilation.GetSemanticModel(syntaxTree)
             .GetMacroInputSnapshot(invocation)
@@ -136,7 +136,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var customerPosition = source.IndexOf("customer.Name", StringComparison.Ordinal) + 1;
         var namePosition = source.IndexOf("Name.Length", StringComparison.Ordinal) + 1;
@@ -174,9 +174,9 @@ public sealed class QueryMacroToolingAcceptanceTests
             repositoryRoot,
             "samples",
             "projects",
-            "macro-freestanding",
+            "macro-invocable",
             "macros",
-            "FreestandingMacros.rvn");
+            "InvocableMacros.rvn");
         var macroTree = SyntaxTree.ParseText(File.ReadAllText(sourcePath), path: sourcePath);
         var codeAnalysisReference = MetadataReference.CreateFromFile(
             typeof(IMacroDefinition).Assembly.Location);

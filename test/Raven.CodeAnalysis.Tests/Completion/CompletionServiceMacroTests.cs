@@ -171,7 +171,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InBangMacroName_ReturnsOnlyFreestandingMacros()
+    public void GetCompletions_InInvocableMacroName_ReturnsOnlyInvocableMacros()
     {
         const string code = """
 class MacroHost {
@@ -248,7 +248,7 @@ class CounterViewModel {
     }
 
     [Fact]
-    public void GetCompletions_InFreestandingMacroName_ReturnsLocalMacro()
+    public void GetCompletions_InInvocableMacroName_ReturnsLocalMacro()
     {
         const string code = """
 class MacroHost {
@@ -261,12 +261,12 @@ class MacroHost {
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+            class LocalAnswerMacro : ITokenTreeMacro {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -290,7 +290,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InFreestandingMacroName_ReturnsIntrinsicQuote()
+    public void GetCompletions_InInvocableMacroName_ReturnsIntrinsicQuote()
     {
         const string code = """
 import Raven.Macros.*
@@ -350,7 +350,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InBangMacroName_PreservesInvocationSuffix()
+    public void GetCompletions_InInvocableMacroName_PreservesInvocationSuffix()
     {
         const string code = """
 import Raven.Macros.*
@@ -380,7 +380,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InBangMacroName_ReturnsIntrinsicCompile()
+    public void GetCompletions_InInvocableMacroName_ReturnsIntrinsicCompile()
     {
         const string code = """
 import Raven.Macros.*
@@ -437,7 +437,7 @@ class CounterViewModel {
     }
 
     [Fact]
-    public void GetCompletions_InFreestandingMacroName_ReturnsFreestandingMacros()
+    public void GetCompletions_InInvocableMacroName_ReturnsInvocableMacros()
     {
         const string code = """
 class MacroHost {
@@ -466,12 +466,12 @@ class MacroHost {
         var subscribe = Assert.Single(items.Where(static item => item.DisplayText == "subscribe"));
         Assert.Equal("subscribe", subscribe.InsertionText);
         Assert.Null(subscribe.CursorOffset);
-        Assert.Contains("freestanding expression macro", subscribe.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("invocable macro", subscribe.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("accepts arguments", subscribe.Description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void GetCompletions_InFreestandingMacroName_UsesTokenTreeInsertion()
+    public void GetCompletions_InInvocableMacroName_UsesTokenTreeInsertion()
     {
         const string code = """
 class MacroHost {
@@ -625,7 +625,7 @@ class ViewModel {
     }
 
     [Fact]
-    public void GetCompletions_InTypedFreestandingMacroArguments_ReturnsNamedParameters()
+    public void GetCompletions_InTypedInvocableMacroArguments_ReturnsNamedParameters()
     {
         const string code = """
 class MacroHost {
@@ -660,14 +660,14 @@ class MacroHost {
             => MacroExpansionResult.Empty;
     }
 
-    private sealed class FragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class FragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 
         public string Name => "fragment";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -678,14 +678,14 @@ class MacroHost {
             ];
     }
 
-    private sealed class EmptyFragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class EmptyFragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 
         public string Name => "emptyFragment";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -697,15 +697,15 @@ class MacroHost {
     }
 
     private sealed class CategorizedFragmentMacro(MacroFragmentKind kind) :
-        ITokenTreeExpressionMacro,
+        ITokenTreeMacro,
         IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 
         public string Name => "categorized";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -716,7 +716,7 @@ class MacroHost {
             ];
     }
 
-    private sealed class SubscribeMacro : IFreestandingExpressionMacro
+    private sealed class SubscribeMacro : IInvocableMacro
     {
         public string Namespace => string.Empty;
 
@@ -724,18 +724,18 @@ class MacroHost {
 
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
-    private sealed class QueryMacro : ITokenTreeExpressionMacro
+    private sealed class QueryMacro : ITokenTreeMacro
     {
         public string Namespace => string.Empty;
 
         public string Name => "query";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
     private sealed class TypedQueryParameters
@@ -745,14 +745,14 @@ class MacroHost {
         public bool Optimize { get; set; }
     }
 
-    private sealed class TypedQueryMacro : ITokenTreeExpressionMacro<TypedQueryParameters>
+    private sealed class TypedQueryMacro : ITokenTreeMacro<TypedQueryParameters>
     {
         public string Namespace => string.Empty;
 
         public string Name => "typedQuery";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
     private sealed class TypedObservableParameters
@@ -777,13 +777,13 @@ class MacroHost {
         public string Mode { get; set; } = string.Empty;
     }
 
-    private sealed class TypedCallMacro : IFreestandingExpressionMacro<TypedCallParameters>
+    private sealed class TypedCallMacro : IInvocableMacro<TypedCallParameters>
     {
         public string Namespace => string.Empty;
 
         public string Name => "typedCall";
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<TypedCallParameters> context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext<TypedCallParameters> context)
+            => InvocableMacroExpansionResult.Empty;
     }
 }

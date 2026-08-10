@@ -248,7 +248,7 @@ let label = match input {
 }
 ```
 
-The important rule is that pattern bindings stay explicit. In inline and freestanding
+The important rule is that pattern bindings stay explicit. In inline and invocable
 patterns, a capture uses a binding keyword. When Raven offers an outer shorthand
 form such as `let (...) = expr`, `if let pattern = expr`,
 `while let pattern = expr`, `for let pattern in values`, or

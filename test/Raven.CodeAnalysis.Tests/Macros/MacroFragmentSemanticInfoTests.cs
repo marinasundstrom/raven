@@ -35,7 +35,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var customerPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
         var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
@@ -77,7 +77,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentLocalHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var itemPosition = code.LastIndexOf("item.Name", StringComparison.Ordinal) + 1;
         var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
@@ -121,7 +121,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var sourcePosition = code.LastIndexOf("customers if", StringComparison.Ordinal) + 1;
         var localPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
@@ -170,7 +170,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .First();
         var customerPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
         var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
@@ -206,7 +206,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new TargetTypedFragmentMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var parameterPosition = code.LastIndexOf("(value)", StringComparison.Ordinal) + 2;
         var referencePosition = code.LastIndexOf("value.ToString", StringComparison.Ordinal) + 2;
@@ -244,12 +244,12 @@ public sealed class MacroFragmentSemanticInfoTests
         Assert.Null(declaration.DeclarationNode.SyntaxTree);
     }
 
-    private sealed class FragmentHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class FragmentHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "fragmentHover";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -260,12 +260,12 @@ public sealed class MacroFragmentSemanticInfoTests
             ];
     }
 
-    private sealed class FragmentLocalHoverMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class FragmentLocalHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "fragmentLocalHover";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {
@@ -281,12 +281,12 @@ public sealed class MacroFragmentSemanticInfoTests
         }
     }
 
-    private sealed class TargetTypedFragmentMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class TargetTypedFragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "targetTypedFragment";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {

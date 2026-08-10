@@ -151,7 +151,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
             stageStopwatch.Restart();
             var useSemanticModel = identifier is SemanticTokensRangeParams ||
-                root.DescendantNodesAndSelf().OfType<FreestandingMacroExpressionSyntax>()
+                root.DescendantNodesAndSelf().OfType<InvocableMacroExpressionSyntax>()
                     .Any(static expression => expression.TokenTree is not null);
             DocumentStore.DocumentSemanticAccess? semanticModelAccess = null;
             SemanticModel? semanticModel = null;
@@ -449,7 +449,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     {
         var builder = ImmutableArray.CreateBuilder<SemanticTokenEntry>();
         foreach (var expression in root.DescendantNodesAndSelf()
-                     .OfType<FreestandingMacroExpressionSyntax>()
+                     .OfType<InvocableMacroExpressionSyntax>()
                      .Where(static expression => expression.TokenTree is not null))
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -4,42 +4,42 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class FreestandingMacroExpansionResult
+public sealed class InvocableMacroExpansionResult
 {
     private SyntaxNode? _node;
     private ImmutableArray<MemberDeclarationSyntax> _members =
         ImmutableArray<MemberDeclarationSyntax>.Empty;
 
-    public static FreestandingMacroExpansionResult Empty { get; } = new();
+    public static InvocableMacroExpansionResult Empty { get; } = new();
 
-    public static FreestandingMacroExpansionResult FromExpression(ExpressionSyntax expression)
+    public static InvocableMacroExpansionResult FromExpression(ExpressionSyntax expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        return new FreestandingMacroExpansionResult
+        return new InvocableMacroExpansionResult
         {
             Node = expression
         };
     }
 
-    public static FreestandingMacroExpansionResult FromExpression(
+    public static InvocableMacroExpansionResult FromExpression(
         ExpressionSyntax expression,
         ImmutableArray<Diagnostic> diagnostics)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        return new FreestandingMacroExpansionResult
+        return new InvocableMacroExpansionResult
         {
             Node = expression,
             Diagnostics = Normalize(diagnostics)
         };
     }
 
-    public static FreestandingMacroExpansionResult FromExpression(
+    public static InvocableMacroExpansionResult FromExpression(
         ExpressionSyntax expression,
         ImmutableArray<Diagnostic> diagnostics,
         ImmutableArray<MacroExpansionDiagnostic> macroDiagnostics)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        return new FreestandingMacroExpansionResult
+        return new InvocableMacroExpansionResult
         {
             Node = expression,
             Diagnostics = Normalize(diagnostics),
@@ -47,31 +47,31 @@ public sealed class FreestandingMacroExpansionResult
         };
     }
 
-    public static FreestandingMacroExpansionResult FromDiagnostic(
+    public static InvocableMacroExpansionResult FromDiagnostic(
         MacroExpansionDiagnostic diagnostic)
     {
         ArgumentNullException.ThrowIfNull(diagnostic);
-        return new FreestandingMacroExpansionResult
+        return new InvocableMacroExpansionResult
         {
             MacroDiagnostics = [diagnostic]
         };
     }
 
-    public static FreestandingMacroExpansionResult FromDiagnostics(
+    public static InvocableMacroExpansionResult FromDiagnostics(
         ImmutableArray<Diagnostic> diagnostics)
         => new()
         {
             Diagnostics = Normalize(diagnostics)
         };
 
-    public static FreestandingMacroExpansionResult FromDiagnostics(
+    public static InvocableMacroExpansionResult FromDiagnostics(
         ImmutableArray<MacroExpansionDiagnostic> macroDiagnostics)
         => new()
         {
             MacroDiagnostics = Normalize(macroDiagnostics)
         };
 
-    public static FreestandingMacroExpansionResult FromDiagnostics(
+    public static InvocableMacroExpansionResult FromDiagnostics(
         ImmutableArray<Diagnostic> diagnostics,
         ImmutableArray<MacroExpansionDiagnostic> macroDiagnostics)
         => new()
@@ -80,25 +80,25 @@ public sealed class FreestandingMacroExpansionResult
             MacroDiagnostics = Normalize(macroDiagnostics)
         };
 
-    public static FreestandingMacroExpansionResult FromStatement(StatementSyntax statement)
+    public static InvocableMacroExpansionResult FromStatement(StatementSyntax statement)
     {
         ArgumentNullException.ThrowIfNull(statement);
-        return new FreestandingMacroExpansionResult
+        return new InvocableMacroExpansionResult
         {
             Node = statement
         };
     }
 
-    public static FreestandingMacroExpansionResult FromNode(SyntaxNode node)
+    public static InvocableMacroExpansionResult FromNode(SyntaxNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        return new FreestandingMacroExpansionResult
+        return new InvocableMacroExpansionResult
         {
             Node = node
         };
     }
 
-    public static FreestandingMacroExpansionResult FromMembers<TMember>(SyntaxList<TMember> members)
+    public static InvocableMacroExpansionResult FromMembers<TMember>(SyntaxList<TMember> members)
         where TMember : MemberDeclarationSyntax
     {
         var builder = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>(members.Count);
@@ -108,7 +108,7 @@ public sealed class FreestandingMacroExpansionResult
         return FromMembers(builder.MoveToImmutable());
     }
 
-    public static FreestandingMacroExpansionResult FromMembers(
+    public static InvocableMacroExpansionResult FromMembers(
         ImmutableArray<MemberDeclarationSyntax> members)
         => new()
         {
@@ -194,8 +194,8 @@ public sealed class FreestandingMacroExpansionResult
         => values.IsDefault ? ImmutableArray<T>.Empty : values;
 }
 
-internal sealed record FreestandingMacroExpansionCacheEntry(
-    FreestandingMacroExpansionResult? Result)
+internal sealed record InvocableMacroExpansionCacheEntry(
+    InvocableMacroExpansionResult? Result)
 {
     public bool IsCurrent()
         => Result is null ||

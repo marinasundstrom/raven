@@ -1,6 +1,6 @@
-# Macro Freestanding (`.rvnproj`)
+# Macro Invocable (`.rvnproj`)
 
-This sample shows Raven-authored freestanding expression macros, including a
+This sample shows Raven-authored invocable macros, including a
 minimal token-tree DSL macro.
 
 The sample shape is:
@@ -42,12 +42,14 @@ Current status:
   classifies the marked provider as a compiler plugin without a
   consumer-authored `RavenMacro` item or plugin container.
 - `add!` uses the compiler-owned `quote!` macro inside the Raven-authored
-  macro implementation. Its two argument expressions are inserted with
+  macro implementation. The macro project references `Raven.Macros`
+  explicitly because compiler-plugin projects are built in their own workspace.
+  Its two argument expressions are inserted with
   `#(...)` holes, producing `left + right` without manually assembling the
   infix syntax tree.
 - The expansion reuses the original argument expression syntax and still
   returns an ordinary `ExpressionSyntax`.
-- The sample uses a named argument to show the current freestanding macro argument shape.
+- The sample uses a named argument to show the current invocable macro argument shape.
 - `guard! { unless ... }` is the token-tree MVP: Raven's standard macro token
   stream recognizes `unless` as a body-scoped macro keyword, the macro delegates
   the remaining span to Raven's expression parser, and expansion produces the
@@ -85,20 +87,20 @@ Current status:
 
 Files:
 
-- `app/MacroFreestanding.rvnproj`: Raven application using `add!(...)`
+- `app/MacroInvocable.rvnproj`: Raven application using `add!(...)`
 - `app/src/Main.rvn`: executable entry point
-- `macros/FreestandingMacros.rvnproj`: Raven macro plugin project
-- `macros/FreestandingMacros.rvn`: related implementations of the category-specific macro interfaces
+- `macros/InvocableMacros.rvnproj`: Raven macro plugin project
+- `macros/InvocableMacros.rvn`: related implementations of the category-specific macro interfaces
 
 Analyze, build, or run the executable sample project. Its normal project
 reference builds and activates the marked macro provider:
 
 ```bash
-dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- app/MacroFreestanding.rvnproj --no-emit
+dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- app/MacroInvocable.rvnproj --no-emit
 ```
 
 ```bash
-dotnet run --project app/MacroFreestanding.rvnproj --property WarningLevel=0
+dotnet run --project app/MacroInvocable.rvnproj --property WarningLevel=0
 ```
 
 Expected output:

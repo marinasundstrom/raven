@@ -87,23 +87,23 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-            class AnswerMacro : ITokenTreeExpressionMacro {
+            class AnswerMacro : ITokenTreeMacro {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote! { 42 }
                     }
                 }
             }
 
-            class UnselectedMacro : ITokenTreeExpressionMacro {
+            class UnselectedMacro : ITokenTreeMacro {
                 val Name: string => "unselected"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
             """);
         var reference = MacroReference.CreateFromImage(
@@ -134,27 +134,27 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin]
 
-            public class FirstMacro : ITokenTreeExpressionMacro {
+            public class FirstMacro : ITokenTreeMacro {
                 val Name: string => "first"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
 
-            public class SecondMacro : ITokenTreeExpressionMacro {
+            public class SecondMacro : ITokenTreeMacro {
                 val Name: string => "second"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
 
-            class HiddenMacro : ITokenTreeExpressionMacro {
+            class HiddenMacro : ITokenTreeMacro {
                 val Name: string => "hidden"
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
             """);
 
@@ -180,12 +180,12 @@ public sealed class MacroReferenceTests
 
             [Raven.CodeAnalysis.Macros.MacroAlias("answer")]
             public macro Answer(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
-                expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromExpression(
+                expand Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult.FromExpression(
                     Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
             }
 
             macro Hidden(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
-                expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromExpression(
+                expand Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult.FromExpression(
                     Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("0"))
             }
             """,
@@ -236,28 +236,28 @@ public sealed class MacroReferenceTests
             [assembly: RavenCompilerPlugin(typeof(FirstMacro))]
             [assembly: RavenCompilerPlugin(typeof(SecondMacro))]
 
-            class FirstMacro : ITokenTreeExpressionMacro {
+            class FirstMacro : ITokenTreeMacro {
                 val Name: string => "first"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
 
-            class UnselectedMacro : ITokenTreeExpressionMacro {
+            class UnselectedMacro : ITokenTreeMacro {
                 val Name: string => "unselected"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
 
-            class SecondMacro : ITokenTreeExpressionMacro {
+            class SecondMacro : ITokenTreeMacro {
                 val Name: string => "second"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
             """);
 
@@ -277,20 +277,20 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(SelectedMacro))]
 
-            class SelectedMacro : ITokenTreeExpressionMacro {
+            class SelectedMacro : ITokenTreeMacro {
                 val Name: string => "selected"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
 
-            class UnselectedMacro : ITokenTreeExpressionMacro {
+            class UnselectedMacro : ITokenTreeMacro {
                 val Name: string => "unselected"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.Empty
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.Empty
             }
             """);
         var assemblyPath = Path.Combine(
@@ -319,12 +319,12 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-            class AnswerMacro : ITokenTreeExpressionMacro {
+            class AnswerMacro : ITokenTreeMacro {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.FromExpression(
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.FromExpression(
                         Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
             }
             """);
@@ -365,12 +365,12 @@ public sealed class MacroReferenceTests
         var macroImage = EmitMacroAssembly("""
             import Raven.CodeAnalysis.Macros.*
 
-            class PrivateAnswerMacro : ITokenTreeExpressionMacro {
+            class PrivateAnswerMacro : ITokenTreeMacro {
                 val Name: string => "privateAnswer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
-                    => FreestandingMacroExpansionResult.FromExpression(
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
+                    => InvocableMacroExpansionResult.FromExpression(
                         Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
             }
             """);
@@ -502,7 +502,7 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroFacts_ReturnsNoDeclarationTargetsForFreestandingMacro()
+    public void MacroFacts_ReturnsNoDeclarationTargetsForInvocableMacro()
     {
         var macro = new TestTokenTreeMacro();
 
@@ -568,13 +568,13 @@ public sealed class MacroReferenceTests
         public ExpressionSyntax Expression { get; }
     }
 
-    public sealed class ExpressionParameterMacro : IFreestandingExpressionMacro<ExpressionMacroParameters>
+    public sealed class ExpressionParameterMacro : IInvocableMacro<ExpressionMacroParameters>
     {
         public string Name => "expression";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<ExpressionMacroParameters> context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(
+            InvocableMacroContext<ExpressionMacroParameters> context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
     public sealed class UnclassifiedMacro : IMacroDefinition
@@ -582,15 +582,15 @@ public sealed class MacroReferenceTests
         public string Name => "unclassified";
     }
 
-    public sealed class TestTokenTreeMacro : ITokenTreeExpressionMacro
+    public sealed class TestTokenTreeMacro : ITokenTreeMacro
     {
         public string Name => "tokenTree";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
-    public sealed class AmbiguousMacro : IAttachedDeclarationMacro, ITokenTreeExpressionMacro
+    public sealed class AmbiguousMacro : IAttachedDeclarationMacro, ITokenTreeMacro
     {
         public string Name => "ambiguous";
         public MacroTarget Targets => MacroTarget.Type;
@@ -598,14 +598,14 @@ public sealed class MacroReferenceTests
         public MacroExpansionResult Expand(AttachedMacroContext context)
             => MacroExpansionResult.Empty;
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
     }
 
     public sealed class MisleadingKindMacro : IAttachedDeclarationMacro
     {
         public string Name => "misleading";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
         public MacroTarget Targets => MacroTarget.Type;
 
         public MacroExpansionResult Expand(AttachedMacroContext context)

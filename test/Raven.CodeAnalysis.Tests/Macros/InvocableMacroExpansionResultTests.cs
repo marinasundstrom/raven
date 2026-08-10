@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Macros;
 
-public sealed class FreestandingMacroExpansionResultTests
+public sealed class InvocableMacroExpansionResultTests
 {
     [Fact]
     public void FromExpression_CreatesExpressionResultWithNormalizedDiagnostics()
@@ -14,7 +14,7 @@ public sealed class FreestandingMacroExpansionResultTests
             SyntaxKind.NumericLiteralExpression,
             SyntaxFactory.Literal(42));
 
-        var result = FreestandingMacroExpansionResult.FromExpression(
+        var result = InvocableMacroExpansionResult.FromExpression(
             expression,
             default,
             default);
@@ -30,7 +30,7 @@ public sealed class FreestandingMacroExpansionResultTests
     {
         var diagnostic = MacroExpansionDiagnostic.Error("Expansion failed.");
 
-        var result = FreestandingMacroExpansionResult.FromDiagnostic(diagnostic);
+        var result = InvocableMacroExpansionResult.FromDiagnostic(diagnostic);
 
         result.Expression.ShouldBeNull();
         result.Node.ShouldBeNull();
@@ -44,7 +44,7 @@ public sealed class FreestandingMacroExpansionResultTests
     {
         var statement = SyntaxFactory.ParseStatement("return 42")!;
 
-        var result = FreestandingMacroExpansionResult.FromStatement(statement);
+        var result = InvocableMacroExpansionResult.FromStatement(statement);
 
         result.Node.ShouldBeSameAs(statement);
         result.Statement.ShouldBeSameAs(statement);
@@ -58,7 +58,7 @@ public sealed class FreestandingMacroExpansionResultTests
         var builder = new MacroExpansionResultBuilder();
 
         builder.Expand((SyntaxNode)statement);
-        var result = builder.BuildFreestanding();
+        var result = builder.BuildInvocable();
 
         result.Node.ShouldBeSameAs(statement);
         result.Statement.ShouldBeSameAs(statement);
@@ -67,7 +67,7 @@ public sealed class FreestandingMacroExpansionResultTests
     [Fact]
     public void ExpressionAndStatementProperties_AreExclusiveTypedProjections()
     {
-        var result = FreestandingMacroExpansionResult.FromExpression(
+        var result = InvocableMacroExpansionResult.FromExpression(
             SyntaxFactory.ParseExpression("42"));
 
         result.Statement = SyntaxFactory.ParseStatement("return 42");
@@ -83,7 +83,7 @@ public sealed class FreestandingMacroExpansionResultTests
         var first = ParseMember("class First {}");
         var second = ParseMember("class Second {}");
 
-        var result = FreestandingMacroExpansionResult.FromMembers(
+        var result = InvocableMacroExpansionResult.FromMembers(
             SyntaxFactory.List<MemberDeclarationSyntax>([first, second]));
 
         result.HasMemberExpansion.ShouldBeTrue();
@@ -95,19 +95,19 @@ public sealed class FreestandingMacroExpansionResultTests
     [Fact]
     public void EmptyMemberList_RemainsAnExplicitExpansion()
     {
-        var result = FreestandingMacroExpansionResult.FromMembers(
+        var result = InvocableMacroExpansionResult.FromMembers(
             SyntaxFactory.List<MemberDeclarationSyntax>());
 
         result.HasMemberExpansion.ShouldBeTrue();
         result.Members.ShouldBeEmpty();
-        result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
+        result.ShouldNotBeSameAs(InvocableMacroExpansionResult.Empty);
     }
 
     [Fact]
     public void SingleNodeAndMemberListProperties_AreMutuallyExclusive()
     {
         var member = ParseMember("class Generated {}");
-        var result = FreestandingMacroExpansionResult.FromExpression(
+        var result = InvocableMacroExpansionResult.FromExpression(
             SyntaxFactory.ParseExpression("42"));
 
         result.Members = [member];
@@ -128,11 +128,11 @@ public sealed class FreestandingMacroExpansionResultTests
         var builder = new MacroExpansionResultBuilder();
 
         builder.Expand(SyntaxFactory.List<MemberDeclarationSyntax>());
-        var result = builder.BuildFreestanding();
+        var result = builder.BuildInvocable();
 
         result.HasMemberExpansion.ShouldBeTrue();
         result.Members.ShouldBeEmpty();
-        result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
+        result.ShouldNotBeSameAs(InvocableMacroExpansionResult.Empty);
     }
 
     private static MemberDeclarationSyntax ParseMember(string source)

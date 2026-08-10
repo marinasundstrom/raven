@@ -30,7 +30,7 @@ public sealed class MacroPdbSequencePointTests
         using var emitted = EmitWithPortablePdb(
             source,
             sourcePath,
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.RavenBodyMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.RavenBodyMacro)));
         var method = FindMethod(emitted.MetadataReader, "Harness", "Run");
         var points = GetVisibleSequencePoints(emitted.PdbReader, method);
         var matchingPoints = points.Where(
@@ -60,7 +60,7 @@ public sealed class MacroPdbSequencePointTests
         using var emitted = EmitWithPortablePdb(
             source,
             sourcePath,
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.GuardMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.GuardMacro)));
         var method = FindMethod(emitted.MetadataReader, "Harness", "Run");
         var points = GetVisibleSequencePoints(emitted.PdbReader, method).ToArray();
 
@@ -88,7 +88,7 @@ public sealed class MacroPdbSequencePointTests
         using var emitted = EmitWithPortablePdb(
             source,
             sourcePath,
-            new MacroReference(typeof(Semantics.Macros.FreestandingMacroSemanticTests.StatementBodyMacro)));
+            new MacroReference(typeof(Semantics.Macros.InvocableMacroSemanticTests.StatementBodyMacro)));
         var method = FindMethod(emitted.MetadataReader, "Harness", "Run");
         var points = GetVisibleSequencePoints(emitted.PdbReader, method).ToArray();
 
@@ -116,7 +116,7 @@ public sealed class MacroPdbSequencePointTests
         using var emitted = EmitWithPortablePdb(
             source,
             sourcePath,
-            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
+            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
         var method = FindMethod(emitted.MetadataReader, "Harness", "Run");
         var points = GetVisibleSequencePoints(emitted.PdbReader, method).ToArray();
 

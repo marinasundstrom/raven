@@ -504,11 +504,11 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             File.WriteAllText(Path.Combine(sourceDirectory, "macros.rvn"), """
                 import Raven.CodeAnalysis.Macros.*
 
-                class LocalAnswerMacro : ITokenTreeExpressionMacro {
+                class LocalAnswerMacro : ITokenTreeMacro {
                     val Name: string => "localAnswer"
 
-                    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                        FreestandingMacroExpansionResult {
+                    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                        InvocableMacroExpansionResult {
                             Expression = quote!{ 42 }
                         }
                     }

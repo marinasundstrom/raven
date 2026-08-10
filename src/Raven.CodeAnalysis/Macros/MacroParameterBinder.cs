@@ -97,7 +97,7 @@ internal static class MacroParameterBinder
     public static bool TryBind(
         string macroName,
         Type parametersType,
-        FreestandingMacroContext context,
+        InvocableMacroContext context,
         DiagnosticBag diagnostics,
         out object? parameters)
         => TryBindCore(

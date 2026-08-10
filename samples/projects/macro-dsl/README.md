@@ -2,7 +2,7 @@
 
 This is the smallest project sample that parses a custom token DSL containing
 an ordinary Raven expression. It is intended as the starting reference for
-macro authors; the broader `macro-freestanding` query sample builds on the same
+macro authors; the broader `macro-invocable` query sample builds on the same
 APIs with several clauses and introduced locals.
 
 The application writes:

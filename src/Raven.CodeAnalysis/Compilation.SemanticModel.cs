@@ -46,7 +46,7 @@ public partial class Compilation
     /// Gets ordinary Raven fragment regions reported for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -60,7 +60,7 @@ public partial class Compilation
     /// fragment reported by a token-tree macro.
     /// </summary>
     public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
     {
@@ -74,7 +74,7 @@ public partial class Compilation
     /// Gets the token stream and optional classifications for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroTokenInfo> GetMacroTokens(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -87,7 +87,7 @@ public partial class Compilation
     /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
     /// </summary>
     public MacroInputSnapshot GetMacroInputSnapshot(
-        FreestandingMacroExpressionSyntax expression,
+        InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);

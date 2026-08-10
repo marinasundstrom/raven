@@ -489,14 +489,14 @@ public partial class SemanticModel
             var requiredMacroKind = contextKind switch
             {
                 MacroContextKind.Attached => "attached",
-                MacroContextKind.TokenTree => "token-tree freestanding",
-                _ => "argument-style freestanding"
+                MacroContextKind.TokenTree => "token-tree macro",
+                _ => "argument-style macro"
             };
             var isValid = contextKind switch
             {
                 MacroContextKind.Attached => targetParameters.Length > 0,
                 MacroContextKind.TokenTree => targetParameters.Length == 0,
-                MacroContextKind.Freestanding => targetParameters.Length == 0 &&
+                MacroContextKind.Invocable => targetParameters.Length == 0 &&
                     tokenStreamParameters.Length == 0 &&
                     parameters.All(static parameter =>
                         MacroParameterRoleFacts.GetContextKind(parameter.Symbol.Type) != MacroContextKind.TokenTree),
@@ -622,7 +622,7 @@ public partial class SemanticModel
             var instruction = contribution.Keyword.ValueText;
             var valid = symbol.MacroKind switch
             {
-                MacroKind.FreestandingExpression => instruction == "expand" ||
+                MacroKind.Invocable => instruction == "expand" ||
                     (instruction is "fragment" or "token") && symbol.Parameters.Any(static parameter =>
                         parameter.MacroRole is MacroParameterRole.TokenBody or MacroParameterRole.Context),
                 MacroKind.AttachedDeclaration => instruction is "expand" or "replace" or "introduce",
@@ -633,8 +633,8 @@ public partial class SemanticModel
             {
                 _declarationDiagnostics.ReportInvalidMacroContribution(
                     instruction,
-                    symbol.MacroKind == MacroKind.FreestandingExpression
-                        ? "freestanding"
+                    symbol.MacroKind == MacroKind.Invocable
+                        ? "invocable"
                         : "attached",
                     contribution.Keyword.GetLocation());
             }

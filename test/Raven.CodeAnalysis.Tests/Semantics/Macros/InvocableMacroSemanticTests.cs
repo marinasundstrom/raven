@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
-public sealed class FreestandingMacroSemanticTests : CompilationTestBase
+public sealed class InvocableMacroSemanticTests : CompilationTestBase
 {
     protected override MetadataReference[] GetMetadataReferences()
         => TestMetadataReferences.DefaultWithRavenMacros;
@@ -59,7 +59,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
 
@@ -95,12 +95,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         var diagnostics = compilation.GetDiagnostics();
         var registeredMacros = compilation.GetMacroRegistry()
-            .GetMacros(MacroKind.FreestandingExpression)
+            .GetMacros(MacroKind.Invocable)
             .Where(static macro => macro.Name == "Double")
             .ToArray();
         Assert.True(
             registeredMacros.Length == 1,
-            $"Registered: {string.Join(", ", compilation.GetMacroRegistry().GetMacros(MacroKind.FreestandingExpression).Select(static macro => $"{macro.Namespace}.{macro.Name} alias={macro.Alias}"))}{Environment.NewLine}{string.Join(Environment.NewLine, diagnostics)}");
+            $"Registered: {string.Join(", ", compilation.GetMacroRegistry().GetMacros(MacroKind.Invocable).Select(static macro => $"{macro.Namespace}.{macro.Name} alias={macro.Alias}"))}{Environment.NewLine}{string.Join(Environment.NewLine, diagnostics)}");
         var registeredMacro = Assert.Single(
             registeredMacros);
         Assert.Equal("Example.Macros", registeredMacro.Namespace);
@@ -113,7 +113,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             static tree => tree.FilePath == "main.rvn");
         var invocation = projectedConsumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(projectedConsumerTree).GetMacroExpansion(invocation);
         Assert.Equal("42", expansion!.Expression!.ToString());
@@ -151,7 +151,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
 
@@ -187,7 +187,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
 
@@ -224,7 +224,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var argument = Assert.Single(invocation.ArgumentList!.Arguments).Expression;
         var model = compilation.GetSemanticModel(consumerTree);
@@ -263,7 +263,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var model = compilation.GetSemanticModel(consumerTree);
         var invocationType = model.GetTypeInfo(invocation).Type;
@@ -310,7 +310,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
 
@@ -348,7 +348,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
@@ -378,7 +378,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         Assert.Equal(
@@ -511,7 +511,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
@@ -534,12 +534,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class AnswerMacro : ITokenTreeExpressionMacro {
+            class AnswerMacro : ITokenTreeMacro {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -565,7 +565,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
 
@@ -649,7 +649,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         var expression = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(expression);
 
@@ -663,9 +663,9 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var macroTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Macros.*
 
-            class BrokenMacro : ITokenTreeExpressionMacro {
+            class BrokenMacro : ITokenTreeMacro {
                 val Name: string => "broken"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
                 val Missing: MissingMacro
             }
             """, path: "local-macros.rvn");
@@ -745,7 +745,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocations = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .ToArray();
         var brokenInvocation = Assert.Single(invocations, expression =>
             expression.Name.ToString() == "Broken");
@@ -805,7 +805,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             .ToDictionary(static declaration => declaration.Identifier.ValueText);
         var invocations = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .ToArray();
         var brokenInvocation = Assert.Single(invocations, expression =>
             expression.Name.ToString() == "Broken<int>");
@@ -928,13 +928,13 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 static val Answer: int => 42
             }
 
-            class AnswerMacro : ITokenTreeExpressionMacro {
+            class AnswerMacro : ITokenTreeMacro {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
                     let answer = ConsumerConfiguration.Answer
-                    FreestandingMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -969,13 +969,13 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """
             import Raven.CodeAnalysis.Macros.*
 
-            class AnswerMacro : ITokenTreeExpressionMacro {
+            class AnswerMacro : ITokenTreeMacro {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
                     let answer = ConsumerConfiguration.Answer
-                    FreestandingMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -1006,7 +1006,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void UnknownFreestandingMacro_ReportsUnknownMacroDiagnostic()
+    public void UnknownInvocableMacro_ReportsUnknownMacroDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
             func Main() -> int => answer!()
@@ -1072,7 +1072,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(expression);
         Assert.Equal("42", expansion!.Expression!.ToString());
@@ -1092,7 +1092,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(expression);
         Assert.Equal("42", expansion!.Expression!.ToString());
@@ -1123,12 +1123,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+            class LocalAnswerMacro : ITokenTreeMacro {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-                    FreestandingMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+                    InvocableMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -1136,7 +1136,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """, path: "local-macros.rvn");
 
     [Fact]
-    public void GetMacroExpansion_ReturnsFreestandingExpansionResult()
+    public void GetMacroExpansion_ReturnsInvocableExpansionResult()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() -> int => answer!()
@@ -1145,7 +1145,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(AnswerMacro)));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1154,92 +1154,92 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void TypedFreestandingMacroParameters_BindPositionalAndNamedArguments()
+    public void TypedInvocableMacroParameters_BindPositionalAndNamedArguments()
     {
-        CapturingFreestandingMacro.LastParameters = null;
+        CapturingInvocableMacro.LastParameters = null;
 
         var (compilation, tree) = CreateCompilation("""
             func Main() -> int => repeat!(3, Label: "hi")
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CapturingFreestandingMacro)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CapturingInvocableMacro)));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
-        var parameters = Assert.IsType<RepeatMacroParameters>(CapturingFreestandingMacro.LastParameters);
+        var parameters = Assert.IsType<RepeatMacroParameters>(CapturingInvocableMacro.LastParameters);
         Assert.Equal(3, parameters.Count);
         Assert.Equal("hi", parameters.Label);
     }
 
     [Fact]
-    public void TypedFreestandingMacroExpansionFailure_ReportsUnderlyingException()
+    public void TypedInvocableMacroExpansionFailure_ReportsUnderlyingException()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() -> int => typedBoom!()
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingTypedFreestandingMacro)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingTypedInvocableMacro)));
         var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(static d => d.Id == "RAVM020"));
 
         Assert.Contains("typedBoom", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.Contains("typed plugin boom", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.DoesNotContain("target of an invocation", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         Assert.Equal(expression.Name.Span, diagnostic.Location.SourceSpan);
     }
 
     [Fact]
-    public void FreestandingMacroCancellation_PropagatesAndDoesNotCacheFailure()
+    public void InvocableMacroCancellation_PropagatesAndDoesNotCacheFailure()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() -> int => cancelRaw!()
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(CancellingFreestandingMacro)),
-            new MacroReference(typeof(CancellingTypedFreestandingMacro)));
+            new MacroReference(typeof(CancellingInvocableMacro)),
+            new MacroReference(typeof(CancellingTypedInvocableMacro)));
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         using var cancellationSource = new CancellationTokenSource();
-        CancellingFreestandingMacro.CancellationSource = cancellationSource;
+        CancellingInvocableMacro.CancellationSource = cancellationSource;
 
         Assert.ThrowsAny<OperationCanceledException>(
             () => model.GetMacroExpansion(expression, cancellationSource.Token));
 
-        CancellingFreestandingMacro.CancellationSource = null;
+        CancellingInvocableMacro.CancellationSource = null;
         Assert.NotNull(model.GetMacroExpansion(expression));
         Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
     }
 
     [Fact]
-    public void TypedFreestandingMacroCancellation_PropagatesThroughReflectionAndDoesNotCacheFailure()
+    public void TypedInvocableMacroCancellation_PropagatesThroughReflectionAndDoesNotCacheFailure()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() -> int => cancelTyped!()
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(CancellingFreestandingMacro)),
-            new MacroReference(typeof(CancellingTypedFreestandingMacro)));
+            new MacroReference(typeof(CancellingInvocableMacro)),
+            new MacroReference(typeof(CancellingTypedInvocableMacro)));
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         using var cancellationSource = new CancellationTokenSource();
-        CancellingTypedFreestandingMacro.CancellationSource = cancellationSource;
+        CancellingTypedInvocableMacro.CancellationSource = cancellationSource;
 
         Assert.ThrowsAny<OperationCanceledException>(
             () => model.GetMacroExpansion(expression, cancellationSource.Token));
 
-        CancellingTypedFreestandingMacro.CancellationSource = null;
+        CancellingTypedInvocableMacro.CancellationSource = null;
         Assert.NotNull(model.GetMacroExpansion(expression));
         Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
     }
 
     [Fact]
-    public void RawFreestandingMacro_ArgumentsRequireExplicitOptIn()
+    public void RawInvocableMacro_ArgumentsRequireExplicitOptIn()
     {
         var (compilation, _) = CreateCompilation("""
             func Main() -> int => answer!(42)
@@ -1253,13 +1253,13 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void FreestandingMacroReportedArgumentValidationDiagnostic_UsesMacroDiagnosticPath()
+    public void InvocableMacroReportedArgumentValidationDiagnostic_UsesMacroDiagnosticPath()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() -> int => repeat!(0)
             """);
 
-        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidatingFreestandingMacro)));
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidatingInvocableMacro)));
         var diagnostics = compilation.GetDiagnostics();
 
         var diagnostic = Assert.Single(diagnostics.Where(static d => d.Id == "RAVM021"));
@@ -1275,7 +1275,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void FreestandingMacro_ReusedLambdaArgument_PreservesContextualParameterType()
+    public void InvocableMacro_ReusedLambdaArgument_PreservesContextualParameterType()
     {
         var (compilation, tree) = CreateCompilation("""
             class ObservableInt {
@@ -1343,7 +1343,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1365,7 +1365,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1387,7 +1387,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1409,7 +1409,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1498,7 +1498,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(KeywordStreamMacro)));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1517,7 +1517,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(CustomStreamMacro)));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1539,7 +1539,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(CapturingTokenTreeMacro)));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
         var expansion = model.GetMacroExpansion(expression);
 
         Assert.NotNull(expansion);
@@ -1566,11 +1566,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Contains("does not accept arguments", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeExpressionMacro
+    public sealed class RavenBodyMacro : ITokenTreeMacro
     {
         public string Name => "raven";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
             {
                 Expression = context.ParseExpression()
@@ -1578,17 +1578,17 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [MacroAlias("answerAlias")]
-    public sealed class NamespacedAnswerMacro : ITokenTreeExpressionMacro
+    public sealed class NamespacedAnswerMacro : ITokenTreeMacro
     {
         public string Namespace => "Example.Macros";
 
         public string Name => "Answer";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromExpression(ParseExpression("42"));
     }
 
-    public sealed class CapturingTokenTreeMacro : ITokenTreeExpressionMacro<RepeatMacroParameters>
+    public sealed class CapturingTokenTreeMacro : ITokenTreeMacro<RepeatMacroParameters>
     {
         public static RepeatMacroParameters? LastParameters { get; set; }
 
@@ -1596,25 +1596,25 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
         public string Name => "typedBody";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<RepeatMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext<RepeatMacroParameters> context)
         {
             LastParameters = context.Parameters;
             LastBody = context.GetBodyText();
-            return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+            return InvocableMacroExpansionResult.FromExpression(ParseExpression("42"));
         }
     }
 
-    public sealed class SelectBodyMacro : ITokenTreeExpressionMacro
+    public sealed class SelectBodyMacro : ITokenTreeMacro
     {
         public string Name => "select";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var body = context.GetBodyText();
             var expressionStart = body.IndexOf("{{", StringComparison.Ordinal) + 2;
             var expressionEnd = body.IndexOf("}}", expressionStart, StringComparison.Ordinal);
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = context.ParseExpression(
                     TextSpan.FromBounds(expressionStart, expressionEnd))
@@ -1622,25 +1622,25 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class StatementBodyMacro : ITokenTreeExpressionMacro
+    public sealed class StatementBodyMacro : ITokenTreeMacro
     {
         public string Name => "statement";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var statement = context.ParseStatement();
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = Assert.IsType<ReturnStatementSyntax>(statement).Expression
             };
         }
     }
 
-    public sealed class StatementSelectBodyMacro : ITokenTreeExpressionMacro
+    public sealed class StatementSelectBodyMacro : ITokenTreeMacro
     {
         public string Name => "statementSelect";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var body = context.GetBodyText();
             var statementStart = body.IndexOf("{{", StringComparison.Ordinal) + 2;
@@ -1648,21 +1648,21 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             var statement = context.ParseStatement(
                 TextSpan.FromBounds(statementStart, statementEnd));
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = Assert.IsType<ReturnStatementSyntax>(statement).Expression
             };
         }
     }
 
-    public sealed class StatementResultBodyMacro : ITokenTreeExpressionMacro
+    public sealed class StatementResultBodyMacro : ITokenTreeMacro
     {
         public string Name => "statementResult";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var result = context.ParseStatementResult();
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = (result.Syntax as ReturnStatementSyntax)?.Expression,
                 Diagnostics = result.Diagnostics
@@ -1670,17 +1670,17 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class RejectBodyMacro : ITokenTreeExpressionMacro
+    public sealed class RejectBodyMacro : ITokenTreeMacro
     {
         public string Name => "reject";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var body = context.GetBodyText();
             const string invalidToken = "invalid-dsl-token";
             var start = body.IndexOf(invalidToken, StringComparison.Ordinal);
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 MacroDiagnostics =
                 [
@@ -1692,7 +1692,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class KeywordStreamMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider
+    public sealed class KeywordStreamMacro : ITokenTreeMacro, IMacroKeywordProvider
     {
         private const int SelectKeywordRawKind = 80_001;
 
@@ -1703,7 +1703,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             new("select", SelectKeywordRawKind)
         ];
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             var select = stream.ReadToken();
@@ -1717,14 +1717,14 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 value.RawKind == (int)SyntaxKind.IdentifierToken &&
                 stream.IsEndOfFile;
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = ParseExpression(isValid ? "42" : "0")
             };
         }
     }
 
-    public sealed class CustomStreamMacro : ITokenTreeExpressionMacro, IMacroTokenStreamProvider
+    public sealed class CustomStreamMacro : ITokenTreeMacro, IMacroTokenStreamProvider
     {
         private const int CustomValueRawKind = 80_002;
 
@@ -1733,7 +1733,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public IMacroTokenStream CreateTokenStream(MacroTokenStreamContext context)
             => new SingleCustomTokenStream(context, CustomValueRawKind);
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             var token = stream.ReadToken();
@@ -1744,7 +1744,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 token.SpanStart == context.GetBodyText().IndexOf("⟨custom-value⟩", StringComparison.Ordinal) &&
                 stream.IsEndOfFile;
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = ParseExpression(isValid ? "42" : "0")
             };
@@ -1783,29 +1783,29 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class AnswerMacro : IFreestandingExpressionMacro
+    public sealed class AnswerMacro : IInvocableMacro
     {
         public string Name => "answer";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
             => new()
             {
                 Expression = ParseExpression("42")
             };
     }
 
-    public sealed class CapturingFreestandingMacro : IFreestandingExpressionMacro<RepeatMacroParameters>
+    public sealed class CapturingInvocableMacro : IInvocableMacro<RepeatMacroParameters>
     {
         public static RepeatMacroParameters? LastParameters { get; set; }
 
         public string Name => "repeat";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<RepeatMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext<RepeatMacroParameters> context)
         {
             LastParameters = context.Parameters;
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = ParseExpression(context.Parameters.Count.ToString())
             };
@@ -1819,63 +1819,63 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         public string? Label { get; set; }
     }
 
-    public sealed class ThrowingTypedFreestandingMacroParameters;
+    public sealed class ThrowingTypedInvocableMacroParameters;
 
-    public sealed class ThrowingTypedFreestandingMacro : IFreestandingExpressionMacro<ThrowingTypedFreestandingMacroParameters>
+    public sealed class ThrowingTypedInvocableMacro : IInvocableMacro<ThrowingTypedInvocableMacroParameters>
     {
         public string Name => "typedBoom";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<ThrowingTypedFreestandingMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(
+            InvocableMacroContext<ThrowingTypedInvocableMacroParameters> context)
             => throw new InvalidOperationException("typed plugin boom");
     }
 
-    public sealed class CancellingFreestandingMacro : IFreestandingExpressionMacro
+    public sealed class CancellingInvocableMacro : IInvocableMacro
     {
         public static CancellationTokenSource? CancellationSource { get; set; }
 
         public string Name => "cancelRaw";
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
         {
             CancellationSource?.Cancel();
             context.CancellationToken.ThrowIfCancellationRequested();
-            return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+            return InvocableMacroExpansionResult.FromExpression(ParseExpression("42"));
         }
     }
 
-    public sealed class CancellingTypedFreestandingMacroParameters;
+    public sealed class CancellingTypedInvocableMacroParameters;
 
-    public sealed class CancellingTypedFreestandingMacro : IFreestandingExpressionMacro<CancellingTypedFreestandingMacroParameters>
+    public sealed class CancellingTypedInvocableMacro : IInvocableMacro<CancellingTypedInvocableMacroParameters>
     {
         public static CancellationTokenSource? CancellationSource { get; set; }
 
         public string Name => "cancelTyped";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<CancellingTypedFreestandingMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(
+            InvocableMacroContext<CancellingTypedInvocableMacroParameters> context)
         {
             CancellationSource?.Cancel();
             context.CancellationToken.ThrowIfCancellationRequested();
-            return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
+            return InvocableMacroExpansionResult.FromExpression(ParseExpression("42"));
         }
     }
 
-    public sealed class ValidatingFreestandingMacroParameters(int count)
+    public sealed class ValidatingInvocableMacroParameters(int count)
     {
         public int Count { get; } = count;
     }
 
-    public sealed class ValidatingFreestandingMacro : IFreestandingExpressionMacro<ValidatingFreestandingMacroParameters>
+    public sealed class ValidatingInvocableMacro : IInvocableMacro<ValidatingInvocableMacroParameters>
     {
         public string Name => "repeat";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<ValidatingFreestandingMacroParameters> context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext<ValidatingInvocableMacroParameters> context)
         {
             if (context.Parameters.Count <= 0)
             {
-                return new FreestandingMacroExpansionResult
+                return new InvocableMacroExpansionResult
                 {
                     MacroDiagnostics =
                     [
@@ -1887,27 +1887,27 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 };
             }
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = ParseExpression("42")
             };
         }
     }
 
-    public sealed class SubscribeMacro : IFreestandingExpressionMacro
+    public sealed class SubscribeMacro : IInvocableMacro
     {
         public string Name => "subscribe";
-        public MacroKind Kind => MacroKind.FreestandingExpression;
+        public MacroKind Kind => MacroKind.Invocable;
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
         {
             var propertyAccess = Assert.IsType<MemberAccessExpressionSyntax>(context.Arguments[0].Expression);
             var callback = context.Arguments[1].Expression;
             var propertyName = Assert.IsType<IdentifierNameSyntax>(propertyAccess.Name);
             var signalName = propertyName.Identifier.ValueText + "Changed";
 
-            return new FreestandingMacroExpansionResult
+            return new InvocableMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.MemberAccessExpression(

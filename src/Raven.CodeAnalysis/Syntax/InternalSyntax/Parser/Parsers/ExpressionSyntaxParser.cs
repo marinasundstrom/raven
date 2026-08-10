@@ -2162,8 +2162,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         if (CanTokenBeIdentifier(token))
         {
-            if (IsBangMacroExpressionStart())
-                return ParseBangMacroExpression();
+            if (IsInvocableMacroExpressionStart())
+                return ParseInvocableMacroExpression();
 
             return new NameSyntaxParser(this).ParseSimpleName();
         }
@@ -2708,10 +2708,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return expr;
     }
 
-    private bool IsBangMacroExpressionStart()
+    private bool IsInvocableMacroExpressionStart()
         => new MacroInvocationSyntaxParser(this).IsBangInvocationStart();
 
-    private ExpressionSyntax ParseBangMacroExpression()
+    private ExpressionSyntax ParseInvocableMacroExpression()
         => new MacroInvocationSyntaxParser(this).ParseExpression();
 
     private bool TryReadEncodedStringSuffix(

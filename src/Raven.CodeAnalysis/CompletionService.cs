@@ -587,13 +587,13 @@ public class CompletionService
         SemanticModel semanticModel,
         int position,
         out SyntaxToken fragmentToken,
-        out FreestandingMacroExpressionSyntax invocation,
+        out InvocableMacroExpressionSyntax invocation,
         out ImmutableArray<MacroFragmentLocal> fragmentLocals)
     {
         fragmentToken = default;
         fragmentLocals = ImmutableArray<MacroFragmentLocal>.Empty;
         invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .FirstOrDefault()!;
         if (invocation?.TokenTree is null)
             return false;

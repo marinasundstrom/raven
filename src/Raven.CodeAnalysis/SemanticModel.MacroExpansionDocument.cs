@@ -15,7 +15,7 @@ public partial class SemanticModel
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
-        InvalidateStaleFreestandingMacroExpansions();
+        InvalidateStaleInvocableMacroExpansions();
         EnsureDiagnosticBindingCompleted();
 
         if (_expandedRoot is not null)
@@ -29,7 +29,7 @@ public partial class SemanticModel
             var root = SyntaxTree.GetRoot(cancellationToken);
             var rewrittenMembers = RewriteMemberList(root.Members, this, cancellationToken);
             var expandedRoot = root.WithMembers(rewrittenMembers);
-            expandedRoot = (CompilationUnitSyntax)RewriteFreestandingMacros(expandedRoot, this, cancellationToken);
+            expandedRoot = (CompilationUnitSyntax)RewriteInvocableMacros(expandedRoot, this, cancellationToken);
             _expandedRoot = Formatter.Format(expandedRoot);
             return _expandedRoot;
         }
@@ -180,10 +180,10 @@ public partial class SemanticModel
             _ => member
         };
 
-        return (MemberDeclarationSyntax)RewriteFreestandingMacros(rewrittenMember, semanticModel, cancellationToken);
+        return (MemberDeclarationSyntax)RewriteInvocableMacros(rewrittenMember, semanticModel, cancellationToken);
     }
 
-    private static SyntaxNode RewriteFreestandingMacros(
+    private static SyntaxNode RewriteInvocableMacros(
         SyntaxNode node,
         SemanticModel semanticModel,
         CancellationToken cancellationToken)
@@ -191,14 +191,14 @@ public partial class SemanticModel
         cancellationToken.ThrowIfCancellationRequested();
 
         var macroExpressions = node.DescendantNodesAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Where(expression => IsOwnedBy(expression, node))
             .OrderByDescending(GetDepth)
             .ToArray();
         if (macroExpressions.Length == 0)
             return node;
 
-        var scopes = new Dictionary<GreenNode, (SyntaxNode Scope, List<FreestandingMacroExpressionSyntax> Expressions)>(
+        var scopes = new Dictionary<GreenNode, (SyntaxNode Scope, List<InvocableMacroExpressionSyntax> Expressions)>(
             ReferenceEqualityComparer.Instance);
         foreach (var expression in macroExpressions)
         {
@@ -363,7 +363,7 @@ public partial class SemanticModel
 
     private static TNode PrepareExpandedExpression<TNode>(
         TNode node,
-        FreestandingMacroExpressionSyntax original)
+        InvocableMacroExpressionSyntax original)
         where TNode : SyntaxNode
     {
         var prepared = PrepareExpandedExpression(node);

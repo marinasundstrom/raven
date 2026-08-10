@@ -95,7 +95,7 @@ public sealed class MacroFragmentRegionTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var expression = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -113,7 +113,7 @@ public sealed class MacroFragmentRegionTests
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
     }
 
-    private static (Compilation Compilation, FreestandingMacroExpressionSyntax Expression) CreateCompilation(
+    private static (Compilation Compilation, InvocableMacroExpressionSyntax Expression) CreateCompilation(
         string code,
         IMacroDefinition macro)
     {
@@ -126,17 +126,17 @@ public sealed class MacroFragmentRegionTests
             .AddMacroReferences(new MacroReference(macro));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
         return (compilation, expression);
     }
 
-    private sealed class QueryMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class QueryMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "query";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {
@@ -154,23 +154,23 @@ public sealed class MacroFragmentRegionTests
         }
     }
 
-    private sealed class InvalidRegionMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class InvalidRegionMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "invalidRegions";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             => [context.CreateFragmentRegion(MacroFragmentKind.Expression, new TextSpan(0, context.BodySpan.Length + 1))];
     }
 
-    private sealed class TargetTypedMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider
+    private sealed class TargetTypedMacro : ITokenTreeMacro, IMacroFragmentProvider
     {
         public string Name => "targetTyped";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {

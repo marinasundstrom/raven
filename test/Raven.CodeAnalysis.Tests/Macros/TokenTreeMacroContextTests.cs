@@ -376,7 +376,7 @@ public sealed class TokenTreeMacroContextTests
             .AddSyntaxTrees(tree);
         var invocation = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         return new TokenTreeMacroContext(
@@ -407,7 +407,7 @@ public sealed class TokenTreeMacroContextTests
             .AddSyntaxTrees(tree);
         var invocation = tree.GetRoot()
             .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
+            .OfType<InvocableMacroExpressionSyntax>()
             .Single();
 
         return new TokenTreeMacroContext(

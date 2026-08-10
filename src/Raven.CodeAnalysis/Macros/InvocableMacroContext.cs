@@ -6,15 +6,15 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class FreestandingMacroContext : MacroContext
+public class InvocableMacroContext : MacroContext
 {
     private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
         ImmutableArray.CreateBuilder<MacroFileDependency>();
 
-    public FreestandingMacroContext(
+    public InvocableMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
         : base(syntax ?? throw new ArgumentNullException(nameof(syntax)))
     {
@@ -29,7 +29,7 @@ public class FreestandingMacroContext : MacroContext
 
     public SemanticModel SemanticModel { get; }
 
-    public FreestandingMacroExpressionSyntax Syntax { get; }
+    public InvocableMacroExpressionSyntax Syntax { get; }
 
     public ArgumentListSyntax ArgumentList => Syntax.ArgumentList;
 
@@ -73,13 +73,13 @@ public class FreestandingMacroContext : MacroContext
     }
 }
 
-public sealed class FreestandingMacroContext<TParameters> : FreestandingMacroContext
+public sealed class InvocableMacroContext<TParameters> : InvocableMacroContext
     where TParameters : class
 {
-    public FreestandingMacroContext(
+    public InvocableMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
+        InvocableMacroExpressionSyntax syntax,
         TParameters parameters,
         CancellationToken cancellationToken = default)
         : base(compilation, semanticModel, syntax, cancellationToken)
