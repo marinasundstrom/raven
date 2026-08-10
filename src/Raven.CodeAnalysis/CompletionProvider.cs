@@ -3106,7 +3106,7 @@ public static class CompletionProvider
         if (currentNamedArgument is not null)
             usedNames.Remove(currentNamedArgument);
 
-        foreach (var parameter in MacroFacts.GetParameters(macro))
+        foreach (var parameter in MacroFacts.GetDescriptor(macro).Parameters)
         {
             if (parameter.Kind != MacroParameterKind.Named ||
                 usedNames.Contains(parameter.Name) ||
@@ -3172,9 +3172,9 @@ public static class CompletionProvider
                 ? name
                 : macro switch
                 {
-                    ITokenTreeExpressionMacro when macro.AcceptsArguments => name + "() { }",
+                    ITokenTreeExpressionMacro when MacroFacts.AcceptsArguments(macro) => name + "() { }",
                     ITokenTreeExpressionMacro => name + " { }",
-                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => $"[{name}()]",
+                    _ when context.WrapAttachedAttribute && MacroFacts.AcceptsArguments(macro) => $"[{name}()]",
                     _ when context.WrapAttachedAttribute => $"[{name}]",
                     _ when context.Kind == MacroKind.FreestandingExpression => name + "()",
                     _ => name
@@ -3183,10 +3183,10 @@ public static class CompletionProvider
                 ? null
                 : macro switch
                 {
-                    ITokenTreeExpressionMacro when macro.AcceptsArguments => name.Length + 1,
+                    ITokenTreeExpressionMacro when MacroFacts.AcceptsArguments(macro) => name.Length + 1,
                     ITokenTreeExpressionMacro => insertionText.Length - 1,
-                    _ when context.WrapAttachedAttribute && macro.AcceptsArguments => name.Length + 2,
-                    _ when context.Kind == MacroKind.FreestandingExpression && macro.AcceptsArguments => insertionText.Length - 1,
+                    _ when context.WrapAttachedAttribute && MacroFacts.AcceptsArguments(macro) => name.Length + 2,
+                    _ when context.Kind == MacroKind.FreestandingExpression && MacroFacts.AcceptsArguments(macro) => insertionText.Length - 1,
                     _ => (int?)null
                 };
 
@@ -3220,9 +3220,9 @@ public static class CompletionProvider
             : $"targets: {FormatMacroTargets(targets)}";
         var argumentsDisplay = macro switch
         {
-            ITokenTreeExpressionMacro when macro.AcceptsArguments => "accepts arguments and a token-tree body",
+            ITokenTreeExpressionMacro when MacroFacts.AcceptsArguments(macro) => "accepts arguments and a token-tree body",
             ITokenTreeExpressionMacro => "accepts a token-tree body",
-            _ when macro.AcceptsArguments => "accepts arguments",
+            _ when MacroFacts.AcceptsArguments(macro) => "accepts arguments",
             _ => "no arguments"
         };
 

@@ -95,6 +95,8 @@ internal sealed class MacroRegistry
                 return;
             }
 
+            var descriptor = MacroFacts.GetDescriptor(macro);
+
             switch (macro)
             {
                 case IAttachedDeclarationMacro attached:
@@ -114,7 +116,7 @@ internal sealed class MacroRegistry
                         attachedName,
                         new LoadedAttachedMacro(
                             origin,
-                            attached,
+                            descriptor,
                             attachedName,
                             GetAliases(attached)));
                     break;
@@ -136,7 +138,7 @@ internal sealed class MacroRegistry
                         freestandingName,
                         new LoadedFreestandingMacro(
                             origin,
-                            freestanding,
+                            descriptor,
                             freestandingName,
                             GetAliases(freestanding)));
                     break;
@@ -158,7 +160,7 @@ internal sealed class MacroRegistry
                         tokenTreeName,
                         new LoadedFreestandingMacro(
                             origin,
-                            tokenTree,
+                            descriptor,
                             tokenTreeName,
                             GetAliases(tokenTree)));
                     break;
@@ -239,9 +241,9 @@ internal sealed class MacroRegistry
         var aliases = hasAttached
             ? attached.Aliases
             : freestanding.Aliases;
-        var definition = hasAttached
-            ? attached.Macro
-            : freestanding.Macro;
+        var descriptor = hasAttached
+            ? attached.Descriptor
+            : freestanding.Descriptor;
         var resolvedName = IsQualifiedName(macroName)
             ? GetSimpleName(canonicalName)
             : macroName;
@@ -255,7 +257,7 @@ internal sealed class MacroRegistry
             resolvedName,
             canonicalName,
             aliases,
-            definition,
+            descriptor,
             containingNamespace);
         return true;
     }
@@ -442,12 +444,19 @@ internal sealed class MacroRegistry
 
 internal readonly record struct LoadedAttachedMacro(
     string Origin,
-    IAttachedDeclarationMacro Macro,
+    MacroDefinitionDescriptor Descriptor,
     string CanonicalName,
-    ImmutableArray<string> Aliases);
+    ImmutableArray<string> Aliases)
+{
+    public IAttachedDeclarationMacro Macro =>
+        (IAttachedDeclarationMacro)Descriptor.Definition;
+}
 
 internal readonly record struct LoadedFreestandingMacro(
     string Origin,
-    IMacroDefinition Macro,
+    MacroDefinitionDescriptor Descriptor,
     string CanonicalName,
-    ImmutableArray<string> Aliases);
+    ImmutableArray<string> Aliases)
+{
+    public IMacroDefinition Macro => Descriptor.Definition;
+}

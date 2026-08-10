@@ -61,6 +61,14 @@ public sealed class MacroReferenceTests
         Assert.Equal(MacroInvocationTargets.None, MacroFacts.GetInvocationTargets(macro));
         Assert.Equal(MacroKind.AttachedDeclaration, MacroFacts.GetKind(macro));
         Assert.Equal(MacroTarget.Type, MacroFacts.GetTargets(macro));
+
+        var descriptor = MacroFacts.GetDescriptor(macro);
+        Assert.Same(macro, descriptor.Definition);
+        Assert.Equal(MacroApplicationKind.Attached, descriptor.ApplicationKind);
+        Assert.Equal(MacroInvocationTargets.None, descriptor.InvocationTargets);
+        Assert.Equal(MacroTarget.Type, descriptor.AttachmentTargets);
+        Assert.False(descriptor.AcceptsArguments);
+        Assert.False(descriptor.HasTokenBody);
     }
 
     [Fact]
@@ -501,6 +509,14 @@ public sealed class MacroReferenceTests
         Assert.Equal(MacroApplicationKind.Invocable, MacroFacts.GetApplicationKind(macro));
         Assert.Equal(MacroInvocationTargets.Expression, MacroFacts.GetInvocationTargets(macro));
         Assert.Equal(MacroTarget.None, MacroFacts.GetTargets(macro));
+
+        var descriptor = MacroFacts.GetDescriptor(macro);
+        Assert.Same(macro, descriptor.Definition);
+        Assert.Equal(MacroApplicationKind.Invocable, descriptor.ApplicationKind);
+        Assert.Equal(MacroInvocationTargets.Expression, descriptor.InvocationTargets);
+        Assert.Equal(MacroTarget.None, descriptor.AttachmentTargets);
+        Assert.False(descriptor.AcceptsArguments);
+        Assert.True(descriptor.HasTokenBody);
     }
 
     public sealed class TestAttachedMacro : IAttachedDeclarationMacro

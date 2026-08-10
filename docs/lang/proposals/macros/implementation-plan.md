@@ -9,7 +9,7 @@ The durable product and tooling model is documented in
 
 ## Application-model redesign gate
 
-Status: **documented; implementation not started**
+Status: **implementation in progress**
 
 The next compiler work follows the normalized contract in the
 [macro application model](application-model.md#normalized-compiler-model).
@@ -35,8 +35,10 @@ it changes the internal projection. The gate is complete only when:
 
 The dependency-ordered slices are:
 
-1. normalized metadata with adapters for current providers;
-2. registry, symbol, argument-binding, and language-service migration;
+1. normalized metadata with adapters for current providers (implemented);
+2. registry, symbol, argument-binding, and language-service migration (provider
+   descriptors implemented; source-declaration unification continues with the
+   syntax slices);
 3. `on` parameter syntax and removal of `MacroTargetClauseSyntax`;
 4. return-type projection and declaration diagnostics;
 5. generalized expansion results and category validation;

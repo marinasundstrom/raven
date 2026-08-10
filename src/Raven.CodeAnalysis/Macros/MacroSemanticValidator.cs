@@ -120,7 +120,7 @@ internal static class MacroSemanticValidator
             return false;
         }
 
-        if (attribute.ArgumentList is { Arguments.Count: > 0 } && !loaded.Macro.AcceptsArguments)
+        if (attribute.ArgumentList is { Arguments.Count: > 0 } && !loaded.Descriptor.AcceptsArguments)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroArgumentsNotSupported,
@@ -183,7 +183,7 @@ internal static class MacroSemanticValidator
                 return false;
             }
 
-            if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Macro.AcceptsArguments)
+            if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroArgumentsNotSupported,
@@ -205,7 +205,7 @@ internal static class MacroSemanticValidator
             return false;
         }
 
-        if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Macro.AcceptsArguments)
+        if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroArgumentsNotSupported,

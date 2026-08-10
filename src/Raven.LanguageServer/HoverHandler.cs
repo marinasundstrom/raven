@@ -805,7 +805,7 @@ internal sealed class HoverHandler : IHoverHandler
                 var targetsDisplay = targets == MacroTarget.None
                     ? null
                     : $"Targets `{FormatMacroTargets(targets)}`.";
-                var argumentsDisplay = macro.AcceptsArguments
+                var argumentsDisplay = MacroFacts.AcceptsArguments(macro)
                     ? "Accepts arguments."
                     : "No arguments.";
 

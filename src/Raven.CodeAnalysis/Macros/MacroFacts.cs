@@ -11,6 +11,30 @@ namespace Raven.CodeAnalysis.Macros;
 public static class MacroFacts
 {
     /// <summary>
+    /// Creates the compiler-normalized descriptor consumed by registration,
+    /// binding, and language services.
+    /// </summary>
+    public static MacroDefinitionDescriptor GetDescriptor(IMacroDefinition macro)
+    {
+        ArgumentNullException.ThrowIfNull(macro);
+
+        var parameters = GetParameters(macro);
+        var acceptsDeclaredArguments = parameters.Any(static parameter =>
+            parameter.Role is MacroParameterRole.Value or MacroParameterRole.SyntaxInput);
+        return new MacroDefinitionDescriptor(
+            macro,
+            GetApplicationKind(macro),
+            GetInvocationTargets(macro),
+            GetTargets(macro),
+            parameters,
+            acceptsDeclaredArguments || macro.AcceptsArguments,
+            macro is ITokenTreeExpressionMacro);
+    }
+
+    public static bool AcceptsArguments(IMacroDefinition macro)
+        => GetDescriptor(macro).AcceptsArguments;
+
+    /// <summary>
     /// Gets how the macro is applied to authored Raven syntax.
     /// </summary>
     public static MacroApplicationKind GetApplicationKind(IMacroDefinition macro)

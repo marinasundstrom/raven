@@ -16,7 +16,7 @@ internal static class MacroSignatureHelpService
             return null;
 
         string name;
-        IMacroDefinition macro;
+        MacroDefinitionDescriptor descriptor;
         MacroKind kind;
         bool hasTokenTreeBody;
         switch (argumentList.Parent)
@@ -30,7 +30,7 @@ internal static class MacroSignatureHelpService
                              name,
                              out var attached,
                              out _):
-                macro = attached.Macro;
+                descriptor = attached.Descriptor;
                 kind = MacroKind.AttachedDeclaration;
                 hasTokenTreeBody = false;
                 break;
@@ -44,16 +44,16 @@ internal static class MacroSignatureHelpService
                              name,
                              out var freestanding,
                              out _):
-                macro = freestanding.Macro;
+                descriptor = freestanding.Descriptor;
                 kind = MacroKind.FreestandingExpression;
-                hasTokenTreeBody = macro is ITokenTreeExpressionMacro;
+                hasTokenTreeBody = descriptor.HasTokenBody;
                 break;
 
             default:
                 return null;
         }
 
-        var parameters = MacroFacts.GetParameters(macro);
+        var parameters = descriptor.Parameters;
         var activeParameter = GetActiveParameter(argumentList, parameters, position);
         return new MacroSignatureHelp(name, kind, parameters, activeParameter, hasTokenTreeBody);
     }

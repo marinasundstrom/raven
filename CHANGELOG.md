@@ -938,6 +938,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `body: IMacroTokenStream` parameter selects token-tree invocation syntax and
   binds the raw body, while the remaining parameters continue
   to use the typed caller-supplied argument model.
+- Added a compiler-normalized macro definition descriptor shared by provider
+  registration, synthesized symbols, validation, completion, signature help,
+  and hover. Legacy class-authored macro contracts are adapted once at
+  registration instead of being interpreted independently by each consumer.
 - Made `macro` declarations executable as same-compilation argument-style
   and attached macros. Attached declarations use contextual `on Property` or
   `on property: Property` target clauses, and ordinary synchronous bodies can

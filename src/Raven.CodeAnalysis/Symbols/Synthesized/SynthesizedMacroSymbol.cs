@@ -10,7 +10,7 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
         string name,
         string canonicalName,
         ImmutableArray<string> aliases,
-        IMacroDefinition definition,
+        MacroDefinitionDescriptor descriptor,
         INamespaceSymbol containingNamespace)
         : base(
             SymbolKind.Macro,
@@ -24,7 +24,7 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
     {
         CanonicalName = canonicalName;
         Aliases = aliases;
-        Definition = definition;
+        Descriptor = descriptor;
     }
 
     public override string MetadataName => Name;
@@ -33,21 +33,19 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
 
     public override bool CanBeReferencedByName => true;
 
-    public MacroApplicationKind ApplicationKind => MacroFacts.GetApplicationKind(Definition);
+    public MacroApplicationKind ApplicationKind => Descriptor.ApplicationKind;
 
-    public MacroInvocationTargets InvocationTargets => MacroFacts.GetInvocationTargets(Definition);
+    public MacroInvocationTargets InvocationTargets => Descriptor.InvocationTargets;
 
-    public MacroKind MacroKind => MacroFacts.GetKind(Definition);
+    public MacroKind MacroKind => MacroFacts.GetKind(Descriptor.Definition);
 
-    public MacroTarget Targets => Definition is IAttachedDeclarationMacro attached
-        ? attached.Targets
-        : MacroTarget.None;
+    public MacroTarget Targets => Descriptor.AttachmentTargets;
 
     public string CanonicalName { get; }
 
     public ImmutableArray<string> Aliases { get; }
 
-    internal IMacroDefinition Definition { get; }
+    internal MacroDefinitionDescriptor Descriptor { get; }
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 
