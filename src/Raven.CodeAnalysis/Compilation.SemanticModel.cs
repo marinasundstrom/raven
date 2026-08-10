@@ -312,6 +312,47 @@ public partial class Compilation
         _generatedSemanticModels[syntaxTree] = semanticModel;
     }
 
+    internal IEnumerable<SyntaxNode> GetEffectiveNamespaceMembers(
+        SyntaxNode containerNode,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(containerNode);
+
+        var semanticModel = GetSemanticModel(containerNode.SyntaxTree!);
+        foreach (var member in containerNode.ChildNodes())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (member is not GlobalStatementSyntax
+                {
+                    Statement: ExpressionStatementSyntax
+                    {
+                        Expression: InvocableMacroExpressionSyntax invocation
+                    }
+                })
+            {
+                yield return member;
+                continue;
+            }
+
+            var expansion = semanticModel.GetMacroExpansion(invocation, cancellationToken);
+            if (expansion?.HasMemberExpansion == true)
+            {
+                foreach (var expandedMember in expansion.Members)
+                    yield return expandedMember;
+
+                continue;
+            }
+
+            if (expansion?.Node is MemberDeclarationSyntax expandedDeclaration)
+            {
+                yield return expandedDeclaration;
+                continue;
+            }
+
+            yield return member;
+        }
+    }
+
     internal void EnsureSourceDeclarationsComplete()
     {
         EnsureSetup();

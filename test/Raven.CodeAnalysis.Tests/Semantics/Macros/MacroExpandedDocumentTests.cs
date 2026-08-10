@@ -236,6 +236,51 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
+    public void GetExpandedRoot_ReplacesFileMemberInvocationWithOrderedMembers()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            GenerateNamespaceMembers! { Id, Name }
+            func Existing() -> int => 3
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateNamespaceMembersMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.True(expandedText.IndexOf("GeneratedFirst", StringComparison.Ordinal) <
+                    expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal));
+        Assert.True(expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal) <
+                    expandedText.IndexOf("Existing", StringComparison.Ordinal));
+        Assert.DoesNotContain("GenerateNamespaceMembers!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetExpandedRoot_ReplacesNamespaceMemberInvocationWithOrderedMembers()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            namespace Example {
+                GenerateNamespaceMembers! { Id, Name }
+                func Existing() -> int => 3
+            }
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(new GenerateNamespaceMembersMacro()));
+
+        var expandedText = compilation.GetSemanticModel(tree)
+            .GetExpandedRoot()
+            .ToFullString();
+
+        Assert.Contains("namespace Example", expandedText, StringComparison.Ordinal);
+        Assert.True(expandedText.IndexOf("GeneratedFirst", StringComparison.Ordinal) <
+                    expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal));
+        Assert.True(expandedText.IndexOf("GeneratedSecond", StringComparison.Ordinal) <
+                    expandedText.IndexOf("Existing", StringComparison.Ordinal));
+        Assert.DoesNotContain("GenerateNamespaceMembers!", expandedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetExpandedRoot_StacksAttachedDeclarationMacrosBySourceOrder()
     {
         var (compilation, tree) = CreateCompilation("""
@@ -445,6 +490,17 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 """));
     }
 
+    private sealed class GenerateNamespaceMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "GenerateNamespaceMembers";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromMembers(ParseNamespaceMembers("""
+                class GeneratedFirst {}
+                class GeneratedSecond {}
+                """));
+    }
+
     private sealed class RemoveMemberMacro : ITokenTreeMacro
     {
         public string Name => "RemoveMember";
@@ -561,4 +617,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         var container = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
         return [.. container.Members];
     }
+
+    private static ImmutableArray<MemberDeclarationSyntax> ParseNamespaceMembers(string source)
+        => [.. SyntaxFactory.ParseSyntaxTree(source).GetRoot().Members];
 }

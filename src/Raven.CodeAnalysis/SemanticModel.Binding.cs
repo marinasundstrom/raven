@@ -187,7 +187,7 @@ public partial class SemanticModel
         // Type-like declarations must be available before member signatures are
         // resolved, because top-level functions can reference source types that
         // are declared later in the same file or namespace.
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {
@@ -243,7 +243,7 @@ public partial class SemanticModel
             }
         }
 
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {
@@ -1222,6 +1222,33 @@ public partial class SemanticModel
         ImmutableArray<EffectiveMemberDeclaration>.Builder builder,
         MemberDeclarationSyntax member)
     {
+        if (member is InvocableMacroMemberDeclarationSyntax invocation)
+        {
+            var expansion = GetMacroExpansion(invocation);
+            if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))
+            {
+                builder.Add(new EffectiveMemberDeclaration(member));
+                return;
+            }
+
+            var expandedMembers = expansion.HasMemberExpansion
+                ? expansion.Members
+                : expansion.Node is MemberDeclarationSyntax expandedMember
+                    ? ImmutableArray.Create(expandedMember)
+                    : ImmutableArray<MemberDeclarationSyntax>.Empty;
+            if (expandedMembers.Length > 0)
+                RegisterMacroReplacementSyntaxTrees(invocation, expandedMembers);
+
+            var containingType = (TypeDeclarationSyntax)member.Parent!;
+            foreach (var generatedMember in expandedMembers)
+            {
+                RegisterMacroContainingTypeSyntax(generatedMember, containingType);
+                builder.Add(new EffectiveMemberDeclaration(generatedMember));
+            }
+
+            return;
+        }
+
         MemberDeclarationSyntax effectiveMember = member;
         var peerDeclarations = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
 
@@ -3071,7 +3098,7 @@ public partial class SemanticModel
 
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        foreach (var member in containerNode.ChildNodes())
+        foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
             switch (member)
             {

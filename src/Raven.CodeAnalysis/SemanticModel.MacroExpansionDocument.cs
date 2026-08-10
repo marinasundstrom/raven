@@ -104,6 +104,41 @@ public partial class SemanticModel
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (member is GlobalStatementSyntax globalStatement &&
+            TryGetDirectInvocableMacro(globalStatement, out var globalInvocation))
+        {
+            var expansion = semanticModel.GetMacroExpansion(globalInvocation, cancellationToken);
+            if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))
+            {
+                yield return member;
+                yield break;
+            }
+
+            if (expansion.HasMemberExpansion || expansion.Node is MemberDeclarationSyntax)
+            {
+                var expandedMembers = expansion.HasMemberExpansion
+                    ? expansion.Members
+                    : ImmutableArray.Create((MemberDeclarationSyntax)expansion.Node);
+                var rewrittenMembers = RewriteExpandedMembers(
+                        expandedMembers.Select(PrepareExpandedMember),
+                        semanticModel.Compilation,
+                        cancellationToken)
+                    .ToArray();
+
+                foreach (var generatedMember in IntegrateExpandedMembers(member, rewrittenMembers))
+                    yield return generatedMember;
+                yield break;
+            }
+
+            if (expansion.Statement is { } expandedStatement)
+            {
+                var rewrittenGlobal = globalStatement.WithStatement(expandedStatement);
+                foreach (var generatedMember in IntegrateExpandedMembers(member, [rewrittenGlobal]))
+                    yield return generatedMember;
+                yield break;
+            }
+        }
+
         if (member is InvocableMacroMemberDeclarationSyntax invocation)
         {
             var expansion = semanticModel.GetMacroExpansion(invocation, cancellationToken);
@@ -202,6 +237,10 @@ public partial class SemanticModel
                 RewriteMemberList(interfaceDeclaration.Members, semanticModel, cancellationToken)),
             UnionDeclarationSyntax unionDeclaration => unionDeclaration.WithMembers(
                 RewriteMemberList(unionDeclaration.Members, semanticModel, cancellationToken)),
+            NamespaceDeclarationSyntax namespaceDeclaration => namespaceDeclaration.WithMembers(
+                RewriteMemberList(namespaceDeclaration.Members, semanticModel, cancellationToken)),
+            FileScopedNamespaceDeclarationSyntax fileScopedNamespace => fileScopedNamespace.WithMembers(
+                RewriteMemberList(fileScopedNamespace.Members, semanticModel, cancellationToken)),
             _ => member
         };
 
@@ -278,6 +317,23 @@ public partial class SemanticModel
     private static SyntaxNode? GetOwningDeclaration(SyntaxNode node)
         => node.AncestorsAndSelf().FirstOrDefault(static ancestor =>
             ancestor is MemberDeclarationSyntax or CompilationUnitSyntax);
+
+    private static bool TryGetDirectInvocableMacro(
+        GlobalStatementSyntax globalStatement,
+        out InvocableMacroExpressionSyntax invocation)
+    {
+        if (globalStatement.Statement is ExpressionStatementSyntax
+            {
+                Expression: InvocableMacroExpressionSyntax expression
+            })
+        {
+            invocation = expression;
+            return true;
+        }
+
+        invocation = null!;
+        return false;
+    }
 
     private static int GetDepth(SyntaxNode node)
         => node.Ancestors().Count();

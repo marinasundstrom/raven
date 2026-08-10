@@ -8,6 +8,8 @@
   href: project-system.md
 - name: Extend a project
   href: extending-projects.md
+- name: Source generators
+  href: source-generators.md
 - name: JSON serialization
   href: json-serialization.md
 - name: Diagnostics

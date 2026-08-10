@@ -90,6 +90,93 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
+    public void InvocableMacro_TypeMemberExpansion_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            class Harness {
+                generatedMembers!{ }
+            }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GeneratedMembersMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Generated", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void InvocableMacro_FileMemberExpansion_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            generatedNamespaceMembers!{ }
+
+            class Harness {
+                public static func Run() -> int => Generated.Value()
+            }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GeneratedNamespaceMembersMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void InvocableMacro_NamespaceMemberExpansion_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            namespace Example {
+                generatedNamespaceMembers!{ }
+
+                class Harness {
+                    public static func Run() -> int => Generated.Value()
+                }
+            }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(GeneratedNamespaceMembersMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Example.Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
     public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
     {
         var macroTree = SyntaxTree.ParseText("""
@@ -440,6 +527,38 @@ public sealed class InvocableMacroCodeGenTests
         public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
+            return InvocableMacroExpansionResult.FromMembers(
+                SyntaxFactory.SingletonList(member));
+        }
+    }
+
+    public sealed class GeneratedMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "generatedMembers";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var container = Assert.IsType<ClassDeclarationSyntax>(
+                SyntaxFactory.ParseSyntaxTree("""
+                    class __GeneratedContainer {
+                        public static func Generated() -> int => 42
+                    }
+                    """).GetRoot().Members.Single());
+            return InvocableMacroExpansionResult.FromMembers(container.Members);
+        }
+    }
+
+    public sealed class GeneratedNamespaceMembersMacro : ITokenTreeMacro
+    {
+        public string Name => "generatedNamespaceMembers";
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var member = SyntaxFactory.ParseSyntaxTree("""
+                class Generated {
+                    static func Value() -> int => 42
+                }
+                """).GetRoot().Members.Single();
             return InvocableMacroExpansionResult.FromMembers(
                 SyntaxFactory.SingletonList(member));
         }

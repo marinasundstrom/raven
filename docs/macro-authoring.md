@@ -52,6 +52,35 @@ authors do not need to begin there.
 The compact and class-authored forms are two projections of one model. They use
 the same invocation syntax, registry, contexts, diagnostics, and results.
 
+## Macros and source generators solve different problems
+
+Use a macro when the programmer should opt into a transformation at a specific
+source location. An invocable macro replaces `Name!(...)` or `Name! { ... }`;
+an attached macro transforms the declaration carrying it. The compiler retains
+that relationship for diagnostics, source mapping, hover, navigation, and
+debugging. A macro can inspect its explicit inputs, but it should not behave
+like a hidden project-wide pass.
+
+Use a source generator when a project-wide input should contribute separate
+generated files—for example, a registry derived from all declarations in a
+compilation. Generators run under workspace or build-host orchestration and add
+syntax trees to the compilation. They do not replace an inline invocation and
+do not own an authored macro-body span. They can also supply the implementation
+half of an authored partial declaration: source establishes the shape, and a
+generated partial declaration augments it through normal partial-type merging.
+
+| Question | Macro | Source generator |
+| --- | --- | --- |
+| What triggers it? | An explicit invocation or attachment in source | A registered project generator |
+| What does it produce? | Syntax replacing or augmenting that source site | Additional generated source files, often partial implementations |
+| What input should it use? | Declared arguments, target syntax, or token body | The compilation and generator inputs |
+| Who runs it? | The compiler during semantic expansion | The workspace or build host before the resulting compilation is consumed |
+| How do tools relate output to source? | Through the macro invocation, fragment spans, and expansion mappings | Through generated-document identity and generator diagnostics |
+
+See [Source generators](compiler/source-generators.md) for the standalone
+generator guide and [Extending Raven projects](compiler/extending-projects.md)
+for the broader analyzer and generator model.
+
 ## 1. Start with a local macro declaration
 
 A macro in the same project is compiled in Raven's compile-time partition and
@@ -337,6 +366,13 @@ source. `FromNode(...)` may be used for exactly one member. The compiler reports
 `RAVM022` if the result is an expression or statement instead of a member, so a
 malformed provider cannot force the expanded document into an invalid syntax
 category.
+
+The same result form works at file and namespace scope. At those sites the
+parser deliberately keeps `Name! { ... }` inside a global-statement carrier;
+the semantic result decides whether it supplies a statement or declarations.
+Return declarations that are legal in the containing scope—for example, a type
+at namespace scope rather than a method declaration intended for a type body.
+Generated declarations participate in normal lookup, binding, and emission.
 
 ## 6. Surface fragment spans for tooling
 

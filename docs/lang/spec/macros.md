@@ -30,6 +30,17 @@ orchestration belong to a workspace or build host. A project system may resolve
 a macro asset, but it passes that asset to the compiler and does not own the
 macro's semantic execution.
 
+This boundary is behavioral, not merely packaging. A macro is applied at an
+explicit authored syntax site and produces syntax for that site's grammar
+position, with source and tooling mappings back to the invocation or attached
+declaration. A source generator performs a project-wide pass and contributes
+separate generated syntax trees; it neither replaces an inline invocation nor
+owns a macro token body. Use a macro for local opt-in syntax transformation and
+a source generator for compilation-wide derived files.
+Generators may also augment an authored partial declaration with a generated
+partial implementation. That is still normal cross-file declaration merging,
+not macro replacement of the authored declaration.
+
 A macro may optionally supply compiler-owned editor metadata consisting of
 classified body-relative tokens and spans for embedded Raven fragments. This
 metadata does not add the macro's private parser representation to Raven's
@@ -338,6 +349,12 @@ that carrier with the returned members in source order. A single
 `MemberDeclarationSyntax` returned through `FromNode(...)` is also accepted;
 an explicit empty member list removes the carrier, while no expansion or an
 invalid output category preserves it for recovery.
+At file and namespace scope the parser retains the ordinary global-statement
+envelope because the authored `Name! { ... }` form is syntactically ambiguous.
+Semantic expansion accepts declaration members there when the result selects a
+member or member list, and otherwise retains statement behavior. Generated
+namespace/file members participate in declaration lookup, binding, expanded
+documents, and emission; they are not preview-only syntax.
 `FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
 native-parser, or combined diagnostic results without requiring property
 initializers. `Empty` represents an explicit no-change result. Mutable

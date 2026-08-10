@@ -52,6 +52,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   empty-list removal and single-member results, and diagnose incompatible
   expression or statement output while preserving recoverable source.
 
+- Extended member-producing invocable macros through compiler declaration
+  binding and emission. Type-body, namespace, and file-scope invocations can
+  now contribute real members; ambiguous file/namespace carriers preserve
+  statement behavior until the semantic expansion result selects declarations.
+
+- Documented the execution, output, input, and tooling boundary between macros
+  and source generators: macros transform an explicit authored site inside the
+  compiler, while generators add project-wide generated documents through the
+  workspace or build host.
+
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
   the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve

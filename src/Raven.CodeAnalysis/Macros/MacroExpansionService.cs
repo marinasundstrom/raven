@@ -541,10 +541,12 @@ internal static class MacroExpansionService
     {
         if (result.HasMemberExpansion)
         {
+            var memberParent = GetMemberExpansionParent(invocation) ?? invocation.Syntax.Parent;
+            var memberPosition = GetMemberExpansionPosition(invocation);
             var members = result.Members
                 .Select(member => (MemberDeclarationSyntax)MacroSyntaxOrigin
                     .MarkGeneratedSyntaxHidden(member, invocation.Syntax)
-                    .WithParent(invocation.Syntax.Parent, invocation.Syntax.Position))
+                    .WithParent(memberParent, memberPosition))
                 .ToImmutableArray();
             return CopyExpansionMetadata(result, new InvocableMacroExpansionResult
             {
@@ -560,10 +562,17 @@ internal static class MacroExpansionService
             invocation.Syntax);
         var isStatementPosition = invocation.Syntax is InvocableMacroExpressionSyntax expression &&
             IsStatementPosition(expression);
-        var parent = isStatementPosition ? invocation.Syntax.Parent?.Parent : invocation.Syntax.Parent;
-        var position = isStatementPosition
-            ? invocation.Syntax.Parent?.Position ?? invocation.Syntax.Position
-            : invocation.Syntax.Position;
+        var isMemberResult = result.Node is MemberDeclarationSyntax;
+        var parent = isMemberResult
+            ? GetMemberExpansionParent(invocation) ?? invocation.Syntax.Parent
+            : isStatementPosition
+                ? invocation.Syntax.Parent?.Parent
+                : invocation.Syntax.Parent;
+        var position = isMemberResult
+            ? GetMemberExpansionPosition(invocation)
+            : isStatementPosition
+                ? invocation.Syntax.Parent?.Position ?? invocation.Syntax.Position
+                : invocation.Syntax.Position;
         var contextualNode = expansionNode.WithParent(parent, position);
         return CopyExpansionMetadata(result, new InvocableMacroExpansionResult
         {
@@ -595,6 +604,9 @@ internal static class MacroExpansionService
         var macroExpression = (InvocableMacroExpressionSyntax)invocation.Syntax;
         if (result.HasMemberExpansion)
         {
+            if (IsNamespaceMemberPosition(macroExpression))
+                return result;
+
             diagnostics.Report(Diagnostic.Create(
                 s_macroExpansionCategoryMismatch,
                 macroExpression.Name.GetLocation(),
@@ -606,6 +618,9 @@ internal static class MacroExpansionService
         }
 
         if (result.Node is null)
+            return result;
+
+        if (IsNamespaceMemberPosition(macroExpression) && result.Node is MemberDeclarationSyntax)
             return result;
 
         var requiresStatement = IsStatementPosition(macroExpression);
@@ -661,6 +676,32 @@ internal static class MacroExpansionService
         => expression.TokenTree is not null &&
            expression.Parent is ExpressionStatementSyntax statement &&
            ReferenceEquals(statement.Expression, expression);
+
+    private static bool IsNamespaceMemberPosition(InvocableMacroExpressionSyntax expression)
+        => GetNamespaceMemberCarrier(expression) is not null;
+
+    private static GlobalStatementSyntax? GetNamespaceMemberCarrier(
+        InvocableMacroExpressionSyntax expression)
+        => expression.Parent is ExpressionStatementSyntax statement &&
+           ReferenceEquals(statement.Expression, expression) &&
+           statement.Parent is GlobalStatementSyntax globalStatement &&
+           globalStatement.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax
+            ? globalStatement
+            : null;
+
+    private static SyntaxNode? GetMemberExpansionParent(InvocableMacroInvocation invocation)
+        => invocation.Syntax switch
+        {
+            InvocableMacroMemberDeclarationSyntax member => member.Parent,
+            InvocableMacroExpressionSyntax expression => GetNamespaceMemberCarrier(expression)?.Parent,
+            _ => null
+        };
+
+    private static int GetMemberExpansionPosition(InvocableMacroInvocation invocation)
+        => invocation.Syntax is InvocableMacroExpressionSyntax expression &&
+           GetNamespaceMemberCarrier(expression) is { } globalStatement
+            ? globalStatement.Position
+            : invocation.Syntax.Position;
 
     private static void ReportMacroDiagnostics(
         DiagnosticBag diagnostics,
