@@ -15,6 +15,59 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class FreestandingMacroCodeGenTests
 {
     [Fact]
+    public void FreestandingMacro_ExpandedStatement_IsEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            class Harness {
+                public static func Run() -> int {
+                    var result = 0
+                    #setAnswer { }
+                    return result
+                }
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(SetAnswerMacro)));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly.GetType("Harness", true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void FreestandingMacro_WrongExpansionCategory_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            func Run() {
+                #add(20, Right: 22)
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(AddMacro)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM022"));
+
+        Assert.Contains("statement syntax is required", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
     {
         var macroTree = SyntaxTree.ParseText("""
@@ -284,6 +337,16 @@ public sealed class FreestandingMacroCodeGenTests
             {
                 Expression = ParseExpression($"{context.Parameters.Left} + {context.Parameters.Right}")
             };
+    }
+
+    public sealed class SetAnswerMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "setAnswer";
+        public MacroKind Kind => MacroKind.FreestandingExpression;
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromStatement(
+                SyntaxFactory.ParseStatement("result = 42"));
     }
 
     public sealed class AddMacroParameters(int left)

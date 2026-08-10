@@ -63,4 +63,17 @@ public sealed class FreestandingMacroExpansionResultTests
         result.Node.ShouldBeSameAs(statement);
         result.Statement.ShouldBeSameAs(statement);
     }
+
+    [Fact]
+    public void ExpressionAndStatementProperties_AreExclusiveTypedProjections()
+    {
+        var result = FreestandingMacroExpansionResult.FromExpression(
+            SyntaxFactory.ParseExpression("42"));
+
+        result.Statement = SyntaxFactory.ParseStatement("return 42");
+
+        result.Expression.ShouldBeNull();
+        result.Statement.ShouldNotBeNull();
+        result.Node.ShouldBeOfType<ReturnStatementSyntax>();
+    }
 }

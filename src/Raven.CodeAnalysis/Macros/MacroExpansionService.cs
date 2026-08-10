@@ -32,6 +32,16 @@ internal static class MacroExpansionService
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor s_macroExpansionCategoryMismatch = DiagnosticDescriptor.Create(
+        "RAVM022",
+        "Macro expansion has the wrong syntax category",
+        "",
+        "",
+        "Macro '{0}' produced {1} syntax where {2} syntax is required.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     public static ImmutableDictionary<AttributeSyntax, MacroExpansionResult?> ExpandAttachedMacros(
         Compilation compilation,
         SemanticModel semanticModel,
@@ -147,6 +157,7 @@ internal static class MacroExpansionService
                     context.GetFileDependencies());
             }
 
+            result = ValidateExpansionCategory(loaded.Macro.Name, expression, result, diagnostics);
             result = ContextualizeExpansionResult(expression, result);
             RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Node);
 
@@ -501,7 +512,10 @@ internal static class MacroExpansionService
         var expansionNode = MacroSyntaxOrigin.MarkGeneratedSyntaxHidden(
             result.Node,
             macroExpression);
-        var contextualNode = expansionNode.WithParent(macroExpression.Parent, macroExpression.Position);
+        var isStatementPosition = IsStatementPosition(macroExpression);
+        var parent = isStatementPosition ? macroExpression.Parent?.Parent : macroExpression.Parent;
+        var position = isStatementPosition ? macroExpression.Parent?.Position ?? macroExpression.Position : macroExpression.Position;
+        var contextualNode = expansionNode.WithParent(parent, position);
         return new FreestandingMacroExpansionResult
         {
             Node = contextualNode,
@@ -512,6 +526,43 @@ internal static class MacroExpansionService
             FileDependencies = result.FileDependencies
         };
     }
+
+    private static FreestandingMacroExpansionResult ValidateExpansionCategory(
+        string macroName,
+        FreestandingMacroExpressionSyntax macroExpression,
+        FreestandingMacroExpansionResult result,
+        DiagnosticBag diagnostics)
+    {
+        if (result.Node is null)
+            return result;
+
+        var requiresStatement = IsStatementPosition(macroExpression);
+        var valid = requiresStatement
+            ? result.Node is StatementSyntax
+            : result.Node is ExpressionSyntax;
+        if (valid)
+            return result;
+
+        diagnostics.Report(Diagnostic.Create(
+            s_macroExpansionCategoryMismatch,
+            macroExpression.Name.GetLocation(),
+            macroName,
+            result.Node is StatementSyntax ? "statement" : "non-expression",
+            requiresStatement ? "statement" : "expression"));
+
+        return new FreestandingMacroExpansionResult
+        {
+            Diagnostics = result.Diagnostics,
+            MacroDiagnostics = result.MacroDiagnostics,
+            FragmentRegions = result.FragmentRegions,
+            TokenInfos = result.TokenInfos,
+            FileDependencies = result.FileDependencies
+        };
+    }
+
+    private static bool IsStatementPosition(FreestandingMacroExpressionSyntax expression)
+        => expression.Parent is ExpressionStatementSyntax statement &&
+           ReferenceEquals(statement.Expression, expression);
 
     private static void ReportMacroDiagnostics(
         DiagnosticBag diagnostics,

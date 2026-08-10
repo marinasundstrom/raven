@@ -319,8 +319,13 @@ Standalone `ParseMemberDeclaration` returns null unless its input contains
 exactly one declaration. Macro-context parsing is preferred for authored body
 fragments because it preserves their source coordinates and diagnostics.
 
-`FreestandingMacroExpansionResult.FromExpression(...)` creates an expression
-result, optionally forwarding native parser diagnostics.
+The normalized freestanding result carries zero or one `SyntaxNode`.
+`Expression` and `Statement` are typed projections, and
+`FromExpression(...)`, `FromStatement(...)`, and `FromNode(...)` construct the
+common result. A bare invocation used as the whole statement requires statement
+syntax; parentheses explicitly retain expression placement. A category mismatch
+reports `RAVM022` and discards the invalid node rather than casting it into the
+requested position. Expression factories may also forward native parser diagnostics.
 `FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
 native-parser, or combined diagnostic results without requiring property
 initializers. `Empty` represents an explicit no-change result. Mutable

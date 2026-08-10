@@ -25,6 +25,18 @@ partial class BlockBinder
         ExpressionStatementSyntax expressionStmt,
         ITypeSymbol? contextualTargetType = null)
     {
+        if (expressionStmt.Expression is FreestandingMacroExpressionSyntax macroExpression)
+        {
+            var expansion = SemanticModel.GetMacroExpansion(macroExpression);
+            if (expansion?.Statement is not { } expansionStatement)
+                return new BoundExpressionStatement(ErrorExpression(reason: BoundExpressionReason.NotFound));
+
+            SemanticModel.RegisterMacroReplacementSyntaxTree(macroExpression, expansionStatement);
+            var boundStatement = BindStatement(expansionStatement);
+            CacheBoundNode(expansionStatement, boundStatement);
+            return boundStatement;
+        }
+
         var isImplicitReturnTarget =
             _containingSymbol is IMethodSymbol &&
             expressionStmt.Parent switch
