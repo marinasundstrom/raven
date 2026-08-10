@@ -256,6 +256,47 @@ that implementation detail does not create a source-level parameter, local, or
 binding. Context construction and its semantic services should remain lazy
 where practical.
 
+### Syntax inputs and expanded semantic types
+
+A syntax-typed parameter receives the authored argument as source-backed syntax
+without evaluating it:
+
+```raven
+macro evaluate(expr: ExpressionSyntax) -> ExpressionSyntax {
+    expand Transform(expr)
+}
+
+let x = evaluate!(2 + 3)
+```
+
+`expr` is the `ExpressionSyntax` for `2 + 3`, including its authored spans and
+trivia. It consumes one ordinary invocation argument and therefore participates
+in positional and named argument binding. The macro can inspect or transform
+the node without requesting a context. If it needs symbols or types, it opts in
+to an appropriate context parameter and asks the compiler semantic APIs about
+that source-backed node.
+
+The macro return annotation describes the **syntax category**, not the runtime
+or semantic type of the expanded expression. After expansion, Raven binds the
+ordinary returned expression in its invocation context. In the example, `x` is
+inferred as the normal numeric type of `2 + 3`; hover and downstream type
+checking use that bound type rather than `ExpressionSyntax`.
+
+The MVP does not introduce `ExpressionSyntax<T>` or another parallel type system
+for syntax objects. Contextual typing already validates the expansion where the
+invocation appears:
+
+```raven
+let x: double = evaluate!(2 + 3)
+```
+
+If a future use case needs a macro to publish an explicit semantic output
+promise independent of the call-site context, it should be separate optional
+metadata. The compiler would bind the expansion, verify that its resulting type
+is compatible with the promise, and map any diagnostic through provenance. Such
+a promise must not determine the grammatical invocation target and is deferred
+until a concrete macro requires it.
+
 ### Binding order
 
 1. Classify roles from explicit syntax (`on`) and recognized compiler API
