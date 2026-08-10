@@ -9,7 +9,7 @@ The durable product and tooling model is documented in
 
 ## Application-model redesign gate
 
-Status: **implementation in progress**
+Status: **MVP implementation complete; final integration validation in progress**
 
 The next compiler work follows the normalized contract in the
 [macro application model](application-model.md#normalized-compiler-model).
@@ -41,8 +41,9 @@ The dependency-ordered slices are:
    syntax slices);
 3. `on` parameter syntax and removal of `MacroTargetClauseSyntax` (implemented);
 4. return-type projection and declaration diagnostics (implemented);
-5. generalized expansion results and category validation;
-6. statement invocation and recovery coverage; and
+5. generalized single-node expansion results and category validation
+   (implemented);
+6. raw-body statement invocation and recovery coverage (implemented); and
 7. later member, type, pattern, and quote-category work.
 
 After the application model is stable, evaluate macro-only typed syntax wrappers
@@ -1465,17 +1466,20 @@ not select the first declaration from a complete compilation-unit parse.
 
 ### Additional expansion positions
 
-Design status: **application model proposed; implementation intentionally paused**
+Design status: **expression and raw-body statement MVP implemented; remaining
+positions intentionally deferred**
 
 The [macro application model](application-model.md) defines expression,
 statement, member, type, pattern, and attached scenarios; return-type targets;
 actual-position context; carrier selection; typed simple APIs; the validated
-multi-position ABI; and implementation order. No new carrier should be added
-until those decisions are accepted. The normalized advanced result may carry
-`SyntaxNode`. A union annotation supplies an exact closed position set, while
-`-> SyntaxNode` explicitly opts into all single-node freestanding positions.
-Neither form includes attached or list-valued contributions, and the driver
-must diagnose category mismatches rather than casting unsafely.
+multi-position ABI; and implementation order. The MVP result carries zero or
+one `SyntaxNode` and validates expression versus statement placement before
+binding. A bare raw-body `Name! { ... }` invocation selects statement placement;
+parentheses retain expression placement. A union annotation supplies an exact
+closed position set, while `-> SyntaxNode` explicitly opts into all single-node
+freestanding positions. Neither form includes attached or list-valued
+contributions. Member, type, pattern, list-valued, and typed-wrapper carriers
+remain post-MVP work.
 
 Here “untyped” means category-erased to the `SyntaxNode` base type, not dynamic
 or text-based expansion.

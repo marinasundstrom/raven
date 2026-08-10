@@ -8,6 +8,29 @@ macro needs capabilities the compact declaration syntax does not yet project.
 > Macro authoring is experimental. Examples here describe the current
 > implementation. Sections marked **Future** describe planned tooling.
 
+## The 30-second model
+
+A Raven macro receives typed values, authored syntax, or a lossless token body
+at compile time. It returns ordinary Raven syntax, and the compiler then parses,
+binds, diagnoses, emits, debugs, and serves editor features for that syntax in
+the usual way.
+
+Keep four rules in mind:
+
+1. Invoke a freestanding macro with `Name!(...)`, `Name! { ... }`, or both.
+   `#` is reserved for directives and attached macro attributes.
+2. Use `expand` once the invocable result is ready. It sets the expansion and
+   returns from that execution path.
+3. Report expected input failures as diagnostics. Do not throw for malformed
+   user input.
+4. Expose spans and ordinary Raven fragments to editor tooling; keep the DSL's
+   private parse tree private.
+
+Sections 1–4 form the shortest path from a small macro to a real DSL. Sections
+5–8 cover diagnostics, editor integration, attached macros, and packaging.
+The final reference sections explain the lowered provider model, build options,
+debugging, examples, and explicitly deferred work.
+
 ## Choose the smallest useful shape
 
 | Need | Start with |
@@ -16,7 +39,7 @@ macro needs capabilities the compact declaration syntax does not yet project.
 | An authored Raven expression | an `ExpressionSyntax` parameter |
 | An unrestricted brace body | one `IMacroTokenStream` parameter |
 | Body text, parsing, diagnostics, or file APIs | a `TokenTreeMacroContext` parameter |
-| Replace or introduce declarations | an attached `macro ... on ...` |
+| Replace or introduce declarations | one typed `on target: ...` parameter |
 | Custom tokenization or fragment metadata | a class-authored provider interface |
 
 The compact and class-authored forms are two projections of one model. They use
@@ -49,6 +72,18 @@ position, `ExpressionSyntax | StatementSyntax` permits either, and
 category-untyped `SyntaxNode` permits every supported single-node position.
 The expanded node is then bound as ordinary Raven syntax, so its eventual value
 type comes from normal semantic analysis rather than the macro annotation.
+
+For the MVP, a raw-body invocation that occupies a whole statement selects
+statement placement:
+
+```raven
+Log! { "saved" }
+```
+
+Parenthesizing the same invocation selects expression placement. If a macro
+produces the wrong syntax category, Raven reports a diagnostic and discards the
+node; it does not cast the node and risk corrupting later compiler or language-
+server state.
 
 Use typed parameters for configuration instead of recovering values from raw
 text. The normalized parameter schema also drives binding, completion, and
@@ -659,8 +694,10 @@ trees. Query-like macros can also bridge an introduced sequence-element local
 into selected fragments. Broader custom scope shapes should wait for another
 concrete DSL use case.
 
-The proposed rules for where a macro may be invoked and how declarations state
-their allowed output categories are tracked in the
+The normalized rules for where a macro may be invoked and how declarations
+state their allowed output categories are tracked in the
 [macro application model](lang/proposals/macros/application-model.md). It
 separates application position from token-body and editor capabilities, and
-separates quotation body categories from macro placement.
+separates quotation body categories from macro placement. Expression and
+raw-body statement placement are implemented for the MVP; member, type,
+pattern, list-valued, and typed syntax-wrapper positions remain post-MVP work.
