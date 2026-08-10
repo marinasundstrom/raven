@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Preserved inferred union-case type arguments when reporting a failed
+  case-to-carrier conversion, rather than falling back to an open generic
+  carrier such as `Result<T, E>`.
+
 - Fixed union-case symbol display so type-use formats omit constructor payloads
   while declaration formats show the inherited case signature without repeating
   the containing union's generic parameters.

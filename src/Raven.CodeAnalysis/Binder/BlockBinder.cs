@@ -10438,13 +10438,18 @@ partial class BlockBinder : Binder
                 constructor = projectedConstructor;
                 arguments = convertedArguments.MoveToImmutable();
             }
-            else if (caseType.TryGetUnionCase()?.Union is INamedTypeSymbol caseUnion)
+            else if (caseType.TryGetUnionCase() is { } caseSymbol)
             {
                 // If the target-typed carrier would require reprojecting the inferred case into a
                 // different generic instantiation, only keep that carrier when the constructor can
                 // actually be rebound for the projected case. Otherwise preserve the carrier implied
                 // by the inferred case so normal conversion diagnostics still run.
-                unionType = caseUnion;
+                unionType = TryProjectDiscriminatedUnionFromCaseArguments(
+                    caseType,
+                    caseSymbol,
+                    out var inferredCaseUnion)
+                    ? inferredCaseUnion
+                    : caseSymbol.Union as INamedTypeSymbol ?? unionType;
             }
         }
 
