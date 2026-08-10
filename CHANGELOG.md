@@ -24,6 +24,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   a compiler-supplied `AttachedMacroContext` without adding an invocation
   argument.
 
+- Preserved caller-authored syntax reused by freestanding macro expansions as
+  ordinary visible syntax instead of debugger-hidden generated plumbing.
+  Semantic queries now project bound nodes, types, symbols, and contextual
+  lambda parameters through that expansion even when the macro has not already
+  been bound by another query.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

@@ -1176,16 +1176,19 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "value");
 
-        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
-        var lambdaParameter = Assert.Single(boundLambda.Parameters);
-        Assert.Equal(TypeKind.Struct, lambdaParameter.Type.TypeKind);
-        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
-
         var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameter));
         Assert.Equal(SpecialType.System_Int32, parameterSymbol.Type.SpecialType);
 
         var referencedParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(valueReference).Symbol);
         Assert.Equal(SpecialType.System_Int32, referencedParameter.Type.SpecialType);
+
+        var lambdaType = model.GetTypeInfo(lambda);
+        Assert.Equal(TypeKind.Delegate, lambdaType.ConvertedType?.TypeKind);
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(TypeKind.Struct, lambdaParameter.Type.TypeKind);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
     }
 
     [Fact]

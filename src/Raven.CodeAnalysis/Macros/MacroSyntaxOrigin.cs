@@ -81,8 +81,16 @@ internal static class MacroSyntaxOrigin
         }
     }
 
-    public static ExpressionSyntax MarkGeneratedSyntaxHidden(ExpressionSyntax syntax)
-        => (ExpressionSyntax)RewriteHiddenGreen(syntax.Green).CreateRed(parent: null, position: syntax.Position);
+    public static ExpressionSyntax MarkGeneratedSyntaxHidden(
+        ExpressionSyntax syntax,
+        SyntaxNode authoredRoot)
+    {
+        var authoredGreens = new HashSet<GreenNode>(ReferenceEqualityComparer.Instance);
+        foreach (var node in authoredRoot.DescendantNodesAndSelf())
+            authoredGreens.Add(node.Green);
+        return (ExpressionSyntax)RewriteHiddenGreen(syntax.Green, authoredGreens)
+            .CreateRed(parent: null, position: syntax.Position);
+    }
 
     public static bool IsHidden(SyntaxNode syntax)
         => syntax.GetAnnotation(HiddenExpansionKind) is not null;
@@ -171,8 +179,13 @@ internal static class MacroSyntaxOrigin
             : rewritten;
     }
 
-    private static GreenNode RewriteHiddenGreen(GreenNode green)
+    private static GreenNode RewriteHiddenGreen(
+        GreenNode green,
+        HashSet<GreenNode> authoredGreens)
     {
+        if (authoredGreens.Contains(green))
+            return green;
+
         var children = new GreenNode[green.SlotCount];
         var changed = false;
         for (var index = 0; index < green.SlotCount; index++)
@@ -181,7 +194,7 @@ internal static class MacroSyntaxOrigin
             if (child is null)
                 continue;
 
-            var rewrittenChild = RewriteHiddenGreen(child);
+            var rewrittenChild = RewriteHiddenGreen(child, authoredGreens);
             children[index] = rewrittenChild;
             changed |= !ReferenceEquals(child, rewrittenChild);
         }

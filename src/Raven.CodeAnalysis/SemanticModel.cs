@@ -2017,6 +2017,15 @@ public partial class SemanticModel
             }
         }
 
+        EnsureContainingFreestandingMacroReplacementSyntax(node);
+        if (TryGetMacroReplacementSyntax(node, out var macroReplacement) &&
+            !ReferenceEquals(macroReplacement, node))
+        {
+            var replacementInfo = GetSymbolInfo(macroReplacement, cancellationToken);
+            StoreSymbolMapping(node, replacementInfo);
+            return replacementInfo;
+        }
+
         if (node is IdentifierNameSyntax macroParameterReference &&
             TryGetMacroParameterReference(macroParameterReference, out var macroParameter))
         {
@@ -9936,6 +9945,22 @@ public partial class SemanticModel
     internal bool TryGetMacroReplacementSyntax(SyntaxNode node, out SyntaxNode replacement)
         => _macroReplacementSyntaxMap.TryGetValue(node, out replacement!);
 
+    private void EnsureContainingFreestandingMacroReplacementSyntax(SyntaxNode node)
+    {
+        if (_macroReplacementSyntaxMap.ContainsKey(node))
+            return;
+
+        var invocation = node.Ancestors()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .FirstOrDefault();
+        if (invocation is null)
+            return;
+
+        var expansion = GetMacroExpansion(invocation);
+        if (expansion?.Expression is { } replacement)
+            RegisterMacroReplacementSyntaxTree(invocation, replacement);
+    }
+
     internal void RegisterMacroReplacementSyntax(SyntaxNode original, SyntaxNode replacement)
         => _macroReplacementSyntaxMap[original] = replacement;
 
@@ -10003,6 +10028,17 @@ public partial class SemanticModel
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
+
+        EnsureContainingFreestandingMacroReplacementSyntax(expr);
+        if (TryGetMacroReplacementSyntax(expr, out var macroReplacement) &&
+            macroReplacement is ExpressionSyntax replacementExpression &&
+            !ReferenceEquals(replacementExpression, expr))
+        {
+            var replacementInfo = GetTypeInfo(replacementExpression);
+            if (HasTypeInfo(replacementInfo))
+                StoreTypeMapping(expr, replacementInfo);
+            return replacementInfo;
+        }
 
         TypeInfo Cache(TypeInfo info)
         {
@@ -13416,6 +13452,13 @@ public partial class SemanticModel
     {
         EnsureBindingReadyForSemanticQuery();
 
+        EnsureContainingFreestandingMacroReplacementSyntax(node);
+        if (TryGetMacroReplacementSyntax(node, out var replacementNode) &&
+            !ReferenceEquals(replacementNode, node))
+        {
+            return TryGetBoundNodeForSemanticQuery(replacementNode, out boundNode);
+        }
+
         if (node is GlobalStatementSyntax globalStatement)
         {
             boundNode = BindContextualRootForSemanticQuery(globalStatement);
@@ -13480,6 +13523,8 @@ public partial class SemanticModel
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeQuery();
 
         EnsureBindingReady();
+
+        EnsureContainingFreestandingMacroReplacementSyntax(node);
 
         if (view is BoundTreeView.Original &&
             TryGetMacroReplacementSyntax(node, out var replacementNode) &&
@@ -14142,6 +14187,16 @@ public partial class SemanticModel
         ValidateSyntaxNode(parameterSyntax, nameof(parameterSyntax));
 
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
+        EnsureContainingFreestandingMacroReplacementSyntax(parameterSyntax);
+        if (TryGetMacroReplacementSyntax(parameterSyntax, out var macroReplacement) &&
+            macroReplacement is ParameterSyntax replacementParameter &&
+            !ReferenceEquals(replacementParameter, parameterSyntax))
+        {
+            return GetFunctionExpressionParameterSymbolCore(
+                replacementParameter,
+                allowDeclaredSymbolFallback: true);
+        }
 
         return GetFunctionExpressionParameterSymbolCore(parameterSyntax, allowDeclaredSymbolFallback: true);
     }
