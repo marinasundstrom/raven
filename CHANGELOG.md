@@ -51,6 +51,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added cursor-based single-member parsing without weakening exact-whole-region
   member validation.
 
+- Added a parse-result source-provenance overload for mapping generated macro
+  syntax back to its authored fragment.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

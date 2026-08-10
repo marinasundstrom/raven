@@ -25,6 +25,25 @@ public sealed class TokenTreeMacroContextTests
     }
 
     [Fact]
+    public void WithOrigin_UsesParsedFragmentSpan()
+    {
+        var context = CreateContext("prefix value + 1");
+        var sourceSpan = BodySpanOf(context, "value + 1");
+        var source = context.ParseExpressionResult(sourceSpan);
+        var generated = SyntaxFactory.ParseExpression("Build()")!;
+
+        var mapped = context.WithOrigin(generated, source);
+
+        Assert.True(MacroSyntaxOrigin.TryGetSourceSpan(
+            mapped,
+            context.Syntax.SyntaxTree!,
+            out var mappedSpan));
+        Assert.Equal(
+            new TextSpan(context.BodySpan.Start + sourceSpan.Start, sourceSpan.Length),
+            mappedSpan);
+    }
+
+    [Fact]
     public void ParseTypeResult_ParsesSelectedSourceBackedSpan()
     {
         var context = CreateContext("type {{ string? }}");

@@ -176,6 +176,14 @@ var symbolInfo = context.GetSymbolInfo(parsed.Syntax);
 These helpers see caller locals, parameters, members, and imports through the
 compiler-owned semantic model used by expansion.
 
+When a parsed fragment is transformed into generated syntax, map the result
+back to the whole parsed source with the parse-result overload:
+
+```csharp
+var generated = BuildExpansion(parsed.Syntax);
+generated = context.WithOrigin(generated, parsed);
+```
+
 Macro contexts accumulate diagnostics through the ordinary
 `ReportDiagnostic` and `ReportDiagnostics` APIs. This deliberately avoids a
 separate diagnostic statement in the language. `expand` supplies the final

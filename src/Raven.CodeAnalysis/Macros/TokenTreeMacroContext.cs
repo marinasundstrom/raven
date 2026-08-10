@@ -304,6 +304,20 @@ public class TokenTreeMacroContext : MacroContext
     }
 
     /// <summary>
+    /// Associates generated Raven syntax with the authored span represented by
+    /// a parsed macro fragment.
+    /// </summary>
+    public TSyntax WithOrigin<TSyntax, TSourceSyntax>(
+        TSyntax syntax,
+        MacroSyntaxParseResult<TSourceSyntax> source)
+        where TSyntax : SyntaxNode
+        where TSourceSyntax : SyntaxNode
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return WithOrigin(syntax, source.BodyRelativeSpan);
+    }
+
+    /// <summary>
     /// Associates spans in generated Raven syntax with authored spans in this
     /// macro's token-tree body. Each mapping is one-to-one so offsets within a
     /// mapped syntax node retain their authored positions.
