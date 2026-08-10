@@ -31,6 +31,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `Raven.Macros`, preserving its expression-fragment completion, hover,
   diagnostics, and `Where`/`Select` expansion behavior.
 
+- Added a Playground example that composes the standard `query!`, `quote!`,
+  `#[Error]`, and `#[ErrorMessage]` macros in a runnable WebAssembly program.
+
 - Hardened macro-reference activation so provider-construction failures report
   the provider type and underlying error through `RAVM001`, remain stable across
   repeated diagnostics, and do not disable macros from healthy references.

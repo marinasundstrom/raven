@@ -24,6 +24,12 @@
     "category": "Metaprogramming"
   },
   {
+    "id": "built-in-macros",
+    "title": "Compose programs with built-in macros",
+    "file": "built-in-macros.rvn",
+    "category": "Metaprogramming"
+  },
+  {
     "id": "delivery-status",
     "title": "Delivery pricing with domain types",
     "file": "delivery-status.rvn",
