@@ -428,6 +428,55 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroReference_ThrowingProvider_ReportsStableLoadDiagnosticAndKeepsOtherReferencesActive()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import System.*
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(ThrowingMacro))]
+
+            class ThrowingMacro : IAttachedDeclarationMacro {
+                init() {
+                    throw InvalidOperationException("provider construction failed")
+                }
+
+                val Name: string => "Throwing"
+                val Targets: MacroTarget => MacroTarget.Type
+
+                func Expand(context: AttachedMacroContext) -> MacroExpansionResult
+                    => MacroExpansionResult.Empty
+            }
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText("""
+                import Raven.CodeAnalysis.Tests.Macros.*
+
+                #[AddEquatable]
+                class Customer {}
+                """))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(
+                MacroReference.CreateFromImage(macroImage, "throwing provider assembly"),
+                new MacroReference(typeof(TestAttachedMacro)));
+
+        var firstDiagnostics = compilation.GetDiagnostics();
+        var secondDiagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(
+            firstDiagnostics,
+            static diagnostic => diagnostic.Id == "RAVM001");
+
+        Assert.Contains("ThrowingMacro", diagnostic.GetMessage());
+        Assert.Contains("provider construction failed", diagnostic.GetMessage());
+        Assert.DoesNotContain(firstDiagnostics, static diagnostic => diagnostic.Id == "RAVM010");
+        Assert.Equal(
+            firstDiagnostics.Select(static diagnostic => diagnostic.ToString()),
+            secondDiagnostics.Select(static diagnostic => diagnostic.ToString()));
+    }
+
+    [Fact]
     public void MacroReference_FromImage_RejectsEmptyAssembly()
     {
         var ex = Assert.Throws<System.ArgumentException>(() => MacroReference.CreateFromImage([]));

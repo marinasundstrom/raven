@@ -174,8 +174,29 @@ public sealed class MacroReference
         }
 
         return () => new MacroSnapshot(
-            [(IMacroDefinition)Activator.CreateInstance(exportedType)!],
+            [CreateMacroInstance(exportedType)],
             LoadContext: null);
+    }
+
+    private static IMacroDefinition CreateMacroInstance(Type macroType)
+    {
+        try
+        {
+            return (IMacroDefinition)Activator.CreateInstance(macroType)!;
+        }
+        catch (Exception exception)
+        {
+            var failure = exception;
+            while (failure is TargetInvocationException { InnerException: not null } invocationException)
+                failure = invocationException.InnerException;
+
+            var detail = string.IsNullOrWhiteSpace(failure.Message)
+                ? failure.GetType().Name
+                : failure.Message;
+            throw new InvalidOperationException(
+                $"Macro provider '{macroType.FullName ?? macroType.Name}' could not be created: {detail}",
+                failure);
+        }
     }
 
     private static MacroAssemblyExports GetExports(
@@ -254,7 +275,7 @@ public sealed class MacroReference
         public MacroSnapshot CreateSnapshot()
             => new(
                 MacroTypes
-                    .Select(static macroType => (IMacroDefinition)Activator.CreateInstance(macroType)!)
+                    .Select(CreateMacroInstance)
                     .ToImmutableArray(),
                 LoadContext);
     }

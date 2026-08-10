@@ -17,6 +17,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   implement `System.IError` and supplies a case-aware `Message` property unless
   the union already declares one.
 
+- Hardened macro-reference activation so provider-construction failures report
+  the provider type and underlying error through `RAVM001`, remain stable across
+  repeated diagnostics, and do not disable macros from healthy references.
+
 - Completed boxing and unboxing conversion classification between value types
   and interfaces they implement. This makes struct union carriers usable
   through their declared interfaces from Raven source, not only in emitted CLR
