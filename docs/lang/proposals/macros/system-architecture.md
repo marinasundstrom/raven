@@ -411,6 +411,40 @@ The compiler must guard against re-entrant requests for the expansion currently
 being produced. A diagnostic is preferable to deadlock, recursion, or a
 partially bound answer.
 
+### Raven-facing result shapes and bootstrap layering
+
+The compiler-wide policy is documented in
+[Desired Compiler API result shapes after bootstrap](../../../compiler/api/result-shapes.md).
+Macro APIs should apply that policy rather than define a separate result model.
+
+The long-term Raven-authored API should look like Raven rather than merely
+transliterating nullable C# contracts. Once the compiler bootstrap can consume
+these types without introducing a `Raven.Core` build cycle, use:
+
+* `Option<T>` when the only distinction is presence or absence;
+* `Result<T, TError>` for one expected success/failure boundary;
+* a purpose-built union when callers must handle several meaningful outcomes;
+  and
+* nested or payload unions when an advanced result needs structured failure or
+  continuation data.
+
+These shapes remain ordinary .NET ABI types and are consumable from C#. They
+make exhaustive Raven pattern matching the primary authoring experience while
+preserving normal interop. Exceptions remain appropriate for violated API
+invariants, cancellation, and unexpected macro-host failures—not expected
+input rejection.
+
+Bootstrap dependencies are an implementation constraint, not the desired API
+model. Transitional compiler-layer methods may therefore return nullable
+references or result records. Raven-authored facades can project those shapes
+to unions first; after bootstrapping permits it, the owning APIs should migrate
+without retaining parallel nullable contracts solely for compatibility.
+
+Not every diagnostic-bearing parser is a binary `Result`: recovered syntax and
+diagnostics can coexist. Such APIs should use a purpose-built result or union
+whose cases preserve recovery data rather than discarding it to force an
+`Ok`/`Error` split.
+
 ### Expansion result
 
 ```csharp
@@ -456,9 +490,26 @@ MacroSyntaxParseResult<CompilationUnitSyntax> ParseCompilationUnitResult(TextSpa
 ```
 
 Every result contains recovered syntax, immutable native parser diagnostics,
-and `HasErrors`. Complete-fragment APIs reject unexplained trailing input.
+`HasErrors`, and the actual body-relative syntax span. Complete-fragment APIs
+reject unexplained trailing input.
 Convenience methods may return syntax directly, but examples should use the
 diagnostic-bearing result whenever authored input can be invalid.
+
+The default token stream is also a parser cursor:
+
+```csharp
+MacroSyntaxParseResult<ExpressionSyntax> ParseExpression();
+MacroSyntaxParseResult<StatementSyntax> ParseStatement();
+MacroSyntaxParseResult<TypeSyntax> ParseType();
+MacroSyntaxParseResult<PatternSyntax> ParsePattern();
+```
+
+These cursor methods begin at the current token, let Raven's grammar determine
+the construct boundary, return its body-relative span, and advance through the
+consumed tokens. Explicit-span parsing remains the advanced escape hatch when
+the outer DSL owns a boundary that Raven grammar cannot infer unambiguously.
+Custom token providers retain the same cursor surface because the compiler
+wraps their `IMacroTokenStream` in the context-bound `MacroTokenStream`.
 
 Parsing an arbitrary generated string is also useful and should be supported:
 
@@ -508,7 +559,8 @@ The toolbox should eventually include:
 
 * structural and source printers;
 * a “factory form” printer similar in purpose to `RavenQuoter`;
-* node-kind assertions that return diagnostics in production paths;
+* node-kind assertions that return diagnostics in production paths
+  (`MacroContext.RequireSyntax<TSyntax>` now provides the first such helper);
 * `GetDeclaredSymbol`, `GetSymbolInfo`, `GetTypeInfo`, and operations for
   source-backed Raven fragments;
 * helpers to inspect declarations, attributes, parameters, and generic

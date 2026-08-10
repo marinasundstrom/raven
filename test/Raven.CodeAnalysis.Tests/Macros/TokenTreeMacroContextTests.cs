@@ -36,7 +36,68 @@ public sealed class TokenTreeMacroContextTests
 
         Assert.False(result.HasErrors);
         Assert.IsType<NullableTypeSyntax>(result.Syntax);
+        Assert.Equal(span, result.BodyRelativeSpan);
         Assert.Equal(context.BodySpan.Start + start, result.Syntax.Span.Start);
+    }
+
+    [Fact]
+    public void ParseExpression_ConsumesOneFragmentFromCurrentStreamPosition()
+    {
+        var context = CreateContext("from 40 + 2 select");
+        var stream = context.CreateTokenStream();
+        Assert.Equal("from", stream.ReadToken().ValueText);
+
+        var result = stream.ParseExpression();
+
+        Assert.False(result.HasErrors);
+        Assert.Equal("40 + 2", result.Syntax.ToString());
+        Assert.Equal(BodySpanOf(context, "40 + 2"), result.BodyRelativeSpan);
+        Assert.Equal("select", stream.PeekToken().ValueText);
+    }
+
+    [Fact]
+    public void ParseStatement_ConsumesOneFragmentFromCurrentStreamPosition()
+    {
+        var context = CreateContext("do return 42 then");
+        var stream = context.CreateTokenStream();
+        Assert.Equal("do", stream.ReadToken().ValueText);
+
+        var result = stream.ParseStatement();
+
+        Assert.False(result.HasErrors);
+        Assert.IsType<ReturnStatementSyntax>(result.Syntax);
+        Assert.Equal(BodySpanOf(context, "return 42"), result.BodyRelativeSpan);
+        Assert.Equal("then", stream.PeekToken().ValueText);
+    }
+
+    [Fact]
+    public void ParseType_ConsumesOneFragmentFromCurrentStreamPosition()
+    {
+        var context = CreateContext("as Dictionary<string, int> then");
+        var stream = context.CreateTokenStream();
+        Assert.Equal("as", stream.ReadToken().ValueText);
+
+        var result = stream.ParseType();
+
+        Assert.False(result.HasErrors);
+        Assert.Equal("Dictionary<string, int>", result.Syntax.ToString());
+        Assert.Equal(BodySpanOf(context, "Dictionary<string, int>"), result.BodyRelativeSpan);
+        Assert.Equal("then", stream.PeekToken().ValueText);
+    }
+
+    [Fact]
+    public void ParsePattern_ConsumesOneFragmentFromCurrentStreamPosition()
+    {
+        var context = CreateContext("case let value then");
+        var stream = context.CreateTokenStream();
+        Assert.Equal("case", stream.ReadToken().ValueText);
+
+        var result = stream.ParsePattern();
+
+        Assert.False(result.HasErrors);
+        Assert.IsType<VariablePatternSyntax>(result.Syntax);
+        Assert.Equal(BodySpanOf(context, "let value"), result.BodyRelativeSpan);
+        Assert.Equal("then", stream.PeekToken().ValueText);
     }
 
     [Fact]
@@ -166,6 +227,50 @@ public sealed class TokenTreeMacroContextTests
         Assert.Equal(expected, context.CreateUniqueName(hint));
     }
 
+    [Fact]
+    public void RequireSyntax_ReturnsMatchingNodeWithoutDiagnostic()
+    {
+        var context = CreateContext("value + 1");
+        var expression = context.ParseExpression();
+
+        var required = context.RequireSyntax<ExpressionSyntax>(expression);
+
+        Assert.Same(expression, required);
+        Assert.Empty(context.GetReportedMacroDiagnostics());
+    }
+
+    [Fact]
+    public void RequireSyntax_ReportsMismatchAtAuthoredNode()
+    {
+        var context = CreateContext("class Widget { }");
+        var compilationUnit = context.ParseCompilationUnit();
+
+        var required = context.RequireSyntax<ExpressionSyntax>(compilationUnit);
+
+        Assert.Null(required);
+        var diagnostic = Assert.Single(context.GetReportedMacroDiagnostics());
+        Assert.Equal("Expected ExpressionSyntax, but found CompilationUnit.", diagnostic.Message);
+        Assert.Equal(compilationUnit.Span, diagnostic.Location!.SourceSpan);
+    }
+
+    [Fact]
+    public void RequireSyntax_UsesInvocationForDetachedSyntax()
+    {
+        var context = CreateContext(string.Empty);
+        var detached = SyntaxFactory.ParseCompilationUnit("class Widget { }");
+
+        var required = context.RequireSyntax<ExpressionSyntax>(
+            detached,
+            "An expression is required.",
+            "TEST001");
+
+        Assert.Null(required);
+        var diagnostic = Assert.Single(context.GetReportedMacroDiagnostics());
+        Assert.Equal("An expression is required.", diagnostic.Message);
+        Assert.Equal("TEST001", diagnostic.Code);
+        Assert.Equal(context.Syntax.TokenTree!.Span, diagnostic.Location!.SourceSpan);
+    }
+
     private static TokenTreeMacroContext CreateContext(string body)
     {
         var tree = SyntaxTree.ParseText($"func Main() -> unit => probe! {{ {body} }}");
@@ -183,5 +288,12 @@ public sealed class TokenTreeMacroContextTests
             compilation,
             compilation.GetSemanticModel(tree),
             invocation);
+    }
+
+    private static TextSpan BodySpanOf(TokenTreeMacroContext context, string text)
+    {
+        var start = context.GetBodyText().IndexOf(text, StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        return new TextSpan(start, text.Length);
     }
 }

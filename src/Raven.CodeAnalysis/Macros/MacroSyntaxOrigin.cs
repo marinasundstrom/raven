@@ -134,6 +134,20 @@ internal static class MacroSyntaxOrigin
         return sourceTree is not null && sourceSpan.End <= sourceTree.GetText().Length;
     }
 
+    public static bool TryGetSourceSpan(
+        SyntaxNode syntax,
+        SyntaxTree expectedSourceTree,
+        out TextSpan sourceSpan)
+    {
+        sourceSpan = default;
+
+        var annotation = syntax.GetAnnotation(AuthoredOriginKind);
+        return annotation?.Data is { } data &&
+            TryDecode(data, out var filePath, out sourceSpan) &&
+            PathsEqual(expectedSourceTree.FilePath, filePath) &&
+            sourceSpan.End <= expectedSourceTree.GetText().Length;
+    }
+
     private static TSyntax Rewrite<TSyntax>(
         TSyntax syntax,
         Func<TextSpan, TextSpan?> mapSpan,

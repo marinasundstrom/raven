@@ -102,7 +102,7 @@ public class TokenTreeMacroContext : MacroContext
     public string GetBodyText()
         => TokenTree.OpenBraceToken.TrailingTrivia + TokenTree.BodyToken.Text;
 
-    public IMacroTokenStream CreateTokenStream()
+    public MacroTokenStream CreateTokenStream()
     {
         var context = new MacroTokenStreamContext(
             GetBodyText(),
@@ -110,11 +110,11 @@ public class TokenTreeMacroContext : MacroContext
             Syntax.SyntaxTree?.Options ?? new ParseOptions(),
             CancellationToken);
 
-        if (_tokenStreamProvider is null)
-            return new RavenMacroTokenStream(context, _keywords);
-
-        return _tokenStreamProvider.CreateTokenStream(context)
-            ?? throw new InvalidOperationException("The macro token-stream provider returned null.");
+        var inner = _tokenStreamProvider is null
+            ? new RavenMacroTokenStream(context, _keywords)
+            : _tokenStreamProvider.CreateTokenStream(context)
+                ?? throw new InvalidOperationException("The macro token-stream provider returned null.");
+        return new MacroTokenStream(this, inner);
     }
 
     /// <summary>
@@ -342,6 +342,17 @@ public class TokenTreeMacroContext : MacroContext
         => ParseSyntaxResult<ExpressionSyntax>(
             GetBodyText(),
             bodyRelativeSpan,
+            consumeFullText: true,
+            static () => new ExpressionSyntax.Missing());
+
+    /// <summary>
+    /// Parses one Raven expression at the token stream's current position and
+    /// advances the stream through the parsed expression.
+    /// </summary>
+    internal MacroSyntaxParseResult<ExpressionSyntax> ParseExpression(
+        IMacroTokenStream stream)
+        => ParseSyntaxFromStream<ExpressionSyntax>(
+            stream,
             static () => new ExpressionSyntax.Missing());
 
     internal MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(string bodyText)
@@ -353,6 +364,7 @@ public class TokenTreeMacroContext : MacroContext
         return ParseSyntaxResult<ExpressionSyntax>(
             bodyText,
             new TextSpan(0, bodyText.Length),
+            consumeFullText: true,
             static () => new ExpressionSyntax.Missing());
     }
 
@@ -369,6 +381,17 @@ public class TokenTreeMacroContext : MacroContext
         => ParseSyntaxResult<StatementSyntax>(
             GetBodyText(),
             bodyRelativeSpan,
+            consumeFullText: true,
+            static () => SyntaxFactory.ExpressionStatement(new ExpressionSyntax.Missing()));
+
+    /// <summary>
+    /// Parses one Raven statement at the token stream's current position and
+    /// advances the stream through the parsed statement.
+    /// </summary>
+    internal MacroSyntaxParseResult<StatementSyntax> ParseStatement(
+        IMacroTokenStream stream)
+        => ParseSyntaxFromStream<StatementSyntax>(
+            stream,
             static () => SyntaxFactory.ExpressionStatement(new ExpressionSyntax.Missing()));
 
     public TypeSyntax ParseType()
@@ -384,6 +407,17 @@ public class TokenTreeMacroContext : MacroContext
         => ParseSyntaxResult<TypeSyntax>(
             GetBodyText(),
             bodyRelativeSpan,
+            consumeFullText: true,
+            static () => SyntaxFactory.ParseType(string.Empty));
+
+    /// <summary>
+    /// Parses one Raven type at the token stream's current position and
+    /// advances the stream through the parsed type.
+    /// </summary>
+    internal MacroSyntaxParseResult<TypeSyntax> ParseType(
+        IMacroTokenStream stream)
+        => ParseSyntaxFromStream<TypeSyntax>(
+            stream,
             static () => SyntaxFactory.ParseType(string.Empty));
 
     public PatternSyntax ParsePattern()
@@ -399,6 +433,17 @@ public class TokenTreeMacroContext : MacroContext
         => ParseSyntaxResult<PatternSyntax>(
             GetBodyText(),
             bodyRelativeSpan,
+            consumeFullText: true,
+            static () => SyntaxFactory.ParsePattern(string.Empty));
+
+    /// <summary>
+    /// Parses one Raven pattern at the token stream's current position and
+    /// advances the stream through the parsed pattern.
+    /// </summary>
+    internal MacroSyntaxParseResult<PatternSyntax> ParsePattern(
+        IMacroTokenStream stream)
+        => ParseSyntaxFromStream<PatternSyntax>(
+            stream,
             static () => SyntaxFactory.ParsePattern(string.Empty));
 
     public CompilationUnitSyntax ParseCompilationUnit()
@@ -414,6 +459,7 @@ public class TokenTreeMacroContext : MacroContext
         => ParseSyntaxResult<CompilationUnitSyntax>(
             GetBodyText(),
             bodyRelativeSpan,
+            consumeFullText: true,
             static () => SyntaxFactory.ParseCompilationUnit(string.Empty));
 
     public MemberDeclarationSyntax ParseMemberDeclaration()
@@ -440,8 +486,12 @@ public class TokenTreeMacroContext : MacroContext
 
         if (isSingleMemberDeclaration)
         {
+            var member = members[0];
+            var memberSpan = GetBodyRelativeSpan(member);
             return new MacroSyntaxParseResult<MemberDeclarationSyntax>(
-                members[0],
+                member,
+                memberSpan,
+                memberSpan.End,
                 compilationUnitResult.Diagnostics);
         }
 
@@ -456,13 +506,19 @@ public class TokenTreeMacroContext : MacroContext
         var diagnostics = compilationUnitResult.Diagnostics.Add(Diagnostic.Create(
             s_expectedSingleMemberDeclaration,
             diagnosticLocation));
+        var recoveredSpan = GetBodyRelativeSpan(recoveredMember);
 
-        return new MacroSyntaxParseResult<MemberDeclarationSyntax>(recoveredMember, diagnostics);
+        return new MacroSyntaxParseResult<MemberDeclarationSyntax>(
+            recoveredMember,
+            recoveredSpan,
+            recoveredSpan.End,
+            diagnostics);
     }
 
     private MacroSyntaxParseResult<TSyntax> ParseSyntaxResult<TSyntax>(
         string bodyText,
         TextSpan bodyRelativeSpan,
+        bool consumeFullText,
         Func<TSyntax> createMissingSyntax)
         where TSyntax : SyntaxNode
     {
@@ -479,7 +535,7 @@ public class TokenTreeMacroContext : MacroContext
             typeof(TSyntax),
             sourceText,
             absoluteStart,
-            consumeFullText: true);
+            consumeFullText);
         var syntax = parseResult?.Root.CreateRed(parent: null, position: absoluteStart) as TSyntax
             ?? createMissingSyntax();
         syntax = MacroSyntaxOrigin.AttachParsedOrigin(syntax, Syntax.SyntaxTree);
@@ -491,7 +547,58 @@ public class TokenTreeMacroContext : MacroContext
             .ToImmutableArray()
             ?? ImmutableArray<Diagnostic>.Empty;
 
-        return new MacroSyntaxParseResult<TSyntax>(syntax, diagnostics);
+        return new MacroSyntaxParseResult<TSyntax>(
+            syntax,
+            parseResult is null
+                ? new TextSpan(bodyRelativeSpan.Start, 0)
+                : GetBodyRelativeSpan(syntax),
+            parseResult is null
+                ? bodyRelativeSpan.Start
+                : Math.Clamp(
+                    parseResult.Value.ConsumedPosition - BodySpan.Start,
+                    bodyRelativeSpan.Start,
+                    bodyRelativeSpan.End),
+            diagnostics);
+    }
+
+    private MacroSyntaxParseResult<TSyntax> ParseSyntaxFromStream<TSyntax>(
+        IMacroTokenStream stream,
+        Func<TSyntax> createMissingSyntax)
+        where TSyntax : SyntaxNode
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var start = stream.IsEndOfFile
+            ? BodySpan.Length
+            : stream.PeekToken().SpanStart;
+        var result = ParseSyntaxResult<TSyntax>(
+            GetBodyText(),
+            GetRemainingBodySpan(start),
+            consumeFullText: false,
+            createMissingSyntax);
+        AdvanceStreamThrough(stream, result.ConsumedBodyRelativeEnd);
+        return result;
+    }
+
+    private static void AdvanceStreamThrough(IMacroTokenStream stream, int bodyRelativeEnd)
+    {
+        while (!stream.IsEndOfFile && stream.PeekToken().SpanStart < bodyRelativeEnd)
+            stream.ReadToken();
+    }
+
+    private TextSpan GetRemainingBodySpan(int bodyRelativeStart)
+    {
+        if (bodyRelativeStart < 0 || bodyRelativeStart > BodySpan.Length)
+            throw new ArgumentOutOfRangeException(nameof(bodyRelativeStart));
+
+        return new TextSpan(bodyRelativeStart, BodySpan.Length - bodyRelativeStart);
+    }
+
+    private TextSpan GetBodyRelativeSpan(SyntaxNode syntax)
+    {
+        var start = Math.Clamp(syntax.Span.Start - BodySpan.Start, 0, BodySpan.Length);
+        var end = Math.Clamp(syntax.Span.End - BodySpan.Start, start, BodySpan.Length);
+        return TextSpan.FromBounds(start, end);
     }
 
     private void ValidateBodyRelativeSpan(TextSpan bodyRelativeSpan)

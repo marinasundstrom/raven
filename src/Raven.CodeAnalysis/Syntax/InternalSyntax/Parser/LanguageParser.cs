@@ -4,7 +4,10 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-internal readonly record struct ParseResult(SyntaxNode Root, IReadOnlyList<DiagnosticInfo> Diagnostics);
+internal readonly record struct ParseResult(
+    SyntaxNode Root,
+    IReadOnlyList<DiagnosticInfo> Diagnostics,
+    int ConsumedPosition);
 
 internal class LanguageParser
 {
@@ -26,7 +29,7 @@ internal class LanguageParser
 
         var parseContext = new BaseParseContext(lexer, Options);
         var root = new CompilationUnitSyntaxParser(parseContext).Parse();
-        return new ParseResult(root, parseContext.Diagnostics);
+        return new ParseResult(root, parseContext.Diagnostics, parseContext.Position);
     }
 
     public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
@@ -59,7 +62,7 @@ internal class LanguageParser
 
             return root is null
                 ? null
-                : new ParseResult(root, parseContext.Diagnostics);
+                : new ParseResult(root, parseContext.Diagnostics, parseContext.Position);
         }
         catch (NotSupportedException)
         {

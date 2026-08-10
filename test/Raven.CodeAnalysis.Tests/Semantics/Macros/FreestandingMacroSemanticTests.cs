@@ -390,6 +390,52 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void RavenAuthoredMacro_CanRequireSyntaxCategoryWithoutThrowing()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+            import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+            macro Validate(context: TokenTreeMacroContext) {
+                let syntax = context.ParseCompilationUnit()
+                let expression = context.RequireSyntax<ExpressionSyntax>(
+                    syntax,
+                    "Expected an expression body.",
+                    "VALIDATE001")
+                expand ParseExpression("0")
+            }
+
+            func Main() -> int => Validate! {
+                class Widget {}
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "SyntaxCategoryValidation",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("0", expansion!.Expression!.ToString());
+        var diagnostic = Assert.Single(expansion.MacroDiagnostics);
+        Assert.Equal("Expected an expression body.", diagnostic.Message);
+        Assert.Equal("VALIDATE001", diagnostic.Code);
+        Assert.Equal(
+            "class Widget {}",
+            consumerTree.GetText().ToString(diagnostic.Location!.SourceSpan).Trim());
+    }
+
+    [Fact]
     public void MarkedLocalMacroDeclaration_CanShareTreeWithConsumer()
     {
         var sourceTree = SyntaxTree.ParseText(

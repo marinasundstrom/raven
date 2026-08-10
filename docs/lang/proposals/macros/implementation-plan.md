@@ -1359,6 +1359,40 @@ definition-site versus call-site lookup. Those semantic facilities remain a
 later slice and must be designed before declaration and statement quotation is
 stabilized.
 
+### Diagnostic-first syntax category requirements
+
+Status: **implemented**
+
+All macro contexts expose `RequireSyntax<TSyntax>`. It returns the original
+typed node on success; on mismatch it accumulates a macro error and returns
+`null` instead of throwing. Source-backed fragments use their authored origin
+for the diagnostic, while detached generated nodes fall back to the invocation.
+
+The nullable result is transitional while `Raven.CodeAnalysis` cannot depend
+on Raven's bootstrapped core unions. The intended Raven-facing projection is
+`Option<TSyntax>` for this two-state helper. Richer helpers should use
+`Result<T, TError>` or purpose-built unions when distinct failure/recovery
+cases add value, rather than accumulating ad hoc nullable fields.
+
+### Cursor-based Raven fragment parsing
+
+Status: **implemented for expressions, statements, types, and patterns**
+
+`TokenTreeMacroContext.CreateTokenStream()` now returns a context-bound
+`MacroTokenStream` that retains ordinary token cursor operations and adds
+`ParseExpression`, `ParseStatement`, `ParseType`, and `ParsePattern`. Each
+method parses at the current token, advances through the construct, and returns
+`MacroSyntaxParseResult<TSyntax>` with recovered syntax, diagnostics, and its
+`BodyRelativeSpan`. Stream synchronization uses the parser's consumed position
+internally, so error recovery can advance safely without misrepresenting the
+recovered node's own span.
+
+The existing complete-body and explicit-`TextSpan` APIs remain available.
+Explicit spans are required when an outer DSL delimiter could also be consumed
+as Raven syntax. Compilation units inherently consume their selected input;
+single-member cursor parsing remains a later parser-entry-point slice rather
+than selecting the first declaration from a full compilation-unit parse.
+
 ### Additional expansion positions
 
 Add compiler-known invocation carriers plus typed contracts for statement and

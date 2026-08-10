@@ -119,6 +119,29 @@ macro Guard(context: TokenTreeMacroContext) {
 }
 ```
 
+For the common recursive-descent case, parse directly from the token stream's
+current position:
+
+```raven
+let stream = context.CreateTokenStream()
+let clauseKeyword = stream.ReadToken()
+let expression = stream.ParseExpression()
+
+context.ReportDiagnostics(expression.Diagnostics)
+let expressionSpan = expression.BodyRelativeSpan
+```
+
+`ParseExpression`, `ParseStatement`, `ParseType`, and `ParsePattern` parse one
+Raven construct, advance the stream through it, and return recovered syntax,
+diagnostics, and the body-relative span chosen by Raven's parser. The same
+cursor still exposes `PeekToken`, `ReadToken`, and `IsEndOfFile`, so the outer
+DSL can continue with its next clause.
+
+Use the explicit `TextSpan` result overload when the outer DSL owns a delimiter
+that is ambiguous in Raven grammar—for example, when a following DSL operator
+could also continue a Raven expression. Cursor parsing is the convenient path,
+not a reason to guess through an ambiguous language boundary.
+
 The diagnostic-bearing parsers return recovered syntax and native parser
 diagnostics mapped to the authored invocation:
 
@@ -134,6 +157,12 @@ diagnostics mapped to the authored invocation:
 Selected spans are relative to the macro body. The member parser diagnoses
 empty input, multiple declarations, global statements, and compilation-unit
 content rather than silently choosing a node.
+
+Every `MacroSyntaxParseResult<TSyntax>` also exposes `BodyRelativeSpan`. For an
+explicit-span parse this is the actual node span inside the selected region;
+for a cursor parse it is likewise the recovered node's actual span. The stream
+tracks the parser's consumed position separately so recovery tokens can still
+advance the cursor safely without widening the node span reported to authors.
 
 Macro contexts accumulate diagnostics through the ordinary
 `ReportDiagnostic` and `ReportDiagnostics` APIs. This deliberately avoids a
@@ -162,6 +191,30 @@ both declares and references. It does not choose definition-site or call-site
 lookup for a constructed reference. Keep caller-authored references as
 source-backed/spliced syntax until Raven's broader hygiene model supplies
 explicit APIs for those lookup choices.
+
+### Validate syntax shapes without exceptions
+
+When a transformation accepts a broad syntax node but requires a narrower
+shape, use `RequireSyntax`:
+
+```raven
+if let expression: ExpressionSyntax =
+    context.RequireSyntax<ExpressionSyntax>(node, "Expected an expression.") {
+    // Transform expression.
+}
+```
+
+A matching node is returned unchanged. A mismatch reports an error at the
+authored node and returns `null`; detached generated syntax falls back to the
+macro invocation. This keeps invalid input on the diagnostic path and allows
+the macro to recover or end without destabilizing the compiler or language
+server.
+
+The nullable return is a bootstrap-era compiler API shape. Raven's eventual
+authoring facade should project simple absence to `Option<TSyntax>`, binary
+failure to `Result`, and genuinely multi-case outcomes to purpose-built unions.
+Those union types remain consumable from C# while giving Raven authors normal
+exhaustive matching.
 
 ## 5. Report precise diagnostics
 

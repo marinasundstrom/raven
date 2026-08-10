@@ -28,10 +28,13 @@ DSL:
    `MacroFragmentKind.Expression`. The compiler maps it to the authored file,
    allowing normal expression highlighting, hover, completion, and future
    tooling inside the DSL without learning the guard grammar.
-3. `ParseExpressionResult(conditionSpan)` parses precisely that span with
-   Raven's parser. Recovered syntax and native diagnostics already point back
-   to the invocation, so malformed conditions are reported where they were
-   written.
+3. `stream.ParseExpression()` delegates to Raven's parser at the stream's
+   current token, advances through the parsed expression, and returns both the
+   recovered syntax and its body-relative span. Native diagnostics already
+   point back to the invocation, so malformed conditions are reported where
+   they were written. The sample then requires end-of-stream because its
+   expression owns the rest of the body; a multi-clause DSL would continue
+   reading its next keyword instead.
 4. The parsed `condition.Syntax` is inserted into the generated prefix
    expression. Parsed executable fragments retain their authored origin for
    portable-PDB sequence points; the generated negation plumbing remains

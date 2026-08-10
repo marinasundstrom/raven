@@ -40,6 +40,7 @@
           "compiler/raven-vscode-extension.md",
           "compiler/distribution.md",
           "compiler/api/README.md",
+          "compiler/api/result-shapes.md",
           "compiler/api/performance.md",
           "compiler/api/operations.md",
           "compiler/api/semantic-analysis.md",

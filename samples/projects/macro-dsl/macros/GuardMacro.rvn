@@ -25,11 +25,11 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
             return []
         }
 
-        let conditionSpan = TextSpan.FromBounds(
-            unlessKeyword.Span.End,
-            context.BodySpan.Length)
+        let condition = stream.ParseExpression()
 
-        [context.CreateFragmentRegion(MacroFragmentKind.Expression, conditionSpan)]
+        [context.CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            condition.BodyRelativeSpan)]
     }
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
@@ -49,12 +49,16 @@ class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider, IMacroFragm
                 "Expected a Raven expression after 'unless'.")
         }
 
-        let conditionSpan = TextSpan.FromBounds(
-            unlessKeyword.Span.End,
-            context.BodySpan.Length)
-        let condition = context.ParseExpressionResult(conditionSpan)
+        let condition = stream.ParseExpression()
         if condition.HasErrors {
             return FreestandingMacroExpansionResult.FromDiagnostics(condition.Diagnostics)
+        }
+        if !stream.IsEndOfFile {
+            let unexpectedToken = stream.PeekToken()
+            return Error(
+                context,
+                unexpectedToken.Span,
+                "Expected the Raven expression to end before '${unexpectedToken.Text}'.")
         }
 
         FreestandingMacroExpansionResult.FromExpression(

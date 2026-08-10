@@ -258,6 +258,13 @@ Adapters at those boundaries can project a nullable platform result into an
 idiomatic Raven carrier for internal use; they should not falsify the external
 contract merely to eliminate `null` from its signature.
 
+This does not require Raven-designed Compiler APIs to expose nullable C# shapes.
+`Option`, `Result`, and custom Raven unions are ordinary .NET ABI types and can
+be consumed from C#. After bootstrap, APIs owned by Raven should use those
+carriers when they express the outcome more precisely; platform projections
+should retain nullability only where it is part of the underlying contract. See
+[Desired Compiler API result shapes after bootstrap](../api/result-shapes.md).
+
 ## Findings from the current implementation
 
 The following are implementation findings, not conclusions drawn only from the

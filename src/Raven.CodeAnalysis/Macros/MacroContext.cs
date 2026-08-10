@@ -54,6 +54,42 @@ public abstract class MacroContext
         return candidate;
     }
 
+    /// <summary>
+    /// Requires a syntax node to have the requested shape, reporting a macro
+    /// diagnostic and returning <see langword="null"/> when it does not.
+    /// </summary>
+    public TSyntax? RequireSyntax<TSyntax>(
+        SyntaxNode syntax,
+        string? message = null,
+        string? code = null)
+        where TSyntax : SyntaxNode
+    {
+        ArgumentNullException.ThrowIfNull(syntax);
+
+        if (syntax is TSyntax expectedSyntax)
+            return expectedSyntax;
+
+        var diagnosticMessage = message ?? $"Expected {typeof(TSyntax).Name}, but found {syntax.Kind}.";
+        var sourceTree = _invocationSyntax.SyntaxTree;
+        if (sourceTree is not null &&
+            MacroSyntaxOrigin.TryGetSourceSpan(syntax, sourceTree, out var sourceSpan))
+        {
+            ReportDiagnostic(new MacroExpansionDiagnostic(
+                DiagnosticSeverity.Error,
+                diagnosticMessage,
+                sourceTree.GetLocation(sourceSpan),
+                code));
+        }
+        else
+        {
+            var diagnosticSyntax = ReferenceEquals(syntax.SyntaxTree, sourceTree)
+                ? syntax
+                : null;
+            ReportDiagnostic(diagnosticMessage, syntax: diagnosticSyntax, code: code);
+        }
+        return null;
+    }
+
     public abstract MacroExpansionDiagnostic CreateDiagnostic(
         string message,
         DiagnosticSeverity severity = DiagnosticSeverity.Error,

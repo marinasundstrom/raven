@@ -25,6 +25,8 @@
   items:
     - name: Overview
       href: api/README.md
+    - name: Result shapes after bootstrap
+      href: api/result-shapes.md
     - name: Syntax trees
       href: api/syntax-tree.md
     - name: Semantic analysis

@@ -35,6 +35,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   names previously allocated by the same macro context, without conflating
   textual collision avoidance with future call-site/definition-site hygiene.
 
+- Added diagnostic-first `MacroContext.RequireSyntax<TSyntax>` validation for
+  macro transformations. Category mismatches now accumulate a source-located
+  error and return safely instead of requiring casts or exceptions, including
+  exact authored-origin locations for parsed DSL fragments.
+
+- Added cursor-based Raven fragment parsing to macro token streams. Macro
+  authors can parse one expression, statement, type, or pattern from the
+  current token, receive its recovered syntax and body-relative span, and
+  continue reading the outer DSL without precomputing an end span.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and
