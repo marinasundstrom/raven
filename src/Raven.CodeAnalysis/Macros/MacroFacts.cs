@@ -72,17 +72,12 @@ public static class MacroFacts
     /// <summary>
     /// Gets the grammar positions supported by an invocable macro.
     /// </summary>
-    /// <remarks>
-    /// Current class-authored invocable providers are expression providers.
-    /// Return-type projection will replace this compatibility projection when
-    /// multi-position macro declarations are enabled.
-    /// </remarks>
     public static MacroInvocationTargets GetInvocationTargets(IMacroDefinition macro)
     {
         ArgumentNullException.ThrowIfNull(macro);
 
         return GetApplicationKind(macro) == MacroApplicationKind.Invocable
-            ? MacroInvocationTargets.Expression
+            ? macro.InvocationTargets
             : MacroInvocationTargets.None;
     }
 

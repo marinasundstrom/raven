@@ -129,6 +129,11 @@ internal static class MacroLowering
             builder.AppendLine(
                 $"    val Alias: string? => \"{EscapeString(alias)}\"");
         }
+        if (!isAttached)
+        {
+            builder.AppendLine(
+                $"    val InvocationTargets: Raven.CodeAnalysis.Macros.MacroInvocationTargets => {GetInvocationTargetsExpression(symbol?.InvocationTargets ?? MacroInvocationTargets.Expression)}");
+        }
         if (isAttached)
         {
             builder.AppendLine(
@@ -315,6 +320,22 @@ internal static class MacroLowering
             candidate = $"{baseName}{++suffix}";
 
         return candidate;
+    }
+
+    private static string GetInvocationTargetsExpression(MacroInvocationTargets targets)
+    {
+        const string prefix = "Raven.CodeAnalysis.Macros.MacroInvocationTargets.";
+        if (targets == MacroInvocationTargets.None)
+            return prefix + nameof(MacroInvocationTargets.None);
+
+        return string.Join(
+            " | ",
+            Enum.GetValues<MacroInvocationTargets>()
+                .Where(static target =>
+                    target != MacroInvocationTargets.None &&
+                    ((int)target & ((int)target - 1)) == 0)
+                .Where(target => targets.HasFlag(target))
+                .Select(target => prefix + target));
     }
 
     private static bool EndsWithExpand(MacroDeclarationSyntax declaration)

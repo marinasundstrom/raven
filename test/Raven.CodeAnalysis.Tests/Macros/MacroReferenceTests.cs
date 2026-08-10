@@ -519,6 +519,16 @@ public sealed class MacroReferenceTests
         Assert.True(descriptor.HasTokenBody);
     }
 
+    [Fact]
+    public void MacroFacts_PreservesDeclaredInvocableTargets()
+    {
+        var macro = new MemberTargetMacro();
+        var expected = MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+
+        Assert.Equal(expected, MacroFacts.GetInvocationTargets(macro));
+        Assert.Equal(expected, MacroFacts.GetDescriptor(macro).InvocationTargets);
+    }
+
     public sealed class TestAttachedMacro : IAttachedDeclarationMacro
     {
         public string Name => "AddEquatable";
@@ -588,6 +598,17 @@ public sealed class MacroReferenceTests
 
         public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
             => InvocableMacroExpansionResult.Empty;
+    }
+
+    public sealed class MemberTargetMacro : ITokenTreeMacro
+    {
+        public string Name => "members";
+        public MacroInvocationTargets InvocationTargets =>
+            MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+
+        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => InvocableMacroExpansionResult.FromMembers(
+                SyntaxFactory.List<MemberDeclarationSyntax>());
     }
 
     public sealed class AmbiguousMacro : IAttachedDeclarationMacro, ITokenTreeMacro

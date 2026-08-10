@@ -97,6 +97,12 @@ declare a redundant `MacroTarget.None` property. Code that handles the common
 `IMacroDefinition` surface can use `MacroFacts.GetTargets`, which returns
 `MacroTarget.None` for non-attached definitions.
 
+Invocable applicability is expressed separately through
+`IMacroDefinition.InvocationTargets`. Class-authored providers default to
+expression position for compatibility and may opt into statement, namespace-
+member, or type-member positions. Compact declarations derive the same value
+from their return annotation, and their generated adapters preserve it.
+
 ## Attached macro syntax
 
 An attached macro uses a `#` directly followed by an attribute list:
@@ -355,6 +361,10 @@ Semantic expansion accepts declaration members there when the result selects a
 member or member list, and otherwise retains statement behavior. Generated
 namespace/file members participate in declaration lookup, binding, expanded
 documents, and emission; they are not preview-only syntax.
+For compact declarations, `SyntaxList<TMember>` is the list-valued return
+contract when `TMember` is `MemberDeclarationSyntax` or a subtype. It projects
+to namespace-member and type-member targets. `expand` copies the list into the
+normalized result without changing its order.
 `FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
 native-parser, or combined diagnostic results without requiring property
 initializers. `Empty` represents an explicit no-change result. Mutable

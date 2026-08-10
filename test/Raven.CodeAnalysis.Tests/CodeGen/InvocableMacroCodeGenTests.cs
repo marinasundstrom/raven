@@ -177,6 +177,61 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
+    public void CompactMacro_MemberListExpansion_IsEmitted()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro Generate(context: TokenTreeMacroContext) -> SyntaxList<MemberDeclarationSyntax> {
+                expand context.ParseCompilationUnit().Members
+            }
+
+            Generate! {
+                class Generated {
+                    static func Value() -> int => 20
+                }
+            }
+
+            class Harness {
+                Generate! {
+                    class Nested {
+                        static func Value() -> int => 22
+                    }
+                }
+
+                static func Run() -> int => Generated.Value() + Nested.Value()
+            }
+
+            func Main() {}
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "CompactMemberMacroConsumer",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var macro = Assert.Single(
+            compilation.GetMacroRegistry().GetMacros(MacroKind.Invocable),
+            static macro => macro.Name == "Generate");
+        Assert.Equal(
+            MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember,
+            MacroFacts.GetInvocationTargets(macro));
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+    }
+
+    [Fact]
     public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
     {
         var macroTree = SyntaxTree.ParseText("""
@@ -535,6 +590,7 @@ public sealed class InvocableMacroCodeGenTests
     public sealed class GeneratedMembersMacro : ITokenTreeMacro
     {
         public string Name => "generatedMembers";
+        public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.TypeMember;
 
         public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
@@ -551,6 +607,7 @@ public sealed class InvocableMacroCodeGenTests
     public sealed class GeneratedNamespaceMembersMacro : ITokenTreeMacro
     {
         public string Name => "generatedNamespaceMembers";
+        public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.NamespaceMember;
 
         public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
         {

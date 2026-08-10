@@ -106,6 +106,8 @@ The omitted return annotation is the compact expression-macro default. Write
 types select other grammar positions: `StatementSyntax` selects statement
 position, `ExpressionSyntax | StatementSyntax` permits either, and
 category-untyped `SyntaxNode` permits every supported single-node position.
+`SyntaxList<MemberDeclarationSyntax>` selects file, namespace, and type-member
+positions and permits zero or more declarations.
 The expanded node is then bound as ordinary Raven syntax, so its eventual value
 type comes from normal semantic analysis rather than the macro annotation.
 
@@ -358,14 +360,31 @@ returns `InvocableMacroExpansionResult`, which can carry syntax and
 diagnostics together. Use that lower-level form only when the compact
 declaration cannot project a required capability.
 
-When an invocable macro appears directly in a type body, return members with
-`InvocableMacroExpansionResult.FromMembers(...)`. The compiler preserves their
-order in the expanded document. Returning an explicitly empty member array
-removes the invocation; returning `Empty` leaves it in place as recoverable
-source. `FromNode(...)` may be used for exactly one member. The compiler reports
-`RAVM022` if the result is an expression or statement instead of a member, so a
-malformed provider cannot force the expanded document into an invalid syntax
-category.
+For compact declarations, return a syntax list when an invocation produces
+declarations:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+macro Generate(context: TokenTreeMacroContext)
+    -> SyntaxList<MemberDeclarationSyntax> {
+    let unit = context.ParseCompilationUnit()
+    expand unit.Members
+}
+```
+
+The return annotation offers `Generate! { ... }` in file, namespace, and type
+member positions. The compiler preserves source order, and an explicitly empty
+list removes the invocation.
+
+Class-authored providers declare the same applicability through
+`IMacroDefinition.InvocationTargets` and return members with
+`InvocableMacroExpansionResult.FromMembers(...)`. Returning `Empty` leaves the
+invocation in place as recoverable source. `FromNode(...)` may be used for
+exactly one member. The compiler reports `RAVM022` if the result is an
+expression or statement instead of a member, so a malformed provider cannot
+force the expanded document into an invalid syntax category.
 
 The same result form works at file and namespace scope. At those sites the
 parser deliberately keeps `Name! { ... }` inside a global-statement carrier;

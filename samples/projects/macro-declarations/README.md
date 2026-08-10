@@ -16,6 +16,12 @@ interface and is bound to the
 raw `{ ... }` invocation body. The provider class, typed parameter object, and
 `TokenTreeMacroContext.CreateTokenStream()` call remain lowering details.
 
+`Declare` demonstrates declaration-list expansion. Its
+`SyntaxList<MemberDeclarationSyntax>` return type makes the macro available in
+file, namespace, and type-member positions. The file invocation contributes
+`Generated`; the invocation inside `Container` contributes the nested type
+`Nested`. Both declarations then participate in normal lookup and emission.
+
 The generated provider class and parameter object are implementation details;
 the semantic model exposes these declarations as `IMacroDeclarationSymbol`
 instances.
@@ -32,6 +38,8 @@ Expected output:
 42
 42
 6
+7
+9
 ```
 
 The other macro projects deliberately retain class-authored implementations as

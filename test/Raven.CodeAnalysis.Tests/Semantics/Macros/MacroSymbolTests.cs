@@ -354,6 +354,9 @@ public sealed class MacroSymbolTests : CompilationTestBase
             macro Expression() -> ExpressionSyntax {}
             macro Literal() -> LiteralExpressionSyntax {}
             macro Statement() -> StatementSyntax {}
+            macro Members() -> SyntaxList<MemberDeclarationSyntax> {}
+            macro Methods() -> SyntaxList<MethodDeclarationSyntax> {}
+            macro InvalidList() -> SyntaxList<ExpressionSyntax> {}
             macro Flexible() -> ExpressionSyntax | StatementSyntax {}
             macro Untyped() -> SyntaxNode {}
             macro Unsupported() -> int {}
@@ -377,6 +380,10 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(MacroInvocationTargets.Expression, symbols["Expression"].InvocationTargets);
         Assert.Equal(MacroInvocationTargets.Expression, symbols["Literal"].InvocationTargets);
         Assert.Equal(MacroInvocationTargets.Statement, symbols["Statement"].InvocationTargets);
+        var memberTargets = MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+        Assert.Equal(memberTargets, symbols["Members"].InvocationTargets);
+        Assert.Equal(memberTargets, symbols["Methods"].InvocationTargets);
+        Assert.Equal(MacroInvocationTargets.None, symbols["InvalidList"].InvocationTargets);
         var flexibleTargets = symbols["Flexible"].InvocationTargets;
         Assert.True(
             flexibleTargets == (MacroInvocationTargets.Expression | MacroInvocationTargets.Statement),

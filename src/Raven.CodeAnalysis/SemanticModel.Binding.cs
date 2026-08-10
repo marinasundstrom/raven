@@ -562,6 +562,19 @@ public partial class SemanticModel
         ITypeSymbol type,
         TypeSyntax? syntax = null)
     {
+        if (type is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+            Compilation.GetTypeByMetadataName(
+                "Raven.CodeAnalysis.Syntax.SyntaxList`1") is INamedTypeSymbol syntaxListType &&
+            SymbolEqualityComparer.Default.Equals(
+                namedType.OriginalDefinition,
+                syntaxListType) &&
+            IsMacroSyntaxType(
+                namedType.TypeArguments[0],
+                "Raven.CodeAnalysis.Syntax.MemberDeclarationSyntax"))
+        {
+            return MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+        }
+
         if (syntax is UnionTypeSyntax && type is INamedTypeSymbol inlineUnion)
         {
             var targets = MacroInvocationTargets.None;

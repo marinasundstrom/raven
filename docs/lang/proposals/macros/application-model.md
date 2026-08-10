@@ -1,6 +1,6 @@
 # Macro application model
 
-Status: **MVP implemented; member-list extension in progress**
+Status: **MVP and member-list extension implemented**
 
 This proposal defines where macros can be applied, what a macro declaration
 must communicate, and how the compiler validates expansion. It does not change

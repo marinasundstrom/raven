@@ -1477,8 +1477,7 @@ not select the first declaration from a complete compilation-unit parse.
 
 ### Additional expansion positions
 
-Design status: **expression and raw-body statement MVP implemented; member-list
-contract accepted for the next extension**
+Design status: **expression, raw-body statement, and member-list expansion implemented**
 
 The [macro application model](application-model.md) defines expression,
 statement, member, type, pattern, and attached scenarios; return-type targets;
@@ -1489,12 +1488,14 @@ binding. A bare raw-body `Name! { ... }` invocation selects statement placement;
 parentheses retain expression placement. A union annotation supplies an exact
 closed position set, while `-> SyntaxNode` explicitly opts into all single-node
 invocable positions. Neither form includes attached or list-valued
-contributions. The next extension uses `SyntaxList<TMember>` for a list-valued
+contributions. Member expansion uses `SyntaxList<TMember>` for a list-valued
 namespace- or type-member result and normalizes it to an immutable member
-array. Empty output removes the carrier, ordering is preserved, and validation
-is atomic. This reuses Raven's existing syntax collection rather than adding
-macro-only multiplicity syntax. Type, pattern, and typed-wrapper carriers
-remain post-MVP work.
+array. Compact declarations project that return type to namespace-member and
+type-member positions, and generated providers preserve those targets through
+the class ABI. Empty output removes the carrier, ordering is preserved, and
+validation is atomic. This reuses Raven's existing syntax collection rather
+than adding macro-only multiplicity syntax. Type, pattern, and typed-wrapper
+carriers remain post-MVP work.
 
 Here “untyped” means category-erased to the `SyntaxNode` base type, not dynamic
 or text-based expansion.

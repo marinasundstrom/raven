@@ -57,6 +57,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   now contribute real members; ambiguous file/namespace carriers preserve
   statement behavior until the semantic expansion result selects declarations.
 
+- Completed compact member-producing macro declarations. A
+  `SyntaxList<TMember>` return annotation now selects namespace- and type-member
+  positions, `expand` normalizes the list into the invocable result, and the
+  generated provider preserves those targets through the class-authored ABI.
+  Class providers can declare the same positions with `InvocationTargets`.
+
 - Documented the execution, output, input, and tooling boundary between macros
   and source generators: macros transform an explicit authored site inside the
   compiler, while generators add project-wide generated documents through the
