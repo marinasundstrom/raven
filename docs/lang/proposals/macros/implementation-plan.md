@@ -1385,12 +1385,12 @@ state, without requiring macro authors to construct a detached semantic model.
 
 ### Cursor-based Raven fragment parsing
 
-Status: **implemented for expressions, statements, types, and patterns**
+Status: **implemented for expressions, statements, types, patterns, and members**
 
 `TokenTreeMacroContext.CreateTokenStream()` now returns a context-bound
 `MacroTokenStream` that retains ordinary token cursor operations and adds
-`ParseExpression`, `ParseStatement`, `ParseType`, and `ParsePattern`. Each
-method parses at the current token, advances through the construct, and returns
+`ParseExpression`, `ParseStatement`, `ParseType`, `ParsePattern`, and
+`ParseMemberDeclaration`. Each method parses at the current token, advances through the construct, and returns
 `MacroSyntaxParseResult<TSyntax>` with recovered syntax, diagnostics, and its
 `BodyRelativeSpan`. Stream synchronization uses the parser's consumed position
 internally, so error recovery can advance safely without misrepresenting the
@@ -1398,9 +1398,9 @@ recovered node's own span.
 
 The existing complete-body and explicit-`TextSpan` APIs remain available.
 Explicit spans are required when an outer DSL delimiter could also be consumed
-as Raven syntax. Compilation units inherently consume their selected input;
-single-member cursor parsing remains a later parser-entry-point slice rather
-than selecting the first declaration from a full compilation-unit parse.
+as Raven syntax. Compilation units inherently consume their selected input.
+Cursor member parsing uses a dedicated parser entry point and therefore does
+not select the first declaration from a complete compilation-unit parse.
 
 ### Additional expansion positions
 

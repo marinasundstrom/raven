@@ -83,6 +83,22 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         return cu;
     }
 
+    public MemberDeclarationSyntax? ParseMemberDeclaration()
+    {
+        if (PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+            return null;
+
+        List<ImportDirectiveSyntax> imports = [];
+        List<AliasDirectiveSyntax> aliases = [];
+        List<MemberDeclarationSyntax> members = [];
+        var order = MemberOrder.Members;
+        ParseNamespaceMemberDeclarations(PeekToken(), imports, aliases, members, ref order);
+
+        return imports.Count == 0 && aliases.Count == 0 && members.Count == 1
+            ? members[0]
+            : null;
+    }
+
     private bool TryParseCompilationAttributeList(out AttributeListSyntax attributeList)
     {
         attributeList = default!;

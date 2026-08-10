@@ -131,11 +131,11 @@ context.ReportDiagnostics(expression.Diagnostics)
 let expressionSpan = expression.BodyRelativeSpan
 ```
 
-`ParseExpression`, `ParseStatement`, `ParseType`, and `ParsePattern` parse one
-Raven construct, advance the stream through it, and return recovered syntax,
-diagnostics, and the body-relative span chosen by Raven's parser. The same
-cursor still exposes `PeekToken`, `ReadToken`, and `IsEndOfFile`, so the outer
-DSL can continue with its next clause.
+`ParseExpression`, `ParseStatement`, `ParseType`, `ParsePattern`, and
+`ParseMemberDeclaration` parse one Raven construct, advance the stream through
+it, and return recovered syntax, diagnostics, and the body-relative span chosen
+by Raven's parser. The same cursor still exposes `PeekToken`, `ReadToken`, and
+`IsEndOfFile`, so the outer DSL can continue with its next clause.
 
 Use the explicit `TextSpan` result overload when the outer DSL owns a delimiter
 that is ambiguous in Raven grammar—for example, when a following DSL operator

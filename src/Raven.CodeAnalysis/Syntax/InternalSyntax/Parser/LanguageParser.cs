@@ -76,6 +76,10 @@ internal class LanguageParser
         {
             return new CompilationUnitSyntaxParser(context).Parse();
         }
+        else if (requestedSyntaxType == typeof(Syntax.MemberDeclarationSyntax))
+        {
+            return new CompilationUnitSyntaxParser(context).ParseMemberDeclaration();
+        }
         else if (requestedSyntaxType == typeof(Syntax.PatternSyntax))
         {
             return new PatternSyntaxParser(context).ParsePattern();

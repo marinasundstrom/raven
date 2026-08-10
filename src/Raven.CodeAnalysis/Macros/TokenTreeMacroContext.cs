@@ -535,6 +535,19 @@ public class TokenTreeMacroContext : MacroContext
             diagnostics);
     }
 
+    /// <summary>
+    /// Parses one Raven member declaration at the token stream's current
+    /// position and advances through the declaration.
+    /// </summary>
+    internal MacroSyntaxParseResult<MemberDeclarationSyntax> ParseMemberDeclaration(
+        IMacroTokenStream stream)
+        => ParseSyntaxFromStream<MemberDeclarationSyntax>(
+            stream,
+            static () => SyntaxFactory.IncompleteMemberDeclaration(
+                SyntaxList<AttributeListSyntax>.Empty,
+                SyntaxTokenList.Empty,
+                SyntaxFactory.MissingToken(SyntaxKind.None)));
+
     private MacroSyntaxParseResult<TSyntax> ParseSyntaxResult<TSyntax>(
         string bodyText,
         TextSpan bodyRelativeSpan,

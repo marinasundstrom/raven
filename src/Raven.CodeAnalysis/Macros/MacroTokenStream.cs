@@ -50,4 +50,11 @@ public sealed class MacroTokenStream : IMacroTokenStream
     /// </summary>
     public MacroSyntaxParseResult<PatternSyntax> ParsePattern()
         => _context.ParsePattern(this);
+
+    /// <summary>
+    /// Parses one Raven member declaration at the current position and
+    /// advances past it.
+    /// </summary>
+    public MacroSyntaxParseResult<MemberDeclarationSyntax> ParseMemberDeclaration()
+        => _context.ParseMemberDeclaration(this);
 }

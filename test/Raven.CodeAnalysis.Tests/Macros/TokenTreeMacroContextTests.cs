@@ -19,7 +19,7 @@ public sealed class TokenTreeMacroContextTests
 
         var result = context.ParseExpressionResult();
 
-        Assert.False(result.HasErrors);
+        Assert.False(result.HasErrors, string.Join(Environment.NewLine, result.Diagnostics));
         Assert.IsType<InfixOperatorExpressionSyntax>(result.Syntax);
         Assert.Equal(context.BodySpan.Start + start, result.Syntax.Span.Start);
     }
@@ -172,6 +172,20 @@ public sealed class TokenTreeMacroContextTests
 
         Assert.False(result.HasErrors);
         Assert.IsType<ClassDeclarationSyntax>(result.Syntax);
+    }
+
+    [Fact]
+    public void ParseMemberDeclaration_ConsumesOneDeclarationFromCurrentStreamPosition()
+    {
+        var context = CreateContext("members class First { }\nclass Second { }");
+        var stream = context.CreateTokenStream();
+        Assert.Equal("members", stream.ReadToken().ValueText);
+
+        var result = stream.ParseMemberDeclaration();
+
+        Assert.False(result.HasErrors, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.Equal("First", Assert.IsType<ClassDeclarationSyntax>(result.Syntax).Identifier.ValueText);
+        Assert.Equal("class", stream.PeekToken().ValueText);
     }
 
     [Fact]

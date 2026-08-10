@@ -48,6 +48,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added invocation-scoped type and symbol inspection helpers for Raven
   expressions parsed by token-tree macros.
 
+- Added cursor-based single-member parsing without weakening exact-whole-region
+  member validation.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and
