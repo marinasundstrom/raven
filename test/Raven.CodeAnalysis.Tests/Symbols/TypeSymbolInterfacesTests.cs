@@ -158,6 +158,86 @@ public class TypeSymbolInterfacesTests
     }
 
     [Fact]
+    public void Union_WithInterface_ReportsInterfaceOnSymbol()
+    {
+        const string source = "interface IFailure {}\nunion Failure: IFailure { case Unknown }";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var failure = GetSourceType(compilation, "Failure");
+        var contract = GetSourceType(compilation, "IFailure");
+
+        Assert.Contains(failure.Interfaces, type => SymbolEqualityComparer.Default.Equals(type, contract));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Union_MissingInterfaceMember_ReportsDiagnostic()
+    {
+        const string source = "interface IFailure { func Describe() -> string }\nunion Failure: IFailure { case Unknown }";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeDoesNotImplementAbstractMember);
+    }
+
+    [Fact]
+    public void Union_WithNonInterfaceBaseType_ReportsDiagnostic()
+    {
+        const string source = "class Base {}\nunion Failure: Base { case Unknown }";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnionBaseTypeMustBeInterface);
+    }
+
+    [Fact]
+    public void NestedUnion_WithInterface_BindsDeclaredImplementation()
+    {
+        const string source = """
+interface IFailure {
+    func Describe() -> string
+}
+
+class Container {
+    union Failure: IFailure {
+        case Unknown
+        func Describe() -> string => "unknown"
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var failure = GetSourceType(compilation, "Failure");
+        var contract = GetSourceType(compilation, "IFailure");
+
+        Assert.Contains(failure.Interfaces, type => SymbolEqualityComparer.Default.Equals(type, contract));
+        Assert.Contains(failure.GetMembers("Describe"), member => member is IMethodSymbol);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void Interface_WithBaseInterface_AllInterfacesIncludeBase()
     {
         var source = @"interface IA {} interface IB : IA {}";

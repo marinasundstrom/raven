@@ -1062,6 +1062,7 @@
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="MemberTypes" Type="UnionMemberTypeList" IsNullable="true" />
+    <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
     <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" IsOptionalToken="true" DefaultToken="OpenBraceToken" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" />

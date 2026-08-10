@@ -197,7 +197,7 @@ internal abstract class TypeDeclarationBinder : Binder
     }
 
     internal void ReportInvalidInheritedInterfaceType(
-        TypeDeclarationSyntax declaration,
+        BaseTypeDeclarationSyntax declaration,
         BaseTypeSyntax baseTypeSyntax,
         INamedTypeSymbol interfaceType)
     {

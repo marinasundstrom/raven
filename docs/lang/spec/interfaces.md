@@ -22,11 +22,31 @@ interface IAsyncLogger : ILogger, IDisposable {}
 
 ### Implementing interfaces
 
-Classes and structs implement interfaces by listing them in their base list. The optional class base (if any) must appear first, followed by one or more interfaces. Implementing types must provide members whose signatures match every required interface member—name, parameter count, parameter types (including by-reference modifiers), and return type must align. Raven records the matching methods as final overrides and emits the necessary `InterfaceImpl` metadata so the CLR recognises the implementation.
+Classes, structs, and union carriers implement interfaces by listing them in
+their base list. The optional class base (if any) must appear first, followed by
+one or more interfaces. Structs and unions accept interfaces only. Implementing
+types must provide members whose signatures match every required interface
+member—name, parameter count, parameter types (including by-reference
+modifiers), and return type must align. Raven records the matching methods as
+final overrides and emits the necessary `InterfaceImpl` metadata so the CLR
+recognises the implementation.
 
 ```raven
 class FileLogger : ILogger, IDisposable {
     func Dispose() -> () { /* release resources */ }
+
+    func Log(message: string) -> () {
+        Console.WriteLine(message)
+    }
+}
+```
+
+For a union, the interface is implemented by the carrier rather than by each
+generated case type:
+
+```raven
+union LogFailure: ILogger {
+    case Unavailable
 
     func Log(message: string) -> () {
         Console.WriteLine(message)

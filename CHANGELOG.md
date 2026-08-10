@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Union carriers can now implement interfaces with a conventional base list,
+  such as `union Failure: IError`. The compiler exposes the interfaces through
+  the symbol API, validates required members, rejects class inheritance, and
+  emits CLR interface implementation metadata.
+
 - Preserved inferred union-case type arguments when reporting a failed
   case-to-carrier conversion, rather than falling back to an open generic
   carrier such as `Result<T, E>`.

@@ -168,6 +168,27 @@ Plain `union` declarations synthesize struct carriers by default. Use
 `union class` when a reference carrier is intended, such as for APIs that must
 not expose the default struct-union state.
 
+Like classes and structs, a union carrier can implement one or more interfaces
+by listing them after a colon. Every entry must resolve to an interface; unions
+cannot inherit a class because their carrier representation is selected by the
+union declaration itself.
+
+```raven
+interface IFailure {
+    val Message: string
+}
+
+union Failure: IFailure {
+    case Unknown
+
+    val Message: string => "Unknown failure"
+}
+```
+
+The interface belongs to the union carrier. Generated case types do not each
+declare the interface independently. The carrier must implement every required
+interface member in the same way as an ordinary class or struct.
+
 | Form | Syntax | Cases | Typical pattern form |
 | --- | --- | --- | --- |
 | Parenthesized | `union Payment(Cash \| Card)` | existing member types | `Cash(...)`, `Card(...)` |

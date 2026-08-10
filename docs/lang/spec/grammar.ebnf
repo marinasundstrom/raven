@@ -162,12 +162,13 @@ InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier TypeParameter
                              WhereClauseList?
                              ClassBody? ;
 
-UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList?
+UnionDeclaration         ::= TypeModifiers? 'union' ('class' | 'struct')? Identifier TypeParameterList?
+                             UnionPrimaryList? BaseList?
                              WhereClauseList?
-                             UnionDeclarationBody
+                             UnionDeclarationBody?
                              TypeTerminator? ;
 
-UnionDeclarationBody     ::= UnionPrimaryList | '{' UnionCaseList '}' ;
+UnionDeclarationBody     ::= '{' UnionCaseList '}' ;
 
 UnionPrimaryList.        ::= '(' UnionAlternativeTypeList ')' ;
 

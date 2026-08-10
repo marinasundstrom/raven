@@ -42,6 +42,7 @@ internal class UnionDeclarationParser : SyntaxParser
             memberTypes = ParseUnionMemberTypeList();
         }
 
+        var baseList = ParseBaseList();
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
 
         SyntaxToken openBraceToken;
@@ -126,11 +127,34 @@ internal class UnionDeclarationParser : SyntaxParser
             identifier,
             typeParameterList,
             memberTypes,
+            baseList,
             constraintClauses,
             openBraceToken,
             List(members),
             closeBraceToken,
             terminatorToken);
+    }
+
+    private BaseListSyntax? ParseBaseList()
+    {
+        if (!ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+            return null;
+
+        var types = new List<GreenNode>();
+        while (true)
+        {
+            var type = new NameSyntaxParser(this).ParseTypeName();
+            types.Add(SimpleBaseType(type));
+
+            var commaToken = PeekToken();
+            if (!commaToken.IsKind(SyntaxKind.CommaToken))
+                break;
+
+            ReadToken();
+            types.Add(commaToken);
+        }
+
+        return BaseList(colonToken, List(types));
     }
 
     private void ReportInconsistentSeparatorIfNeeded(

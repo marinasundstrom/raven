@@ -18,6 +18,42 @@ namespace Raven.CodeAnalysis.Tests;
 public class UnionCodeGenTests
 {
     [Fact]
+    public void Union_ImplementingInterface_EmitsInterfaceAndCallableMember()
+    {
+        const string code = """
+public interface IFailure {
+    func Describe() -> string
+}
+
+public union Failure: IFailure {
+    case Unknown
+
+    public func Describe() -> string => "unknown failure"
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "union-interface",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+        var interfaceType = assembly.GetType("IFailure", throwOnError: true)!;
+        var unionType = assembly.GetType("Failure", throwOnError: true)!;
+        var value = Activator.CreateInstance(unionType)!;
+
+        Assert.True(interfaceType.IsAssignableFrom(unionType));
+        Assert.Equal("unknown failure", interfaceType.GetMethod("Describe")!.Invoke(value, null));
+    }
+
+    [Fact]
     public void UnionCaseConstructor_AssignsFields()
     {
         var code = """

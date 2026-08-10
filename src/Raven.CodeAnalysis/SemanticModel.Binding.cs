@@ -3277,6 +3277,9 @@ public partial class SemanticModel
             classBinder.EnsureDefaultConstructor();
         }
 
+        foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
+            ReportMissingInterfaceMembers(unionSymbol, unionDecl, unionBinder.Diagnostics);
+
         var checkedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var (classDecl, classBinder) in classBinders)
         {
@@ -5166,6 +5169,10 @@ public partial class SemanticModel
         unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
         CacheBinder(unionDecl, unionBinder);
 
+        var interfaces = ResolveUnionInterfaceTypes(unionDecl, unionBinder);
+        if (!interfaces.IsDefaultOrEmpty)
+            unionSymbol.SetInterfaces(MergeInterfaceSets(unionSymbol.Interfaces, interfaces));
+
         namespaceSymbol ??= unionSymbol.ContainingNamespace?.AsSourceNamespace();
 
         var discriminatorField = new SourceFieldSymbol(
@@ -5290,6 +5297,40 @@ public partial class SemanticModel
         RegisterUnionSymbol(unionDecl, unionSymbol);
 
         return (unionBinder, unionSymbol);
+    }
+
+    private ImmutableArray<INamedTypeSymbol> ResolveUnionInterfaceTypes(
+        UnionDeclarationSyntax unionDecl,
+        UnionDeclarationBinder unionBinder)
+    {
+        if (unionDecl.BaseList is null)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        foreach (var baseTypeSyntax in unionDecl.BaseList.Types)
+        {
+            if (!unionBinder.TryBindNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved, reportDiagnostics: true) ||
+                resolved is null)
+            {
+                continue;
+            }
+
+            if (resolved.TypeKind != TypeKind.Interface)
+            {
+                unionBinder.Diagnostics.ReportUnionBaseTypeMustBeInterface(
+                    unionDecl.Identifier.ValueText,
+                    resolved.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    baseTypeSyntax.GetLocation());
+                continue;
+            }
+
+            unionBinder.ReportInvalidInheritedInterfaceType(unionDecl, baseTypeSyntax, resolved);
+            builder.Add(resolved);
+        }
+
+        return builder.Count == 0
+            ? ImmutableArray<INamedTypeSymbol>.Empty
+            : builder.ToImmutable();
     }
 
     private TypeKind GetUnionTypeKind(UnionDeclarationSyntax unionDecl)
@@ -5546,7 +5587,10 @@ public partial class SemanticModel
                             declaringSymbol,
                             namespaceSymbol,
                             unionSymbol);
+                        RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol, synthesizeUnionSurface: false);
+                        RegisterUnionDeclaredMembers(nestedUnion, unionBinder, resolvedSymbol);
                         RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol, synthesizeUnionSurface: true);
+                        ReportMissingInterfaceMembers(resolvedSymbol, nestedUnion, unionBinder.Diagnostics);
                         break;
                     }
 
@@ -7297,7 +7341,7 @@ public partial class SemanticModel
 
     private void ReportMissingInterfaceMembers(
         INamedTypeSymbol typeSymbol,
-        TypeDeclarationSyntax declaration,
+        BaseTypeDeclarationSyntax declaration,
         DiagnosticBag diagnostics)
     {
         if (typeSymbol.IsAbstract)

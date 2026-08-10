@@ -231,6 +231,10 @@
     Title="Readonly struct member must be readonly"
     Message="Instance storage member '{memberName}' in a readonly struct must be readonly"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0362" Identifier="UnionBaseTypeMustBeInterface"
+    Title="Union base type must be an interface"
+    Message="Union '{unionName}' cannot inherit from '{typeName}'; unions can only implement interfaces"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0347" Identifier="RefFieldRequiresRefStruct"
     Title="Ref field requires a ref struct"
     Message="Ref field '{memberName}' can only be declared in a ref struct"

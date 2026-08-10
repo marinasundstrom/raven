@@ -202,6 +202,21 @@ union Payload<T> {
     }
 
     [Fact]
+    public void UnionDeclaration_WithInterfaces_ParsesBaseList()
+    {
+        var source = "union Result<T>: IResult<T>, IFormattable { case Ok(value: T) }";
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+
+        Assert.NotNull(declaration.BaseList);
+        Assert.Collection(
+            declaration.BaseList!.Types,
+            first => Assert.Equal("IResult<T>", first.Type.ToString()),
+            second => Assert.Equal("IFormattable", second.Type.ToString()));
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void UnionDeclaration_WithStorageKindAndNominalMembers_ParsesMemberTypes()
     {
         var source = "union struct Either<T1, T2>(T1 | T2)";
