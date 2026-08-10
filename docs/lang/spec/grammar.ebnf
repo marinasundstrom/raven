@@ -43,6 +43,7 @@ TopLevelConstModifier     ::= AccessModifier | 'fileprivate' | 'static' ;
 
 Declaration              ::= NamespaceDeclaration
                            | TopLevelFunctionDeclaration
+                           | MacroDeclaration
                            | TopLevelConstDeclaration
                            | ExtensionDeclaration
                            | EnumDeclaration
@@ -62,6 +63,19 @@ TopLevelFunctionDeclaration
                              ReturnTypeClause?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
+
+MacroDeclaration         ::= {AttributeList}
+                             TopLevelFunctionModifiers?
+                             'macro' Identifier TypeParameterList?
+                             '(' MacroParameterList? ')'
+                             ReturnTypeClause?
+                             WhereClauseList?
+                             ( Block | '=>' Expression ) ;
+MacroParameterList       ::= MacroParameter {',' MacroParameter} ;
+MacroParameter           ::= {AttributeList} 'on'? AccessModifier? ScopedModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
+                             Identifier ':' Type VarParamsSuffix? ['=' Expression] ;
+(* Exactly one `on` parameter selects attached application. It is supplied by
+   the compiler and must name a supported Raven.CodeAnalysis syntax type. *)
 
 TopLevelConstDeclaration ::= {AttributeList | MacroAttributeList}
                              TopLevelConstModifiers?

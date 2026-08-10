@@ -394,7 +394,10 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     {
         var sourceTree = SyntaxTree.ParseText(
             """
-            macro Compose(shouldReplace: bool) on property: Property {
+            macro Compose(
+                shouldReplace: bool,
+                on property: Raven.CodeAnalysis.Syntax.PropertyDeclarationSyntax
+            ) {
                 if shouldReplace {
                     replace property
                 }
@@ -438,7 +441,10 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             """
             import Raven.CodeAnalysis.Macros.*
 
-            macro Validate(context: AttachedMacroContext) on Type {
+            macro Validate(
+                context: AttachedMacroContext,
+                on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax
+            ) {
                 context.ReportDiagnostic("Types are not accepted here")
                 context.ReportDiagnostic("Second problem")
             }

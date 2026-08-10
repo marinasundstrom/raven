@@ -381,10 +381,13 @@ document version.
 
 ## 7. Transform declarations
 
-Use an `on` clause for an attached macro:
+Mark one typed parameter with contextual `on` for an attached macro:
 
 ```raven
-macro Observable(enabled: bool) on property: Property {
+macro Observable(
+    enabled: bool,
+    on property: PropertyDeclarationSyntax
+) {
     if enabled {
         replace Rewrite(property)
         introduce CreateBackingField(property)
@@ -450,7 +453,7 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | `TokenTreeMacroContext` parameter | complete token-tree context |
 | `FreestandingMacroContext` parameter | complete argument-style context |
 | `AttachedMacroContext` parameter | complete attached context |
-| `on Type` / `on Property` | attached target |
+| `on target: BaseTypeDeclarationSyntax` / `on property: PropertyDeclarationSyntax` | compiler-supplied attached target |
 | `expand` | final expansion and semantic return |
 | reached `replace` | replacement declaration |
 | reached `introduce` | ordered introduced members |

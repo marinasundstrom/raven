@@ -130,10 +130,10 @@ public sealed class MacroDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroDeclaration_ParsesNamedTargetClause()
+    public void MacroDeclaration_ParsesTypedTargetParameter()
     {
         var tree = SyntaxTree.ParseText("""
-            macro Observable(enabled: bool) on property: Property {
+            macro Observable(enabled: bool, on property: PropertyDeclarationSyntax) {
                 replace property
                 if enabled {
                     introduce CreateBackingField(property)
@@ -143,12 +143,12 @@ public sealed class MacroDeclarationParsingTests
 
         var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
-        var target = Assert.IsType<MacroTargetClauseSyntax>(declaration.TargetClause);
+        var target = declaration.ParameterList.Parameters[1];
 
         Assert.Equal("on", target.OnKeyword.ValueText);
         Assert.Equal("property", target.Identifier.ValueText);
-        Assert.Equal(SyntaxKind.ColonToken, target.ColonToken.Kind);
-        Assert.Equal("Property", target.Target.ToString());
+        Assert.Equal(SyntaxKind.ColonToken, target.TypeAnnotation!.ColonToken.Kind);
+        Assert.Equal("PropertyDeclarationSyntax", target.TypeAnnotation.Type.ToString());
 
         var contributions = declaration.Body!
             .DescendantNodes()
@@ -168,22 +168,38 @@ public sealed class MacroDeclarationParsingTests
     }
 
     [Fact]
-    public void MacroDeclaration_ParsesShorthandTargetClause()
+    public void MacroDeclaration_ParsesTargetAsOnlyParameter()
     {
         var tree = SyntaxTree.ParseText("""
-            macro AddEquatable() on Type {
+            macro AddEquatable(on target: BaseTypeDeclarationSyntax) {
                 introduce CreateMembers()
             }
             """);
 
         var declaration = Assert.IsType<MacroDeclarationSyntax>(
             Assert.Single(tree.GetRoot().Members));
-        var target = Assert.IsType<MacroTargetClauseSyntax>(declaration.TargetClause);
+        var target = Assert.Single(declaration.ParameterList.Parameters);
 
-        Assert.Equal(SyntaxKind.None, target.Identifier.Kind);
-        Assert.Equal(SyntaxKind.None, target.ColonToken.Kind);
-        Assert.Equal("Type", target.Target.ToString());
+        Assert.Equal("on", target.OnKeyword.ValueText);
+        Assert.Equal("target", target.Identifier.ValueText);
+        Assert.Equal("BaseTypeDeclarationSyntax", target.TypeAnnotation!.Type.ToString());
         Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroDeclaration_TrailingTargetClauseIsNoLongerAccepted()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro Legacy() on Type {
+                introduce target
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members.OfType<MacroDeclarationSyntax>()));
+
+        Assert.Empty(declaration.ParameterList.Parameters);
+        Assert.NotEmpty(tree.GetDiagnostics());
     }
 
     [Fact]

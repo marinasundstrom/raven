@@ -1248,4 +1248,12 @@
     Title="Macro already defined"
     Message="A macro named '{name}' is already defined with the same parameter types."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0935" Identifier="MultipleMacroTargetParameters"
+    Title="Only one attached target parameter is allowed"
+    Message="Macro declaration '{macroName}' cannot declare more than one 'on' target parameter."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0936" Identifier="MacroTargetParameterCannotHaveDefault"
+    Title="Attached macro target parameters are compiler supplied"
+    Message="Target parameter '{parameterName}' cannot have a default value because the compiler supplies it from the attached declaration."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

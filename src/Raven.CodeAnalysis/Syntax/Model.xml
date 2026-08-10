@@ -910,6 +910,7 @@
   </Node>
   <Node Name="Parameter" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
+    <Slot Name="OnKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="AccessibilityKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="ScopedKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />
@@ -1241,18 +1242,11 @@
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" />
-    <Slot Name="TargetClause" Type="MacroTargetClause" IsNullable="true" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
-  </Node>
-  <Node Name="MacroTargetClause" Inherits="Node">
-    <Slot Name="OnKeyword" Type="Token" />
-    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" DefaultToken="None" />
-    <Slot Name="ColonToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
-    <Slot Name="Target" Type="Type" />
   </Node>
   <Node Name="MacroExpansionStatement" Inherits="Statement">
     <Slot Name="Keyword" Type="Token" />

@@ -39,7 +39,7 @@ The dependency-ordered slices are:
 2. registry, symbol, argument-binding, and language-service migration (provider
    descriptors implemented; source-declaration unification continues with the
    syntax slices);
-3. `on` parameter syntax and removal of `MacroTargetClauseSyntax`;
+3. `on` parameter syntax and removal of `MacroTargetClauseSyntax` (implemented);
 4. return-type projection and declaration diagnostics;
 5. generalized expansion results and category validation;
 6. statement invocation and recovery coverage; and

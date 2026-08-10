@@ -1202,6 +1202,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var mergedAttributes = ConcatSyntaxLists(parameterAttributeLists, firstParameter.AttributeLists);
             var updatedFirstParameter = firstParameter.Update(
                 mergedAttributes,
+                firstParameter.OnKeyword,
                 firstParameter.AccessibilityKeyword,
                 firstParameter.ScopedKeyword,
                 firstParameter.RefKindKeyword,
@@ -1411,7 +1412,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody = null;
         }
 
-        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), scopedKeyword, refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), Token(SyntaxKind.None), scopedKeyword, refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
 
         lambda = SimpleFunctionExpression(
             staticKeyword ?? Token(SyntaxKind.None),

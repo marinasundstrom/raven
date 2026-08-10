@@ -263,7 +263,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
     public void AttachedMacro_ExposesTargetSemantics()
     {
         var (baseCompilation, tree) = CreateCompilation("""
-            macro Observable() on property: Property {
+            macro Observable(on property: Raven.CodeAnalysis.Syntax.PropertyDeclarationSyntax) {
                 replace property
                 introduce property
             }
@@ -282,9 +282,11 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(MacroTarget.Property, symbol.Targets);
         Assert.Equal("property", symbol.TargetName);
         var targetParameter = Assert.IsAssignableFrom<IParameterSymbol>(symbol.TargetParameter);
+        Assert.Same(Assert.Single(symbol.Parameters), targetParameter);
+        Assert.Equal(MacroParameterRole.AttachedTarget, targetParameter.MacroRole);
         Assert.Equal("PropertyDeclarationSyntax", targetParameter.Type.Name);
         Assert.Equal(
-            declaration.TargetClause!.Identifier.Span,
+            declaration.ParameterList.Parameters[0].Identifier.Span,
             Assert.Single(targetParameter.Locations).SourceSpan);
         Assert.All(
             declaration.Body!.DescendantNodes()
@@ -295,6 +297,50 @@ public sealed class MacroSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void AttachedMacro_TargetParameterRulesProduceStableDiagnostics()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            macro Duplicate(
+                on first: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax,
+                on second: Raven.CodeAnalysis.Syntax.ClassDeclarationSyntax
+            ) {
+                introduce first
+            }
+
+            macro Defaulted(
+                on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax = null
+            ) {
+                introduce target
+            }
+
+            macro Unsupported(on target: string) {
+                introduce target
+            }
+
+            macro Incomplete(on target:) {
+                introduce target
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(PropertyDeclarationSyntax).Assembly.Location));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0935");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0936");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0927");
+
+        var declarations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroDeclarationSyntax>()
+            .ToArray();
+        Assert.Equal(4, declarations.Length);
+        Assert.All(
+            declarations,
+            declaration => Assert.NotNull(
+                compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)));
+    }
+
+    [Fact]
     public void MacroContribution_ValidatesAgainstAttachmentKind()
     {
         var (compilation, _) = CreateCompilation("""
@@ -302,7 +348,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
                 replace quote! { 1 }
             }
 
-            macro Attached() on Type {
+            macro Attached(on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax) {
                 expand quote! { 1 }
             }
             """);
@@ -362,7 +408,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
                 expand value
             }
 
-            macro AttachedMacro() on Type {
+            macro AttachedMacro(on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax) {
                 fragment target
                 token target
             }
@@ -458,8 +504,9 @@ public sealed class MacroSymbolTests : CompilationTestBase
     {
         var (baseCompilation, tree) = CreateCompilation("""
             macro Validate(
-                context: Raven.CodeAnalysis.Macros.AttachedMacroContext
-            ) on Type {
+                context: Raven.CodeAnalysis.Macros.AttachedMacroContext,
+                on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax
+            ) {
                 context.ReportDiagnostic("Invalid type")
             }
             """);
@@ -472,7 +519,8 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
-        var parameter = Assert.Single(symbol.Parameters);
+        Assert.Equal(2, symbol.Parameters.Length);
+        var parameter = symbol.Parameters[0];
         Assert.Equal(MacroApplicationKind.Attached, symbol.ApplicationKind);
         Assert.Equal(MacroInvocationTargets.None, symbol.InvocationTargets);
         Assert.Equal(MacroParameterRole.Context, parameter.MacroRole);
@@ -488,7 +536,10 @@ public sealed class MacroSymbolTests : CompilationTestBase
                 context.ReportDiagnostic("Invalid")
             }
 
-            macro Attached(context: Raven.CodeAnalysis.Macros.FreestandingMacroContext) on Type {
+            macro Attached(
+                context: Raven.CodeAnalysis.Macros.FreestandingMacroContext,
+                on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax
+            ) {
                 context.ReportDiagnostic("Invalid")
             }
             """);
@@ -539,7 +590,10 @@ public sealed class MacroSymbolTests : CompilationTestBase
                 expand first
             }
 
-            macro Attached(tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream) on Type {
+            macro Attached(
+                tokens: Raven.CodeAnalysis.Macros.IMacroTokenStream,
+                on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax
+            ) {
                 introduce tokens.ReadToken()
             }
 

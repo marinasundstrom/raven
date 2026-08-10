@@ -155,11 +155,11 @@ macro Query(dialect: string, body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
-macro AddEquatable() on Type {
+macro AddEquatable(on target: BaseTypeDeclarationSyntax) {
     introduce CreateEqualityMembers(target)
 }
 
-macro Observable(enabled: bool) on property: Property {
+macro Observable(enabled: bool, on property: PropertyDeclarationSyntax) {
     if enabled {
         replace Rewrite(property)
     }
@@ -180,7 +180,8 @@ roles:
 * `IMacroTokenStream` captures the lossless invocation body;
 * the return type describes the semantic value expected from the expansion at
   a value-producing call site; and
-* an optional `on` clause selects an attached macro and constrains its target.
+* exactly one parameter marked with contextual `on` selects an attached macro
+  and constrains its target using the ordinary syntax-node type system.
 
 Thus `Foo` is an argument-style freestanding expression macro, either `Query`
 form is a raw token-stream expression macro, and `AddEquatable` is an attached
@@ -195,7 +196,7 @@ The declaration model has four independent axes:
 | Axis | Examples | What it controls |
 | --- | --- | --- |
 | Input role | typed value, `ExpressionSyntax`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
-| Attachment | absent or `on Type` / `on Property` | freestanding versus attached invocation and the allowed target category |
+| Attachment | absent or `on target: BaseTypeDeclarationSyntax` | freestanding versus attached invocation and the allowed target syntax |
 | Call-site type | `int`, `TDelegate`, a user type | semantic type expected from the expanded value |
 | Contributions | `expand`, `replace`, `introduce` | final expansion return, replacement, and accumulated members |
 
@@ -209,10 +210,10 @@ current execution path. Reaching the end of the body returns it automatically.
 Consequently normal control flow can select or combine parts of an expansion
 without constructing `MacroExpansionResult` manually.
 
-Attached targets support `on Property`, which provides the implicit name
-`target`, and `on property: Property`, which chooses an explicit source name.
-The binding denotes the current declaration in the attached-macro composition
-pipeline. The original target remains available through
+An attached macro has exactly one typed `on` parameter, such as
+`on property: PropertyDeclarationSyntax`. The explicit name is bound to the
+current declaration in the attached-macro composition pipeline, and the type
+states which authored syntax the macro accepts. The original target remains available through
 `AttachedMacroContext`. A macro declaration may declare that context as a
 compiler-supplied parameter without adding it to the call-site argument list.
 All macro contexts accumulate diagnostics through `ReportDiagnostic` and
@@ -226,8 +227,8 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 | `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IFreestandingExpressionMacro` with `FreestandingMacroContext` |
 | `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro` with `TokenTreeMacroContext` |
 | `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeExpressionMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
-| `macro AddEquatable() on Type` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
-| `macro Observable() on Property` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
+| `macro AddEquatable(on target: BaseTypeDeclarationSyntax)` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
+| `macro Observable(on property: PropertyDeclarationSyntax)` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
 
 Optional capability interfaces require an intentional source-syntax
 projection. `IMacroFragmentProvider` is projected through reached `fragment`
@@ -374,10 +375,11 @@ implementation concern and must not change the authored macro signature,
 expansion ordering, or call-site semantics.
 
 Likewise, target applicability belongs only to the attached-macro contract.
-`IAttachedDeclarationMacro.Targets` represents the optional `on` clause;
-freestanding and token-tree macro classes do not implement a meaningless
-`Targets = None` member. Common tooling can query the normalized value through
-`MacroFacts.GetTargets`.
+The source declaration derives it from one typed `on` parameter;
+`IAttachedDeclarationMacro.Targets` is the legacy class-provider projection
+used by the current adapter. Freestanding and token-tree macro classes do not
+implement a meaningless `Targets = None` member. Common tooling can query the
+normalized value through `MacroFacts.GetTargets`.
 
 This syntax must lower to the shared macro infrastructure. Initially, the
 compiler may synthesize a parameter-object class, a category-specific adapter,

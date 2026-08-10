@@ -55,29 +55,8 @@ internal sealed class MacroDeclarationParser : SyntaxParser
             typeParameterList = typeParameterParser.ParseTypeParameterList();
         }
 
-        var parameterList = new StatementSyntaxParser(this).ParseParameterList();
-        MacroTargetClauseSyntax? targetClause = null;
-        if (IsContextualKeyword(PeekToken(), "on"))
-        {
-            var onKeyword = ReadToken();
-            var targetIdentifier = Token(SyntaxKind.None);
-            var colonToken = Token(SyntaxKind.None);
-            TypeSyntax target;
-
-            if (CanTokenBeIdentifier(PeekToken()) &&
-                PeekToken(1).IsKind(SyntaxKind.ColonToken))
-            {
-                targetIdentifier = ReadIdentifierToken();
-                colonToken = ReadToken();
-                target = new NameSyntaxParser(this).ParseTypeName();
-            }
-            else
-            {
-                target = new NameSyntaxParser(this).ParseTypeName();
-            }
-
-            targetClause = MacroTargetClause(onKeyword, targetIdentifier, colonToken, target);
-        }
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(
+            allowMacroTargetModifier: true);
 
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
@@ -107,7 +86,6 @@ internal sealed class MacroDeclarationParser : SyntaxParser
             identifier,
             typeParameterList,
             parameterList,
-            targetClause,
             returnType,
             constraintClauses,
             body,

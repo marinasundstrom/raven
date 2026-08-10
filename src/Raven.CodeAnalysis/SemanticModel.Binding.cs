@@ -293,41 +293,6 @@ public partial class SemanticModel
             [declaration.GetReference()],
             DetermineNamespaceMemberAccessibility(declaration.Modifiers));
 
-        if (declaration.TargetClause is { } targetClause)
-        {
-            var targetName = targetClause.Target.ToString();
-            if (Enum.TryParse<MacroTarget>(targetName, ignoreCase: true, out var target) &&
-                target != MacroTarget.None)
-            {
-                symbol.SetTarget(
-                    target,
-                    targetClause.Identifier.Kind == SyntaxKind.None
-                        ? "target"
-                        : targetClause.Identifier.ValueText,
-                    GetMacroTargetSyntaxType(target),
-                    targetClause.Identifier.Kind == SyntaxKind.None
-                        ? targetClause.GetLocation()
-                        : targetClause.Identifier.GetLocation(),
-                    targetClause.GetReference());
-            }
-            else
-            {
-                symbol.SetTarget(
-                    MacroTarget.None,
-                    targetClause.Identifier.Kind == SyntaxKind.None
-                        ? "target"
-                        : targetClause.Identifier.ValueText,
-                    GetMacroTargetSyntaxType(MacroTarget.None),
-                    targetClause.Identifier.Kind == SyntaxKind.None
-                        ? targetClause.GetLocation()
-                        : targetClause.Identifier.GetLocation(),
-                    targetClause.GetReference());
-                _declarationDiagnostics.ReportUnknownMacroTarget(
-                    targetName,
-                    targetClause.Target.GetLocation());
-            }
-        }
-
         TypeParameterInitializer.InitializeMacroTypeParameters(
             symbol,
             declaration.TypeParameterList,
@@ -353,7 +318,9 @@ public partial class SemanticModel
             var parameterType = ResolveMacroParameterType(
                 parameter,
                 symbol.TypeParameters);
-            var macroRole = MacroParameterRoleFacts.GetRole(parameterType);
+            var macroRole = parameter.OnKeyword.Kind == SyntaxKind.None
+                ? MacroParameterRoleFacts.GetRole(parameterType)
+                : MacroParameterRole.AttachedTarget;
             parameters.Add(MemberSignatureDeclarationPass.CreateSkeletonParameterSymbol(
                 this,
                 parameter,
@@ -364,7 +331,26 @@ public partial class SemanticModel
                 macroRole));
         }
 
-        symbol.SetParameters(parameters.ToImmutable());
+        var declaredParameters = parameters.ToImmutable();
+        symbol.SetParameters(declaredParameters);
+
+        var targetParameters = declaration.ParameterList.Parameters
+            .Select((syntax, index) => (Syntax: syntax, Symbol: declaredParameters[index]))
+            .Where(static parameter => parameter.Syntax.OnKeyword.Kind != SyntaxKind.None)
+            .ToArray();
+        if (targetParameters.FirstOrDefault().Syntax is { } targetSyntax)
+        {
+            var targetParameter = targetParameters[0].Symbol;
+            var target = GetMacroTarget(targetParameter.Type);
+            symbol.SetTarget(target, targetParameter);
+            if (target == MacroTarget.None)
+            {
+                _declarationDiagnostics.ReportUnknownMacroTarget(
+                    targetParameter.Type.ToDisplayString(),
+                    targetSyntax.TypeAnnotation?.Type.GetLocation() ?? targetSyntax.GetLocation());
+            }
+        }
+
         ValidateMacroParameters(declaration, symbol);
         ValidateMacroContributionStatements(declaration, symbol);
         RegisterMacroDeclarationSymbol(declaration, symbol);
@@ -425,7 +411,26 @@ public partial class SemanticModel
                 defaultedParameter.Syntax.DefaultValue!.GetLocation());
         }
 
-        if (declaration.TargetClause is not null &&
+        var targetParameters = parameters
+            .Where(static parameter => parameter.Symbol.MacroRole == MacroParameterRole.AttachedTarget)
+            .ToArray();
+
+        foreach (var defaultedParameter in targetParameters
+            .Where(static parameter => parameter.Syntax.DefaultValue is not null))
+        {
+            _declarationDiagnostics.ReportMacroTargetParameterCannotHaveDefault(
+                defaultedParameter.Symbol.Name,
+                defaultedParameter.Syntax.DefaultValue!.GetLocation());
+        }
+
+        if (targetParameters.Length > 1)
+        {
+            _declarationDiagnostics.ReportMultipleMacroTargetParameters(
+                declaration.Identifier.ValueText,
+                targetParameters[1].Syntax.OnKeyword.GetLocation());
+        }
+
+        if (targetParameters.Length > 0 &&
             tokenStreamParameters.FirstOrDefault().Syntax is { } tokenStreamParameter)
         {
             _declarationDiagnostics.ReportMacroTokenStreamCannotBeAttached(
@@ -462,9 +467,9 @@ public partial class SemanticModel
             };
             var isValid = contextKind switch
             {
-                MacroContextKind.Attached => declaration.TargetClause is not null,
-                MacroContextKind.TokenTree => declaration.TargetClause is null,
-                MacroContextKind.Freestanding => declaration.TargetClause is null &&
+                MacroContextKind.Attached => targetParameters.Length > 0,
+                MacroContextKind.TokenTree => targetParameters.Length == 0,
+                MacroContextKind.Freestanding => targetParameters.Length == 0 &&
                     tokenStreamParameters.Length == 0 &&
                     parameters.All(static parameter =>
                         MacroParameterRoleFacts.GetContextKind(parameter.Symbol.Type) != MacroContextKind.TokenTree),
@@ -499,6 +504,31 @@ public partial class SemanticModel
 
         return Compilation.GetTypeByMetadataName(metadataName)
             ?? Compilation.ErrorTypeSymbol;
+    }
+
+    private MacroTarget GetMacroTarget(ITypeSymbol type)
+    {
+        foreach (var target in new[]
+        {
+            MacroTarget.Type,
+            MacroTarget.Method,
+            MacroTarget.Property,
+            MacroTarget.Field,
+            MacroTarget.Event,
+            MacroTarget.Parameter,
+            MacroTarget.Accessor,
+            MacroTarget.Constructor
+        })
+        {
+            var targetType = GetMacroTargetSyntaxType(target);
+            if (SymbolEqualityComparer.Default.Equals(type, targetType) ||
+                type.IsDerivedFrom(targetType))
+            {
+                return target;
+            }
+        }
+
+        return MacroTarget.None;
     }
 
     private void ValidateMacroContributionStatements(

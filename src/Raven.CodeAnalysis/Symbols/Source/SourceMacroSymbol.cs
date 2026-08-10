@@ -87,21 +87,11 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
 
     internal void SetTarget(
         MacroTarget targets,
-        string? targetName,
-        ITypeSymbol targetType,
-        Location targetLocation,
-        SyntaxReference targetSyntaxReference)
+        SourceParameterSymbol targetParameter)
     {
         _isAttached = true;
         _targets = targets;
-        _targetName = targetName;
-        _targetParameter = new SourceParameterSymbol(
-            targetName ?? "target",
-            targetType,
-            this,
-            containingType: null,
-            ContainingNamespace,
-            [targetLocation],
-            [targetSyntaxReference]);
+        _targetName = targetParameter.Name;
+        _targetParameter = targetParameter;
     }
 }

@@ -43,8 +43,10 @@ internal static class MacroLowering
         var suffix = declaration.Span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var providerName = $"__RavenMacro_{declaration.Identifier.ValueText}_{suffix}";
         var parametersName = $"{providerName}_Parameters";
-        var isAttached = declaration.TargetClause is not null;
         var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroDeclarationSymbol;
+        var isAttached = symbol?.ApplicationKind == MacroApplicationKind.Attached ||
+            declaration.ParameterList.Parameters.Any(static parameter =>
+                parameter.OnKeyword.Kind != SyntaxKind.None);
         var isPublic = symbol?.DeclaredAccessibility == Accessibility.Public;
         var parameters = declaration.ParameterList.Parameters
             .Select((syntax, index) => (
@@ -130,7 +132,7 @@ internal static class MacroLowering
         if (isAttached)
         {
             builder.AppendLine(
-                $"    val Targets: Raven.CodeAnalysis.Macros.MacroTarget => Raven.CodeAnalysis.Macros.MacroTarget.{declaration.TargetClause!.Target}");
+                $"    val Targets: Raven.CodeAnalysis.Macros.MacroTarget => Raven.CodeAnalysis.Macros.MacroTarget.{symbol?.Targets ?? MacroTarget.None}");
         }
 
         builder.AppendLine(
@@ -166,8 +168,11 @@ internal static class MacroLowering
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.AttachedMacroContext = {contextVariableName}");
         }
 
-        if (!hasTokenTreeBody && declaration.TargetClause is { } targetClause)
-            AppendTargetBinding(builder, targetClause, resultName, contextVariableName);
+        if (!hasTokenTreeBody && parameters.FirstOrDefault(static parameter =>
+                parameter.Role == MacroParameterRole.AttachedTarget) is { Syntax: { } targetParameter })
+        {
+            AppendTargetBinding(builder, targetParameter, resultName, contextVariableName);
+        }
 
         AppendLoweredBody(
             builder,
@@ -223,25 +228,13 @@ internal static class MacroLowering
 
     private static void AppendTargetBinding(
         StringBuilder builder,
-        MacroTargetClauseSyntax targetClause,
+        ParameterSyntax targetParameter,
         string resultName,
         string contextVariableName)
     {
-        var targetName = targetClause.Identifier.Kind == SyntaxKind.None
-            ? "target"
-            : targetClause.Identifier.ValueText;
-        var syntaxType = targetClause.Target.ToString() switch
-        {
-            "Type" => "Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax",
-            "Method" => "Raven.CodeAnalysis.Syntax.MethodDeclarationSyntax",
-            "Property" => "Raven.CodeAnalysis.Syntax.PropertyDeclarationSyntax",
-            "Field" => "Raven.CodeAnalysis.Syntax.FieldDeclarationSyntax",
-            "Event" => "Raven.CodeAnalysis.Syntax.EventDeclarationSyntax",
-            "Parameter" => "Raven.CodeAnalysis.Syntax.ParameterSyntax",
-            "Accessor" => "Raven.CodeAnalysis.Syntax.AccessorDeclarationSyntax",
-            "Constructor" => "Raven.CodeAnalysis.Syntax.ConstructorDeclarationSyntax",
-            _ => "Raven.CodeAnalysis.Syntax.SyntaxNode"
-        };
+        var targetName = targetParameter.Identifier.ValueText;
+        var syntaxType = targetParameter.TypeAnnotation?.Type.ToString() ??
+            "Raven.CodeAnalysis.Syntax.SyntaxNode";
 
         builder.AppendLine(
             $"        let {targetName}: {syntaxType} = {contextVariableName}.CurrentDeclaration else {{");

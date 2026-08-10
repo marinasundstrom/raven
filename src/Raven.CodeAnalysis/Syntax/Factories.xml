@@ -142,6 +142,7 @@
     <Overload>
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Identifier" />
+      <Default Slot="OnKeyword" Token="None" />
       <Default Slot="AccessibilityKeyword" Token="None" />
       <Default Slot="ScopedKeyword" Token="None" />
       <Default Slot="RefKindKeyword" Token="None" />
@@ -157,6 +158,7 @@
       <Parameter Slot="BindingKeyword" />
       <Parameter Slot="Identifier" />
       <Parameter Slot="TypeAnnotation" />
+      <Default Slot="OnKeyword" Token="None" />
       <Default Slot="AccessibilityKeyword" Token="None" />
       <Default Slot="ScopedKeyword" Token="None" />
       <Default Slot="RefKindKeyword" Token="None" />

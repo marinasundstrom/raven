@@ -35,13 +35,10 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
-            else if (IsMacroTargetToken(descendant, static clause => clause.OnKeyword))
+            else if (descendant.Parent is ParameterSyntax targetParameter &&
+                     descendant == targetParameter.OnKeyword)
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
-            }
-            else if (IsMacroTargetToken(descendant, static clause => clause.Identifier))
-            {
-                tokenMap[descendant] = SemanticClassification.Parameter;
             }
             else if (IsMacroContributionKeyword(descendant))
             {
@@ -108,15 +105,6 @@ public static class SemanticClassifier
         }
 
         return new SemanticClassificationResult(tokenMap, triviaMap);
-    }
-
-    private static bool IsMacroTargetToken(
-        SyntaxToken token,
-        Func<MacroTargetClauseSyntax, SyntaxToken> selector)
-    {
-        var clause = token.Parent as MacroTargetClauseSyntax ??
-            token.Parent?.Ancestors().OfType<MacroTargetClauseSyntax>().FirstOrDefault();
-        return clause is not null && token == selector(clause);
     }
 
     private static bool IsMacroContributionKeyword(SyntaxToken token)

@@ -877,7 +877,8 @@ internal class StatementSyntaxParser : SyntaxParser
     public ParameterListSyntax ParseParameterList(
         SyntaxToken? openParenToken = null,
         bool allowDestructuringPatterns = false,
-        bool allowDiscardParameters = false)
+        bool allowDiscardParameters = false,
+        bool allowMacroTargetModifier = false)
     {
         var openParenTokenValue = openParenToken ?? ReadToken();
 
@@ -925,6 +926,14 @@ internal class StatementSyntaxParser : SyntaxParser
                 var attributeLists = canStartDestructuringPattern
                     ? SyntaxList.Empty
                     : AttributeDeclarationParser.ParseAttributeLists(this);
+
+                var onKeyword = Token(SyntaxKind.None);
+                if (allowMacroTargetModifier &&
+                    PeekToken().IsKind(SyntaxKind.IdentifierToken) &&
+                    string.Equals(PeekToken().GetValueText(), "on", StringComparison.Ordinal))
+                {
+                    onKeyword = ReadToken();
+                }
 
                 var scopedKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind == SyntaxKind.ScopedKeyword)
@@ -1011,7 +1020,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, pattern, typeAnnotation, dotDotDotToken, defaultValue));
+                parameterList.Add(Parameter(attributeLists, onKeyword, Token(SyntaxKind.None), scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, pattern, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
         }

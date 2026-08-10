@@ -943,12 +943,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and hover. Legacy class-authored macro contracts are adapted once at
   registration instead of being interpreted independently by each consumer.
 - Made `macro` declarations executable as same-compilation argument-style
-  and attached macros. Attached declarations use contextual `on Property` or
-  `on property: Property` target clauses, and ordinary synchronous bodies can
+  and attached macros. Attached declarations mark one ordinary typed parameter,
+  such as `on property: PropertyDeclarationSyntax`, and ordinary synchronous bodies can
   conditionally combine `expand`, `replace`, and `introduce` contribution
   statements. The compiler lowers them to isolated provider adapters and typed
   parameter objects while preserving `IMacroDeclarationSymbol` as their semantic
   identity.
+- Removed the separate macro target-clause syntax. Attached target bindings now
+  participate in the shared parameter-role model as `AttachedTarget`, with
+  diagnostics for duplicate targets, defaults, unsupported syntax types, and
+  malformed declarations that remain queryable by language services.
 - Made the Playground own and serve its theme stylesheet directly so local
   development and standalone subpath deployments use the same asset URL.
 - Reduced the Playground header to a compact Raven mark beside its title so the

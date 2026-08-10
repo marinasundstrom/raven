@@ -407,11 +407,11 @@ parameters, and constraints. A macro declaration is not an `IMethodSymbol`: it i
 compile-time language structure rather than a CLR method. Its body is therefore
 not emitted into the consumer program as an ordinary runtime function body.
 
-An optional contextual `on` clause makes the macro attached and declares its
-allowed target:
+Exactly one ordinary parameter marked with contextual `on` makes the macro
+attached and declares its allowed syntax target:
 
 ```raven
-macro Observe(enabled: bool) on property: Property {
+macro Observe(enabled: bool, on property: PropertyDeclarationSyntax) {
     if enabled {
         replace Rewrite(property)
     }
@@ -419,12 +419,13 @@ macro Observe(enabled: bool) on property: Property {
 }
 ```
 
-The named form `on property: Property` binds the current declaration to
-`property`. The shorthand `on Property` binds it to `target`. The supported
-target roles correspond to `MacroTarget`: `Type`, `Method`, `Property`,
-`Field`, `Event`, `Parameter`, `Accessor`, and `Constructor`. A declaration
-without `on` is an argument-style freestanding expression macro. Token-stream
-and syntax-projection inputs use the same parameter syntax:
+The `on property: PropertyDeclarationSyntax` parameter binds the current
+declaration to `property`. Its type is an ordinary Raven.CodeAnalysis syntax
+type and determines the accepted target; there is no separate target-name
+vocabulary. The current provider adapter projects declaration syntax into its
+coarser `MacroTarget` category where required. A declaration without an `on`
+parameter is an argument-style freestanding expression macro. Token-stream and
+syntax-projection inputs use the same parameter syntax:
 
 ```raven
 macro AddOffset(offset: int, value: ExpressionSyntax) {

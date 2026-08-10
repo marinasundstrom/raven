@@ -171,7 +171,11 @@ internal static class IncrementalExecutableOwnerAnalyzer
     {
         var parameterTypes = FormatParameterTypeIdentity(function.ParameterList.Parameters);
         var returnType = function.ReturnType?.Type.ToString() ?? "?";
-        var target = function.TargetClause?.ToString() ?? string.Empty;
+        var target = string.Join(
+            ",",
+            function.ParameterList.Parameters
+                .Where(static parameter => parameter.OnKeyword.Kind != SyntaxKind.None)
+                .Select(static parameter => parameter.ToString()));
         return $"macro:{function.Identifier.ValueText}:{function.TypeParameterList?.Parameters.Count ?? 0}:({parameterTypes}):{returnType}:{target}";
     }
 

@@ -1349,7 +1349,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, accessibilityKeyword, scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, null, typeAnnotation, dotDotDotToken, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), accessibilityKeyword, scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, null, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
 
@@ -1617,7 +1617,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, null, typeAnnotation, dotDotDotToken, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), Token(SyntaxKind.None), scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, null, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
 
