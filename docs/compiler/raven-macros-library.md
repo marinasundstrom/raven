@@ -66,6 +66,31 @@ does not already declare that property, so an authored implementation always
 takes precedence. `ErrorMessage` is valid only on a case nested in an
 `#[Error]` union and accepts a string literal or interpolated string.
 
+## `query!`
+
+`query!` is a small LINQ-style token-tree DSL included in `Raven.Macros`. It
+supports one `from` clause, an optional `where` clause, and one `select` clause:
+
+```raven
+import Raven.Macros.*
+
+let projected = query! {
+    from value in [1, 2, 3, 4]
+    where value > 2
+    select value * 10
+}
+```
+
+The macro expands to ordinary `Where` and `Select` calls with Raven lambdas.
+The source, predicate, and projection are parsed as ordinary Raven expression
+fragments. The range variable is projected into those fragments for completion
+and hover, so editor support does not depend on a query-specific syntax tree.
+
+The current query macro is intentionally small. It demonstrates how a reusable
+DSL can combine custom tokens, Raven expression fragments, introduced locals,
+diagnostics, and ordinary generated code without adding query syntax to the
+language grammar.
+
 ## Authoring model
 
 The project under `src/Raven.Macros` is written in Raven. Each public macro has

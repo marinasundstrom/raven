@@ -60,7 +60,8 @@ Current status:
   `otherwise` as macro-local reserved words, parses the text between them as
   three independent Raven expressions, and lowers directly to an ordinary
   Raven `if` expression.
-- `query!` is the first LINQ-like MVP. It supports one `from` clause, an
+- `query!` comes from `Raven.Macros`; the sample consumes it rather than
+  carrying a private implementation. It supports one `from` clause, an
   optional `where`, and one `select`. The authored range variable becomes the
   parameter of generated `Where` and `Select` lambdas, while the source,
   predicate, and projection remain independently parsed Raven expressions.
@@ -90,7 +91,8 @@ Files:
 - `app/MacroInvocable.rvnproj`: Raven application using `add!(...)`
 - `app/src/Main.rvn`: executable entry point
 - `macros/InvocableMacros.rvnproj`: Raven macro plugin project
-- `macros/InvocableMacros.rvn`: related implementations of the category-specific macro interfaces
+- `macros/InvocableMacros.rvn`: sample-local implementations of `add!`,
+  `guard!`, and `choose!`; `query!` and `quote!` come from `Raven.Macros`
 
 Analyze, build, or run the executable sample project. Its normal project
 reference builds and activates the marked macro provider:

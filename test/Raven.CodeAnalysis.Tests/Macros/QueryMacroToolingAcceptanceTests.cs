@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
@@ -16,6 +15,8 @@ public sealed class QueryMacroToolingAcceptanceTests
     {
         var macroReference = CreateCheckedInQueryMacroReference();
         const string source = """
+            import Raven.Macros.*
+
             let result = query! {
                 from value in values
                 where value > minimum
@@ -51,6 +52,8 @@ public sealed class QueryMacroToolingAcceptanceTests
     {
         var macroReference = CreateCheckedInQueryMacroReference();
         const string source = """
+            import Raven.Macros.*
+
             class QueryHost {
                 func Test() {
                     let sourceText = "hello"
@@ -77,6 +80,8 @@ public sealed class QueryMacroToolingAcceptanceTests
     {
         var macroReference = CreateCheckedInQueryMacroReference();
         const string source = """
+            import Raven.Macros.*
+
             class Customer(val Name: string)
 
             class QueryHost {
@@ -118,6 +123,8 @@ public sealed class QueryMacroToolingAcceptanceTests
     {
         var macroReference = CreateCheckedInQueryMacroReference();
         const string source = """
+            import Raven.Macros.*
+
             class Customer(val Name: string)
 
             class QueryHost {
@@ -163,42 +170,10 @@ public sealed class QueryMacroToolingAcceptanceTests
                 $"QueryMacroConsumer_{Guid.NewGuid():N}",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(tree)
-            .AddReferences(TestMetadataReferences.Default)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
             .AddMacroReferences(macroReference);
 
     private static MacroReference CreateCheckedInQueryMacroReference()
-    {
-        var repositoryRoot = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var sourcePath = Path.Combine(
-            repositoryRoot,
-            "samples",
-            "projects",
-            "macro-invocable",
-            "macros",
-            "InvocableMacros.rvn");
-        var macroTree = SyntaxTree.ParseText(File.ReadAllText(sourcePath), path: sourcePath);
-        var codeAnalysisReference = MetadataReference.CreateFromFile(
-            typeof(IMacroDefinition).Assembly.Location);
-        var macroCompilation = Compilation.Create(
-                $"CheckedInQueryMacro_{Guid.NewGuid():N}",
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(macroTree)
-            .AddReferences([
-                .. TestMetadataReferences.DefaultWithRavenMacros,
-                codeAnalysisReference,
-            ])
-            .AddMacroReferences(MacroReference.CreateFromFile(
-                ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));
-
-        using var image = new MemoryStream();
-        var emitResult = macroCompilation.Emit(image);
-        Assert.True(
-            emitResult.Success,
-            string.Join(Environment.NewLine, emitResult.Diagnostics));
-
-        return MacroReference.CreateFromImage(
-            image.ToArray(),
-            display: "checked-in query macro sample");
-    }
+        => MacroReference.CreateFromFile(
+            ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!);
 }

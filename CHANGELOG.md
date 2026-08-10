@@ -27,6 +27,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   import or carrier qualifier, including `self is MissingValue` and match arms
   such as `InvalidValue(let value)`.
 
+- Promoted the LINQ-style `query!` DSL from the invocable-macro sample into
+  `Raven.Macros`, preserving its expression-fragment completion, hover,
+  diagnostics, and `Where`/`Select` expansion behavior.
+
 - Hardened macro-reference activation so provider-construction failures report
   the provider type and underlying error through `RAVM001`, remain stable across
   repeated diagnostics, and do not disable macros from healthy references.
