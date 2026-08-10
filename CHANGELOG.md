@@ -9,6 +9,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   the symbol API, validates required members, rejects class inheritance, and
   emits CLR interface implementation metadata.
 
+- Attached type macros can now replace a union carrier's interface shape and
+  introduce members into the carrier, enabling reusable derived capabilities
+  such as error contracts.
+
+- Completed boxing and unboxing conversion classification between value types
+  and interfaces they implement. This makes struct union carriers usable
+  through their declared interfaces from Raven source, not only in emitted CLR
+  metadata.
+
 - Preserved inferred union-case type arguments when reporting a failed
   case-to-carrier conversion, rather than falling back to an open generic
   carrier such as `Result<T, E>`.

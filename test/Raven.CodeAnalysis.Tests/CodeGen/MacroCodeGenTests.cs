@@ -79,6 +79,50 @@ public sealed class MacroCodeGenTests
     }
 
     [Fact]
+    public void AttachedUnionMacro_ReplacementBaseListAndIntroducedMethod_AreEmitted()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            interface IFailure {
+                func Describe() -> string
+            }
+
+            class Harness {
+                public static func Run() -> string {
+                    let value: Failure = Failure.Unknown
+                    let failure: IFailure = value
+                    return failure.Describe()
+                }
+            }
+
+            #[ErrorLike]
+            union Failure {
+                case Unknown
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new ErrorLikeUnionMacro()));
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var unionDeclaration = syntaxTree.GetRoot().Members.OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        Assert.Contains(unionSymbol.Interfaces, type => type.Name == "IFailure");
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal("unknown failure", method!.Invoke(null, null));
+    }
+
+    [Fact]
     public void AttachedPropertyMacro_ReplacementProperty_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
@@ -365,6 +409,8 @@ public sealed class MacroCodeGenTests
     {
         public string Name => "AddEquatable";
 
+        public string Namespace => string.Empty;
+
         public MacroKind Kind => MacroKind.AttachedDeclaration;
 
         public MacroTarget Targets => MacroTarget.Type;
@@ -412,9 +458,37 @@ public sealed class MacroCodeGenTests
         }
     }
 
+    public sealed class ErrorLikeUnionMacro : IAttachedDeclarationMacro
+    {
+        public string Name => "ErrorLike";
+
+        public string Namespace => string.Empty;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var current = Assert.IsType<UnionDeclarationSyntax>(context.CurrentDeclaration);
+            var tree = SyntaxFactory.ParseSyntaxTree("""
+                union __GeneratedContainer: IFailure {
+                    case Placeholder
+                    func Describe() -> string => "unknown failure"
+                }
+                """);
+            var container = Assert.IsType<UnionDeclarationSyntax>(tree.GetRoot().Members.Single());
+            var method = Assert.IsType<MethodDeclarationSyntax>(container.Members.OfType<MethodDeclarationSyntax>().Single());
+
+            return MacroExpansionResult.FromReplacement(
+                current.WithBaseList(container.BaseList),
+                [method]);
+        }
+    }
+
     public sealed class ObservablePropertyMacro : IAttachedDeclarationMacro
     {
         public string Name => "Observable";
+
+        public string Namespace => string.Empty;
 
         public MacroTarget Targets => MacroTarget.Property;
 
@@ -457,6 +531,8 @@ public sealed class MacroCodeGenTests
     {
         public string Name => "Observable";
 
+        public string Namespace => string.Empty;
+
         public MacroKind Kind => MacroKind.AttachedDeclaration;
 
         public MacroTarget Targets => MacroTarget.Property;
@@ -493,6 +569,8 @@ public sealed class MacroCodeGenTests
     private sealed class DetachedSyntaxFactoryObservablePropertyMacro : IAttachedDeclarationMacro
     {
         public string Name => "Observable";
+
+        public string Namespace => string.Empty;
 
         public MacroKind Kind => MacroKind.AttachedDeclaration;
 
@@ -575,6 +653,8 @@ public sealed class MacroCodeGenTests
     private sealed class GenericInitializerReactivePropertyMacro : IAttachedDeclarationMacro
     {
         public string Name => "Reactive";
+
+        public string Namespace => string.Empty;
 
         public MacroKind Kind => MacroKind.AttachedDeclaration;
 

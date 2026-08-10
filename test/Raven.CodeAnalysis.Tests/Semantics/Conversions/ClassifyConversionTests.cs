@@ -468,4 +468,33 @@ class Comparer : IComparer<object>
         Assert.True(conversion.IsUnboxing);
     }
 
+    [Fact]
+    public void BoxingConversion_ValueTypeToImplementedInterface_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var comparableType = compilation.GetTypeByMetadataName("System.IComparable")!;
+
+        var conversion = compilation.ClassifyConversion(intType, comparableType);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsBoxing);
+        Assert.False(conversion.IsReference);
+    }
+
+    [Fact]
+    public void UnboxingConversion_InterfaceToImplementingValueType_IsExplicit()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var comparableType = compilation.GetTypeByMetadataName("System.IComparable")!;
+
+        var conversion = compilation.ClassifyConversion(comparableType, intType);
+
+        Assert.True(conversion.Exists);
+        Assert.False(conversion.IsImplicit);
+        Assert.True(conversion.IsUnboxing);
+    }
+
 }

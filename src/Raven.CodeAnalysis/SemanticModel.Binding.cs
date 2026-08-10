@@ -3107,7 +3107,11 @@ public partial class SemanticModel
         var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var interfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
         var extensionBinders = new List<(ExtensionDeclarationSyntax Syntax, ExtensionDeclarationBinder Binder)>();
-        var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceUnionSymbol Symbol)>();
+        var unionBinders = new List<(
+            UnionDeclarationSyntax Syntax,
+            UnionDeclarationBinder Binder,
+            SourceUnionSymbol Symbol,
+            ImmutableArray<MemberDeclarationSyntax> IntroducedMembers)>();
 
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -3144,6 +3148,7 @@ public partial class SemanticModel
                         if (!Compilation.TryGetDeclaredTypeSymbol(unionDecl, out var declaredUnionSymbol))
                             break;
 
+                        var expansion = GetEffectiveUnionDeclaration(unionDecl);
                         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
                         var unionSymbol = (SourceUnionSymbol)declaredUnionSymbol;
@@ -3152,8 +3157,10 @@ public partial class SemanticModel
                             parentBinder,
                             declaringSymbol,
                             namespaceSymbol,
-                            unionSymbol);
-                        unionBinders.Add((unionDecl, unionBinder, resolvedSymbol));
+                            unionSymbol,
+                            expansion.Shape,
+                            expansion.IntroducedMembers);
+                        unionBinders.Add((unionDecl, unionBinder, resolvedSymbol, expansion.IntroducedMembers));
                         break;
                     }
 
@@ -3256,14 +3263,14 @@ public partial class SemanticModel
         if (!bindMemberSignatures)
             return;
 
-        foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
-            RegisterUnionCases(unionDecl, unionBinder, unionSymbol, synthesizeUnionSurface: false);
+        foreach (var (unionDecl, unionBinder, unionSymbol, introducedMembers) in unionBinders)
+            RegisterUnionCases(unionDecl, unionBinder, unionSymbol, synthesizeUnionSurface: false, introducedMembers);
 
-        foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
-            RegisterUnionDeclaredMembers(unionDecl, unionBinder, unionSymbol);
+        foreach (var (unionDecl, unionBinder, unionSymbol, introducedMembers) in unionBinders)
+            RegisterUnionDeclaredMembers(unionDecl, unionBinder, unionSymbol, introducedMembers);
 
-        foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
-            RegisterUnionCases(unionDecl, unionBinder, unionSymbol, synthesizeUnionSurface: true);
+        foreach (var (unionDecl, unionBinder, unionSymbol, introducedMembers) in unionBinders)
+            RegisterUnionCases(unionDecl, unionBinder, unionSymbol, synthesizeUnionSurface: true, introducedMembers);
 
         foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
             RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
@@ -3277,7 +3284,7 @@ public partial class SemanticModel
             classBinder.EnsureDefaultConstructor();
         }
 
-        foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
+        foreach (var (unionDecl, unionBinder, unionSymbol, _) in unionBinders)
             ReportMissingInterfaceMembers(unionSymbol, unionDecl, unionBinder.Diagnostics);
 
         var checkedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
@@ -3348,6 +3355,40 @@ public partial class SemanticModel
         }
 
         return effectiveDeclaration;
+    }
+
+    private readonly record struct EffectiveUnionDeclaration(
+        UnionDeclarationSyntax Shape,
+        ImmutableArray<MemberDeclarationSyntax> IntroducedMembers);
+
+    private EffectiveUnionDeclaration GetEffectiveUnionDeclaration(UnionDeclarationSyntax declaration)
+    {
+        var effectiveDeclaration = declaration;
+        var introducedMembers = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>();
+
+        foreach (var attribute in declaration.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            if (!attribute.IsMacroAttribute())
+                continue;
+
+            var expansion = GetMacroExpansion(attribute);
+            if (expansion is null)
+                continue;
+
+            if (expansion.ReplacementDeclaration is UnionDeclarationSyntax replacement)
+                effectiveDeclaration = replacement;
+
+            introducedMembers.AddRange(expansion.IntroducedMembers);
+        }
+
+        if (!ReferenceEquals(effectiveDeclaration, declaration))
+        {
+            RegisterMacroReplacementSyntaxTrees(
+                declaration,
+                [effectiveDeclaration, .. introducedMembers]);
+        }
+
+        return new EffectiveUnionDeclaration(effectiveDeclaration, introducedMembers.ToImmutable());
     }
 
     internal bool TryEnsureTypeMemberSignaturesDeclared(SourceNamedTypeSymbol typeSymbol)
@@ -3974,9 +4015,16 @@ public partial class SemanticModel
         RegisterMember(delegateSymbol, invoke);
     }
 
-    private void RegisterUnionDeclaredMembers(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceUnionSymbol unionSymbol)
+    private void RegisterUnionDeclaredMembers(
+        UnionDeclarationSyntax unionDecl,
+        UnionDeclarationBinder unionBinder,
+        SourceUnionSymbol unionSymbol,
+        ImmutableArray<MemberDeclarationSyntax> introducedMembers = default)
     {
-        foreach (var member in unionDecl.Members)
+        var additionalMembers = introducedMembers.IsDefault
+            ? ImmutableArray<MemberDeclarationSyntax>.Empty
+            : introducedMembers;
+        foreach (var member in unionDecl.Members.Concat(additionalMembers))
         {
             ReportInvalidUnionMemberKindIfNeeded(unionSymbol, unionBinder, member);
 
@@ -4157,7 +4205,8 @@ public partial class SemanticModel
         UnionDeclarationSyntax unionDecl,
         UnionDeclarationBinder unionBinder,
         SourceUnionSymbol unionSymbol,
-        bool synthesizeUnionSurface)
+        bool synthesizeUnionSurface,
+        ImmutableArray<MemberDeclarationSyntax> introducedMembers = default)
     {
         static IEnumerable<CaseDeclarationSyntax> GetCaseDeclarations(UnionDeclarationSyntax declaration)
             => declaration.Members.OfType<CaseDeclarationSyntax>();
@@ -4265,7 +4314,7 @@ public partial class SemanticModel
 
         void EnsureUnionToStringMethod(Location location, SyntaxReference reference)
         {
-            if (HasDeclaredUnionToStringMethod(unionSymbol))
+            if (HasDeclaredUnionToStringMethod(unionDecl, introducedMembers))
                 return;
 
             var unionToString = new SourceMethodSymbol(
@@ -5103,12 +5152,15 @@ public partial class SemanticModel
         }
     }
 
-    private static bool HasDeclaredUnionToStringMethod(SourceUnionSymbol unionSymbol)
-        => unionSymbol.DeclaringSyntaxReferences
-            .Select(reference => reference.GetSyntax())
-            .OfType<UnionDeclarationSyntax>()
-            .SelectMany(static declaration => declaration.Members.OfType<MethodDeclarationSyntax>())
-            .Any(IsUnionToStringDeclaration);
+    private static bool HasDeclaredUnionToStringMethod(
+        UnionDeclarationSyntax unionDeclaration,
+        ImmutableArray<MemberDeclarationSyntax> introducedMembers = default)
+        => unionDeclaration.Members
+               .Concat(introducedMembers.IsDefault
+                   ? ImmutableArray<MemberDeclarationSyntax>.Empty
+                   : introducedMembers)
+               .OfType<MethodDeclarationSyntax>()
+               .Any(IsUnionToStringDeclaration);
 
     private static bool IsUnionToStringDeclaration(MethodDeclarationSyntax methodDecl)
         => methodDecl.Identifier.ValueText == "ToString" &&
@@ -5131,8 +5183,11 @@ public partial class SemanticModel
         Binder parentBinder,
         ISymbol declaringSymbol,
         SourceNamespaceSymbol? namespaceSymbol,
-        SourceUnionSymbol? existingSymbol = null)
+        SourceUnionSymbol? existingSymbol = null,
+        UnionDeclarationSyntax? shapeDeclaration = null,
+        ImmutableArray<MemberDeclarationSyntax> introducedMembers = default)
     {
+        var unionShape = shapeDeclaration ?? unionDecl;
         var containingType = declaringSymbol as INamedTypeSymbol;
         var containingNamespace = declaringSymbol switch
         {
@@ -5141,7 +5196,7 @@ public partial class SemanticModel
             _ => namespaceSymbol
         };
 
-        var unionTypeKind = GetUnionTypeKind(unionDecl);
+        var unionTypeKind = GetUnionTypeKind(unionShape);
         var baseTypeSymbol = GetUnionBaseType(unionTypeKind);
         var unionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             unionDecl.Modifiers,
@@ -5169,7 +5224,7 @@ public partial class SemanticModel
         unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
         CacheBinder(unionDecl, unionBinder);
 
-        var interfaces = ResolveUnionInterfaceTypes(unionDecl, unionBinder);
+        var interfaces = ResolveUnionInterfaceTypes(unionShape, unionBinder);
         if (!interfaces.IsDefaultOrEmpty)
             unionSymbol.SetInterfaces(MergeInterfaceSets(unionSymbol.Interfaces, interfaces));
 
@@ -5195,7 +5250,7 @@ public partial class SemanticModel
         var objectToString = GetObjectToStringMethod();
 
         SourceMethodSymbol? unionToString = null;
-        if (!HasDeclaredUnionToStringMethod(unionSymbol))
+        if (!HasDeclaredUnionToStringMethod(unionDecl, introducedMembers))
         {
             unionToString = new SourceMethodSymbol(
                 "ToString",
@@ -5578,6 +5633,7 @@ public partial class SemanticModel
 
                 case UnionDeclarationSyntax nestedUnion:
                     {
+                        var expansion = GetEffectiveUnionDeclaration(nestedUnion);
                         var declaringSymbol = (ISymbol)classBinder.ContainingSymbol;
                         var namespaceSymbol = classBinder.CurrentNamespace?.AsSourceNamespace();
                         var unionSymbol = (SourceUnionSymbol)GetDeclaredTypeSymbol(nestedUnion);
@@ -5586,10 +5642,12 @@ public partial class SemanticModel
                             classBinder,
                             declaringSymbol,
                             namespaceSymbol,
-                            unionSymbol);
-                        RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol, synthesizeUnionSurface: false);
-                        RegisterUnionDeclaredMembers(nestedUnion, unionBinder, resolvedSymbol);
-                        RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol, synthesizeUnionSurface: true);
+                            unionSymbol,
+                            expansion.Shape,
+                            expansion.IntroducedMembers);
+                        RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol, synthesizeUnionSurface: false, expansion.IntroducedMembers);
+                        RegisterUnionDeclaredMembers(nestedUnion, unionBinder, resolvedSymbol, expansion.IntroducedMembers);
+                        RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol, synthesizeUnionSurface: true, expansion.IntroducedMembers);
                         ReportMissingInterfaceMembers(resolvedSymbol, nestedUnion, unionBinder.Diagnostics);
                         break;
                     }

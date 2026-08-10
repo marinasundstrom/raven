@@ -1660,12 +1660,32 @@ public partial class Compilation
 
     private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source.IsValueType && destination.SpecialType is SpecialType.System_Object;
+        if (!source.IsValueType)
+            return false;
+
+        if (destination.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
+            return true;
+
+        if (source.TypeKind == TypeKind.Enum && destination.SpecialType == SpecialType.System_Enum)
+            return true;
+
+        return destination is INamedTypeSymbol { TypeKind: TypeKind.Interface } targetInterface &&
+               SemanticFacts.ImplementsInterface(source, targetInterface, SymbolEqualityComparer.Default);
     }
 
     private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source.SpecialType is SpecialType.System_Object && destination.IsValueType;
+        if (!destination.IsValueType)
+            return false;
+
+        if (source.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
+            return true;
+
+        if (destination.TypeKind == TypeKind.Enum && source.SpecialType == SpecialType.System_Enum)
+            return true;
+
+        return source is INamedTypeSymbol { TypeKind: TypeKind.Interface } sourceInterface &&
+               SemanticFacts.ImplementsInterface(destination, sourceInterface, SymbolEqualityComparer.Default);
     }
 
     private bool IsImplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)

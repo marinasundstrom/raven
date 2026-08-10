@@ -9,10 +9,12 @@ namespace Raven.CodeAnalysis.Tests;
 public class PropagationCodeGenTests
 {
     [Fact]
-    public void GenericStructUnion_PropagationMaterializesEmptyCaseCarrier()
+    public void InterfaceConformingGenericStructUnion_PropagationMaterializesEmptyCaseCarrier()
     {
         const string code = """
-union Option<T> {
+interface IOptional {}
+
+union Option<T>: IOptional {
     case Some(value: T)
     case None
 }
