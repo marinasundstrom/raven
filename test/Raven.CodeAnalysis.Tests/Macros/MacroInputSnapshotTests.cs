@@ -15,7 +15,7 @@ public sealed class MacroInputSnapshotTests
     [Fact]
     public void GetMacroInputSnapshot_CombinesAuthoredTokensAndFragments()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #snapshot { value }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = snapshot!{ value }";
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create(
                 "MacroInputSnapshot",
@@ -41,7 +41,7 @@ public sealed class MacroInputSnapshotTests
     [Fact]
     public void FindFragmentRegion_ReturnsMostSpecificRegionIncludingEmptySlot()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #regions { outer.inner }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = regions!{ outer.inner }";
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create(
                 "MacroFragmentLookup",

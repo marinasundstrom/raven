@@ -18,7 +18,7 @@ public sealed class CompletionServiceMacroTests
 class MacroHost {
     func Test() {
         let message = "hello"
-        let value = #fragment { message. }
+        let value = fragment!{ message. }
     }
 }
 """;
@@ -46,7 +46,7 @@ class MacroHost {
 class MacroHost {
     func Test() {
         let message = "hello"
-        let value = #fragment { mes }
+        let value = fragment!{ mes }
     }
 }
 """;
@@ -111,7 +111,7 @@ class MacroHost {
 class MacroHost {
     func Test() {
         let message = "hello"
-        let value = #emptyFragment { }
+        let value = emptyFragment!{ }
     }
 }
 """;
@@ -148,7 +148,7 @@ class Widget { }
 class MacroHost {
     func Test() {
         let message = "hello"
-        let value = #categorized { {{fragment}} }
+        let value = categorized!{ {{fragment}} }
     }
 }
 """;
@@ -254,7 +254,7 @@ class CounterViewModel {
         const string code = """
 class MacroHost {
     func Test() {
-        let answer = #local()
+        let answer = local!()
     }
 }
 """;
@@ -268,7 +268,7 @@ class MacroHost {
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote!{ 42 }
                     }
                 }
             }
@@ -298,7 +298,7 @@ import Raven.Macros.*
 
 class MacroHost {
     func Test() {
-        let syntax = #quo()
+        let syntax = quo!()
     }
 }
 """;
@@ -443,7 +443,7 @@ class CounterViewModel {
         const string code = """
 class MacroHost {
     func Test() {
-        let subscription = #sub()
+        let subscription = sub!()
     }
 }
 """;
@@ -477,7 +477,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        let query = #que()
+        let query = que!()
     }
 }
 """;
@@ -505,7 +505,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        let query = #typed()
+        let query = typed!()
     }
 }
 """;
@@ -530,7 +530,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        let query = #typedQuery(Di) {
+        let query = typedQuery!(Di) {
             query content
         }
     }
@@ -557,7 +557,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        let query = #typedQuery(Dialect: "sql", ) {
+        let query = typedQuery!(Dialect: "sql", ) {
             query content
         }
     }
@@ -584,7 +584,7 @@ class MacroHost {
         const string code = """
 class MacroHost {
     func Test() {
-        let query = #typedQuery(Dialect: "sql") {
+        let query = typedQuery!(Dialect: "sql") {
             query content
         }
     }
@@ -631,7 +631,7 @@ class ViewModel {
         const string code = """
 class MacroHost {
     func Test() {
-        let answer = #typedCall(Mo)
+        let answer = typedCall!(Mo)
     }
 }
 """;

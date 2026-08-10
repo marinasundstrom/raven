@@ -114,10 +114,10 @@ var Title: string
 
 ## Freestanding macro syntax
 
-A freestanding expression macro uses `#name(...)` in expression position:
+A freestanding expression macro uses `name!(...)` in expression position:
 
 ```raven
-func Main() -> int => #answer()
+func Main() -> int => answer!()
 ```
 
 The expression expands to an ordinary Raven expression before normal expression binding continues.
@@ -350,24 +350,21 @@ let result = query!(Dialect: "sql") {
 }
 ```
 
-Token-tree macros retain a compatible hash spelling:
+Token-tree macros use the same bang invocation spelling:
 
 ```raven
-let result = #query(Dialect: "sql") {
+let result = query!(Dialect: "sql") {
     from user in users
     select user.Name
 }
 ```
 
-The two spellings have the same binding and expansion semantics. The syntax
-tree represents them as `BangMacroExpressionSyntax` and
-`HashMacroExpressionSyntax`, respectively, under the shared abstract
-`FreestandingMacroExpressionSyntax` base. The bang spelling requires a
-brace-delimited token-tree body. There must be no line break between the macro
-name and `!`, or between `!` (or its argument list) and the opening brace; this
-lookahead keeps ordinary postfix `!` expressions unambiguous.
-
-The bang spelling is the preferred source form. A freestanding macro is a
+The syntax tree represents invocations as `BangMacroExpressionSyntax` under the
+abstract `FreestandingMacroExpressionSyntax` base. An invocation may supply an
+argument list, a brace-delimited token-tree body, or both. There must be no line
+break between the macro name and `!`, or between `!` (or its argument list) and
+the opening brace; this lookahead keeps ordinary postfix `!` expressions
+unambiguous. A freestanding macro is a
 parsed expression invocation that expands an owned region of syntax; it is not
 a preprocessor directive. Directive-looking syntax remains appropriate for
 lexical compilation controls such as `#if`, while `name! { ... }` preserves the

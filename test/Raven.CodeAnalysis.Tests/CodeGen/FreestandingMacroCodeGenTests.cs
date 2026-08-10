@@ -23,7 +23,7 @@ public sealed class FreestandingMacroCodeGenTests
             class Harness {
                 public static func Run() -> int {
                     var result = 0
-                    #setAnswer { }
+                    setAnswer!{ }
                     return result
                 }
             }
@@ -52,7 +52,7 @@ public sealed class FreestandingMacroCodeGenTests
             import Raven.CodeAnalysis.Tests.*
 
             func Run() {
-                #raven { 20 + 22 }
+                raven!{ 20 + 22 }
             }
             """);
 
@@ -80,14 +80,14 @@ public sealed class FreestandingMacroCodeGenTests
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote!{ 42 }
                     }
                 }
             }
             """);
         var consumerTree = SyntaxTree.ParseText("""
             class Harness {
-                public static func Run() -> int => #localAnswer { }
+                public static func Run() -> int => localAnswer!{ }
             }
             """);
         var compilation = Compilation.Create(
@@ -118,7 +118,7 @@ public sealed class FreestandingMacroCodeGenTests
 
             class Harness {
                 public static func Run() -> int {
-                    return #add(20, Right: 22)
+                    return add!(20, Right: 22)
                 }
             }
             """);
@@ -152,7 +152,7 @@ public sealed class FreestandingMacroCodeGenTests
 
                 class Harness {
                     public static func Run() -> string {
-                        return #embedText("{{EscapeRavenString(path)}}")
+                        return embedText!("{{EscapeRavenString(path)}}")
                     }
                 }
                 """);
@@ -186,7 +186,7 @@ public sealed class FreestandingMacroCodeGenTests
         var syntaxTree = SyntaxTree.ParseText($$"""
             import Raven.CodeAnalysis.Tests.*
 
-            func Main() -> string => #embedText("{{EscapeRavenString(path)}}")
+            func Main() -> string => embedText!("{{EscapeRavenString(path)}}")
             """);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
@@ -211,7 +211,7 @@ public sealed class FreestandingMacroCodeGenTests
 
             class Harness {
                 public static func Run() -> int {
-                    return #raven {
+                    return raven!{
                         20 + 22
                     }
                 }
@@ -243,7 +243,7 @@ public sealed class FreestandingMacroCodeGenTests
 
             class Harness {
                 public static func Run(value: int) -> bool {
-                    return #guard {
+                    return guard!{
                         unless value > 0
                     }
                 }
@@ -276,7 +276,7 @@ public sealed class FreestandingMacroCodeGenTests
 
             class Harness {
                 public static func Run(value: int) -> string {
-                    return #choose {
+                    return choose!{
                         test value > 0
                         then "positive"
                         otherwise "not positive"
@@ -309,7 +309,7 @@ public sealed class FreestandingMacroCodeGenTests
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
 
-            func Main() -> string => #choose {
+            func Main() -> string => choose!{
                 test true
                 then "yes"
             }

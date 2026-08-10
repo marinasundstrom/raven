@@ -281,7 +281,7 @@ macro compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
     where TDelegate: Delegate
 {
     expand quote! {
-        RavenCompiler.Compile<#type(TDelegate)>(#body)
+        RavenCompiler.Compile<type!(TDelegate)>(#body)
     }
 }
 ```
@@ -437,8 +437,8 @@ let result = query! {
 This spelling reads as an invocation that owns a region of code instead of
 visually resembling a preprocessor directive. Macros are parsed expression
 carriers and do not select source text for compilation. Directive styling is
-reserved for facilities closer to preprocessing, such as `#if`. The compatible
-`#query { ... }` spelling uses `HashMacroExpressionSyntax`.
+reserved for facilities closer to preprocessing, such as `#if`. Invocable
+macros have one syntax carrier: `BangMacroExpressionSyntax`.
 
 Future carriers may represent statement and member/declaration positions. A
 carrier preserves the macro name, delimiters, and lossless raw body. It means
@@ -571,7 +571,7 @@ output contract.
 The first executable MVP deliberately uses direct lowering:
 
 ```raven
-let shouldRetry = #guard {
+let shouldRetry = guard!{
     unless answer == 42
 }
 ```
@@ -584,7 +584,7 @@ introducing retained DSL structure.
 The next direct-lowering step uses multiple clause boundaries:
 
 ```raven
-let verdict = #choose {
+let verdict = choose!{
     test answer == 42
     then "correct"
     otherwise "wrong"
@@ -599,7 +599,7 @@ basic approach with more clause kinds and repeated clauses.
 The first LINQ-like MVP applies that model directly:
 
 ```raven
-let result = #query {
+let result = query!{
     from item in source
     where item.IsActive
     select item.Name
@@ -633,7 +633,7 @@ For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
 
 ```raven
-let result = #query {
+let result = query!{
     from user in users
     where {{ user.IsActive && user.Age >= 21 }}
     select {{ user.Name }}
@@ -952,7 +952,7 @@ class AnswerMacro: ITokenTreeExpressionMacro {
     // ...
 }
 
-let answer = #answer { }
+let answer = answer!{ }
 ```
 
 `[LocalMacro]` moves only the marked top-level declaration and its nested
@@ -1067,8 +1067,8 @@ and later recovery remain possible.
 
 Macro completion has two levels:
 
-1. Raven completes macro names at `#name` and inserts the appropriate carrier
-   shape, such as `query { }`.
+1. Raven completes macro names at `Name!` and inserts the appropriate carrier
+   shape, such as `query! { }`.
 2. Inside the body, the compiler routes completion to the resolved macro
    capability using the current body-relative position and cached DSL
    structure.
@@ -1107,7 +1107,7 @@ expansion binds and executes it.
 Resource-producing macros are a useful procedural-macro case. For example:
 
 ```raven
-let template = #embedText("templates/welcome.txt")
+let template = embedText!("templates/welcome.txt")
 ```
 
 Such a macro reads the file during expansion and returns an ordinary Raven

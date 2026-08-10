@@ -76,7 +76,7 @@ and execution must never depend on an analyzer being loaded.
 Implemented before the token-tree work:
 
 * attached declaration macros using `#[Name]`
-* argument-based freestanding expression macros using `#name(...)`
+* argument-based freestanding expression macros using `name!(...)`
 * .NET and Raven-authored macro plugins activated through compiler-owned
   `MacroReference` instances
 * typed parameter objects for argument-based macros
@@ -364,7 +364,7 @@ Token-tree macros may combine ordinary typed invocation arguments with one
 unrestricted brace-delimited body:
 
 ```raven
-let result = #query(Dialect: "sql") {
+let result = query!(Dialect: "sql") {
     from user in users
     select user.Name
 }
@@ -439,7 +439,7 @@ and completion:
 Embedded-language classification is a separate input/structure concern.
 `StringSyntaxAttribute` metadata can be imported for actual string-valued macro
 parameters, consistent with ordinary Raven parameters. It must not become the
-token-tree body contract: bodies such as `#quote { ... }` retain tokens and
+token-tree body contract: bodies such as `quote!{ ... }` retain tokens and
 source spans and need a general syntax-content descriptor that can identify
 Raven, a standard embedded format, or a custom macro-defined language.
 
@@ -456,7 +456,7 @@ Status: **implemented and validated**
 Target syntax:
 
 ```raven
-let result = #query {
+let result = query!{
     from user in users
     where user.IsActive
     select user.Name
@@ -476,7 +476,7 @@ The first slice is intentionally expression-only. It must:
 * report macro diagnostics at authored body-relative spans
 * lower expansion results through the existing freestanding-expression binding
   and emit path
-* preserve existing `#name(...)` behavior
+* preserve existing `name!(...)` behavior
 
 Current implementation work:
 
@@ -537,7 +537,7 @@ Status: **implemented and validated**
 The first developer-facing token-tree macro is intentionally small:
 
 ```raven
-let shouldRetry = #guard {
+let shouldRetry = guard!{
     unless answer == 42
 }
 ```
@@ -579,7 +579,7 @@ The second executable token-tree macro extends the direct path to several
 clauses and embedded Raven fragments:
 
 ```raven
-let verdict = #choose {
+let verdict = choose!{
     test answer == 42
     then "correct"
     otherwise "wrong"
@@ -616,7 +616,7 @@ The first query-shaped macro supports one range variable, an optional filter,
 and one projection:
 
 ```raven
-let result = #query {
+let result = query!{
     from value in values
     where value > 2
     select value * 10
@@ -814,7 +814,7 @@ authored position.
 
 Status: **test macro implemented; tracked resource API deferred**
 
-A test-only `#embedText(path)` procedural macro reads a file during expansion,
+A test-only `embedText!(path)` procedural macro reads a file during expansion,
 returns its contents as an ordinary string literal, and maps read failures to
 the authored path argument. This demonstrates both compile-time execution and
 early diagnostics.

@@ -39,7 +39,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 var Title: string
 
                 func GetAnswer() -> int {
-                    return #add(20, Right: 22)
+                    return add!(20, Right: 22)
                 }
             }
             """);
@@ -57,7 +57,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         Assert.Contains("return 20 + 22", expandedText, StringComparison.Ordinal);
         Assert.Contains("\n    private var _Title: string", expandedText, StringComparison.Ordinal);
         Assert.Contains("\n        get => _Title", expandedText, StringComparison.Ordinal);
-        Assert.DoesNotContain("#add(", expandedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("add!(", expandedText, StringComparison.Ordinal);
         Assert.DoesNotContain("#[Observable]", expandedText, StringComparison.Ordinal);
 
         var expandedProperty = expandedRoot.DescendantNodes()
@@ -72,7 +72,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
-                use subscription = #wrap((value) => {
+                use subscription = wrap!((value) => {
                     WriteLine(value)
                 })
             }
@@ -106,8 +106,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
-                let first = #add(1, Right: 2)
-                let second = #add(3, Right: 4)
+                let first = add!(1, Right: 2)
+                let second = add!(3, Right: 4)
             }
             """);
         compilation = compilation.AddMacroReferences(
@@ -119,7 +119,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
 
         Assert.Contains("let first = 1 + 2", expandedText, StringComparison.Ordinal);
         Assert.Contains("let second = 3 + 4", expandedText, StringComparison.Ordinal);
-        Assert.DoesNotContain("#add(", expandedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("add!(", expandedText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     public void MacroInstrumentation_TracksExpansionCountsWithoutDoubleCountingCachedExpansion()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #wrap(21)
+            func Main() -> int => wrap!(21)
             """);
         var instrumentation = new PerformanceInstrumentation();
         var options = new CompilationOptions(

@@ -21,7 +21,7 @@ public sealed class MacroPdbSequencePointTests
             import Raven.CodeAnalysis.Tests.*
 
             class Harness {
-                public static func Run() -> int => #raven { 40 + 2 }
+                public static func Run() -> int => raven!{ 40 + 2 }
             }
             """;
         var sourcePath = Path.GetFullPath("macro-fragment-debug.rvn");
@@ -51,7 +51,7 @@ public sealed class MacroPdbSequencePointTests
             import Raven.CodeAnalysis.Tests.*
 
             class Harness {
-                public static func Run() -> bool => #guard { unless false }
+                public static func Run() -> bool => guard!{ unless false }
             }
             """;
         var sourcePath = Path.GetFullPath("macro-generated-wrapper-debug.rvn");
@@ -79,7 +79,7 @@ public sealed class MacroPdbSequencePointTests
             import Raven.CodeAnalysis.Tests.Semantics.Macros.*
 
             class Harness {
-                public static func Run() -> int => #statement { return 42 }
+                public static func Run() -> int => statement!{ return 42 }
             }
             """;
         var sourcePath = Path.GetFullPath("macro-statement-debug.rvn");
@@ -106,11 +106,11 @@ public sealed class MacroPdbSequencePointTests
             import Raven.CodeAnalysis.Tests.*
 
             class Harness {
-                public static func Run() -> int => #add(20, Right: 22)
+                public static func Run() -> int => add!(20, Right: 22)
             }
             """;
         var sourcePath = Path.GetFullPath("macro-invocation-debug.rvn");
-        const string invocationText = "#add(20, Right: 22)";
+        const string invocationText = "add!(20, Right: 22)";
         var invocationStart = source.IndexOf(invocationText, StringComparison.Ordinal);
 
         using var emitted = EmitWithPortablePdb(

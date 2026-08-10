@@ -9,20 +9,20 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public sealed class FreestandingMacroParsingTests
 {
     [Fact]
-    public void FreestandingMacroExpression_ParsesHashIdentifierAndArguments()
+    public void FreestandingMacroExpression_ParsesBangIdentifierAndArguments()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #add(1, right: 2)
+            func Main() -> int => add!(1, right: 2)
             """);
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<HashMacroExpressionSyntax>()
+            .OfType<BangMacroExpressionSyntax>()
             .Single();
 
         Assert.True(expression.TryGetMacroName(out var macroName));
         Assert.Equal("add", macroName);
-        Assert.Equal(SyntaxKind.HashToken, expression.HashToken.Kind);
+        Assert.Equal(SyntaxKind.ExclamationToken, expression.ExclamationToken.Kind);
         Assert.Equal(2, expression.ArgumentList.Arguments.Count);
         Assert.Equal("right", expression.ArgumentList.Arguments[1].NameColon?.Name.Identifier.ValueText);
         Assert.Empty(tree.GetDiagnostics());
@@ -40,10 +40,19 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
+    public void HashInvocation_IsNotParsedAsFreestandingMacroExpression()
+    {
+        var tree = SyntaxTree.ParseText("func Main() -> int => #answer()");
+
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        Assert.NotEmpty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void TokenTreeMacroExpression_PreservesRawDslBody()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #xml {
+            func Main() -> int => xml!{
                 <root data="{not a Raven expression}">
                     {{ nested { content } }}
                 </root>
@@ -67,7 +76,7 @@ public sealed class FreestandingMacroParsingTests
     public void TokenTreeMacroExpression_ParsesArgumentsAndRawBody()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #repeat(3, Label: "item") {
+            func Main() -> int => repeat!(3, Label: "item") {
                 custom content
             }
             """);
@@ -87,7 +96,7 @@ public sealed class FreestandingMacroParsingTests
     public void TokenTreeMacroExpression_AllowsCharactersOutsideRavenLexicalGrammar()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #dsl {
+            func Main() -> int => dsl!{
                 `custom-key` ::= ⟨value⟩
             }
             """);
@@ -105,7 +114,7 @@ public sealed class FreestandingMacroParsingTests
     public void TokenTreeMacroExpression_UnterminatedBodyReportsMissingBrace()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #dsl {
+            func Main() -> int => dsl!{
                 custom content
             """);
 
@@ -219,15 +228,15 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
-    public void HashMacroExpression_ParsesQualifiedName()
+    public void BangMacroExpression_ParsesQualifiedNameAndArguments()
     {
         var tree = SyntaxTree.ParseText("""
-            func Main() -> int => #Example.Macros.Answer()
+            func Main() -> int => Example.Macros.Answer!()
             """);
 
         var expression = tree.GetRoot()
             .DescendantNodes()
-            .OfType<HashMacroExpressionSyntax>()
+            .OfType<BangMacroExpressionSyntax>()
             .Single();
 
         Assert.IsType<QualifiedNameSyntax>(expression.Name);

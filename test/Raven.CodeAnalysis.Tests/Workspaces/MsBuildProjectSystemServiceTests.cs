@@ -926,7 +926,7 @@ let value = WidgetFactory.CreateDefault()
                 """);
 
             var appSourcePath = Path.Combine(appDirectory, "main.rvn");
-            File.WriteAllText(appSourcePath, "func Main() -> int => #answer { }");
+            File.WriteAllText(appSourcePath, "func Main() -> int => answer!{ }");
 
             var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
             File.WriteAllText(appProjectPath, $$"""

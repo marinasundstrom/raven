@@ -1921,7 +1921,7 @@ class ObservableMacro: IAttachedDeclarationMacro {
 </Project>
 """);
         WriteRavenFile(Path.Combine(root, "app", "src", "main.rvn"), """
-func Main() -> int => #answer()
+func Main() -> int => answer!()
 """);
 
         _ = WriteProject(Path.Combine(root, "macros"), "FreestandingMacros", $$"""
@@ -1972,7 +1972,7 @@ class AnswerMacro: IFreestandingExpressionMacro {
 </Project>
 """);
         WriteRavenFile(Path.Combine(root, "app", "src", "main.rvn"), """
-func Main() -> int => #answer()
+func Main() -> int => answer!()
 """);
 
         _ = WriteProject(Path.Combine(root, "macros"), "FreestandingMacros", $$"""

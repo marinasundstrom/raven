@@ -87,7 +87,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
                 expand SyntaxFactory.ParseExpression(text)
             }
 
-            func Main() -> int => #Double(21)
+            func Main() -> int => Double!(21)
             """;
         var authoredTree = SyntaxTree.ParseText(SourceText.From(source), path: "main.rvn");
         var compilation = Compilation.Create(

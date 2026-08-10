@@ -113,7 +113,7 @@ public sealed class MacroReferenceTests
         var macro = Assert.Single(reference.Macros);
         Assert.Equal("answer", macro.Name);
 
-        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => answer!{ }");
         var consumerCompilation = Compilation.Create(
                 "Consumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
@@ -335,7 +335,7 @@ public sealed class MacroReferenceTests
         try
         {
             File.WriteAllBytes(assemblyPath, macroImage);
-            var sourceTree = SyntaxTree.ParseText("func Main() -> int => #answer { }");
+            var sourceTree = SyntaxTree.ParseText("func Main() -> int => answer!{ }");
             var baseCompilation = Compilation.Create(
                     "Consumer",
                     new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
@@ -385,7 +385,7 @@ public sealed class MacroReferenceTests
                     "Consumer",
                     new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddSyntaxTrees(SyntaxTree.ParseText(
-                    "func Main() -> int => #privateAnswer { }"))
+                    "func Main() -> int => privateAnswer!{ }"))
                 .AddReferences(TestMetadataReferences.Default)
                 .AddReferences(MetadataReference.CreateFromFile(assemblyPath));
 

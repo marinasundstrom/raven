@@ -2190,9 +2190,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.UnitKeyword:
                 return ParsePredefinedTypeSyntax();
 
-            case SyntaxKind.HashToken:
-                return ParseHashMacroExpression();
-
             case SyntaxKind.SelfKeyword:
                 ReadToken();
                 return SelfExpression(token);
@@ -2709,22 +2706,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return expr;
-    }
-
-    private ExpressionSyntax ParseHashMacroExpression()
-    {
-        var hashToken = ReadToken();
-        var name = new NameSyntaxParser(this).ParseName();
-        var argumentList = CreateMissingArgumentList();
-        MacroTokenTreeSyntax? tokenTree = null;
-
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-            argumentList = ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
-
-        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
-            tokenTree = ParseMacroTokenTree();
-
-        return HashMacroExpression(hashToken, name, argumentList, tokenTree);
     }
 
     private bool IsBangMacroExpressionStart()

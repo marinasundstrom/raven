@@ -20,7 +20,7 @@ public sealed class QuoteMacroCodeGenTests
 
             class Harness {
                 public static func Run() -> int {
-                    let syntax = #quote {
+                    let syntax = quote!{
                         left + right
                     }
 
@@ -62,7 +62,7 @@ public sealed class QuoteMacroCodeGenTests
 
             class Harness {
                 public static func Run() -> bool {
-                    let syntax = #quote {
+                    let syntax = quote!{
                         /* retained */ left + right
                     }
 
@@ -84,7 +84,7 @@ public sealed class QuoteMacroCodeGenTests
             class Harness {
                 public static func Run() -> string {
                     let right = Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("right")
-                    let syntax = #quote {
+                    let syntax = quote!{
                         left + #(right)
                     }
 
@@ -105,7 +105,7 @@ public sealed class QuoteMacroCodeGenTests
 
             class Harness {
                 public static func Run() -> string {
-                    let syntax = #quote {
+                    let syntax = quote!{
                         left + #(Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("right"))
                     }
 
@@ -128,7 +128,7 @@ public sealed class QuoteMacroCodeGenTests
                 public static func Run() -> string {
                     let middle = Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("middle")
                     let right = Raven.CodeAnalysis.Syntax.SyntaxFactory.IdentifierName("right")
-                    let syntax = #quote {
+                    let syntax = quote!{
                         left + #(middle) + #(right)
                     }
 
@@ -145,7 +145,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
-                let syntax = #quote {
+                let syntax = quote!{
                     left + #(value.Equals(1, ))
                 }
             }
@@ -165,7 +165,7 @@ public sealed class QuoteMacroCodeGenTests
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
                 let value = 42
-                let syntax = #quote {
+                let syntax = quote!{
                     left + #(value)
                 }
             }
@@ -186,7 +186,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
-                let syntax = #quote {
+                let syntax = quote!{
                     left + #()
                 }
             }
@@ -210,7 +210,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
-                let syntax = #quote {
+                let syntax = quote!{
                     value.Equals(1, )
                 }
             }
@@ -229,7 +229,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
-                let syntax = #quote {
+                let syntax = quote!{
                     left right
                 }
             }
@@ -247,7 +247,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
-                let syntax = #quote {
+                let syntax = quote!{
                 }
             }
             """);
@@ -268,7 +268,7 @@ public sealed class QuoteMacroCodeGenTests
     {
         var syntaxTree = SyntaxTree.ParseText("""
             func Main() -> unit {
-                let syntax = #quote { 42 }
+                let syntax = quote!{ 42 }
             }
             """);
 

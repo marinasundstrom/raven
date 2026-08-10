@@ -509,14 +509,14 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                         FreestandingMacroExpansionResult {
-                            Expression = #quote { 42 }
+                            Expression = quote!{ 42 }
                         }
                     }
                 }
                 """);
             File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
                 class Harness {
-                    public static func Value() -> int => #localAnswer { }
+                    public static func Value() -> int => localAnswer!{ }
                 }
                 """);
 

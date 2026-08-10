@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Removed the alternate `#Name` invocable-macro syntax. Freestanding macros now
+  use the single `Name!` carrier for argument lists, raw token bodies, or both;
+  `#` remains available for directives and attached macro attributes.
+
 - Generalized invocable macro expansion results around a single `SyntaxNode`,
   with typed expression and statement projections and factories. This removes
   expression-only casts from the execution boundary and prepares centralized
@@ -1003,14 +1007,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - `use` bindings no longer report `RAV9027` merely because their bound value is
   not read; establishing the disposal lifetime counts as the declaration's
   intended use.
-- Added raw-body token-tree expression macros with `#name { ... }` syntax,
+- Added raw-body token-tree expression macros with `name!{ ... }` syntax,
   lossless DSL body capture, body-relative diagnostics, and helpers for parsing
   the complete body or selected embedded spans as Raven expressions. Macro
   bodies bypass ordinary Raven tokenization, while expansion continues through
   normal semantic binding and emit.
 - Added the alternate `name! { ... }` spelling for token-tree expression
   macros. It has a dedicated syntax node while sharing macro binding,
-  expansion, completion, and language-service behavior with `#name { ... }`.
+  expansion, completion, and language-service behavior with `name!{ ... }`.
 - Added `SyntaxToken.RawKind`, macro-local token reclassification through
   `WithRawKind`, and detached custom-token construction without changing
   ordinary Raven `SyntaxKind` classification or lexing.
@@ -1026,11 +1030,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Typing `#` in an expression offers only freestanding and token-tree macros;
   typing it in a declaration offers only attached macros and inserts the
   complete `#[Macro]` attribute form.
-- Added a Raven-authored `#guard { unless <expression> }` sample as the
+- Added a Raven-authored `guard!{ unless <expression> }` sample as the
   token-tree macro MVP, demonstrating macro-local keywords, embedded Raven
   expression parsing, direct lowering, and end-to-end execution.
 - Extended the token-tree macro sample with
-  `#choose { test ... then ... otherwise ... }`, demonstrating multiple
+  `choose!{ test ... then ... otherwise ... }`, demonstrating multiple
   macro-local clauses, independently parsed Raven fragments, body-mapped
   missing-clause diagnostics, and direct lowering to an `if` expression.
 - Added a minimal LINQ-like `#query` macro sample with one `from`, optional
@@ -1056,7 +1060,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   parameters, constraints, and call-site return type. Macro declarations do not
   implement `IMethodSymbol`, enter ordinary runtime method binding, or support
   `async`/`await`; semantic activation and lowering remain future work.
-- Added the compiler-owned expression-only `#quote { ... }` intrinsic. It
+- Added the compiler-owned expression-only `quote!{ ... }` intrinsic. It
   preserves tokens and trivia, rejects malformed or trailing input at authored
   locations, expands to fully qualified `SyntaxFactory` construction, and
   participates in macro-name completion without a plugin reference.
@@ -2252,7 +2256,7 @@ Impact:
 ### Changed
 - `rvn` now supports `--dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]` so a single-file compile can show the pre-expansion source beside the currently expanded macro view, either as raw text or highlighted output.
 - `.debug` compiler captures now also include per-document macro original/expanded source snapshots, including a plain text highlighted dump for the expanded view.
-- Macro language-service support now treats macro names as first-class completion sites: `#[...]` offers attached macro names, `#name(...)` offers freestanding macro names before the call is complete, and macro hovers include kind/target/argument hints alongside the existing expansion preview.
+- Macro language-service support now treats macro names as first-class completion sites: `#[...]` offers attached macro names, `name!(...)` offers freestanding macro names before the call is complete, and macro hovers include kind/target/argument hints alongside the existing expansion preview.
 
 Impact:
 - Macro debugging from the CLI no longer requires manually inspecting per-node expansion results just to compare authored source with the compiler’s current expansion output.
@@ -2354,7 +2358,7 @@ Impact:
 - Attached macro plugins now receive both the raw parsed argument list through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`, where each `MacroArgument` exposes both a richer constant representation and a direct CLR `Value`.
 - Added `IMacroDefinition<TParameters>` as the public marker for the typed macro-parameter-object direction, so attached macros can move toward attribute-like argument binding and editor experience without changing invocation syntax again.
 - Added `IAttachedDeclarationMacro<TParameters>` and the first compiler-bound typed-parameter path for attached macros: positional arguments bind through a single public constructor, named arguments bind through writable properties, and invalid names/conversions now report dedicated macro diagnostics before expansion.
-- Added freestanding expression macros with `#name(...)` syntax, typed parameter binding, semantic-model expansion lookup, and initial language-server preview/definition support.
+- Added freestanding expression macros with `name!(...)` syntax, typed parameter binding, semantic-model expansion lookup, and initial language-server preview/definition support.
 - Macro argument constant values are now evaluated without re-entering semantic diagnostics during expansion, so macros can read literal argument values without recursively re-triggering their own expansion and blowing the stack.
 - Accessor parsing and formatting now preserve explicit same-line `;` separators, and `SyntaxNormalizer` inserts line breaks between adjacent accessors and block statements when raw generated syntax omits trivia, so macro expansion previews stay readable without requiring macros to hand-format every token.
 - `SyntaxFactory.ArrowExpressionClause(...)` now defaults to the fat arrow token `=>` at the syntax-model level, so generated accessor and member expression bodies no longer drift back to pointer-style `->` after regeneration.
@@ -2385,8 +2389,8 @@ Impact:
 - Attached macros can now return syntax built directly with `SyntaxFactory` without needing synthetic source rooting first; replacement members are contextualized against the real containing declaration before binding/emit, and detached generated syntax no longer crashes source symbol or method-body emission paths.
 - Project-reference compilations now force source declaration symbols for referenced Raven projects before they are exposed as `CompilationReference`s, so sibling-project source types participate in name binding and editor navigation instead of degrading to `Error` across workspace boundaries.
 - `Go to definition` now resolves `#[MacroName]` sites back to the macro declaration project when the macro project is open in the workspace, using the macro reference’s source project path to map the loaded macro type back to source.
-- `Go to definition` and expansion preview now also work for freestanding macro invocations such as `#answer()`.
-- Fixed `SeekableTextSource.PeekChar(offset, ...)` so offset-aware peeks actually honor the requested offset; this was required to keep `#pragma` on the directive path while adding freestanding `#name(...)` parsing.
+- `Go to definition` and expansion preview now also work for freestanding macro invocations such as `answer!()`.
+- Fixed `SeekableTextSource.PeekChar(offset, ...)` so offset-aware peeks actually honor the requested offset; this was required to keep `#pragma` on the directive path while adding freestanding `name!(...)` parsing.
 
 Impact:
 - Raven now has a stable syntax and host API foundation for attached macros without routing them through the normal CLR attribute pipeline.
@@ -2551,9 +2555,9 @@ Impact:
 - Re-check overload-heavy calls (especially lambdas/extensions/generics) because binder behavior is now stricter and more correct.
 - For compiler API integrations, prefer current Operations API names/shapes aligned to match-oriented semantics.
 - Changed: invocation arguments for `ref`, `out`, and `in` parameters now use explicit call-site keywords instead of `&` at ordinary call sites. Raven now supports `Set(ref value)`, `TryParse(text, out result)`, and declaration forms like `TryParse(text, out var result)` and `TryParse(text, out val result)`.
-- Added a sibling-project `samples/projects/macro-freestanding` sample showing a Raven-authored freestanding expression macro plugin and executable app project using `#add(...)`.
+- Added a sibling-project `samples/projects/macro-freestanding` sample showing a Raven-authored freestanding expression macro plugin and executable app project using `add!(...)`.
 - Added a sibling-project `samples/projects/macro-reactive` sample showing an attached property macro and a freestanding subscription macro working together in Raven-authored projects.
-- Changed the VS Code extension defaults to disable color decorators in Raven files so freestanding macros like `#add(...)` do not trigger hex-color pickers.
+- Changed the VS Code extension defaults to disable color decorators in Raven files so freestanding macros like `add!(...)` do not trigger hex-color pickers.
 - Changed macro contracts so `MacroKind` is inferred from `IAttachedDeclarationMacro` and `IFreestandingExpressionMacro`, removing redundant boilerplate from implementations.
 - Changed `macro-reactive` to use `System.Reactive` and `IObservable<T>`/`Subject<T>` in the sample runtime shape instead of a custom in-sample observable type.
 - Fixed sequence-point emission for macro-generated zero-width spans so generic introduced-member initializers no longer crash emit.

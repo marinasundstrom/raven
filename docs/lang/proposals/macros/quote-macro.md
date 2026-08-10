@@ -17,7 +17,7 @@ syntax and expands inline to the `SyntaxFactory` expression that recreates the
 captured syntax tree.
 
 ```raven
-let declaration: FunctionDeclarationSyntax = #quote {
+let declaration: FunctionDeclarationSyntax = quote!{
     func Greet(name: string) -> string {
         return "Hello $name"
     }
@@ -72,7 +72,7 @@ return SyntaxFactory.InfixOperatorExpression(
 into a direct description of the expansion:
 
 ```raven
-return #quote {
+return quote!{
     #(left) + #(right)
 }
 ```
@@ -113,7 +113,7 @@ into a compilation and bound in that context.
 The first implementation accepts exactly one Raven expression:
 
 ```raven
-let syntax = #quote {
+let syntax = quote!{
     left + right
 }
 ```
@@ -143,7 +143,7 @@ An expression quote can insert an existing `ExpressionSyntax` value with
 
 ```raven
 let right = SyntaxFactory.IdentifierName("right")
-let syntax = #quote {
+let syntax = quote!{
     left + #(right)
 }
 ```
@@ -210,15 +210,15 @@ describes it as syntax-tree or AST construction.
 The primary form captures a delimited token tree:
 
 ```raven
-let expression: ExpressionSyntax = #quote {
+let expression: ExpressionSyntax = quote!{
     left + right
 }
 
-let statement: StatementSyntax = #quote {
+let statement: StatementSyntax = quote!{
     Console.WriteLine("Hello")
 }
 
-let member: MemberDeclarationSyntax = #quote {
+let member: MemberDeclarationSyntax = quote!{
     func Answer() -> int => 42
 }
 ```
@@ -232,8 +232,8 @@ explicit syntax category when the fragment is ambiguous. The final spelling
 for an explicit category remains open; possibilities include:
 
 ```raven
-#quote(expr) { left + right }
-#quote(member) { func Answer() -> int => 42 }
+quote!(expr) { left + right }
+quote!(member) { func Answer() -> int => 42 }
 ```
 
 or category-specific compiler entry points surfaced through contextual typing
@@ -244,7 +244,7 @@ alone.
 For:
 
 ```raven
-let expression: ExpressionSyntax = #quote {
+let expression: ExpressionSyntax = quote!{
     left + right
 }
 ```
@@ -387,7 +387,7 @@ Expression quotes support explicit insertion of expression syntax:
 ```raven
 let operand = SyntaxFactory.IdentifierName("answer")
 
-let expression = #quote {
+let expression = quote!{
     #(operand) + 1
 }
 ```

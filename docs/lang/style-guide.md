@@ -98,8 +98,8 @@ work in progress and may change as it develops.
   macro independent from member rewrites.
 - Prefer the invocation-like `name! { ... }` spelling for token-tree expression
   macros. It keeps the expression flow visible and communicates that the macro
-  owns and transforms the following region of code. The `#name { ... }`
-  spelling remains supported.
+  owns and transforms the following region of code. `#` is reserved for
+  directives and attached macro attributes.
 
 ```raven
 #[Observable]

@@ -14,7 +14,7 @@ public sealed class MacroToolingSnapshotCacheTests
     [Fact]
     public void SemanticModel_CachesTokenAndFragmentProviderResultsPerInvocation()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #cached { value }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = cached!{ value }";
         var macro = new CachedToolingMacro();
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create(

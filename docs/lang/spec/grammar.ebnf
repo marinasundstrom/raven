@@ -706,15 +706,11 @@ DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 TypeOfExpression         ::= 'typeof' '(' Type ')' ;
 NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
 FreestandingMacroExpression
-                         ::= HashMacroExpression
-                           | BangMacroExpression ;
-
-HashMacroExpression      ::= '#' Identifier [TypeArgumentList]
-                             ( ArgumentList
-                             | [ArgumentList] MacroTokenTree ) ;
+                         ::= BangMacroExpression ;
 
 BangMacroExpression      ::= Identifier [TypeArgumentList] '!'
-                             [ArgumentList] MacroTokenTree ;
+                             ( ArgumentList
+                             | [ArgumentList] MacroTokenTree ) ;
 
 MacroTokenTree           ::= '{' /* lossless raw source with balanced braces */ '}' ;
 

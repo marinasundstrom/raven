@@ -2986,12 +2986,9 @@ public static class CompletionProvider
         var freestandingInvocationStart = freestandingMacro?.ArgumentList.OpenParenToken.IsMissing == false
             ? freestandingMacro.ArgumentList.OpenParenToken.SpanStart
             : freestandingMacro?.TokenTree?.OpenBraceToken.SpanStart;
-        var freestandingNameStart = freestandingMacro switch
-        {
-            HashMacroExpressionSyntax hashMacro => hashMacro.HashToken.Span.End,
-            BangMacroExpressionSyntax bangMacro => bangMacro.Name.Span.Start,
-            _ => int.MaxValue
-        };
+        var freestandingNameStart = freestandingMacro is BangMacroExpressionSyntax invocationBang
+            ? invocationBang.Name.Span.Start
+            : int.MaxValue;
         var freestandingNameEnd = freestandingMacro switch
         {
             BangMacroExpressionSyntax bangMacro => bangMacro.ExclamationToken.SpanStart,

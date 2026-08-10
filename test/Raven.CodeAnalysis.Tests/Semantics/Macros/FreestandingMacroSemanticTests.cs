@@ -42,7 +42,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(sum.ToString())
             }
 
-            func Main() -> int => #Add(20, right: 22)
+            func Main() -> int => Add!(20, right: 22)
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -134,7 +134,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(sum.ToString())
             }
 
-            func Main() -> int => #Add(10, 10, 10, 12)
+            func Main() -> int => Add!(10, 10, 10, 12)
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -170,7 +170,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(source)
             }
 
-            func Main() -> int => #AddOffset(2, 40)
+            func Main() -> int => AddOffset!(2, 40)
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -540,12 +540,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote!{ 42 }
                     }
                 }
             }
 
-            func Main() -> int => #answer { }
+            func Main() -> int => answer!{ }
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -616,7 +616,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void DirectMacroTree_IsAutomaticallyPartitioned()
     {
         var macroTree = CreateLocalAnswerMacroTree();
-        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #localAnswer { }");
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => localAnswer!{ }");
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
@@ -634,7 +634,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void LocalMacroSyntaxTrees_CompileAndExpandWithoutWorkspace()
     {
         var macroTree = CreateLocalAnswerMacroTree();
-        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #localAnswer { }");
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => localAnswer!{ }");
         var compilation = Compilation.Create(
                 "LocalMacroConsumer",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
@@ -670,7 +670,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             }
             """, path: "local-macros.rvn");
         var consumerTree = SyntaxTree.ParseText(
-            "func Main() -> int => #localAnswer { }",
+            "func Main() -> int => localAnswer!{ }",
             path: "main.rvn");
         var compilation = Compilation.Create(
                 "BrokenLocalMacroConsumer",
@@ -935,12 +935,12 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     let answer = ConsumerConfiguration.Answer
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote!{ 42 }
                     }
                 }
             }
 
-            func Main() -> int => #answer { }
+            func Main() -> int => answer!{ }
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -976,7 +976,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     let answer = ConsumerConfiguration.Answer
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote!{ 42 }
                     }
                 }
             }
@@ -988,7 +988,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 static val Answer: int => 42
             }
 
-            func Main() -> int => #answer { }
+            func Main() -> int => answer!{ }
             """,
             path: "main.rvn");
         var compilation = Compilation.Create(
@@ -1009,7 +1009,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void UnknownFreestandingMacro_ReportsUnknownMacroDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
-            func Main() -> int => #answer()
+            func Main() -> int => answer!()
             """);
 
         var diagnostics = compilation.GetDiagnostics();
@@ -1129,7 +1129,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
-                        Expression = #quote { 42 }
+                        Expression = quote!{ 42 }
                     }
                 }
             }
@@ -1139,7 +1139,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void GetMacroExpansion_ReturnsFreestandingExpansionResult()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #answer()
+            func Main() -> int => answer!()
             """);
 
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(AnswerMacro)));
@@ -1159,7 +1159,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         CapturingFreestandingMacro.LastParameters = null;
 
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #repeat(3, Label: "hi")
+            func Main() -> int => repeat!(3, Label: "hi")
             """);
 
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(CapturingFreestandingMacro)));
@@ -1178,7 +1178,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TypedFreestandingMacroExpansionFailure_ReportsUnderlyingException()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #typedBoom()
+            func Main() -> int => typedBoom!()
             """);
 
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(ThrowingTypedFreestandingMacro)));
@@ -1196,7 +1196,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void FreestandingMacroCancellation_PropagatesAndDoesNotCacheFailure()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #cancelRaw()
+            func Main() -> int => cancelRaw!()
             """);
 
         compilation = compilation.AddMacroReferences(
@@ -1219,7 +1219,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TypedFreestandingMacroCancellation_PropagatesThroughReflectionAndDoesNotCacheFailure()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #cancelTyped()
+            func Main() -> int => cancelTyped!()
             """);
 
         compilation = compilation.AddMacroReferences(
@@ -1242,7 +1242,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void RawFreestandingMacro_ArgumentsRequireExplicitOptIn()
     {
         var (compilation, _) = CreateCompilation("""
-            func Main() -> int => #answer(42)
+            func Main() -> int => answer!(42)
             """);
 
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(AnswerMacro)));
@@ -1256,7 +1256,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void FreestandingMacroReportedArgumentValidationDiagnostic_UsesMacroDiagnosticPath()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #repeat(0)
+            func Main() -> int => repeat!(0)
             """);
 
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(ValidatingFreestandingMacro)));
@@ -1291,7 +1291,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                 func WriteLine(value: int) -> unit { }
 
                 func Run(viewModel: CounterViewModel) -> unit {
-                    let subscription = #subscribe(viewModel.Count, (value) => {
+                    let subscription = subscribe!(viewModel.Count, (value) => {
                         WriteLine(value)
                     })
                 }
@@ -1332,7 +1332,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_CanParseEntireBodyAsRavenExpression()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #raven {
+            func Main() -> int => raven!{
                 40 + 2
             }
             """);
@@ -1354,7 +1354,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_CanDelegateSelectedDslSpanToRavenParser()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #select {
+            func Main() -> int => select!{
                 query-field ::= {{ 20 + 22 }}
             }
             """);
@@ -1376,7 +1376,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_CanParseEntireBodyAsRavenStatement()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #statement {
+            func Main() -> int => statement!{
                 return 42
             }
             """);
@@ -1398,7 +1398,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_CanDelegateSelectedDslSpanToRavenStatementParser()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #statementSelect {
+            func Main() -> int => statementSelect!{
                 action ::= {{ return 42 }}
             }
             """);
@@ -1420,7 +1420,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_StatementParseResultForwardsNativeDiagnostic()
     {
         const string source = """
-            func Main() -> int => #statementResult {
+            func Main() -> int => statementResult!{
                 return value.Equals(1, )
             }
             """;
@@ -1438,7 +1438,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_StatementParseResultRejectsTrailingInput()
     {
         const string source = """
-            func Main() -> int => #statementResult {
+            func Main() -> int => statementResult!{
                 return 1 return 2
             }
             """;
@@ -1456,7 +1456,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_BodyDiagnosticUsesAuthoredBodySpan()
     {
         const string source = """
-            func Main() -> int => #reject {
+            func Main() -> int => reject!{
                 invalid-dsl-token
             }
             """;
@@ -1476,7 +1476,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_RequiresTokenTreeInvocationForm()
     {
         var (compilation, _) = CreateCompilation("""
-            func Main() -> int => #raven()
+            func Main() -> int => raven!()
             """);
 
         compilation = compilation.AddMacroReferences(new MacroReference(typeof(RavenBodyMacro)));
@@ -1490,7 +1490,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_DefaultStreamAppliesMacroLocalKeywordOverlay()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #keywordStream {
+            func Main() -> int => keywordStream!{
                 select value
             }
             """);
@@ -1509,7 +1509,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void TokenTreeMacro_CanReplaceDefaultStreamWithCustomProvider()
     {
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #customStream {
+            func Main() -> int => customStream!{
                 ⟨custom-value⟩
             }
             """);
@@ -1531,7 +1531,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         CapturingTokenTreeMacro.LastBody = null;
 
         var (compilation, tree) = CreateCompilation("""
-            func Main() -> int => #typedBody(3, Label: "item") {
+            func Main() -> int => typedBody!(3, Label: "item") {
                 custom content
             }
             """);
@@ -1554,7 +1554,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     public void UntypedTokenTreeMacro_RejectsArguments()
     {
         var (compilation, _) = CreateCompilation("""
-            func Main() -> int => #raven(3) {
+            func Main() -> int => raven!(3) {
                 42
             }
             """);

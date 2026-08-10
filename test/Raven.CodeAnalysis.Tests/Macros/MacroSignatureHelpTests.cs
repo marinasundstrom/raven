@@ -15,7 +15,7 @@ import Raven.CodeAnalysis.Tests.Macros.*
 
 class Host {
     func Test() {
-        let value = #typedQuery(Dialect: "sql", Optimize: true) { from users }
+        let value = typedQuery!(Dialect: "sql", Optimize: true) { from users }
     }
 }
 """;
@@ -95,7 +95,7 @@ import Raven.CodeAnalysis.Tests.Macros.*
 
 class Host {
     func Test() {
-        let value = #project(1 + 2)
+        let value = project!(1 + 2)
     }
 }
 """;

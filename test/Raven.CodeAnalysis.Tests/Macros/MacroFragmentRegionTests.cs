@@ -15,7 +15,7 @@ public sealed class MacroFragmentRegionTests
     [Fact]
     public void GetMacroFragmentRegions_MapsBodyRelativeRegionsToAuthoredSource()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #query { from user in users select user.Name }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = query!{ from user in users select user.Name }";
         var (compilation, expression) = CreateCompilation(code, new QueryMacro());
 
         var regions = compilation.GetMacroFragmentRegions(expression);
@@ -42,7 +42,7 @@ public sealed class MacroFragmentRegionTests
     [Fact]
     public void GetMacroFragmentRegions_ReturnsEmptyWhenOptionalProviderFails()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #invalidRegions { value }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = invalidRegions!{ value }";
         var (compilation, expression) = CreateCompilation(code, new InvalidRegionMacro());
 
         var regions = compilation.GetSemanticModel(expression.SyntaxTree!)
@@ -54,7 +54,7 @@ public sealed class MacroFragmentRegionTests
     [Fact]
     public void GetMacroFragmentRegions_PreservesExpressionTargetType()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #targetTyped { (value) => value }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = targetTyped!{ (value) => value }";
         var (compilation, expression) = CreateCompilation(code, new TargetTypedMacro());
 
         var region = Assert.Single(compilation.GetMacroFragmentRegions(expression));

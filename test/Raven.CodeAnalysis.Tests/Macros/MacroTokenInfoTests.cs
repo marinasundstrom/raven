@@ -14,7 +14,7 @@ public sealed class MacroTokenInfoTests
     [Fact]
     public void GetMacroTokens_PreservesRawKindSpansAndKeywordClassification()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #query { from users }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = query!{ from users }";
         var (compilation, expression) = CreateCompilation(code, new QueryMacro());
 
         var tokens = compilation.GetMacroTokens(expression);
@@ -44,7 +44,7 @@ public sealed class MacroTokenInfoTests
     [Fact]
     public void GetMacroTokens_ReturnsEmptyWhenOptionalTokenProviderFails()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #broken { value }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = broken!{ value }";
         var (compilation, expression) = CreateCompilation(code, new BrokenTokenMacro());
 
         var tokens = compilation.GetMacroTokens(expression);
@@ -55,7 +55,7 @@ public sealed class MacroTokenInfoTests
     [Fact]
     public void GetMacroTokens_NormalizesFailingOptionalMetadata()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = #resilient { from users }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nlet value = resilient!{ from users }";
         var (compilation, expression) = CreateCompilation(code, new ResilientMacro());
 
         var tokens = compilation.GetMacroTokens(expression);
@@ -79,7 +79,7 @@ public sealed class MacroTokenInfoTests
     [Fact]
     public void GetMacroTokens_ProjectsOrdinarySymbolTargets()
     {
-        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nclass Greeting { }\nlet value = #symbols { <Greeting }";
+        const string code = "import Raven.CodeAnalysis.Tests.Macros.*\nclass Greeting { }\nlet value = symbols!{ <Greeting }";
         var (compilation, expression) = CreateCompilation(code, new SymbolMacro());
 
         var token = Assert.Single(

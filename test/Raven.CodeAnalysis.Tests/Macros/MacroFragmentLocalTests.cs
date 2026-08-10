@@ -14,7 +14,7 @@ public sealed class MacroFragmentLocalTests
     [Fact]
     public void ExplicitFragmentLocal_ParticipatesInMemberCompletion()
     {
-        const string code = "let row = 1\nlet result = #scoped { row. }";
+        const string code = "let row = 1\nlet result = scoped!{ row. }";
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create(
                 "MacroFragmentLocal",

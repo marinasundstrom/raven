@@ -192,12 +192,6 @@
     <Slot Name="ArgumentList" Type="ArgumentList" IsAbstract="true" />
     <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" IsAbstract="true" />
   </Node>
-  <Node Name="HashMacroExpression" Inherits="FreestandingMacroExpression">
-    <Slot Name="HashToken" Type="Token" DefaultToken="HashToken" />
-    <Slot Name="Name" Type="Name" IsInherited="true" />
-    <Slot Name="ArgumentList" Type="ArgumentList" IsInherited="true" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" IsInherited="true" />
-  </Node>
   <Node Name="BangMacroExpression" Inherits="FreestandingMacroExpression">
     <Slot Name="Name" Type="Name" IsInherited="true" />
     <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />

@@ -92,7 +92,7 @@ public sealed class ProjectFileNuGetReferenceTests
         File.WriteAllBytes(packageAssemblyPath, EmitPackageMacroAssembly());
 
         var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
-        File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
+        File.WriteAllText(sourcePath, "func Main() -> int => packageAnswer!{ }");
 
         var projectPath = Path.Combine(projectDirectory, "App.rvnproj");
         File.WriteAllText(
@@ -176,7 +176,7 @@ public sealed class ProjectFileNuGetReferenceTests
                 MetadataReference.CreateFromFile(dependencyAssemblyPath)));
 
         var sourcePath = Path.Combine(sourceDirectory, "main.rvn");
-        File.WriteAllText(sourcePath, "func Main() -> int => #packageAnswer { }");
+        File.WriteAllText(sourcePath, "func Main() -> int => packageAnswer!{ }");
 
         var projectPath = Path.Combine(projectDirectory, "App.rvnproj");
         File.WriteAllText(
@@ -349,7 +349,7 @@ public sealed class ProjectFileNuGetReferenceTests
                     "Consumer",
                     new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddSyntaxTrees(SyntaxTree.ParseText(
-                    "func Main() -> int => #packageAnswer { }"))
+                    "func Main() -> int => packageAnswer!{ }"))
                 .AddReferences(TestMetadataReferences.Default)
                 .AddReferences(resolution.MetadataReferences.ToArray())
                 .AddMacroReferences(resolution.MacroReferences.ToArray());
