@@ -18,7 +18,7 @@
         <div class="eyebrow"><span>Experimental</span> Macro-powered component templates → native Blazor</div>
         <h1>Components that read like the <em>web.</em></h1>
         <p class="hero-copy">
-            Raven macros turn familiar inline templates into real <code>RenderFragment</code>s—with parameters,
+            Raven macros turn familiar inline templates into interactive Blazor components—with parameters,
             state, nested components, list comprehensions, pattern matching, and event callbacks intact.
         </p>
         <div class="hero-actions">
@@ -78,9 +78,9 @@
                 <div class="preview-label">LIVE PREVIEW</div>
                 <div class="component-stage">
                     <DynamicComponent Type="typeof(Counter)" Parameters="CounterParameters" />
-                    <p>Each click crosses the generated <code>EventCallback</code>.</p>
+                    <p>Each click updates Raven state through Blazor.</p>
                 </div>
-                <div class="preview-footer"><span></span> Interactive renderer + scoped CSS</div>
+                <div class="preview-footer"><span></span> Interactive component + scoped styles</div>
             </article>
         </div>
     </section>
@@ -91,7 +91,7 @@
                 <span class="section-number">02</span>
                 <h2>Markup stays markup</h2>
             </div>
-            <p>Uppercase tags resolve to Raven component types and pass parameters through Blazor's native component frames.</p>
+            <p>Uppercase tags compose Raven components, while familiar attributes pass values from a parent to its children.</p>
         </header>
 
         <div class="demo-grid reverse">
@@ -101,7 +101,7 @@
                     <DynamicComponent Type="typeof(Gallery)" />
                     <p>Two Raven components composed by another Raven component.</p>
                 </div>
-                <div class="preview-footer"><span></span> Native Blazor component frames</div>
+                <div class="preview-footer"><span></span> Raven components composed together</div>
             </article>
 
             <article class="code-card light-code">
@@ -130,7 +130,7 @@
                 <span class="section-number">03</span>
                 <h2>Data becomes UI</h2>
             </div>
-            <p>Check an item to update the Raven model. The filtered comprehension runs again and Blazor reconciles the keyed components.</p>
+            <p>Check an item to update the Raven model. The filtered list runs again and the view updates immediately while keeping each item in place.</p>
         </header>
 
         <div class="demo-grid todo-grid">
@@ -189,7 +189,7 @@
                     <DynamicComponent Type="typeof(BlazorInteropShowcase)" />
                     <p>The rendered badge is an ordinary <code>.razor</code> component from a referenced .NET project.</p>
                 </div>
-                <div class="preview-footer"><span></span> Component frame + scoped CSS</div>
+                <div class="preview-footer"><span></span> Existing Blazor component + scoped styles</div>
             </article>
 
             <article class="code-card light-code">
@@ -244,7 +244,7 @@
                 <div class="component-stage match-stage">
                     <DynamicComponent Type="typeof(MatchShowcase)" />
                 </div>
-                <div class="preview-footer"><span></span> Prefix match, native fragment</div>
+                <div class="preview-footer"><span></span> Pattern matching in the template</div>
             </article>
 
             <article class="code-card light-code">
@@ -277,10 +277,10 @@
     </section>
 
     <section class="proof-strip" aria-label="Component template capabilities">
-        <div><strong>Html!</strong><span>Token-tree macro</span></div>
-        <div><strong>#[Component]</strong><span>Attached macro</span></div>
-        <div><strong>[for … if]</strong><span>List comprehension</span></div>
-        <div><strong>match value</strong><span>Exhaustive union rendering</span></div>
+        <div><strong>Html!</strong><span>Inline component templates</span></div>
+        <div><strong>#[Component]</strong><span>Components without boilerplate</span></div>
+        <div><strong>[for … if]</strong><span>Filtered lists</span></div>
+        <div><strong>match value</strong><span>Every state handled</span></div>
     </section>
 
     <footer>

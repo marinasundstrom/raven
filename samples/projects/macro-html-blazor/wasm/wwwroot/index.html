@@ -6,12 +6,25 @@
     <meta name="description" content="Experimental macro-powered component templates authored in Raven and rendered by Blazor WebAssembly." />
     <title>Raven × Blazor</title>
     <base href="./" />
-    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="_content/HtmlBlazorSample/app.css" />
     <link rel="stylesheet" href="HtmlBlazorShowcase.Wasm.styles.css" />
     <script type="importmap"></script>
 </head>
 <body>
-    <div id="app">Loading the Raven × Blazor showcase…</div>
+    <div id="app">
+        <main class="loading-shell" role="status" aria-live="polite" aria-label="Loading the Raven component template showcase">
+            <div class="loading-card">
+                <div class="loading-brand" aria-hidden="true">
+                    <span class="loading-mark">R</span>
+                    <span class="loading-wordmark">Raven</span>
+                </div>
+                <span class="loading-eyebrow">Experimental showcase</span>
+                <h1>Bringing component templates to life.</h1>
+                <p>Preparing the interactive Raven and Blazor examples…</p>
+                <div class="loading-progress" aria-hidden="true"><span></span></div>
+            </div>
+        </main>
+    </div>
     <div id="blazor-error-ui">
         An unhandled error has occurred.
         <a href="." class="reload">Reload</a>

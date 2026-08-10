@@ -30,6 +30,5 @@
                Private="true"
                ExternallyResolved="true" />
     <RazorComponent Include="../host/Components/Pages/Home.razor" Link="Components/Pages/Home.razor" />
-    <Content Include="../host/wwwroot/app.css" Link="wwwroot/app.css" />
   </ItemGroup>
 </Project>
