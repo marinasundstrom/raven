@@ -1374,6 +1374,15 @@ on Raven's bootstrapped core unions. The intended Raven-facing projection is
 `Result<T, TError>` or purpose-built unions when distinct failure/recovery
 cases add value, rather than accumulating ad hoc nullable fields.
 
+### Invocation-scoped semantic inspection
+
+Status: **expression type and symbol inspection implemented**
+
+`TokenTreeMacroContext.GetTypeInfo` and `GetSymbolInfo` inspect parsed Raven
+expressions in the invocation's caller scope. The helpers resolve caller
+locals, parameters, members, and imports through compiler-owned semantic
+state, without requiring macro authors to construct a detached semantic model.
+
 ### Cursor-based Raven fragment parsing
 
 Status: **implemented for expressions, statements, types, and patterns**

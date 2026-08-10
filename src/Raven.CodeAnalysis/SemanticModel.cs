@@ -11604,6 +11604,32 @@ public partial class SemanticModel
         return GetBinder(invocation).BindExpression(expression).Type;
     }
 
+    internal TypeInfo GetMacroFragmentTypeInfo(
+        FreestandingMacroExpressionSyntax invocation,
+        ExpressionSyntax expression)
+    {
+        var type = GetMacroFragmentExpressionType(invocation, expression);
+        return new TypeInfo(type, type);
+    }
+
+    internal SymbolInfo GetMacroFragmentSymbolInfo(
+        FreestandingMacroExpressionSyntax invocation,
+        ExpressionSyntax expression)
+    {
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
+        if (expression is IdentifierNameSyntax identifier &&
+            TryLookupVisibleValueSymbol(
+                invocation,
+                identifier.Identifier.ValueText,
+                allowBindingFallback: true) is { } visibleSymbol)
+        {
+            return new SymbolInfo(visibleSymbol);
+        }
+
+        return GetBinder(invocation).BindExpression(expression).GetSymbolInfo();
+    }
+
     internal ImmutableArray<ISymbol> GetVisibleValueSymbols(
         SyntaxNode contextNode,
         bool allowBindingFallback = false)

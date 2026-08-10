@@ -164,6 +164,18 @@ for a cursor parse it is likewise the recovered node's actual span. The stream
 tracks the parser's consumed position separately so recovery tokens can still
 advance the cursor safely without widening the node span reported to authors.
 
+Parsed expressions can be inspected in the invocation's caller scope without
+constructing a separate semantic model:
+
+```csharp
+var parsed = stream.ParseExpression();
+var typeInfo = context.GetTypeInfo(parsed.Syntax);
+var symbolInfo = context.GetSymbolInfo(parsed.Syntax);
+```
+
+These helpers see caller locals, parameters, members, and imports through the
+compiler-owned semantic model used by expansion.
+
 Macro contexts accumulate diagnostics through the ordinary
 `ReportDiagnostic` and `ReportDiagnostics` APIs. This deliberately avoids a
 separate diagnostic statement in the language. `expand` supplies the final

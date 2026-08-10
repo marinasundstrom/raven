@@ -45,6 +45,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   current token, receive its recovered syntax and body-relative span, and
   continue reading the outer DSL without precomputing an end span.
 
+- Added invocation-scoped type and symbol inspection helpers for Raven
+  expressions parsed by token-tree macros.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

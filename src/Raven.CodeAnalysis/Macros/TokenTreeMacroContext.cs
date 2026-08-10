@@ -346,6 +346,26 @@ public class TokenTreeMacroContext : MacroContext
             static () => new ExpressionSyntax.Missing());
 
     /// <summary>
+    /// Gets type information for a parsed Raven expression in the scope of
+    /// this macro invocation.
+    /// </summary>
+    public TypeInfo GetTypeInfo(ExpressionSyntax expression)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        return SemanticModel.GetMacroFragmentTypeInfo(Syntax, expression);
+    }
+
+    /// <summary>
+    /// Gets symbol information for a parsed Raven expression in the scope of
+    /// this macro invocation.
+    /// </summary>
+    public SymbolInfo GetSymbolInfo(ExpressionSyntax expression)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        return SemanticModel.GetMacroFragmentSymbolInfo(Syntax, expression);
+    }
+
+    /// <summary>
     /// Parses one Raven expression at the token stream's current position and
     /// advances the stream through the parsed expression.
     /// </summary>
@@ -555,7 +575,9 @@ public class TokenTreeMacroContext : MacroContext
             parseResult is null
                 ? bodyRelativeSpan.Start
                 : Math.Clamp(
-                    parseResult.Value.ConsumedPosition - BodySpan.Start,
+                    (parseResult.Value.Diagnostics.Any(static diagnostic => diagnostic.Descriptor.DefaultSeverity == DiagnosticSeverity.Error)
+                        ? parseResult.Value.ConsumedPosition
+                        : syntax.Span.End) - BodySpan.Start,
                     bodyRelativeSpan.Start,
                     bodyRelativeSpan.End),
             diagnostics);
