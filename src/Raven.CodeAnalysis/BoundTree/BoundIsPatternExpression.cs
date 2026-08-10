@@ -814,6 +814,21 @@ internal partial class BlockBinder
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
+        if (syntax.Expression is IdentifierNameSyntax identifier &&
+            IsCaseOfContainingUnion(inputType, identifier.Identifier.ValueText) &&
+            TryBindDiscriminatedUnionCasePattern(
+                caseName: identifier.Identifier.ValueText,
+                qualifierType: null,
+                inputType: inputType,
+                arguments: [],
+                designation: null,
+                caseNameLocation: identifier.Identifier.GetLocation(),
+                argumentListLocation: identifier.GetLocation(),
+                out var casePattern))
+        {
+            return casePattern!;
+        }
+
         var expression = syntax.Expression is MemberBindingExpressionSyntax memberBinding
             ? BindMemberBindingExpression(memberBinding, inputType)
             : BindExpression(syntax.Expression);
@@ -2113,7 +2128,8 @@ internal partial class BlockBinder
 
         var arguments = syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray();
         var canUseUnqualifiedUnionCase = qualifierType is not null ||
-            IsUnqualifiedUnionCaseImported(caseName!, GetCasePatternTypeArgumentCount(syntax.Type));
+            IsUnqualifiedUnionCaseImported(caseName!, GetCasePatternTypeArgumentCount(syntax.Type)) ||
+            IsCaseOfContainingUnion(inputType, caseName!);
 
         if (!canUseUnqualifiedUnionCase &&
             qualifierType is null &&
@@ -2152,6 +2168,21 @@ internal partial class BlockBinder
             caseName,
             typeArgumentCount,
             includeNamespaceTypeLookups: false).Length > 0;
+
+    private bool IsCaseOfContainingUnion(ITypeSymbol? inputType, string caseName)
+    {
+        var inputUnion = inputType?.GetNonNullableType().TryGetUnion()
+            ?? inputType?.GetNonNullableType().TryGetUnionCase()?.Union;
+        var containingType = _containingSymbol as INamedTypeSymbol
+            ?? _containingSymbol.ContainingType;
+        var containingUnion = containingType?.TryGetUnion()
+            ?? containingType?.TryGetUnionCase()?.Union;
+
+        return inputUnion is not null &&
+               containingUnion is not null &&
+               AreSameUnionMemberPatternTarget(inputUnion, containingUnion) &&
+               inputUnion.DeclaredCaseTypes.Any(@case => string.Equals(@case.Name, caseName, StringComparison.Ordinal));
+    }
 
     private static int? GetCasePatternTypeArgumentCount(TypeSyntax typeSyntax)
     {

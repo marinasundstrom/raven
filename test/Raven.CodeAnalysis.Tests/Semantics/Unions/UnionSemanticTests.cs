@@ -1135,6 +1135,32 @@ union class HeaterResult {
     }
 
     [Fact]
+    public void UnqualifiedUserUnionCasePattern_WithinDeclaringUnion_BindsWithoutImport()
+    {
+        const string source = """
+union class HeaterResult {
+    case TempTooLow(value: int)
+    case Available
+
+    func describe() -> int {
+        return self match {
+            TempTooLow(let temp) => temp
+            Available => 0
+        }
+    }
+
+    func isAvailable() -> bool => self is Available
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void UnqualifiedUserUnionCasePattern_WithWildcardImport_BindsWithoutErrors()
     {
         const string source = """
