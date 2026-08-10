@@ -1410,12 +1410,20 @@ not select the first declaration from a complete compilation-unit parse.
 Design status: **application model proposed; implementation intentionally paused**
 
 The [macro application model](application-model.md) defines expression,
-statement, member, type, pattern, and attached scenarios; output annotations;
+statement, member, type, pattern, and attached scenarios; return-type targets;
 actual-position context; carrier selection; typed simple APIs; the validated
 multi-position ABI; and implementation order. No new carrier should be added
 until those decisions are accepted. The normalized advanced result may carry
-`SyntaxNode`, but the declaration supplies a closed allowed set and the driver
+`SyntaxNode`. A union annotation supplies an exact closed position set, while
+`-> SyntaxNode` explicitly opts into all single-node freestanding positions.
+Neither form includes attached or list-valued contributions, and the driver
 must diagnose category mismatches rather than casting unsafely.
+
+Here “untyped” means category-erased to the `SyntaxNode` base type, not dynamic
+or text-based expansion.
+
+For an invocable macro, the return type is normative target metadata: it
+decides where resolution and completion offer that macro before expansion runs.
 
 ### Expansion driver and isolation
 

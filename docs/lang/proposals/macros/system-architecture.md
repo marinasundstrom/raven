@@ -220,6 +220,11 @@ token-body input, and tooling capabilities are independent. A macro supporting
 both expression and statement positions declares a closed output set and
 receives the actual carrier position through compiler-owned context.
 
+For invocable macros, the source-level return type is the target declaration:
+it determines the grammar positions in which the macro can be invoked. A union
+return type declares several targets; it does not merely describe an
+after-the-fact expansion value.
+
 ## Proposed compiler API
 
 The names below are design-level API, not a commitment to preserve the current
@@ -297,6 +302,18 @@ public interface IExpressionMacro<TParameters> : IMacroDefinition
         ExpressionMacroContext<TParameters> context);
 }
 ```
+
+Multi-position class-authored macros use an advanced contract that declares
+their supported positions and returns a `SyntaxNode` through the normalized
+result carrier. A Raven union return annotation projects to an exact position
+set. `-> SyntaxNode` projects to the explicit “all single-node freestanding
+positions” wildcard. The wildcard excludes attached contributions and
+list-valued member expansion, and the driver validates the concrete node for
+every invocation.
+
+This proposal calls `SyntaxNode` output *untyped* only in the syntax-category
+sense. It erases `ExpressionSyntax`, `StatementSyntax`, and similar categories;
+it does not erase syntax structure or permit raw dynamic values.
 
 The compiler derives names, targets, parameters, and output categories from the
 implemented role and declaration metadata. Optional features use separate
