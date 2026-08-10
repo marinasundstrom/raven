@@ -196,6 +196,20 @@ public sealed class TokenTreeMacroContextTests
     }
 
     [Fact]
+    public void ReportDiagnostics_AcceptsParseResult()
+    {
+        var context = CreateContext("List<");
+        var result = context.ParseTypeResult();
+
+        context.ReportDiagnostics(result);
+
+        var reported = Assert.Single(context.GetReportedDiagnostics());
+        var parsed = Assert.Single(result.Diagnostics);
+        Assert.Equal(parsed.Descriptor.Id, reported.Descriptor.Id);
+        Assert.Equal(parsed.Location.SourceSpan, reported.Location.SourceSpan);
+    }
+
+    [Fact]
     public void ParseMemberDeclarationResult_ParsesOneDeclaration()
     {
         var context = CreateContext("class Widget { }");

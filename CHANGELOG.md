@@ -57,6 +57,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added concise structural and factory-form syntax inspection helpers for
   macro authors.
 
+- Macro syntax parse results can now be reported directly through
+  `MacroContext.ReportDiagnostics(result)`.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

@@ -114,7 +114,7 @@ import Raven.CodeAnalysis.Macros.*
 macro Guard(context: TokenTreeMacroContext) {
     let span = FindExpressionSpan(context.GetBodyText())
     let expression = context.ParseExpressionResult(span)
-    context.ReportDiagnostics(expression.Diagnostics)
+    context.ReportDiagnostics(expression)
     expand BuildGuardExpression(expression.Syntax)
 }
 ```
@@ -127,7 +127,7 @@ let stream = context.CreateTokenStream()
 let clauseKeyword = stream.ReadToken()
 let expression = stream.ParseExpression()
 
-context.ReportDiagnostics(expression.Diagnostics)
+context.ReportDiagnostics(expression)
 let expressionSpan = expression.BodyRelativeSpan
 ```
 

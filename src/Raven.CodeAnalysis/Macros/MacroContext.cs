@@ -115,6 +115,16 @@ public abstract class MacroContext
         _diagnostics.AddRange(diagnostics);
     }
 
+    /// <summary>
+    /// Reports all parser diagnostics carried by a macro syntax parse result.
+    /// </summary>
+    public void ReportDiagnostics<TSyntax>(MacroSyntaxParseResult<TSyntax> result)
+        where TSyntax : SyntaxNode
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ReportDiagnostics(result.Diagnostics);
+    }
+
     public void ReportDiagnostic(MacroExpansionDiagnostic diagnostic)
     {
         ArgumentNullException.ThrowIfNull(diagnostic);
