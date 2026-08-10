@@ -849,6 +849,12 @@ internal static class MemberSignatureDeclarationPass
                 fallbackType,
                 containingType,
                 methodTypeParameters),
+            UnionTypeSyntax union => ResolveUnionSkeletonType(
+                semanticModel,
+                union,
+                fallbackType,
+                containingType,
+                methodTypeParameters),
             QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(
                 semanticModel,
                 qualifiedName,
@@ -868,6 +874,35 @@ internal static class MemberSignatureDeclarationPass
             GenericNameSyntax genericName => ResolveGenericSkeletonType(semanticModel, genericName, fallbackType, containingType, methodTypeParameters),
             _ => fallbackType
         };
+    }
+
+    private static ITypeSymbol ResolveUnionSkeletonType(
+        SemanticModel semanticModel,
+        UnionTypeSyntax union,
+        ITypeSymbol fallbackType,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        var memberTypes = union.Types
+            .Select(type => ResolveSkeletonType(
+                semanticModel,
+                type,
+                fallbackType,
+                containingType,
+                methodTypeParameters))
+            .ToArray();
+        if (memberTypes.Length < 2 ||
+            memberTypes.Any(static type => type.TypeKind == TypeKind.Error))
+        {
+            return fallbackType;
+        }
+
+        var definition = semanticModel.Compilation.GetTypeByMetadataName(
+            $"System.Union`{memberTypes.Length}");
+        return definition is { } namedDefinition &&
+               namedDefinition.TypeParameters.Length == memberTypes.Length
+            ? namedDefinition.Construct(memberTypes)
+            : fallbackType;
     }
 
     private static ITypeSymbol ResolveNullableSkeletonType(

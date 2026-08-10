@@ -141,13 +141,15 @@ public sealed class MacroSymbolTests : CompilationTestBase
     [Fact]
     public void MacroDeclaration_DeclaresDistinctMacroSymbol()
     {
-        var (compilation, tree) = CreateCompilation("""
-            macro Identity<T>(value: T) -> T
+        var (baseCompilation, tree) = CreateCompilation("""
+            macro Identity<T>(value: T) -> Raven.CodeAnalysis.Syntax.ExpressionSyntax
                 where T: System.IDisposable
             {
-                return value
+                expand value
             }
             """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(SyntaxNode).Assembly.Location));
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot()
             .DescendantNodes()
@@ -176,7 +178,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Null(typeParameter.DeclaringTypeParameterOwner);
         Assert.Equal(TypeParameterConstraintKind.TypeConstraint, typeParameter.ConstraintKind);
         Assert.Equal("IDisposable", Assert.Single(typeParameter.ConstraintTypes).Name);
-        Assert.Same(typeParameter, symbol.ReturnType);
+        Assert.Equal("ExpressionSyntax", symbol.ReturnType.Name);
 
         var parameter = Assert.Single(symbol.Parameters);
         Assert.Equal("value", parameter.Name);
@@ -224,11 +226,13 @@ public sealed class MacroSymbolTests : CompilationTestBase
     [Fact]
     public void MacroDeclaration_UsesItsNamespaceAsSemanticContainer()
     {
-        var (compilation, tree) = CreateCompilation("""
+        var (baseCompilation, tree) = CreateCompilation("""
             namespace Tools {
-                macro Quote(value: int) -> int => value
+                macro Quote(value: int) -> Raven.CodeAnalysis.Syntax.ExpressionSyntax {}
             }
             """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(SyntaxNode).Assembly.Location));
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot()
             .DescendantNodes()
@@ -338,6 +342,55 @@ public sealed class MacroSymbolTests : CompilationTestBase
             declarations,
             declaration => Assert.NotNull(
                 compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)));
+    }
+
+    [Fact]
+    public void InvocableMacro_ReturnTypeProjectsGrammarTargets()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro Inferred() {}
+            macro Expression() -> ExpressionSyntax {}
+            macro Literal() -> LiteralExpressionSyntax {}
+            macro Statement() -> StatementSyntax {}
+            macro Flexible() -> ExpressionSyntax | StatementSyntax {}
+            macro Untyped() -> SyntaxNode {}
+            macro Unsupported() -> int {}
+            macro AttachedResult(
+                on target: BaseTypeDeclarationSyntax
+            ) -> ExpressionSyntax {}
+            """,
+            references:
+            [
+                .. TestMetadataReferences.DefaultWithRavenCore,
+                MetadataReference.CreateFromFile(typeof(SyntaxNode).Assembly.Location)
+            ]);
+        var symbols = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroDeclarationSyntax>()
+            .Select(declaration => Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+                compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)))
+            .ToDictionary(static symbol => symbol.Name);
+
+        Assert.Equal(MacroInvocationTargets.Expression, symbols["Inferred"].InvocationTargets);
+        Assert.Equal(MacroInvocationTargets.Expression, symbols["Expression"].InvocationTargets);
+        Assert.Equal(MacroInvocationTargets.Expression, symbols["Literal"].InvocationTargets);
+        Assert.Equal(MacroInvocationTargets.Statement, symbols["Statement"].InvocationTargets);
+        var flexibleTargets = symbols["Flexible"].InvocationTargets;
+        Assert.True(
+            flexibleTargets == (MacroInvocationTargets.Expression | MacroInvocationTargets.Statement),
+            $"Expected expression and statement targets, got {flexibleTargets}. " +
+            $"Return type: {symbols["Flexible"].ReturnType.ToDisplayString()} " +
+            $"({symbols["Flexible"].ReturnType.TypeKind}). Diagnostics: " +
+            string.Join(" | ", compilation.GetDiagnostics().Select(static diagnostic => diagnostic.ToString())));
+        Assert.Equal(MacroInvocationTargets.AllSingleNode, symbols["Untyped"].InvocationTargets);
+        Assert.Equal(MacroInvocationTargets.None, symbols["Unsupported"].InvocationTargets);
+        Assert.Equal(MacroInvocationTargets.None, symbols["AttachedResult"].InvocationTargets);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0937");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV0938");
     }
 
     [Fact]

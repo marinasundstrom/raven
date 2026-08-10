@@ -85,6 +85,38 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void UnionTypeSyntax_IsRetainedByDeclaredSignatureSymbol()
+    {
+        const string source = """
+        import System.*
+
+        func choose() -> int | string {
+            return 42
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: [.. TestMetadataReferences.Default, CreateUnionReference()]);
+
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+
+        Assert.Equal("System.Union`2", returnType.OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Collection(
+            returnType.TypeArguments,
+            arg => Assert.Equal(SpecialType.System_Int32, arg.SpecialType),
+            arg => Assert.Equal(SpecialType.System_String, arg.SpecialType));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void UnionTypeSyntax_ImplicitlyConvertsAlternativeToAnnotatedUnion()
     {
         const string source = """

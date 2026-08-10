@@ -178,8 +178,8 @@ roles:
 
 * `ExpressionSyntax` parameters capture parsed Raven expression syntax;
 * `IMacroTokenStream` captures the lossless invocation body;
-* the return type describes the semantic value expected from the expansion at
-  a value-producing call site; and
+* the return type describes the syntax category and therefore the grammar
+  positions where the macro can be invoked; and
 * exactly one parameter marked with contextual `on` selects an attached macro
   and constrains its target using the ordinary syntax-node type system.
 
@@ -197,7 +197,7 @@ The declaration model has four independent axes:
 | --- | --- | --- |
 | Input role | typed value, `ExpressionSyntax`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
 | Attachment | absent or `on target: BaseTypeDeclarationSyntax` | freestanding versus attached invocation and the allowed target syntax |
-| Call-site type | `int`, `TDelegate`, a user type | semantic type expected from the expanded value |
+| Result syntax | omitted/`ExpressionSyntax`, `StatementSyntax`, `SyntaxNode` | grammar positions where the macro can be invoked |
 | Contributions | `expand`, `replace`, `introduce` | final expansion return, replacement, and accumulated members |
 
 The initial executable slice makes expansion output explicit in the body rather

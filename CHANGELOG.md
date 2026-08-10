@@ -953,6 +953,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   participate in the shared parameter-role model as `AttachedTarget`, with
   diagnostics for duplicate targets, defaults, unsupported syntax types, and
   malformed declarations that remain queryable by language services.
+- Macro syntax return annotations now project to invocable grammar targets.
+  `ExpressionSyntax`, `StatementSyntax`, their union, and category-untyped
+  `SyntaxNode` expose normalized invocation flags; unsupported semantic return
+  types and attached/invocable contradictions produce declaration diagnostics.
+- Fixed declaration skeleton binding for union-type signatures so compiler API
+  symbols retain their `System.Union<...>` return shape instead of falling back
+  to the supplied default type.
 - Made the Playground own and serve its theme stylesheet directly so local
   development and standalone subpath deployments use the same asset URL.
 - Reduced the Playground header to a compact Raven mark beside its title so the

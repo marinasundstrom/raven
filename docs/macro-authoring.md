@@ -42,6 +42,14 @@ let answer = Double!(21)
 `ExpressionSyntax` that replaces the invocation and returns from that macro
 execution path. Normal Raven control flow can choose an expansion.
 
+The omitted return annotation is the compact expression-macro default. Write
+`-> ExpressionSyntax` when the category should be explicit. Other syntax return
+types select other grammar positions: `StatementSyntax` selects statement
+position, `ExpressionSyntax | StatementSyntax` permits either, and
+category-untyped `SyntaxNode` permits every supported single-node position.
+The expanded node is then bound as ordinary Raven syntax, so its eventual value
+type comes from normal semantic analysis rather than the macro annotation.
+
 Use typed parameters for configuration instead of recovering values from raw
 text. The normalized parameter schema also drives binding, completion, and
 signature help.

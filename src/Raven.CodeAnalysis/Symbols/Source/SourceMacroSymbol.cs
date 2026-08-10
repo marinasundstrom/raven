@@ -14,6 +14,7 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
     private string? _targetName;
     private IParameterSymbol? _targetParameter;
     private bool _isAttached;
+    private MacroInvocationTargets _invocationTargets = MacroInvocationTargets.Expression;
 
     public SourceMacroSymbol(
         string name,
@@ -50,7 +51,7 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
     public MacroInvocationTargets InvocationTargets =>
         _isAttached
             ? MacroInvocationTargets.None
-            : MacroInvocationTargets.Expression;
+            : _invocationTargets;
 
     public MacroKind MacroKind =>
         _isAttached
@@ -73,6 +74,11 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
     internal void SetReturnType(ITypeSymbol returnType)
     {
         _returnType = returnType;
+    }
+
+    internal void SetInvocationTargets(MacroInvocationTargets invocationTargets)
+    {
+        _invocationTargets = invocationTargets;
     }
 
     internal void SetParameters(ImmutableArray<SourceParameterSymbol> parameters)

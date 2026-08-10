@@ -351,6 +351,33 @@ public partial class SemanticModel
             }
         }
 
+
+        if (declaration.ReturnType is null)
+        {
+            symbol.SetInvocationTargets(MacroInvocationTargets.Expression);
+        }
+        else
+        {
+            var invocationTargets = GetMacroInvocationTargets(
+                symbol.ReturnType,
+                declaration.ReturnType.Type);
+            symbol.SetInvocationTargets(invocationTargets);
+            if (targetParameters.Length > 0)
+            {
+                _declarationDiagnostics.ReportAttachedMacroCannotDeclareInvocationTarget(
+                    declaration.Identifier.ValueText,
+                    symbol.ReturnType.ToDisplayString(),
+                    declaration.ReturnType.Type.GetLocation());
+            }
+            else if (invocationTargets == MacroInvocationTargets.None &&
+                     symbol.ReturnType.TypeKind != TypeKind.Error)
+            {
+                _declarationDiagnostics.ReportUnsupportedMacroReturnType(
+                    symbol.ReturnType.ToDisplayString(),
+                    declaration.ReturnType.Type.GetLocation());
+            }
+        }
+
         ValidateMacroParameters(declaration, symbol);
         ValidateMacroContributionStatements(declaration, symbol);
         RegisterMacroDeclarationSymbol(declaration, symbol);
@@ -529,6 +556,60 @@ public partial class SemanticModel
         }
 
         return MacroTarget.None;
+    }
+
+    private MacroInvocationTargets GetMacroInvocationTargets(
+        ITypeSymbol type,
+        TypeSyntax? syntax = null)
+    {
+        if (syntax is UnionTypeSyntax && type is INamedTypeSymbol inlineUnion)
+        {
+            var targets = MacroInvocationTargets.None;
+            foreach (var memberType in inlineUnion.TypeArguments)
+                targets |= GetMacroInvocationTargets(memberType);
+
+            return targets;
+        }
+
+        if (type is IUnionSymbol union)
+        {
+            var targets = MacroInvocationTargets.None;
+            foreach (var memberType in union.MemberTypes)
+                targets |= GetMacroInvocationTargets(memberType);
+
+            if (targets != MacroInvocationTargets.None)
+                return targets;
+        }
+
+        if (IsExactMacroSyntaxType(type, "Raven.CodeAnalysis.Syntax.SyntaxNode"))
+            return MacroInvocationTargets.AllSingleNode;
+        if (IsMacroSyntaxType(type, "Raven.CodeAnalysis.Syntax.ExpressionSyntax"))
+            return MacroInvocationTargets.Expression;
+        if (IsMacroSyntaxType(type, "Raven.CodeAnalysis.Syntax.StatementSyntax"))
+            return MacroInvocationTargets.Statement;
+        if (IsMacroSyntaxType(type, "Raven.CodeAnalysis.Syntax.MemberDeclarationSyntax"))
+            return MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+        if (IsMacroSyntaxType(type, "Raven.CodeAnalysis.Syntax.TypeSyntax"))
+            return MacroInvocationTargets.Type;
+        if (IsMacroSyntaxType(type, "Raven.CodeAnalysis.Syntax.PatternSyntax"))
+            return MacroInvocationTargets.Pattern;
+
+        return MacroInvocationTargets.None;
+    }
+
+    private bool IsMacroSyntaxType(ITypeSymbol type, string metadataName)
+    {
+        var categoryType = Compilation.GetTypeByMetadataName(metadataName);
+        return categoryType is not null &&
+            (SymbolEqualityComparer.Default.Equals(type, categoryType) ||
+             type.IsDerivedFrom(categoryType));
+    }
+
+    private bool IsExactMacroSyntaxType(ITypeSymbol type, string metadataName)
+    {
+        var categoryType = Compilation.GetTypeByMetadataName(metadataName);
+        return categoryType is not null &&
+            SymbolEqualityComparer.Default.Equals(type, categoryType);
     }
 
     private void ValidateMacroContributionStatements(

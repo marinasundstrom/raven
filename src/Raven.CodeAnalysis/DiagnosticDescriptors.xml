@@ -1256,4 +1256,12 @@
     Title="Attached macro target parameters are compiler supplied"
     Message="Target parameter '{parameterName}' cannot have a default value because the compiler supplies it from the attached declaration."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0937" Identifier="UnsupportedMacroReturnType"
+    Title="Unsupported macro return syntax"
+    Message="Macro return type '{returnType}' does not identify a supported invocation syntax position."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0938" Identifier="AttachedMacroCannotDeclareInvocationTarget"
+    Title="Attached macros do not have invocation return targets"
+    Message="Attached macro declaration '{macroName}' cannot declare invocable syntax return type '{returnType}'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

@@ -40,7 +40,7 @@ The dependency-ordered slices are:
    descriptors implemented; source-declaration unification continues with the
    syntax slices);
 3. `on` parameter syntax and removal of `MacroTargetClauseSyntax` (implemented);
-4. return-type projection and declaration diagnostics;
+4. return-type projection and declaration diagnostics (implemented);
 5. generalized expansion results and category validation;
 6. statement invocation and recovery coverage; and
 7. later member, type, pattern, and quote-category work.

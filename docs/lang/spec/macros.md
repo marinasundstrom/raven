@@ -402,10 +402,19 @@ therefore expose actual compiler API types rather than language-only facades.
 This establishes syntax, the semantic declaration signature, and executable
 lowering for same-compilation argument-style and attached macro declarations.
 `SemanticModel.GetDeclaredSymbol` returns an `IMacroDeclarationSymbol` with
-`SymbolKind.Macro`, its call-site return type, parameters, generic
+`SymbolKind.Macro`, its declared syntax result type and invocation targets, parameters, generic
 parameters, and constraints. A macro declaration is not an `IMethodSymbol`: it is
 compile-time language structure rather than a CLR method. Its body is therefore
 not emitted into the consumer program as an ordinary runtime function body.
+
+For an invocable macro, the syntax return annotation selects its permitted
+grammar position. An omitted annotation retains the compact expression-macro
+default, `ExpressionSyntax` selects expression position, `StatementSyntax`
+selects statement position, `ExpressionSyntax | StatementSyntax` selects both,
+and category-untyped `SyntaxNode` selects every supported single-node position.
+Other semantic value types are not macro return categories. The compiler binds
+the expanded ordinary syntax afterward and determines its semantic value type
+in the invocation context.
 
 Exactly one ordinary parameter marked with contextual `on` makes the macro
 attached and declares its allowed syntax target:
