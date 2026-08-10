@@ -310,7 +310,7 @@ func Main() {
         var nameOffset = code.LastIndexOf("symbolToken", StringComparison.Ordinal) + 1;
         var braceOffset = code.IndexOf('{', nameOffset);
         var tryBuild = typeof(HoverHandler)
-            .GetMethod("TryBuildMacroExpansionHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+            .GetMethod("TryBuildMacroInvocationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var nameHover = tryBuild.Invoke(null, [sourceText, semanticModel, root, nameOffset]);
         var braceHover = tryBuild.Invoke(null, [sourceText, semanticModel, root, braceOffset]);
@@ -319,6 +319,12 @@ func Main() {
         nameHover.ShouldNotBeNull();
         braceHover.ShouldBeNull();
         bodyHover.ShouldBeNull();
+
+        var hover = nameHover.ShouldBeOfType<Hover>();
+        hover.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Macro `symbolToken! { ... }`.");
+        hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
+        hover.Contents.MarkupContent.Value.ShouldNotContain("Greeting");
     }
 
     [Fact]

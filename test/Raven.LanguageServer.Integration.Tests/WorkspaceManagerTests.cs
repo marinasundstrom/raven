@@ -142,6 +142,60 @@ func Main() {
     }
 
     [Fact]
+    public async Task Initialize_ErrorMacroSample_ExpandsForDiagnosticsAndHoverAsync()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var sampleRoot = Path.Combine(repoRoot, "samples", "projects", "error-macro");
+        var sourcePath = Path.Combine(sampleRoot, "src", "Main.rvn");
+        var source = File.ReadAllText(sourcePath);
+        var sourceUri = DocumentUri.FromFileSystemPath(sourcePath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "error-macro",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(sourceUri, source);
+
+        var diagnostics = await store.GetDiagnosticsAsync(sourceUri, CancellationToken.None);
+        Assert.DoesNotContain(diagnostics, diagnostic =>
+            diagnostic.Code.HasValue &&
+            (diagnostic.Code.Value.String == "RAV1504" ||
+             diagnostic.Code.Value.String == "RAVM010"));
+
+        store.TryGetDocumentContext(sourceUri, out var document, out var compilation).ShouldBeTrue();
+        var syntaxTree = await document!.GetSyntaxTreeAsync();
+        var root = syntaxTree!.GetRoot();
+        var attribute = root.DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single(candidate => candidate.Name.ToString() == "Error");
+        var semanticModel = compilation!.GetSemanticModel(syntaxTree);
+        var expansion = semanticModel.GetMacroExpansion(attribute);
+        expansion.ShouldNotBeNull();
+        expansion!.ReplacementDeclaration.ShouldBeOfType<UnionDeclarationSyntax>();
+        Assert.Contains(expansion.IntroducedMembers, member =>
+            member is PropertyDeclarationSyntax property && property.Identifier.ValueText == "Message");
+
+        var hover = await new HoverHandler(store, NullLogger<HoverHandler>.Instance).Handle(
+            new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(sourceUri),
+                Position = PositionHelper.ToRange(SourceText.From(source), attribute.Name.Span).Start
+            },
+            CancellationToken.None);
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Attached declaration macro.");
+        hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
+        hover.Contents.MarkupContent.Value.ShouldNotContain("self.ToString()");
+    }
+
+    [Fact]
     public void FindWorkspaceProjectFiles_RecursesIntoNestedProjects()
     {
         Directory.CreateDirectory(_tempRoot);

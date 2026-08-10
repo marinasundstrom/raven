@@ -136,7 +136,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (macroSymbolResolution is null && !isInMacroBody)
             {
                 currentStage = "macroHover";
-                var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
+                var macroHover = TryBuildMacroInvocationHover(sourceText, semanticModel, root, offset);
                 if (macroHover is not null)
                     return macroHover;
             }
@@ -609,7 +609,7 @@ internal sealed class HoverHandler : IHoverHandler
         return null;
     }
 
-    private static Hover? TryBuildMacroExpansionHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
+    private static Hover? TryBuildMacroInvocationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
     {
         if (IsInMacroTokenTreeBody(root, offset))
             return null;
@@ -633,11 +633,7 @@ internal sealed class HoverHandler : IHoverHandler
         if (!MacroExpansionDisplayService.TryCreateForOffset(sourceText, semanticModel, root, offset, out var display))
             return null;
 
-        var parts = new List<string>
-        {
-            $"```raven\n{display.PreviewText}\n```",
-            $"Macro `{display.InvocationDisplay}` expansion preview."
-        };
+        var parts = new List<string> { $"Macro `{display.InvocationDisplay}`." };
 
         if (TryGetMacroHint(semanticModel.Compilation, display.MacroName, out var macroHint))
             parts.Add(macroHint);
