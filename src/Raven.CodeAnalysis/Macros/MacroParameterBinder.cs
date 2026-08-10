@@ -103,7 +103,7 @@ internal static class MacroParameterBinder
         => TryBindCore(
             macroName,
             parametersType,
-            context.Syntax.Name.GetLocation(),
+            context.Name.GetLocation(),
             context.Arguments,
             diagnostics,
             out parameters);
@@ -117,7 +117,7 @@ internal static class MacroParameterBinder
         => TryBindCore(
             macroName,
             parametersType,
-            context.Syntax.Name.GetLocation(),
+            context.Name.GetLocation(),
             context.Arguments,
             diagnostics,
             out parameters);

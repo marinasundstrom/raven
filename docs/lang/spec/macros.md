@@ -490,7 +490,7 @@ low-level diagnostic, token-tree, and expansion APIs; `Raven.Macros` currently
 uses it to forward its Raven-authored declarations to the transitional
 `StandardMacroExpansions` implementations.
 
-An argument-style macro may instead declare a `InvocableMacroContext`
+An argument-style macro may instead declare an `InvocableMacroContext`
 parameter. It has the compiler-supplied `InvocableContext` role and exposes
 the invocation, arguments, semantic model, diagnostics, and other
 invocable-expansion services without changing the call site into a
@@ -498,6 +498,14 @@ token-tree macro. It therefore does not require a `{ ... }` body. For example,
 a macro declared with an ordinary `path: string` parameter plus a
 `InvocableMacroContext` parameter is invoked as `Macro!("path")`; only the
 ordinary value parameter is supplied by the caller.
+
+`InvocableMacroContext` and `TokenTreeMacroContext` normalize every supported
+`Name!` carrier. `Syntax` is the authored carrier as a `SyntaxNode`; `Name`,
+`ExclamationToken`, `ArgumentList`, and `TokenTree` expose the common invocation
+parts directly. The same context API therefore applies when an invocation is
+parsed in expression or type-member position. A macro author only needs to
+inspect the concrete `Syntax` kind when behavior genuinely depends on the
+grammar position.
 
 An attached macro may similarly declare an `AttachedMacroContext` parameter.
 The compiler supplies it rather than exposing it at the invocation site. It

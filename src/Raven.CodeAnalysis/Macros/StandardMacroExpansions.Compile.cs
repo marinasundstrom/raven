@@ -22,13 +22,13 @@ public static partial class StandardMacroExpansions
     /// </summary>
     public static InvocableMacroExpansionResult ExpandCompile(TokenTreeMacroContext context)
     {
-        if (context.Syntax.Name is not GenericNameSyntax genericName ||
+        if (context.Name is not GenericNameSyntax genericName ||
             genericName.TypeArgumentList.Arguments.Count != 1)
         {
             return InvocableMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic(
                     "The compile macro requires exactly one delegate type argument, as in compile<Func<int>>! { ... }.",
-                    syntax: context.Syntax.Name,
+                    syntax: context.Name,
                     code: MissingDelegateTypeCode));
         }
 
@@ -56,7 +56,7 @@ public static partial class StandardMacroExpansions
             return InvocableMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic(
                     "The compiler could not construct the runtime compilation expression.",
-                    syntax: context.Syntax.Name,
+                    syntax: context.Name,
                     code: CompileExpansionFailedCode));
         }
 

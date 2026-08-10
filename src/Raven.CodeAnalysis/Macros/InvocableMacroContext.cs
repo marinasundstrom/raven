@@ -16,12 +16,35 @@ public class InvocableMacroContext : MacroContext
         SemanticModel semanticModel,
         InvocableMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
-        : base(syntax ?? throw new ArgumentNullException(nameof(syntax)))
+        : this(compilation, semanticModel, InvocableMacroInvocation.Create(syntax), cancellationToken)
+    {
+    }
+
+    public InvocableMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroMemberDeclarationSyntax syntax,
+        CancellationToken cancellationToken = default)
+        : this(compilation, semanticModel, InvocableMacroInvocation.Create(syntax), cancellationToken)
+    {
+    }
+
+    internal InvocableMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroInvocation invocation,
+        CancellationToken cancellationToken = default)
+        : base(invocation.Syntax)
     {
         Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
-        Syntax = syntax;
-        Arguments = CreateArguments(syntax.ArgumentList, semanticModel);
+        Syntax = invocation.Syntax;
+        Invocation = invocation;
+        Name = invocation.Name;
+        ExclamationToken = invocation.ExclamationToken;
+        ArgumentList = invocation.ArgumentList;
+        TokenTree = invocation.TokenTree;
+        Arguments = CreateArguments(invocation.ArgumentList, semanticModel);
         CancellationToken = cancellationToken;
     }
 
@@ -29,20 +52,28 @@ public class InvocableMacroContext : MacroContext
 
     public SemanticModel SemanticModel { get; }
 
-    public InvocableMacroExpressionSyntax Syntax { get; }
+    public SyntaxNode Syntax { get; }
 
-    public ArgumentListSyntax ArgumentList => Syntax.ArgumentList;
+    public NameSyntax Name { get; }
+
+    public SyntaxToken ExclamationToken { get; }
+
+    public ArgumentListSyntax ArgumentList { get; }
+
+    public MacroTokenTreeSyntax? TokenTree { get; }
 
     public ImmutableArray<MacroArgument> Arguments { get; }
 
     public CancellationToken CancellationToken { get; }
+
+    internal InvocableMacroInvocation Invocation { get; }
 
     public override MacroExpansionDiagnostic CreateDiagnostic(
         string message,
         DiagnosticSeverity severity = DiagnosticSeverity.Error,
         SyntaxNode? syntax = null,
         string? code = null)
-        => new(severity, message, syntax?.GetLocation() ?? Syntax.Name.GetLocation(), code);
+        => new(severity, message, syntax?.GetLocation() ?? Name.GetLocation(), code);
 
     public MacroExpansionDiagnostic CreateArgumentDiagnostic(
         MacroArgument argument,
@@ -83,6 +114,28 @@ public sealed class InvocableMacroContext<TParameters> : InvocableMacroContext
         TParameters parameters,
         CancellationToken cancellationToken = default)
         : base(compilation, semanticModel, syntax, cancellationToken)
+    {
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+    }
+
+    public InvocableMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroMemberDeclarationSyntax syntax,
+        TParameters parameters,
+        CancellationToken cancellationToken = default)
+        : base(compilation, semanticModel, syntax, cancellationToken)
+    {
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+    }
+
+    internal InvocableMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroInvocation invocation,
+        TParameters parameters,
+        CancellationToken cancellationToken = default)
+        : base(compilation, semanticModel, invocation, cancellationToken)
     {
         Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
     }

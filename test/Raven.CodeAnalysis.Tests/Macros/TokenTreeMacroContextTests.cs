@@ -363,7 +363,7 @@ public sealed class TokenTreeMacroContextTests
         var diagnostic = Assert.Single(context.GetReportedMacroDiagnostics());
         Assert.Equal("An expression is required.", diagnostic.Message);
         Assert.Equal("TEST001", diagnostic.Code);
-        Assert.Equal(context.Syntax.TokenTree!.Span, diagnostic.Location!.SourceSpan);
+        Assert.Equal(context.TokenTree.Span, diagnostic.Location!.SourceSpan);
     }
 
     private static TokenTreeMacroContext CreateContext(string body)

@@ -274,11 +274,16 @@ internal static class MacroExpansionService
         var typedContextType = typeof(InvocableMacroContext<>).MakeGenericType(parametersType);
         var typedContext = Activator.CreateInstance(
             typedContextType,
-            context.Compilation,
-            context.SemanticModel,
-            context.Syntax,
-            parameters!,
-            context.CancellationToken);
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            [
+                context.Compilation,
+                context.SemanticModel,
+                context.Invocation,
+                parameters!,
+                context.CancellationToken
+            ],
+            culture: null);
 
         var expandMethod = typedMacroInterface.GetMethod(
             nameof(IInvocableMacro.Expand),
@@ -320,7 +325,7 @@ internal static class MacroExpansionService
             [
                 context.Compilation,
                 context.SemanticModel,
-                context.Syntax,
+                context.Invocation,
                 macro,
                 parameters!,
                 context.CancellationToken

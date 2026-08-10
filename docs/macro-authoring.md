@@ -505,6 +505,12 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | reached `fragment` | ordinary Raven fragment metadata |
 | reached `token` | token kind and classification metadata |
 
+The two invocable contexts expose a normalized carrier surface:
+`Syntax` is the authored `SyntaxNode`, while `Name`, `ExclamationToken`,
+`ArgumentList`, and `TokenTree` provide the shared `Name!` parts. This keeps a
+macro independent of whether the parser used an expression carrier or a
+type-member carrier unless the macro deliberately inspects `Syntax`.
+
 `fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
 macro declaration. The generated adapter keeps reached regions on its expansion
 result; `SemanticModel` uses them when the macro does not implement a dedicated

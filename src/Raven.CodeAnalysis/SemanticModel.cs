@@ -11579,7 +11579,7 @@ public partial class SemanticModel
             : null;
 
     internal ITypeSymbol? GetMacroFragmentExpressionType(
-        InvocableMacroExpressionSyntax invocation,
+        SyntaxNode invocation,
         ExpressionSyntax expression)
     {
         using var semanticQueryBinding = EnterSemanticQueryBinding();
@@ -11605,7 +11605,7 @@ public partial class SemanticModel
     }
 
     internal TypeInfo GetMacroFragmentTypeInfo(
-        InvocableMacroExpressionSyntax invocation,
+        SyntaxNode invocation,
         ExpressionSyntax expression)
     {
         var type = GetMacroFragmentExpressionType(invocation, expression);
@@ -11613,7 +11613,7 @@ public partial class SemanticModel
     }
 
     internal SymbolInfo GetMacroFragmentSymbolInfo(
-        InvocableMacroExpressionSyntax invocation,
+        SyntaxNode invocation,
         ExpressionSyntax expression)
     {
         using var semanticQueryBinding = EnterSemanticQueryBinding();

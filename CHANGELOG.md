@@ -42,6 +42,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   raw token bodies now share one parser path, and bare postfix `value!` remains
   nullable suppression.
 
+- Unified expression and type-member `Name!` carriers behind the same
+  invocable-macro context surface. Macro authors now use `Syntax`, `Name`,
+  `ExclamationToken`, `ArgumentList`, and `TokenTree` consistently instead of
+  depending on an expression-only syntax type.
+
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
   the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve
