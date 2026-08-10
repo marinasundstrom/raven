@@ -26,10 +26,17 @@ Keep four rules in mind:
 4. Expose spans and ordinary Raven fragments to editor tooling; keep the DSL's
    private parse tree private.
 
-Sections 1–4 form the shortest path from a small macro to a real DSL. Sections
-5–8 cover diagnostics, editor integration, attached macros, and packaging.
-The final reference sections explain the lowered provider model, build options,
-debugging, examples, and explicitly deferred work.
+Sections 1–4 form the shortest path from a small macro to a real DSL. Continue
+with only the capability the DSL needs:
+
+* section 5 for diagnostics and recovery;
+* section 6 for highlighting, completion, hover, and navigation;
+* section 7 for attached declaration transforms; or
+* section 8 for distribution.
+
+The advanced reference after the tutorial explains the lowered provider model,
+debugging, build options, examples, and explicitly deferred work. Most macro
+authors do not need to begin there.
 
 ## Choose the smallest useful shape
 
@@ -291,64 +298,51 @@ exhaustive matching.
 
 ## 5. Report precise diagnostics
 
-The provider interface gives full control over diagnostics and results:
+Diagnostics accumulate on the context independently of the expansion. This
+lets a compact declaration report every useful problem before it either
+expands or reaches the end of its body:
 
 ```raven
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Text.*
 
-class GuardMacro : ITokenTreeExpressionMacro {
-    val Name: string => "Guard"
+macro CheckedExpression(context: TokenTreeMacroContext) {
+    let span = TextSpan(0, context.BodySpan.Length)
+    let expression = context.ParseExpressionResult(span)
+    context.ReportDiagnostics(expression)
 
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-        let span = FindExpressionSpan(context.GetBodyText())
-        let expression = context.ParseExpressionResult(span)
-
-        if expression.HasErrors {
-            return FreestandingMacroExpansionResult.FromDiagnostics(
-                expression.Diagnostics)
-        }
-
-        FreestandingMacroExpansionResult.FromExpression(
-            BuildGuardExpression(expression.Syntax))
+    if expression.HasErrors == false {
+        expand expression.Syntax
     }
 }
 ```
 
-Use native parser diagnostics for malformed embedded Raven. Use
-`CreateBodyDiagnostic` or `CreateDiagnostic` for DSL rules. Prefer diagnostics
-over throwing for expected invalid input; an exception means the provider
-itself failed.
+Use the parser's native diagnostics for malformed embedded Raven. For a DSL
+rule, create a diagnostic at a body-relative span with
+`CreateBodyDiagnostic`, or use `CreateDiagnostic` when the whole invocation is
+the right location, then pass it to `ReportDiagnostic`. Prefer diagnostics over
+throwing for expected invalid input; an exception means the macro itself
+failed.
+
+Class-authored providers use the same context APIs. Their `Expand` method
+returns `FreestandingMacroExpansionResult`, which can carry syntax and
+diagnostics together. Use that lower-level form only when the compact
+declaration cannot project a required capability.
 
 ## 6. Surface fragment spans for tooling
 
-A token-tree macro can implement `IMacroFragmentProvider` alongside expansion:
+A DSL should identify the ordinary Raven fragments inside its token body. One
+`fragment` contribution is enough to give the compiler and language server the
+authored category and span:
 
 ```raven
-import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Text.*
 
-class HtmlMacro : ITokenTreeExpressionMacro, IMacroFragmentProvider {
-    val Name: string => "Html"
-
-    func GetFragmentRegions(
-        context: TokenTreeMacroContext
-    ) -> ImmutableArray<MacroFragmentRegion> {
-        let parsed = HtmlDslParser(context.GetBodyText()).Parse()
-        var regions: ImmutableArray<MacroFragmentRegion> = []
-
-        for span in parsed.EmbeddedExpressionSpans {
-            regions = regions.Add(context.CreateFragmentRegion(
-                MacroFragmentKind.Expression,
-                span))
-        }
-
-        regions
-    }
-
-    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
-        // Parse, validate, and lower to ordinary Raven syntax.
-        FreestandingMacroExpansionResult.Empty
-    }
+macro RavenExpression(context: TokenTreeMacroContext) {
+    let span = TextSpan(0, context.BodySpan.Length)
+    fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
+    expand context.ParseExpression(span)
 }
 ```
 
@@ -356,6 +350,14 @@ Only a syntax category and span cross the boundary. The HTML tree remains
 private. The compiler maps body-relative regions to absolute authored spans.
 Zero-width regions can say “an expression is expected here” in incomplete
 input.
+
+Contribute every recovered region that is still meaningful while the user is
+typing. A private parser can return several expression spans and the macro can
+emit one `fragment` statement for each. Use the class-authored
+`IMacroFragmentProvider` only when tooling discovery must remain independent
+from full expansion—for example, when expansion is expensive or deliberately
+stops on malformed input. Both forms produce the same compiler-owned region
+model.
 
 When the DSL already knows an embedded expression's expected type, report it
 without exposing the surrounding DSL structure:
@@ -483,7 +485,7 @@ application runtime reference. Keep a new DSL in its own sample and macro
 project until its contract can be distributed. A future Playground preview
 should consume that same package, not copy its parser.
 
-## Projection from syntax to provider contracts
+## Advanced: projection to provider contracts
 
 The compiler lowers `macro` declarations to adapters, but tools expose an
 `IMacroDeclarationSymbol`, not the generated class.
@@ -503,23 +505,12 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | reached `fragment` | ordinary Raven fragment metadata |
 | reached `token` | token kind and classification metadata |
 
-Token-tree macro declarations can publish editor regions through the same
-execution-ordered contribution model as expansion:
-
-```raven
-macro RavenExpression(context: TokenTreeMacroContext) {
-    let span = TextSpan(0, context.BodySpan.Length)
-    fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
-    expand context.ParseExpression(span)
-}
-```
-
 `fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
 macro declaration. The generated adapter keeps reached regions on its expansion
 result; `SemanticModel` uses them when the macro does not implement a dedicated
-`IMacroFragmentProvider`. Implement that provider directly when tooling must
-remain independent from full expansion, especially for heavily recovered or
-incomplete DSL input.
+`IMacroFragmentProvider`. Section 6 shows the compact form. Implement the
+provider directly only when tooling must remain independent from full
+expansion, especially for heavily recovered or incomplete DSL input.
 
 The same fragment declaration enables ordinary Raven hover as well as
 completion. `SemanticModel.GetMacroFragmentSemanticInfo(invocation, position)`
