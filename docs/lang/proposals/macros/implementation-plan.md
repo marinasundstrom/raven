@@ -1407,11 +1407,15 @@ not select the first declaration from a complete compilation-unit parse.
 
 ### Additional expansion positions
 
-Add compiler-known invocation carriers plus typed contracts for statement and
-member/declaration results. The parser can place those carriers in valid Raven
-grammar slots, and the compiler validates that expansion returns the matching
-ordinary Raven category. Do not introduce an untyped "return any syntax node"
-contract.
+Design status: **application model proposed; implementation intentionally paused**
+
+The [macro application model](application-model.md) defines expression,
+statement, member, type, pattern, and attached scenarios; output annotations;
+actual-position context; carrier selection; typed simple APIs; the validated
+multi-position ABI; and implementation order. No new carrier should be added
+until those decisions are accepted. The normalized advanced result may carry
+`SyntaxNode`, but the declaration supplies a closed allowed set and the driver
+must diagnose category mismatches rather than casting unsafely.
 
 ### Expansion driver and isolation
 

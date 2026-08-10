@@ -647,3 +647,9 @@ now works inside reported fragment spans without requiring public custom syntax
 trees. Query-like macros can also bridge an introduced sequence-element local
 into selected fragments. Broader custom scope shapes should wait for another
 concrete DSL use case.
+
+The proposed rules for where a macro may be invoked and how declarations state
+their allowed output categories are tracked in the
+[macro application model](lang/proposals/macros/application-model.md). It
+separates application position from token-body and editor capabilities, and
+separates quotation body categories from macro placement.

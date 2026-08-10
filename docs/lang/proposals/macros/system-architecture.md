@@ -214,6 +214,12 @@ The declaration should lower to the same normalized compiler contract as a C#
 or Raven class-authored plugin. The source syntax must not freeze the binary
 adapter ABI.
 
+The complete placement and output contract is specified in the
+[macro application model](application-model.md). Application position,
+token-body input, and tooling capabilities are independent. A macro supporting
+both expression and statement positions declares a closed output set and
+receives the actual carrier position through compiler-owned context.
+
 ## Proposed compiler API
 
 The names below are design-level API, not a commitment to preserve the current

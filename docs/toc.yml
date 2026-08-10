@@ -25,6 +25,8 @@
           items:
             - name: Authoring Raven macros
               href: macro-authoring.md
+            - name: Macro application model
+              href: lang/proposals/macros/application-model.md
         - name: Meaning of Raven features
           href: lang/feature-meaning.md
         - name: Domain modeling

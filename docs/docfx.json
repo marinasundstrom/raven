@@ -21,6 +21,7 @@
           "lang/toc.yml",
           "lang/philosophy.md",
           "lang/feature-meaning.md",
+          "lang/proposals/macros/application-model.md",
           "lang/domain-modeling.md",
           "lang/nullability.md",
           "lang/style-guide.md",

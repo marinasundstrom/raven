@@ -179,6 +179,8 @@
   items:
     - name: Authoring macros
       href: ../macro-authoring.md
+    - name: Macro application model
+      href: proposals/macros/application-model.md
     - name: Macros
       href: spec/macros.md
 - name: Pattern matching
