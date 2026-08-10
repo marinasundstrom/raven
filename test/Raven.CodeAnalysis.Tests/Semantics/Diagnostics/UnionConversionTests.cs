@@ -230,6 +230,8 @@ union Result<T, E> {
         // Ok<int> should be implicitly convertible to Result<int, string>.
         // func must precede union declaration (file-scope code before declarations).
         var source = """
+import Result.*
+
 func build(x: Ok<int>) -> Result<int, string> {
     return x
 }
@@ -247,6 +249,8 @@ func build(x: Ok<int>) -> Result<int, string> {
     {
         // Ok<int> must NOT be implicitly convertible to Result<(), string>.
         var source = """
+import Result.*
+
 func build(x: Ok<int>) -> Result<(), string> {
     return x
 }
@@ -268,6 +272,8 @@ func build(x: Ok<int>) -> Result<(), string> {
             .Single())!).ReturnType;
         var conversion = compilation.ClassifyConversion(expressionType!, returnType);
 
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id);
         Assert.False(conversion.Exists);
     }
 
