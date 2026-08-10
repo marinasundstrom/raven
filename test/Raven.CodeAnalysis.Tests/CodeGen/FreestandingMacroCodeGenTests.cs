@@ -52,14 +52,14 @@ public sealed class FreestandingMacroCodeGenTests
             import Raven.CodeAnalysis.Tests.*
 
             func Run() {
-                #add(20, Right: 22)
+                #raven { 20 + 22 }
             }
             """);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default)
-            .AddMacroReferences(new MacroReference(typeof(AddMacro)));
+            .AddMacroReferences(new MacroReference(typeof(RavenBodyMacro)));
 
         var diagnostic = Assert.Single(
             compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM022"));

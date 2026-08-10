@@ -8,9 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   with typed expression and statement projections and factories. This removes
   expression-only casts from the execution boundary and prepares centralized
   grammar-position validation without adding multi-node complexity to the MVP.
-  A bare invocation used as a whole statement now requires statement syntax,
-  while a parenthesized invocation remains an expression; category mismatches
-  produce a compiler diagnostic instead of reaching the binder.
+  A bare raw-body invocation used as a whole statement now requires statement
+  syntax, while a parenthesized invocation remains an expression; call-style
+  invocations retain normal expression-statement behavior, and category
+  mismatches produce a compiler diagnostic instead of reaching the binder.
 
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose

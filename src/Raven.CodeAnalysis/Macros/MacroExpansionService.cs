@@ -561,7 +561,8 @@ internal static class MacroExpansionService
     }
 
     private static bool IsStatementPosition(FreestandingMacroExpressionSyntax expression)
-        => expression.Parent is ExpressionStatementSyntax statement &&
+        => expression.TokenTree is not null &&
+           expression.Parent is ExpressionStatementSyntax statement &&
            ReferenceEquals(statement.Expression, expression);
 
     private static void ReportMacroDiagnostics(

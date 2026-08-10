@@ -322,8 +322,9 @@ fragments because it preserves their source coordinates and diagnostics.
 The normalized freestanding result carries zero or one `SyntaxNode`.
 `Expression` and `Statement` are typed projections, and
 `FromExpression(...)`, `FromStatement(...)`, and `FromNode(...)` construct the
-common result. A bare invocation used as the whole statement requires statement
-syntax; parentheses explicitly retain expression placement. A category mismatch
+common result. A bare raw-body invocation used as the whole statement requires
+statement syntax; parentheses explicitly retain expression placement. Call-style
+macros continue to follow ordinary expression-statement rules. A category mismatch
 reports `RAVM022` and discards the invalid node rather than casting it into the
 requested position. Expression factories may also forward native parser diagnostics.
 `FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
