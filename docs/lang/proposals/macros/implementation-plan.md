@@ -9,7 +9,7 @@ The durable product and tooling model is documented in
 
 ## Application-model redesign gate
 
-Status: **MVP implementation complete; final integration validation in progress**
+Status: **MVP implemented and validated**
 
 The next compiler work follows the normalized contract in the
 [macro application model](application-model.md#normalized-compiler-model).
@@ -56,6 +56,17 @@ Each slice is committed independently. Syntax-model changes require generator
 rebuilds; compiler behavior changes require focused macro tests, and editor-facing
 changes require the corresponding language-server tests. A broad baseline is
 reserved for the cross-cutting migration gate before integration.
+
+Final integration validation completed with:
+
+* the complete non-runtime repository baseline;
+* all 131 macro feature tests;
+* focused macro expansion, code generation, completion, hover, and language-
+  server integration coverage;
+* successful builds and executions of every maintained console macro sample;
+* successful server and WebAssembly builds of the component-template showcase;
+* a clean documentation build with warnings treated as errors; and
+* a successful Playground WebAssembly build and browser smoke test.
 
 ## Plugin boundary
 
