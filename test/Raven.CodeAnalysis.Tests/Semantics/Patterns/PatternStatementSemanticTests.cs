@@ -281,7 +281,7 @@ class C {
         var whole = model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")).ShouldBeOfType<SourceLocalSymbol>();
 
         first.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
-        whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Some<(string, int)>(value: (string, int))");
+        whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Some<(string, int)>");
     }
 
     [Fact]

@@ -342,6 +342,6 @@ class C {
         var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("whole", symbol.Name);
-        Assert.Equal("Some<int>(value: int)", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Some<int>", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 }
