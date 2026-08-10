@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed union-case symbol display so type-use formats omit constructor payloads
+  while declaration formats show the inherited case signature without repeating
+  the containing union's generic parameters.
+
 - Fixed incremental parsing of edited type members so method signature changes
   retain type-member context instead of being misclassified as file-scoped
   function statements. Category-changing edits still fall back to a full parse.

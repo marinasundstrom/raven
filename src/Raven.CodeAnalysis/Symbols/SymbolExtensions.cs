@@ -335,12 +335,24 @@ public static partial class SymbolExtensions
             {
                 text = FormatNamedDelegateDeclaration((INamedTypeSymbol)typeSymbol, format);
             }
+            else if (typeSymbol is IUnionCaseTypeSymbol { IsUnionCase: true } &&
+                     format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword))
+            {
+                // A union case declaration inherits its generic parameters from the
+                // containing union. Display those parameters in type-use positions,
+                // but do not repeat them on the case declaration itself.
+                text = FormatType(
+                    typeSymbol,
+                    format.WithGenericsOptions(
+                        format.GenericsOptions & ~SymbolDisplayGenericsOptions.IncludeTypeParameters));
+            }
             else
             {
                 text = FormatType(typeSymbol, format);
             }
 
             if (typeSymbol is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase &&
+                format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
                 format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
             {
                 text += "(" + string.Join(", ", unionCase.ConstructorParameters.Select(parameter => FormatParameter(parameter, format))) + ")";
