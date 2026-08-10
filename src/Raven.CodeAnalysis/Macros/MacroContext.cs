@@ -55,6 +55,17 @@ public abstract class MacroContext
     }
 
     /// <summary>
+    /// Creates identifier-name syntax with a deterministic name that does not
+    /// collide with authored or previously generated identifiers.
+    /// </summary>
+    /// <remarks>
+    /// This is a syntax-construction convenience over <see cref="CreateUniqueName"/>.
+    /// It does not provide definition-site or call-site hygiene.
+    /// </remarks>
+    public IdentifierNameSyntax CreateUniqueIdentifier(string hint = "value")
+        => SyntaxFactory.IdentifierName(CreateUniqueName(hint));
+
+    /// <summary>
     /// Requires a syntax node to have the requested shape, reporting a macro
     /// diagnostic and returning <see langword="null"/> when it does not.
     /// </summary>

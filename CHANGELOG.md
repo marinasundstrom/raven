@@ -60,6 +60,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Macro syntax parse results can now be reported directly through
   `MacroContext.ReportDiagnostics(result)`.
 
+- Added `MacroContext.CreateUniqueIdentifier` for constructing fresh generated
+  identifier syntax without repeating name allocation and factory calls.
+
 - Aligned documentation and VS Code grammar highlighting for macro
   declarations, contribution keywords, attributes, target clauses, and
   freestanding `Name!` invocations, and made constructor access modifiers and

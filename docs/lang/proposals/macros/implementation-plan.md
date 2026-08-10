@@ -1354,6 +1354,9 @@ plus names returned by earlier calls on the same context. This is the Raven
 counterpart to the immediately useful part of Nim's `genSym`: macro authors no
 longer need to invent temporary-name suffixes themselves.
 
+`CreateUniqueIdentifier(hint)` is the concise syntax-construction form for the
+same allocation policy. Neither helper is presented as semantic hygiene.
+
 The helper does not yet encode a hygienic symbol identity or choose
 definition-site versus call-site lookup. Those semantic facilities remain a
 later slice and must be designed before declaration and statement quotation is

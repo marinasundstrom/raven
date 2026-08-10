@@ -203,8 +203,7 @@ When an expansion needs a temporary local or another generated binding, ask
 the context for a collision-free name:
 
 ```raven
-let temporaryName = context.CreateUniqueName("item")
-let temporary = SyntaxFactory.IdentifierName(temporaryName)
+let temporary = context.CreateUniqueIdentifier("item")
 ```
 
 `CreateUniqueName` is deterministic for one invocation. It avoids every
@@ -217,6 +216,11 @@ both declares and references. It does not choose definition-site or call-site
 lookup for a constructed reference. Keep caller-authored references as
 source-backed/spliced syntax until Raven's broader hygiene model supplies
 explicit APIs for those lookup choices.
+
+Use `CreateUniqueName` when an API needs the text itself and
+`CreateUniqueIdentifier` when constructing an expression or reference node.
+Both follow the same collision rules and intentionally make no stronger
+hygiene claim.
 
 ### Validate syntax shapes without exceptions
 

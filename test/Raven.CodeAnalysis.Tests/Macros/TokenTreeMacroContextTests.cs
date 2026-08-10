@@ -312,6 +312,17 @@ public sealed class TokenTreeMacroContextTests
     }
 
     [Fact]
+    public void CreateUniqueIdentifier_ConstructsReusableIdentifierSyntax()
+    {
+        var context = CreateContext("let __macro_item_0 = 0");
+
+        var identifier = context.CreateUniqueIdentifier("item");
+
+        Assert.Equal("__macro_item_1", identifier.Identifier.ValueText);
+        Assert.Equal("__macro_item_1", identifier.ToString());
+    }
+
+    [Fact]
     public void RequireSyntax_ReturnsMatchingNodeWithoutDiagnostic()
     {
         var context = CreateContext("value + 1");
