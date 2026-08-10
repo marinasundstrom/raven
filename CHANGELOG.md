@@ -29,6 +29,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   invocations retain normal expression-statement behavior, and category
   mismatches produce a compiler diagnostic instead of reaching the binder.
 
+- Extended the normalized invocable-macro result boundary with explicit,
+  immutable member-list output. Empty member lists remain distinguishable from
+  no expansion, single-node and list outputs are mutually exclusive, and a
+  list returned through an expression or statement carrier is diagnosed rather
+  than silently ignored.
+
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
   the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve

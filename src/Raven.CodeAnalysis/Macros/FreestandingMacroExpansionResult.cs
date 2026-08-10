@@ -6,6 +6,10 @@ namespace Raven.CodeAnalysis.Macros;
 
 public sealed class FreestandingMacroExpansionResult
 {
+    private SyntaxNode? _node;
+    private ImmutableArray<MemberDeclarationSyntax> _members =
+        ImmutableArray<MemberDeclarationSyntax>.Empty;
+
     public static FreestandingMacroExpansionResult Empty { get; } = new();
 
     public static FreestandingMacroExpansionResult FromExpression(ExpressionSyntax expression)
@@ -94,14 +98,43 @@ public sealed class FreestandingMacroExpansionResult
         };
     }
 
+    public static FreestandingMacroExpansionResult FromMembers<TMember>(SyntaxList<TMember> members)
+        where TMember : MemberDeclarationSyntax
+    {
+        var builder = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>(members.Count);
+        foreach (var member in members)
+            builder.Add(member);
+
+        return FromMembers(builder.MoveToImmutable());
+    }
+
+    public static FreestandingMacroExpansionResult FromMembers(
+        ImmutableArray<MemberDeclarationSyntax> members)
+        => new()
+        {
+            Members = Normalize(members)
+        };
+
     /// <summary>
     /// Gets or sets the single syntax node produced by this invocation.
     /// </summary>
     /// <remarks>
     /// The compiler validates the node category against the invocation position.
-    /// Multi-node expansion is intentionally outside the MVP result model.
+    /// A single-node result is mutually exclusive with a member-list result.
     /// </remarks>
-    public SyntaxNode? Node { get; set; }
+    public SyntaxNode? Node
+    {
+        get => _node;
+        set
+        {
+            _node = value;
+            if (value is not null)
+            {
+                _members = ImmutableArray<MemberDeclarationSyntax>.Empty;
+                HasMemberExpansion = false;
+            }
+        }
+    }
 
     public ExpressionSyntax? Expression
     {
@@ -114,6 +147,29 @@ public sealed class FreestandingMacroExpansionResult
         get => Node as StatementSyntax;
         set => Node = value;
     }
+
+    /// <summary>
+    /// Gets or sets the ordered members produced for a member-list carrier.
+    /// </summary>
+    /// <remarks>
+    /// Setting this property selects member-list output even when the value is
+    /// empty. A member-list result is mutually exclusive with <see cref="Node"/>.
+    /// </remarks>
+    public ImmutableArray<MemberDeclarationSyntax> Members
+    {
+        get => _members;
+        set
+        {
+            _members = Normalize(value);
+            _node = null;
+            HasMemberExpansion = true;
+        }
+    }
+
+    /// <summary>
+    /// Gets whether this result explicitly selected member-list output.
+    /// </summary>
+    public bool HasMemberExpansion { get; private set; }
 
     public ImmutableArray<MacroExpansionDiagnostic> MacroDiagnostics { get; set; } = ImmutableArray<MacroExpansionDiagnostic>.Empty;
 

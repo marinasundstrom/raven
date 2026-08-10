@@ -56,4 +56,25 @@ public class MacroExpansionResultBuilderTests
         Assert.Same(diagnostic, Assert.Single(result.MacroDiagnostics));
     }
 
+    [Fact]
+    public void LatestFreestandingExpansionSelectsOneCardinality()
+    {
+        var builder = new MacroExpansionResultBuilder();
+        var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
+
+        builder.Expand(SyntaxFactory.List([member]));
+        builder.Expand(SyntaxFactory.ParseExpression("42"));
+        var expressionResult = builder.BuildFreestanding();
+
+        Assert.False(expressionResult.HasMemberExpansion);
+        Assert.NotNull(expressionResult.Expression);
+
+        builder.Expand(SyntaxFactory.List([member]));
+        var memberResult = builder.BuildFreestanding();
+
+        Assert.True(memberResult.HasMemberExpansion);
+        Assert.Null(memberResult.Node);
+        Assert.Equal(member.ToString(), Assert.Single(memberResult.Members).ToString());
+    }
+
 }

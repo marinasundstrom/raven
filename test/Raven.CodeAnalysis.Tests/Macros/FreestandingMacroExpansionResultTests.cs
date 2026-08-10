@@ -76,4 +76,65 @@ public sealed class FreestandingMacroExpansionResultTests
         result.Statement.ShouldNotBeNull();
         result.Node.ShouldBeOfType<ReturnStatementSyntax>();
     }
+
+    [Fact]
+    public void FromMembers_SelectsOrderedMemberListOutput()
+    {
+        var first = ParseMember("class First {}");
+        var second = ParseMember("class Second {}");
+
+        var result = FreestandingMacroExpansionResult.FromMembers(
+            SyntaxFactory.List<MemberDeclarationSyntax>([first, second]));
+
+        result.HasMemberExpansion.ShouldBeTrue();
+        result.Node.ShouldBeNull();
+        result.Members.Select(static member => member.ToString())
+            .ShouldBe(["class First {}", "class Second {}"]);
+    }
+
+    [Fact]
+    public void EmptyMemberList_RemainsAnExplicitExpansion()
+    {
+        var result = FreestandingMacroExpansionResult.FromMembers(
+            SyntaxFactory.List<MemberDeclarationSyntax>());
+
+        result.HasMemberExpansion.ShouldBeTrue();
+        result.Members.ShouldBeEmpty();
+        result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
+    }
+
+    [Fact]
+    public void SingleNodeAndMemberListProperties_AreMutuallyExclusive()
+    {
+        var member = ParseMember("class Generated {}");
+        var result = FreestandingMacroExpansionResult.FromExpression(
+            SyntaxFactory.ParseExpression("42"));
+
+        result.Members = [member];
+
+        result.HasMemberExpansion.ShouldBeTrue();
+        result.Node.ShouldBeNull();
+
+        result.Expression = SyntaxFactory.ParseExpression("43");
+
+        result.HasMemberExpansion.ShouldBeFalse();
+        result.Members.ShouldBeEmpty();
+        result.Expression.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void Builder_PreservesExplicitEmptyMemberExpansion()
+    {
+        var builder = new MacroExpansionResultBuilder();
+
+        builder.Expand(SyntaxFactory.List<MemberDeclarationSyntax>());
+        var result = builder.BuildFreestanding();
+
+        result.HasMemberExpansion.ShouldBeTrue();
+        result.Members.ShouldBeEmpty();
+        result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
+    }
+
+    private static MemberDeclarationSyntax ParseMember(string source)
+        => SyntaxFactory.ParseSyntaxTree(source).GetRoot().Members.Single();
 }

@@ -68,6 +68,28 @@ public sealed class FreestandingMacroCodeGenTests
     }
 
     [Fact]
+    public void FreestandingMacro_MemberListInExpressionPosition_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.*
+
+            func Run() -> int => members!{ }
+            """);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(MemberListMacro)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM022"));
+
+        Assert.Contains(
+            "member-list syntax where expression syntax is required",
+            diagnostic.GetMessage(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
     {
         var macroTree = SyntaxTree.ParseText("""
@@ -409,6 +431,18 @@ public sealed class FreestandingMacroCodeGenTests
             {
                 Expression = context.ParseExpression()
             };
+    }
+
+    public sealed class MemberListMacro : ITokenTreeExpressionMacro
+    {
+        public string Name => "members";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+        {
+            var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
+            return FreestandingMacroExpansionResult.FromMembers(
+                SyntaxFactory.SingletonList(member));
+        }
     }
 
     public sealed class GuardMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider

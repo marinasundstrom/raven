@@ -533,6 +533,18 @@ internal static class MacroExpansionService
         FreestandingMacroExpansionResult result,
         DiagnosticBag diagnostics)
     {
+        if (result.HasMemberExpansion)
+        {
+            diagnostics.Report(Diagnostic.Create(
+                s_macroExpansionCategoryMismatch,
+                macroExpression.Name.GetLocation(),
+                macroName,
+                "member-list",
+                IsStatementPosition(macroExpression) ? "statement" : "expression"));
+
+            return WithoutExpansion(result);
+        }
+
         if (result.Node is null)
             return result;
 
@@ -550,7 +562,12 @@ internal static class MacroExpansionService
             result.Node is StatementSyntax ? "statement" : "non-expression",
             requiresStatement ? "statement" : "expression"));
 
-        return new FreestandingMacroExpansionResult
+        return WithoutExpansion(result);
+    }
+
+    private static FreestandingMacroExpansionResult WithoutExpansion(
+        FreestandingMacroExpansionResult result)
+        => new()
         {
             Diagnostics = result.Diagnostics,
             MacroDiagnostics = result.MacroDiagnostics,
@@ -558,7 +575,6 @@ internal static class MacroExpansionService
             TokenInfos = result.TokenInfos,
             FileDependencies = result.FileDependencies
         };
-    }
 
     private static bool IsStatementPosition(FreestandingMacroExpressionSyntax expression)
         => expression.TokenTree is not null &&
