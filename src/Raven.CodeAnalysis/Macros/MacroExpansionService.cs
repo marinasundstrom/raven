@@ -113,23 +113,49 @@ internal static class MacroExpansionService
         InvocableMacroExpressionSyntax expression,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
+        => ExpandInvocableMacro(
+            compilation,
+            semanticModel,
+            InvocableMacroInvocation.Create(expression),
+            diagnostics,
+            cancellationToken);
+
+    public static InvocableMacroExpansionResult? ExpandInvocableMacro(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroMemberDeclarationSyntax member,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken = default)
+        => ExpandInvocableMacro(
+            compilation,
+            semanticModel,
+            InvocableMacroInvocation.Create(member),
+            diagnostics,
+            cancellationToken);
+
+    private static InvocableMacroExpansionResult? ExpandInvocableMacro(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        InvocableMacroInvocation invocation,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         compilation.PerformanceInstrumentation.Macros.RecordInvocableExpansionInvocation();
 
-        if (!MacroSemanticValidator.TryResolveInvocableMacro(compilation, expression, diagnostics, out var loaded))
+        if (!MacroSemanticValidator.TryResolveInvocableMacro(compilation, invocation, diagnostics, out var loaded))
             return null;
 
         try
         {
             InvocableMacroExpansionResult result;
-            if (expression.TokenTree is not null)
+            if (invocation.TokenTree is not null)
             {
                 var tokenTreeMacro = (ITokenTreeMacro)loaded.Macro;
                 var context = new TokenTreeMacroContext(
                     compilation,
                     semanticModel,
-                    expression,
+                    invocation,
                     tokenTreeMacro,
                     cancellationToken);
                 result = ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
@@ -146,7 +172,7 @@ internal static class MacroExpansionService
                 var context = new InvocableMacroContext(
                     compilation,
                     semanticModel,
-                    expression,
+                    invocation,
                     cancellationToken);
                 result = ExpandWithTypedParametersIfAvailable(invocableMacro, context, diagnostics)
                     ?? invocableMacro.Expand(context)
@@ -157,11 +183,13 @@ internal static class MacroExpansionService
                     context.GetFileDependencies());
             }
 
-            result = ValidateExpansionCategory(loaded.Macro.Name, expression, result, diagnostics);
-            result = ContextualizeExpansionResult(expression, result);
+            result = ValidateExpansionCategory(loaded.Macro.Name, invocation, result, diagnostics);
+            result = ContextualizeExpansionResult(invocation, result);
             RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Node);
+            foreach (var member in result.Members)
+                RegisterGeneratedSyntaxTree(compilation, semanticModel, member);
 
-            ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, expression.Name.GetLocation(), result.MacroDiagnostics);
+            ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, invocation.Name.GetLocation(), result.MacroDiagnostics);
 
             foreach (var diagnostic in result.Diagnostics)
                 diagnostics.Report(diagnostic);
@@ -174,7 +202,7 @@ internal static class MacroExpansionService
             RethrowCancellation(failure, cancellationToken);
             diagnostics.Report(Diagnostic.Create(
                 s_macroExpansionFailed,
-                expression.Name.GetLocation(),
+                invocation.Name.GetLocation(),
                 loaded.Macro.Name,
                 GetExpansionFailureMessage(failure)));
             return null;
@@ -508,36 +536,63 @@ internal static class MacroExpansionService
     }
 
     private static InvocableMacroExpansionResult ContextualizeExpansionResult(
-        InvocableMacroExpressionSyntax macroExpression,
+        InvocableMacroInvocation invocation,
         InvocableMacroExpansionResult result)
     {
+        if (result.HasMemberExpansion)
+        {
+            var members = result.Members
+                .Select(member => (MemberDeclarationSyntax)MacroSyntaxOrigin
+                    .MarkGeneratedSyntaxHidden(member, invocation.Syntax)
+                    .WithParent(invocation.Syntax.Parent, invocation.Syntax.Position))
+                .ToImmutableArray();
+            return CopyExpansionMetadata(result, new InvocableMacroExpansionResult
+            {
+                Members = members
+            });
+        }
+
         if (result.Node is null)
             return result;
 
         var expansionNode = MacroSyntaxOrigin.MarkGeneratedSyntaxHidden(
             result.Node,
-            macroExpression);
-        var isStatementPosition = IsStatementPosition(macroExpression);
-        var parent = isStatementPosition ? macroExpression.Parent?.Parent : macroExpression.Parent;
-        var position = isStatementPosition ? macroExpression.Parent?.Position ?? macroExpression.Position : macroExpression.Position;
+            invocation.Syntax);
+        var isStatementPosition = invocation.Syntax is InvocableMacroExpressionSyntax expression &&
+            IsStatementPosition(expression);
+        var parent = isStatementPosition ? invocation.Syntax.Parent?.Parent : invocation.Syntax.Parent;
+        var position = isStatementPosition
+            ? invocation.Syntax.Parent?.Position ?? invocation.Syntax.Position
+            : invocation.Syntax.Position;
         var contextualNode = expansionNode.WithParent(parent, position);
-        return new InvocableMacroExpansionResult
+        return CopyExpansionMetadata(result, new InvocableMacroExpansionResult
         {
-            Node = contextualNode,
-            MacroDiagnostics = result.MacroDiagnostics,
-            Diagnostics = result.Diagnostics,
-            FragmentRegions = result.FragmentRegions,
-            TokenInfos = result.TokenInfos,
-            FileDependencies = result.FileDependencies
-        };
+            Node = contextualNode
+        });
     }
 
     private static InvocableMacroExpansionResult ValidateExpansionCategory(
         string macroName,
-        InvocableMacroExpressionSyntax macroExpression,
+        InvocableMacroInvocation invocation,
         InvocableMacroExpansionResult result,
         DiagnosticBag diagnostics)
     {
+        if (invocation.Syntax is InvocableMacroMemberDeclarationSyntax)
+        {
+            if (result.HasMemberExpansion || result.Node is null or MemberDeclarationSyntax)
+                return result;
+
+            diagnostics.Report(Diagnostic.Create(
+                s_macroExpansionCategoryMismatch,
+                invocation.Name.GetLocation(),
+                macroName,
+                DescribeExpansionCategory(result.Node),
+                "member"));
+
+            return WithoutExpansion(result);
+        }
+
+        var macroExpression = (InvocableMacroExpressionSyntax)invocation.Syntax;
         if (result.HasMemberExpansion)
         {
             diagnostics.Report(Diagnostic.Create(
@@ -568,6 +623,27 @@ internal static class MacroExpansionService
             requiresStatement ? "statement" : "expression"));
 
         return WithoutExpansion(result);
+    }
+
+    private static string DescribeExpansionCategory(SyntaxNode node)
+        => node switch
+        {
+            ExpressionSyntax => "expression",
+            StatementSyntax => "statement",
+            MemberDeclarationSyntax => "member",
+            _ => "incompatible"
+        };
+
+    private static InvocableMacroExpansionResult CopyExpansionMetadata(
+        InvocableMacroExpansionResult source,
+        InvocableMacroExpansionResult destination)
+    {
+        destination.MacroDiagnostics = source.MacroDiagnostics;
+        destination.Diagnostics = source.Diagnostics;
+        destination.FragmentRegions = source.FragmentRegions;
+        destination.TokenInfos = source.TokenInfos;
+        destination.FileDependencies = source.FileDependencies;
+        return destination;
     }
 
     private static InvocableMacroExpansionResult WithoutExpansion(

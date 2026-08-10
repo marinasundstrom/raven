@@ -332,6 +332,12 @@ statement syntax; parentheses explicitly retain expression placement. Call-style
 macros continue to follow ordinary expression-statement rules. A category mismatch
 reports `RAVM022` and discards the invalid node rather than casting it into the
 requested position. Expression factories may also forward native parser diagnostics.
+In a type body, `SemanticModel.GetMacroExpansion` accepts the
+`InvocableMacroMemberDeclarationSyntax` carrier. `GetExpandedRoot()` replaces
+that carrier with the returned members in source order. A single
+`MemberDeclarationSyntax` returned through `FromNode(...)` is also accepted;
+an explicit empty member list removes the carrier, while no expansion or an
+invalid output category preserves it for recovery.
 `FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
 native-parser, or combined diagnostic results without requiring property
 initializers. `Empty` represents an explicit no-change result. Mutable

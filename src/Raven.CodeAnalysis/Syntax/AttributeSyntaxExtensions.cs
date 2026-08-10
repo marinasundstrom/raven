@@ -45,4 +45,13 @@ public static class AttributeSyntaxExtensions
         macroName = GetNormalizedName(macroExpression.Name);
         return !string.IsNullOrWhiteSpace(macroName);
     }
+
+    public static bool TryGetMacroName(this InvocableMacroMemberDeclarationSyntax macroInvocation, out string macroName)
+    {
+        if (macroInvocation is null)
+            throw new ArgumentNullException(nameof(macroInvocation));
+
+        macroName = GetNormalizedName(macroInvocation.Name);
+        return !string.IsNullOrWhiteSpace(macroName);
+    }
 }

@@ -22,7 +22,7 @@ public partial class SemanticModel
     private readonly SemanticBindingState _bindingState = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
     private readonly ConcurrentDictionary<SyntaxNode, ImmutableDictionary<AttributeSyntax, MacroExpansionResult?>> _macroExpansionCache = new();
-    private readonly ConcurrentDictionary<InvocableMacroExpressionSyntax, InvocableMacroExpansionCacheEntry> _invocableMacroExpansionCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, InvocableMacroExpansionCacheEntry> _invocableMacroExpansionCache = new();
     private readonly ConcurrentDictionary<AttributeSyntax, ImmutableArray<SyntaxNode>> _expandedDeclarationCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
@@ -9892,44 +9892,68 @@ public partial class SemanticModel
     public InvocableMacroExpansionResult? GetMacroExpansion(
         InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetInvocableMacroExpansion(expression, cancellationToken);
+
+    public InvocableMacroExpansionResult? GetMacroExpansion(
+        InvocableMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetInvocableMacroExpansion(member, cancellationToken);
+
+    private InvocableMacroExpansionResult? GetInvocableMacroExpansion(
+        SyntaxNode invocation,
+        CancellationToken cancellationToken)
     {
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
-        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(invocation);
+        if (!InvocableMacroInvocation.TryCreate(invocation, out _))
+            throw new ArgumentException("Syntax is not an invocable macro carrier.", nameof(invocation));
 
-        if (_invocableMacroExpansionCache.TryGetValue(expression, out var cached) &&
+        if (_invocableMacroExpansionCache.TryGetValue(invocation, out var cached) &&
             cached.IsCurrent())
         {
             return cached.Result;
         }
 
         if (cached is not null)
-            InvalidateInvocableMacroExpansion(expression);
+            InvalidateInvocableMacroExpansion(invocation);
 
-        var result = MacroExpansionService.ExpandInvocableMacro(
-            Compilation,
-            this,
-            expression,
-            _declarationDiagnostics,
-            cancellationToken);
-        _invocableMacroExpansionCache[expression] =
+        var result = invocation switch
+        {
+            InvocableMacroExpressionSyntax expression => MacroExpansionService.ExpandInvocableMacro(
+                Compilation,
+                this,
+                expression,
+                _declarationDiagnostics,
+                cancellationToken),
+            InvocableMacroMemberDeclarationSyntax member => MacroExpansionService.ExpandInvocableMacro(
+                Compilation,
+                this,
+                member,
+                _declarationDiagnostics,
+                cancellationToken),
+            _ => null
+        };
+        _invocableMacroExpansionCache[invocation] =
             new InvocableMacroExpansionCacheEntry(result);
+        _diagnostics = null;
+        _documentDiagnostics = null;
         return result;
     }
 
     private void InvalidateStaleInvocableMacroExpansions()
     {
-        foreach (var (expression, entry) in _invocableMacroExpansionCache)
+        foreach (var (invocation, entry) in _invocableMacroExpansionCache)
         {
             if (!entry.IsCurrent())
-                InvalidateInvocableMacroExpansion(expression);
+                InvalidateInvocableMacroExpansion(invocation);
         }
     }
 
-    private void InvalidateInvocableMacroExpansion(InvocableMacroExpressionSyntax expression)
+    private void InvalidateInvocableMacroExpansion(SyntaxNode invocation)
     {
-        _invocableMacroExpansionCache.TryRemove(expression, out _);
-        _declarationDiagnostics.ClearDiagnostics(expression.Span);
+        _invocableMacroExpansionCache.TryRemove(invocation, out _);
+        _declarationDiagnostics.ClearDiagnostics(invocation.Span);
         _diagnostics = null;
         _documentDiagnostics = null;
         _expandedRoot = null;

@@ -104,6 +104,31 @@ public partial class SemanticModel
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (member is InvocableMacroMemberDeclarationSyntax invocation)
+        {
+            var expansion = semanticModel.GetMacroExpansion(invocation, cancellationToken);
+            if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))
+            {
+                yield return member;
+                yield break;
+            }
+
+            var expandedMembers = expansion.HasMemberExpansion
+                ? expansion.Members
+                : expansion.Node is MemberDeclarationSyntax expandedMember
+                    ? ImmutableArray.Create(expandedMember)
+                    : ImmutableArray<MemberDeclarationSyntax>.Empty;
+            var rewrittenMembers = RewriteExpandedMembers(
+                    expandedMembers.Select(PrepareExpandedMember),
+                    semanticModel.Compilation,
+                    cancellationToken)
+                .ToArray();
+
+            foreach (var generatedMember in IntegrateExpandedMembers(member, rewrittenMembers))
+                yield return generatedMember;
+            yield break;
+        }
+
         var rewrittenMember = RewriteMemberInternals(member, semanticModel, cancellationToken);
         var introducedMembers = new List<MemberDeclarationSyntax>();
         var peerDeclarations = new List<MemberDeclarationSyntax>();

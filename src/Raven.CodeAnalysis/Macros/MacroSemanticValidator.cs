@@ -137,10 +137,30 @@ internal static class MacroSemanticValidator
         InvocableMacroExpressionSyntax expression,
         DiagnosticBag? diagnostics,
         out LoadedInvocableMacro loaded)
-    {
-        ArgumentNullException.ThrowIfNull(expression);
+        => TryResolveInvocableMacro(
+            compilation,
+            InvocableMacroInvocation.Create(expression),
+            diagnostics,
+            out loaded);
 
-        if (!expression.TryGetMacroName(out var macroName))
+    public static bool TryResolveInvocableMacro(
+        Compilation compilation,
+        InvocableMacroMemberDeclarationSyntax member,
+        DiagnosticBag? diagnostics,
+        out LoadedInvocableMacro loaded)
+        => TryResolveInvocableMacro(
+            compilation,
+            InvocableMacroInvocation.Create(member),
+            diagnostics,
+            out loaded);
+
+    internal static bool TryResolveInvocableMacro(
+        Compilation compilation,
+        InvocableMacroInvocation invocation,
+        DiagnosticBag? diagnostics,
+        out LoadedInvocableMacro loaded)
+    {
+        if (!invocation.TryGetMacroName(out var macroName))
         {
             loaded = default;
             return false;
@@ -149,13 +169,13 @@ internal static class MacroSemanticValidator
         var registry = compilation.GetMacroRegistry();
         if (!registry.TryResolveInvocableMacro(
                 compilation,
-                expression,
+                invocation.Syntax,
                 macroName,
                 out loaded,
                 out var isAmbiguous))
         {
             if (compilation.TryResolveLocalMacroDeclarationSymbol(
-                    expression,
+                    invocation.Syntax,
                     macroName,
                     out var localMacro,
                     out var localIsAmbiguous) &&
@@ -166,28 +186,28 @@ internal static class MacroSemanticValidator
 
             diagnostics?.Report(Diagnostic.Create(
                 isAmbiguous || localIsAmbiguous ? s_ambiguousMacro : s_unknownMacro,
-                expression.Name.GetLocation(),
+                invocation.Name.GetLocation(),
                 macroName));
             return false;
         }
 
-        if (expression.TokenTree is not null)
+        if (invocation.TokenTree is not null)
         {
             if (loaded.Macro is not ITokenTreeMacro)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroInvocationFormNotSupported,
-                    expression.TokenTree.GetLocation(),
+                    invocation.TokenTree.GetLocation(),
                     macroName,
                     "does not accept a token-tree body"));
                 return false;
             }
 
-            if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
+            if (invocation.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroArgumentsNotSupported,
-                    expression.ArgumentList.GetLocation(),
+                    invocation.ArgumentList.GetLocation(),
                     macroName));
                 return false;
             }
@@ -199,17 +219,17 @@ internal static class MacroSemanticValidator
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroInvocationFormNotSupported,
-                expression.Name.GetLocation(),
+                invocation.Name.GetLocation(),
                 macroName,
                 "requires a token-tree body"));
             return false;
         }
 
-        if (expression.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
+        if (invocation.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroArgumentsNotSupported,
-                expression.ArgumentList.GetLocation(),
+                invocation.ArgumentList.GetLocation(),
                 macroName));
             return false;
         }

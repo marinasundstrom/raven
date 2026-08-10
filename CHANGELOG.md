@@ -47,6 +47,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `ExclamationToken`, `ArgumentList`, and `TokenTree` consistently instead of
   depending on an expression-only syntax type.
 
+- Added semantic-model expansion for invocable macros in type-member position.
+  Expanded documents now splice generated members in order, support explicit
+  empty-list removal and single-member results, and diagnose incompatible
+  expression or statement output while preserving recoverable source.
+
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
   the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve

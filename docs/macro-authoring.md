@@ -329,6 +329,15 @@ returns `InvocableMacroExpansionResult`, which can carry syntax and
 diagnostics together. Use that lower-level form only when the compact
 declaration cannot project a required capability.
 
+When an invocable macro appears directly in a type body, return members with
+`InvocableMacroExpansionResult.FromMembers(...)`. The compiler preserves their
+order in the expanded document. Returning an explicitly empty member array
+removes the invocation; returning `Empty` leaves it in place as recoverable
+source. `FromNode(...)` may be used for exactly one member. The compiler reports
+`RAVM022` if the result is an expression or statement instead of a member, so a
+malformed provider cannot force the expanded document into an invalid syntax
+category.
+
 ## 6. Surface fragment spans for tooling
 
 A DSL should identify the ordinary Raven fragments inside its token body. One

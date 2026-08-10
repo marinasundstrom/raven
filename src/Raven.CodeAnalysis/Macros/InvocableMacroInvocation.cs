@@ -36,4 +36,18 @@ internal readonly record struct InvocableMacroInvocation(
                 return false;
         }
     }
+
+    public bool TryGetMacroName(out string macroName)
+        => Syntax switch
+        {
+            InvocableMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName),
+            InvocableMacroMemberDeclarationSyntax member => member.TryGetMacroName(out macroName),
+            _ => Fail(out macroName)
+        };
+
+    private static bool Fail(out string value)
+    {
+        value = string.Empty;
+        return false;
+    }
 }
