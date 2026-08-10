@@ -124,7 +124,7 @@ class MacroHost {
             .AddReferences(TestMetadataReferences.Default)
             .AddMacroReferences(new MacroReference(new EmptyFragmentMacro()));
 
-        var position = code.IndexOf("}", code.IndexOf("#emptyFragment", StringComparison.Ordinal), StringComparison.Ordinal);
+        var position = code.IndexOf("}", code.IndexOf("emptyFragment!", StringComparison.Ordinal), StringComparison.Ordinal);
         var items = new CompletionService()
             .GetCompletions(compilation, syntaxTree, position)
             .ToList();
@@ -171,12 +171,12 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_AfterHashInExpression_ReturnsOnlyFreestandingMacros()
+    public void GetCompletions_InBangMacroName_ReturnsOnlyFreestandingMacros()
     {
         const string code = """
 class MacroHost {
     func Test() {
-        let answer = #
+        let answer = que! { }
     }
 }
 """;
@@ -189,10 +189,9 @@ class MacroHost {
                 new MacroReference(new SubscribeMacro()),
                 new MacroReference(new QueryMacro()));
 
-        var position = code.IndexOf('#', StringComparison.Ordinal) + 1;
+        var position = code.IndexOf('!', code.IndexOf("que!", StringComparison.Ordinal));
         var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, static item => item.DisplayText == "subscribe");
         Assert.Contains(items, static item => item.DisplayText == "query");
         Assert.DoesNotContain(items, static item => item.DisplayText == "Observable");
     }
@@ -281,13 +280,13 @@ class MacroHost {
             .AddMacroSyntaxTrees(macroTree)
             .AddSyntaxTrees(syntaxTree);
 
-        var position = code.IndexOf('(', code.IndexOf("#local", StringComparison.Ordinal));
+        var position = code.IndexOf('!', code.IndexOf("local!", StringComparison.Ordinal));
         var items = new CompletionService()
             .GetCompletions(compilation, syntaxTree, position)
             .ToList();
 
         var localAnswer = Assert.Single(items.Where(static item => item.DisplayText == "localAnswer"));
-        Assert.Equal("localAnswer { }", localAnswer.InsertionText);
+        Assert.Equal("localAnswer", localAnswer.InsertionText);
     }
 
     [Fact]
@@ -310,14 +309,14 @@ class MacroHost {
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.RavenMacros);
 
-        var position = code.IndexOf('(', code.IndexOf("#quo", StringComparison.Ordinal));
+        var position = code.IndexOf('!', code.IndexOf("quo!", StringComparison.Ordinal));
         var items = new CompletionService()
             .GetCompletions(compilation, syntaxTree, position)
             .ToList();
 
         var quote = Assert.Single(items.Where(static item => item.DisplayText == "quote"));
-        Assert.Equal("quote { }", quote.InsertionText);
-        Assert.Equal(quote.InsertionText.Length - 1, quote.CursorOffset);
+        Assert.Equal("quote", quote.InsertionText);
+        Assert.Null(quote.CursorOffset);
         Assert.Contains("token-tree body", quote.Description, StringComparison.OrdinalIgnoreCase);
         var symbol = Assert.IsAssignableFrom<IMacroSymbol>(quote.Symbol);
         Assert.Equal(SymbolKind.Macro, symbol.Kind);
@@ -456,7 +455,7 @@ class MacroHost {
                 new MacroReference(new SubscribeMacro()),
                 new MacroReference(new QueryMacro()));
 
-        var position = code.IndexOf('(', code.IndexOf("#sub", StringComparison.Ordinal));
+        var position = code.IndexOf('!', code.IndexOf("sub!", StringComparison.Ordinal));
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var token = syntaxTree.GetRoot().FindToken(Math.Max(0, position - 1));
         var directItems = CompletionProvider.GetCompletions(token, semanticModel, position).ToList();
@@ -465,8 +464,8 @@ class MacroHost {
         var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
 
         var subscribe = Assert.Single(items.Where(static item => item.DisplayText == "subscribe"));
-        Assert.Equal("subscribe()", subscribe.InsertionText);
-        Assert.Equal(subscribe.InsertionText.Length - 1, subscribe.CursorOffset);
+        Assert.Equal("subscribe", subscribe.InsertionText);
+        Assert.Null(subscribe.CursorOffset);
         Assert.Contains("freestanding expression macro", subscribe.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("accepts arguments", subscribe.Description, StringComparison.OrdinalIgnoreCase);
     }
@@ -490,12 +489,12 @@ class MacroHost {
                 new MacroReference(new SubscribeMacro()),
                 new MacroReference(new QueryMacro()));
 
-        var position = code.IndexOf('(', code.IndexOf("#que", StringComparison.Ordinal));
+        var position = code.IndexOf('!', code.IndexOf("que!", StringComparison.Ordinal));
         var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
 
         var query = Assert.Single(items.Where(static item => item.DisplayText == "query"));
-        Assert.Equal("query { }", query.InsertionText);
-        Assert.Equal(query.InsertionText.Length - 1, query.CursorOffset);
+        Assert.Equal("query", query.InsertionText);
+        Assert.Null(query.CursorOffset);
         Assert.Contains("token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -515,12 +514,12 @@ class MacroHost {
             .AddSyntaxTrees(syntaxTree)
             .AddMacroReferences(new MacroReference(new TypedQueryMacro()));
 
-        var position = code.IndexOf('(', code.IndexOf("#typed", StringComparison.Ordinal));
+        var position = code.IndexOf('!', code.IndexOf("typed!", StringComparison.Ordinal));
         var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
 
         var query = Assert.Single(items.Where(static item => item.DisplayText == "typedQuery"));
-        Assert.Equal("typedQuery() { }", query.InsertionText);
-        Assert.Equal("typedQuery".Length + 1, query.CursorOffset);
+        Assert.Equal("typedQuery", query.InsertionText);
+        Assert.Null(query.CursorOffset);
         Assert.Contains("arguments and a token-tree body", query.Description, StringComparison.OrdinalIgnoreCase);
     }
 
