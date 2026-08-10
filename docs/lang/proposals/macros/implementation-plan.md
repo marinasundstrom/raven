@@ -947,9 +947,9 @@ boilerplate only by lowering to or interoperating with these same contracts.
 It may also synthesize the assembly export registration currently expressed
 through `RavenCompilerPlugin`.
 
-The function-like declaration uses parameter roles, an optional call-site
-semantic return type, an optional target clause, and body contributions to
-describe the macro:
+The function-like declaration uses parameter roles, an invocable return-type
+target or an attached `on` parameter, and body contributions to describe the
+macro:
 
 ```raven
 macro Foo(argument: ExpressionSyntax) -> ExpressionSyntax {
@@ -960,7 +960,7 @@ macro Query(body: IMacroTokenStream) -> ExpressionSyntax {
     // ...
 }
 
-macro AddEquatable() on Type {
+macro AddEquatable(on target: BaseTypeDeclarationSyntax) {
     introduce CreateEqualityMembers(target)
 }
 ```
@@ -975,22 +975,28 @@ constraint. Local declarations enter the compile-time partition without
 assembly export metadata. Only an explicitly exported declaration in a
 provider assembly synthesizes provider manifest metadata.
 
-The model separates input roles, an optional attachment target, the call-site
-semantic type, and `expand`/`replace`/`introduce` behavior. `expand` is the
-semantic return for an expansion path; the other statements accumulate result
-state until `expand` or body fall-through. Diagnostics accumulate through the
-context API rather than another language statement. It
+The model separates user inputs, compiler-supplied roles, invocation targets,
+and `expand`/`replace`/`introduce` behavior. `expand` is the semantic return for
+an invocable expansion path; attached `replace` and `introduce` statements
+accumulate result state until body fall-through. Diagnostics accumulate through
+the context API rather than another language statement. It
 must cover attached, argument-style, and token-tree macros without
 reintroducing a separate `MacroKind` annotation. The detailed lowering matrix lives in
 [Macro and DSL developer experience](developer-experience.md).
 
-Macro binding classifies ordinary-looking parameters by
-`MacroParameterRole`. Value parameters populate the generated typed parameter
-object normally. `ExpressionSyntax` parameters retain that real compiler API
-type and receive the caller's authored node. A single
+Macro binding classifies parameters by explicit `on` syntax and recognized
+compiler API types into `MacroParameterRole`. Value parameters populate the
+generated typed parameter object normally. `ExpressionSyntax` parameters retain
+that real compiler API type and receive the caller's authored node. An `on`
+parameter receives the attached source node and never consumes a call-site
+argument. A single
 `body: IMacroTokenStream` parameter is
 instead supplied through `TokenTreeMacroContext.CreateTokenStream()` and
 selects token-tree invocation syntax.
+
+Context parameters are optional capabilities. Simple macros bind only their
+declared caller inputs and output target; generated adapters must not require
+authors to declare a context they do not use.
 
 The future strongly typed layer also includes symbolic generic arguments.
 Explicit macro type arguments bind to `ITypeSymbol` values, participate in
@@ -998,7 +1004,10 @@ constraint validation before expansion, and remain distinct from CLR generic
 parameters on the provider implementation. A macro declaration may eventually
 declare a call-site semantic result type, while its implementation supplies
 syntax that the compiler binds and verifies against that result. Generic
-inference and overload resolution remain later layers.
+inference and overload resolution remain later layers. For invocable macros,
+the return type declares grammar targets rather than a separate call-site
+semantic result type; the expanded ordinary syntax is subsequently bound and
+type-checked normally.
 
 Validation record for this slice:
 
@@ -1424,6 +1433,13 @@ or text-based expansion.
 
 For an invocable macro, the return type is normative target metadata: it
 decides where resolution and completion offer that macro before expansion runs.
+
+The accepted attached syntax moves `on` into the parameter list:
+`on target: TargetSyntax`. The parameter type or union decides attachment
+targets, while `on target: SyntaxNode` is category-untyped. The parameter binder
+must normalize value, syntax-input, context, token-body, and attached-target
+roles before mapping positional or named arguments; compiler-supplied roles do
+not consume call-site arguments.
 
 ### Expansion driver and isolation
 

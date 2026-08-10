@@ -168,23 +168,139 @@ narrowing, hover, and rename use ordinary Raven semantics.
 
 ## Attached application
 
-An attached macro declares its target through `on`:
+An attached macro declares a compiler-supplied target parameter with `on`:
 
 ```raven
-macro Component() on Type {
+macro Component(on target: ClassDeclarationSyntax) {
     replace ImplementComponent(target)
     introduce CreateSupportMembers(target)
 }
 ```
 
+The modifier identifies the parameter role; its name has no semantic meaning.
+Its type decides where the macro can be attached, just as an invocable macro's
+return type decides where it can be invoked:
+
+```raven
+macro Serializable(
+    mode: SerializationMode,
+    on target: ClassDeclarationSyntax | RecordDeclarationSyntax
+) {
+    replace AddSerialization(target, mode)
+}
+```
+
+`on target: SyntaxNode` is category-untyped and accepts every attachable single
+syntax node. It remains distinct from an ordinary invocation parameter
+`node: SyntaxNode`; attachment is never inferred from a name or type alone.
+
 Attached macros operate on an existing declaration. Their contributions are
 replacement, introduced members, introduced peers, diagnostics, and editor
-metadata. The target already constrains replacement syntax, so freestanding
-output annotations do not replace `on`.
+metadata. They have no invocable return target. Combining an `on` parameter
+with an invocable syntax return type is invalid.
 
 Potential targets include type, method/function, property, field, event,
 constructor, accessor, and parameter. File, namespace, module, and assembly
 targets require separate justification.
+
+## Parameter binding
+
+Macro parameters have explicit compiler roles. Binding partitions them before
+mapping invocation arguments:
+
+| Role | Declared form | Supplied by |
+| --- | --- | --- |
+| Value | `mode: Mode` | positional or named invocation argument |
+| Syntax input | `expression: ExpressionSyntax` | authored invocation syntax |
+| Context | a recognized macro context type | compiler |
+| Token stream/body | a recognized token-body type | compiler |
+| Attached target | `on target: TargetSyntax` | compiler |
+
+Only value and syntax-input parameters participate in positional and named
+argument mapping. Compiler-supplied parameters never consume an argument slot
+and cannot be named by the caller.
+
+### Context is opt-in
+
+A macro context is not mandatory syntax and is not implicitly bound into every
+macro body. The minimal macro consists only of caller inputs and an output
+target:
+
+```raven
+macro Double(value: int) -> ExpressionSyntax {
+    let doubled = value * 2
+    expand ParseExpression(doubled.ToString())
+}
+```
+
+The author declares a context parameter only when the implementation needs
+advanced compiler services:
+
+```raven
+macro Query(context: TokenTreeMacroContext) -> ExpressionSyntax {
+    let stream = context.CreateTokenStream()
+    expand ParseAndLower(stream)
+}
+```
+
+Likewise, a simple attached macro needs only its target:
+
+```raven
+macro Component(on target: ClassDeclarationSyntax) {
+    replace ImplementComponent(target)
+}
+```
+
+The compiler may maintain internal invocation state to execute any macro, but
+that implementation detail does not create a source-level parameter, local, or
+binding. Context construction and its semantic services should remain lazy
+where practical.
+
+### Binding order
+
+1. Classify roles from explicit syntax (`on`) and recognized compiler API
+   types.
+2. Validate the declaration shape before registering the macro.
+3. Select a macro whose invocation or attachment target matches the carrier.
+4. Map positional arguments to user-supplied parameters in declaration order.
+5. Map named arguments; diagnose unknown, duplicate, or already-bound names.
+6. Bind syntax inputs as source-backed syntax without evaluating them.
+7. Evaluate and convert value inputs using compile-time constant rules.
+8. Apply declaration-time defaults to missing optional value parameters.
+9. Inject context, token-body, actual-position, and attached-target values.
+10. If required binding failed, report all accumulated diagnostics and do not
+    execute the macro.
+
+Binding produces one immutable input snapshot. Expansion, hover, signature
+help, and completion consume the same normalized descriptors so tooling cannot
+disagree with execution.
+
+### Declaration constraints
+
+* An attached macro has exactly one `on` parameter.
+* Its type is an attachable syntax type, a union of those types, or
+  `SyntaxNode`.
+* An invocable macro has no `on` parameter.
+* At most one parameter supplies each compiler context/body role unless a
+  future API explicitly defines otherwise.
+* No context role is required merely because a declaration is a macro.
+* Compiler-supplied parameters cannot have defaults.
+* Syntax-input defaults remain unsupported until their provenance semantics
+  are defined.
+* Value defaults are declaration-time constants convertible to their parameter
+  type.
+* Generic substitution happens before role classification and conversion.
+
+For an attached invocation, attribute arguments bind only to user-supplied
+parameters:
+
+```raven
+#[Serializable(.Compact)]
+class Customer { }
+```
+
+`.Compact` binds to `mode`; the compiler injects the
+`ClassDeclarationSyntax` into `target`.
 
 ## Actual invocation position
 
@@ -307,13 +423,14 @@ placement must not be distorted to solve quotation.
    expression carrier.
 8. Member-list output receives a real list contract.
 9. Token bodies and editor services remain capabilities, not macro kinds.
-10. Attached targets remain declared with `on`.
+10. Attached targets are compiler-supplied `on` parameters whose syntax type
+    declares the attachment target.
 11. Quote-body category selection remains independent.
 
 ## Implementation sequence
 
-1. Add position and declared-position metadata without changing expression
-   expansion.
+1. Add position, declared-position, and normalized parameter-role metadata
+   without changing expression expansion.
 2. Project macro return types into invocation targets and diagnose unsupported
    syntax types.
 3. Add a statement carrier, position-aware resolution, expansion, diagnostics,
@@ -322,7 +439,9 @@ placement must not be distorted to solve quotation.
 5. Add member carriers after deciding list output syntax and ABI.
 6. Add type and pattern carriers after declaration and binding impact is
    covered.
-7. Migrate samples and compiler-owned macros where explicit annotations help.
+7. Replace legacy attached target clauses with typed
+   `on target: TargetSyntax` parameters
+   and migrate samples and compiler-owned macros.
 8. Design quote-body categories on top of the stable application model.
 
 Every slice includes malformed-input and incremental-language-server tests; an

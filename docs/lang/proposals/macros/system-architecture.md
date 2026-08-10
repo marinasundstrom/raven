@@ -205,7 +205,7 @@ macro Html(body: IMacroTokenBody) -> RenderFragment {
     expand LowerHtml(body)
 }
 
-macro Component() on Type {
+macro Component(on target: BaseTypeDeclarationSyntax) {
     replace ImplementComponent(target)
 }
 ```
@@ -314,6 +314,24 @@ every invocation.
 This proposal calls `SyntaxNode` output *untyped* only in the syntax-category
 sense. It erases `ExpressionSyntax`, `StatementSyntax`, and similar categories;
 it does not erase syntax structure or permit raw dynamic values.
+
+Attached macros use the corresponding input-side rule:
+`on target: TargetSyntax` marks one compiler-supplied target parameter, and its
+syntax type or union declares the attachment targets. `on target: SyntaxNode`
+is the category-untyped attached form. Ordinary syntax parameters without `on`
+remain caller-supplied inputs.
+
+The normalized parameter schema records a binding role for every parameter:
+value, syntax input, context, token body/stream, or attached target. Positional
+and named arguments bind only value and syntax-input roles. The compiler
+injects all other roles after argument binding, and completion, signature help,
+and execution consume this same schema.
+
+Context is opt-in. A Raven-authored macro with only ordinary inputs and an
+output return target does not declare or bind a context parameter. The compiler
+supplies a context only when a recognized context type is present; any hidden
+driver state remains an adapter implementation detail rather than authoring
+boilerplate.
 
 The compiler derives names, targets, parameters, and output categories from the
 implemented role and declaration metadata. Optional features use separate
