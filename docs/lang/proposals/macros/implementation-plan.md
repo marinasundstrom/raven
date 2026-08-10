@@ -7,6 +7,47 @@ redesigned.
 The durable product and tooling model is documented in
 [Macro and DSL developer experience](developer-experience.md).
 
+## Application-model redesign gate
+
+Status: **documented; implementation not started**
+
+The next compiler work follows the normalized contract in the
+[macro application model](application-model.md#normalized-compiler-model).
+Because Raven has no macro compatibility requirement yet, this is an intentional
+replacement of the current cross-product model rather than another compatibility
+layer.
+
+The implementation must preserve working expression and attached behavior while
+it changes the internal projection. The gate is complete only when:
+
+* application kind is independent from invocable grammar targets;
+* invocable targets are projected from the macro return type;
+* attached targets are projected from exactly one typed `on` parameter;
+* parameter descriptors distinguish caller-supplied and compiler-supplied values
+  without category-specific role proliferation;
+* symbols, registry lookup, binding, lowering, diagnostics, and language services
+  consume the same normalized descriptor;
+* expansion results are category-safe through validation rather than casts;
+* malformed declarations and invocations retain stable diagnostic states for
+  compiler and language-server queries; and
+* existing macro, query DSL, HTML/component-template, hover, completion,
+  definition, semantic-token, and incremental editing coverage remains green.
+
+The dependency-ordered slices are:
+
+1. normalized metadata with adapters for current providers;
+2. registry, symbol, argument-binding, and language-service migration;
+3. `on` parameter syntax and removal of `MacroTargetClauseSyntax`;
+4. return-type projection and declaration diagnostics;
+5. generalized expansion results and category validation;
+6. statement invocation and recovery coverage; and
+7. later member, type, pattern, and quote-category work.
+
+Each slice is committed independently. Syntax-model changes require generator
+rebuilds; compiler behavior changes require focused macro tests, and editor-facing
+changes require the corresponding language-server tests. A broad baseline is
+reserved for the cross-cutting migration gate before integration.
+
 ## Plugin boundary
 
 Macros are compiler plugins and must work through `Compilation` without a

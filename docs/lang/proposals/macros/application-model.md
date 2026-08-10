@@ -362,6 +362,233 @@ written directly as `-> SyntaxNode` is category-untyped by design. Its supported
 set remains inspectable as “all single-node freestanding positions,” and every
 result is validated against the actual carrier.
 
+## Normalized compiler model
+
+The compiler model should represent the independent dimensions above directly.
+The following names are proposed API shapes rather than a compatibility promise,
+but the separation and invariants are design requirements.
+
+### Application kind
+
+`MacroKind` must stop encoding both application and output grammar. Replace its
+current `AttachedDeclaration` and `FreestandingExpression` cases with the
+application-only distinction:
+
+```csharp
+public enum MacroApplicationKind
+{
+    Invocable,
+    Attached,
+}
+```
+
+An invocable macro's grammar positions are separate metadata. They are projected
+from the declared return type and represented internally as flags so lookup does
+not repeatedly inspect type syntax:
+
+```csharp
+[Flags]
+public enum MacroInvocationTargets
+{
+    None = 0,
+    Expression = 1 << 0,
+    Statement = 1 << 1,
+    NamespaceMember = 1 << 2,
+    TypeMember = 1 << 3,
+    Type = 1 << 4,
+    Pattern = 1 << 5,
+    AllSingleNode = Expression | Statement | NamespaceMember |
+        TypeMember | Type | Pattern,
+}
+```
+
+`AllSingleNode` is an alias for the currently supported flags, not an unrelated
+seventh target. Adding a new single-node carrier deliberately updates the alias
+and the validation table. List-valued outputs use a separate result cardinality
+contract and are never smuggled through this flag set.
+
+### Attached target
+
+The public symbol model must not expose a second hand-maintained `MacroTarget`
+classification as the source of truth. An attached declaration instead exposes
+its compiler-supplied parameter and bound type:
+
+```csharp
+IParameterSymbol? AttachmentTargetParameter { get; }
+ITypeSymbol? AttachmentTargetType { get; }
+```
+
+The type can be a concrete syntax type, a union of attachable syntax types, or
+`SyntaxNode`. The compiler may derive a private bit set for registry indexing,
+but it must be produced from this type by one shared projection routine. Binding,
+completion, hover, diagnostics, and execution must consume that same projection.
+
+### Parameter descriptors
+
+Parameter roles describe who supplies a value. The parameter type describes
+what kind of value it is. This avoids adding one role for every syntax category
+or context class:
+
+```csharp
+public enum MacroParameterRole
+{
+    None,
+    Value,
+    SyntaxInput,
+    Context,
+    TokenBody,
+    AttachedTarget,
+}
+```
+
+For example, `ExpressionSyntax` and `TypeSyntax` parameters both have the
+`SyntaxInput` role; their bound types retain the category distinction. Likewise,
+recognized context types use the `Context` role rather than creating a new role
+for each context implementation.
+
+Every macro is normalized to immutable parameter descriptors:
+
+```csharp
+public sealed class MacroParameterDescriptor
+{
+    public IParameterSymbol Parameter { get; }
+    public MacroParameterRole Role { get; }
+    public int DeclarationOrdinal { get; }
+    public int? InvocationArgumentOrdinal { get; }
+    public bool HasDefaultValue { get; }
+    public object? DefaultValue { get; }
+}
+```
+
+`InvocationArgumentOrdinal` exists only for caller-supplied value and syntax
+inputs. Compiler-supplied roles retain declaration order for diagnostics and
+display, but do not create holes in positional argument binding. Consequently,
+`AcceptsArguments` becomes a derived fact—whether any descriptor accepts a user
+argument—not a capability separately declared by a provider interface.
+
+Explicit syntax wins over type recognition. `on` always produces
+`AttachedTarget`; a recognized compiler context or token-body type produces its
+respective role; a syntax-node type produces `SyntaxInput`; every other type is
+`Value`. Invalid combinations receive declaration diagnostics and are not
+registered as executable macros.
+
+### Macro symbols
+
+The common symbol API should expose normalized facts regardless of whether a
+macro was authored with Raven syntax or a plugin class:
+
+```csharp
+public interface IMacroSymbol : ISymbol
+{
+    MacroApplicationKind ApplicationKind { get; }
+    MacroInvocationTargets InvocationTargets { get; }
+    ITypeSymbol? ReturnType { get; }
+    IParameterSymbol? AttachmentTargetParameter { get; }
+    ITypeSymbol? AttachmentTargetType { get; }
+    ImmutableArray<MacroParameterDescriptor> Parameters { get; }
+}
+```
+
+For an attached macro, `InvocationTargets` is `None`, `ReturnType` is absent,
+and the attachment properties are present. For an invocable macro, the inverse
+holds. These are validated states rather than combinations consumers must guess
+how to interpret. Raven-authored and class-authored macros project into this
+same symbol shape before registration.
+
+### Execution inputs and context
+
+Argument binding produces one immutable `MacroInvocationInput` containing the
+normalized descriptor/value pairs plus the authored carrier and actual grammar
+position. The compiler then injects requested context, token body, and attached
+target values. Execution never rebinds invocation arguments independently.
+
+The compiler may always maintain private execution state, but a macro context
+object is created and exposed only when a context parameter asks for it. Its
+semantic services should initialize lazily. This preserves the minimal
+authoring experience without forcing the driver to maintain separate execution
+pipelines for macros with and without an explicit context.
+
+### Expansion and contribution results
+
+The expression-specific `FreestandingMacroExpansionResult.Expression` cannot
+be the normalized result boundary. Invocable expansion instead carries a
+category-erased node and its declared cardinality:
+
+```csharp
+public sealed class MacroExpansionResult
+{
+    public SyntaxNode? Expansion { get; }
+    public ImmutableArray<SyntaxNode> Expansions { get; }
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
+    // Provenance, dependencies, fragments, and token metadata are retained.
+}
+```
+
+The exact single/list representation may be refined before public API exposure,
+but it must make cardinality explicit; both properties cannot be populated.
+Typed helpers such as `FromExpression`, `FromStatement`, and `FromMembers`
+preserve convenience for common class-authored macros. The driver validates the
+node category and cardinality against the actual carrier and reports a
+diagnostic instead of casting or throwing.
+
+Attached execution produces a contribution result containing replacements,
+introduced members or peers, diagnostics, provenance, and editor metadata. It
+does not fake those contributions as an invocable syntax return. `expand` is
+therefore terminal only for invocable macros; `replace` and `introduce`
+accumulate attached contributions until body completion.
+
+### Registry and lookup
+
+The registry indexes a normalized descriptor by canonical name, application
+kind, and projected target. Aliases point to that descriptor rather than
+creating divergent copies. Lookup follows this order:
+
+1. identify the compiler-owned carrier and actual target;
+2. find visible macros with the requested canonical name or alias;
+3. filter by application kind and projected target;
+4. bind only caller-supplied parameters;
+5. diagnose no match or ambiguity without executing a provider; and
+6. execute, validate, and retain the result for the compilation snapshot.
+
+Completion, signature help, hover, definition, and diagnostics query the same
+descriptor set. Language-server code must not reconstruct macro applicability
+from syntax or provider runtime types.
+
+### Lowering Raven-authored declarations
+
+`macro` declarations lower to private adapters after semantic normalization.
+The generated parameter object contains only caller-supplied parameters. The
+adapter receives compiler-supplied context, body, and attached-target values
+through the normalized execution input and passes them to the declaration body
+at their declared parameter positions.
+
+This adapter is deliberately allowed to be more complex than the source form.
+Its shape is not a public language contract, and the implementation may replace
+the current category-specific interfaces. Source symbols, plugin symbols, and
+language services must depend on normalized metadata rather than inspecting the
+generated adapter.
+
+### Invalid states and recovery
+
+Declaration binding accumulates diagnostics and produces a non-executable
+descriptor when possible. It must not throw for incomplete types, missing
+parameters, duplicate compiler roles, or contradictory application metadata.
+In particular:
+
+* an attached macro has exactly one `AttachedTarget` parameter and no invocable
+  return target;
+* an invocable macro has no `AttachedTarget` parameter and at least one projected
+  invocation target;
+* at most one parameter supplies each compiler-owned context or body role;
+* unsupported syntax categories and open-ended unions are diagnosed;
+* unresolved types remain error types in the symbol snapshot; and
+* malformed invocations retain a carrier and diagnostics so editor queries can
+  continue against a consistent compilation snapshot.
+
+This normalized invalid state is important for the language server: hover,
+completion, semantic tokens, and diagnostics must observe the same partial
+symbol rather than triggering different recovery paths.
+
 ## Class-authored APIs
 
 The simple API remains typed:
@@ -426,23 +653,36 @@ placement must not be distorted to solve quotation.
 10. Attached targets are compiler-supplied `on` parameters whose syntax type
     declares the attachment target.
 11. Quote-body category selection remains independent.
+12. Application kind and grammar target are separate compiler concepts.
+13. Parameter roles describe value suppliers; parameter types describe syntax
+    and context categories.
+14. Attached applicability is derived from the typed `on` parameter, not a
+    parallel public target enum.
+15. All macro origins normalize to one symbol, descriptor, binding, registry,
+    execution, and tooling model.
 
 ## Implementation sequence
 
-1. Add position, declared-position, and normalized parameter-role metadata
-   without changing expression expansion.
-2. Project macro return types into invocation targets and diagnose unsupported
-   syntax types.
-3. Add a statement carrier, position-aware resolution, expansion, diagnostics,
-   and editor tests.
-4. Unify typed and multi-position class APIs behind one validated driver path.
-5. Add member carriers after deciding list output syntax and ABI.
-6. Add type and pattern carriers after declaration and binding impact is
-   covered.
-7. Replace legacy attached target clauses with typed
-   `on target: TargetSyntax` parameters
-   and migrate samples and compiler-owned macros.
-8. Design quote-body categories on top of the stable application model.
+1. Introduce normalized application-kind, invocation-target, and parameter-role
+   models and project existing expression and attached macros into them without
+   changing accepted source.
+2. Move registry lookup, symbols, argument binding, and language services to
+   normalized descriptors; derive `AcceptsArguments` and attached target indexes.
+3. Replace the legacy macro target clause with an `on` modifier on ordinary
+   parameters, regenerate syntax APIs, and migrate compiler-owned macros and
+   samples in the same compatibility-breaking slice.
+4. Project return types into invocation targets and diagnose unsupported,
+   contradictory, or unresolved category declarations.
+5. Generalize the expansion result and driver validation while retaining typed
+   expression factories and current expression behavior.
+6. Add a statement carrier, position-aware resolution, expansion, diagnostics,
+   malformed-input recovery, and editor tests.
+7. Unify typed and multi-position class APIs behind the validated driver path.
+8. Add member carriers after deciding and documenting the list output syntax and
+   ABI.
+9. Add type and pattern carriers after declaration binding and incremental
+   invalidation impact is covered.
+10. Design quote-body categories on top of the stable application model.
 
 Every slice includes malformed-input and incremental-language-server tests; an
 incomplete invocation must remain a valid recoverable compiler state.
