@@ -420,11 +420,13 @@ internal static class MacroExpansionService
         if (result == MacroExpansionResult.Empty)
             return result;
 
-        if (targetDeclaration is not MemberDeclarationSyntax targetMember ||
-            targetMember.Parent is not TypeDeclarationSyntax containingType)
+        if (targetDeclaration is not MemberDeclarationSyntax targetMember)
         {
             return result;
         }
+
+        if (targetMember.Parent is not TypeDeclarationSyntax containingType)
+            return ContextualizeTopLevelReplacement(targetMember, result);
 
         var rewrittenMembers = new List<MemberDeclarationSyntax>(containingType.Members.Count +
             result.IntroducedMembers.Length +
@@ -469,6 +471,59 @@ internal static class MacroExpansionService
             MacroDiagnostics = result.MacroDiagnostics,
             Diagnostics = result.Diagnostics
         };
+    }
+
+    private static MacroExpansionResult ContextualizeTopLevelReplacement(
+        MemberDeclarationSyntax targetMember,
+        MacroExpansionResult result)
+    {
+        var replacement = result.ReplacementDeclaration as MemberDeclarationSyntax;
+        var contextualReplacement = replacement?.SyntaxTree is null && replacement is not null
+            ? (MemberDeclarationSyntax)replacement.WithParent(
+                targetMember.Parent,
+                targetMember.Position)
+            : replacement;
+        var containingType = contextualReplacement as BaseTypeDeclarationSyntax ??
+            targetMember as BaseTypeDeclarationSyntax;
+        var introducedMembers = containingType is null
+            ? result.IntroducedMembers
+            : ContextualizeDetachedMembers(
+                result.IntroducedMembers,
+                containingType,
+                containingType.OpenBraceToken.Span.End);
+        var peerDeclarations = ContextualizeDetachedMembers(
+            result.PeerDeclarations,
+            targetMember.Parent,
+            targetMember.Position);
+
+        return new MacroExpansionResult
+        {
+            ReplacementDeclaration = contextualReplacement,
+            IntroducedMembers = introducedMembers,
+            PeerDeclarations = peerDeclarations,
+            MacroDiagnostics = result.MacroDiagnostics,
+            Diagnostics = result.Diagnostics
+        };
+    }
+
+    private static ImmutableArray<MemberDeclarationSyntax> ContextualizeDetachedMembers(
+        ImmutableArray<MemberDeclarationSyntax> members,
+        SyntaxNode? parent,
+        int position)
+    {
+        if (members.IsDefaultOrEmpty || parent is null)
+            return members;
+
+        var builder = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>(members.Length);
+        for (var index = 0; index < members.Length; index++)
+        {
+            var member = members[index];
+            builder.Add(member.SyntaxTree is null
+                ? (MemberDeclarationSyntax)member.WithParent(parent, position + index)
+                : member);
+        }
+
+        return builder.MoveToImmutable();
     }
 
     private static bool IsTargetMember(MemberDeclarationSyntax candidate, MemberDeclarationSyntax target)

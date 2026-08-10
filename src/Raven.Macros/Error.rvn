@@ -1,0 +1,26 @@
+namespace Raven.Macros
+
+/// Derives Raven's standard error contract for a union.
+///
+/// `Error` makes the union implement `System.IError`. When the union does not
+/// declare its own `Message` property, the macro supplies one using the union's
+/// case-aware textual representation. It also supplies a null `Cause` when the
+/// union does not declare one.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// #[Error]
+/// union FileError {
+///     case NotFound(path: string)
+///     case AccessDenied
+/// }
+/// ```
+public macro Error(
+    on target: Raven.CodeAnalysis.Syntax.UnionDeclarationSyntax,
+    context: Raven.CodeAnalysis.Macros.AttachedMacroContext
+) {
+    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandError(context, target)
+}

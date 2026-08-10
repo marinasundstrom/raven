@@ -1,0 +1,15 @@
+import System.*
+import Raven.Macros.*
+
+#[Error]
+union ParseError {
+    case InvalidValue(value: string)
+    case MissingValue
+}
+
+func Main() {
+    let failure: ParseError = .InvalidValue("age")
+    let error: IError = failure
+
+    Console.WriteLine(error.Message)
+}

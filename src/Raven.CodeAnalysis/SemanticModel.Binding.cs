@@ -4095,6 +4095,14 @@ public partial class SemanticModel
                         var propMemberBinder = new TypeMemberBinder(unionBinder, unionSymbol);
                         var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
                         CacheBinder(propDecl, propMemberBinder);
+                        if (TryGetPropertySymbol(propDecl, out var propertySymbol))
+                        {
+                            RegisterUnionMember(propertySymbol);
+                            if (propertySymbol.GetMethod is { } getter)
+                                RegisterUnionMember(getter);
+                            if (propertySymbol.SetMethod is { } setter)
+                                RegisterUnionMember(setter);
+                        }
                         ValidateReservedUnionMemberName(unionSymbol, propDecl.Identifier.ValueText, propDecl.Identifier.GetLocation(), unionBinder.Diagnostics);
                         ReportInvalidUnionPropertyIfNeeded(unionSymbol, unionBinder, propDecl);
                         foreach (var kv in accessorBinders)
@@ -4154,6 +4162,15 @@ public partial class SemanticModel
                         CacheBinder(finalDecl, finalBinder);
                         break;
                     }
+            }
+        }
+
+        void RegisterUnionMember(ISymbol member)
+        {
+            if (!unionSymbol.GetMembers().Any(existing =>
+                    SymbolEqualityComparer.Default.Equals(existing, member)))
+            {
+                unionSymbol.AddMember(member);
             }
         }
     }

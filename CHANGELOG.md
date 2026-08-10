@@ -13,6 +13,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   introduce members into the carrier, enabling reusable derived capabilities
   such as error contracts.
 
+- Added the reusable `#[Error]` macro to `Raven.Macros`. It makes a union
+  implement `System.IError` and supplies a case-aware `Message` property unless
+  the union already declares one.
+
 - Completed boxing and unboxing conversion classification between value types
   and interfaces they implement. This makes struct union carriers usable
   through their declared interfaces from Raven source, not only in emitted CLR

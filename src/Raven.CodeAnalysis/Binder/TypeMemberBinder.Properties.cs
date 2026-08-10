@@ -361,6 +361,11 @@ internal partial class TypeMemberBinder : Binder
             !isPrivateInitializerOnlyStoredProperty &&
             !isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface;
+        var isImplicitInterfaceContractProperty =
+            sourcePropertySymbol is not null &&
+            hasNoDeclaredAccessorList &&
+            propertyDecl.ExpressionBody is null &&
+            _containingType.TypeKind == TypeKind.Interface;
 
         if (!isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface &&
@@ -1021,6 +1026,62 @@ internal partial class TypeMemberBinder : Binder
                     [],
                     []);
                 setterSymbol.SetParameters([valueParam]);
+                setMethod = setterSymbol;
+            }
+        }
+        else if (isImplicitInterfaceContractProperty)
+        {
+            // A shorthand interface property is a contract, not a stored property.
+            // Preserve that contract in metadata by synthesizing abstract accessors.
+            var getterSymbol = new SourceMethodSymbol(
+                "get_" + propertyName,
+                propertyType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                propertySymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [propertyDecl.GetLocation()],
+                [propertyDecl.GetReference()],
+                isStatic: isStatic,
+                methodKind: MethodKind.PropertyGet,
+                isAsync: false,
+                isVirtual: true,
+                isOverride: false,
+                isSealed: false,
+                isAbstract: true,
+                declaredAccessibility: propertyAccessibility);
+            getterSymbol.SetParameters([]);
+            getMethod = getterSymbol;
+
+            if (declaredMutable == true)
+            {
+                var setterSymbol = new SourceMethodSymbol(
+                    "set_" + propertyName,
+                    Compilation.GetSpecialType(SpecialType.System_Unit),
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    propertySymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [propertyDecl.GetLocation()],
+                    [propertyDecl.GetReference()],
+                    isStatic: isStatic,
+                    methodKind: MethodKind.PropertySet,
+                    isAsync: false,
+                    isVirtual: true,
+                    isOverride: false,
+                    isSealed: false,
+                    isAbstract: true,
+                    declaredAccessibility: propertyAccessibility);
+                setterSymbol.SetParameters([
+                    new SourceParameterSymbol(
+                        "value",
+                        propertyType,
+                        setterSymbol,
+                        _containingType,
+                        CurrentNamespace!.AsSourceNamespace(),
+                        [propertyDecl.GetLocation()],
+                        [propertyDecl.GetReference()])
+                ]);
                 setMethod = setterSymbol;
             }
         }

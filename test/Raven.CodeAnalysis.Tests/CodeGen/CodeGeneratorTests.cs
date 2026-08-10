@@ -860,6 +860,39 @@ class ParseIntError : IParseError {
     }
 
     [Fact]
+    public void Emit_ShorthandInterfaceProperty_EmitsAbstractAccessors()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+interface IMessage {
+    val Message: string
+    var Code: int
+}
+""");
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var interfaceType = loaded.Assembly.GetType("IMessage", throwOnError: true)!;
+        var message = interfaceType.GetProperty("Message", BindingFlags.Public | BindingFlags.Instance);
+        var code = interfaceType.GetProperty("Code", BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(message?.GetMethod);
+        Assert.Null(message!.SetMethod);
+        Assert.NotNull(code?.GetMethod);
+        Assert.NotNull(code!.SetMethod);
+        Assert.True(message.GetMethod!.IsAbstract);
+        Assert.True(code.GetMethod!.IsAbstract);
+        Assert.True(code.SetMethod!.IsAbstract);
+    }
+
+    [Fact]
     public void Emit_ConstructorWithImplicitReceivers_EmitsAndRuns()
     {
         var code = """

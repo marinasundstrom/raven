@@ -411,11 +411,26 @@ internal static class MemberSignatureDeclarationPass
             propertyType,
             propertyTypeSyntax);
 
+        var explicitGetter = propertyDeclaration.AccessorList?.Accessors
+            .FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.GetAccessorDeclaration);
+        var explicitSetter = propertyDeclaration.AccessorList?.Accessors
+            .FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.SetAccessorDeclaration);
+        var implicitGetter = propertyDeclaration.AccessorList is null ||
+            propertyDeclaration.ExpressionBody is not null;
+        var implicitSetter = propertyDeclaration.AccessorList is null &&
+            propertyDeclaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+        SyntaxNode? getterSyntax = explicitGetter is not null
+            ? explicitGetter
+            : implicitGetter ? propertyDeclaration : null;
+        SyntaxNode? setterSyntax = explicitSetter is not null
+            ? explicitSetter
+            : implicitSetter ? propertyDeclaration : null;
+
         propertySymbol.SetMutability(propertyDeclaration.BindingKeyword.Kind == SyntaxKind.VarKeyword);
         propertySymbol.SetAccessors(
             CreatePropertyAccessorSymbol(
                 propertyDeclaration,
-                propertyDeclaration.AccessorList?.Accessors.FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.GetAccessorDeclaration),
+                getterSyntax,
                 propertySymbol,
                 containingType,
                 MethodKind.PropertyGet,
@@ -424,7 +439,7 @@ internal static class MemberSignatureDeclarationPass
                 propertyAccessibility),
             CreatePropertyAccessorSymbol(
                 propertyDeclaration,
-                propertyDeclaration.AccessorList?.Accessors.FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.SetAccessorDeclaration),
+                setterSyntax,
                 propertySymbol,
                 containingType,
                 MethodKind.PropertySet,
@@ -646,7 +661,7 @@ internal static class MemberSignatureDeclarationPass
 
     private static SourceMethodSymbol? CreatePropertyAccessorSymbol(
         PropertyDeclarationSyntax propertyDeclaration,
-        AccessorDeclarationSyntax? accessorDeclaration,
+        SyntaxNode? accessorDeclaration,
         SourcePropertySymbol propertySymbol,
         INamedTypeSymbol containingType,
         MethodKind methodKind,

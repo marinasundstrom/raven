@@ -1,8 +1,9 @@
 # Raven Macro Library
 
 `Raven.Macros` is the standard compiler-plugin library distributed with Raven.
-It contains the conventional `quote` and `compile` macros without making them
-intrinsic compiler declarations or members of `Raven.Core`.
+It contains reusable macros such as `quote`, `compile`, and the attached
+`Error` macro without making them intrinsic compiler declarations or members
+of `Raven.Core`.
 
 Applications opt into the short aliases by importing the macro namespace:
 
@@ -18,6 +19,24 @@ The canonical names `Raven.Macros.Quote!` and `Raven.Macros.Compile!` remain
 available when an alias is shadowed or the wildcard namespace is not imported.
 Merely referencing the standard library does not place its aliases in lexical
 scope.
+
+`#[Error]` derives Raven's ordinary `System.IError` interface for a union. It
+adds default `Message` and `Cause` properties only when the union does not
+already declare them:
+
+```raven
+import Raven.Macros.*
+
+#[Error]
+union ParseError {
+    case InvalidValue(value: string)
+    case MissingValue
+}
+```
+
+The generated `Message` uses the union's normal case-aware string
+representation. Authors can declare `Message` or `Cause` themselves when the
+default is not appropriate.
 
 ## Authoring model
 
