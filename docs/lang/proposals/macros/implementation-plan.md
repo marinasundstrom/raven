@@ -1,5 +1,8 @@
 # Macro implementation plan
 
+The planned standard JSON/XML DSLs and their shared developer-experience gates
+are tracked in [Standard JSON and XML macro plan](standard-data-literal-macros.md).
+
 This is the living implementation tracker for Raven's procedural macro system.
 Update it when a macro slice is started, completed, deferred, or materially
 redesigned.

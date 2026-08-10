@@ -16,8 +16,9 @@ sequence extensions, unions, and JSON integration.
 
 ## Raven.Macros
 
-`Raven.Macros` provides the standard compile-time macros, including `quote!`
-and `compile!`. Import `Raven.Macros.*` to bring their short aliases into scope.
+`Raven.Macros` provides the standard compile-time macros, including `quote!`,
+`compile!`, `query!`, and the `Error` macros. Import `Raven.Macros.*` to bring
+their short aliases into scope.
 
 - [Learn how Raven.Macros is referenced and authored](../compiler/raven-macros-library.md)
 - [Browse the Raven.Macros API reference](https://marinasundstrom.github.io/raven/libraries/raven-macros/)
