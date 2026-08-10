@@ -1,6 +1,6 @@
 # Macro application model
 
-Status: **design proposal**
+Status: **MVP implemented; member-list extension in progress**
 
 This proposal defines where macros can be applied, what a macro declaration
 must communicate, and how the compiler validates expansion. It does not change
@@ -132,16 +132,42 @@ The return-type-to-target projection is therefore:
 A member macro occupies a namespace-member or type-member list position:
 
 ```raven
-macro Properties(context: TokenTreeMacroContext) -> MemberDeclarationSyntax* {
-    expand BuildProperties(context)
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+macro Properties(context: TokenTreeMacroContext)
+    -> SyntaxList<MemberDeclarationSyntax> {
+    let properties = List<MemberDeclarationSyntax>([
+        BuildIdProperty(context),
+        BuildNameProperty(context)
+    ])
+    expand properties
 }
 ```
 
-Member positions naturally need zero-or-more output. The `T*` notation is
-illustrative; the final list spelling remains a syntax decision.
-`CompilationUnitSyntax` must not be used as an accidental list container.
-Namespace-member and type-member positions may remain distinct because not
-every declaration is legal in both.
+Member positions naturally need zero-or-more output. Raven uses the existing
+immutable `SyntaxList<TMember>` compiler API as that source-level contract; it
+does not add a macro-only `T*` type spelling or a new keyword. `TMember` must be
+`MemberDeclarationSyntax` or one of its syntax subtypes. An empty list removes
+the invocation carrier, and a nonempty list preserves source order.
+
+The normalized expansion result stores the output as
+`ImmutableArray<MemberDeclarationSyntax>`. The generated adapter copies the
+source `SyntaxList<TMember>` into that result, preserving each node and its
+provenance. `CompilationUnitSyntax` is not accepted as an accidental list
+container.
+
+`SyntaxList<TMember>` declares the namespace-member and type-member target set.
+The actual carrier records which of those positions was authored. Before any
+member is inserted, the compiler validates every returned node against that
+position. Validation is atomic: an invalid member produces diagnostics and the
+entire list is discarded, so binding, language services, and emission never
+observe a partial expansion. A macro that supports both positions can inspect
+`context.Position` when its output differs between them.
+
+List-valued member output is a distinct cardinality contract. It is not
+included by `SyntaxNode`, cannot be mixed into a single-node return union, and
+does not imply attached replacement or introduction.
 
 ### Type
 
@@ -590,6 +616,7 @@ public sealed class FreestandingMacroExpansionResult
     public SyntaxNode? Node { get; }
     public ExpressionSyntax? Expression { get; }
     public StatementSyntax? Statement { get; }
+    public ImmutableArray<MemberDeclarationSyntax> Members { get; }
     public ImmutableArray<Diagnostic> Diagnostics { get; }
     // Provenance, dependencies, fragments, and token metadata are retained.
 }
@@ -597,10 +624,12 @@ public sealed class FreestandingMacroExpansionResult
 
 `Expression` and `Statement` are typed projections over `Node`, while
 `FromExpression`, `FromStatement`, and `FromNode` preserve convenient creation.
-The MVP deliberately permits exactly zero or one expansion node. Multi-node
-member expansion remains a post-MVP cardinality extension rather than an
-ambiguous second payload. The driver validates the node category against the
-actual carrier and reports a diagnostic instead of casting or throwing.
+The single-node `Node` and list-valued `Members` payloads are mutually
+exclusive. The driver validates the node category or every member against the
+actual carrier and reports diagnostics instead of casting or throwing. Empty
+member output is represented by an explicitly selected member-list result, not
+by guessing from the absence of `Node`; the selected output cardinality remains
+available even when the list has no elements.
 
 Attached execution produces a contribution result containing replacements,
 introduced members or peers, diagnostics, provenance, and editor metadata. It
@@ -719,7 +748,8 @@ placement must not be distorted to solve quotation.
    is validated by the driver.
 7. Whole-statement syntax selects a statement carrier; parentheses force an
    expression carrier.
-8. Member-list output receives a real list contract.
+8. Member-list output uses `SyntaxList<TMember>` in Raven source and an
+   immutable member array in the normalized result.
 9. Token bodies and editor services remain capabilities, not macro kinds.
 10. Attached targets are compiler-supplied `on` parameters whose syntax type
     declares the attachment target.
@@ -749,8 +779,8 @@ placement must not be distorted to solve quotation.
 6. Add a statement carrier, position-aware resolution, expansion, diagnostics,
    malformed-input recovery, and editor tests.
 7. Unify typed and multi-position class APIs behind the validated driver path.
-8. Add member carriers after deciding and documenting the list output syntax and
-   ABI.
+8. Add member carriers using the documented `SyntaxList<TMember>` source
+   contract and immutable normalized result ABI.
 9. Add type and pattern carriers after declaration binding and incremental
    invalidation impact is covered.
 10. Design quote-body categories on top of the stable application model.
