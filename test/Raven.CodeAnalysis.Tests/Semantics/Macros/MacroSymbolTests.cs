@@ -421,7 +421,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         var parameter = Assert.Single(symbol.Parameters);
 
-        Assert.Equal(MacroParameterRole.ExpressionSyntax, parameter.MacroRole);
+        Assert.Equal(MacroParameterRole.SyntaxInput, parameter.MacroRole);
         Assert.Equal("ExpressionSyntax", parameter.Type.Name);
         Assert.Contains("value: ExpressionSyntax", symbol.ToDisplayString());
         Assert.Empty(compilation.GetDiagnostics());

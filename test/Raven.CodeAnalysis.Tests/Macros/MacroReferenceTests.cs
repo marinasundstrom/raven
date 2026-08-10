@@ -480,7 +480,7 @@ public sealed class MacroReferenceTests
 
         Assert.Equal(typeof(ExpressionSyntax), parameter.ParameterType);
         Assert.Equal("ExpressionSyntax", parameter.TypeDisplayName);
-        Assert.Equal(MacroParameterRole.ExpressionSyntax, parameter.Role);
+        Assert.Equal(MacroParameterRole.SyntaxInput, parameter.Role);
     }
 
     [Fact]

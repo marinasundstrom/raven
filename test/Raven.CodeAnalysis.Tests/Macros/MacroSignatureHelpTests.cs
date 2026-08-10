@@ -113,7 +113,7 @@ class Host {
 
         Assert.Equal("expression", parameter.Name);
         Assert.Equal("ExpressionSyntax", parameter.TypeDisplayName);
-        Assert.Equal(MacroParameterRole.ExpressionSyntax, parameter.Role);
+        Assert.Equal(MacroParameterRole.SyntaxInput, parameter.Role);
     }
 
     private sealed class TypedQueryParameters

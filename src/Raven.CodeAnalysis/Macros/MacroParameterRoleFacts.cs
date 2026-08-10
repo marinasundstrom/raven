@@ -38,7 +38,7 @@ internal static class MacroParameterRoleFacts
             "Raven.CodeAnalysis.Syntax",
             nameof(ExpressionSyntax)))
         {
-            return MacroParameterRole.ExpressionSyntax;
+            return MacroParameterRole.SyntaxInput;
         }
 
         if (IsNamedType(
@@ -70,7 +70,7 @@ internal static class MacroParameterRoleFacts
             return MacroParameterRole.Context;
 
         if (typeof(ExpressionSyntax).IsAssignableFrom(parameterType))
-            return MacroParameterRole.ExpressionSyntax;
+            return MacroParameterRole.SyntaxInput;
 
         if (typeof(IMacroTokenStream).IsAssignableFrom(parameterType))
             return MacroParameterRole.TokenStream;
@@ -115,7 +115,7 @@ internal static class MacroParameterRoleFacts
         MacroParameterRole role)
         => role switch
         {
-            MacroParameterRole.ExpressionSyntax =>
+            MacroParameterRole.SyntaxInput =>
                 parameter.TypeAnnotation?.Type.ToString() ??
                 "Raven.CodeAnalysis.Syntax.ExpressionSyntax",
             MacroParameterRole.TokenStream => "Raven.CodeAnalysis.Macros.IMacroTokenStream",

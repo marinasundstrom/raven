@@ -195,6 +195,91 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void ExpressionMacro_BindsExpressionSyntaxAndInfersExpandedType()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro evaluate(expr: ExpressionSyntax) -> ExpressionSyntax {
+                expand expr
+            }
+
+            func EvaluateResult() -> double => evaluate!(2.0 + 3.0)
+
+            func Main() -> int => 0
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "ExpressionSyntaxInputConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var argument = Assert.Single(invocation.ArgumentList!.Arguments).Expression;
+        var model = compilation.GetSemanticModel(consumerTree);
+        var expansion = model.GetMacroExpansion(invocation);
+
+        Assert.Equal(argument.ToFullString(), expansion!.Expression!.ToFullString());
+        Assert.False(MacroSyntaxOrigin.IsHidden(expansion.Expression));
+        Assert.Same(consumerTree, expansion.Expression.SyntaxTree);
+        Assert.Equal(SpecialType.System_Double, model.GetTypeInfo(invocation).Type?.SpecialType);
+    }
+
+    [Fact]
+    public void ExpressionMacro_ExpandedSyntaxMustBeSemanticallyValidAtCallSite()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro evaluate(expr: ExpressionSyntax) -> ExpressionSyntax {
+                expand expr
+            }
+
+            func EvaluateResult() -> int {
+                let value: double = evaluate!("not a number")
+                return 0
+            }
+
+            func Main() -> int => 0
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "InvalidExpandedExpressionConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var model = compilation.GetSemanticModel(consumerTree);
+        var invocationType = model.GetTypeInfo(invocation).Type;
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal(SpecialType.System_Double, invocationType?.SpecialType);
+        Assert.Contains(
+            diagnostics,
+            diagnostic =>
+                diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.Location.SourceTree == consumerTree &&
+                diagnostic.Location.SourceSpan.IntersectsWith(invocation.Span));
+    }
+
+    [Fact]
     public void TokenStreamMacro_CompilesIntoTypedLocalProviderAndExpands()
     {
         var sourceTree = SyntaxTree.ParseText(

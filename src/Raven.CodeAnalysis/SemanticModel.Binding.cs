@@ -442,7 +442,7 @@ public partial class SemanticModel
 
         foreach (var expressionParameter in parameters
             .Where(static parameter =>
-                parameter.Symbol.MacroRole == MacroParameterRole.ExpressionSyntax &&
+                parameter.Symbol.MacroRole == MacroParameterRole.SyntaxInput &&
                 parameter.Syntax.DefaultValue is not null))
         {
             _declarationDiagnostics.ReportExpressionSyntaxMacroParameterCannotHaveDefault(

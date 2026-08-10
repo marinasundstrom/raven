@@ -17,10 +17,10 @@ public enum MacroParameterRole
     Value = 1,
 
     /// <summary>
-    /// The compiler projects an invocation argument as Raven expression
-    /// syntax.
+    /// The compiler projects an invocation argument as source-backed Raven
+    /// syntax. The parameter type identifies the required syntax category.
     /// </summary>
-    ExpressionSyntax = 2,
+    SyntaxInput = 2,
 
     /// <summary>
     /// The compiler supplies the parameter from the invocation's raw

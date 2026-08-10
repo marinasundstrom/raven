@@ -276,6 +276,12 @@ the node without requesting a context. If it needs symbols or types, it opts in
 to an appropriate context parameter and asks the compiler semantic APIs about
 that source-backed node.
 
+A more specific existing syntax-node type constrains the authored shape. For
+example, `LiteralExpressionSyntax` accepts a literal node but not an infix
+expression. This is a normal checked syntax conversion; a mismatch is diagnosed
+before the macro executes. The design does not require a new node such as a
+numeric-expression node merely to describe semantic numeric compatibility.
+
 The macro return annotation describes the **syntax category**, not the runtime
 or semantic type of the expanded expression. After expansion, Raven binds the
 ordinary returned expression in its invocation context. In the example, `x` is
@@ -290,12 +296,26 @@ invocation appears:
 let x: double = evaluate!(2 + 3)
 ```
 
-If a future use case needs a macro to publish an explicit semantic output
-promise independent of the call-site context, it should be separate optional
-metadata. The compiler would bind the expansion, verify that its resulting type
-is compatible with the promise, and map any diagnostic through provenance. Such
-a promise must not determine the grammatical invocation target and is deferred
-until a concrete macro requires it.
+Typed syntax wrappers remain a post-MVP design decision. An illustrative future
+shape is:
+
+```raven
+macro Double(expr: ExpressionSyntax<double>) -> ExpressionSyntax<double> {
+    // ...
+}
+```
+
+This would add a semantic constraint to the existing syntax node, not introduce
+a new syntax-node category. A wrapper on a more specific existing node type
+could constrain both syntax shape and semantic type. The compiler would bind and
+verify the input before execution, then bind the expansion and verify its
+resulting type after execution, mapping diagnostics through provenance. The
+macro cannot assert or bypass either check.
+
+The final wrapper API is deliberately undecided. Semantic promises must remain
+separate from grammatical invocation targets, work without creating binding
+cycles, and degrade to stable error-typed inputs and results during incomplete
+editing.
 
 ### Binding order
 
