@@ -13,7 +13,7 @@ public sealed class FreestandingMacroExpansionResult
         ArgumentNullException.ThrowIfNull(expression);
         return new FreestandingMacroExpansionResult
         {
-            Expression = expression
+            Node = expression
         };
     }
 
@@ -24,7 +24,7 @@ public sealed class FreestandingMacroExpansionResult
         ArgumentNullException.ThrowIfNull(expression);
         return new FreestandingMacroExpansionResult
         {
-            Expression = expression,
+            Node = expression,
             Diagnostics = Normalize(diagnostics)
         };
     }
@@ -37,7 +37,7 @@ public sealed class FreestandingMacroExpansionResult
         ArgumentNullException.ThrowIfNull(expression);
         return new FreestandingMacroExpansionResult
         {
-            Expression = expression,
+            Node = expression,
             Diagnostics = Normalize(diagnostics),
             MacroDiagnostics = Normalize(macroDiagnostics)
         };
@@ -76,7 +76,44 @@ public sealed class FreestandingMacroExpansionResult
             MacroDiagnostics = Normalize(macroDiagnostics)
         };
 
-    public ExpressionSyntax? Expression { get; set; }
+    public static FreestandingMacroExpansionResult FromStatement(StatementSyntax statement)
+    {
+        ArgumentNullException.ThrowIfNull(statement);
+        return new FreestandingMacroExpansionResult
+        {
+            Node = statement
+        };
+    }
+
+    public static FreestandingMacroExpansionResult FromNode(SyntaxNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        return new FreestandingMacroExpansionResult
+        {
+            Node = node
+        };
+    }
+
+    /// <summary>
+    /// Gets or sets the single syntax node produced by this invocation.
+    /// </summary>
+    /// <remarks>
+    /// The compiler validates the node category against the invocation position.
+    /// Multi-node expansion is intentionally outside the MVP result model.
+    /// </remarks>
+    public SyntaxNode? Node { get; set; }
+
+    public ExpressionSyntax? Expression
+    {
+        get => Node as ExpressionSyntax;
+        set => Node = value;
+    }
+
+    public StatementSyntax? Statement
+    {
+        get => Node as StatementSyntax;
+        set => Node = value;
+    }
 
     public ImmutableArray<MacroExpansionDiagnostic> MacroDiagnostics { get; set; } = ImmutableArray<MacroExpansionDiagnostic>.Empty;
 

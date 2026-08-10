@@ -81,14 +81,15 @@ internal static class MacroSyntaxOrigin
         }
     }
 
-    public static ExpressionSyntax MarkGeneratedSyntaxHidden(
-        ExpressionSyntax syntax,
+    public static TSyntax MarkGeneratedSyntaxHidden<TSyntax>(
+        TSyntax syntax,
         SyntaxNode authoredRoot)
+        where TSyntax : SyntaxNode
     {
         var authoredGreens = new HashSet<GreenNode>(ReferenceEqualityComparer.Instance);
         foreach (var node in authoredRoot.DescendantNodesAndSelf())
             authoredGreens.Add(node.Green);
-        return (ExpressionSyntax)RewriteHiddenGreen(syntax.Green, authoredGreens)
+        return (TSyntax)RewriteHiddenGreen(syntax.Green, authoredGreens)
             .CreateRed(parent: null, position: syntax.Position);
     }
 

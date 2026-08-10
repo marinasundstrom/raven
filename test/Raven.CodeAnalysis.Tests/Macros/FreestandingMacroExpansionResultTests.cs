@@ -20,6 +20,7 @@ public sealed class FreestandingMacroExpansionResultTests
             default);
 
         result.Expression.ShouldBeSameAs(expression);
+        result.Node.ShouldBeSameAs(expression);
         result.Diagnostics.ShouldBe(ImmutableArray<Diagnostic>.Empty);
         result.MacroDiagnostics.ShouldBe(ImmutableArray<MacroExpansionDiagnostic>.Empty);
     }
@@ -32,8 +33,34 @@ public sealed class FreestandingMacroExpansionResultTests
         var result = FreestandingMacroExpansionResult.FromDiagnostic(diagnostic);
 
         result.Expression.ShouldBeNull();
+        result.Node.ShouldBeNull();
         result.Diagnostics.ShouldBeEmpty();
         result.MacroDiagnostics.Length.ShouldBe(1);
         result.MacroDiagnostics[0].ShouldBeSameAs(diagnostic);
+    }
+
+    [Fact]
+    public void FromStatement_CreatesStatementResultWithTypedProjection()
+    {
+        var statement = SyntaxFactory.ParseStatement("return 42")!;
+
+        var result = FreestandingMacroExpansionResult.FromStatement(statement);
+
+        result.Node.ShouldBeSameAs(statement);
+        result.Statement.ShouldBeSameAs(statement);
+        result.Expression.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Builder_PreservesGeneralSyntaxNodeExpansion()
+    {
+        var statement = SyntaxFactory.ParseStatement("return 42")!;
+        var builder = new MacroExpansionResultBuilder();
+
+        builder.Expand((SyntaxNode)statement);
+        var result = builder.BuildFreestanding();
+
+        result.Node.ShouldBeSameAs(statement);
+        result.Statement.ShouldBeSameAs(statement);
     }
 }

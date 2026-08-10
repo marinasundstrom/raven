@@ -148,7 +148,7 @@ internal static class MacroExpansionService
             }
 
             result = ContextualizeExpansionResult(expression, result);
-            RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Expression);
+            RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Node);
 
             ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, expression.Name.GetLocation(), result.MacroDiagnostics);
 
@@ -495,16 +495,16 @@ internal static class MacroExpansionService
         FreestandingMacroExpressionSyntax macroExpression,
         FreestandingMacroExpansionResult result)
     {
-        if (result.Expression is null)
+        if (result.Node is null)
             return result;
 
-        var expansionExpression = MacroSyntaxOrigin.MarkGeneratedSyntaxHidden(
-            result.Expression,
+        var expansionNode = MacroSyntaxOrigin.MarkGeneratedSyntaxHidden(
+            result.Node,
             macroExpression);
-        var contextualExpression = (ExpressionSyntax)expansionExpression.WithParent(macroExpression.Parent, macroExpression.Position);
+        var contextualNode = expansionNode.WithParent(macroExpression.Parent, macroExpression.Position);
         return new FreestandingMacroExpansionResult
         {
-            Expression = contextualExpression,
+            Node = contextualNode,
             MacroDiagnostics = result.MacroDiagnostics,
             Diagnostics = result.Diagnostics,
             FragmentRegions = result.FragmentRegions,

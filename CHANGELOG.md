@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Generalized invocable macro expansion results around a single `SyntaxNode`,
+  with typed expression and statement projections and factories. This removes
+  expression-only casts from the execution boundary and prepares centralized
+  grammar-position validation without adding multi-node complexity to the MVP.
+
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
   the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve

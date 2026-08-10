@@ -28,13 +28,25 @@ public sealed class MacroExpansionResultBuilder
         ImmutableArray.CreateBuilder<MacroFragmentRegion>();
     private readonly ImmutableArray<MacroTokenInfo>.Builder _tokenInfos =
         ImmutableArray.CreateBuilder<MacroTokenInfo>();
-    private ExpressionSyntax? _expression;
+    private SyntaxNode? _node;
     private SyntaxNode? _replacement;
 
     public void Expand(ExpressionSyntax expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        _expression = expression;
+        _node = expression;
+    }
+
+    public void Expand(StatementSyntax statement)
+    {
+        ArgumentNullException.ThrowIfNull(statement);
+        _node = statement;
+    }
+
+    public void Expand(SyntaxNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        _node = node;
     }
 
     /// <summary>
@@ -43,8 +55,8 @@ public sealed class MacroExpansionResultBuilder
     public void Expand(FreestandingMacroExpansionResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        if (result.Expression is not null)
-            _expression = result.Expression;
+        if (result.Node is not null)
+            _node = result.Node;
 
         AddRange(_diagnostics, result.Diagnostics);
         AddRange(_macroDiagnostics, result.MacroDiagnostics);
@@ -124,7 +136,7 @@ public sealed class MacroExpansionResultBuilder
 
     public FreestandingMacroExpansionResult BuildFreestanding()
     {
-        if (_expression is null &&
+        if (_node is null &&
             _diagnostics.Count == 0 &&
             _macroDiagnostics.Count == 0 &&
             _fragmentRegions.Count == 0 &&
@@ -135,7 +147,7 @@ public sealed class MacroExpansionResultBuilder
 
         return new FreestandingMacroExpansionResult
         {
-            Expression = _expression,
+            Node = _node,
             Diagnostics = _diagnostics.ToImmutable(),
             MacroDiagnostics = _macroDiagnostics.ToImmutable(),
             FragmentRegions = _fragmentRegions.ToImmutable(),

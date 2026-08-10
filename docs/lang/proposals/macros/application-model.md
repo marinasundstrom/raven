@@ -580,26 +580,27 @@ pipelines for macros with and without an explicit context.
 
 ### Expansion and contribution results
 
-The expression-specific `FreestandingMacroExpansionResult.Expression` cannot
-be the normalized result boundary. Invocable expansion instead carries a
-category-erased node and its declared cardinality:
+The expression-specific `FreestandingMacroExpansionResult.Expression` is not
+the normalized result boundary. The MVP invocable expansion carries one
+category-erased node:
 
 ```csharp
-public sealed class MacroExpansionResult
+public sealed class FreestandingMacroExpansionResult
 {
-    public SyntaxNode? Expansion { get; }
-    public ImmutableArray<SyntaxNode> Expansions { get; }
+    public SyntaxNode? Node { get; }
+    public ExpressionSyntax? Expression { get; }
+    public StatementSyntax? Statement { get; }
     public ImmutableArray<Diagnostic> Diagnostics { get; }
     // Provenance, dependencies, fragments, and token metadata are retained.
 }
 ```
 
-The exact single/list representation may be refined before public API exposure,
-but it must make cardinality explicit; both properties cannot be populated.
-Typed helpers such as `FromExpression`, `FromStatement`, and `FromMembers`
-preserve convenience for common class-authored macros. The driver validates the
-node category and cardinality against the actual carrier and reports a
-diagnostic instead of casting or throwing.
+`Expression` and `Statement` are typed projections over `Node`, while
+`FromExpression`, `FromStatement`, and `FromNode` preserve convenient creation.
+The MVP deliberately permits exactly zero or one expansion node. Multi-node
+member expansion remains a post-MVP cardinality extension rather than an
+ambiguous second payload. The driver validates the node category against the
+actual carrier and reports a diagnostic instead of casting or throwing.
 
 Attached execution produces a contribution result containing replacements,
 introduced members or peers, diagnostics, provenance, and editor metadata. It
