@@ -35,6 +35,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   list returned through an expression or statement carrier is diagnosed rather
   than silently ignored.
 
+- Added a dedicated recoverable `Name!` invocation carrier in type-member
+  position while preserving the existing statement envelope at file and
+  namespace scope, where semantic macro resolution must decide whether an
+  invocation supplies statements or declarations. Qualified macro names and
+  raw token bodies now share one parser path, and bare postfix `value!` remains
+  nullable suppression.
+
 - Added normalized macro application metadata that separates attached versus
   invocable application from grammar targets. Macro syntax parameters now expose
   the supplier-oriented `SyntaxInput`, `Context`, and `TokenBody` roles, preserve

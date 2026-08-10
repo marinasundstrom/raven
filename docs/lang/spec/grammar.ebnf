@@ -7,8 +7,7 @@ CompilationUnit          ::= {ImportDirective} {AliasDirective} {TopLevelItem} E
 TopLevelItem             ::= Declaration | Statement ;
 (* `#pragma` and the conditional `#if` / `#elif` / `#else` / `#endif`
    forms are structured directive trivia handled by the lexer. `#[` starts an
-   attached macro, and `#` Identifier `(` starts a freestanding macro
-   expression. *)
+   attached macro. Invocable macros use the `Name!` envelope. *)
 
 ImportDirective          ::= 'import' QualifiedName ('.' '*')? ; (* Namespace imports require '.*'; applying '.*' to a type imports its static members and nested types *)
 AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fully qualified name, type expression, or predefined type: bool | byte | char | decimal | double | float | int | long | nint | nuint | object | sbyte | short | string | uint | ulong | unit | ushort | '()' *)
@@ -224,7 +223,13 @@ ClassMember              ::= FieldDeclaration
                            | EventDeclaration
                            | PropertyDeclaration
                            | IndexerDeclaration
-                           | DelegateDeclaration ;
+                           | DelegateDeclaration
+                           | MacroMemberInvocation ;
+
+MacroMemberInvocation    ::= QualifiedName '!'
+                             ( ArgumentList
+                             | [ArgumentList] MacroTokenTree )
+                             TypeTerminator? ;
 
 FieldDeclaration         ::= MemberModifiers? 'field' VariableDeclarators ';' ;  (* `readonly`/`required` are MemberModifiers *)
 ConstDeclaration         ::= MemberModifiers? 'const' VariableDeclarators ';' ;
@@ -708,7 +713,7 @@ NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
 FreestandingMacroExpression
                          ::= BangMacroExpression ;
 
-BangMacroExpression      ::= Identifier [TypeArgumentList] '!'
+BangMacroExpression      ::= QualifiedName '!'
                              ( ArgumentList
                              | [ArgumentList] MacroTokenTree ) ;
 

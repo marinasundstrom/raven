@@ -319,7 +319,12 @@ Standalone `ParseMemberDeclaration` returns null unless its input contains
 exactly one declaration. Macro-context parsing is preferred for authored body
 fragments because it preserves their source coordinates and diagnostics.
 
-The normalized freestanding result carries zero or one `SyntaxNode`.
+The normalized freestanding result carries either zero or one `SyntaxNode`, or
+an immutable list of `MemberDeclarationSyntax` nodes. `Members` and
+`HasMemberExpansion` expose the list-valued form, while
+`FromMembers(...)` accepts a `SyntaxList<TMember>` or immutable member array.
+An explicitly empty list means that the invocation is removed. Single-node and
+list-valued results are mutually exclusive.
 `Expression` and `Statement` are typed projections, and
 `FromExpression(...)`, `FromStatement(...)`, and `FromNode(...)` construct the
 common result. A bare raw-body invocation used as the whole statement requires
@@ -359,12 +364,18 @@ let result = query!(Dialect: "sql") {
 }
 ```
 
-The syntax tree represents invocations as `BangMacroExpressionSyntax` under the
-abstract `FreestandingMacroExpressionSyntax` base. An invocation may supply an
-argument list, a brace-delimited token-tree body, or both. There must be no line
-break between the macro name and `!`, or between `!` (or its argument list) and
-the opening brace; this lookahead keeps ordinary postfix `!` expressions
-unambiguous. A freestanding macro is a
+The syntax tree represents expression, statement, file-scope, and namespace-scope
+invocations with `BangMacroExpressionSyntax` under the abstract
+`FreestandingMacroExpressionSyntax` base. File and namespace scope deliberately
+retain the existing global-statement envelope: the macro's resolved output
+target, rather than parser lookahead, decides whether expansion supplies a
+statement or declarations. Inside a type body, where a statement is not a valid
+member, the parser uses `FreestandingMacroMemberDeclarationSyntax`.
+
+An invocation may supply an argument list, a brace-delimited token-tree body,
+or both. There must be no line break between the macro name and `!`, or between
+`!` (or its argument list) and the opening brace; this lookahead keeps ordinary
+postfix `!` expressions unambiguous. A freestanding macro is a
 parsed expression invocation that expands an owned region of syntax; it is not
 a preprocessor directive. Directive-looking syntax remains appropriate for
 lexical compilation controls such as `#if`, while `name! { ... }` preserves the
