@@ -44,6 +44,19 @@ public sealed class TokenTreeMacroContextTests
     }
 
     [Fact]
+    public void MacroSyntax_ProvidesStructuralAndFactoryForms()
+    {
+        var syntax = SyntaxFactory.ParseExpression("left + right")!;
+
+        var structure = MacroSyntax.GetStructure(syntax);
+        var factory = MacroSyntax.GetFactoryForm(syntax);
+
+        Assert.Contains("AddExpression", structure);
+        Assert.Contains("SyntaxFactory", factory);
+        Assert.Contains("IdentifierName", factory);
+    }
+
+    [Fact]
     public void ParseTypeResult_ParsesSelectedSourceBackedSpan()
     {
         var context = CreateContext("type {{ string? }}");

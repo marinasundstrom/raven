@@ -184,6 +184,12 @@ var generated = BuildExpansion(parsed.Syntax);
 generated = context.WithOrigin(generated, parsed);
 ```
 
+For diagnostics and development, `MacroSyntax.GetStructure(syntax)` produces a
+stable non-colorized tree view, while `MacroSyntax.GetFactoryForm(syntax)`
+shows the equivalent immutable `SyntaxFactory` construction. These correspond
+to the practical roles of Nim's `treeRepr` and `repr` without making either
+representation part of expansion semantics.
+
 Macro contexts accumulate diagnostics through the ordinary
 `ReportDiagnostic` and `ReportDiagnostics` APIs. This deliberately avoids a
 separate diagnostic statement in the language. `expand` supplies the final
