@@ -1,0 +1,19 @@
+import System.Device.Gpio.*
+import System.Threading.*
+
+#if PICO or PICO2
+const LedPin: int = 25
+#endif
+
+func Main() {
+    use gpio = GpioController()
+    use led = gpio.OpenPin(LedPin, PinMode.Output)
+
+    loop {
+        led.Write(PinValue.High)
+        Thread.Sleep(500)
+
+        led.Write(PinValue.Low)
+        Thread.Sleep(500)
+    }
+}

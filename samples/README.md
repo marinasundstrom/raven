@@ -103,6 +103,9 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 - `samples/projects/nanoframework-temperature/README.md` (DHT sensor state,
   exhaustive union patterns, GPIO output, and nanoFramework `NFMRK2` packaging)
+- `samples/projects/nanoframework-blinky/README.md` (minimal Raspberry Pi
+  Pico-family GPIO blink, board profiles, nanoFramework packaging and deployment
+  commands, and the current RP2350 firmware boundary)
 
 ### Source file naming and organization
 

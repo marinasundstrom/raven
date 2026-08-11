@@ -154,6 +154,17 @@ dependencies.
 
 ### Temperature-monitor MVP probe
 
+For the smallest deploy-first probe, see the
+[`nanoframework-blinky` sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/nanoframework-blinky).
+It uses Raven's `loop` construct to alternate a GPIO output with a timed delay.
+Its build profiles conditionally select GPIO 25 for non-wireless Pico and Pico 2
+boards, or accept an external LED GPIO for Pico W and Pico 2 W. The scripts
+compile, package, assemble the referenced compact assemblies into a deployment
+image, and generate a dry-run `nanoff` command. nanoFramework's published
+Raspberry Pi firmware target currently covers RP2040 rather than Pico 2's RP2350,
+so compatible RP2350 nanoCLR firmware remains an external prerequisite for Pico
+2 device execution.
+
 The following example is the current compile-and-package MVP probe for a
 nanoFramework application. A DHT sensor reading becomes a closed domain state.
 Successful cases retain the measured value, while `SensorUnavailable` prevents
