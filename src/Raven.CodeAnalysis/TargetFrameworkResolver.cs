@@ -158,4 +158,3 @@ public static class TargetFrameworkResolver
         return Path.Combine(dir!, "System.Runtime.dll");
     }
 }
-

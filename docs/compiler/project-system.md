@@ -196,6 +196,27 @@ When a `.rvnproj` includes `<FrameworkReference>`:
 2. Raven resolves the corresponding framework reference packs from installed .NET SDK `packs/`.
 3. Pack reference assemblies are added as metadata references for compilation.
 
+### Alternative managed runtimes
+
+An SDK-style Raven project can target a managed runtime whose core library is
+not installed as a host .NET targeting pack. The nanoFramework MVP uses
+`netnano1.0`, normal `PackageReference` items, and these compiler-facing
+properties:
+
+- `RavenUseHostFrameworkReferences=false` prevents Raven from adding the host
+  .NET reference closure;
+- `RavenTargetCoreLibraryPath` selects the alternative core-library identity
+  used during emission; and
+- `RavenEmitCoreTypesOnly=true` prevents a desktop Raven.Core reference from
+  entering the target closure.
+
+MSBuild still owns restore and reference selection. Its evaluated
+`ReferencePath` is passed to `rvnc`, and the workspace/language server reads the
+same project properties and explicit package assets. The
+`nanoframework-blinky` sample contains the provisional target properties needed
+by the stock `Microsoft.NET.Sdk`. A later slice will move that boilerplate into
+a dedicated Raven nanoFramework MSBuild SDK/profile.
+
 ## Project extensions
 
 A Raven project can load compiled extension assemblies:

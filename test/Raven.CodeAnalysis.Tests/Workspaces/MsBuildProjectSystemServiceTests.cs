@@ -318,6 +318,68 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void OpenProject_NanoFrameworkProject_UsesOnlyExplicitTargetReferences()
+    {
+        var root = CreateTempDirectory();
+        var originalPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        try
+        {
+            var sourcePath = Path.Combine(root, "Program.rvn");
+            File.WriteAllText(sourcePath, "func Main() -> unit { }");
+
+            var globalPackages = Path.Combine(root, "packages");
+            var targetCoreLibraryPath = Path.Combine(
+                globalPackages,
+                "fake.nanoframework.corelibrary",
+                "1.0.0",
+                "lib",
+                "netnano1.0",
+                "mscorlib.dll");
+            var targetReferenceDirectory = Path.GetDirectoryName(targetCoreLibraryPath)!;
+            Directory.CreateDirectory(targetReferenceDirectory);
+            File.Copy(typeof(object).Assembly.Location, targetCoreLibraryPath);
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>netnano1.0</TargetFramework>
+                    <TargetFrameworkIdentifier>.NETnanoFramework</TargetFrameworkIdentifier>
+                    <TargetFrameworkVersion>v1.0</TargetFrameworkVersion>
+                    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+                    <RavenUseHostFrameworkReferences>false</RavenUseHostFrameworkReferences>
+                    <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+                    <GeneratePreludeImports>false</GeneratePreludeImports>
+                    <_TargetFrameworkDirectories>{{targetReferenceDirectory}}</_TargetFrameworkDirectories>
+                    <_FullFrameworkReferenceAssemblyPaths>{{targetReferenceDirectory}}</_FullFrameworkReferenceAssemblyPaths>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <PackageReference Include="Fake.nanoFramework.CoreLibrary" Version="1.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            Environment.SetEnvironmentVariable("NUGET_PACKAGES", globalPackages);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            Assert.Equal("netnano1.0", project.TargetFramework);
+            Assert.True(project.CompilationOptions!.EmbedCoreTypes);
+            Assert.Equal(FrameworkProjectionMode.None, project.CompilationOptions.FrameworkProjectionMode);
+            var reference = Assert.Single(project.MetadataReferences.OfType<PortableExecutableReference>());
+            Assert.True(PathsEqual(targetCoreLibraryPath, reference.FilePath));
+            Assert.DoesNotContain(
+                project.Documents,
+                static document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MsBuildProject_LoadsAnalyzerAndSourceGeneratorItems()
     {
         var root = CreateTempDirectory();

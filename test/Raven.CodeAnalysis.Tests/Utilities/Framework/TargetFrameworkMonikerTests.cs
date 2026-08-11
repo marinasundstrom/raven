@@ -21,6 +21,17 @@ public class TargetFrameworkMonikerTests
     }
 
     [Fact]
+    public void NanoFramework_round_trips_tfm_and_full_name()
+    {
+        var tfm = TargetFrameworkMoniker.Parse("netnano1.0");
+
+        Assert.Equal(FrameworkId.NetNanoFramework, tfm.Framework);
+        Assert.Equal(".NETnanoFramework,Version=v1.0", tfm.ToFrameworkString());
+        Assert.Equal("netnano1.0", TargetFrameworkMoniker.Parse(tfm.ToFrameworkString()).ToTfm());
+        Assert.Equal(".NET nanoFramework 1.0", tfm.GetDisplayName());
+    }
+
+    [Fact]
     public void ResolveVersion_defaults_to_installed()
     {
         var version = TargetFrameworkResolver.ResolveVersion();

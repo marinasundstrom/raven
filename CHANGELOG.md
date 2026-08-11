@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added the first SDK-style `netnano1.0` Raven project path. Alternative-runtime
+  projects can suppress host framework references and select their target core
+  library through MSBuild properties; the compiler and language server preserve
+  that evaluated reference surface. The Pico-family Blinky sample now restores
+  ordinary nanoFramework `PackageReference` items, builds through its
+  `.rvnproj`, and packages the result as an `NFMRK2` image. A dedicated
+  nanoFramework MSBuild SDK/profile remains a follow-up slice to remove the
+  provisional target boilerplate from application projects.
+
 - Made synthesized record and union formatting Native AOT-safe by marking
   Raven-generated structured-display types through Raven.Core instead of
   discovering helper methods with reflection. Explicit `--raven-core`

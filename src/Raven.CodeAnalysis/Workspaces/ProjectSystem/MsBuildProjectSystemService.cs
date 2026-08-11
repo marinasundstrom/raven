@@ -14,6 +14,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     private readonly bool _resolvePackageReferences;
     private readonly string? _requestedConfiguration;
     private readonly string? _requestedTargetFramework;
+    private readonly bool? _useHostFrameworkReferences;
 
     public MsBuildProjectSystemService()
         : this(RavenProjectConventions.Default, resolvePackageReferences: true)
@@ -26,7 +27,12 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     }
 
     public MsBuildProjectSystemService(RavenProjectConventions conventions, bool resolvePackageReferences)
-        : this(conventions, resolvePackageReferences, requestedConfiguration: null, requestedTargetFramework: null)
+        : this(
+            conventions,
+            resolvePackageReferences,
+            requestedConfiguration: null,
+            requestedTargetFramework: null,
+            useHostFrameworkReferences: null)
     {
     }
 
@@ -34,12 +40,14 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         RavenProjectConventions conventions,
         bool resolvePackageReferences,
         string? requestedConfiguration,
-        string? requestedTargetFramework)
+        string? requestedTargetFramework,
+        bool? useHostFrameworkReferences = null)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
         _requestedConfiguration = requestedConfiguration;
         _requestedTargetFramework = requestedTargetFramework;
+        _useHostFrameworkReferences = useHostFrameworkReferences;
     }
 
     public bool CanOpenProject(string projectFilePath)
@@ -116,8 +124,12 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             evaluation.TargetFramework);
 
         var tfm = evaluation.TargetFramework ?? raven.DefaultTargetFramework;
-        foreach (var reference in raven.GetFrameworkReferences(tfm))
-            solution = solution.AddMetadataReference(projectId, reference);
+        var useHostFrameworkReferences = _useHostFrameworkReferences ?? evaluation.UseHostFrameworkReferences;
+        if (useHostFrameworkReferences)
+        {
+            foreach (var reference in raven.GetFrameworkReferences(tfm))
+                solution = solution.AddMetadataReference(projectId, reference);
+        }
 
         foreach (var metadataReferencePath in evaluation.MetadataReferencePaths)
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));

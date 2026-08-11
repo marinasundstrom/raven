@@ -11,7 +11,7 @@ artifact. A target does not define a separate Raven language dialect.
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
 | .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes and runs without trim-analysis or AOT-analysis warnings on macOS Arm64, with a Linux x64 CI smoke test and a defined `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
-| .NET nanoFramework | Investigation | With an explicit nanoFramework reference closure, Raven can emit both a minimal probe and the temperature/union/GPIO example below; the metadata processor accepts both and converts them to compact `NFMRK2` `.pe` files. | Raven has not yet deployed or run an application on nanoCLR, an emulator, or a device. Target profiles, a nanoFramework Raven.Core build, packaging automation, and broader runtime validation remain. |
+| .NET nanoFramework | Experimental | A `netnano1.0` Raven project can restore normal `PackageReference` items, compile against the evaluated nanoFramework reference surface, and package a compact `NFMRK2` image. The Blinky probe has also been loaded on a Pico WH running matching preview firmware. | The current project repeats a provisional target preset that should move into a Raven nanoFramework MSBuild SDK. A nanoFramework Raven.Core build, broader runtime coverage, and visible hardware validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
 yet covered across the supported platform matrix. “Investigation” records a
@@ -138,24 +138,26 @@ and the official [metadata processor](https://github.com/nanoframework/metadata-
 The probes validate Raven's general IL-to-metadata shape, explicit reference
 closure, core-library retargeting, representative embedded library binding,
 union and pattern emission, and the feasibility of using the existing
-nanoFramework packaging tool. They do not establish nanoCLR runtime or device
-compatibility.
+nanoFramework packaging tool. The Blinky probe additionally establishes that a
+matching nanoCLR firmware can load the Raven assembly and its managed closure;
+broader runtime and device compatibility remains unproven.
 
 Generics are consequently not treated as a fundamental blocker or as a reason
 to create a reduced Raven syntax. The expected library strategy is to compile
 Raven.Core conditionally for `netnano1.0`, retaining portable features and
 substituting or omitting APIs that nanoFramework does not provide.
 
-Project-system support is a separate opportunity. nanoFramework's current
+Project-system support is a separate concern. nanoFramework's current
 managed build pipeline is centered on `.nfproj`: its metadata processor is an
 MSBuild post-build stage of that project format, and its editor integrations
 provide dedicated build, deploy, and debug commands. It is not the ordinary
 `Microsoft.NET.Sdk` target-framework experience used by a modern `.csproj`.
-Raven can provide an SDK-style `.rvnproj` experience for the same runtime, with
-the evaluated target profile shared by `rvnc`, `rvn`, the language server, and
-the VS Code extension. That would make target-aware editing and command-line
-builds first-class Raven functionality rather than requiring developers to
-assemble reference and packaging commands by hand. See nanoFramework's
+Raven's MVP now provides an SDK-style `.rvnproj` for the same runtime. Normal
+`PackageReference` restore selects `netnano1.0` compile assets, and the evaluated
+target profile is shared by `rvnc`, MSBuild, and the language server. The next
+slice is to move the provisional target properties out of the application file
+and into a dedicated Raven nanoFramework MSBuild SDK/profile, which can later be
+replaced by an official SDK-style nanoFramework target. See nanoFramework's
 [description of the `.nfproj` metadata-processing stage](https://docs.nanoframework.net/content/architecture/guide-version-checksums.html)
 and its [VS Code managed-code workflow](https://docs.nanoframework.net/content/getting-started-guides/getting-started-managed-vscode.html)
 for the current ecosystem model.
@@ -289,19 +291,16 @@ Initial emitter and driver groundwork is now present: Raven has a tested
 metadata retargeting step that can replace host `System.Private.CoreLib` and
 `System.Runtime` type scopes with a supplied target core-library identity such
 as nanoFramework's `mscorlib`, without loading target assemblies for execution.
-Compiler hosts can select this behavior through `EmitOptions`. Standalone
-`rvnc` compilation can additionally use `--no-framework-references`,
+Compiler hosts can select this behavior through `EmitOptions`. `rvnc`
+compilation can additionally use `--no-framework-references`,
 `--target-core-library`, and repeated `--refs` options to supply an explicit
-target closure. This is not yet a named target profile or available through
-Raven projects, and it does not by itself make an assembly runnable on nanoCLR.
+target closure. The Blinky `.rvnproj` now drives those options from its evaluated
+`netnano1.0` project and ordinary package references.
 
-1. Promote the standalone explicit-reference switches into a target-reference
-   model and a dedicated nanoFramework-targeting `.rvnproj` profile containing
-   the reference closure, core-library identity, `netnano1.0` target-framework
-   identity, and target capabilities. The language server and VS Code extension
-   must consume that same evaluated project so diagnostics, completion,
-   navigation, build, packaging, and deploy all see the nanoFramework surface
-   instead of the host .NET target framework.
+1. Extract the provisional nanoFramework target properties into a distributable
+   Raven MSBuild SDK/profile so applications need only select `netnano1.0`, add
+   normal package references, and declare application settings. Keep the same
+   evaluated project visible to the compiler and language server.
 2. Remove remaining compiler setup and emission assumptions that source core types from
    the compiler host's `System.Private.CoreLib`.
 3. Ensure metadata loading works from supplied reference images and does not

@@ -96,7 +96,7 @@ editors can discover the same SDK root.
 
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
 - `--no-framework-references` &ndash; do not add the default .NET targeting-pack
-  references; currently supported for standalone source compilation only
+  references for standalone or project compilation
 - `--target-core-library <path>` &ndash; add the supplied core library as a
   reference and retarget emitted core type scopes to its assembly identity
 - `--refs <path>` &ndash; additional metadata reference (repeatable)

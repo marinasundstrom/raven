@@ -674,13 +674,6 @@ var projectFileInput = sourceFiles.Count == 1 &&
     ? sourceFiles[0]
     : null;
 
-if (projectFileInput is not null && !includeFrameworkReferences)
-{
-    AnsiConsole.MarkupLine("[red]--no-framework-references currently supports standalone source compilation only.[/]");
-    Environment.ExitCode = 1;
-    return;
-}
-
 AssemblyName? targetCoreLibraryIdentity = null;
 if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
 {
@@ -694,11 +687,6 @@ if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
     }
 
     targetCoreLibraryIdentity = AssemblyName.GetAssemblyName(targetCoreLibraryPath);
-    if (!additionalRefs.Any(reference =>
-            string.Equals(Path.GetFullPath(reference), targetCoreLibraryPath, StringComparison.OrdinalIgnoreCase)))
-    {
-        additionalRefs.Add(targetCoreLibraryPath);
-    }
 }
 
 var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
@@ -711,7 +699,10 @@ var hostDefaultFramework = TargetFrameworkUtil.Resolve(AppContext.TargetFramewor
 var targetFramework = targetFrameworkTfm
     ?? projectTargetFramework
     ?? hostDefaultFramework;
-var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+var frameworkResolutionTarget = includeFrameworkReferences
+    ? targetFramework
+    : hostDefaultFramework;
+var version = TargetFrameworkResolver.ResolveVersion(frameworkResolutionTarget);
 var preferredCoreTfm = version.Moniker.ToTfm();
 if (runtimeAsyncOverride is true &&
     version.Moniker.Framework == FrameworkId.NetCoreApp &&
@@ -1025,7 +1016,9 @@ var ravenMacrosPath = ResolveAndCopyLocalDependency(
     ravenMacrosCandidates.ToArray());
 
 var useRuntimeAsync = runtimeAsyncOverride
-    ?? (version.Moniker.Framework == FrameworkId.NetCoreApp && version.Moniker.Version.Major >= 11);
+    ?? (includeFrameworkReferences &&
+        version.Moniker.Framework == FrameworkId.NetCoreApp &&
+        version.Moniker.Version.Major >= 11);
 #if RAVEN_INSTRUMENTATION
 var performanceInstrumentation = FindDebugDirectory() is not null
     ? new PerformanceInstrumentation()
@@ -1063,7 +1056,8 @@ var workspace = RavenWorkspace.Create(
         RavenProjectConventions.Default,
         restoreProjectReferences,
         projectConfiguration,
-        targetFrameworkTfm));
+        targetFrameworkTfm,
+        includeFrameworkReferences));
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,
@@ -1138,6 +1132,11 @@ else
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
 {
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCorePath);
+}
+
+if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
+{
+    project = ReplaceMetadataReferenceByAssemblyIdentity(project, targetCoreLibraryPath);
 }
 
 if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
@@ -2591,7 +2590,7 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("  --version          Print the Raven version");
         Console.WriteLine("  --framework <tfm>  Target framework (e.g. net10.0)");
         Console.WriteLine("  --no-framework-references");
-        Console.WriteLine("                     Do not add the default .NET targeting pack (standalone sources only).");
+        Console.WriteLine("                     Do not add the default .NET targeting pack.");
         Console.WriteLine("  --target-core-library <path>");
         Console.WriteLine("                     Retarget emitted core type scopes to the supplied assembly identity.");
         Console.WriteLine("  --configuration <name>");

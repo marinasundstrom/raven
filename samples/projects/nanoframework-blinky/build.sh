@@ -3,10 +3,10 @@ set -euo pipefail
 
 SAMPLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SAMPLE_DIR/../../.." && pwd)"
+PROJECT="$SAMPLE_DIR/NanoFrameworkBlinky.rvnproj"
 PACKAGES_DIR="${NANOFRAMEWORK_PACKAGES_DIR:-$SAMPLE_DIR/.packages}"
 OUTPUT_DIR="${OUTPUT_DIR:-$SAMPLE_DIR/artifacts}"
 COMPILER_DLL="${RAVEN_COMPILER_DLL:-$REPO_ROOT/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll}"
-NUGET_COMMAND="${NUGET_COMMAND:-nuget}"
 MONO_COMMAND="${MONO_COMMAND:-mono}"
 BOARD="pico2"
 LED_PIN=""
@@ -82,10 +82,11 @@ package_file() {
   local package_id="$1"
   local package_version="$2"
   local relative_path="$3"
-  local package_directory
+  local package_directory package_id_lower
 
-  package_directory="$(find "$PACKAGES_DIR" -mindepth 1 -maxdepth 1 -type d -iname "$package_id.$package_version" -print -quit)"
-  if [[ -z "$package_directory" ]]; then
+  package_id_lower="$(printf '%s' "$package_id" | tr '[:upper:]' '[:lower:]')"
+  package_directory="$PACKAGES_DIR/$package_id_lower/$package_version"
+  if [[ ! -d "$package_directory" ]]; then
     echo "Package '$package_id' version '$package_version' was not restored under '$PACKAGES_DIR'." >&2
     exit 1
   fi
@@ -100,11 +101,10 @@ package_file() {
 }
 
 require_command dotnet
-require_command "$NUGET_COMMAND"
 require_command "$MONO_COMMAND"
 
 mkdir -p "$PACKAGES_DIR" "$PROFILE_OUTPUT_DIR"
-"$NUGET_COMMAND" restore "$SAMPLE_DIR/packages.config" -PackagesDirectory "$PACKAGES_DIR" -NonInteractive
+dotnet restore "$PROJECT" --packages "$PACKAGES_DIR" --property WarningLevel=0
 
 if [[ ! -f "$COMPILER_DLL" ]]; then
   dotnet build "$REPO_ROOT/src/Raven.Compiler/Raven.Compiler.csproj" \
@@ -123,7 +123,7 @@ GPIO_LIBRARY_PE="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.1
 EVENTS_LIBRARY="$(package_file nanoFramework.Runtime.Events 2.0.0-preview.13 lib/netnano1.0/nanoFramework.Runtime.Events.dll)"
 EVENTS_LIBRARY_PE="$(package_file nanoFramework.Runtime.Events 2.0.0-preview.13 lib/netnano1.0/nanoFramework.Runtime.Events.pe)"
 
-METADATA_PROCESSOR_PACKAGE="$(find "$PACKAGES_DIR" -mindepth 1 -maxdepth 1 -type d -iname 'nanoFramework.Tools.MetadataProcessor.CLI.4.0.0-preview.101' -print -quit)"
+METADATA_PROCESSOR_PACKAGE="$PACKAGES_DIR/nanoframework.tools.metadataprocessor.cli/4.0.0-preview.101"
 METADATA_PROCESSOR="$METADATA_PROCESSOR_PACKAGE/content/MetadataProcessor/nanoFramework.Tools.MetadataProcessor.exe"
 if [[ ! -f "$METADATA_PROCESSOR" ]]; then
   METADATA_PROCESSOR="$METADATA_PROCESSOR_PACKAGE/contentFiles/any/any/MetadataProcessor/nanoFramework.Tools.MetadataProcessor.exe"
@@ -136,22 +136,21 @@ fi
 MANAGED_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkBlinky.dll"
 NANO_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkBlinky.pe"
 DEPLOYMENT_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkBlinky.bin"
-CONSTANT_ARGUMENTS=()
+BUILD_ARGUMENTS=(
+  --no-restore
+  --configuration Debug
+  --output "$PROFILE_OUTPUT_DIR"
+  --property:RavenBuildConfiguration=Debug
+  --property:RavenCompilerHost="$COMPILER_DLL"
+  --property:NanoFrameworkPackagesDirectory="$PACKAGES_DIR"
+  --property:WarningLevel=0
+)
 
 if [[ -n "$LED_PIN" ]]; then
-  CONSTANT_ARGUMENTS+=(--constant "LedPin=$LED_PIN")
+  BUILD_ARGUMENTS+=(--property:RavenLedPin="$LED_PIN")
 fi
 
-dotnet "$COMPILER_DLL" \
-  --no-framework-references \
-  --target-core-library "$CORE_LIBRARY" \
-  --refs "$GPIO_LIBRARY" \
-  --refs "$EVENTS_LIBRARY" \
-  "${CONSTANT_ARGUMENTS[@]}" \
-  --emit-core-types-only \
-  --output-type console \
-  --output "$MANAGED_OUTPUT" \
-  "$SAMPLE_DIR/Program.rvn"
+dotnet build "$PROJECT" "${BUILD_ARGUMENTS[@]}"
 
 "$MONO_COMMAND" "$METADATA_PROCESSOR" \
   -loadhints mscorlib "$CORE_LIBRARY" \

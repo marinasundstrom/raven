@@ -8,7 +8,8 @@ public enum FrameworkId
 {
     NetCoreApp,     // .NET 5+ and .NET Core 1.x–3.x (both map here for framework string purposes)
     NetStandard,
-    NetFramework
+    NetFramework,
+    NetNanoFramework
 }
 
 public sealed record TargetFrameworkMoniker(
@@ -21,15 +22,16 @@ public sealed record TargetFrameworkMoniker(
 {
     // --- Parsing ---
 
-    // Recognizes: net8.0, net6.0-android34, net7.0-windows10.0.19041, netstandard2.1, netcoreapp3.1, net48
+    // Recognizes: net8.0, net6.0-android34, net7.0-windows10.0.19041, netstandard2.1, netcoreapp3.1, netnano1.0, net48
     private static readonly Regex TfmRegex = new(
-        @"^(?:(netstandard)(?<stdver>\d+(\.\d+)*))|(?:(netcoreapp)(?<corever>\d+(\.\d+)*))|(?:(net)(?<netver>\d+(\.\d+)*))(?<plat>(?:-(?<platname>[a-zA-Z]+)(?<platver>\d+(?:\.\d+)*))?)$",
+        @"^(?:(netstandard)(?<stdver>\d+(\.\d+)*))|(?:(netcoreapp)(?<corever>\d+(\.\d+)*))|(?:(netnano)(?<nanover>\d+(\.\d+)*))|(?:(net)(?<netver>\d+(\.\d+)*))(?<plat>(?:-(?<platname>[a-zA-Z]+)(?<platver>\d+(?:\.\d+)*))?)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     // Recognizes: .NETCoreApp,Version=v8.0  / .NETStandard,Version=v2.1  / .NETFramework,Version=v4.8
     private const string NetCorePrefix = ".NETCoreApp,Version=v";
     private const string NetStandardPrefix = ".NETStandard,Version=v";
     private const string NetFrameworkPrefix = ".NETFramework,Version=v";
+    private const string NetNanoFrameworkPrefix = ".NETnanoFramework,Version=v";
 
     public static TargetFrameworkMoniker Parse(string tfmOrFull)
         => TryParse(tfmOrFull, out var tfm) ? tfm! :
@@ -46,7 +48,8 @@ public sealed record TargetFrameworkMoniker(
         // Full framework-name form?
         if (s.StartsWith(NetCorePrefix, StringComparison.Ordinal) ||
             s.StartsWith(NetStandardPrefix, StringComparison.Ordinal) ||
-            s.StartsWith(NetFrameworkPrefix, StringComparison.Ordinal))
+            s.StartsWith(NetFrameworkPrefix, StringComparison.Ordinal) ||
+            s.StartsWith(NetNanoFrameworkPrefix, StringComparison.Ordinal))
         {
             return TryParseFullFrameworkName(s, out result);
         }
@@ -74,8 +77,17 @@ public sealed record TargetFrameworkMoniker(
             return true;
         }
 
+        // netnanoX.Y
+        if (m.Groups[5].Success) // "netnano"
+        {
+            if (!Version.TryParse(m.Groups["nanover"].Value, out var v))
+                return false;
+            result = new TargetFrameworkMoniker(FrameworkId.NetNanoFramework, Normalize(v), null, null, s);
+            return true;
+        }
+
         // netX[.Y][.Z][-platformN[.M]]
-        if (m.Groups[5].Success) // "net"
+        if (m.Groups[7].Success) // "net"
         {
             if (!Version.TryParse(m.Groups["netver"].Value, out var v))
                 return false;
@@ -149,6 +161,13 @@ public sealed record TargetFrameworkMoniker(
             return true;
         }
 
+        if (s.StartsWith(NetNanoFrameworkPrefix, StringComparison.Ordinal))
+        {
+            if (!Version.TryParse(s.AsSpan(NetNanoFrameworkPrefix.Length), out var v)) return false;
+            result = new TargetFrameworkMoniker(FrameworkId.NetNanoFramework, v, null, null, s);
+            return true;
+        }
+
         return false;
     }
 
@@ -161,6 +180,7 @@ public sealed record TargetFrameworkMoniker(
             FrameworkId.NetStandard => $"netstandard{TrimVersion(Version)}",
             FrameworkId.NetFramework => $"net{Version.Major}{Version.Minor}", // net48 pattern
             FrameworkId.NetCoreApp => ComposeNetCoreAppTfm(),
+            FrameworkId.NetNanoFramework => $"netnano{TrimVersion(Version)}",
             _ => Raw ?? ToString()
         };
 
@@ -193,6 +213,7 @@ public sealed record TargetFrameworkMoniker(
             FrameworkId.NetStandard => $"{NetStandardPrefix}{Version}",
             FrameworkId.NetFramework => $"{NetFrameworkPrefix}{Version}",
             FrameworkId.NetCoreApp => $"{NetCorePrefix}{Version}",
+            FrameworkId.NetNanoFramework => $"{NetNanoFrameworkPrefix}{Version}",
             _ => Raw ?? ToString()
         };
     }
@@ -204,6 +225,7 @@ public sealed record TargetFrameworkMoniker(
             FrameworkId.NetStandard => $".NET Standard {Version}",
             FrameworkId.NetFramework => $".NET Framework {Version.Major}.{Version.Minor}",
             FrameworkId.NetCoreApp => DisplayForNetCoreApp(),
+            FrameworkId.NetNanoFramework => $".NET nanoFramework {Version}",
             _ => Raw ?? ToString()
         };
 

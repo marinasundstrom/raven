@@ -39,8 +39,8 @@ claim that firmware support already exists.
 
 ## Build and package
 
-Install a .NET SDK, the `nuget` command-line client, and Mono, then select a
-board profile (the default is `pico2`):
+Install a .NET SDK and Mono, then select a board profile (the default is
+`pico2`):
 
 ```bash
 ./build.sh
@@ -49,9 +49,10 @@ board profile (the default is `pico2`):
 ```
 
 `Program.rvn` declares `extern const LedPin: int = 25`, so Pico and Pico 2 use
-GP25 by default. The build script supplies `--constant LedPin=<gpio>` when an
-override is requested; the value is converted to `int` and bound as an ordinary
-compile-time constant without generating Raven source. For Pico W and Pico 2 W,
+GP25 by default. The build script supplies the project's conditional
+`RavenConstant` item when an override is requested; the value is converted to
+`int` and bound as an ordinary compile-time constant without generating Raven
+source. For Pico W and Pico 2 W,
 select the GPIO connected to an external LED:
 
 ```bash
@@ -59,9 +60,12 @@ select the GPIO connected to an external LED:
 ./build.sh --board pico2-w --led-pin 15
 ```
 
-The script restores a deliberately pinned, mutually matching nanoFramework 2.0
-preview core/GPIO snapshot, builds `rvnc` if necessary, compiles `Program.rvn`,
-and passes the result through the nanoFramework metadata processor. The target
+`NanoFrameworkBlinky.rvnproj` uses ordinary `PackageReference` items for a
+deliberately pinned, mutually matching nanoFramework 2.0 preview core/GPIO
+snapshot. The script restores that project with `dotnet restore`, builds `rvnc`
+if necessary, compiles through the normal Raven MSBuild target, and passes the
+result through the nanoFramework metadata processor. The compiler and language
+server therefore see the same evaluated `netnano1.0` reference surface. The target
 firmware must provide the native contracts used by CoreLibrary
 `2.0.0-preview.52`, Runtime.Events `2.0.0-preview.13`, and GPIO
 `2.0.0-preview.18`. Outputs are:
@@ -77,6 +81,11 @@ additionally requires compatible RP2350 firmware. The official deployment
 pipeline deploys an application's compact image together with its referenced
 class libraries and checks native-component versions against the device
 firmware.
+
+The target-setup properties currently live in the sample project so this MVP
+can use the stock `Microsoft.NET.Sdk`. A following slice will move those presets
+into a dedicated Raven nanoFramework MSBuild SDK/profile, leaving the
+application project with its target, package references, and app settings.
 
 `deploy.sh` maps all four profiles to nanoFramework's `rpi_pico` platform and
 supports either the wire protocol or Pico BOOTSEL/UF2 deployment. It is a dry
@@ -110,5 +119,4 @@ References:
 - [nanoFramework's published Raspberry Pi Pico target](https://docs.nanoframework.net/content/rpipico/index.html)
 
 `NANOFRAMEWORK_PACKAGES_DIR`, `OUTPUT_DIR`, `RAVEN_COMPILER_DLL`,
-`NUGET_COMMAND`, `MONO_COMMAND`, and `NANOFF_COMMAND` can override the default
-locations.
+`MONO_COMMAND`, and `NANOFF_COMMAND` can override the default locations.

@@ -460,7 +460,7 @@ internal sealed class WorkspaceManager
     private void EnsureRavenCoreReference(ProjectId projectId)
     {
         var project = _workspace.CurrentSolution.GetProject(projectId);
-        if (project is null)
+        if (project is null || project.CompilationOptions?.EmbedCoreTypes == true)
             return;
 
         var hasRavenCoreReference = project.MetadataReferences
@@ -492,7 +492,7 @@ internal sealed class WorkspaceManager
     private void EnsureRavenMacrosReference(ProjectId projectId)
     {
         var project = _workspace.CurrentSolution.GetProject(projectId);
-        if (project is null)
+        if (project is null || project.CompilationOptions?.EmbedCoreTypes == true)
             return;
 
         var preferredTfm = project.TargetFramework ??

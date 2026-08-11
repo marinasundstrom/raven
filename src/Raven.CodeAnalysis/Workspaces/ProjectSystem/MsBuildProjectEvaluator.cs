@@ -159,6 +159,7 @@ internal static class MsBuildProjectEvaluator
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
             ?? true;
         var emitCoreTypesOnly = GetBooleanProperty(project, "RavenEmitCoreTypesOnly") ?? false;
+        var useHostFrameworkReferences = GetBooleanProperty(project, "RavenUseHostFrameworkReferences") ?? true;
         var frameworkProjectionMode = emitCoreTypesOnly
             ? FrameworkProjectionMode.None
             : ParseFrameworkProjectionMode(
@@ -253,7 +254,8 @@ internal static class MsBuildProjectEvaluator
             generatedSourceDirectory,
             documentationOptions,
             isCompilerPlugin,
-            parseOptions);
+            parseOptions,
+            useHostFrameworkReferences);
     }
 
     private static bool IsCSharpCompilerPluginSource(string sourcePath)
@@ -527,4 +529,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     string GeneratedSourceDirectory,
     ProjectDocumentationOptions DocumentationOptions,
     bool IsCompilerPlugin,
-    ParseOptions ParseOptions);
+    ParseOptions ParseOptions,
+    bool UseHostFrameworkReferences);
