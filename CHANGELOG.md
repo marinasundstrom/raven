@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a reproducible Native AOT path to the greenhouse-monitor sample, with
+  host RID detection, native publish-and-run validation, RID-specific artifacts,
+  and a documented `linux-arm64` workflow for Linux-based Raspberry Pi devices.
+
 - Added typed `extern const` build inputs with required/default declaration
   forms, invariant type validation, `CompilationOptions` support, repeatable
   `rvnc` and `rvn build --constant NAME=VALUE` providers, `.rvnproj`

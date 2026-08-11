@@ -10,7 +10,7 @@ artifact. A target does not define a separate Raven language dialect.
 | Platform or deployment model | Level | What works | Important limitations |
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
-| .NET Native AOT | Experimental | A Raven console application has been published as a native macOS Arm64 executable and run successfully. | Some synthesized union formatting helpers currently produce trimming warnings because they use reflection. Broader platform and library coverage is still needed. |
+| .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes as a native macOS Arm64 executable and runs successfully; its script also defines the `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware. Some synthesized union formatting helpers currently produce trimming warnings because they use reflection. |
 | .NET nanoFramework | Investigation | With an explicit nanoFramework reference closure, Raven can emit both a minimal probe and the temperature/union/GPIO example below; the metadata processor accepts both and converts them to compact `NFMRK2` `.pe` files. | Raven has not yet deployed or run an application on nanoCLR, an emulator, or a device. Target profiles, a nanoFramework Raven.Core build, packaging automation, and broader runtime validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
@@ -60,18 +60,29 @@ It can then be published with the standard SDK command:
 dotnet publish App.rvnproj -c Release
 ```
 
-The initial Raven probe used `net10.0` and `osx-arm64`. It produced a native
-Mach-O Arm64 executable and successfully ran the Raven Hello World sample. The
-compiler driver now excludes its host `System.Private.CoreLib` from copy-local
-runtime dependencies, allowing the AOT toolchain to supply the core library for
-the selected runtime.
+The current Raven probe uses `net10.0` and `osx-arm64`. It produces a native
+Mach-O Arm64 executable and successfully runs the simulated greenhouse monitor,
+including its records, unions, exhaustive patterns, asynchronous telemetry, and
+collection interop. The compiler driver excludes its host
+`System.Private.CoreLib` from copy-local runtime dependencies, allowing the AOT
+toolchain to supply the core library for the selected runtime.
+
+The reproducible entry point is
+[`samples/projects/greenhouse-monitor/publish-aot.sh`](https://github.com/marinasundstrom/raven/tree/main/samples/projects/greenhouse-monitor).
+It detects supported macOS and Linux host runtime identifiers, publishes into a
+RID-specific artifact directory, and can run host-native output as a smoke test.
+On a 64-bit Linux Raspberry Pi, `RUN=1 ./publish-aot.sh linux-arm64` is the
+intended local publish-and-run path. Native AOT's platform restrictions still
+apply: produce Linux Arm64 output on a compatible Linux Arm64 build host rather
+than expecting arbitrary cross-OS compilation.
 
 Native AOT currently remains experimental for Raven. The known compiler-owned
 work is:
 
 - remove the trimming warnings caused by reflective method lookup in
   synthesized union value formatting;
-- add repeatable publish-and-run coverage on representative runtime identifiers;
+- validate the repeatable `linux-arm64` publish-and-run path on Raspberry Pi
+  hardware and add representative CI coverage;
 - audit Raven.Core and generated helpers for trimming and AOT compatibility;
 - report target-specific limitations through diagnostics where the compiler can
   identify them reliably.
