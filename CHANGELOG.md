@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed pattern matching over type parameters constrained to sealed hierarchies
+  so permitted subtype patterns bind correctly and covering every permitted
+  leaf is exhaustive. Parenthesized union carriers now also extract their active
+  member before evaluating a typed property pattern and its whole-value
+  designation, while matching the carrier type itself remains valid.
+
 - Updated active .NET 11 samples to target the Preview 7 SDK and matching
   Microsoft ASP.NET Core and OpenAPI packages. The vehicle-costs sample retains
   its compatible EF Core/Npgsql Preview 6 pair pending a Preview 7 provider,

@@ -5262,6 +5262,9 @@ partial class BlockBinder : Binder
         if (scrutineeType.TypeKind == TypeKind.Error || patternType.TypeKind == TypeKind.Error)
             return true;
 
+        if (TypeCoverageHelper.CanTypeParameterMatchPattern(scrutineeType, patternType))
+            return true;
+
         if (patternType is NullTypeSymbol)
             return CanBeNull(scrutineeType);
 

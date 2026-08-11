@@ -91,6 +91,32 @@ class Describer {
     }
 
     [Fact]
+    public void MatchExpression_WithTypeParameterConstrainedToClosedHierarchy_EmitsAndRuns()
+    {
+        const string code = """
+sealed record class Shape permits Circle, Square {}
+record class Circle(Radius: double) : Shape {}
+record class Square(Side: double) : Shape {}
+
+func Area<T>(shape: T) -> double
+    where T: Shape {
+    return match shape {
+        Circle(let radius) => System.Math.PI * radius * radius
+        Square(let side) => side * side
+    }
+}
+
+func Main() {
+    System.Console.WriteLine(Area(Circle(2.0)) == System.Math.PI * 4.0)
+    System.Console.WriteLine(Area(Square(3.0)) == 9.0)
+}
+""";
+
+        var output = EmitAndRun(code, "match_constrained_closed_hierarchy");
+        Assert.Equal("True\nTrue", output);
+    }
+
+    [Fact]
     public void MatchExpression_SourceExhaustiveUnion_ThrowsWhenForcedDefaultCarrierDoesNotMatch()
     {
         const string code = """

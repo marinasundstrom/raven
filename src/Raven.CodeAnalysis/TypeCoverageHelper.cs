@@ -12,8 +12,48 @@ internal static class TypeCoverageHelper
     /// If so, returns the <see cref="INamedTypeSymbol"/> root of the hierarchy (unwrapped to its original definition).
     /// </summary>
     public static bool TryGetSealedHierarchy(ITypeSymbol scrutineeType, out INamedTypeSymbol sealedRoot)
+        => TryGetSealedHierarchy(scrutineeType, out sealedRoot, out _);
+
+    public static bool TryGetSealedHierarchy(
+        ITypeSymbol scrutineeType,
+        out INamedTypeSymbol sealedRoot,
+        out INamedTypeSymbol projectedHierarchy)
+        => TryGetSealedHierarchy(
+            scrutineeType,
+            new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default),
+            out sealedRoot,
+            out projectedHierarchy);
+
+    private static bool TryGetSealedHierarchy(
+        ITypeSymbol scrutineeType,
+        HashSet<ITypeParameterSymbol> visited,
+        out INamedTypeSymbol sealedRoot,
+        out INamedTypeSymbol projectedHierarchy)
     {
         sealedRoot = null!;
+        projectedHierarchy = null!;
+
+        scrutineeType = UnwrapAlias(scrutineeType);
+
+        if (scrutineeType is ITypeParameterSymbol typeParameter)
+        {
+            if (!visited.Add(typeParameter))
+                return false;
+
+            foreach (var constraintType in typeParameter.ConstraintTypes)
+            {
+                if (TryGetSealedHierarchy(
+                        constraintType,
+                        visited,
+                        out sealedRoot,
+                        out projectedHierarchy))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         if (scrutineeType is not INamedTypeSymbol named)
             return false;
@@ -23,10 +63,22 @@ internal static class TypeCoverageHelper
         if (original.IsSealedHierarchy || !original.PermittedDirectSubtypes.IsDefaultOrEmpty && original.PermittedDirectSubtypes.Length > 0)
         {
             sealedRoot = original;
+            projectedHierarchy = named;
             return true;
         }
 
         return false;
+    }
+
+    public static bool CanTypeParameterMatchPattern(ITypeSymbol inputType, ITypeSymbol patternType)
+    {
+        inputType = UnwrapAlias(inputType);
+        patternType = UnwrapAlias(patternType);
+
+        return inputType is ITypeParameterSymbol inputTypeParameter &&
+                patternType.SatisfiesConstraints(inputTypeParameter) ||
+            patternType is ITypeParameterSymbol patternTypeParameter &&
+                inputType.SatisfiesConstraints(patternTypeParameter);
     }
 
     /// <summary>

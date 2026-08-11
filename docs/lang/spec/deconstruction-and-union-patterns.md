@@ -82,6 +82,13 @@ let description = match payment {
 }
 ```
 
+The carrier and its contained value remain distinct pattern targets. Matching
+the carrier type itself, such as `payment is Payment`, tests the union instance.
+A member-type property pattern such as
+`payment is Card { Reference: let reference } let card` first extracts the
+active `Card` through the carrier and then applies the recursive property
+pattern; the whole-pattern designation receives the extracted `Card` value.
+
 ## Pattern combinators
 
 * `pattern1 and pattern2` — **conjunction**. Succeeds only when both operands

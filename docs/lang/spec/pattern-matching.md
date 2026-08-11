@@ -93,6 +93,11 @@ the non-null domain of `T`. If `T` is a sealed hierarchy, every permitted leaf
 and `null` must be covered. If `T` is open, typed subtype arms plus `null` still
 require a base-type or `_` fallback for remaining non-null instances.
 
+A type parameter constrained to a sealed hierarchy uses that constraint as its
+closed pattern domain. A `match` over `T where T: Shape` is therefore exhaustive
+when it covers every permitted `Shape` leaf; it does not require a `_` fallback
+solely because the scrutinee's static type is a type parameter.
+
 The same syntax also works for hierarchy narrowing, just like `if expr is Type name`:
 
 ```raven

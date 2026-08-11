@@ -2282,6 +2282,26 @@ func Describe(value: BaseClass?) -> string {
     }
 
     [Fact]
+    public void MatchExpression_WithTypeParameterConstrainedToClosedHierarchy_IsExhaustive()
+    {
+        const string code = """
+sealed record class Shape permits Circle, Square {}
+record class Circle(Radius: double) : Shape {}
+record class Square(Side: double) : Shape {}
+
+func Area<T>(shape: T) -> double
+    where T: Shape {
+    return match shape {
+        Circle(let radius) => System.Math.PI * radius * radius
+        Square(let side) => side * side
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithNullableClosedHierarchyMissingSubtypeAndNull_ReportsBothCases()
     {
         const string code = """

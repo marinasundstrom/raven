@@ -2704,6 +2704,14 @@ internal partial class BlockBinder
 
     private BoundPattern BindPropertyPattern(PropertyPatternSyntax syntax, ITypeSymbol? inputType)
     {
+        if (syntax.Type is not null &&
+            TryResolveUnionMemberPatternTarget(syntax.Type, inputType, out var memberType, out var tryGetMethod))
+        {
+            var unionInputType = inputType!;
+            var innerPattern = BindPropertyPattern(syntax, memberType);
+            return new BoundUnionMemberPattern(unionInputType, memberType, tryGetMethod, innerPattern);
+        }
+
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
         ITypeSymbol? narrowedType = null;
@@ -2970,6 +2978,9 @@ internal partial class BlockBinder
         targetType = StripNullableReference(UnwrapAlias(targetType));
 
         if (inputType.TypeKind == TypeKind.Error || targetType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (TypeCoverageHelper.CanTypeParameterMatchPattern(inputType, targetType))
             return true;
 
         return Compilation.ClassifyConversion(inputType, targetType).Exists ||

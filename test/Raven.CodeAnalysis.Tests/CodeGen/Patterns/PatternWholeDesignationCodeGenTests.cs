@@ -192,6 +192,34 @@ class Program {
         Assert.Equal(["6"], output);
     }
 
+    [Fact]
+    public void IsPattern_WithUnionTypeAndContainedValue_RunsSuccessfully()
+    {
+        var code = """
+import System.Console.*
+
+record class Dog(Name: string)
+record class Cat(Lives: int)
+
+union Pet(Dog | Cat)
+
+func Main() {
+    let pet: Pet = Cat(9)
+
+    if pet is Pet {
+        WriteLine("got a pet")
+    }
+
+    if pet is Cat { Lives: > 0 } let cat {
+        WriteLine("cat has ${cat.Lives} lives")
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["got a pet", "cat has 9 lives"], output);
+    }
+
     private static string[] CompileAndRun(string code, OutputKind outputKind = OutputKind.ConsoleApplication)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

@@ -664,7 +664,12 @@ internal sealed class MatchExhaustivenessEvaluator
         INamedTypeSymbol sealedRoot,
         MatchExhaustivenessOptions options)
     {
-        var projectedHierarchy = scrutineeType as INamedTypeSymbol ?? sealedRoot;
+        var projectedHierarchy = TypeCoverageHelper.TryGetSealedHierarchy(
+            scrutineeType,
+            out _,
+            out var constrainedHierarchy)
+            ? constrainedHierarchy
+            : sealedRoot;
         var leafTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedRoot, projectedHierarchy);
 
         if (leafTypes.IsEmpty)
