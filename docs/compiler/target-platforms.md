@@ -158,7 +158,9 @@ The following example is the current compile-and-package MVP probe for a
 nanoFramework application. A DHT sensor reading becomes a closed domain state.
 Successful cases retain the measured value, while `SensorUnavailable` prevents
 a failed read from masquerading as a real temperature. The pure `Classify`
-function is separate from the GPIO effect:
+function is separate from the GPIO effect. The buildable source, pinned package
+snapshot, and packaging script live in the
+[`nanoframework-temperature` sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/nanoframework-temperature):
 
 ```raven
 import Iot.Device.DHTxx.*

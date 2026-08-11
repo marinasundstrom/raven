@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a reproducible nanoFramework temperature-monitor MVP sample that
+  restores a pinned target reference closure, compiles union- and GPIO-based
+  Raven source, and packages it as an `NFMRK2` image.
+
 - Made synthesized union value formatting emit against reduced managed runtime
   surfaces that omit `Type.IsPrimitive` and `string.Replace(string, string)`,
   while preserving full escaping when the target provides the replace API.

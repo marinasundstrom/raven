@@ -1,0 +1,55 @@
+import Iot.Device.DHTxx.*
+import System.Device.Gpio.*
+import System.Threading.*
+
+union TemperatureState {
+    case SensorUnavailable
+    case Comfortable(celsius: double)
+    case TooHot(celsius: double)
+}
+
+func Classify(celsius: double) -> TemperatureState {
+    return if celsius >= 30.0 {
+        .TooHot(celsius)
+    } else {
+        .Comfortable(celsius)
+    }
+}
+
+func ReadTemperature(sensor: Dht11) -> TemperatureState {
+    let temperature = sensor.Temperature
+
+    return if sensor.IsLastReadSuccessful {
+        Classify(temperature.DegreesCelsius)
+    } else {
+        .SensorUnavailable
+    }
+}
+
+func ActOn(state: TemperatureState, alarm: GpioPin) {
+    match state {
+        // A missing sensor is a fault rather than an invented reading.
+        .SensorUnavailable => alarm.Write(PinValue.High)
+        .Comfortable(_) => alarm.Write(PinValue.Low)
+        .TooHot(let celsius) => {
+            alarm.Write(PinValue.High)
+
+            let pulseMilliseconds = if celsius >= 40.0 { 100 } else { 500 }
+            Thread.Sleep(pulseMilliseconds)
+            alarm.Write(PinValue.Low)
+        }
+    }
+}
+
+func Main() {
+    use sensor = Dht11(26)
+    use gpio = GpioController()
+    use alarm = gpio.OpenPin(2, PinMode.Output)
+
+    while true {
+        ReadTemperature(sensor)
+            |> ActOn(alarm: alarm)
+
+        Thread.Sleep(2000)
+    }
+}
