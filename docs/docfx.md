@@ -38,7 +38,7 @@ those variables, while the Playground's Monaco themes use the corresponding
 editor and token palette. Changes to code colors should be applied consistently
 to all three surfaces.
 
-The home page presents three representative Raven examples in a carousel. It
+The home page presents five representative Raven examples in a carousel. It
 advances every six seconds, pauses while the user hovers or interacts with it,
 supports arrow-key tab navigation, and does not auto-advance when the user
 prefers reduced motion. Samples should remain short enough to avoid changing the

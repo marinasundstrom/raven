@@ -43,6 +43,13 @@ _layout: landing
       </div>
       <pre><code class="lang-raven">#[Component]&#10;class Counter {&#10;&#32;&#32;&#32;&#32;var count = 0&#10;&#10;&#32;&#32;&#32;&#32;func increment() {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;count = count + 1&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;func Render() -&gt; RenderFragment =&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Html! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;button onClick={increment}&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Count: {count}&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/button&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}</code></pre>
     </div>
+    <div class="raven-code-slide" id="raven-sample-embedded" role="tabpanel" aria-labelledby="raven-sample-embedded-tab" hidden>
+      <div class="raven-code-titlebar">
+        <span>blinky.rvn · .NET nanoFramework</span>
+        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
+      </div>
+      <pre><code class="lang-raven">import System.Device.Gpio.*&#10;import System.Threading.*&#10;&#10;func Main() {&#10;&#32;&#32;&#32;&#32;use gpio = GpioController()&#10;&#32;&#32;&#32;&#32;use led = gpio.OpenPin(25, PinMode.Output)&#10;&#10;&#32;&#32;&#32;&#32;loop {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;led.Write(PinValue.High)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Thread.Sleep(500)&#10;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;led.Write(PinValue.Low)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Thread.Sleep(500)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+    </div>
     <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">
       <button id="raven-sample-modeling-tab" type="button" role="tab" aria-controls="raven-sample-modeling" aria-selected="true">
         Modeling
@@ -55,6 +62,9 @@ _layout: landing
       </button>
       <button id="raven-sample-components-tab" type="button" role="tab" aria-controls="raven-sample-components" aria-selected="false" tabindex="-1">
         Components
+      </button>
+      <button id="raven-sample-embedded-tab" type="button" role="tab" aria-controls="raven-sample-embedded" aria-selected="false" tabindex="-1">
+        Embedded
       </button>
     </div>
   </div>
