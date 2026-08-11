@@ -671,17 +671,11 @@ internal static partial class SynthesizedMethodBodyFactory
         var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
         var charType = compilation.GetSpecialType(SpecialType.System_Char)!;
         var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal)!;
-        var typeType = compilation.GetSpecialType(SpecialType.System_Type)!;
+        var typeType = compilation.GetSpecialType(SpecialType.System_Type) as INamedTypeSymbol
+            ?? throw new InvalidOperationException("Failed to resolve System.Type.");
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit)!;
-        var bindingFlagsType = compilation.GetTypeByMetadataName("System.Reflection.BindingFlags")
-            ?? throw new InvalidOperationException("Failed to resolve System.Reflection.BindingFlags.");
         var typeIsEnumGetter = ResolvePropertyGetter(typeType, nameof(Type.IsEnum));
         var typeIsPrimitiveGetter = TryResolvePropertyGetter(typeType, nameof(Type.IsPrimitive));
-        var typeGetMethod = ResolveMethod(typeType, nameof(Type.GetMethod), [stringType, bindingFlagsType]);
-        var helperLookupFlags = new BoundLiteralExpression(
-            BoundLiteralExpressionKind.NumericLiteral,
-            (int)(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static),
-            bindingFlagsType);
 
         var valueParameter = method.Parameters[0];
         var valueTypeParameter = method.Parameters[1];
@@ -689,6 +683,7 @@ internal static partial class SynthesizedMethodBodyFactory
         var valueAccess = new BoundParameterAccess(valueParameter);
         var valueTypeAccess = new BoundParameterAccess(valueTypeParameter);
         var renderStructuredAccess = new BoundParameterAccess(renderStructuredParameter);
+        var structuredDisplayAccess = CreateStructuredDisplayTypeCheck(compilation, typeType, valueTypeParameter);
         var runtimePrimitiveAccess = typeIsPrimitiveGetter is not null
             ? new BoundInvocationExpression(
                 typeIsPrimitiveGetter,
@@ -722,17 +717,7 @@ internal static partial class SynthesizedMethodBodyFactory
                             SyntaxKind.EqualsEqualsToken,
                             valueTypeAccess,
                             new BoundTypeOfExpression(unitType, typeType)),
-                        CreateBinaryExpression(
-                            compilation,
-                            SyntaxKind.NotEqualsToken,
-                            new BoundInvocationExpression(
-                                typeGetMethod,
-                                [
-                                    CreateStringLiteral(compilation, SynthesizedUnionMethodNames.FriendlyTypeNameHelper),
-                                    helperLookupFlags
-                                ],
-                                valueTypeAccess),
-                            CreateNullLiteral(compilation))))));
+                        structuredDisplayAccess))));
 
         statements.Add(new BoundIfStatement(
             CreateBinaryExpression(
@@ -793,6 +778,50 @@ internal static partial class SynthesizedMethodBodyFactory
                 CreateStringLiteral(compilation, ">")
             ])));
         return new BoundBlockStatement(statements);
+    }
+
+    private static BoundExpression CreateStructuredDisplayTypeCheck(
+        Compilation compilation,
+        INamedTypeSymbol typeType,
+        IParameterSymbol valueTypeParameter)
+    {
+        var valueTypeAccess = new BoundParameterAccess(valueTypeParameter);
+        if (RavenRuntimeTypeNames.GetStructuredDisplayInterface(compilation) is { } structuredDisplayInterface)
+        {
+            var typeIsAssignableFrom = typeType
+                .GetMembers(nameof(Type.IsAssignableFrom))
+                .OfType<IMethodSymbol>()
+                .Single(candidate =>
+                    candidate.Parameters.Length == 1 &&
+                    SymbolEqualityComparer.Default.Equals(
+                        candidate.Parameters[0].Type.GetNonNullableType(),
+                        typeType));
+            return new BoundInvocationExpression(
+                typeIsAssignableFrom,
+                [valueTypeAccess],
+                new BoundTypeOfExpression(structuredDisplayInterface, typeType));
+        }
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
+        var bindingFlagsType = compilation.GetTypeByMetadataName("System.Reflection.BindingFlags")
+            ?? throw new InvalidOperationException("Failed to resolve System.Reflection.BindingFlags.");
+        var typeGetMethod = ResolveMethod(typeType, nameof(Type.GetMethod), [stringType, bindingFlagsType]);
+        var helperLookupFlags = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            (int)(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static),
+            bindingFlagsType);
+
+        return CreateBinaryExpression(
+            compilation,
+            SyntaxKind.NotEqualsToken,
+            new BoundInvocationExpression(
+                typeGetMethod,
+                [
+                    CreateStringLiteral(compilation, SynthesizedUnionMethodNames.FriendlyTypeNameHelper),
+                    helperLookupFlags
+                ],
+                valueTypeAccess),
+            CreateNullLiteral(compilation));
     }
 
     private static BoundExpression CreateRuntimePrimitiveTypeCheck(

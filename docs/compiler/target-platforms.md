@@ -10,7 +10,7 @@ artifact. A target does not define a separate Raven language dialect.
 | Platform or deployment model | Level | What works | Important limitations |
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
-| .NET Native AOT | Experimental | A Raven console application has been published as a native macOS Arm64 executable and run successfully. | Some synthesized union formatting helpers currently produce trimming warnings because they use reflection. Broader platform and library coverage is still needed. |
+| .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes and runs without trim-analysis or AOT-analysis warnings on macOS Arm64, with a Linux x64 CI smoke test and a defined `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
 | .NET nanoFramework | Investigation | With an explicit nanoFramework reference closure, Raven can emit both a minimal probe and the temperature/union/GPIO example below; the metadata processor accepts both and converts them to compact `NFMRK2` `.pe` files. | Raven has not yet deployed or run an application on nanoCLR, an emulator, or a device. Target profiles, a nanoFramework Raven.Core build, packaging automation, and broader runtime validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
@@ -60,18 +60,37 @@ It can then be published with the standard SDK command:
 dotnet publish App.rvnproj -c Release
 ```
 
-The initial Raven probe used `net10.0` and `osx-arm64`. It produced a native
-Mach-O Arm64 executable and successfully ran the Raven Hello World sample. The
-compiler driver now excludes its host `System.Private.CoreLib` from copy-local
-runtime dependencies, allowing the AOT toolchain to supply the core library for
-the selected runtime.
+The current Raven probe uses `net10.0` and `osx-arm64`. It produces a native
+Mach-O Arm64 executable and successfully runs the simulated greenhouse monitor,
+including its records, unions, exhaustive patterns, asynchronous telemetry, and
+collection interop. The compiler driver excludes its host
+`System.Private.CoreLib` from copy-local runtime dependencies, allowing the AOT
+toolchain to supply the core library for the selected runtime. Raven-generated
+records, unions, and union cases implement a small Raven.Core structured-display
+marker, so their synthesized formatting helpers can recognize nested Raven
+values without reflective method discovery. The verified publish completes
+without trim-analysis warnings.
+
+[`scripts/test-native-aot.sh`](https://github.com/marinasundstrom/raven/blob/main/scripts/test-native-aot.sh)
+turns that probe into a regression gate. It publishes into an isolated temporary
+directory, executes host-compatible output, and fails if the SDK reports a
+trim-analysis or AOT-analysis warning. The Native AOT workflow runs this gate as
+`linux-x64` for relevant pull requests and changes on `dev` and `main`.
+
+The reproducible entry point is
+[`samples/projects/greenhouse-monitor/publish-aot.sh`](https://github.com/marinasundstrom/raven/tree/main/samples/projects/greenhouse-monitor).
+It detects supported macOS and Linux host runtime identifiers, publishes into a
+RID-specific artifact directory, and can run host-native output as a smoke test.
+On a 64-bit Linux Raspberry Pi, `RUN=1 ./publish-aot.sh linux-arm64` is the
+intended local publish-and-run path. Native AOT's platform restrictions still
+apply: produce Linux Arm64 output on a compatible Linux Arm64 build host rather
+than expecting arbitrary cross-OS compilation.
 
 Native AOT currently remains experimental for Raven. The known compiler-owned
 work is:
 
-- remove the trimming warnings caused by reflective method lookup in
-  synthesized union value formatting;
-- add repeatable publish-and-run coverage on representative runtime identifiers;
+- validate the repeatable `linux-arm64` publish-and-run path on Raspberry Pi
+  hardware and extend CI to representative Linux Arm hardware when available;
 - audit Raven.Core and generated helpers for trimming and AOT compatibility;
 - report target-specific limitations through diagnostics where the compiler can
   identify them reliably.
@@ -126,6 +145,20 @@ Generics are consequently not treated as a fundamental blocker or as a reason
 to create a reduced Raven syntax. The expected library strategy is to compile
 Raven.Core conditionally for `netnano1.0`, retaining portable features and
 substituting or omitting APIs that nanoFramework does not provide.
+
+Project-system support is a separate opportunity. nanoFramework's current
+managed build pipeline is centered on `.nfproj`: its metadata processor is an
+MSBuild post-build stage of that project format, and its editor integrations
+provide dedicated build, deploy, and debug commands. It is not the ordinary
+`Microsoft.NET.Sdk` target-framework experience used by a modern `.csproj`.
+Raven can provide an SDK-style `.rvnproj` experience for the same runtime, with
+the evaluated target profile shared by `rvnc`, `rvn`, the language server, and
+the VS Code extension. That would make target-aware editing and command-line
+builds first-class Raven functionality rather than requiring developers to
+assemble reference and packaging commands by hand. See nanoFramework's
+[description of the `.nfproj` metadata-processing stage](https://docs.nanoframework.net/content/architecture/guide-version-checksums.html)
+and its [VS Code managed-code workflow](https://docs.nanoframework.net/content/getting-started-guides/getting-started-managed-vscode.html)
+for the current ecosystem model.
 
 ### Why nanoFramework fits Raven
 
@@ -263,8 +296,12 @@ target closure. This is not yet a named target profile or available through
 Raven projects, and it does not by itself make an assembly runnable on nanoCLR.
 
 1. Promote the standalone explicit-reference switches into a target-reference
-   model and project profile containing the reference closure, core-library
-   identity, target-framework identity, and target capabilities.
+   model and a dedicated nanoFramework-targeting `.rvnproj` profile containing
+   the reference closure, core-library identity, `netnano1.0` target-framework
+   identity, and target capabilities. The language server and VS Code extension
+   must consume that same evaluated project so diagnostics, completion,
+   navigation, build, packaging, and deploy all see the nanoFramework surface
+   instead of the host .NET target framework.
 2. Remove remaining compiler setup and emission assumptions that source core types from
    the compiler host's `System.Private.CoreLib`.
 3. Ensure metadata loading works from supplied reference images and does not

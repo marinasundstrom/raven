@@ -18,6 +18,45 @@ namespace Raven.CodeAnalysis.Tests;
 public class UnionCodeGenTests
 {
     [Fact]
+    public void RavenCoreStructuredDisplayMarker_IsAppliedToGeneratedDisplayTypes()
+    {
+        const string code = """
+record Reading(Value: int)
+
+union ReadingState {
+    case Available(reading: Reading)
+    case Missing
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "structured-display-marker",
+            [syntaxTree],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.NotNull(compilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.IRavenStructuredDisplay"));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.DefaultWithRavenCore);
+        var assembly = loaded.Assembly;
+        AssertStructuredDisplay(assembly.GetType("Reading", throwOnError: true)!);
+        AssertStructuredDisplay(assembly.GetType("ReadingState", throwOnError: true)!);
+        AssertStructuredDisplay(assembly.GetType("ReadingState+Available", throwOnError: true)!);
+
+        static void AssertStructuredDisplay(Type type)
+        {
+            Assert.Contains(
+                type.GetInterfaces(),
+                candidate => candidate.FullName == "Raven.Runtime.CompilerServices.IRavenStructuredDisplay");
+        }
+    }
+
+    [Fact]
     public void UnionFormatting_EmitsWhenCoreLibraryOmitsDesktopConvenienceApis()
     {
         const string code = """
