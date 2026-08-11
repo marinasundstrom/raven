@@ -1,0 +1,55 @@
+name: Native AOT
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - ".github/workflows/native-aot.yml"
+      - "build/**"
+      - "scripts/codex-build.sh"
+      - "scripts/test-native-aot.sh"
+      - "samples/projects/greenhouse-monitor/**"
+      - "src/Raven.CodeAnalysis/**"
+      - "src/Raven.Compiler/**"
+      - "src/Raven.Core/**"
+      - "tools/**Generator/**"
+  pull_request:
+    paths:
+      - ".github/workflows/native-aot.yml"
+      - "build/**"
+      - "scripts/codex-build.sh"
+      - "scripts/test-native-aot.sh"
+      - "samples/projects/greenhouse-monitor/**"
+      - "src/Raven.CodeAnalysis/**"
+      - "src/Raven.Compiler/**"
+      - "src/Raven.Core/**"
+      - "tools/**Generator/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-aot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    name: Publish and run (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+          dotnet-quality: preview
+
+      - name: Test Native AOT publish
+        run: scripts/test-native-aot.sh linux-x64

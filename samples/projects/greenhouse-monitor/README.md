@@ -78,3 +78,12 @@ union-based state model and evaluation functions.
 The current publish completes without trim-analysis warnings. Raven-generated
 records, unions, and union cases use a Raven.Core structured-display marker so
 their synthesized formatting helpers do not need reflective method discovery.
+
+Repository contributors can run the same warning-free publish-and-execute gate
+used by CI from the repository root:
+
+```bash
+scripts/test-native-aot.sh
+```
+
+The script accepts the same optional runtime identifier as `publish-aot.sh`.

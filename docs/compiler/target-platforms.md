@@ -10,7 +10,7 @@ artifact. A target does not define a separate Raven language dialect.
 | Platform or deployment model | Level | What works | Important limitations |
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
-| .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes as a native macOS Arm64 executable without trim-analysis warnings and runs successfully; its script also defines the `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
+| .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes and runs without trim-analysis or AOT-analysis warnings on macOS Arm64, with a Linux x64 CI smoke test and a defined `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
 | .NET nanoFramework | Investigation | With an explicit nanoFramework reference closure, Raven can emit both a minimal probe and the temperature/union/GPIO example below; the metadata processor accepts both and converts them to compact `NFMRK2` `.pe` files. | Raven has not yet deployed or run an application on nanoCLR, an emulator, or a device. Target profiles, a nanoFramework Raven.Core build, packaging automation, and broader runtime validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
@@ -71,6 +71,12 @@ marker, so their synthesized formatting helpers can recognize nested Raven
 values without reflective method discovery. The verified publish completes
 without trim-analysis warnings.
 
+[`scripts/test-native-aot.sh`](https://github.com/marinasundstrom/raven/blob/main/scripts/test-native-aot.sh)
+turns that probe into a regression gate. It publishes into an isolated temporary
+directory, executes host-compatible output, and fails if the SDK reports a
+trim-analysis or AOT-analysis warning. The Native AOT workflow runs this gate as
+`linux-x64` for relevant pull requests and changes on `dev` and `main`.
+
 The reproducible entry point is
 [`samples/projects/greenhouse-monitor/publish-aot.sh`](https://github.com/marinasundstrom/raven/tree/main/samples/projects/greenhouse-monitor).
 It detects supported macOS and Linux host runtime identifiers, publishes into a
@@ -84,7 +90,7 @@ Native AOT currently remains experimental for Raven. The known compiler-owned
 work is:
 
 - validate the repeatable `linux-arm64` publish-and-run path on Raspberry Pi
-  hardware and add representative CI coverage;
+  hardware and extend CI to representative Linux Arm hardware when available;
 - audit Raven.Core and generated helpers for trimming and AOT compatibility;
 - report target-specific limitations through diagnostics where the compiler can
   identify them reliably.

@@ -9,7 +9,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   discovering helper methods with reflection. Explicit `--raven-core`
   references now replace project-evaluated references with the same assembly
   identity, preventing stale or configuration-mismatched Raven.Core assemblies
-  from controlling emission.
+  from controlling emission. Added a Linux x64 CI smoke test that publishes and
+  runs the greenhouse sample and rejects trim-analysis or AOT-analysis warnings.
 
 - Added a reproducible Native AOT path to the greenhouse-monitor sample, with
   host RID detection, native publish-and-run validation, RID-specific artifacts,
