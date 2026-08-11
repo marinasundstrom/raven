@@ -62,6 +62,71 @@ internal static class AssemblyReferenceNormalizer
         assembly.Write(peOutput);
     }
 
+    internal static void RetargetCoreLibraryReference(
+        Stream peInput,
+        Stream peOutput,
+        AssemblyNameReference targetCoreLibrary,
+        IAssemblyResolver? assemblyResolver = null)
+    {
+        ArgumentNullException.ThrowIfNull(peInput);
+        ArgumentNullException.ThrowIfNull(peOutput);
+        ArgumentNullException.ThrowIfNull(targetCoreLibrary);
+
+        peInput.Position = 0;
+
+        var readerParameters = new ReaderParameters
+        {
+            InMemory = true,
+            ReadingMode = ReadingMode.Deferred
+        };
+        if (assemblyResolver is not null)
+            readerParameters.AssemblyResolver = assemblyResolver;
+
+        var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
+        var module = assembly.MainModule;
+        var targetReference = module.AssemblyReferences.FirstOrDefault(reference =>
+            string.Equals(reference.FullName, targetCoreLibrary.FullName, StringComparison.OrdinalIgnoreCase));
+        targetReference ??= CloneAssemblyReference(targetCoreLibrary);
+
+        var sourceReferences = module.AssemblyReferences
+            .Where(reference =>
+                !ReferenceEquals(reference, targetReference) &&
+                (string.Equals(reference.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(reference.Name, "System.Runtime", StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        foreach (var sourceReference in sourceReferences)
+        {
+            RewriteReferenceScope(module, sourceReference, targetReference, rewriteAll: true);
+
+            if (!ModuleStillUsesReference(module, sourceReference))
+                module.AssemblyReferences.Remove(sourceReference);
+        }
+
+        if (sourceReferences.Length > 0 && !module.AssemblyReferences.Contains(targetReference))
+            module.AssemblyReferences.Add(targetReference);
+
+        assembly.Write(peOutput);
+    }
+
+    private static AssemblyNameReference CloneAssemblyReference(AssemblyNameReference source)
+    {
+        var clone = new AssemblyNameReference(source.Name, source.Version)
+        {
+            Culture = source.Culture,
+            HasPublicKey = source.HasPublicKey,
+            IsRetargetable = source.IsRetargetable,
+            IsWindowsRuntime = source.IsWindowsRuntime
+        };
+
+        if (source.HasPublicKey)
+            clone.PublicKey = [.. source.PublicKey];
+        else
+            clone.PublicKeyToken = [.. source.PublicKeyToken];
+
+        return clone;
+    }
+
     private static AssemblyNameReference CreateSystemRuntimeReference(AssemblyNameReference sourceReference)
     {
         var runtimeReference = new AssemblyNameReference("System.Runtime", sourceReference.Version)
@@ -74,25 +139,36 @@ internal static class AssemblyReferenceNormalizer
         return runtimeReference;
     }
 
-    private static void RewriteReferenceScope(ModuleDefinition module, AssemblyNameReference oldReference, AssemblyNameReference newReference)
+    private static void RewriteReferenceScope(
+        ModuleDefinition module,
+        AssemblyNameReference oldReference,
+        AssemblyNameReference newReference,
+        bool rewriteAll = false)
     {
         foreach (var typeReference in module.GetTypeReferences())
         {
-            RewriteTypeReferenceScope(typeReference, oldReference, newReference);
+            RewriteTypeReferenceScope(typeReference, oldReference, newReference, rewriteAll);
         }
 
         foreach (var memberReference in module.GetMemberReferences())
         {
             if (memberReference.DeclaringType is { } declaringType)
-                RewriteTypeReferenceScope(declaringType, oldReference, newReference);
+                RewriteTypeReferenceScope(declaringType, oldReference, newReference, rewriteAll);
         }
     }
 
-    private static void RewriteTypeReferenceScope(TypeReference typeReference, AssemblyNameReference oldReference, AssemblyNameReference newReference)
+    private static void RewriteTypeReferenceScope(
+        TypeReference typeReference,
+        AssemblyNameReference oldReference,
+        AssemblyNameReference newReference,
+        bool rewriteAll)
     {
         var innermost = GetInnermostTypeReference(typeReference);
-        if (ReferenceEquals(innermost.Scope, oldReference) && ShouldRewriteToSystemRuntime(typeReference))
+        if (ReferenceEquals(innermost.Scope, oldReference) &&
+            (rewriteAll || ShouldRewriteToSystemRuntime(typeReference)))
+        {
             innermost.Scope = newReference;
+        }
     }
 
     private static bool ShouldRewriteToSystemRuntime(TypeReference typeReference)
