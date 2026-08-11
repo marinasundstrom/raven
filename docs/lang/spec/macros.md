@@ -103,6 +103,15 @@ expression position for compatibility and may opt into statement, namespace-
 member, or type-member positions. Compact declarations derive the same value
 from their return annotation, and their generated adapters preserve it.
 
+Macro symbols participate in ordinary documentation APIs. Documentation
+comments attached to compact macro declarations are projected onto their
+generated definitions. Class-authored definitions can supply the optional
+`IMacroDefinition.Documentation` and `DocumentationFormat` properties directly.
+Language services display this documentation when hovering an invocable macro
+name or an attached macro name, together with its macro-specific applicability
+details. The invocation body and attached target retain their own semantic
+hover behavior.
+
 ## Attached macro syntax
 
 An attached macro uses a `#` directly followed by an attribute list:

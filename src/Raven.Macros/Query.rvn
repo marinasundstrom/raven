@@ -28,6 +28,8 @@ public class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragment
 
     val Name: string => "query"
 
+    val Documentation: string? => "Expands a small LINQ-style query DSL into ordinary `Where` and `Select` calls. Each clause body remains an ordinary Raven expression, so normal binding and editor features apply within it."
+
     val Keywords: ImmutableArray<MacroKeyword>
         => [
             MacroKeyword("from", FromKeywordRawKind, MacroKeywordClassification.ReservedWord),

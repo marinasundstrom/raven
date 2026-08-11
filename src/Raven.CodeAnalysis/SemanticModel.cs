@@ -2017,6 +2017,37 @@ public partial class SemanticModel
             }
         }
 
+        if (node is AttributeSyntax macroAttribute &&
+            macroAttribute.TryGetMacroName(out var attachedMacroName))
+        {
+            IMacroSymbol? attachedMacroSymbol = null;
+            if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+                    Compilation,
+                    macroAttribute,
+                    attachedMacroName,
+                    out var loadedAttachedMacroSymbol,
+                    out _))
+            {
+                attachedMacroSymbol = loadedAttachedMacroSymbol;
+            }
+            else if (Compilation.TryResolveLocalMacroDeclarationSymbol(
+                macroAttribute,
+                attachedMacroName,
+                out var localAttachedMacroSymbol,
+                out _))
+            {
+                attachedMacroSymbol = localAttachedMacroSymbol;
+            }
+
+            if (attachedMacroSymbol?.MacroKind == MacroKind.AttachedDeclaration)
+            {
+                var macroInfo = new SymbolInfo(attachedMacroSymbol);
+                StoreSymbolMapping(node, macroInfo);
+                StoreNodeInterestSymbolDescriptor(node, attachedMacroSymbol);
+                return macroInfo;
+            }
+        }
+
         EnsureContainingInvocableMacroReplacementSyntax(node);
         if (TryGetMacroReplacementSyntax(node, out var macroReplacement) &&
             !ReferenceEquals(macroReplacement, node))

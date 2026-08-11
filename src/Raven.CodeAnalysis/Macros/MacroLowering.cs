@@ -124,6 +124,14 @@ internal static class MacroLowering
             $"    val Namespace: string => \"{EscapeString(GetDeclaredNamespace(declaration))}\"");
         builder.AppendLine(
             $"    val Name: string => \"{EscapeString(declaration.Identifier.ValueText)}\"");
+        if (symbol?.GetDocumentationComment() is { } documentation &&
+            !string.IsNullOrWhiteSpace(documentation.Content))
+        {
+            builder.AppendLine(
+                $"    val Documentation: string? => \"{EscapeString(documentation.Content)}\"");
+            builder.AppendLine(
+                $"    val DocumentationFormat: Raven.CodeAnalysis.DocumentationFormat => Raven.CodeAnalysis.DocumentationFormat.{documentation.Format}");
+        }
         if (GetMacroAlias(declaration) is { } alias)
         {
             builder.AppendLine(
@@ -378,5 +386,9 @@ internal static class MacroLowering
 
     private static string EscapeString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal)
-            .Replace("\"", "\\\"", StringComparison.Ordinal);
+            .Replace("\"", "\\\"", StringComparison.Ordinal)
+            .Replace("$", "\\$", StringComparison.Ordinal)
+            .Replace("\r", "\\r", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal)
+            .Replace("\t", "\\t", StringComparison.Ordinal);
 }

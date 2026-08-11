@@ -252,13 +252,18 @@ internal sealed class MacroRegistry
             ? compilation.GetSourceGlobalNamespace()
             : compilation.GetOrCreateNamespaceSymbol(macroNamespace)
                 ?? compilation.GetSourceGlobalNamespace();
+        var implementationTypeName = descriptor.Definition.GetType().FullName;
+        var implementationType = string.IsNullOrWhiteSpace(implementationTypeName)
+            ? null
+            : compilation.GetTypeByMetadataName(implementationTypeName);
 
         symbol = new SynthesizedMacroSymbol(
             resolvedName,
             canonicalName,
             aliases,
             descriptor,
-            containingNamespace);
+            containingNamespace,
+            implementationType);
         return true;
     }
 

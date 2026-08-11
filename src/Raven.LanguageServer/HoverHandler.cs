@@ -136,7 +136,8 @@ internal sealed class HoverHandler : IHoverHandler
             if (macroSymbolResolution is null && !isInMacroBody)
             {
                 currentStage = "macroHover";
-                var macroHover = TryBuildMacroInvocationHover(sourceText, semanticModel, root, offset);
+                var macroHover = TryBuildMacroInvocationHover(sourceText, semanticModel, root, offset)
+                    ?? TryBuildAttachedMacroHover(sourceText, semanticModel, root, offset);
                 if (macroHover is not null)
                     return macroHover;
             }
@@ -624,10 +625,10 @@ internal sealed class HoverHandler : IHoverHandler
             return null;
         }
 
-        var tokenTreeInvocation = token.Parent?.AncestorsAndSelf()
+        var invocation = token.Parent?.AncestorsAndSelf()
             .OfType<InvocableMacroExpressionSyntax>()
-            .FirstOrDefault(static invocation => invocation.TokenTree is not null);
-        if (tokenTreeInvocation is not null && !tokenTreeInvocation.Name.Span.Contains(token.Span))
+            .FirstOrDefault();
+        if (invocation is not null && !invocation.Name.Span.Contains(token.Span))
             return null;
 
         if (!MacroExpansionDisplayService.TryCreateForOffset(sourceText, semanticModel, root, offset, out var display))
@@ -637,6 +638,14 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (TryGetMacroHint(semanticModel.Compilation, display.MacroName, out var macroHint))
             parts.Add(macroHint);
+
+        var macroSymbol = invocation is null
+            ? null
+            : semanticModel.GetSymbolInfo(invocation.Name).Symbol as IMacroSymbol
+                ?? semanticModel.GetSymbolInfo(invocation).Symbol as IMacroSymbol;
+        var documentation = FormatDocumentation(macroSymbol?.GetDocumentationComment());
+        if (!string.IsNullOrWhiteSpace(documentation))
+            parts.Add($"---\n\n{documentation}");
 
         parts.Add("Use `Show macro expansion` to inspect the full expansion.");
 
@@ -650,6 +659,61 @@ internal sealed class HoverHandler : IHoverHandler
                 Value = hoverText
             }),
             Range = PositionHelper.ToRange(sourceText, display.Span)
+        };
+    }
+
+    private static Hover? TryBuildAttachedMacroHover(
+        SourceText sourceText,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset)
+    {
+        SyntaxToken token;
+        try
+        {
+            token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+        }
+        catch
+        {
+            return null;
+        }
+
+        var attribute = token.GetAncestor<AttributeSyntax>();
+        if (attribute is null ||
+            !attribute.Name.Span.Contains(token.Span) ||
+            !attribute.TryGetMacroName(out var macroName))
+        {
+            return null;
+        }
+
+        var symbolInfo = semanticModel.GetSymbolInfo(attribute);
+        var macroSymbol = symbolInfo.Symbol as IMacroSymbol
+            ?? symbolInfo.CandidateSymbols.OfType<IMacroSymbol>().FirstOrDefault();
+        if (macroSymbol is null || macroSymbol.MacroKind != MacroKind.AttachedDeclaration)
+            return null;
+
+        var invocationDisplay = attribute.ArgumentList is null
+            ? $"#[{macroName}]"
+            : $"#[{macroName}(...)]";
+        var parts = new List<string> { $"Macro `{invocationDisplay}`." };
+
+        if (TryGetMacroHint(semanticModel.Compilation, macroName, out var macroHint))
+            parts.Add(macroHint);
+
+        var documentation = FormatDocumentation(macroSymbol.GetDocumentationComment());
+        if (!string.IsNullOrWhiteSpace(documentation))
+            parts.Add($"---\n\n{documentation}");
+
+        parts.Add("Use `Show macro expansion` to inspect the full expansion.");
+
+        return new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = string.Join("\n\n", parts)
+            }),
+            Range = PositionHelper.ToRange(sourceText, attribute.Name.Span)
         };
     }
 

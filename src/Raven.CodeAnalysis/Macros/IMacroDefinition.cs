@@ -21,6 +21,16 @@ public interface IMacroDefinition
     string? Alias => null;
 
     /// <summary>
+    /// Gets optional documentation presented for this macro by language services.
+    /// Macro declarations project their documentation comments automatically;
+    /// class-authored macros may provide the same Markdown directly.
+    /// </summary>
+    string? Documentation => null;
+
+    /// <summary>Gets the source format of <see cref="Documentation"/>.</summary>
+    DocumentationFormat DocumentationFormat => DocumentationFormat.Markdown;
+
+    /// <summary>
     /// Gets the grammar positions in which an invocable macro can appear.
     /// </summary>
     /// <remarks>

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -11,7 +12,8 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
         string canonicalName,
         ImmutableArray<string> aliases,
         MacroDefinitionDescriptor descriptor,
-        INamespaceSymbol containingNamespace)
+        INamespaceSymbol containingNamespace,
+        INamedTypeSymbol? implementationType)
         : base(
             SymbolKind.Macro,
             name,
@@ -25,6 +27,7 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
         CanonicalName = canonicalName;
         Aliases = aliases;
         Descriptor = descriptor;
+        ImplementationType = implementationType;
     }
 
     public override string MetadataName => Name;
@@ -46,6 +49,21 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
     public ImmutableArray<string> Aliases { get; }
 
     internal MacroDefinitionDescriptor Descriptor { get; }
+
+    internal INamedTypeSymbol? ImplementationType { get; }
+
+    public override DocumentationComment? GetDocumentationComment()
+    {
+        if (ImplementationType?.GetDocumentationComment() is { } implementationDocumentation)
+            return implementationDocumentation;
+
+        var documentation = Descriptor.Definition.Documentation;
+        return string.IsNullOrWhiteSpace(documentation)
+            ? null
+            : DocumentationComment.Create(
+                Descriptor.Definition.DocumentationFormat,
+                documentation);
+    }
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 

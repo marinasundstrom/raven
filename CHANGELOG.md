@@ -41,6 +41,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   symbols onto their declaring DSL tokens, enabling ordinary hover information
   on declarations such as the `value` in `from value in items`.
 
+- Hovering an invocable or attached macro name now includes documentation from
+  the macro implementation alongside its macro kind, targets, arguments, and
+  expansion command guidance.
+
 - Hardened macro-reference activation so provider-construction failures report
   the provider type and underlying error through `RAVM001`, remain stable across
   repeated diagnostics, and do not disable macros from healthy references.

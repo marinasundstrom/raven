@@ -19,5 +19,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Raven.LanguageServer\Raven.LanguageServer.csproj" />
+    <ProjectReference Include="..\..\src\Raven.Macros\Raven.Macros.rvnproj" />
   </ItemGroup>
 </Project>

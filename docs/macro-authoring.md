@@ -592,6 +592,15 @@ provider for ordinary Raven fragments. Go-to-definition uses the same result:
 caller symbols navigate to their ordinary Raven declarations. A
 DSL-introduced local can also supply its declaration token span:
 
+Hovering the macro name itself presents the macro symbol, its invocation or
+attachment details, and the command that reveals its expansion. Documentation
+comments on compact `macro` declarations are projected onto that runtime macro
+symbol automatically. A class-authored provider can offer the same experience
+by implementing the optional `IMacroDefinition.Documentation` property;
+`DocumentationFormat` defaults to Markdown. Keep DSL token hover semantic by
+publishing fragments or token-symbol associations rather than folding a custom
+hover protocol into the macro.
+
 Fragments may contain another token-tree macro invocation. When the nested
 macro reports its own fragment regions, semantic lookup descends recursively
 and carries the lexical bindings visible at that invocation into the nested

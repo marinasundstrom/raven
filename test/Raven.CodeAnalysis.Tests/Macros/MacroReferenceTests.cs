@@ -178,6 +178,7 @@ public sealed class MacroReferenceTests
 
             namespace Example.Macros
 
+            /// Expands to `42`; `$value` remains documentation text.
             [Raven.CodeAnalysis.Macros.MacroAlias("answer")]
             public macro Answer(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
                 expand Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult.FromExpression(
@@ -209,6 +210,8 @@ public sealed class MacroReferenceTests
         Assert.Equal("Example.Macros", macro.Namespace);
         Assert.Equal("Answer", macro.Name);
         Assert.Equal("answer", macro.Alias);
+        Assert.Equal("Expands to `42`; `$value` remains documentation text.", macro.Documentation);
+        Assert.Equal(DocumentationFormat.Markdown, macro.DocumentationFormat);
 
         var consumer = Compilation.Create(
                 "Consumer",

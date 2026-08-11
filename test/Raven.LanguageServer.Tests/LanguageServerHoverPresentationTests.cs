@@ -328,6 +328,78 @@ func Main() {
     }
 
     [Fact]
+    public void MacroInvocationHover_IncludesImplementationDocumentation()
+    {
+        const string code = """
+import Raven.Macros.*
+
+func Main() {
+    let values = query! {
+        from value in [1, 2, 3]
+        select value
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var (metadataReference, macroReference) = CreateRavenMacrosReferences();
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default, metadataReference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(macroReference);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText();
+        var offset = code.IndexOf("query!", StringComparison.Ordinal) + 1;
+        var tryBuild = typeof(HoverHandler)
+            .GetMethod("TryBuildMacroInvocationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var hover = tryBuild.Invoke(null, [sourceText, semanticModel, root, offset])
+            .ShouldBeOfType<Hover>();
+
+        hover.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Invocable macro");
+        hover.Contents.MarkupContent.Value.ShouldContain("Expands a small LINQ-style query DSL");
+        hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
+    }
+
+    [Fact]
+    public void AttachedMacroHover_IncludesImplementationDocumentationAndMacroDetails()
+    {
+        const string code = """
+import Raven.Macros.*
+
+#[Error]
+union ParseError {
+    case InvalidValue(value: string)
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var (metadataReference, macroReference) = CreateRavenMacrosReferences();
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default, metadataReference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(macroReference);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText();
+        var offset = code.IndexOf("Error", StringComparison.Ordinal) + 1;
+        var tryBuild = typeof(HoverHandler)
+            .GetMethod("TryBuildAttachedMacroHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var hover = tryBuild.Invoke(null, [sourceText, semanticModel, root, offset])
+            .ShouldBeOfType<Hover>();
+
+        hover.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Attached declaration macro");
+        hover.Contents.MarkupContent.Value.ShouldContain("Derives Raven's standard error contract");
+        hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
+    }
+
+    [Fact]
     public void SymbolResolver_DottedPropertyPattern_ResolvesEveryMemberSegment()
     {
         const string code = """
@@ -380,6 +452,14 @@ func Test(item: Foo) -> bool {
                     MacroFragmentKind.Expression,
                     new TextSpan(0, context.BodySpan.Length))
             ];
+    }
+
+    private static (PortableExecutableReference Metadata, MacroReference Macros) CreateRavenMacrosReferences()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Raven.Macros.dll");
+        File.Exists(path).ShouldBeTrue($"Expected Raven.Macros at '{path}'.");
+        var metadataReference = MetadataReference.CreateFromFile(path);
+        return (metadataReference, MacroReference.CreateFromFile(path));
     }
 
     private sealed class TargetTypedHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
