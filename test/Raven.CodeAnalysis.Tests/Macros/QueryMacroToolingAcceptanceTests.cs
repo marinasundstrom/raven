@@ -109,6 +109,38 @@ public sealed class QueryMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInQueryMacro_ExposesIntroducedRangeVariableAtDeclaration()
+    {
+        var macroReference = CreateCheckedInQueryMacroReference();
+        const string source = """
+            import Raven.Macros.*
+
+            func Test() {
+                let items = [1, 2, 3, 4]
+                let result = query! {
+                    from value in items
+                    select value
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "query-range-declaration.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+        var snapshot = compilation.GetMacroInputSnapshot(invocation);
+
+        var declaration = Assert.Single(
+            snapshot.Tokens,
+            token => token.Text == "value" && token.Symbol is not null);
+        var rangeVariable = Assert.IsAssignableFrom<ILocalSymbol>(declaration.Symbol);
+        Assert.Equal("value", rangeVariable.Name);
+        Assert.Equal(SpecialType.System_Int32, rangeVariable.Type.SpecialType);
+        Assert.Equal(declaration.Span, Assert.Single(rangeVariable.Locations).SourceSpan);
+    }
+
+    [Fact]
     public void CheckedInQueryMacro_RoutesCallerCompletionInsideSourceExpression()
     {
         var macroReference = CreateCheckedInQueryMacroReference();

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Threading;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -54,6 +55,11 @@ internal static class MacroTokenInfoService
             var classifier = loaded.Macro as IMacroTokenClassifier;
             var kindProvider = loaded.Macro as IMacroTokenKindProvider;
             var symbolProvider = loaded.Macro as IMacroTokenSymbolProvider;
+            var fragmentRegions = MacroFragmentRegionService.GetFragmentRegions(
+                semanticModel,
+                expression,
+                resolutionContext,
+                cancellationToken);
             var stream = context.CreateTokenStream();
             var builder = ImmutableArray.CreateBuilder<MacroTokenInfo>();
 
@@ -63,7 +69,8 @@ internal static class MacroTokenInfoService
                 var token = stream.ReadToken();
                 var kindName = GetKindName(kindProvider, token);
                 var classification = GetClassification(classifier, context, token);
-                var symbol = GetSymbol(symbolProvider, context, token);
+                var symbol = GetSymbol(symbolProvider, context, token) ??
+                    GetDeclaredFragmentLocalSymbol(semanticModel, expression, fragmentRegions, token);
 
                 builder.Add(context.CreateTokenInfo(token, kindName, classification, symbol));
             }
@@ -161,5 +168,33 @@ internal static class MacroTokenInfoService
             // Optional semantic metadata must not invalidate the token snapshot.
             return null;
         }
+    }
+
+    private static ISymbol? GetDeclaredFragmentLocalSymbol(
+        SemanticModel semanticModel,
+        InvocableMacroExpressionSyntax expression,
+        ImmutableArray<MacroFragmentRegion> regions,
+        SyntaxToken token)
+    {
+        var tokenSpan = new TextSpan(
+            expression.TokenTree!.OpenBraceToken.Span.End + token.Span.Start,
+            token.Span.Length);
+        var local = regions
+            .SelectMany(static region => region.Locals)
+            .FirstOrDefault(candidate => candidate.DeclarationSpan == tokenSpan);
+        if (local is null)
+            return null;
+
+        var binder = semanticModel.GetBinder(expression);
+        var containingSymbol = binder.ContainingSymbol ?? semanticModel.Compilation.GlobalNamespace;
+        return new SourceLocalSymbol(
+            local.Name,
+            local.Type,
+            isMutable: false,
+            containingSymbol,
+            containingSymbol.ContainingType,
+            containingSymbol as INamespaceSymbol ?? containingSymbol.ContainingNamespace,
+            [Location.Create(semanticModel.SyntaxTree, tokenSpan)],
+            declaringSyntaxReferences: []);
     }
 }
