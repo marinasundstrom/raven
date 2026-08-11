@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added standalone `rvnc` options for explicit alternative-runtime reference
+  closures: `--no-framework-references` suppresses the host .NET targeting pack,
+  while `--target-core-library` adds and selects the target core-library
+  identity used during emission.
+
 - Added `EmitOptions.TargetCoreLibraryIdentity`, allowing compiler hosts to
   retarget emitted host core type references to a supplied runtime core-library
   identity without loading target assemblies for execution.

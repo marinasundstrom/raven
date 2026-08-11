@@ -42,6 +42,8 @@ var isCompilerDriverInvocation =
 
 // Options:
 // --framework <tfm> - target framework
+// --no-framework-references - do not add the default .NET targeting-pack references
+// --target-core-library <path> - retarget emitted core type scopes to this assembly identity
 // --configuration <name> - MSBuild configuration used to evaluate a project
 // --refs <path>     - additional metadata reference (repeatable)
 // --define <symbols> - conditional compilation symbols (comma/semicolon separated)
@@ -88,6 +90,8 @@ var applicationArguments = new List<string>();
 var additionalRefs = new List<string>();
 var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
+string? targetCoreLibraryPath = null;
+var includeFrameworkReferences = true;
 string? requestedConfiguration = null;
 string? outputPath = null;
 string? dependencyFilePath = null;
@@ -352,6 +356,15 @@ for (int i = 0; i < args.Length; i++)
         case "--refs":
             if (i + 1 < args.Length)
                 additionalRefs.Add(args[++i]);
+            break;
+        case "--no-framework-references":
+            includeFrameworkReferences = false;
+            break;
+        case "--target-core-library":
+            if (i + 1 < args.Length)
+                targetCoreLibraryPath = args[++i];
+            else
+                hasInvalidOption = true;
             break;
         case "--define":
         case "-define":
@@ -650,6 +663,33 @@ var projectFileInput = sourceFiles.Count == 1 &&
                        IsRavenProjectFile(sourceFiles[0])
     ? sourceFiles[0]
     : null;
+
+if (projectFileInput is not null && !includeFrameworkReferences)
+{
+    AnsiConsole.MarkupLine("[red]--no-framework-references currently supports standalone source compilation only.[/]");
+    Environment.ExitCode = 1;
+    return;
+}
+
+AssemblyName? targetCoreLibraryIdentity = null;
+if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
+{
+    targetCoreLibraryPath = Path.GetFullPath(targetCoreLibraryPath);
+    if (!File.Exists(targetCoreLibraryPath) || !IsValidAssemblyReference(targetCoreLibraryPath))
+    {
+        AnsiConsole.MarkupLine(
+            $"[red]Target core library '{Markup.Escape(targetCoreLibraryPath)}' is not a valid managed assembly.[/]");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    targetCoreLibraryIdentity = AssemblyName.GetAssemblyName(targetCoreLibraryPath);
+    if (!additionalRefs.Any(reference =>
+            string.Equals(Path.GetFullPath(reference), targetCoreLibraryPath, StringComparison.OrdinalIgnoreCase)))
+    {
+        additionalRefs.Add(targetCoreLibraryPath);
+    }
+}
 
 var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
 var projectConfiguration = requestedConfiguration is null
@@ -1032,7 +1072,7 @@ if (projectFileInput is not null)
             (project.ParseOptions?.PreprocessorSymbolNames ?? [])
             .Concat(conditionalSymbols)));
 
-    if (targetFrameworkTfm is not null)
+    if (targetFrameworkTfm is not null && includeFrameworkReferences)
     {
         var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
             .Select(MetadataReference.CreateFromFile)
@@ -1071,13 +1111,16 @@ else
         project = preludeDocument.Project;
     }
 
-    var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
-        .Select(MetadataReference.CreateFromFile)
-        .ToArray();
-
-    foreach (var reference in frameworkReferences)
+    if (includeFrameworkReferences)
     {
-        project = project.AddMetadataReference(reference);
+        var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+
+        foreach (var reference in frameworkReferences)
+        {
+            project = project.AddMetadataReference(reference);
+        }
     }
 }
 
@@ -1264,9 +1307,11 @@ if (!noEmit)
         using (var stream = File.Open(tempOutputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
         using (var pdbStream = File.Open(tempPdbFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            result = requiresWorkspaceDiagnostics
-                ? compilation.Emit(stream, pdbStream, diagnostics)
-                : compilation.Emit(stream, pdbStream);
+            result = compilation.Emit(
+                stream,
+                pdbStream,
+                requiresWorkspaceDiagnostics ? diagnostics : null,
+                targetCoreLibraryIdentity is null ? null : new EmitOptions(targetCoreLibraryIdentity));
         }
 
         if (result.Success)
@@ -2493,6 +2538,10 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("Compiler options:");
         Console.WriteLine("  --version          Print the Raven version");
         Console.WriteLine("  --framework <tfm>  Target framework (e.g. net10.0)");
+        Console.WriteLine("  --no-framework-references");
+        Console.WriteLine("                     Do not add the default .NET targeting pack (standalone sources only).");
+        Console.WriteLine("  --target-core-library <path>");
+        Console.WriteLine("                     Retarget emitted core type scopes to the supplied assembly identity.");
         Console.WriteLine("  --configuration <name>");
         Console.WriteLine("                     MSBuild configuration used to evaluate a project (default: Debug)");
         Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");

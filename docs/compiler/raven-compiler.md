@@ -95,6 +95,10 @@ editors can discover the same SDK root.
 ## `rvnc` Options
 
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
+- `--no-framework-references` &ndash; do not add the default .NET targeting-pack
+  references; currently supported for standalone source compilation only
+- `--target-core-library <path>` &ndash; add the supplied core library as a
+  reference and retarget emitted core type scopes to its assembly identity
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
 - `--define <symbols>`, `-define <symbols>` &ndash; add conditional-compilation
   symbols; repeat the option or separate symbols with commas or semicolons
@@ -114,6 +118,23 @@ editors can discover the same SDK root.
   handled as errors
 - `--no-emit` &ndash; analyze only; skip assembly emission
 - `-h`, `--help` &ndash; show help
+
+Alternative managed runtimes can provide an explicit reference closure instead
+of inheriting the compiler host's .NET targeting pack. For example:
+
+```bash
+rvnc \
+  --no-framework-references \
+  --target-core-library path/to/mscorlib.dll \
+  --refs path/to/Target.Library.dll \
+  --emit-core-types-only \
+  app.rvn \
+  -o app.dll
+```
+
+These switches control Raven's managed assembly emission. Any target-specific
+validation, conversion, packaging, or deployment step still runs afterward.
+See [Target platforms](target-platforms.md) for the current support levels.
 
 Nullability is enforced from Raven's static type model. Nullable storage is not
 implicitly refined by branches; use a typed pattern binding to obtain a
