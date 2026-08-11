@@ -293,6 +293,32 @@ class A {
     }
 
     [Fact]
+    public void GetCompilation_ShouldUseReplacedMetadataReferences()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+        var originalReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        solution = solution.AddMetadataReference(projectId, originalReference);
+        workspace.TryApplyChanges(solution);
+
+        var originalCompilation = workspace.GetCompilation(projectId);
+        Assert.Contains(originalReference, originalCompilation.References);
+
+        var replacementReference = MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.WithMetadataReferences([replacementReference]);
+        workspace.TryApplyChanges(project.Solution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        Assert.NotSame(originalCompilation, updatedCompilation);
+        Assert.DoesNotContain(originalReference, updatedCompilation.References);
+        Assert.Contains(replacementReference, updatedCompilation.References);
+    }
+
+    [Fact]
     public void GetCompilation_ShouldIncludeProjectReferences()
     {
         var workspace = new AdhocWorkspace();

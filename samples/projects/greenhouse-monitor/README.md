@@ -75,7 +75,6 @@ same binary can validate Raven's AOT pipeline without attached sensors; a real
 device adapter can replace `SimulatedTelemetrySource` without changing the
 union-based state model and evaluation functions.
 
-The current publish is expected to report `IL2070` trim-analysis warnings for
-Raven's synthesized record and union formatting helpers. The executable is
-produced and runs successfully, but removing that reflective lookup remains
-compiler-owned AOT work.
+The current publish completes without trim-analysis warnings. Raven-generated
+records, unions, and union cases use a Raven.Core structured-display marker so
+their synthesized formatting helpers do not need reflective method discovery.
