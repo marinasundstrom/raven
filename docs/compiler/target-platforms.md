@@ -11,7 +11,7 @@ artifact. A target does not define a separate Raven language dialect.
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
 | .NET Native AOT | Experimental | A Raven console application has been published as a native macOS Arm64 executable and run successfully. | Some synthesized union formatting helpers currently produce trimming warnings because they use reflection. Broader platform and library coverage is still needed. |
-| .NET nanoFramework | Investigation | With an explicit nanoFramework reference closure, Raven can emit a minimal assembly whose only assembly reference is nanoFramework `mscorlib`; the metadata processor accepts it and converts it to its compact `NFMRK2` `.pe` format. | Richer programs still encounter target-surface assumptions in synthesized compiler helpers. Raven cannot yet deploy or run an application on nanoCLR or a device. |
+| .NET nanoFramework | Investigation | With an explicit nanoFramework reference closure, Raven can emit both a minimal probe and the temperature/union/GPIO example below; the metadata processor accepts both and converts them to compact `NFMRK2` `.pe` files. | Raven has not yet deployed or run an application on nanoCLR, an emulator, or a device. Target profiles, a nanoFramework Raven.Core build, packaging automation, and broader runtime validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
 yet covered across the supported platform matrix. “Investigation” records a
@@ -103,7 +103,10 @@ The investigation established the following:
   metadata processor and converted to an `NFMRK2` `.pe` file; and
 - after supplying the nanoFramework core library and suppressing the host .NET
   targeting pack, the emitted probe referenced nanoFramework `mscorlib`
-  version `2.0.0.0` and no desktop core library.
+  version `2.0.0.0` and no desktop core library; and
+- the temperature-state example below compiled against nanoFramework DHT,
+  UnitsNet, GPIO, I²C, device-model, and runtime references, then converted to a
+  9.9 KiB `NFMRK2` image.
 
 This snapshot was recorded on August 11, 2026 using
 `nanoFramework.CoreLibrary` `2.0.0-preview.52` and the metadata processor CLI
@@ -113,12 +116,11 @@ to those particular preview versions. See the nanoFramework documentation for
 its [compact PE format](https://docs.nanoframework.net/content/architecture/pe-file/index.html)
 and the official [metadata processor](https://github.com/nanoframework/metadata-processor).
 
-The probe validates Raven's general IL-to-metadata shape, explicit reference
-closure, core-library retargeting, and the feasibility of using the existing
-nanoFramework packaging tool. It does not establish runtime compatibility. A
-richer temperature-state probe progressed through binding but exposed a
-compiler-generated union-formatting dependency on `System.Type.IsPrimitive`,
-which the inspected nanoFramework core library does not provide.
+The probes validate Raven's general IL-to-metadata shape, explicit reference
+closure, core-library retargeting, representative embedded library binding,
+union and pattern emission, and the feasibility of using the existing
+nanoFramework packaging tool. They do not establish nanoCLR runtime or device
+compatibility.
 
 Generics are consequently not treated as a fundamental blocker or as a reason
 to create a reduced Raven syntax. The expected library strategy is to compile
@@ -150,9 +152,9 @@ on representative devices. Target support should preserve the useful language
 model while making those costs visible and avoiding unnecessary runtime
 dependencies.
 
-### Prospective temperature-monitor example
+### Temperature-monitor MVP probe
 
-The following example illustrates the intended Raven experience for a
+The following example is the current compile-and-package MVP probe for a
 nanoFramework application. A DHT sensor reading becomes a closed domain state.
 Successful cases retain the measured value, while `SensorUnavailable` prevents
 a failed read from masquerading as a real temperature. The pure `Classify`
@@ -218,9 +220,10 @@ func Main() {
 }
 ```
 
-This is a design example, not a currently deployable Raven program. Runnable
-support depends on target-capability work, a nanoFramework Raven.Core build,
-packaging integration, and device validation listed below. The sensor and GPIO calls follow nanoFramework's
+This source has passed Raven compilation and nanoFramework metadata conversion;
+it has not yet run under nanoCLR or on hardware. Runnable support still depends
+on a nanoFramework Raven.Core build, packaging integration, and device
+validation listed below. The sensor and GPIO calls follow nanoFramework's
 [`DHTxx`](https://docs.nanoframework.net/devicesdetails/Dhtxx/README.html) and
 [`System.Device.Gpio`](https://docs.nanoframework.net/api/System.Device.Gpio.GpioController.html)
 surfaces. Sensor implementations, pin numbering, and electrical requirements
@@ -247,8 +250,10 @@ Raven projects, and it does not by itself make an assembly runnable on nanoCLR.
    the compiler host's `System.Private.CoreLib`.
 3. Ensure metadata loading works from supplied reference images and does not
    require loading target assemblies into the host runtime.
-4. Make synthesized helpers capability-aware, beginning with union formatting
-   on runtimes that omit desktop reflection APIs.
+4. Continue making synthesized helpers capability-aware. Union formatting now
+   handles a core library without `Type.IsPrimitive` or
+   `string.Replace(string, string)`; other helpers still need an API-surface
+   audit.
 5. Produce a `netnano1.0` Raven.Core variant using conditional library sources
    where APIs differ.
 6. Integrate the nanoFramework metadata processor as a packaging stage after

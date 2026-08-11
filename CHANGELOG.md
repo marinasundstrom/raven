@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made synthesized union value formatting emit against reduced managed runtime
+  surfaces that omit `Type.IsPrimitive` and `string.Replace(string, string)`,
+  while preserving full escaping when the target provides the replace API.
+
 - Added standalone `rvnc` options for explicit alternative-runtime reference
   closures: `--no-framework-references` suppresses the host .NET targeting pack,
   while `--target-core-library` adds and selects the target core-library

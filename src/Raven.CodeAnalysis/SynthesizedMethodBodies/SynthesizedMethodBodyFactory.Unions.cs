@@ -676,7 +676,7 @@ internal static partial class SynthesizedMethodBodyFactory
         var bindingFlagsType = compilation.GetTypeByMetadataName("System.Reflection.BindingFlags")
             ?? throw new InvalidOperationException("Failed to resolve System.Reflection.BindingFlags.");
         var typeIsEnumGetter = ResolvePropertyGetter(typeType, nameof(Type.IsEnum));
-        var typeIsPrimitiveGetter = ResolvePropertyGetter(typeType, nameof(Type.IsPrimitive));
+        var typeIsPrimitiveGetter = TryResolvePropertyGetter(typeType, nameof(Type.IsPrimitive));
         var typeGetMethod = ResolveMethod(typeType, nameof(Type.GetMethod), [stringType, bindingFlagsType]);
         var helperLookupFlags = new BoundLiteralExpression(
             BoundLiteralExpressionKind.NumericLiteral,
@@ -689,6 +689,12 @@ internal static partial class SynthesizedMethodBodyFactory
         var valueAccess = new BoundParameterAccess(valueParameter);
         var valueTypeAccess = new BoundParameterAccess(valueTypeParameter);
         var renderStructuredAccess = new BoundParameterAccess(renderStructuredParameter);
+        var runtimePrimitiveAccess = typeIsPrimitiveGetter is not null
+            ? new BoundInvocationExpression(
+                typeIsPrimitiveGetter,
+                Array.Empty<BoundExpression>(),
+                valueTypeAccess)
+            : CreateRuntimePrimitiveTypeCheck(compilation, valueTypeAccess, typeType);
         var runtimeStructuredAccess = CreateBinaryExpression(
             compilation,
             SyntaxKind.BarBarToken,
@@ -699,10 +705,7 @@ internal static partial class SynthesizedMethodBodyFactory
             CreateBinaryExpression(
                 compilation,
                 SyntaxKind.BarBarToken,
-                new BoundInvocationExpression(
-                    typeIsPrimitiveGetter,
-                    Array.Empty<BoundExpression>(),
-                    valueTypeAccess),
+                runtimePrimitiveAccess,
                 CreateBinaryExpression(
                     compilation,
                     SyntaxKind.BarBarToken,
@@ -790,6 +793,50 @@ internal static partial class SynthesizedMethodBodyFactory
                 CreateStringLiteral(compilation, ">")
             ])));
         return new BoundBlockStatement(statements);
+    }
+
+    private static BoundExpression CreateRuntimePrimitiveTypeCheck(
+        Compilation compilation,
+        BoundExpression runtimeType,
+        ITypeSymbol typeType)
+    {
+        BoundExpression result = CreateBoolLiteral(compilation, false);
+        SpecialType[] primitiveTypes =
+        [
+            SpecialType.System_Boolean,
+            SpecialType.System_Char,
+            SpecialType.System_SByte,
+            SpecialType.System_Byte,
+            SpecialType.System_Int16,
+            SpecialType.System_UInt16,
+            SpecialType.System_Int32,
+            SpecialType.System_UInt32,
+            SpecialType.System_Int64,
+            SpecialType.System_UInt64,
+            SpecialType.System_Single,
+            SpecialType.System_Double,
+            SpecialType.System_IntPtr,
+            SpecialType.System_UIntPtr
+        ];
+
+        foreach (var specialType in primitiveTypes)
+        {
+            var primitiveType = compilation.GetSpecialType(specialType);
+            if (primitiveType is null || primitiveType.TypeKind == TypeKind.Error)
+                continue;
+
+            result = CreateBinaryExpression(
+                compilation,
+                SyntaxKind.BarBarToken,
+                result,
+                CreateBinaryExpression(
+                    compilation,
+                    SyntaxKind.EqualsEqualsToken,
+                    runtimeType,
+                    new BoundTypeOfExpression(primitiveType, typeType)));
+        }
+
+        return result;
     }
 
     private static bool CanRenderStructuredDisplay(ITypeSymbol type)

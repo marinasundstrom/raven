@@ -18,6 +18,34 @@ namespace Raven.CodeAnalysis.Tests;
 public class UnionCodeGenTests
 {
     [Fact]
+    public void UnionFormatting_EmitsWhenCoreLibraryOmitsDesktopConvenienceApis()
+    {
+        const string code = """
+union TemperatureState {
+    case SensorUnavailable
+    case Comfortable(celsius: double)
+    case Label(text: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var coreLibrary = CreateCoreLibraryWithoutUnionFormattingConvenienceApis();
+        var compilation = Compilation.Create(
+            "reduced-core-union-formatting",
+            [syntaxTree],
+            [coreLibrary],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithEmbedCoreTypes(true)
+                .WithFrameworkProjectionMode(FrameworkProjectionMode.None));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.NotEqual(0, peStream.Length);
+    }
+
+    [Fact]
     public void Union_ImplementingInterface_EmitsInterfaceAndCallableMember()
     {
         const string code = """
@@ -51,6 +79,38 @@ public union Failure: IFailure {
 
         Assert.True(interfaceType.IsAssignableFrom(unionType));
         Assert.Equal("unknown failure", interfaceType.GetMethod("Describe")!.Invoke(value, null));
+    }
+
+    private static MetadataReference CreateCoreLibraryWithoutUnionFormattingConvenienceApis()
+    {
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var coreLibraryPath = TargetFrameworkResolver
+            .GetReferenceAssemblies(version)
+            .Single(path => Path.GetFileName(path) == "System.Runtime.dll");
+        using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(
+            coreLibraryPath,
+            new Mono.Cecil.ReaderParameters
+            {
+                InMemory = true,
+                ReadingMode = Mono.Cecil.ReadingMode.Immediate
+            });
+
+        var typeType = assembly.MainModule.GetType("System.Type");
+        var isPrimitive = typeType.Properties.Single(property => property.Name == nameof(Type.IsPrimitive));
+        typeType.Properties.Remove(isPrimitive);
+        if (isPrimitive.GetMethod is not null)
+            typeType.Methods.Remove(isPrimitive.GetMethod);
+
+        var stringType = assembly.MainModule.GetType("System.String");
+        var stringReplace = stringType.Methods.Single(method =>
+            method.Name == nameof(string.Replace) &&
+            method.Parameters.Count == 2 &&
+            method.Parameters.All(parameter => parameter.ParameterType.FullName == "System.String"));
+        stringType.Methods.Remove(stringReplace);
+
+        using var image = new MemoryStream();
+        assembly.Write(image);
+        return MetadataReference.CreateFromImage(image.ToArray());
     }
 
     [Fact]

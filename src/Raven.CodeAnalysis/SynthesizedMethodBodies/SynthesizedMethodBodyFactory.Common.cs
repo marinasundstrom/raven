@@ -186,8 +186,19 @@ internal static partial class SynthesizedMethodBodyFactory
             ?? throw new InvalidOperationException("Failed to resolve System.String.");
         var replace = stringType.GetMembers(nameof(string.Replace))
             .OfType<IMethodSymbol>()
-            .First(method => method.Parameters.Length == 2 &&
-                             method.Parameters.All(parameter => parameter.Type.GetNonNullableType().SpecialType == SpecialType.System_String));
+            .FirstOrDefault(method => method.Parameters.Length == 2 &&
+                                      method.Parameters.All(parameter => parameter.Type.GetNonNullableType().SpecialType == SpecialType.System_String));
+        if (replace is null)
+        {
+            return ConcatSequence(
+                compilation,
+                [
+                    CreateStringLiteral(compilation, quote),
+                    value,
+                    CreateStringLiteral(compilation, quote)
+                ]);
+        }
+
         var escapedBackslashes = new BoundInvocationExpression(
             replace,
             [CreateStringLiteral(compilation, "\\"), CreateStringLiteral(compilation, "\\\\")],
@@ -250,6 +261,14 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static IMethodSymbol ResolvePropertyGetter(INamedTypeSymbol type, string propertyName)
     {
+        if (TryResolvePropertyGetter(type, propertyName) is { } getter)
+            return getter;
+
+        throw new InvalidOperationException($"Failed to resolve property getter '{type.ToDisplayString()}.{propertyName}'.");
+    }
+
+    private static IMethodSymbol? TryResolvePropertyGetter(INamedTypeSymbol type, string propertyName)
+    {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
         {
             var getter = current.GetMembers(propertyName)
@@ -261,7 +280,7 @@ internal static partial class SynthesizedMethodBodyFactory
                 return getter;
         }
 
-        throw new InvalidOperationException($"Failed to resolve property getter '{type.ToDisplayString()}.{propertyName}'.");
+        return null;
     }
 
     private static SourceLocalSymbol CreateSynthesizedLocal(IMethodSymbol method, ITypeSymbol type, string name)
