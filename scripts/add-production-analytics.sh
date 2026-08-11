@@ -11,6 +11,7 @@ fi
 
 html_count=0
 injected_count=0
+fragment_count=0
 
 while IFS= read -r -d '' html_file; do
     html_count=$((html_count + 1))
@@ -20,8 +21,13 @@ while IFS= read -r -d '' html_file; do
     fi
 
     if ! grep -Fqi '</head>' "$html_file"; then
-        echo "Published HTML page has no closing head element: $html_file" >&2
-        exit 1
+        if grep -Fqi '<html' "$html_file" || grep -Fqi '<head' "$html_file"; then
+            echo "Published HTML document has no closing head element: $html_file" >&2
+            exit 1
+        fi
+
+        fragment_count=$((fragment_count + 1))
+        continue
     fi
 
     perl -0pi -e 's{</head>}{    <!-- Google tag (gtag.js) -->\n    <script async src="https://www.googletagmanager.com/gtag/js?id=G-RWCPR800RE"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag('\''js'\'', new Date());\n\n      gtag('\''config'\'', '\''G-RWCPR800RE'\'');\n    </script>\n</head>}i' "$html_file"
@@ -39,4 +45,4 @@ if [[ "$html_count" -eq 0 ]]; then
     exit 1
 fi
 
-echo "Google Analytics is present in $html_count published HTML pages ($injected_count updated)."
+echo "Google Analytics is present in $((html_count - fragment_count)) published HTML pages ($injected_count updated, $fragment_count fragments skipped)."
