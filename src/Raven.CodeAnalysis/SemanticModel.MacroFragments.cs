@@ -46,6 +46,70 @@ public partial class SemanticModel
     }
 
     /// <summary>
+    /// Classifies the ordinary Raven syntax contained in all fragment regions
+    /// reported by a token-tree macro.
+    /// </summary>
+    internal SemanticClassificationResult GetMacroFragmentClassifications(
+        InvocableMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (expression.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
+        var tokenMap = new Dictionary<SyntaxToken, SemanticClassification>();
+        var triviaMap = new Dictionary<SyntaxTrivia, SemanticClassification>();
+        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
+        var parentBinder = GetBinder(expression);
+        var visibleSymbols = MacroFragmentBinder.CreateVisibleSymbols(
+            GetVisibleValueSymbols(expression, allowBindingFallback: true));
+
+        foreach (var region in GetMacroInputSnapshot(expression, cancellationToken).FragmentRegions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            SyntaxNode? fragment = region.Kind switch
+            {
+                MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
+                MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+                _ => null
+            };
+            if (fragment is null)
+                continue;
+
+            var binder = new MacroFragmentBinder(parentBinder, region.Locals, visibleSymbols, SyntaxTree);
+            switch (fragment)
+            {
+                case ExpressionSyntax fragmentExpression when region.TargetType is { } targetType:
+                    binder.BindExpressionWithTargetTypeForSemanticQuery(fragmentExpression, targetType);
+                    break;
+                case ExpressionSyntax fragmentExpression:
+                    binder.BindExpression(fragmentExpression);
+                    break;
+                case StatementSyntax fragmentStatement:
+                    binder.BindStatement(fragmentStatement);
+                    break;
+            }
+
+            var classification = SemanticClassifier.Classify(fragment, this, allowBinding: false);
+            foreach (var pair in classification.Tokens)
+                tokenMap[pair.Key] = pair.Value;
+            foreach (var token in fragment.DescendantTokens())
+            {
+                if (!tokenMap.ContainsKey(token) && SyntaxFacts.IsOverloadableOperatorToken(token.Kind))
+                    tokenMap[token] = SemanticClassification.Operator;
+            }
+            foreach (var pair in classification.Trivia)
+                triviaMap[pair.Key] = pair.Value;
+        }
+
+        return new SemanticClassificationResult(tokenMap, triviaMap);
+    }
+
+    /// <summary>
     /// Gets token metadata at an authored position inside a token-tree macro,
     /// including token-tree macros nested in reported Raven fragments.
     /// </summary>

@@ -34,6 +34,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added a Playground example that composes the standard `query!`, `quote!`,
   `#[Error]`, and `#[ErrorMessage]` macros in a runnable WebAssembly program.
 
+- Query macro bodies now classify their DSL keywords and project ordinary
+  Raven semantic highlighting through source, predicate, and selector fragments.
+
 - Hardened macro-reference activation so provider-construction failures report
   the provider type and underlying error through `RAVM001`, remain stable across
   repeated diagnostics, and do not disable macros from healthy references.

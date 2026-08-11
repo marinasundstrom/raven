@@ -22,7 +22,7 @@ import Raven.CodeAnalysis.Text.*
 ///     select value * 10
 /// }
 /// ```
-public class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragmentProvider {
+public class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragmentProvider, IMacroTokenClassifier {
     static val FromKeywordRawKind: int => 80005
     static val SelectKeywordRawKind: int => 80006
 
@@ -33,6 +33,25 @@ public class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragment
             MacroKeyword("from", FromKeywordRawKind, MacroKeywordClassification.ReservedWord),
             MacroKeyword("select", SelectKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ]
+
+    func ClassifyToken(
+        context: TokenTreeMacroContext,
+        token: SyntaxToken
+    ) -> MacroTokenClassification {
+        if token.RawKind == FromKeywordRawKind || token.RawKind == SelectKeywordRawKind {
+            return MacroTokenClassification.Default
+        }
+
+        if token.Kind == SyntaxKind.InKeyword || token.Kind == SyntaxKind.WhereKeyword {
+            return MacroTokenClassification.Keyword
+        }
+
+        if token.Kind == SyntaxKind.IdentifierToken {
+            return MacroTokenClassification.Identifier
+        }
+
+        MacroTokenClassification.Default
+    }
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
         let stream = context.CreateTokenStream()

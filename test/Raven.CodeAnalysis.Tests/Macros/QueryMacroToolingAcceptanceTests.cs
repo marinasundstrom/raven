@@ -48,6 +48,67 @@ public sealed class QueryMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInQueryMacro_ClassifiesDslAndEmbeddedRavenTokens()
+    {
+        var macroReference = CreateCheckedInQueryMacroReference();
+        const string source = """
+            import Raven.Macros.*
+
+            func Test() {
+                let items = [1, 2, 3, 4]
+                let result = query! {
+                    from value in items
+                    where value > 2
+                    select value * 10
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "query-classification.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+
+        var snapshot = semanticModel.GetMacroInputSnapshot(invocation);
+
+        Assert.Equal(
+            MacroTokenClassification.ReservedWord,
+            Assert.Single(snapshot.Tokens, static token => token.Text == "from").Classification);
+        Assert.Equal(
+            MacroTokenClassification.Keyword,
+            Assert.Single(snapshot.Tokens, static token => token.Text == "in").Classification);
+        Assert.Equal(
+            MacroTokenClassification.Keyword,
+            Assert.Single(snapshot.Tokens, static token => token.Text == "where").Classification);
+        Assert.Equal(
+            MacroTokenClassification.ReservedWord,
+            Assert.Single(snapshot.Tokens, static token => token.Text == "select").Classification);
+
+        var fragmentClassifications = semanticModel.GetMacroFragmentClassifications(invocation);
+        Assert.Contains(
+            fragmentClassifications.Tokens,
+            pair => pair.Key.Text == "items" && pair.Value == SemanticClassification.Local);
+        Assert.Equal(
+            2,
+            fragmentClassifications.Tokens.Count(
+                pair => pair.Key.Text == "value" && pair.Value == SemanticClassification.Local));
+        Assert.Contains(
+            fragmentClassifications.Tokens,
+            pair => pair.Key.Text == "2" && pair.Value == SemanticClassification.NumericLiteral);
+        Assert.Contains(
+            fragmentClassifications.Tokens,
+            pair => pair.Key.Text == "10" && pair.Value == SemanticClassification.NumericLiteral);
+        Assert.Contains(
+            fragmentClassifications.Tokens,
+            pair => pair.Key.Text == ">" && pair.Value == SemanticClassification.Operator);
+        Assert.Contains(
+            fragmentClassifications.Tokens,
+            pair => pair.Key.Text == "*" && pair.Value == SemanticClassification.Operator);
+    }
+
+    [Fact]
     public void CheckedInQueryMacro_RoutesCallerCompletionInsideSourceExpression()
     {
         var macroReference = CreateCheckedInQueryMacroReference();

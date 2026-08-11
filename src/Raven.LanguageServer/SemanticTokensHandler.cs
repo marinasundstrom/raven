@@ -448,6 +448,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         CancellationToken cancellationToken)
     {
         var builder = ImmutableArray.CreateBuilder<SemanticTokenEntry>();
+        var declaredTypeTokenTypes = CollectDeclaredTypeTokenTypes(root);
         foreach (var expression in root.DescendantNodesAndSelf()
                      .OfType<InvocableMacroExpressionSyntax>()
                      .Where(static expression => expression.TokenTree is not null))
@@ -456,6 +457,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             var snapshot = semanticModel.GetMacroInputSnapshot(expression, cancellationToken);
             foreach (var token in snapshot.Tokens)
             {
+                if (snapshot.FragmentRegions.Any(region =>
+                        token.Span.Start >= region.Span.Start && token.Span.End <= region.Span.End))
+                {
+                    continue;
+                }
+
                 var tokenType = MapMacroTokenType(token.Classification);
                 if (tokenType is not null && token.Span.Length > 0)
                 {
@@ -463,6 +470,32 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                         token.Span,
                         tokenType,
                         ImmutableArray<SemanticTokenModifier>.Empty));
+                }
+            }
+
+            var fragmentClassifications = semanticModel.GetMacroFragmentClassifications(
+                expression,
+                cancellationToken);
+            foreach (var pair in fragmentClassifications.Tokens)
+            {
+                var entry = CreateEntry(
+                    pair.Key.Span,
+                    pair.Value,
+                    pair.Key,
+                    semanticModel,
+                    root,
+                    declaredTypeTokenTypes,
+                    allowBinding: false);
+                if (entry is not null)
+                    builder.Add(entry);
+            }
+
+            foreach (var pair in fragmentClassifications.Trivia)
+            {
+                foreach (var entry in CreateTriviaEntries(pair))
+                {
+                    if (entry is not null)
+                        builder.Add(entry);
                 }
             }
         }
