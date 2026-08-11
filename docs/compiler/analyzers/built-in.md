@@ -67,6 +67,28 @@ returned-value mode extends `RAV9034` to bare calls and member accesses.
 | `RAV9033` | Warning | Dispose a disposable value before leaving its scope. |
 | `RAV9034` | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
 
+### Known `RAV9027` macro-fragment gap
+
+`RAV9027` does not yet count a caller local as used when its only reference is
+inside an embedded Raven fragment reported by a macro. For example, `items` may
+currently receive an unused-local warning even though the Query macro binds and
+compiles its use correctly:
+
+```raven
+let items = [1, 2, 3, 4]
+let queryResult = query! {
+    from value in items
+    where value > 2
+    select value * 10
+}
+```
+
+This is an analyzer limitation, not a macro-expansion or fragment-binding
+error. Hover, completion, diagnostics, and semantic classification inside the
+reported fragments use the compiler's macro-fragment semantic model. The
+unused-local analyzer still needs to consume those semantic references before
+it can suppress `RAV9027` in this case.
+
 ## Choosing a policy
 
 Raven's defaults are recommendations, not a single mandatory programming
