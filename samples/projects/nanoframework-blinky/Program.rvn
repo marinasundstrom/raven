@@ -5,9 +5,11 @@ import System.Threading.*
 const LedPin: int = 25
 #endif
 
+func SelectLedPin<T>(pin: T) -> T { pin }
+
 func Main() {
     use gpio = GpioController()
-    use led = gpio.OpenPin(LedPin, PinMode.Output)
+    use led = gpio.OpenPin(SelectLedPin(LedPin), PinMode.Output)
 
     loop {
         led.Write(PinValue.High)

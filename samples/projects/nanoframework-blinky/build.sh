@@ -120,12 +120,12 @@ if [[ ! -f "$COMPILER_DLL" ]]; then
   exit 1
 fi
 
-CORE_LIBRARY="$(package_file nanoFramework.CoreLibrary 1.17.11 lib/mscorlib.dll)"
-CORE_LIBRARY_PE="$(package_file nanoFramework.CoreLibrary 1.17.11 lib/mscorlib.pe)"
-GPIO_LIBRARY="$(package_file nanoFramework.System.Device.Gpio 1.1.62 lib/System.Device.Gpio.dll)"
-GPIO_LIBRARY_PE="$(package_file nanoFramework.System.Device.Gpio 1.1.62 lib/System.Device.Gpio.pe)"
-EVENTS_LIBRARY="$(package_file nanoFramework.Runtime.Events 1.11.37 lib/nanoFramework.Runtime.Events.dll)"
-EVENTS_LIBRARY_PE="$(package_file nanoFramework.Runtime.Events 1.11.37 lib/nanoFramework.Runtime.Events.pe)"
+CORE_LIBRARY="$(package_file nanoFramework.CoreLibrary 2.0.0-preview.52 lib/netnano1.0/mscorlib.dll)"
+CORE_LIBRARY_PE="$(package_file nanoFramework.CoreLibrary 2.0.0-preview.52 lib/netnano1.0/mscorlib.pe)"
+GPIO_LIBRARY="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.18 lib/netnano1.0/System.Device.Gpio.dll)"
+GPIO_LIBRARY_PE="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.18 lib/netnano1.0/System.Device.Gpio.pe)"
+EVENTS_LIBRARY="$(package_file nanoFramework.Runtime.Events 2.0.0-preview.13 lib/netnano1.0/nanoFramework.Runtime.Events.dll)"
+EVENTS_LIBRARY_PE="$(package_file nanoFramework.Runtime.Events 2.0.0-preview.13 lib/netnano1.0/nanoFramework.Runtime.Events.pe)"
 
 METADATA_PROCESSOR_PACKAGE="$(find "$PACKAGES_DIR" -mindepth 1 -maxdepth 1 -type d -iname 'nanoFramework.Tools.MetadataProcessor.CLI.4.0.0-preview.101' -print -quit)"
 METADATA_PROCESSOR="$METADATA_PROCESSOR_PACKAGE/content/MetadataProcessor/nanoFramework.Tools.MetadataProcessor.exe"

@@ -156,7 +156,13 @@ dependencies.
 
 For the smallest deploy-first probe, see the
 [`nanoframework-blinky` sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/nanoframework-blinky).
-It uses Raven's `loop` construct to alternate a GPIO output with a timed delay.
+It uses Raven's `loop` construct to alternate a GPIO output with a timed delay
+and passes the selected pin through a generic Raven function. The sample pins a
+mutually compatible nanoFramework 2.0 preview managed reference closure so the
+probe covers generic metadata in addition to GPIO execution.
+The Pico W profile has also completed a hardware deployment probe on a Raspberry
+Pi Pico WH using `RP_PICO_W_RP2040` nanoCLR `2.0.0-preview.29`; the device loaded
+the Raven executable and its matching 2.0 managed reference closure.
 Its build profiles conditionally select GPIO 25 for non-wireless Pico and Pico 2
 boards, or accept an external LED GPIO for Pico W and Pico 2 W. The scripts
 compile, package, assemble the referenced compact assemblies into a deployment

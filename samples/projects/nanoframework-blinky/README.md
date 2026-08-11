@@ -2,7 +2,9 @@
 
 This is Raven's smallest useful .NET nanoFramework MVP sample. It opens an LED
 GPIO and uses Raven's unconditional `loop` construct to alternate the output
-between high and low every 500 milliseconds.
+between high and low every 500 milliseconds. The selected pin passes through a
+generic Raven function so the sample also exercises nanoFramework's 2.0 generic
+metadata and runtime support.
 
 ```raven
 loop {
@@ -54,9 +56,12 @@ Pico 2 W, select the GPIO connected to an external LED:
 ./build.sh --board pico2-w --led-pin 15
 ```
 
-The script restores a deliberately pinned, mutually matching nanoFramework
-core/GPIO snapshot, builds `rvnc` if necessary, compiles `Program.rvn`, and
-passes the result through the nanoFramework metadata processor. Outputs are:
+The script restores a deliberately pinned, mutually matching nanoFramework 2.0
+preview core/GPIO snapshot, builds `rvnc` if necessary, compiles `Program.rvn`,
+and passes the result through the nanoFramework metadata processor. The target
+firmware must provide the native contracts used by CoreLibrary
+`2.0.0-preview.52`, Runtime.Events `2.0.0-preview.13`, and GPIO
+`2.0.0-preview.18`. Outputs are:
 
 - `artifacts/<board>/NanoFrameworkBlinky.dll` &ndash; Raven's managed CLI assembly
 - `artifacts/<board>/NanoFrameworkBlinky.pe` &ndash; the compact `NFMRK2` image
@@ -84,6 +89,17 @@ Pico 2 profiles additionally require
 `--allow-unpublished-rp2350-firmware`. That flag is an acknowledgement, not a
 firmware installer: use it only after installing a compatible RP2350 nanoCLR
 build.
+
+## Hardware validation
+
+The Pico W profile has been deployed to a Raspberry Pi Pico WH running the
+`RP_PICO_W_RP2040` nanoCLR `2.0.0-preview.29` firmware. The device accepted and
+loaded `NanoFrameworkBlinky` together with the matching 2.0 managed reference
+closure. The deployed entry point includes the closed `SelectLedPin<int>`
+generic method and targets external GPIO 15. The onboard Pico WH LED is not part
+of this validation because it is attached to the CYW43 wireless controller; a
+visible blink requires an external LED and resistor or observation with a logic
+probe.
 
 References:
 

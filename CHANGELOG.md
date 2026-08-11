@@ -5,9 +5,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## Unreleased
 
 - Added a minimal nanoFramework Raspberry Pi Pico-family Blinky sample pinned
-  to mutually matching core and GPIO assembly versions, with board profiles,
-  reproducible Raven-to-`NFMRK2` build and deployment images, dry-run deployment
-  commands, and an explicit RP2350 firmware-support boundary.
+  to mutually matching 2.0 preview core and GPIO assembly versions, with a
+  generic Raven pin-selection probe, board profiles, reproducible
+  Raven-to-`NFMRK2` build and deployment images, dry-run deployment commands,
+  an explicit RP2350 firmware-support boundary, and a successful Pico WH
+  hardware deployment against the matching nanoCLR 2.0 preview runtime.
 
 - Added a reproducible nanoFramework temperature-monitor MVP sample that
   restores a pinned target reference closure, compiles union- and GPIO-based
