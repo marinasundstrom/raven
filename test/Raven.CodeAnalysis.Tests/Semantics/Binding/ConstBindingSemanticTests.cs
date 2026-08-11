@@ -371,6 +371,35 @@ extern const DeviceId: string
     }
 
     [Fact]
+    public void ExternalConst_OverriddenInitializerReportsInformationalDiagnosticWithoutValues()
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithExternalConstantValues(new Dictionary<string, string> { ["DeviceName"] = "sensitive-build-value" });
+        var (compilation, _) = CreateCompilation("extern const DeviceName: string = \"source-default\"", options);
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.ExternalConstantInitializerOverridden.Id, diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Info, diagnostic.Severity);
+        Assert.Equal(
+            "External constant 'DeviceName' uses a build-supplied value instead of its source initializer.",
+            diagnostic.GetMessage());
+        Assert.DoesNotContain("source-default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("sensitive-build-value", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExternalConst_RequiredSuppliedValueDoesNotReportOverrideDiagnostic()
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithExternalConstantValues(new Dictionary<string, string> { ["DeviceId"] = "sensor-42" });
+        var (compilation, _) = CreateCompilation("extern const DeviceId: string", options);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Id == CompilerDiagnostics.ExternalConstantInitializerOverridden.Id);
+    }
+
+    [Fact]
     public void ExternalConst_RequiresExplicitType()
     {
         var (compilation, _) = CreateCompilation("extern const DeviceName = \"RavenDevice\"");

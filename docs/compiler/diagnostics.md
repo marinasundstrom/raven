@@ -73,6 +73,7 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0176` | Error | External constant requires a value | External constant '{name}' requires a value. | — |
 | `RAV0177` | Error | External constant value cannot be converted | Value '{value}' cannot be converted to '{typeName}' for external constant '{name}'. | — |
 | `RAV0178` | Error | External constant requires an explicit type | External constant '{name}' must declare a type. | — |
+| `RAV0179` | Info | External constant initializer is overridden | External constant '{name}' uses a build-supplied value instead of its source initializer. | — |
 | `RAV0191` | Error | A readonly field cannot be assigned to (except in a constructor or a variable initializer) | A readonly field cannot be assigned to (except in a constructor or a variable initializer) | — |
 | `RAV0200` | Error | '{name}' is read-only and cannot be assigned to. | '{name}' is read-only and cannot be assigned to. | — |
 | `RAV0201` | Error | Event can only be used with '+=' or '-=' | The event '{name}' can only appear on the left hand side of '+=' or '-=' | `samples/oop/event-basic.rav` |

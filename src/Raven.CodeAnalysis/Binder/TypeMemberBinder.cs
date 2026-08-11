@@ -584,6 +584,13 @@ internal partial class TypeMemberBinder : Binder
                         constantValue = parsedValue;
                         constantValueComputed = true;
                         initializer = null;
+
+                        if (decl.Initializer is not null)
+                        {
+                            _diagnostics.ReportExternalConstantInitializerOverridden(
+                                decl.Identifier.ValueText,
+                                decl.Identifier.GetLocation());
+                        }
                     }
                     else
                     {

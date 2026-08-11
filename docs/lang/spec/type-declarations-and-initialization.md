@@ -102,7 +102,10 @@ The declaration must include an explicit type. An initializer is a source
 default and may be overridden externally. A declaration without an initializer
 is required and produces an error unless the build supplies a value. Supplied
 text is converted using invariant formatting and validated against the declared
-Raven type; it is never parsed as Raven source code.
+Raven type; it is never parsed as Raven source code. When a build-supplied value
+successfully overrides a source initializer, the compiler reports an
+informational diagnostic naming the declaration. The diagnostic deliberately
+omits both values so build secrets are not copied into logs.
 
 After binding, an external constant is indistinguishable from an ordinary
 constant to the rest of the program: constant folding, symbol APIs, metadata,

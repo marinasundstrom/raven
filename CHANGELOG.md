@@ -8,6 +8,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   forms, invariant type validation, `CompilationOptions` support, repeatable
   `rvnc` and `rvn build --constant NAME=VALUE` providers, `.rvnproj`
   `RavenConstant` items, and command-line-over-project-over-source precedence.
+  Successful overrides of source initializers now produce a value-redacted
+  informational diagnostic so build-time substitution remains visible.
   The nanoFramework Blinky sample now uses this facility for `LedPin` instead
   of generating Raven source.
 
