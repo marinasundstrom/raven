@@ -176,6 +176,18 @@ internal static class MsBuildProjectEvaluator
                 static group => group.Key,
                 static group => group.Last().Value,
                 StringComparer.Ordinal);
+        var externalConstantValues = project.GetItems("RavenConstant")
+            .Select(item => new
+            {
+                Name = item.EvaluatedInclude.Trim(),
+                Value = item.GetMetadataValue("Value")
+            })
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
+            .GroupBy(static item => item.Name, StringComparer.Ordinal)
+            .ToImmutableDictionary(
+                static group => group.Key,
+                static group => group.Last().Value,
+                StringComparer.Ordinal);
         var parseOptions = new ParseOptions { Features = macroOptions }
             .WithPreprocessorSymbols(
                 ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
@@ -188,7 +200,8 @@ internal static class MsBuildProjectEvaluator
             .WithRunAnalyzers(runAnalyzers)
             .WithEnableIsNotNullNarrowing(enableIsNotNullNarrowing)
             .WithDisabledAnalyzers(disabledAnalyzers)
-            .WithFrameworkProjectionMode(frameworkProjectionMode);
+            .WithFrameworkProjectionMode(frameworkProjectionMode)
+            .WithExternalConstantValues(externalConstantValues);
 
         if (emitCoreTypesOnly)
             compilationOptions = compilationOptions.WithEmbedCoreTypes(true);

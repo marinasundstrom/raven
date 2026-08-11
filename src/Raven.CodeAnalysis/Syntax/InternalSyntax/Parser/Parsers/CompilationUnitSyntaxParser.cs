@@ -580,7 +580,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                      SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.RecordKeyword or
-                     SyntaxKind.OverrideKeyword)
+                     SyntaxKind.OverrideKeyword ||
+                (kind == SyntaxKind.ExternKeyword && IsExternConstDeclarationStart()))
             {
                 modifiers = modifiers.Add(ReadToken());
             }
@@ -591,6 +592,23 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         }
 
         return modifiers;
+    }
+
+    private bool IsExternConstDeclarationStart()
+    {
+        for (var offset = 1; ; offset++)
+        {
+            var kind = PeekToken(offset).Kind;
+            if (kind == SyntaxKind.ConstKeyword)
+                return true;
+
+            if (kind is not (SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or
+                SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
+                SyntaxKind.StaticKeyword or SyntaxKind.ReadonlyKeyword))
+            {
+                return false;
+            }
+        }
     }
 
 }

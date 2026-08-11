@@ -8,6 +8,7 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 
 using Raven;
@@ -88,6 +89,7 @@ if (args.Length > 0 && string.Equals(args[0], "init", StringComparison.OrdinalIg
 var sourceFiles = new List<string>();
 var applicationArguments = new List<string>();
 var additionalRefs = new List<string>();
+var externalConstantValues = new Dictionary<string, string>(StringComparer.Ordinal);
 var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
 string? targetCoreLibraryPath = null;
@@ -381,6 +383,14 @@ for (int i = 0; i < args.Length; i++)
             {
                 hasInvalidOption = true;
             }
+            break;
+        case "--constant":
+            if (i + 1 >= args.Length || !TryParseExternalConstant(args[++i], externalConstantValues))
+                hasInvalidOption = true;
+            break;
+        case "--constant-overrides":
+            if (i + 1 >= args.Length || !TryDecodeExternalConstantOverrides(args[++i], externalConstantValues))
+                hasInvalidOption = true;
             break;
         case "--raven-core":
             if (i + 1 < args.Length)
@@ -1040,7 +1050,8 @@ var executionOptions = new CompilerExecutionOptions(
     embedCoreTypes,
     enableOverloadLog,
     overloadLogPath,
-    performanceInstrumentation);
+    performanceInstrumentation,
+    externalConstantValues);
 var optionsResult = CreateCompilationOptions(executionOptions);
 var options = optionsResult.Options;
 overloadResolutionLog = optionsResult.OverloadResolutionLog;
@@ -1158,7 +1169,9 @@ if (projectFileInput is not null)
             .WithAllowGlobalStatements(options.AllowGlobalStatements)
             .WithEnableSuggestions(options.EnableSuggestions)
             .WithRuntimeAsync(options.UseRuntimeAsync)
-            .WithEnableIsNotNullNarrowing(projectOptions.EnableIsNotNullNarrowing);
+            .WithEnableIsNotNullNarrowing(projectOptions.EnableIsNotNullNarrowing)
+            .WithExternalConstantValues(
+                projectOptions.ExternalConstantValues.SetItems(options.ExternalConstantValues));
 
         if (executionOptions.AllowNamespaceMembersSpecified)
             options = options.WithAllowNamespaceMembers(executionOptions.AllowNamespaceMembers);
@@ -1834,7 +1847,8 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
         .WithRuntimeAsync(executionOptions.UseRuntimeAsync)
         .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes)
         .WithEnableSuggestions(executionOptions.EnableSuggestions)
-        .WithPerformanceInstrumentation(executionOptions.PerformanceInstrumentation);
+        .WithPerformanceInstrumentation(executionOptions.PerformanceInstrumentation)
+        .WithExternalConstantValues(executionOptions.ExternalConstantValues);
 
     if (executionOptions.EnableAsyncInvestigation)
     {
@@ -2546,6 +2560,8 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("                     MSBuild configuration used to evaluate a project (default: Debug)");
         Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
         Console.WriteLine("  --define <symbols> Conditional compilation symbols separated by ',' or ';'");
+        Console.WriteLine("  --constant <name=value>");
+        Console.WriteLine("                     Supply or override a typed extern const (repeatable)");
         Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
         Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
         Console.WriteLine("  --output-type <console|classlib>");
@@ -2585,6 +2601,7 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  --define <symbols> Conditional compilation symbols separated by ',' or ';'");
+    Console.WriteLine("  --constant <name=value> Supply or override a typed extern const (repeatable)");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
     Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
     Console.WriteLine("  --emit-docs       Emit documentation from comments");
@@ -3086,6 +3103,48 @@ static bool TryParseNonNegativeInt(string[] args, ref int index, out int value)
     return true;
 }
 
+static bool TryParseExternalConstant(string specification, IDictionary<string, string> values)
+{
+    var separator = specification.IndexOf('=');
+    if (separator <= 0)
+    {
+        AnsiConsole.MarkupLine(
+            $"[red]Invalid external constant '{Markup.Escape(specification)}'. Expected NAME=VALUE.[/]");
+        return false;
+    }
+
+    var name = specification[..separator].Trim();
+    if (name.Length == 0)
+    {
+        AnsiConsole.MarkupLine("[red]External constant names cannot be empty.[/]");
+        return false;
+    }
+
+    values[name] = specification[(separator + 1)..];
+    return true;
+}
+
+static bool TryDecodeExternalConstantOverrides(string payload, IDictionary<string, string> values)
+{
+    try
+    {
+        var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+        var decoded = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+        if (decoded is null)
+            return false;
+
+        foreach (var pair in decoded)
+            values[pair.Key] = pair.Value;
+
+        return true;
+    }
+    catch (Exception ex) when (ex is FormatException or JsonException)
+    {
+        AnsiConsole.MarkupLine("[red]Invalid encoded external constant overrides.[/]");
+        return false;
+    }
+}
+
 static bool TryParseReturnedValueHandlingDiagnostic(
     string[] args,
     ref int index,
@@ -3225,4 +3284,5 @@ readonly record struct CompilerExecutionOptions(
     bool EmbedCoreTypes,
     bool EnableOverloadLog,
     string? OverloadLogPath,
-    PerformanceInstrumentation PerformanceInstrumentation);
+    PerformanceInstrumentation PerformanceInstrumentation,
+    IReadOnlyDictionary<string, string> ExternalConstantValues);

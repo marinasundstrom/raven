@@ -486,12 +486,17 @@ internal partial class TypeMemberBinder : Binder
             : "<field>";
         ReportPartialModifierNotSupported(modifiers, "field", firstDeclaratorName);
         if (IsNamespaceMembersContainer)
-            ReportInvalidNamespaceMemberModifiers(modifiers, "const", firstDeclaratorName);
+            ReportInvalidNamespaceMemberModifiers(
+                modifiers,
+                "const",
+                firstDeclaratorName,
+                allowExtern: declarationKeyword.IsKind(SyntaxKind.ConstKeyword));
         else
             ReportRedundantPublicModifierIfNeeded(modifiers);
 
         var fieldKeyword = declarationKeyword;
         var isConstDeclaration = declarationKeyword.IsKind(SyntaxKind.ConstKeyword);
+        var isExternalConstant = isConstDeclaration && modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
         var isReadonlyField = modifiers.Any(m => m.Kind == SyntaxKind.ReadonlyKeyword);
         var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
         if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } &&
@@ -522,6 +527,9 @@ internal partial class TypeMemberBinder : Binder
             BoundExpression? initializer = null;
             object? constantValue = null;
             var constantValueComputed = false;
+
+            if (isExternalConstant && decl.TypeAnnotation is null)
+                _diagnostics.ReportExternalConstantRequiresType(decl.Identifier.ValueText, decl.Identifier.GetLocation());
 
             if (decl.Initializer is not null)
             {
@@ -561,11 +569,39 @@ internal partial class TypeMemberBinder : Binder
             }
             else
             {
-                if (isConstDeclaration)
+                if (isConstDeclaration && !isExternalConstant)
                     _diagnostics.ReportConstFieldRequiresInitializer(decl.Identifier.ValueText, decl.Identifier.GetLocation());
             }
 
             fieldType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+            if (isExternalConstant)
+            {
+                if (Compilation.Options.ExternalConstantValues.TryGetValue(decl.Identifier.ValueText, out var externalValue))
+                {
+                    if (ConstantValueEvaluator.TryParseExternal(fieldType, externalValue, out var parsedValue))
+                    {
+                        constantValue = parsedValue;
+                        constantValueComputed = true;
+                        initializer = null;
+                    }
+                    else
+                    {
+                        var display = fieldType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        _diagnostics.ReportExternalConstantCannotConvert(
+                            externalValue,
+                            display,
+                            decl.Identifier.ValueText,
+                            decl.Identifier.GetLocation());
+                    }
+                }
+                else if (decl.Initializer is null)
+                {
+                    _diagnostics.ReportExternalConstantRequiresValue(
+                        decl.Identifier.ValueText,
+                        decl.Identifier.GetLocation());
+                }
+            }
 
             if (fieldType is RefTypeSymbol refType)
             {
@@ -4469,11 +4505,13 @@ internal partial class TypeMemberBinder : Binder
     private void ReportInvalidNamespaceMemberModifiers(
         SyntaxTokenList modifiers,
         string memberKind,
-        string memberName)
+        string memberName,
+        bool allowExtern = false)
     {
         foreach (var modifier in modifiers)
         {
-            if (modifier.Kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.FileprivateKeyword)
+            if (modifier.Kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.FileprivateKeyword ||
+                (allowExtern && modifier.IsKind(SyntaxKind.ExternKeyword)))
                 continue;
 
             _diagnostics.ReportModifierNotValidOnMember(modifier.Text, $"top-level {memberKind}", memberName, modifier.GetLocation());

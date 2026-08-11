@@ -87,6 +87,34 @@ class MathConstants {
 They remain compile-time constants and are emitted as metadata constants
 (implicitly static), similar to other .NET languages.
 
+### External constants
+
+An `extern const` declares a typed constant whose value may be supplied by the
+build host:
+
+```raven
+extern const SampleRate: int = 1000
+extern const DeviceName: string = "RavenDevice"
+extern const DeviceId: string
+```
+
+The declaration must include an explicit type. An initializer is a source
+default and may be overridden externally. A declaration without an initializer
+is required and produces an error unless the build supplies a value. Supplied
+text is converted using invariant formatting and validated against the declared
+Raven type; it is never parsed as Raven source code.
+
+After binding, an external constant is indistinguishable from an ordinary
+constant to the rest of the program: constant folding, symbol APIs, metadata,
+and emission observe the selected typed value. Provider precedence is:
+
+1. command-line value;
+2. evaluated `.rvnproj` value;
+3. source initializer.
+
+See [Raven compiler](../../compiler/raven-compiler.md) and
+[Project system](../../compiler/project-system.md) for provider syntax.
+
 ### Generic types
 
 Classes and structs optionally declare type parameters immediately after the

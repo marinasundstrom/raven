@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -7,6 +8,74 @@ namespace Raven.CodeAnalysis;
 
 internal static class ConstantValueEvaluator
 {
+    public static bool TryParseExternal(ITypeSymbol targetType, string text, out object? value)
+    {
+        targetType = UnwrapAlias(targetType);
+
+        if (targetType is LiteralTypeSymbol literalType)
+            targetType = literalType.UnderlyingType;
+
+        if (targetType is NullableTypeSymbol nullableType)
+            return TryParseExternal(nullableType.UnderlyingType, text, out value);
+
+        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType })
+            return TryParseExternal(underlyingType, text, out value);
+
+        var culture = CultureInfo.InvariantCulture;
+        var integerStyle = NumberStyles.Integer;
+        var floatingStyle = NumberStyles.Float;
+
+        switch (targetType.SpecialType)
+        {
+            case SpecialType.System_Object:
+            case SpecialType.System_String:
+                value = text;
+                return true;
+            case SpecialType.System_Boolean when bool.TryParse(text, out var boolean):
+                value = boolean;
+                return true;
+            case SpecialType.System_Char when text.Length == 1:
+                value = text[0];
+                return true;
+            case SpecialType.System_SByte when sbyte.TryParse(text, integerStyle, culture, out var signedByte):
+                value = signedByte;
+                return true;
+            case SpecialType.System_Byte when byte.TryParse(text, integerStyle, culture, out var unsignedByte):
+                value = unsignedByte;
+                return true;
+            case SpecialType.System_Int16 when short.TryParse(text, integerStyle, culture, out var signedInt16):
+                value = signedInt16;
+                return true;
+            case SpecialType.System_UInt16 when ushort.TryParse(text, integerStyle, culture, out var unsignedInt16):
+                value = unsignedInt16;
+                return true;
+            case SpecialType.System_Int32 when int.TryParse(text, integerStyle, culture, out var signedInt32):
+                value = signedInt32;
+                return true;
+            case SpecialType.System_UInt32 when uint.TryParse(text, integerStyle, culture, out var unsignedInt32):
+                value = unsignedInt32;
+                return true;
+            case SpecialType.System_Int64 when long.TryParse(text, integerStyle, culture, out var signedInt64):
+                value = signedInt64;
+                return true;
+            case SpecialType.System_UInt64 when ulong.TryParse(text, integerStyle, culture, out var unsignedInt64):
+                value = unsignedInt64;
+                return true;
+            case SpecialType.System_Single when float.TryParse(text, floatingStyle, culture, out var single):
+                value = single;
+                return true;
+            case SpecialType.System_Double when double.TryParse(text, floatingStyle, culture, out var @double):
+                value = @double;
+                return true;
+            case SpecialType.System_Decimal when decimal.TryParse(text, floatingStyle, culture, out var @decimal):
+                value = @decimal;
+                return true;
+        }
+
+        value = null;
+        return false;
+    }
+
     public static bool TryEvaluate(ExpressionSyntax expression, out object? value)
     {
         switch (expression)

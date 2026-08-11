@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -299,5 +300,82 @@ class C {
         var attribute = Assert.Single(field.GetAttributes());
 
         Assert.Equal("ObsoleteAttribute", attribute.AttributeClass?.Name);
+    }
+
+    [Fact]
+    public void ExternalConst_DefaultValueIsAnOrdinaryConstant()
+    {
+        const string source = "extern const SampleRate: int = 1000";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var field = Assert.IsAssignableFrom<IFieldSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
+
+        Assert.True(field.IsConst);
+        Assert.Equal(1000, field.GetConstantValue());
+    }
+
+    [Fact]
+    public void ExternalConst_SuppliedValuesOverrideDefaultsAndPreserveDeclaredTypes()
+    {
+        const string source = """
+extern const SampleRate: int = 1000
+extern const DeviceName: string = "RavenDevice"
+extern const DeviceId: string
+""";
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithExternalConstantValues(new Dictionary<string, string>
+            {
+                ["SampleRate"] = "500",
+                ["DeviceId"] = "sensor-42"
+            });
+
+        var (compilation, tree) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var fields = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Select(declarator => Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator)))
+            .ToDictionary(field => field.Name, StringComparer.Ordinal);
+
+        Assert.Equal(500, fields["SampleRate"].GetConstantValue());
+        Assert.Equal("RavenDevice", fields["DeviceName"].GetConstantValue());
+        Assert.Equal("sensor-42", fields["DeviceId"].GetConstantValue());
+        Assert.Equal(SpecialType.System_Int32, fields["SampleRate"].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, fields["DeviceId"].Type.SpecialType);
+    }
+
+    [Fact]
+    public void ExternalConst_RequiredValueReportsDiagnosticWhenMissing()
+    {
+        var (compilation, _) = CreateCompilation("extern const DeviceId: string");
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.ExternalConstantRequiresValue.Id, diagnostic.Id);
+    }
+
+    [Fact]
+    public void ExternalConst_InvalidSuppliedValueReportsTypedDiagnostic()
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithExternalConstantValues(new Dictionary<string, string> { ["SampleRate"] = "fast" });
+        var (compilation, _) = CreateCompilation("extern const SampleRate: int = 1000", options);
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.ExternalConstantCannotConvert.Id, diagnostic.Id);
+        Assert.Equal("Value 'fast' cannot be converted to 'int' for external constant 'SampleRate'.", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void ExternalConst_RequiresExplicitType()
+    {
+        var (compilation, _) = CreateCompilation("extern const DeviceName = \"RavenDevice\"");
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.ExternalConstantRequiresType.Id, diagnostic.Id);
     }
 }

@@ -1,9 +1,7 @@
 import System.Device.Gpio.*
 import System.Threading.*
 
-#if PICO or PICO2
-const LedPin: int = 25
-#endif
+extern const LedPin: int = 25
 
 func SelectLedPin<T>(pin: T) -> T { pin }
 

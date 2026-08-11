@@ -102,6 +102,8 @@ editors can discover the same SDK root.
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
 - `--define <symbols>`, `-define <symbols>` &ndash; add conditional-compilation
   symbols; repeat the option or separate symbols with commas or semicolons
+- `--constant <name=value>` &ndash; supply or override a typed `extern const`;
+  repeat the option for multiple values
 - `-o <path>` &ndash; output path (`.rvn`/legacy `.rav` inputs: assembly file path; `.rvnproj` inputs: output directory path)
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
@@ -184,14 +186,19 @@ chmod +x app.rvn
 
 Project commands remain frontend conveniences over the .NET SDK workflow:
 
-- `rvn build [project.rvnproj] [dotnet-build-options]` runs `dotnet build`
-- `rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]` runs
+- `rvn build [project.rvnproj] [--constant NAME=VALUE] [dotnet-build-options]`
+  runs `dotnet build`
+- `rvn run [project.rvnproj] [--constant NAME=VALUE] [dotnet-run-options]
+  [-- application-args]` runs
   `dotnet run --project`
 - `rvn clean [project.rvnproj] [dotnet-clean-options]` runs `dotnet clean`
 
 When the project path is omitted, `rvn` uses the single `.rvnproj` file in the
 current directory. MSBuild owns restore, NuGet/package resolution, project
 references, and language target selection for project inputs.
+
+`--constant` is repeatable. When the project also supplies the same external
+constant, the command-line value wins.
 
 ## Init command
 

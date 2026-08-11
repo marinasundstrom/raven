@@ -9,6 +9,16 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class ExternModifierParserTests
 {
     [Fact]
+    public void ParsesExternConstDeclaration()
+    {
+        var tree = SyntaxTree.ParseText("extern const LedPin: int = 25");
+
+        var declaration = Assert.IsType<ConstDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+        Assert.Contains(declaration.Modifiers, modifier => modifier.Kind == SyntaxKind.ExternKeyword);
+        Assert.False(tree.GetDiagnostics().Any());
+    }
+
+    [Fact]
     public void ExternFunctionStatement_ParsesAsFunction()
     {
         var tree = SyntaxTree.ParseText("extern func NativeSleep(milliseconds: int) -> unit;");

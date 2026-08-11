@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added typed `extern const` build inputs with required/default declaration
+  forms, invariant type validation, `CompilationOptions` support, repeatable
+  `rvnc` and `rvn build --constant NAME=VALUE` providers, `.rvnproj`
+  `RavenConstant` items, and command-line-over-project-over-source precedence.
+  The nanoFramework Blinky sample now uses this facility for `LedPin` instead
+  of generating Raven source.
+
 - Added a minimal nanoFramework Raspberry Pi Pico-family Blinky sample pinned
   to mutually matching 2.0 preview core and GPIO assembly versions, with a
   generic Raven pin-selection probe, board profiles, reproducible

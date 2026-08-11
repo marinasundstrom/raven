@@ -352,6 +352,24 @@ automatically, so sample projects build directly:
 dotnet build samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
 ```
 
+### External constants
+
+Projects supply defaults for typed `extern const` declarations with
+`RavenConstant` items:
+
+```xml
+<ItemGroup>
+  <RavenConstant Include="SampleRate" Value="500" />
+  <RavenConstant Include="DeviceId" Value="sensor-42" />
+</ItemGroup>
+```
+
+The evaluated item values flow into the same `CompilationOptions` facility as
+direct compiler and frontend command-line values. `rvn build --constant
+SampleRate=250` overrides the project item for that invocation; otherwise the
+project value overrides the source initializer. A required declaration without
+either provider value fails compilation.
+
 For standalone projects before Raven is packaged as an SDK/NuGet build asset,
 set `LanguageTargets` and, when needed, `RavenCompilerHost` explicitly:
 

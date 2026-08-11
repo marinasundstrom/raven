@@ -48,8 +48,11 @@ board profile (the default is `pico2`):
 ./build.sh --board pico2
 ```
 
-Pico and Pico 2 conditionally compile GP25 as the onboard LED. For Pico W and
-Pico 2 W, select the GPIO connected to an external LED:
+`Program.rvn` declares `extern const LedPin: int = 25`, so Pico and Pico 2 use
+GP25 by default. The build script supplies `--constant LedPin=<gpio>` when an
+override is requested; the value is converted to `int` and bound as an ordinary
+compile-time constant without generating Raven source. For Pico W and Pico 2 W,
+select the GPIO connected to an external LED:
 
 ```bash
 ./build.sh --board pico-w --led-pin 15

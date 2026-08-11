@@ -123,6 +123,38 @@ public sealed class ProjectFileCompilationOptionTests
     }
 
     [Fact]
+    public void OpenProject_ReadsExternalConstantItems()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "extern const LedPin: int = 25");
+
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenConstant Include="LedPin" Value="15" />
+                <RavenConstant Include="DeviceName" Value="RavenDevice" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var options = workspace.CurrentSolution.GetProject(projectId)!.CompilationOptions!;
+
+        Assert.Equal("15", options.ExternalConstantValues["LedPin"]);
+        Assert.Equal("RavenDevice", options.ExternalConstantValues["DeviceName"]);
+    }
+
+    [Fact]
     public void SaveProject_WritesRunAnalyzersAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

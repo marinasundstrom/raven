@@ -47,16 +47,12 @@ done
 
 case "$BOARD" in
   pico)
-    BOARD_SYMBOL="PICO"
     ;;
   pico2)
-    BOARD_SYMBOL="PICO2"
     ;;
   pico-w)
-    BOARD_SYMBOL="PICO_W"
     ;;
   pico2-w)
-    BOARD_SYMBOL="PICO2_W"
     ;;
   *)
     echo "Unsupported board profile '$BOARD'." >&2
@@ -140,13 +136,10 @@ fi
 MANAGED_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkBlinky.dll"
 NANO_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkBlinky.pe"
 DEPLOYMENT_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkBlinky.bin"
-SOURCE_FILES=("$SAMPLE_DIR/Program.rvn")
+CONSTANT_ARGUMENTS=()
 
 if [[ -n "$LED_PIN" ]]; then
-  GENERATED_BOARD_SOURCE="$PROFILE_OUTPUT_DIR/Board.g.rvn"
-  printf 'const LedPin: int = %s\n' "$LED_PIN" > "$GENERATED_BOARD_SOURCE"
-  SOURCE_FILES+=("$GENERATED_BOARD_SOURCE")
-  BOARD_SYMBOL="EXTERNAL_LED"
+  CONSTANT_ARGUMENTS+=(--constant "LedPin=$LED_PIN")
 fi
 
 dotnet "$COMPILER_DLL" \
@@ -154,11 +147,11 @@ dotnet "$COMPILER_DLL" \
   --target-core-library "$CORE_LIBRARY" \
   --refs "$GPIO_LIBRARY" \
   --refs "$EVENTS_LIBRARY" \
-  --define "$BOARD_SYMBOL" \
+  "${CONSTANT_ARGUMENTS[@]}" \
   --emit-core-types-only \
   --output-type console \
   --output "$MANAGED_OUTPUT" \
-  "${SOURCE_FILES[@]}"
+  "$SAMPLE_DIR/Program.rvn"
 
 "$MONO_COMMAND" "$METADATA_PROCESSOR" \
   -loadhints mscorlib "$CORE_LIBRARY" \

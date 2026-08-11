@@ -27,6 +27,7 @@
     <RavenConfigurationArgument Condition="'$(Configuration)' != ''">--configuration &quot;$(Configuration)&quot;</RavenConfigurationArgument>
     <RavenOutputTypeArgument Condition="'$(OutputType)' == 'Library'">--output-type classlib</RavenOutputTypeArgument>
     <RavenOutputTypeArgument Condition="'$(RavenOutputTypeArgument)' == '' and '$(OutputType)' != ''">--output-type exe</RavenOutputTypeArgument>
+    <RavenExternalConstantOverridesArgument Condition="'$(RavenExternalConstantOverrides)' != ''">--constant-overrides &quot;$(RavenExternalConstantOverrides)&quot;</RavenExternalConstantOverridesArgument>
 
     <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
     <Language>Raven</Language>
@@ -73,10 +74,20 @@
 
   <PropertyGroup>
     <_RavenCompilerDependencyFile>$(IntermediateOutputPath)$(TargetName).ravendeps</_RavenCompilerDependencyFile>
-    <CoreCompileDependsOn>_ReadRavenCompilerDependencies;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+    <_RavenExternalConstantsStateFile>$(IntermediateOutputPath)$(TargetName).ravenconstants</_RavenExternalConstantsStateFile>
+    <CoreCompileDependsOn>_WriteRavenExternalConstantsState;_ReadRavenCompilerDependencies;$(CoreCompileDependsOn)</CoreCompileDependsOn>
   </PropertyGroup>
 
   <Target Name="CreateManifestResourceNames" />
+
+  <Target Name="_WriteRavenExternalConstantsState">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile
+      File="$(_RavenExternalConstantsStateFile)"
+      Lines="$(RavenExternalConstantOverrides);@(RavenConstant->'%(Identity)=%(Value)')"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true" />
+  </Target>
 
   <Target Name="_ReadRavenCompilerDependencies">
     <ReadLinesFromFile
@@ -89,7 +100,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator)"
+    Inputs="$(MSBuildProjectFullPath);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator);$(_RavenExternalConstantsStateFile)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>
@@ -113,7 +124,7 @@
 
     <Message Importance="High" Text="Raven CoreCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(RavenExternalConstantOverridesArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
 
     <MakeDir Directories="@(IntermediateRefAssembly->'%(RootDir)%(Directory)')" Condition="'@(IntermediateRefAssembly)' != ''" />
     <Copy
@@ -232,7 +243,7 @@
       <_RavenCleanXmlDocumentationFile Condition="'$(DocumentationFile)' != ''">$(DocumentationFile)</_RavenCleanXmlDocumentationFile>
       <_RavenCleanXmlDocumentationFile Condition="'$(_RavenCleanXmlDocumentationFile)' == ''">$(IntermediateOutputPath)$(TargetName).xml</_RavenCleanXmlDocumentationFile>
     </PropertyGroup>
-    <Delete Files="$(_RavenCompilerDependencyFile);$(IntermediateOutputPath).raven-runtime-dependencies;$(_RavenCleanXmlDocumentationFile)" />
+    <Delete Files="$(_RavenCompilerDependencyFile);$(_RavenExternalConstantsStateFile);$(IntermediateOutputPath).raven-runtime-dependencies;$(_RavenCleanXmlDocumentationFile)" />
     <RemoveDir Directories="$(IntermediateOutputPath)raven/generated;$(IntermediateOutputPath)$(TargetName).docs;$(OutDir)$(TargetName).docs" />
   </Target>
 </Project>

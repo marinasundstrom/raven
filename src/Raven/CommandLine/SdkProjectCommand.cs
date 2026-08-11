@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 
 using Raven.CodeAnalysis;
 
@@ -14,7 +16,7 @@ internal static class SdkProjectCommand
             return 0;
         }
 
-        if (!TryParse(args, out var projectFilePath, out var forwardedArgs))
+        if (!TryParse(commandName, args, out var projectFilePath, out var forwardedArgs))
             return 1;
 
         var dotnetArgs = new List<string> { commandName };
@@ -33,16 +35,36 @@ internal static class SdkProjectCommand
     }
 
     private static bool TryParse(
+        string commandName,
         string[] args,
         out string projectFilePath,
         out IReadOnlyList<string> forwardedArgs)
     {
         string? project = null;
         var rest = new List<string>();
+        var externalConstants = new Dictionary<string, string>(StringComparer.Ordinal);
 
         for (var i = 1; i < args.Length; i++)
         {
             var arg = args[i];
+            if (arg == "--")
+            {
+                rest.AddRange(args.Skip(i));
+                break;
+            }
+
+            if (commandName is "build" or "run" && arg == "--constant")
+            {
+                if (i + 1 >= args.Length || !TryParseExternalConstant(args[++i], externalConstants))
+                {
+                    projectFilePath = string.Empty;
+                    forwardedArgs = [];
+                    return false;
+                }
+
+                continue;
+            }
+
             if (project is null && !arg.StartsWith('-') && IsRavenProjectPath(arg))
             {
                 project = arg;
@@ -65,7 +87,34 @@ internal static class SdkProjectCommand
         }
 
         projectFilePath = Path.GetFullPath(project);
+        if (externalConstants.Count > 0)
+        {
+            var json = JsonSerializer.Serialize(externalConstants);
+            var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            rest.Add($"-p:RavenExternalConstantOverrides={payload}");
+        }
+
         forwardedArgs = rest;
+        return true;
+    }
+
+    private static bool TryParseExternalConstant(string specification, IDictionary<string, string> values)
+    {
+        var separator = specification.IndexOf('=');
+        if (separator <= 0)
+        {
+            Console.Error.WriteLine($"Invalid external constant '{specification}'. Expected NAME=VALUE.");
+            return false;
+        }
+
+        var name = specification[..separator].Trim();
+        if (name.Length == 0)
+        {
+            Console.Error.WriteLine("External constant names cannot be empty.");
+            return false;
+        }
+
+        values[name] = specification[(separator + 1)..];
         return true;
     }
 
@@ -129,12 +178,12 @@ internal static class SdkProjectCommand
         switch (commandName)
         {
             case "build":
-                Console.WriteLine("Usage: rvn build [project.rvnproj] [dotnet-build-options]");
+                Console.WriteLine("Usage: rvn build [project.rvnproj] [--constant NAME=VALUE] [dotnet-build-options]");
                 Console.WriteLine("Runs: dotnet build <project.rvnproj> [dotnet-build-options]");
                 break;
             case "run":
                 Console.WriteLine("Usage: rvn run <file.rvn> [compiler-options] [-- application-args]");
-                Console.WriteLine("       rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]");
+                Console.WriteLine("       rvn run [project.rvnproj] [--constant NAME=VALUE] [dotnet-run-options] [-- application-args]");
                 Console.WriteLine("Runs a source file as an isolated file-based application, or runs a project through dotnet run.");
                 Console.WriteLine("Runs: dotnet run --project <project.rvnproj> [dotnet-run-options] [-- application-args]");
                 break;
@@ -145,6 +194,8 @@ internal static class SdkProjectCommand
         }
 
         Console.WriteLine();
+        if (commandName is "build" or "run")
+            Console.WriteLine("--constant NAME=VALUE supplies or overrides a typed extern const (repeatable).");
         Console.WriteLine("When no input is specified, rvn uses the single .rvnproj in the current directory.");
     }
 }
