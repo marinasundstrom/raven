@@ -17,11 +17,33 @@ artifact. A target does not define a separate Raven language dialect.
 yet covered across the supported platform matrix. “Investigation” records a
 validated integration boundary, not user-ready target support.
 
+## An IoT spectrum
+
+Native AOT and nanoFramework cover different classes of IoT device rather than
+competing for the same deployment:
+
+- **Linux-based single-board computers**, including suitable Raspberry Pi
+  models, can run full .NET applications published for a Linux Arm runtime
+  identifier such as `linux-arm64`. Native AOT can provide a self-contained
+  executable, predictable startup, and no requirement for a separately
+  installed .NET runtime.
+- **Microcontrollers** have much smaller memory and storage budgets and do not
+  host a full Linux/.NET environment. nanoFramework supplies nanoCLR and the
+  compact deployment format for this category.
+
+This gives Raven a path across both full operating-system edge devices and
+small embedded controllers while keeping the language model shared. Native AOT
+also remains a general deployment option for command-line tools, services,
+containers, and other applications unrelated to IoT.
+
 ## Native AOT
 
 Native AOT is a .NET publishing mode, not a separate Raven target framework or
 backend. Raven first emits a normal managed assembly. The .NET SDK and IL
 compiler then compile that assembly and its dependency closure to native code.
+For a Linux-based Raspberry Pi or similar edge computer, the intended path is
+to publish for the matching Linux Arm runtime identifier rather than introduce
+a Raspberry Pi-specific Raven dialect.
 
 An SDK-style Raven executable can opt into the normal .NET properties:
 
@@ -60,14 +82,17 @@ generation automatically compatible with AOT.
 
 See Microsoft's [.NET Native AOT deployment
 documentation](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
-for the SDK publishing model and runtime limitations.
+for the SDK publishing model and runtime limitations. Microsoft's
+[runtime-identifier catalog](https://learn.microsoft.com/dotnet/core/rid-catalog)
+documents `linux-arm` and `linux-arm64` for Linux distributions on Raspberry Pi
+hardware; the correct identifier depends on the device and operating system.
 
 ## .NET nanoFramework
 
-.NET nanoFramework is a distinct managed runtime for constrained devices. It
-uses its own core library and a compact executable format consumed by
-nanoCLR. Supporting it is separate from Native AOT even though both efforts
-benefit from removing desktop-runtime assumptions from the compiler.
+.NET nanoFramework is a distinct managed runtime for constrained
+microcontrollers. It uses its own core library and a compact executable format
+consumed by nanoCLR. Supporting it is separate from Native AOT even though both
+efforts benefit from removing desktop-runtime assumptions from the compiler.
 
 The investigation established the following:
 
@@ -122,58 +147,83 @@ on representative devices. Target support should preserve the useful language
 model while making those costs visible and avoiding unnecessary runtime
 dependencies.
 
-### Prospective GPIO example
+### Prospective temperature-monitor example
 
 The following example illustrates the intended Raven experience for a
-nanoFramework application. It models the LED as a closed state, keeps the state
-transition pure, and isolates the GPIO write at the device boundary:
+nanoFramework application. A DHT sensor reading becomes a closed domain state.
+Successful cases retain the measured value, while `SensorUnavailable` prevents
+a failed read from masquerading as a real temperature. The pure `Classify`
+function is separate from the GPIO effect:
 
 ```raven
+import Iot.Device.DHTxx.*
 import System.Device.Gpio.*
 import System.Threading.*
 
-union IndicatorState {
-    case Off
-    case On
+union TemperatureState {
+    case SensorUnavailable
+    case Comfortable(celsius: double)
+    case TooHot(celsius: double)
 }
 
-func Next(state: IndicatorState) -> IndicatorState {
-    return state match {
-        .Off => .On
-        .On => .Off
+func Classify(celsius: double) -> TemperatureState {
+    return if celsius >= 30.0 {
+        .TooHot(celsius)
+    } else {
+        .Comfortable(celsius)
     }
 }
 
-func WriteState(pin: GpioPin, state: IndicatorState) {
-    let value = state match {
-        .Off => PinValue.Low
-        .On => PinValue.High
-    }
+func ReadTemperature(sensor: Dht11) -> TemperatureState {
+    let temperature = sensor.Temperature
 
-    pin.Write(value)
+    return if sensor.IsLastReadSuccessful {
+        Classify(temperature.DegreesCelsius)
+    } else {
+        .SensorUnavailable
+    }
+}
+
+func ActOn(state: TemperatureState, alarm: GpioPin) {
+    match state {
+        // Treat a missing sensor as a fault instead of silently continuing.
+        .SensorUnavailable => alarm.Write(PinValue.High)
+        .Comfortable(_) => alarm.Write(PinValue.Low)
+        .TooHot(let celsius) => {
+            alarm.Write(PinValue.High)
+
+            // A more severe reading produces a faster alarm pulse.
+            let pulseMilliseconds = if celsius >= 40.0 { 100 } else { 500 }
+            Thread.Sleep(pulseMilliseconds)
+            alarm.Write(PinValue.Low)
+        }
+    }
 }
 
 func Main() {
-    // Pin 2 is the built-in LED on some ESP32 boards. Board mappings vary.
-    let ledPinNumber = 2
+    use sensor = Dht11(26)
     use gpio = GpioController()
-    use led = gpio.OpenPin(ledPinNumber, PinMode.Output)
-    var state: IndicatorState = .Off
+    use alarm = gpio.OpenPin(2, PinMode.Output)
 
     while true {
-        WriteState(led, state)
-        Thread.Sleep(500)
-        state = Next(state)
+        ReadTemperature(sensor)
+            |> ActOn(alarm: alarm)
+
+        // DHT sensors need time between readings.
+        Thread.Sleep(2000)
     }
 }
 ```
 
 This is a design example, not a currently deployable Raven program. Runnable
 support depends on the core-library identity, target-reference, Raven.Core, and
-packaging work listed below. The GPIO calls follow nanoFramework's
+packaging work listed below. The sensor and GPIO calls follow nanoFramework's
+[`DHTxx`](https://docs.nanoframework.net/devicesdetails/Dhtxx/README.html) and
 [`System.Device.Gpio`](https://docs.nanoframework.net/api/System.Device.Gpio.GpioController.html)
-surface. Pin numbering and electrical requirements are board-specific; consult
-the board documentation before connecting external components.
+surfaces. Sensor implementations, pin numbering, and electrical requirements
+are board-specific. In particular, ESP32 boards use the dedicated DHTxx ESP32
+binding; consult the board and sensor documentation before choosing packages or
+connecting components.
 
 ### Work required for runnable support
 
