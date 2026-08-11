@@ -101,6 +101,9 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/embed-file-content/README.md` (embed a UTF-8 file as a compile-time string)
 - `samples/projects/sha256-digest/README.md` (compute a SHA-256 digest during compilation)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
+- `samples/projects/greenhouse-monitor/README.md` (simulated IoT telemetry,
+  unions and patterns, and reproducible Native AOT publishing for macOS or
+  Linux Arm64 devices such as Raspberry Pi)
 - `samples/projects/nanoframework-temperature/README.md` (DHT sensor state,
   exhaustive union patterns, GPIO output, and nanoFramework `NFMRK2` packaging)
 - `samples/projects/nanoframework-blinky/README.md` (minimal Raspberry Pi

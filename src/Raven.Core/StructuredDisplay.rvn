@@ -1,0 +1,6 @@
+namespace Raven.Runtime.CompilerServices
+
+/// Marks Raven-generated records, unions, and union cases whose synthesized
+/// `ToString` implementation provides structural display output.
+public interface IRavenStructuredDisplay {
+}

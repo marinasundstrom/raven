@@ -153,6 +153,18 @@ public sealed class Solution
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 
+    /// <summary>Replaces the metadata references for the specified project.</summary>
+    public Solution WithMetadataReferences(ProjectId projectId, IEnumerable<MetadataReference> references)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        projInfo = projInfo.WithMetadataReferences(references).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
     /// <summary>Adds a project reference to the specified project.</summary>
     public Solution AddProjectReference(ProjectId projectId, ProjectReference reference)
     {

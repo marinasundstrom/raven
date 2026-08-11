@@ -1137,7 +1137,7 @@ else
 
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
 {
-    project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCorePath));
+    project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCorePath);
 }
 
 if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
@@ -1990,6 +1990,44 @@ static Project AddMetadataReferenceIfMissing(Project project, string assemblyPat
                 StringComparison.OrdinalIgnoreCase))
         ? project
         : project.AddMetadataReference(MetadataReference.CreateFromFile(fullPath));
+}
+
+static Project ReplaceMetadataReferenceByAssemblyIdentity(Project project, string assemblyPath)
+{
+    var fullPath = Path.GetFullPath(assemblyPath);
+    var replacementIdentity = AssemblyName.GetAssemblyName(fullPath).Name;
+    var references = project.MetadataReferences
+        .Where(reference => reference is not PortableExecutableReference portableReference ||
+            !HasAssemblyName(portableReference.FilePath, replacementIdentity))
+        .Append(MetadataReference.CreateFromFile(fullPath));
+
+    return project.WithMetadataReferences(references);
+}
+
+static bool HasAssemblyName(string assemblyPath, string? expectedName)
+{
+    if (string.IsNullOrWhiteSpace(expectedName))
+        return false;
+
+    try
+    {
+        return string.Equals(
+            AssemblyName.GetAssemblyName(assemblyPath).Name,
+            expectedName,
+            StringComparison.OrdinalIgnoreCase);
+    }
+    catch (BadImageFormatException)
+    {
+        return false;
+    }
+    catch (FileLoadException)
+    {
+        return false;
+    }
+    catch (FileNotFoundException)
+    {
+        return false;
+    }
 }
 
 static void CopyEmittedLocalDependencies(

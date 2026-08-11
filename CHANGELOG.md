@@ -4,6 +4,18 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made synthesized record and union formatting Native AOT-safe by marking
+  Raven-generated structured-display types through Raven.Core instead of
+  discovering helper methods with reflection. Explicit `--raven-core`
+  references now replace project-evaluated references with the same assembly
+  identity, preventing stale or configuration-mismatched Raven.Core assemblies
+  from controlling emission. Added a Linux x64 CI smoke test that publishes and
+  runs the greenhouse sample and rejects trim-analysis or AOT-analysis warnings.
+
+- Added a reproducible Native AOT path to the greenhouse-monitor sample, with
+  host RID detection, native publish-and-run validation, RID-specific artifacts,
+  and a documented `linux-arm64` workflow for Linux-based Raspberry Pi devices.
+
 - Added typed `extern const` build inputs with required/default declaration
   forms, invariant type validation, `CompilationOptions` support, repeatable
   `rvnc` and `rvn build --constant NAME=VALUE` providers, `.rvnproj`

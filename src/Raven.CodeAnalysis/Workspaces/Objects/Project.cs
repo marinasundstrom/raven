@@ -114,11 +114,17 @@ public sealed class Project
     }
 
     /// <summary>
-    /// Adds a metadata reference to this project and returns the resulting <see cref="Document"/>
+    /// Adds a metadata reference to this project and returns the resulting <see cref="Project"/>.
     /// </summary>
     public Project AddMetadataReference(MetadataReference metadataReference)
     {
         return Solution.AddMetadataReference(Id, metadataReference).GetProject(Id);
+    }
+
+    /// <summary>Replaces this project's metadata references.</summary>
+    public Project WithMetadataReferences(IEnumerable<MetadataReference> metadataReferences)
+    {
+        return Solution.WithMetadataReferences(Id, metadataReferences).GetProject(Id)!;
     }
 
     /// <summary>Adds an analyzer reference to this project.</summary>

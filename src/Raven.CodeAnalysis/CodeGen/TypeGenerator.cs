@@ -368,6 +368,15 @@ internal class TypeGenerator
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
 
+        var hasRavenStructuredDisplay = TypeSymbol is SourceUnionSymbol or
+            SourceUnionCaseTypeSymbol or
+            SourceNamedTypeSymbol { IsRecord: true };
+        if (hasRavenStructuredDisplay &&
+            RavenRuntimeTypeNames.GetStructuredDisplayInterface(Compilation) is { } structuredDisplayInterface)
+        {
+            TypeBuilder.AddInterfaceImplementation(ResolveClrType(structuredDisplayInterface));
+        }
+
         ApplyTypeCustomAttributes();
         if (TypeSymbol is INamedTypeSymbol { IsRefLikeType: true })
         {
