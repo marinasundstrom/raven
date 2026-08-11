@@ -10,12 +10,22 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     public EmitResult Emit(Stream peStream, Stream? pdbStream = null)
-        => Emit(peStream, pdbStream, null);
+        => Emit(peStream, pdbStream, diagnostics: null, emitOptions: null);
+
+    public EmitResult Emit(Stream peStream, Stream? pdbStream, EmitOptions emitOptions)
+        => Emit(peStream, pdbStream, diagnostics: null, emitOptions);
 
     internal EmitResult Emit(
         Stream peStream,
         Stream? pdbStream,
         ImmutableArray<Diagnostic>? diagnostics)
+        => Emit(peStream, pdbStream, diagnostics, emitOptions: null);
+
+    internal EmitResult Emit(
+        Stream peStream,
+        Stream? pdbStream,
+        ImmutableArray<Diagnostic>? diagnostics,
+        EmitOptions? emitOptions)
     {
         EnsureSetup();
         EnsureSourceDeclarationsComplete();
@@ -39,11 +49,11 @@ public partial class Compilation
                 return new EmitResult(false, effectiveDiagnostics);
             }
 
-            new CodeGenerator(pluginCompilation).Emit(peStream, pdbStream);
+            new CodeGenerator(pluginCompilation, emitOptions).Emit(peStream, pdbStream);
             return new EmitResult(true, effectiveDiagnostics);
         }
 
-        new CodeGenerator(this).Emit(peStream, pdbStream);
+        new CodeGenerator(this, emitOptions).Emit(peStream, pdbStream);
 
         return new EmitResult(true, effectiveDiagnostics);
     }

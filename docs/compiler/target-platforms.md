@@ -231,9 +231,9 @@ Initial emitter groundwork is now present: Raven has a tested metadata
 retargeting step that can replace host `System.Private.CoreLib` and
 `System.Runtime` type scopes with a supplied target core-library identity such
 as nanoFramework's `mscorlib`, without loading the referenced assemblies for
-execution. This primitive is not yet selected by a target profile or exposed
-through Raven projects, and it does not by itself make an assembly runnable on
-nanoCLR.
+execution. Compiler hosts can select this behavior through `EmitOptions`. It is
+not yet selected by a target profile or exposed through Raven projects, and it
+does not by itself make an assembly runnable on nanoCLR.
 
 1. Introduce an explicit target-reference model containing the reference
    closure, core-library identity, target-framework identity, and target

@@ -31,6 +31,7 @@ internal class CodeGenerator
     readonly HashSet<PETypeParameterIdentity> _resolvingMetadataTypeParameters = new();
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
+    readonly EmitOptions? _emitOptions;
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
     internal RuntimeTypeMap RuntimeTypeMap { get; }
@@ -1259,9 +1260,10 @@ internal class CodeGenerator
         return hasAnyNames;
     }
 
-    public CodeGenerator(Compilation compilation)
+    public CodeGenerator(Compilation compilation, EmitOptions? emitOptions = null)
     {
         _compilation = compilation;
+        _emitOptions = emitOptions;
         RuntimeTypeMap = new RuntimeTypeMap(this);
         RuntimeSymbolResolver = new RuntimeSymbolResolver(this);
     }
@@ -1438,18 +1440,12 @@ internal class CodeGenerator
             rawPeStream.Position = 0;
             if (pdbStream is null)
             {
-                if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
-                    AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, peStream);
-                else
-                    rawPeStream.CopyTo(peStream);
+                WriteFinalPe(rawPeStream, peStream);
             }
             else
             {
                 using var finalPeStream = new MemoryStream();
-                if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
-                    AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, finalPeStream);
-                else
-                    rawPeStream.CopyTo(finalPeStream);
+                WriteFinalPe(rawPeStream, finalPeStream);
 
                 provisionalPdbStream.Position = 0;
                 rawPeStream.Position = 0;
@@ -1483,6 +1479,36 @@ internal class CodeGenerator
             _stopwatch.Stop();
             PrintDebug($"Emitted code in {_stopwatch.ElapsedMilliseconds} ms");
         }
+    }
+
+    private void WriteFinalPe(Stream rawPeStream, Stream output)
+    {
+        if (_emitOptions?.TargetCoreLibraryIdentity is { } targetIdentity)
+        {
+            var targetReference = new Mono.Cecil.AssemblyNameReference(
+                targetIdentity.Name,
+                targetIdentity.Version ?? new Version(0, 0, 0, 0))
+            {
+                Culture = targetIdentity.CultureName ?? string.Empty
+            };
+            var publicKeyToken = targetIdentity.GetPublicKeyToken();
+            if (publicKeyToken is { Length: > 0 })
+                targetReference.PublicKeyToken = publicKeyToken;
+
+            AssemblyReferenceNormalizer.RetargetCoreLibraryReference(
+                rawPeStream,
+                output,
+                targetReference);
+            return;
+        }
+
+        if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
+        {
+            AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, output);
+            return;
+        }
+
+        rawPeStream.CopyTo(output);
     }
 
     private void DetermineShimTypeRequirements()

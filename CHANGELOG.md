@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `EmitOptions.TargetCoreLibraryIdentity`, allowing compiler hosts to
+  retarget emitted host core type references to a supplied runtime core-library
+  identity without loading target assemblies for execution.
+
 - Stopped the compiler driver from copying the host `System.Private.CoreLib`
   into Raven runtime-dependency closures. This prevents the host core library
   from overriding the target runtime's core library during Native AOT publish.
