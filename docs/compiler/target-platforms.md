@@ -11,7 +11,7 @@ artifact. A target does not define a separate Raven language dialect.
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
 | .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes and runs without trim-analysis or AOT-analysis warnings on macOS Arm64, with a Linux x64 CI smoke test and a defined `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
-| .NET nanoFramework | Experimental | A `netnano1.0` Raven project can restore normal `PackageReference` items, compile against the evaluated nanoFramework reference surface, and package a compact `NFMRK2` image. The Blinky probe has also been loaded on a Pico WH running matching preview firmware. | The current project repeats a provisional target preset that should move into a Raven nanoFramework MSBuild SDK. A nanoFramework Raven.Core build, broader runtime coverage, and visible hardware validation remain. |
+| .NET nanoFramework | Experimental | A standard SDK-style Raven project can select `netnano1.0`, restore normal `PackageReference` items, compile against Raven's nanoFramework target profile, and package a compact `NFMRK2` image. The Blinky probe has also been loaded on a Pico WH running matching preview firmware. | The Raven target profile is provisional pending an official SDK-style nanoFramework target. A nanoFramework Raven.Core build, broader runtime coverage, and visible hardware validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
 yet covered across the supported platform matrix. “Investigation” records a
@@ -154,10 +154,12 @@ provide dedicated build, deploy, and debug commands. It is not the ordinary
 `Microsoft.NET.Sdk` target-framework experience used by a modern `.csproj`.
 Raven's MVP now provides an SDK-style `.rvnproj` for the same runtime. Normal
 `PackageReference` restore selects `netnano1.0` compile assets, and the evaluated
-target profile is shared by `rvnc`, MSBuild, and the language server. The next
-slice is to move the provisional target properties out of the application file
-and into a dedicated Raven nanoFramework MSBuild SDK/profile, which can later be
-replaced by an official SDK-style nanoFramework target. See nanoFramework's
+target profile is shared by `rvnc`, MSBuild, and the language server. Raven's
+separate `Raven.nanoFramework.props` build asset supplies the target defaults
+that the standard SDK does not yet know while the application continues to use
+`Microsoft.NET.Sdk`. That asset can become a dedicated MSBuild SDK profile, or
+be replaced by an official SDK-style nanoFramework target, without changing the
+application's package-reference model. See nanoFramework's
 [description of the `.nfproj` metadata-processing stage](https://docs.nanoframework.net/content/architecture/guide-version-checksums.html)
 and its [VS Code managed-code workflow](https://docs.nanoframework.net/content/getting-started-guides/getting-started-managed-vscode.html)
 for the current ecosystem model.
@@ -297,10 +299,9 @@ compilation can additionally use `--no-framework-references`,
 target closure. The Blinky `.rvnproj` now drives those options from its evaluated
 `netnano1.0` project and ordinary package references.
 
-1. Extract the provisional nanoFramework target properties into a distributable
-   Raven MSBuild SDK/profile so applications need only select `netnano1.0`, add
-   normal package references, and declare application settings. Keep the same
-   evaluated project visible to the compiler and language server.
+1. Turn the distributable `Raven.nanoFramework.props` preset into a resolvable
+   MSBuild SDK profile when Raven's general MSBuild SDK packaging is introduced,
+   while preserving the current standard-SDK project shape.
 2. Remove remaining compiler setup and emission assumptions that source core types from
    the compiler host's `System.Private.CoreLib`.
 3. Ensure metadata loading works from supplied reference images and does not

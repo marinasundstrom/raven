@@ -325,10 +325,16 @@ internal static class NuGetPackageResolver
         if (!root.TryGetProperty("libraries", out var libraries) || libraries.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException($"'{assetsPath}' is missing libraries.");
 
+        var fullTargetFramework = TargetFrameworkMoniker.TryParse(targetFramework, out var parsedTargetFramework)
+            ? parsedTargetFramework!.ToFrameworkString()
+            : null;
         var targetKey = targets.EnumerateObject()
             .Select(static x => x.Name)
             .FirstOrDefault(name => string.Equals(name, targetFramework, StringComparison.OrdinalIgnoreCase)
-                || name.StartsWith(targetFramework + "/", StringComparison.OrdinalIgnoreCase));
+                || name.StartsWith(targetFramework + "/", StringComparison.OrdinalIgnoreCase)
+                || fullTargetFramework is not null &&
+                (string.Equals(name, fullTargetFramework, StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith(fullTargetFramework + "/", StringComparison.OrdinalIgnoreCase)));
 
         if (targetKey is null)
             throw new InvalidDataException($"Could not find target '{targetFramework}' in '{assetsPath}'.");

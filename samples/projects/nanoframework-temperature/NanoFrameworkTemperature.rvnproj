@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netnano1.0</TargetFramework>
+    <AssemblyName>NanoFrameworkTemperature</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nanoFramework.Iot.Device.Dhtxx" Version="2.0.0-preview.109" />
+  </ItemGroup>
+</Project>

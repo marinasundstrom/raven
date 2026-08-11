@@ -213,9 +213,14 @@ properties:
 MSBuild still owns restore and reference selection. Its evaluated
 `ReferencePath` is passed to `rvnc`, and the workspace/language server reads the
 same project properties and explicit package assets. The
-`nanoframework-blinky` sample contains the provisional target properties needed
-by the stock `Microsoft.NET.Sdk`. A later slice will move that boilerplate into
-a dedicated Raven nanoFramework MSBuild SDK/profile.
+`Raven.Language.targets` recognizes `netnano1.0` and imports
+`Raven.nanoFramework.props`, which supplies the target identity, core-library
+package, metadata processor, and reduced-runtime compiler defaults missing from
+the stock SDK. Application projects remain standard `Microsoft.NET.Sdk`
+projects and contain only their target framework, device package references,
+and application settings. The profile is deliberately a separate build asset
+so it can later become the `Sdk.props` of a dedicated Raven nanoFramework SDK
+without changing the project contract.
 
 ## Project extensions
 

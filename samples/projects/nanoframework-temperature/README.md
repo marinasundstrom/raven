@@ -17,12 +17,15 @@ configuration.
 ## Prerequisites
 
 - a .NET SDK capable of building Raven's `net10.0` compiler
-- the `nuget` command-line client
 - Mono, used to run the current metadata processor CLI
 
-The package versions in `packages.config` record the integration snapshot used
-by this MVP. They are deliberately explicit while nanoFramework support remains
-an investigation target.
+`NanoFrameworkTemperature.rvnproj` is a standard SDK-style Raven project. It
+selects `netnano1.0` and references the DHT device package normally; NuGet
+restores the GPIO, UnitsNet, and other managed dependencies transitively while
+Raven's target profile supplies the core library and metadata processor.
+The sample uses the nanoFramework 2.0 preview DHT package line because those
+packages publish proper `netnano1.0` assets; the older stable package line is
+exposed to PackageReference as an unversioned .NET Framework asset.
 
 ## Build and package
 
@@ -32,15 +35,15 @@ From this directory:
 ./build.sh
 ```
 
-The script restores its packages into `.packages/`, builds `rvnc` if needed,
-compiles with an explicit nanoFramework reference closure, and writes:
+The script restores its project into `.packages/`, builds `rvnc` if needed,
+compiles through the same evaluated target profile used by the language server,
+and writes:
 
 - `artifacts/NanoFrameworkTemperature.dll` &ndash; Raven's standard managed output
 - `artifacts/NanoFrameworkTemperature.pe` &ndash; the nanoFramework `NFMRK2` image
 
 `NANOFRAMEWORK_PACKAGES_DIR`, `OUTPUT_DIR`, `RAVEN_COMPILER_DLL`,
-`NUGET_COMMAND`, and `MONO_COMMAND` can override the default tool and output
-locations.
+and `MONO_COMMAND` can override the default tool and output locations.
 
 The next MVP step is to deploy the `.pe` image with the matching firmware and
 dependency assemblies, then validate the state transitions and GPIO output in

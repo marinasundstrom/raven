@@ -8,6 +8,64 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper output)
 {
     [Fact]
+    public void NanoFrameworkProject_UsesStandardSdkWithRavenTargetProfile()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var projectPath = Path.Combine(
+            repoRoot,
+            "samples",
+            "projects",
+            "nanoframework-blinky",
+            "NanoFrameworkBlinky.rvnproj");
+
+        MsBuildLocatorRegistration.EnsureRegistered();
+        var evaluation = MsBuildProjectEvaluator.Evaluate(
+            projectPath,
+            RavenProjectConventions.Default);
+
+        Assert.Equal("netnano1.0", evaluation.TargetFramework);
+        Assert.False(evaluation.UseHostFrameworkReferences);
+        Assert.True(evaluation.CompilationOptions.EmbedCoreTypes);
+        Assert.Equal(FrameworkProjectionMode.None, evaluation.CompilationOptions.FrameworkProjectionMode);
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.CoreLibrary");
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.System.Device.Gpio");
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.Tools.MetadataProcessor.CLI");
+    }
+
+    [Fact]
+    public void NanoFrameworkTemperatureProject_UsesStandardSdkWithRavenTargetProfile()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var projectPath = Path.Combine(
+            repoRoot,
+            "samples",
+            "projects",
+            "nanoframework-temperature",
+            "NanoFrameworkTemperature.rvnproj");
+
+        MsBuildLocatorRegistration.EnsureRegistered();
+        var evaluation = MsBuildProjectEvaluator.Evaluate(
+            projectPath,
+            RavenProjectConventions.Default);
+
+        Assert.Equal("netnano1.0", evaluation.TargetFramework);
+        Assert.False(evaluation.UseHostFrameworkReferences);
+        Assert.True(evaluation.CompilationOptions.EmbedCoreTypes);
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.CoreLibrary");
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.Iot.Device.Dhtxx");
+    }
+
+    [Fact]
     public void SampleProjects_CompileThroughRvnCli()
     {
         var repoRoot = GetRepositoryRoot();

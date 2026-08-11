@@ -4,14 +4,21 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a distributable Raven `netnano1.0` MSBuild target profile. Standard
+  `Microsoft.NET.Sdk` Raven projects now need only select `netnano1.0`, add
+  normal device package references, and declare application settings; Raven's
+  build assets supply the nanoFramework target identity, core library, metadata
+  processor, and reduced-runtime compiler defaults. Direct `rvnc` project
+  compilation also recognizes the target and its canonical NuGet assets. Both
+  the Blinky and temperature/union/GPIO probes now use concise `.rvnproj` files
+  and normal PackageReference restore.
+
 - Added the first SDK-style `netnano1.0` Raven project path. Alternative-runtime
   projects can suppress host framework references and select their target core
   library through MSBuild properties; the compiler and language server preserve
   that evaluated reference surface. The Pico-family Blinky sample now restores
   ordinary nanoFramework `PackageReference` items, builds through its
-  `.rvnproj`, and packages the result as an `NFMRK2` image. A dedicated
-  nanoFramework MSBuild SDK/profile remains a follow-up slice to remove the
-  provisional target boilerplate from application projects.
+  `.rvnproj`, and packages the result as an `NFMRK2` image.
 
 - Made synthesized record and union formatting Native AOT-safe by marking
   Raven-generated structured-display types through Raven.Core instead of

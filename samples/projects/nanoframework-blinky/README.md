@@ -62,7 +62,10 @@ select the GPIO connected to an external LED:
 
 `NanoFrameworkBlinky.rvnproj` uses ordinary `PackageReference` items for a
 deliberately pinned, mutually matching nanoFramework 2.0 preview core/GPIO
-snapshot. The script restores that project with `dotnet restore`, builds `rvnc`
+snapshot. Selecting `netnano1.0` activates Raven's nanoFramework target profile,
+which supplies the pinned core library and metadata processor while the project
+declares its GPIO dependency normally. The script restores that project with
+`dotnet restore`, builds `rvnc`
 if necessary, compiles through the normal Raven MSBuild target, and passes the
 result through the nanoFramework metadata processor. The compiler and language
 server therefore see the same evaluated `netnano1.0` reference surface. The target
@@ -82,10 +85,9 @@ pipeline deploys an application's compact image together with its referenced
 class libraries and checks native-component versions against the device
 firmware.
 
-The target-setup properties currently live in the sample project so this MVP
-can use the stock `Microsoft.NET.Sdk`. A following slice will move those presets
-into a dedicated Raven nanoFramework MSBuild SDK/profile, leaving the
-application project with its target, package references, and app settings.
+The application remains a stock `Microsoft.NET.Sdk` project. Raven's separate
+`Raven.nanoFramework.props` build asset fills the target-framework gap until an
+official SDK-style nanoFramework target is available.
 
 `deploy.sh` maps all four profiles to nanoFramework's `rpi_pico` platform and
 supports either the wire protocol or Pico BOOTSEL/UF2 deployment. It is a dry

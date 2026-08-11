@@ -21,6 +21,7 @@ required_files=(
   "sdk/Raven.Macros.dll"
   "sdk/build/Raven.Language.targets"
   "sdk/build/Raven.MSBuild.props"
+  "sdk/build/Raven.nanoFramework.props"
   "tools/rvn/rvn.dll"
   "tools/rvnc/rvnc.dll"
   "tools/language-server/Raven.LanguageServer.dll"

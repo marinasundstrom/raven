@@ -1,46 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netnano1.0</TargetFramework>
-    <TargetFrameworkIdentifier>.NETnanoFramework</TargetFrameworkIdentifier>
-    <TargetFrameworkVersion>v1.0</TargetFrameworkVersion>
-    <TargetFrameworkMoniker>.NETnanoFramework,Version=v1.0</TargetFrameworkMoniker>
-    <TargetFrameworkMonikerDisplayName>.NET nanoFramework 1.0</TargetFrameworkMonikerDisplayName>
     <AssemblyName>NanoFrameworkBlinky</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetExt>.dll</TargetExt>
-
-    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
-    <BypassFrameworkInstallChecks>true</BypassFrameworkInstallChecks>
-    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
-    <NoStdLib>true</NoStdLib>
-    <UseAppHost>false</UseAppHost>
-    <GenerateDependencyFile>false</GenerateDependencyFile>
-    <GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
-    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
-
-    <RavenUseHostFrameworkReferences>false</RavenUseHostFrameworkReferences>
-    <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
-    <GeneratePreludeImports>false</GeneratePreludeImports>
-    <FrameworkProjections>None</FrameworkProjections>
-
-    <NanoFrameworkPackagesDirectory Condition="'$(NanoFrameworkPackagesDirectory)' == ''">$(MSBuildProjectDirectory)/.packages</NanoFrameworkPackagesDirectory>
-    <RestorePackagesPath Condition="'$(RestorePackagesPath)' == ''">$(NanoFrameworkPackagesDirectory)</RestorePackagesPath>
-    <NanoFrameworkCoreVersion>2.0.0-preview.52</NanoFrameworkCoreVersion>
-    <NanoFrameworkGpioVersion>2.0.0-preview.18</NanoFrameworkGpioVersion>
-    <NanoFrameworkEventsVersion>2.0.0-preview.13</NanoFrameworkEventsVersion>
-    <RavenTargetCoreLibraryPath>$(NanoFrameworkPackagesDirectory)/nanoframework.corelibrary/$(NanoFrameworkCoreVersion)/lib/netnano1.0/mscorlib.dll</RavenTargetCoreLibraryPath>
-    <NanoFrameworkReferenceDirectory>$([System.IO.Path]::GetDirectoryName('$(RavenTargetCoreLibraryPath)'))</NanoFrameworkReferenceDirectory>
-    <_TargetFrameworkDirectories>$(NanoFrameworkReferenceDirectory)</_TargetFrameworkDirectories>
-    <_FullFrameworkReferenceAssemblyPaths>$(NanoFrameworkReferenceDirectory)</_FullFrameworkReferenceAssemblyPaths>
-    <TargetFrameworkDirectory>$(NanoFrameworkReferenceDirectory)</TargetFrameworkDirectory>
-    <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory};{RawFileName}</AssemblySearchPaths>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="nanoFramework.CoreLibrary" Version="$(NanoFrameworkCoreVersion)" />
-    <PackageReference Include="nanoFramework.System.Device.Gpio" Version="$(NanoFrameworkGpioVersion)" />
-    <PackageReference Include="nanoFramework.Runtime.Events" Version="$(NanoFrameworkEventsVersion)" />
-    <PackageReference Include="nanoFramework.Tools.MetadataProcessor.CLI" Version="4.0.0-preview.101" PrivateAssets="all" />
+    <PackageReference Include="nanoFramework.System.Device.Gpio" Version="2.0.0-preview.18" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(RavenLedPin)' != ''">

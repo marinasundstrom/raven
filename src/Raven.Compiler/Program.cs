@@ -699,6 +699,13 @@ var hostDefaultFramework = TargetFrameworkUtil.Resolve(AppContext.TargetFramewor
 var targetFramework = targetFrameworkTfm
     ?? projectTargetFramework
     ?? hostDefaultFramework;
+var targetFrameworkMoniker = TargetFrameworkMoniker.Parse(targetFramework);
+if (projectFileInput is not null && targetFrameworkMoniker.Framework == FrameworkId.NetNanoFramework)
+{
+    includeFrameworkReferences = false;
+    embedCoreTypes = true;
+    skipDefaultRavenCoreLookup = true;
+}
 var frameworkResolutionTarget = includeFrameworkReferences
     ? targetFramework
     : hostDefaultFramework;
@@ -1132,6 +1139,19 @@ else
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
 {
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCorePath);
+}
+
+if (string.IsNullOrWhiteSpace(targetCoreLibraryPath) &&
+    targetFrameworkMoniker.Framework == FrameworkId.NetNanoFramework)
+{
+    targetCoreLibraryPath = project.MetadataReferences
+        .OfType<PortableExecutableReference>()
+        .Select(static reference => reference.FilePath)
+        .FirstOrDefault(static path =>
+            string.Equals(Path.GetFileName(path), "mscorlib.dll", StringComparison.OrdinalIgnoreCase));
+
+    if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
+        targetCoreLibraryIdentity = AssemblyName.GetAssemblyName(targetCoreLibraryPath);
 }
 
 if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))

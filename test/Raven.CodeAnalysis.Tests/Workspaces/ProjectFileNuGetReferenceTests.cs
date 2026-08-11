@@ -365,6 +365,65 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void ResolveReferencesFromAssets_NanoFrameworkAcceptsCanonicalFrameworkName()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var packageAssemblyPath = Path.Combine(
+            globalPackages,
+            "fake.nanoframework.corelibrary",
+            "1.0.0",
+            "lib",
+            "netnano1.0",
+            "mscorlib.dll");
+        var assetsPath = Path.Combine(root, "project.assets.json");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(packageAssemblyPath)!);
+        File.Copy(typeof(object).Assembly.Location, packageAssemblyPath);
+        File.WriteAllText(assetsPath, """
+            {
+              "targets": {
+                ".NETnanoFramework,Version=v1.0": {
+                  "Fake.nanoFramework.CoreLibrary/1.0.0": {
+                    "type": "package",
+                    "compile": {
+                      "lib/netnano1.0/mscorlib.dll": {}
+                    }
+                  }
+                }
+              },
+              "libraries": {
+                "Fake.nanoFramework.CoreLibrary/1.0.0": {
+                  "type": "package",
+                  "path": "fake.nanoframework.corelibrary/1.0.0"
+                }
+              },
+              "project": {
+                "frameworks": {
+                  "netnano1.0": {}
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var resolution = NuGetPackageResolver.ResolveReferencesFromAssets(
+                assetsPath,
+                globalPackages,
+                "netnano1.0");
+
+            var reference = Assert.Single(
+                resolution.MetadataReferences.OfType<PortableExecutableReference>());
+            Assert.Equal(Path.GetFullPath(packageAssemblyPath), reference.FilePath);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void OpenProject_FrameworkReference_ResolvesFromInstalledPacks()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
