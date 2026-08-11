@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Stopped the compiler driver from copying the host `System.Private.CoreLib`
+  into Raven runtime-dependency closures. This prevents the host core library
+  from overriding the target runtime's core library during Native AOT publish.
+
 - Union carriers can now implement interfaces with a conventional base list,
   such as `union Failure: IError`. The compiler exposes the interfaces through
   the symbol API, validates required members, rejects class inheritance, and

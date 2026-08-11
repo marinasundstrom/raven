@@ -134,6 +134,9 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.False(
                 File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "Raven.CodeAnalysis.dll")),
                 "Ordinary Raven projects should not copy Raven.CodeAnalysis.");
+            Assert.False(
+                File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "System.Private.CoreLib.dll")),
+                "Raven projects should use the target runtime's core library instead of copying the compiler host's core library.");
             Assert.Contains(
                 "<returns>A greeting from the SDK build.</returns>",
                 File.ReadAllText(xmlDocumentationPath),

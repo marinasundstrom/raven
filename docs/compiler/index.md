@@ -9,6 +9,7 @@ default.
 Start with:
 
 - [Compiler and command-line tools](raven-compiler.md)
+- [Target platforms](target-platforms.md)
 - [.NET conformance and Raven divergences](architecture/dotnet-conformance-and-divergence.md)
 - [Project system](project-system.md)
 - [Extend a project](extending-projects.md)

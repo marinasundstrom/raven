@@ -32,6 +32,7 @@ what a feature does, when to use it, and show representative Raven examples.
 ### Tools
 
 * [Compiler and command line](compiler/raven-compiler.md)
+* [Target platforms](compiler/target-platforms.md)
 * [Project system](compiler/project-system.md)
 * [Extend a Raven project](compiler/extending-projects.md)
 * [Metaprogramming in Raven](metaprogramming.md)

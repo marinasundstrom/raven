@@ -4,6 +4,8 @@
   href: architecture/dotnet-conformance-and-divergence.md
 - name: Compiler and command line
   href: raven-compiler.md
+- name: Target platforms
+  href: target-platforms.md
 - name: Project system
   href: project-system.md
 - name: Extend a project

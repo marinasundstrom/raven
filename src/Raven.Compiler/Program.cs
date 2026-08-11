@@ -2014,6 +2014,7 @@ static IEnumerable<string> GetReferencedAssemblyNames(string assemblyPath)
 
 static bool IsPlatformAssemblyReference(string assemblyName, string assemblyPath)
     => string.Equals(assemblyName, "Raven.Core", StringComparison.OrdinalIgnoreCase) ||
+       string.Equals(assemblyName, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase) ||
        string.Equals(assemblyName, "mscorlib", StringComparison.OrdinalIgnoreCase) ||
        string.Equals(assemblyName, "netstandard", StringComparison.OrdinalIgnoreCase) ||
        assemblyPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)

@@ -29,6 +29,7 @@
           "compiler/index.md",
           "compiler/toc.yml",
           "compiler/raven-compiler.md",
+          "compiler/target-platforms.md",
           "compiler/project-system.md",
           "compiler/extending-projects.md",
           "compiler/source-generators.md",
