@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Updated active .NET 11 samples to target the Preview 7 SDK and matching
+  Microsoft ASP.NET Core and OpenAPI packages. The vehicle-costs sample retains
+  its compatible EF Core/Npgsql Preview 6 pair pending a Preview 7 provider,
+  and the runtime-async sample now selects the Preview 7 SDK explicitly.
+
+- Fixed fresh builds of referenced Raven compiler-plugin projects so nested
+  macro compilation inherits the compiler's `Raven.CodeAnalysis` and
+  `Raven.Macros` support references. Removed tracked VehicleCosts bisect
+  fixtures that were being discovered as samples and leaking into the parent
+  project's default source glob.
+
 - Added a distributable Raven `netnano1.0` MSBuild target profile. Standard
   `Microsoft.NET.Sdk` Raven projects now need only select `netnano1.0`, add
   normal device package references, and declare application settings; Raven's

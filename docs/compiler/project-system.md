@@ -58,6 +58,14 @@ Primary MSBuild items Raven currently consumes:
 - `<PackageReference Include="Package.Id" Version="x.y.z"/>`
 - `<FrameworkReference Include="Framework.Name"/>`
 
+When the compiler builds a referenced Raven compiler-plugin project, it passes
+the same compiler-support references used by the top-level compilation into the
+nested project build. This lets a freshly restored macro project use
+`Raven.CodeAnalysis` and `Raven.Macros` without copying compiler installation
+paths into its project file. These references are compiler-provided build inputs;
+ordinary application and library dependencies continue to come from standard
+`PackageReference`, `ProjectReference`, and `Reference` items.
+
 ## `.editorconfig` diagnostic severity support
 
 Raven reads `.editorconfig` files when compiling project and source files and applies

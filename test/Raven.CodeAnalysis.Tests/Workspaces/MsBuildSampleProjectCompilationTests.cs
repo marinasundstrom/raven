@@ -535,6 +535,83 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_ReferencedQuoteMacro_BuildsFreshThroughCompilerDriver()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var macrosDirectory = Path.Combine(projectRoot, "macros");
+            var appDirectory = Path.Combine(projectRoot, "app");
+            Directory.CreateDirectory(macrosDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            var macroProjectPath = Path.Combine(macrosDirectory, "QuoteMacros.rvnproj");
+            File.WriteAllText(macroProjectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>QuoteMacros</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(macrosDirectory, "TwiceMacro.rvn"), """
+                import Raven.CodeAnalysis.Macros.*
+                import Raven.CodeAnalysis.Syntax.*
+                import Raven.Macros.*
+
+                [assembly: RavenCompilerPlugin]
+
+                [MacroAlias("twice")]
+                public macro Twice(expression: ExpressionSyntax) {
+                    expand quote! {
+                        #(expression) + #(expression)
+                    }
+                }
+                """);
+
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+            File.WriteAllText(appProjectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>ReferencedQuoteMacro</AssemblyName>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <ProjectReference Include="{{Path.GetRelativePath(appDirectory, macroProjectPath)}}" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(appDirectory, "Main.rvn"), """
+                import System.*
+
+                func Main() {
+                    Console.WriteLine(twice!(21))
+                }
+                """);
+
+            var outputDirectory = Path.Combine(projectRoot, "output");
+            Directory.CreateDirectory(outputDirectory);
+            var result = RunCompiler(repoRoot, compilerDllPath, appProjectPath, outputDirectory);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"rvnc failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(File.Exists(Path.Combine(outputDirectory, "ReferencedQuoteMacro.dll")));
+            Assert.True(File.Exists(Path.Combine(macrosDirectory, "bin", "Debug", "net10.0", "QuoteMacros.dll")));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void RavenProject_BuildsSameProjectMacroWithoutMacroProjectItem()
     {
         var repoRoot = GetRepositoryRoot();

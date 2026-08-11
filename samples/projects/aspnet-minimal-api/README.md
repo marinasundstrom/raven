@@ -1,7 +1,7 @@
 # ASP.NET Core Minimal API
 
 This Raven project implements a small pet-shelter API with ASP.NET Core on
-.NET 11 Preview 6. It focuses on application-shaped examples instead of
+.NET 11 Preview 7. It focuses on application-shaped examples instead of
 isolated endpoint-binding tests.
 
 The `Pet`, `PetLookup`, and `VaccinationStatus` types are Raven unions.
@@ -44,5 +44,5 @@ curl -X POST http://localhost:5000/pets/find \
 curl http://localhost:5000/openapi/v1.json
 ```
 
-The project references `Microsoft.AspNetCore.App` and the .NET 11 Preview 6
+The project references `Microsoft.AspNetCore.App` and the .NET 11 Preview 7
 `Microsoft.AspNetCore.OpenApi` package.

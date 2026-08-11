@@ -1064,7 +1064,8 @@ var workspace = RavenWorkspace.Create(
         restoreProjectReferences,
         projectConfiguration,
         targetFrameworkTfm,
-        includeFrameworkReferences));
+        includeFrameworkReferences,
+        new[] { ravenMacrosPath, ravenCodeAnalysisPath }.OfType<string>()));
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,

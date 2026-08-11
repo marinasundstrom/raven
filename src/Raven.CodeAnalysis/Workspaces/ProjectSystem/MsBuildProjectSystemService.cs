@@ -15,6 +15,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     private readonly string? _requestedConfiguration;
     private readonly string? _requestedTargetFramework;
     private readonly bool? _useHostFrameworkReferences;
+    private readonly string[] _compilerSupportReferencePaths;
 
     public MsBuildProjectSystemService()
         : this(RavenProjectConventions.Default, resolvePackageReferences: true)
@@ -32,7 +33,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             resolvePackageReferences,
             requestedConfiguration: null,
             requestedTargetFramework: null,
-            useHostFrameworkReferences: null)
+            useHostFrameworkReferences: null,
+            compilerSupportReferencePaths: null)
     {
     }
 
@@ -41,13 +43,20 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         bool resolvePackageReferences,
         string? requestedConfiguration,
         string? requestedTargetFramework,
-        bool? useHostFrameworkReferences = null)
+        bool? useHostFrameworkReferences = null,
+        IEnumerable<string>? compilerSupportReferencePaths = null)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
         _requestedConfiguration = requestedConfiguration;
         _requestedTargetFramework = requestedTargetFramework;
         _useHostFrameworkReferences = useHostFrameworkReferences;
+        _compilerSupportReferencePaths = compilerSupportReferencePaths?
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? [];
     }
 
     public bool CanOpenProject(string projectFilePath)
@@ -131,8 +140,25 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 solution = solution.AddMetadataReference(projectId, reference);
         }
 
+        var metadataReferenceNames = evaluation.MetadataReferencePaths
+            .Select(Path.GetFileNameWithoutExtension)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var metadataReferencePath in evaluation.MetadataReferencePaths)
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
+
+        foreach (var compilerSupportReferencePath in _compilerSupportReferencePaths)
+        {
+            var referenceName = Path.GetFileNameWithoutExtension(compilerSupportReferencePath);
+            if (string.Equals(referenceName, evaluation.AssemblyName, StringComparison.OrdinalIgnoreCase) ||
+                !metadataReferenceNames.Add(referenceName))
+            {
+                continue;
+            }
+
+            solution = solution.AddMetadataReference(
+                projectId,
+                MetadataReference.CreateFromFile(compilerSupportReferencePath));
+        }
 
         if (_resolvePackageReferences)
         {
@@ -372,7 +398,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                     _conventions,
                     resolvePackageReferences: true,
                     requestedConfiguration: macroEvaluation.Configuration,
-                    requestedTargetFramework: effectiveTargetFramework));
+                    requestedTargetFramework: effectiveTargetFramework,
+                    compilerSupportReferencePaths: _compilerSupportReferencePaths));
 
             var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
             var macroCompilation = macroWorkspace.GetCompilation(macroProjectId);

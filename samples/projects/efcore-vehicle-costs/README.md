@@ -1,6 +1,6 @@
 # Vehicle Costs API (.rvnproj)
 
-This sample is a Raven ASP.NET Core Web API on .NET 11 Preview 6. It tracks
+This sample is a Raven ASP.NET Core Web API on .NET 11 Preview 7. It tracks
 vehicles, stores a Raven `union VehicleStatus`, records how much each vehicle
 can carry, and predicts monthly fuel costs from recent consumption entries.
 
@@ -12,6 +12,10 @@ can carry, and predicts monthly fuel costs from recent consumption entries.
   - `Microsoft.AspNetCore.OpenApi`
   - `Microsoft.EntityFrameworkCore`
   - `Npgsql.EntityFrameworkCore.PostgreSQL`
+
+The SDK, ASP.NET Core framework, and OpenAPI packages target Preview 7. The EF
+Core and PostgreSQL provider pair remains on its latest compatible .NET 11
+Preview 6 packages until Npgsql publishes a Preview 7 build.
 
 ## Domain
 
