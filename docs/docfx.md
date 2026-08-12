@@ -38,12 +38,13 @@ those variables, while the Playground's Monaco themes use the corresponding
 editor and token palette. Changes to code colors should be applied consistently
 to all three surfaces.
 
-The home page presents an application-workload carousel and one ordered
-learning path. Keep the first decision obvious: learn the language or try it
-online. Every carousel item must represent a real, checked-in workload and
-include a **Learn more** link to its workload guide. Preserve normal source
-formatting in every sample: indentation communicates nesting, and blank lines
-should separate distinct declarations, constructs, and top-level operations.
+The home page presents a showcase carousel and one ordered learning path. Keep
+the first decision obvious: learn the language or try it online. Each carousel
+item should use a concrete sample to make Raven's syntax, style, or platform
+reach interesting, and include a **Learn more** link to its showcase page.
+Preserve normal source formatting in every sample: indentation communicates
+nesting, and blank lines should separate distinct declarations, constructs,
+and top-level operations.
 
 Keep the global header deliberately compact. Detailed documentation hierarchy
 belongs in the Docs menu and section sidebars, while the root page serves as a
@@ -70,11 +71,19 @@ The files under `docs/lang/spec/` remain available to contributors. Public
 pages must not link learners into that directory or depend on it for essential
 explanations.
 
-Workload guides live under `docs/workloads/`. Each homepage application sample
-must link to the guide for that workload, not only to its source directory. A
-workload guide should show the project layout, complete key files, build and run
-commands, ordinary .NET integration, Raven-specific choices, and how the code
-can be split as the application grows.
+Workload guides live under `docs/workloads/`. They explain general ways to
+build, run, publish, or deploy an application. A workload page can use several
+checked-in samples, but should not imply that one sample defines the whole
+application category.
+
+Homepage carousel items are showcases. Their **Learn more** links lead to
+focused pages under `docs/showcases/` that explain the particular syntax,
+style, or platform idea visible in the sample. A showcase page then links to
+the relevant feature guide, workload guide, or runnable sample as applicable.
+The carousel is editorially selected and does not need to represent every
+workload. Treat its current themes as a curation, not a permanent taxonomy:
+showcases can be reframed, replaced, or expanded as Raven and its audience
+evolve without changing the workload navigation.
 
 ## Publication boundary
 

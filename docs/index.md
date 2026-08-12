@@ -18,22 +18,28 @@ _layout: landing
     <div class="raven-code-slide" id="raven-sample-modeling" role="tabpanel" aria-labelledby="raven-sample-modeling-tab">
       <div class="raven-code-titlebar"><span>Domain modeling · quote.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
       <pre><code class="lang-raven">record Shipment(Id: int, Weight: decimal)&#10;&#10;union QuoteResult {&#10;&#32;&#32;&#32;&#32;case Quoted(amount: decimal)&#10;&#32;&#32;&#32;&#32;case Rejected(reason: string)&#10;}&#10;&#10;func Quote(shipment: Shipment) -&gt; QuoteResult {&#10;&#32;&#32;&#32;&#32;if shipment.Weight &lt;= 0 {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;return .Rejected("Weight must be positive")&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;return .Quoted(12.50m + shipment.Weight * 1.75m)&#10;}</code></pre>
-      <div class="raven-code-learn"><span>Records, unions, functions, and explicit states</span><a href="lang/domain-modeling.md">Learn more <span aria-hidden="true">→</span></a></div>
+      <div class="raven-code-learn"><span>Records, unions, functions, and explicit states</span><a href="showcases/domain-modeling.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-code-slide" id="raven-workload-web" role="tabpanel" aria-labelledby="raven-workload-web-tab" hidden>
       <div class="raven-code-titlebar"><span>Web API · Program.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
       <pre><code class="lang-raven">import AspNetMinimalApi.Domain.*&#10;import Microsoft.AspNetCore.Builder.*&#10;&#10;let builder = WebApplication.CreateBuilder(args)&#10;builder.Services.AddOpenApi()&#10;&#10;use app = builder.Build()&#10;app.MapGet("/pets/{id}", FindPet)&#10;app.MapGet("/pets", StreamPets)&#10;app.MapPost("/pets/find", LookupPet)&#10;&#10;app.Run()</code></pre>
-      <div class="raven-code-learn"><span>ASP.NET Core, handlers, records, and unions</span><a href="workloads/web-api.md">Learn more <span aria-hidden="true">→</span></a></div>
+      <div class="raven-code-learn"><span>ASP.NET Core, handlers, records, and unions</span><a href="showcases/web-api.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-code-slide" id="raven-workload-embedded" role="tabpanel" aria-labelledby="raven-workload-embedded-tab" hidden>
       <div class="raven-code-titlebar"><span>Embedded IoT · temperature.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
       <pre><code class="lang-raven">union TemperatureState {&#10;&#32;&#32;&#32;&#32;case SensorUnavailable&#10;&#32;&#32;&#32;&#32;case Comfortable(celsius: double)&#10;&#32;&#32;&#32;&#32;case TooHot(celsius: double)&#10;}&#10;&#10;func ActOn(state: TemperatureState, alarm: GpioPin) {&#10;&#32;&#32;&#32;&#32;match state {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.SensorUnavailable =&gt; alarm.Write(PinValue.High)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.Comfortable(_) =&gt; alarm.Write(PinValue.Low)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.TooHot(_) =&gt; alarm.Write(PinValue.High)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
-      <div class="raven-code-learn"><span>.NET nanoFramework, sensor states, and GPIO</span><a href="workloads/embedded-iot.md">Learn more <span aria-hidden="true">→</span></a></div>
+      <div class="raven-code-learn"><span>.NET nanoFramework, sensor states, and GPIO</span><a href="showcases/embedded-iot.md">Learn more <span aria-hidden="true">→</span></a></div>
+    </div>
+    <div class="raven-code-slide" id="raven-sample-components" role="tabpanel" aria-labelledby="raven-sample-components-tab" hidden>
+      <div class="raven-code-titlebar"><span>HTML components · Counter.rvn · experimental</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">#[Component]&#10;public class Counter {&#10;&#32;&#32;&#32;&#32;var count = 0&#10;&#10;&#32;&#32;&#32;&#32;func increment() {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;count = count + 1&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;func Render() -&gt; RenderFragment =&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Html! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;button onClick={increment}&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Count: {count}&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/button&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}</code></pre>
+      <div class="raven-code-learn"><span>Compile-time macros, components, and embedded HTML</span><a href="showcases/html-components.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">
       <button id="raven-sample-modeling-tab" type="button" role="tab" aria-controls="raven-sample-modeling" aria-selected="true">Modeling</button>
       <button id="raven-workload-web-tab" type="button" role="tab" aria-controls="raven-workload-web" aria-selected="false" tabindex="-1">Web API</button>
       <button id="raven-workload-embedded-tab" type="button" role="tab" aria-controls="raven-workload-embedded" aria-selected="false" tabindex="-1">Embedded IoT</button>
+      <button id="raven-sample-components-tab" type="button" role="tab" aria-controls="raven-sample-components" aria-selected="false" tabindex="-1">HTML macro</button>
     </div>
   </div>
 </section>

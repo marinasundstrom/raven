@@ -625,10 +625,9 @@ body:has(.raven-hero) article {
 
     .raven-carousel-controls {
         order: -1;
-        overflow-x: auto;
+        flex-wrap: wrap;
         border-top: 0;
         border-bottom: 1px solid var(--raven-line);
-        scrollbar-width: thin;
     }
 
     .raven-carousel-controls button {

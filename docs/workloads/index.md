@@ -1,8 +1,8 @@
 # Build applications with Raven
 
-Learn Raven through the kind of application you want to build. Each workload
-guide starts with a working project, shows how the source is organized, and
-explains the Raven choices that matter for that application shape.
+Choose a guide by the kind of application you want to build. Each workload
+page explains the general application shape, how it is run or deployed, and
+which checked-in samples demonstrate it.
 
 ## Available guides
 
@@ -12,10 +12,10 @@ Build a Minimal API with routes, OpenAPI, async handlers, streaming responses,
 records, and unions. The guide keeps application composition in `Program.rvn`
 and places domain models and handler functions in `Domain.rvn`.
 
-### [Command-line applications](command-line.md)
+### [File-based applications](file-based-apps.md)
 
-Run a single Raven file with command-line arguments, including a Unix shebang
-workflow, and learn when to move from a file into a `.rvnproj`.
+Execute a single Raven source file without a project or separate build step,
+pass arguments, use a Unix shebang, and learn when to move into a `.rvnproj`.
 
 ### [IoT monitoring and Native AOT](iot-monitor.md)
 
@@ -32,12 +32,12 @@ states, drive GPIO output, and package Raven code as a nanoFramework image.
 
 Every guide should answer the same practical questions:
 
-1. What are we building, and which parts of Raven does it demonstrate?
-2. What does the project layout look like?
-3. Where does application composition belong?
-4. Where do domain types and functions belong as the project grows?
-5. How do I build, run, and exercise the application?
-6. Which parts are ordinary .NET, and which parts are Raven-specific?
+1. What kind of application does this workflow support?
+2. When should I choose it instead of another application shape?
+3. How is the source organized as the application grows?
+4. How do I run, build, publish, or deploy it?
+5. Which Raven and .NET facilities matter at this boundary?
+6. Which checked-in samples can I study and execute?
 
 The workload area will grow from projects that are already exercised in the
 repository. Planned areas include data processing, libraries, background
