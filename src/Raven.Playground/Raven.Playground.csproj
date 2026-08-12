@@ -33,17 +33,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\docs\snippets\index.json"
-             Link="wwwroot\snippets\index.json"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\..\docs\**\snippets\**\*.rvn"
-             Link="wwwroot\snippets\%(Filename)%(Extension)"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
+    <PlaygroundDocumentationSnippet Include="../../docs/**/snippets/**/*.rvn" />
+    <Content Remove="wwwroot/snippets/**" />
+    <Content Include="wwwroot/snippets/index.json" />
+    <Content Include="@(PlaygroundDocumentationSnippet->'wwwroot/snippets/%(Filename)%(Extension)')" />
   </ItemGroup>
 
-  <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
+  <Target Name="PreparePlaygroundStaticAssets" BeforeTargets="PrepareForBuild">
+    <MakeDir Directories="$(MSBuildProjectDirectory)/wwwroot/snippets" />
+    <Copy SourceFiles="../../docs/snippets/index.json"
+          DestinationFiles="$(MSBuildProjectDirectory)/wwwroot/snippets/index.json"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PlaygroundDocumentationSnippet)"
+          DestinationFolder="$(MSBuildProjectDirectory)/wwwroot/snippets"
+          SkipUnchangedFiles="true" />
     <Exec Command="npm ci --no-audit --no-fund"
           WorkingDirectory="$(MSBuildProjectDirectory)"
           Condition="!Exists('$(MSBuildProjectDirectory)/node_modules/monaco-editor/package.json')" />

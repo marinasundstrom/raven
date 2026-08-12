@@ -263,23 +263,25 @@ try {
 
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
-  await page.keyboard.type("System.Console.Wri");
-  const writeLineSuggestion = page.locator(".suggest-widget .monaco-list-row", {
-    hasText: "WriteLine",
+  await page.keyboard.type("System.Console.");
+  const suggestionWidget = page.locator(".suggest-widget.visible");
+  const beepSuggestion = page.locator(".suggest-widget .monaco-list-row", {
+    hasText: "Beep",
   });
+  await suggestionWidget.waitFor({ timeout: 30_000 });
   try {
-    await writeLineSuggestion.first().waitFor({ timeout: 30_000 });
+    await beepSuggestion.first().waitFor({ timeout: 30_000 });
   } catch (error) {
     throw new Error(
-      `WriteLine completion did not appear.\nBrowser errors:\n${browserErrors.join("\n") || "<none>"}`,
+      `Console member completion did not appear.\nBrowser errors:\n${browserErrors.join("\n") || "<none>"}`,
       { cause: error },
     );
   }
-  await writeLineSuggestion.first().dblclick();
+  await beepSuggestion.first().dblclick();
   await page.waitForTimeout(100);
   const completedSource = await editor.locator(".view-lines").textContent();
-  if (!completedSource.includes("WriteLine")) {
-    throw new Error(`Expected accepting completion to insert WriteLine, got ${completedSource}.`);
+  if (!completedSource.includes("System.Console.Beep")) {
+    throw new Error(`Expected accepting completion to insert Beep, got ${completedSource}.`);
   }
 
   await page.keyboard.press("Escape");

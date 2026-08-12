@@ -96,6 +96,9 @@ bundled snippet catalog. Keep each `.rvn` companion in a `snippets/` directory
 beside the documentation section that owns it; `docs/snippets/index.json`
 contains only the shared manifest. These entries remain out of the picker. The
 Playground project publishes the manifest and companions as static content.
+Its build also stages them into the standalone Playground's generated
+`wwwroot/snippets/` directory so `dotnet run` uses the same catalog without
+making the Playground project their source of truth.
 Use globally unique IDs and companion filenames because the published bundle
 uses a flat `snippets/` directory. Add `data-run="true"` only for a vetted
 example or snippet, and optionally add `data-source-url` for its checked-in

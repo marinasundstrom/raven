@@ -339,6 +339,7 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 src/Raven.Playground/wwwroot/js/
+src/Raven.Playground/wwwroot/snippets/
 
 # Visual Studio 6 build log
 *.plg

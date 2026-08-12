@@ -258,11 +258,12 @@ export async function createEditor(element, value, commandTarget) {
     quickSuggestions: false,
     renderLineHighlight: "line",
     scrollBeyondLastLine: false,
-    suggestOnTriggerCharacters: false,
+    suggestOnTriggerCharacters: true,
     tabSize: 4,
     theme: isDarkTheme() ? "raven-dark" : "raven-light",
   });
   const completionProvider = monaco.languages.registerCompletionItemProvider("raven", {
+    triggerCharacters: ["."],
     provideCompletionItems: async (completionModel, position, _context, cancellationToken) => {
       const source = completionModel.getValue();
       const offset = completionModel.getOffsetAt(position);
@@ -285,6 +286,7 @@ export async function createEditor(element, value, commandTarget) {
               ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
               : undefined,
             detail: item.detail,
+            filterText: item.label,
             kind: completionKinds[item.kind] ?? monaco.languages.CompletionItemKind.Text,
             range: new monaco.Range(
               start.lineNumber,

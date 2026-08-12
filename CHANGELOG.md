@@ -4,9 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Made Playground completion appear automatically after a short, meaningful
-  Raven identifier prefix, while keeping compiler requests debounced and out
-  of comments and strings and preserving manual Ctrl+Space completion.
+- Made Playground completion appear immediately after member-access dots and
+  automatically after a short, meaningful Raven identifier prefix, while
+  keeping compiler requests bounded and out of comments and strings and
+  preserving manual Ctrl+Space completion. Standalone `dotnet run` now stages
+  documentation-owned snippets before static web assets are prepared, avoiding
+  an empty-manifest startup crash.
 
 - Added stable Playground links for public examples, documentation-owned
   snippets, and inline shared source. Only bundled example and snippet IDs can
