@@ -11,18 +11,20 @@ The complete example is [`samples/scripts/hello.rvn`](https://github.com/marinas
 ```raven
 #!/usr/bin/env rvn
 
+import System.*
+
 func Main(args: string[]) {
-    System.Console.WriteLine("Hello from a single Raven file!")
+    Console.WriteLine("Hello from a single Raven file!")
 
     for argument in args {
-        System.Console.WriteLine("Argument: ${argument}")
+        Console.WriteLine("Argument: ${argument}")
     }
 }
 ```
 
 `Main` receives command-line arguments as an ordinary .NET string array. The
-program calls `System.Console` directly, iterates with Raven's `for` statement,
-and uses string interpolation for output.
+program imports the `System` namespace, calls `Console.WriteLine`, iterates with
+Raven's `for` statement, and uses string interpolation for output.
 
 ## Run it
 

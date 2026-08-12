@@ -22,7 +22,7 @@ _layout: landing
     </div>
     <div class="raven-code-slide" id="raven-workload-cli" role="tabpanel" aria-labelledby="raven-workload-cli-tab" hidden>
       <div class="raven-code-titlebar"><span>Command line · hello.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
-      <pre><code class="lang-raven">#!/usr/bin/env rvn&#10;&#10;func Main(args: string[]) {&#10;&#32;&#32;&#32;&#32;System.Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Hello from a single Raven file!"&#10;&#32;&#32;&#32;&#32;)&#10;&#10;&#32;&#32;&#32;&#32;for argument in args {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;System.Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Argument: ${argument}"&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+      <pre><code class="lang-raven">#!/usr/bin/env rvn&#10;&#10;import System.*&#10;&#10;func Main(args: string[]) {&#10;&#32;&#32;&#32;&#32;Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Hello from a single Raven file!"&#10;&#32;&#32;&#32;&#32;)&#10;&#10;&#32;&#32;&#32;&#32;for argument in args {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Argument: ${argument}"&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
       <div class="raven-code-learn"><span>One file, arguments, and direct execution</span><a href="workloads/command-line.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-code-slide" id="raven-workload-iot" role="tabpanel" aria-labelledby="raven-workload-iot-tab" hidden>
