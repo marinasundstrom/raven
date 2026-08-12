@@ -72,6 +72,54 @@ public sealed class PlaygroundLanguageService
         }
     }
 
+    public PlaygroundHoverItem? GetHover(string source, int position)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        lock (_gate)
+        {
+            UpdateSource(source);
+            var compilation = _workspace.GetCompilation(_projectId);
+            var syntaxTree = GetUserSyntaxTree(compilation);
+            var root = syntaxTree.GetRoot();
+            var clampedPosition = Math.Clamp(position, 0, source.Length);
+            var tokenPosition = clampedPosition == source.Length && clampedPosition > 0
+                ? clampedPosition - 1
+                : clampedPosition;
+            var token = root.FindToken(tokenPosition);
+            if (token.IsMissing || token.Span.Length == 0 ||
+                (!token.Span.Contains(clampedPosition) && token.Span.End != clampedPosition))
+            {
+                return null;
+            }
+
+            var identifier = token.Parent?.AncestorsAndSelf()
+                .OfType<IdentifierNameSyntax>()
+                .FirstOrDefault(candidate => candidate.Identifier.Span == token.Span);
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            ISymbol? symbol = null;
+            if (identifier is not null)
+            {
+                var symbolInfo = semanticModel.GetSymbolInfo(identifier);
+                symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+            }
+
+            symbol ??= token.Parent?.AncestorsAndSelf()
+                .Select(semanticModel.GetDeclaredSymbol)
+                .FirstOrDefault(candidate => candidate is not null);
+            if (symbol is null)
+                return null;
+
+            var signature = symbol.ToDisplayString(
+                SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(
+                    SymbolDisplayTypeQualificationStyle.NameOnly));
+            if (string.IsNullOrWhiteSpace(signature))
+                return null;
+
+            return new PlaygroundHoverItem(signature, token.Span.Start, token.Span.Length);
+        }
+    }
+
     public PlaygroundCompilationResult Compile(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -166,6 +214,11 @@ public sealed record PlaygroundCompletionItem(
     int? CursorOffset,
     string? Detail,
     string Kind);
+
+public sealed record PlaygroundHoverItem(
+    string Signature,
+    int Start,
+    int Length);
 
 public sealed record PlaygroundCompilationResult(
     bool Success,

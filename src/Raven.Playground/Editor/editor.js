@@ -299,6 +299,27 @@ export async function createEditor(element, value, commandTarget) {
       };
     },
   });
+  const hoverProvider = monaco.languages.registerHoverProvider("raven", {
+    provideHover: async (hoverModel, position, cancellationToken) => {
+      const source = hoverModel.getValue();
+      const offset = hoverModel.getOffsetAt(position);
+      const item = await commandTarget.invokeMethodAsync("GetHover", source, offset);
+
+      if (cancellationToken.isCancellationRequested || !item) return null;
+
+      const start = hoverModel.getPositionAt(item.start);
+      const end = hoverModel.getPositionAt(item.start + item.length);
+      return {
+        contents: [{ value: `\`\`\`raven\n${item.signature}\n\`\`\`` }],
+        range: new monaco.Range(
+          start.lineNumber,
+          start.column,
+          end.lineNumber,
+          end.column,
+        ),
+      };
+    },
+  });
   let completionTimer;
   const completionTrigger = editor.onDidType(text => {
     clearTimeout(completionTimer);
@@ -336,6 +357,7 @@ export async function createEditor(element, value, commandTarget) {
       clearTimeout(completionTimer);
       completionTrigger.dispose();
       completionProvider.dispose();
+      hoverProvider.dispose();
       colorScheme.removeEventListener("change", applyTheme);
       window.removeEventListener("raven-theme-change", applyTheme);
       editor.dispose();

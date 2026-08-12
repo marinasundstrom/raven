@@ -263,6 +263,79 @@ try {
 
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText('let greeting = "Raven"\nSystem.Console.WriteLine(greeting)');
+  await page.evaluate(() => {
+    window.ravenHoverHeartbeat = 0;
+    window.ravenHoverStartedAt = performance.now();
+    window.ravenHoverHeartbeatTimer = window.setInterval(() => {
+      window.ravenHoverHeartbeat++;
+    }, 20);
+  });
+  const showHover = async (lineText, token) => {
+    const line = editor.locator(".view-line").filter({ hasText: lineText });
+    const tokenPosition = await line.evaluate((element, tokenText) => {
+    const text = element.textContent.replaceAll("\u00a0", " ");
+    const start = text.indexOf(tokenText);
+    const end = start + tokenText.length;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    let offset = 0;
+    let node;
+    while ((node = walker.nextNode())) {
+      const nextOffset = offset + node.textContent.length;
+      if (start >= offset && start <= nextOffset)
+        range.setStart(node, start - offset);
+      if (end >= offset && end <= nextOffset) {
+        range.setEnd(node, end - offset);
+        break;
+      }
+      offset = nextOffset;
+    }
+    const bounds = range.getBoundingClientRect();
+    return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    }, token);
+    await page.mouse.click(tokenPosition.x, tokenPosition.y);
+    const commandKey = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${commandKey}+K`);
+    await page.keyboard.press(`${commandKey}+I`);
+    const hoverWidget = page.locator(".monaco-hover:visible");
+    try {
+      await hoverWidget.waitFor({ timeout: 30_000 });
+    } catch (error) {
+      throw new Error(
+        `Compiler-backed hover did not appear for '${token}'.\n` +
+        `Browser errors:\n${browserErrors.join("\n") || "<none>"}`,
+        { cause: error },
+      );
+    }
+    const hoverText = await hoverWidget.textContent();
+    await page.keyboard.press("Escape");
+    return hoverText;
+  };
+  const declarationHover = await showHover("let greeting", "greeting");
+  if (!declarationHover.includes("greeting") ||
+      !declarationHover.toLowerCase().includes("string")) {
+    throw new Error(`Expected compiler-backed hover for greeting, got '${declarationHover}'.`);
+  }
+  const invocationHover = await showHover("WriteLine(greeting)", "WriteLine");
+  if (!invocationHover.includes("WriteLine")) {
+    throw new Error(`Expected compiler-backed hover for the member invocation, got '${invocationHover}'.`);
+  }
+  const hoverResponsiveness = await page.evaluate(() => {
+    window.clearInterval(window.ravenHoverHeartbeatTimer);
+    return {
+      elapsed: performance.now() - window.ravenHoverStartedAt,
+      heartbeat: window.ravenHoverHeartbeat,
+    };
+  });
+  if (hoverResponsiveness.elapsed >= 100 && hoverResponsiveness.heartbeat < 3) {
+    throw new Error(
+      `Expected the UI thread to remain responsive during hover, got ` +
+      `${hoverResponsiveness.heartbeat} ticks in ${hoverResponsiveness.elapsed}ms.`,
+    );
+  }
+  await editor.click({ force: true });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.evaluate(() => {
     window.ravenCompletionHeartbeat = 0;
     window.ravenCompletionHeartbeatTimer = window.setInterval(() => {

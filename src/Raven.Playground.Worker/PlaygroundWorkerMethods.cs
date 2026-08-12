@@ -27,6 +27,19 @@ public static partial class PlaygroundWorkerMethods
     }
 
     [JSExport]
+    public static string GetHover(string source, int position)
+    {
+        try
+        {
+            return JsonSerializer.Serialize(s_languageService.Value.GetHover(source, position));
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(exception.ToString());
+        }
+    }
+
+    [JSExport]
     public static async Task<string> Compile(string source, bool run)
     {
         try

@@ -161,7 +161,7 @@
         <div class="playground-features">
             <span>TextMate syntax highlighting</span>
             <span aria-hidden="true">•</span>
-            <span>Compiler-backed completion</span>
+            <span>Compiler-backed completion and hover</span>
             <span aria-hidden="true">•</span>
             <span>Runs entirely on your device</span>
         </div>
@@ -255,6 +255,10 @@
     [JSInvokable]
     public Task<IReadOnlyList<PlaygroundCompletionItem>> GetCompletions(string source, int position) =>
         Worker.GetCompletionsAsync(source, position);
+
+    [JSInvokable]
+    public Task<PlaygroundHoverItem?> GetHover(string source, int position) =>
+        Worker.GetHoverAsync(source, position);
 
     private Task CompileAsync() => CompileCoreAsync(run: false);
 

@@ -29,6 +29,20 @@ public sealed class PlaygroundWorkerClient(IJSRuntime jsRuntime) : IAsyncDisposa
         return JsonSerializer.Deserialize<PlaygroundCompletionItem[]>(json) ?? [];
     }
 
+    public async Task<PlaygroundHoverItem?> GetHoverAsync(
+        string source,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        var worker = await GetWorkerAsync(cancellationToken);
+        var json = await worker.InvokeAsync<string>(
+            $"{WorkerMethods}.GetHover",
+            [source, position],
+            cancellationToken: cancellationToken);
+
+        return JsonSerializer.Deserialize<PlaygroundHoverItem?>(json);
+    }
+
     public async Task<PlaygroundWorkerResult> CompileAsync(
         string source,
         bool run,

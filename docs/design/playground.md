@@ -39,17 +39,18 @@ Calls use a deliberately narrow message contract:
 4. The main process deserializes the response and updates Monaco or the result
    panel.
 
-Monaco cancellation is checked after an outstanding completion request
-returns, so a result for an obsolete editor position is discarded rather than
-shown. The compiler request continues in the worker, where it cannot freeze
-typing, scrolling, or rendering.
+Monaco cancellation is checked after an outstanding completion or hover
+request returns, so a result for an obsolete editor position is discarded
+rather than shown. The compiler request continues in the worker, where it
+cannot freeze typing, scrolling, or rendering.
 
 ## Compiler services
 
 `PlaygroundLanguageService` owns a Raven `AdhocWorkspace` with one user
 document and a generated prelude document. Updating the source produces a new
 workspace snapshot while preserving the long-lived project and its framework
-references. Completion uses Raven's public compiler completion surface; the
+references. Completion uses Raven's public compiler completion surface. Hover
+uses the semantic model's symbol information and Raven symbol display. The
 Playground does not infer symbols or types independently.
 
 Compilation emits an in-memory assembly. A compile-only request returns its
@@ -84,8 +85,9 @@ Monaco is bundled from `Editor/editor.js`. Raven TextMate scopes provide syntax
 highlighting. Compiler-backed completion is available through `Ctrl+Space`,
 opens for member access after `.`, and is debounced for meaningful identifier
 prefixes. Automatic identifier completion is suppressed in comments and
-strings. Member access is receiver-aware: values and literals offer instance
-members, while type receivers offer static members and nested types.
+strings. Hovering a resolved identifier or member shows its Raven signature.
+Member access is receiver-aware: values and literals offer instance members,
+while type receivers offer static members and nested types.
 
 The Playground intentionally aims for a lightweight editor rather than a full
 VS Code experience. New continuous semantic features should use the worker and

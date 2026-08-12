@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added lightweight compiler-backed hover signatures to the browser
+  Playground for resolved identifiers and members.
+
 - Diagnosed unresolved types in both tuple-style and field-style union case
   payloads. Hover signatures now preserve the authored unresolved type name,
   including qualified names, and reserve `<Error>` for declarations without
