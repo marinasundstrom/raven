@@ -16,6 +16,8 @@ internal static class BoundTreeOptimizer
             return node;
         }
 
-        return (T)PatternOptimizer.Rewrite(node);
+        var optimized = PatternOptimizer.Rewrite(node);
+        optimized = ControlFlowOptimizer.Rewrite(optimized);
+        return (T)optimized;
     }
 }

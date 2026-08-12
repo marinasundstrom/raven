@@ -11,6 +11,30 @@ namespace Raven.CodeAnalysis.Tests;
 public class ControlFlowExpressionCodeGenTests
 {
     [Fact]
+    public void LiteralIfBranches_EmitAndRunInReleaseMode()
+    {
+        const string source = """
+import System.*
+
+func Main() {
+    if true {
+        Console.WriteLine("then")
+    } else {
+        Console.WriteLine("unreachable")
+    }
+
+    if false {
+        Console.WriteLine("unreachable")
+    } else {
+        Console.WriteLine("else")
+    }
+}
+""";
+
+        AssertOutput(source, ["then", "else"], OptimizationLevel.Release);
+    }
+
+    [Fact]
     public void MatchArms_WithBreakContinueAndLabels_EmitAndRun()
     {
         const string source = """
@@ -73,11 +97,16 @@ func Main() {
         AssertOutput(source, ["1", "2", "3", "1"]);
     }
 
-    private static void AssertOutput(string source, string[] expected)
+    private static void AssertOutput(
+        string source,
+        string[] expected,
+        OptimizationLevel optimizationLevel = OptimizationLevel.Debug)
     {
         var references = TestMetadataReferences.Default;
         var compilation = Compilation.Create(
-                "control-flow-expressions", new CompilationOptions(OutputKind.ConsoleApplication))
+                "control-flow-expressions",
+                new CompilationOptions(OutputKind.ConsoleApplication)
+                    .WithOptimizationLevel(optimizationLevel))
             .AddSyntaxTrees(SyntaxTree.ParseText(source))
             .AddReferences(references);
 

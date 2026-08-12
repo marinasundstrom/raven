@@ -259,10 +259,11 @@ default and retains the existing lowering and emission flow.
 
 This is the first optimization tier, not a claim that Raven now has a general
 optimizing backend. Release optimization runs as an ordered post-lowering
-pipeline of specialized bound-tree rewriters; the initial `PatternOptimizer`
-owns only mechanically equivalent pattern algebra. New passes should remain
-local and conservative until profiling or emitted-shape evidence justifies
-broader data-flow or control-flow optimization.
+pipeline of specialized bound-tree rewriters. `PatternOptimizer` owns only
+mechanically equivalent pattern algebra, while `ControlFlowOptimizer` prunes
+branches whose conditions are already Boolean literals. New passes should
+remain local and conservative until profiling or emitted-shape evidence
+justifies broader data-flow or control-flow optimization.
 
 This policy is especially relevant to ahead-of-time targets: Release should
 hand the AOT compiler canonical, verifiable IL with avoidable control-flow,
