@@ -46,6 +46,8 @@
       href: workloads/command-line.md
     - name: IoT and Native AOT
       href: workloads/iot-monitor.md
+    - name: Embedded IoT
+      href: workloads/embedded-iot.md
 - name: Guides
   href: lang/README.md
   items:

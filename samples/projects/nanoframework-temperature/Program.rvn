@@ -46,7 +46,7 @@ func Main() {
     use gpio = GpioController()
     use alarm = gpio.OpenPin(2, PinMode.Output)
 
-    while true {
+    loop {
         ReadTemperature(sensor)
             |> ActOn(alarm: alarm)
 

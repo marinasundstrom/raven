@@ -14,26 +14,26 @@ _layout: landing
     </div>
     <p class="raven-preview-note">Raven is under active development. Evolving areas are marked in the documentation.</p>
   </div>
-  <div class="raven-hero-code raven-code-carousel" aria-label="Raven application examples" data-raven-carousel>
-    <div class="raven-code-slide" id="raven-workload-web" role="tabpanel" aria-labelledby="raven-workload-web-tab">
+  <div class="raven-hero-code raven-code-carousel" aria-label="Raven code examples" data-raven-carousel>
+    <div class="raven-code-slide" id="raven-sample-modeling" role="tabpanel" aria-labelledby="raven-sample-modeling-tab">
+      <div class="raven-code-titlebar"><span>Domain modeling · quote.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">record Shipment(Id: int, Weight: decimal)&#10;&#10;union QuoteResult {&#10;&#32;&#32;&#32;&#32;case Quoted(amount: decimal)&#10;&#32;&#32;&#32;&#32;case Rejected(reason: string)&#10;}&#10;&#10;func Quote(shipment: Shipment) -&gt; QuoteResult {&#10;&#32;&#32;&#32;&#32;if shipment.Weight &lt;= 0 {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;return .Rejected("Weight must be positive")&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;return .Quoted(12.50m + shipment.Weight * 1.75m)&#10;}</code></pre>
+      <div class="raven-code-learn"><span>Records, unions, functions, and explicit states</span><a href="lang/domain-modeling.md">Learn more <span aria-hidden="true">→</span></a></div>
+    </div>
+    <div class="raven-code-slide" id="raven-workload-web" role="tabpanel" aria-labelledby="raven-workload-web-tab" hidden>
       <div class="raven-code-titlebar"><span>Web API · Program.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
       <pre><code class="lang-raven">import AspNetMinimalApi.Domain.*&#10;import Microsoft.AspNetCore.Builder.*&#10;&#10;let builder = WebApplication.CreateBuilder(args)&#10;builder.Services.AddOpenApi()&#10;&#10;use app = builder.Build()&#10;app.MapGet("/pets/{id}", FindPet)&#10;app.MapGet("/pets", StreamPets)&#10;app.MapPost("/pets/find", LookupPet)&#10;&#10;app.Run()</code></pre>
       <div class="raven-code-learn"><span>ASP.NET Core, handlers, records, and unions</span><a href="workloads/web-api.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
-    <div class="raven-code-slide" id="raven-workload-cli" role="tabpanel" aria-labelledby="raven-workload-cli-tab" hidden>
-      <div class="raven-code-titlebar"><span>Command line · hello.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
-      <pre><code class="lang-raven">#!/usr/bin/env rvn&#10;&#10;import System.*&#10;&#10;func Main(args: string[]) {&#10;&#32;&#32;&#32;&#32;Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Hello from a single Raven file!"&#10;&#32;&#32;&#32;&#32;)&#10;&#10;&#32;&#32;&#32;&#32;for argument in args {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Argument: ${argument}"&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
-      <div class="raven-code-learn"><span>One file, arguments, and direct execution</span><a href="workloads/command-line.md">Learn more <span aria-hidden="true">→</span></a></div>
+    <div class="raven-code-slide" id="raven-workload-embedded" role="tabpanel" aria-labelledby="raven-workload-embedded-tab" hidden>
+      <div class="raven-code-titlebar"><span>Embedded IoT · temperature.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">union TemperatureState {&#10;&#32;&#32;&#32;&#32;case SensorUnavailable&#10;&#32;&#32;&#32;&#32;case Comfortable(celsius: double)&#10;&#32;&#32;&#32;&#32;case TooHot(celsius: double)&#10;}&#10;&#10;func ActOn(state: TemperatureState, alarm: GpioPin) {&#10;&#32;&#32;&#32;&#32;match state {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.SensorUnavailable =&gt; alarm.Write(PinValue.High)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.Comfortable(_) =&gt; alarm.Write(PinValue.Low)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.TooHot(_) =&gt; alarm.Write(PinValue.High)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+      <div class="raven-code-learn"><span>.NET nanoFramework, sensor states, and GPIO</span><a href="workloads/embedded-iot.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
-    <div class="raven-code-slide" id="raven-workload-iot" role="tabpanel" aria-labelledby="raven-workload-iot-tab" hidden>
-      <div class="raven-code-titlebar"><span>IoT monitor · telemetry.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
-      <pre><code class="lang-raven">async func Main() -&gt; Task {&#10;&#32;&#32;&#32;&#32;let telemetry: ITelemetrySource =&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;SimulatedTelemetrySource()&#10;&#10;&#32;&#32;&#32;&#32;await for result in telemetry.Poll(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;CancellationToken.None&#10;&#32;&#32;&#32;&#32;) {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;match result {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Ok(let readings) =&gt; PrintReport(readings)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Error(let error) =&gt; PrintError(error)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
-      <div class="raven-code-learn"><span>Async streams, typed errors, and Native AOT</span><a href="workloads/iot-monitor.md">Learn more <span aria-hidden="true">→</span></a></div>
-    </div>
-    <div class="raven-carousel-controls" role="tablist" aria-label="Choose an application example">
-      <button id="raven-workload-web-tab" type="button" role="tab" aria-controls="raven-workload-web" aria-selected="true">Web API</button>
-      <button id="raven-workload-cli-tab" type="button" role="tab" aria-controls="raven-workload-cli" aria-selected="false" tabindex="-1">Command line</button>
-      <button id="raven-workload-iot-tab" type="button" role="tab" aria-controls="raven-workload-iot" aria-selected="false" tabindex="-1">IoT &amp; AOT</button>
+    <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">
+      <button id="raven-sample-modeling-tab" type="button" role="tab" aria-controls="raven-sample-modeling" aria-selected="true">Modeling</button>
+      <button id="raven-workload-web-tab" type="button" role="tab" aria-controls="raven-workload-web" aria-selected="false" tabindex="-1">Web API</button>
+      <button id="raven-workload-embedded-tab" type="button" role="tab" aria-controls="raven-workload-embedded" aria-selected="false" tabindex="-1">Embedded IoT</button>
     </div>
   </div>
 </section>

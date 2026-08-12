@@ -23,6 +23,11 @@ Poll an asynchronous telemetry stream, model device states and errors, split a
 device boundary into its own file, and publish a native executable for an edge
 device.
 
+### [Embedded IoT with .NET nanoFramework](embedded-iot.md)
+
+Read a temperature sensor on a microcontroller, model unavailable and alarm
+states, drive GPIO output, and package Raven code as a nanoFramework image.
+
 ## Workload guide principles
 
 Every guide should answer the same practical questions:
@@ -36,7 +41,7 @@ Every guide should answer the same practical questions:
 
 The workload area will grow from projects that are already exercised in the
 repository. Planned areas include data processing, libraries, background
-services, embedded applications, and mixed Raven/C# solutions.
+services, and mixed Raven/C# solutions.
 
 For individual language rules, use the [language specification](../lang/spec/language-specification.md).
 For compiler and project commands, use the [tooling documentation](../compiler/index.md).

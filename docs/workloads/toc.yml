@@ -6,3 +6,5 @@
   href: command-line.md
 - name: IoT and Native AOT
   href: iot-monitor.md
+- name: Embedded IoT
+  href: embedded-iot.md
