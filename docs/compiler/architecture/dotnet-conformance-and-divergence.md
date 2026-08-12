@@ -264,7 +264,8 @@ mechanically equivalent pattern algebra, while `ControlFlowOptimizer` prunes
 branches whose conditions are already Boolean literals.
 `UnreachableCodeOptimizer` performs conservative reachability over each
 lowered block and removes statements that have no fallthrough or branch path.
-New passes should remain local and conservative until profiling or
+`BranchOptimizer` then removes unconditional branches to immediately following
+labels. New passes should remain local and conservative until profiling or
 emitted-shape evidence justifies broader data-flow or control-flow optimization.
 
 This policy is especially relevant to ahead-of-time targets: Release should
