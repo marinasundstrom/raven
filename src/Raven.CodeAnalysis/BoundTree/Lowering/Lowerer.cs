@@ -36,7 +36,8 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         block = RewriteImplicitReturnIfNeeded(containingSymbol, block);
 
         var lowerer = CreateLowerer(containingSymbol);
-        return (BoundBlockStatement)lowerer.VisitStatement(block);
+        var lowered = (BoundBlockStatement)lowerer.VisitStatement(block);
+        return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
     private static BoundBlockStatement RewriteImplicitReturnIfNeeded(ISymbol symbol, BoundBlockStatement body)
@@ -65,13 +66,15 @@ internal sealed partial class Lowerer : BoundTreeRewriter
             statement = RewriteIteratorsIfNeeded(containingSymbol, block);
 
         var lowerer = CreateLowerer(containingSymbol);
-        return (BoundStatement)lowerer.VisitStatement(statement);
+        var lowered = (BoundStatement)lowerer.VisitStatement(statement);
+        return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
     public static BoundExpression LowerExpression(ISymbol containingSymbol, BoundExpression expression)
     {
         var lowerer = CreateLowerer(containingSymbol);
-        return (BoundExpression)lowerer.VisitExpression(expression)!;
+        var lowered = (BoundExpression)lowerer.VisitExpression(expression)!;
+        return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
     private static Lowerer CreateLowerer(ISymbol containingSymbol)

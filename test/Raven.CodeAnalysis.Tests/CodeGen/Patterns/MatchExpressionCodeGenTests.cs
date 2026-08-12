@@ -91,6 +91,28 @@ class Describer {
     }
 
     [Fact]
+    public void MatchExpression_FinalCatchAll_EmitsAndRunsInReleaseMode()
+    {
+        const string code = """
+class Program {
+    static func Main() {
+        System.Console.WriteLine(Describe(0) + "," + Describe(2))
+    }
+
+    static func Describe(value: int) -> string {
+        return match value {
+            0 => "zero"
+            _ => "other"
+        }
+    }
+}
+""";
+
+        var output = EmitAndRunRelease(code, "match_release_catch_all");
+        Assert.Equal("zero,other", output);
+    }
+
+    [Fact]
     public void MatchExpression_WithTypeParameterConstrainedToClosedHierarchy_EmitsAndRuns()
     {
         const string code = """
@@ -559,6 +581,25 @@ class Program {
     }
 
     private static string? EmitAndRun(string code, string assemblyName, params string[] additionalSources)
+        => EmitAndRunCore(
+            code,
+            assemblyName,
+            new CompilationOptions(OutputKind.ConsoleApplication),
+            additionalSources);
+
+    private static string? EmitAndRunRelease(string code, string assemblyName)
+        => EmitAndRunCore(
+            code,
+            assemblyName,
+            new CompilationOptions(OutputKind.ConsoleApplication)
+                .WithOptimizationLevel(OptimizationLevel.Release),
+            []);
+
+    private static string? EmitAndRunCore(
+        string code,
+        string assemblyName,
+        CompilationOptions options,
+        params string[] additionalSources)
     {
         var syntaxTrees = new List<RavenSyntaxTree> { RavenSyntaxTree.ParseText(code) };
 
@@ -567,7 +608,7 @@ class Program {
 
         var references = RuntimeMetadataReferences;
 
-        var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create(assemblyName, options)
             .AddSyntaxTrees(syntaxTrees.ToArray())
             .AddReferences(references);
 
