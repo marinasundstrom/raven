@@ -247,11 +247,28 @@ real constraints.
 
 ### Current emission finding
 
-`CompilationOptions` currently has no optimization level, and the compiler
-driver always emits a portable PDB. `MethodBodyGenerator` emits visible and
-hidden sequence-point `nop`s without a Debug/Release policy. The present output
-should therefore be described as a single debug-oriented mode, not Release
-output.
+`CompilationOptions` exposes explicit `Debug` and `Release` optimization
+levels, and project evaluation selects `Release` for Release configurations or
+when the evaluated `Optimize` property is true. The compiler driver continues
+to emit a portable PDB in both modes. Release emission attaches sequence points
+to meaningful instructions without adding sequence-point-only `nop`s, removes
+other debug padding, and enables conservative bound-tree peepholes such as
+trivial pattern algebra. Release match lowering also avoids emitting an
+unreachable fallback after a final unguarded catch-all arm. Debug remains the
+default and retains the existing lowering and emission flow.
+
+This is the first optimization tier, not a claim that Raven now has a general
+optimizing backend. Release optimization runs as an ordered post-lowering
+pipeline of specialized bound-tree rewriters; the initial `PatternOptimizer`
+owns only mechanically equivalent pattern algebra. New passes should remain
+local and conservative until profiling or emitted-shape evidence justifies
+broader data-flow or control-flow optimization.
+
+This policy is especially relevant to ahead-of-time targets: Release should
+hand the AOT compiler canonical, verifiable IL with avoidable control-flow,
+temporary, and metadata noise already removed. Raven should still measure AOT
+output before adding aggressive transformations, because target-specific AOT
+optimizers may already perform them more effectively.
 
 Portable-PDB ownership is reconciled after the final PE rewrite. The assembly
 reference normalizer can renumber method-definition rows, so Raven matches raw

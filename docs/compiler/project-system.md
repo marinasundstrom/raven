@@ -375,6 +375,10 @@ wired to Raven's language targets:
   `rvnc` so conditional properties and items, generated-source paths, project
   references, and compiler plugins use the same MSBuild context as the outer
   build.
+- Release configurations select `OptimizationLevel.Release`; an explicitly
+  evaluated MSBuild `Optimize` property overrides the configuration default.
+  Both Debug and Release builds retain portable PDBs, while Release omits
+  debug-only IL padding and enables conservative lowering peepholes.
 - `CoreCompile` tracks source files, resolved reference files, project files,
   extensions, and compiler-observed dependencies. An unchanged second build is
   skipped by MSBuild rather than invoking `rvnc` again.
