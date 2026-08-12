@@ -1,7 +1,8 @@
-# Getting started with nanoFramework
+# Getting started with .NET nanoFramework
 
-Raven targets nanoFramework through a normal SDK-style `.rvnproj`. Select
-`netnano1.0`, add ordinary `PackageReference` items, and build with MSBuild. The
+Raven targets .NET nanoFramework through a normal SDK-style `.rvnproj`. Its
+target framework moniker (TFM) is `netnano1.0`. Select that TFM, add ordinary
+`PackageReference` items, and build with MSBuild. The
 Raven target profile suppresses host .NET references, selects nanoFramework's
 core library, and packages the result for nanoCLR.
 
@@ -208,7 +209,7 @@ investigating discovery, firmware compatibility, or deployment failures.
 
 ## Visual Studio Code debugging
 
-The official [nanoFramework VS Code
+The official [.NET nanoFramework VS Code
 extension](https://marketplace.visualstudio.com/items?itemName=nanoframework.vscode-nanoframework)
 provides the device picker, managed debugger interface, and
 `nanoframework` Debug Adapter Protocol implementation. It consumes the `.pe`,

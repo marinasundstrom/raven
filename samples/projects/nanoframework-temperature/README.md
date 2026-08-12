@@ -1,6 +1,6 @@
-# nanoFramework temperature monitor
+# .NET nanoFramework temperature monitor
 
-This is Raven's compile-and-package MVP for nanoFramework. It reads a DHT
+This is Raven's compile-and-package MVP for .NET nanoFramework. It reads a DHT
 temperature sensor, models the result as a closed `TemperatureState` union, and
 uses exhaustive patterns to drive a GPIO alarm pin. The pure classification
 decision remains separate from sensor and GPIO effects.

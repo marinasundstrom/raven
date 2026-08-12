@@ -6,7 +6,7 @@
   href: raven-compiler.md
 - name: Target platforms
   href: target-platforms.md
-- name: nanoFramework
+- name: .NET nanoFramework
   href: nanoframework.md
 - name: Project system
   href: project-system.md

@@ -11,7 +11,7 @@ artifact. A target does not define a separate Raven language dialect.
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
 | .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes and runs without trim-analysis or AOT-analysis warnings on macOS Arm64, with a Linux x64 CI smoke test and a defined `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
-| nanoFramework | Experimental | A standard SDK-style Raven project can select `netnano1.0`, restore normal `PackageReference` items, compile against Raven's nanoFramework target profile, and package a compact `NFMRK2` image. The Blinky probe has also been loaded on a Pico WH running matching preview firmware. | The Raven target profile is provisional pending an official SDK-style nanoFramework target. A nanoFramework Raven.Core build, broader runtime coverage, and visible hardware validation remain. |
+| .NET nanoFramework | Experimental | A standard SDK-style Raven project can select the `netnano1.0` target framework moniker, restore normal `PackageReference` items, compile against Raven's nanoFramework target profile, and package a compact `NFMRK2` image. The Blinky probe has also been loaded on a Pico WH running matching preview firmware. | The Raven target profile is provisional pending an official SDK-style nanoFramework target. A nanoFramework Raven.Core build, broader runtime coverage, and visible hardware validation remain. |
 
 “Experimental” means that an end-to-end path has run successfully but is not
 yet covered across the supported platform matrix. “Investigation” records a
@@ -106,13 +106,13 @@ for the SDK publishing model and runtime limitations. Microsoft's
 documents `linux-arm` and `linux-arm64` for Linux distributions on Raspberry Pi
 hardware; the correct identifier depends on the device and operating system.
 
-## nanoFramework
+## .NET nanoFramework
 
 For project setup, standard build outputs, firmware selection, direct `nanoff`
-deployment, and the VS Code debugger boundary, see [Getting started with
+deployment, and the VS Code debugger boundary, see [Getting started with .NET
 nanoFramework](nanoframework.md).
 
-nanoFramework is a distinct managed runtime for constrained
+.NET nanoFramework is a distinct managed runtime for constrained
 microcontrollers. It uses its own core library and a compact executable format
 consumed by nanoCLR. Supporting it is separate from Native AOT even though both
 efforts benefit from removing desktop-runtime assumptions from the compiler.

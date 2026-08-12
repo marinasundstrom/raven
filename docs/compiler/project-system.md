@@ -230,7 +230,7 @@ and application settings. The profile is deliberately a separate build asset
 so it can later become the `Sdk.props` of a dedicated Raven nanoFramework SDK
 without changing the project contract.
 
-See [Getting started with nanoFramework](nanoframework.md) for the build outputs,
+See [Getting started with .NET nanoFramework](nanoframework.md) for the build outputs,
 direct `nanoff` deployment commands, and current VS Code debugger integration.
 
 ## Project extensions
