@@ -114,10 +114,10 @@
                 </div>
                 <div class="actions">
                     <button class="compile-button" type="button" disabled="@_isBusy" @onclick="CompileAsync">
-                        Compile <kbd>F6</kbd>
+                        @(_isBusy && _status == "Compiling" ? "Compiling…" : "Compile") <kbd>F6</kbd>
                     </button>
                     <button class="run-button" type="button" disabled="@_isBusy" @onclick="CompileAndRunAsync">
-                        @(_isBusy ? "Working…" : "Run") <span aria-hidden="true">▶</span>
+                        @(_isBusy && _status == "Running" ? "Running…" : "Run") <span aria-hidden="true">▶</span>
                     </button>
                     <button class="share-button" type="button" disabled="@_isBusy" @onclick="ShareAsync">
                         Share
@@ -125,6 +125,12 @@
                     <span class="share-status" aria-live="polite">@_shareStatus</span>
                 </div>
             </div>
+            @if (_isBusy)
+            {
+                <div class="operation-progress" role="status" aria-label="@_status">
+                    <span aria-hidden="true"></span>
+                </div>
+            }
             <div class="source-editor" @ref="_editorElement" aria-label="Raven source editor"></div>
         </section>
 
@@ -134,7 +140,7 @@
                     <span class="panel-kicker">Result</span>
                     <h2 id="output-heading">Output</h2>
                 </div>
-                <span class="status-pill @StatusClass">@_status</span>
+                <span class="status-pill @StatusClass" aria-live="polite">@_status</span>
             </div>
             <pre class="program-output">@_output</pre>
             @if (_diagnostics.Count > 0)
@@ -469,9 +475,11 @@
             return;
 
         _isBusy = true;
-        _status = "Compiling";
+        _status = run ? "Running" : "Compiling";
         _output = string.Empty;
         _diagnostics = [];
+        StateHasChanged();
+        await Task.Yield();
 
         try
         {

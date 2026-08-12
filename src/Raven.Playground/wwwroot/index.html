@@ -22,8 +22,10 @@
 
 <body>
     <div id="app">
-        <div class="loading-shell">
+        <div class="loading-shell" role="status" aria-live="polite">
             <div class="loading-mark">R</div>
+            <div class="loading-progress" aria-hidden="true"><span></span></div>
+            <p class="loading-progress-text"></p>
             <p>Loading Raven in WebAssembly…</p>
         </div>
     </div>

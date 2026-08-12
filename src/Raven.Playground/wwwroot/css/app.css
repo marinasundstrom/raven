@@ -453,6 +453,22 @@ kbd {
 .status-error { border-color: var(--danger); color: var(--danger); }
 .status-active { border-color: var(--raven-accent); color: var(--ink); }
 
+.operation-progress {
+    flex: 0 0 3px;
+    height: 3px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.operation-progress span {
+    display: block;
+    width: 35%;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+    animation: raven-loading 900ms ease-in-out infinite;
+}
+
 .diagnostics {
     max-height: 45%;
     padding: 16px 20px;
@@ -507,6 +523,47 @@ kbd {
     border-radius: 12px;
     color: var(--accent);
     font: 700 26px ui-monospace, monospace;
+}
+
+.loading-progress {
+    width: min(220px, 60vw);
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.loading-progress span {
+    display: block;
+    width: var(--blazor-load-percentage, 0%);
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width 180ms ease-out;
+}
+
+.loading-progress-text {
+    min-height: 1em;
+    margin: -6px 0 0;
+    color: var(--muted);
+    font: 12px ui-monospace, monospace;
+}
+
+.loading-progress-text::after {
+    content: var(--blazor-load-percentage-text, "Loading");
+}
+
+@keyframes raven-loading {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(360%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .operation-progress span {
+        animation-duration: 2.5s;
+    }
+
+    .loading-progress span { transition: none; }
 }
 
 #blazor-error-ui {

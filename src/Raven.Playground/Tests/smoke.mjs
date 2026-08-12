@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { chromium } from "playwright";
@@ -8,6 +8,13 @@ const basePath = "/playground/";
 
 if (!process.argv[2] || !existsSync(join(siteRoot, "index.html"))) {
   throw new Error("Pass the published playground wwwroot directory as the first argument.");
+}
+
+const indexSource = readFileSync(join(siteRoot, "index.html"), "utf8");
+if (!indexSource.includes('class="loading-shell" role="status"') ||
+    !indexSource.includes('class="loading-progress"') ||
+    !indexSource.includes('class="loading-progress-text"')) {
+  throw new Error("Expected the Blazor host page to expose an accessible startup indicator.");
 }
 
 const contentTypes = new Map([
@@ -468,6 +475,7 @@ try {
     'import System.*\n\nlet greeting = "Hello from Raven in WebAssembly"\nConsole.WriteLine(greeting)',
   );
   await page.getByRole("button", { name: /Compile/ }).click();
+  await page.locator(".operation-progress").waitFor({ timeout: 5_000 });
   await page.waitForFunction(
     () => document.querySelector(".status-pill")?.textContent?.trim() !== "Compiling",
     { timeout: 30_000 },
