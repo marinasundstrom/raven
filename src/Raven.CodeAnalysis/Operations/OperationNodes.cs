@@ -316,6 +316,87 @@ internal sealed class ReturnExpressionOperation : Operation, IReturnOperation
     }
 }
 
+internal sealed class BreakExpressionOperation : Operation, IBreakOperation
+{
+    private readonly BoundBreakExpression _bound;
+
+    internal BreakExpressionOperation(
+        SemanticModel semanticModel,
+        BoundBreakExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.BreakExpression, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
+internal sealed class ContinueExpressionOperation : Operation, IContinueOperation
+{
+    private readonly BoundContinueExpression _bound;
+
+    internal ContinueExpressionOperation(
+        SemanticModel semanticModel,
+        BoundContinueExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ContinueExpression, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
+internal sealed class YieldExpressionOperation : Operation, IYieldReturnOperation
+{
+    private readonly BoundYieldExpression _bound;
+    private IOperation? _returnedValue;
+
+    internal YieldExpressionOperation(
+        SemanticModel semanticModel,
+        BoundYieldExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.YieldExpression, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? ReturnedValue => _returnedValue ??=
+        SemanticModel.GetOperation(((YieldExpressionSyntax)Syntax).Expression);
+
+    public ITypeSymbol ElementType => _bound.ElementType;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+        => ReturnedValue is null ? ImmutableArray<IOperation>.Empty : ImmutableArray.Create(ReturnedValue);
+}
+
+internal sealed class YieldBreakExpressionOperation : Operation, IYieldBreakOperation
+{
+    private readonly BoundYieldBreakExpression _bound;
+
+    internal YieldBreakExpressionOperation(
+        SemanticModel semanticModel,
+        BoundYieldBreakExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.YieldBreakExpression, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol ElementType => _bound.ElementType;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
 internal sealed class YieldReturnOperation : Operation, IYieldReturnOperation
 {
     private readonly BoundYieldReturnStatement _bound;

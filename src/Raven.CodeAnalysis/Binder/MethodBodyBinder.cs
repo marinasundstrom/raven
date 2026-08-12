@@ -519,6 +519,16 @@ class MethodBodyBinder : BlockBinder
                     return new AnalysisState(assigned, false);
                 case BoundThrowExpression:
                     return new AnalysisState(assigned, false);
+                case BoundBreakExpression:
+                    if (_breakExitStates.TryPeek(out var breakExitStates))
+                        breakExitStates.Add(assigned);
+
+                    return new AnalysisState(assigned, false);
+                case BoundContinueExpression:
+                case BoundYieldBreakExpression:
+                    return new AnalysisState(assigned, false);
+                case BoundYieldExpression yieldExpression:
+                    return new AnalysisState(MarkAssignedExpression(yieldExpression.Expression, assigned), true);
                 case BoundRequiredResultExpression required:
                     return AnalyzeExpression(required.Operand, assigned);
                 default:

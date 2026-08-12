@@ -149,4 +149,43 @@ internal sealed partial class Lowerer
         var (_, continueLabel) = _loopStack.Peek();
         return new BoundGotoStatement(continueLabel, isBackward: true);
     }
+
+    public override BoundNode? VisitBreakExpression(BoundBreakExpression node)
+    {
+        ILabelSymbol? breakLabel = null;
+        if (node.TargetLabel is { } targetLabel)
+        {
+            if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+                breakLabel = target.BreakLabel;
+        }
+        else if (_loopStack.Count > 0)
+        {
+            breakLabel = _loopStack.Peek().BreakLabel;
+        }
+
+        return breakLabel is null
+            ? base.VisitBreakExpression(node)
+            : CreateControlFlowExpression(new BoundGotoStatement(breakLabel), node.Type);
+    }
+
+    public override BoundNode? VisitContinueExpression(BoundContinueExpression node)
+    {
+        ILabelSymbol? continueLabel = null;
+        if (node.TargetLabel is { } targetLabel)
+        {
+            if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+                continueLabel = target.ContinueLabel;
+        }
+        else if (_loopStack.Count > 0)
+        {
+            continueLabel = _loopStack.Peek().ContinueLabel;
+        }
+
+        return continueLabel is null
+            ? base.VisitContinueExpression(node)
+            : CreateControlFlowExpression(new BoundGotoStatement(continueLabel, isBackward: true), node.Type);
+    }
+
+    private static BoundBlockExpression CreateControlFlowExpression(BoundStatement transfer, ITypeSymbol type)
+        => new([transfer], type, []);
 }

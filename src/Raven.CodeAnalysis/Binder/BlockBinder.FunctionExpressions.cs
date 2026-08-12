@@ -36,6 +36,22 @@ partial class BlockBinder
             base.VisitYieldBreakStatement(node);
         }
 
+        public override void VisitYieldExpression(BoundYieldExpression node)
+        {
+            HasYield = true;
+
+            if (node.Expression.Type is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+                _yieldTypes.Add(TypeSymbolNormalization.NormalizeForInference(type));
+
+            base.VisitYieldExpression(node);
+        }
+
+        public override void VisitYieldBreakExpression(BoundYieldBreakExpression node)
+        {
+            HasYield = true;
+            base.VisitYieldBreakExpression(node);
+        }
+
         public ITypeSymbol InferElementType(Compilation compilation)
         {
             if (_yieldTypes.Count == 0)

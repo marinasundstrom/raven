@@ -8,6 +8,9 @@ internal static class BoundNodeFacts
         {
             case BoundReturnExpression:
             case BoundThrowExpression:
+            case BoundBreakExpression:
+            case BoundContinueExpression:
+            case BoundYieldBreakExpression:
                 return true;
             case BoundRequiredResultExpression requiredResult:
                 return IsAbruptExpression(requiredResult.Operand);
@@ -60,15 +63,25 @@ internal static class BoundNodeFacts
             case BoundBlockExpression block:
                 {
                     var last = block.Statements.LastOrDefault();
-                    if (last is BoundReturnStatement or BoundThrowStatement)
-                        return true;
-                    if (last is BoundExpressionStatement expressionStatement)
-                        return IsAbruptExpression(expressionStatement.Expression);
-                    return false;
+                    return last is not null && IsAbruptStatement(last);
                 }
             default:
                 return false;
         }
+    }
+
+    private static bool IsAbruptStatement(BoundStatement statement)
+    {
+        return statement switch
+        {
+            BoundReturnStatement or BoundThrowStatement or BoundGotoStatement or
+            BoundBreakStatement or BoundContinueStatement or BoundYieldBreakStatement => true,
+            BoundExpressionStatement expressionStatement => IsAbruptExpression(expressionStatement.Expression),
+            BoundBlockStatement block when block.Statements.LastOrDefault() is { } last => IsAbruptStatement(last),
+            BoundIfStatement { ElseNode: not null } ifStatement =>
+                IsAbruptStatement(ifStatement.ThenNode) && IsAbruptStatement(ifStatement.ElseNode),
+            _ => false,
+        };
     }
 
     private static bool ObjectInitializerIsAbrupt(BoundObjectInitializer? initializer)
@@ -90,6 +103,47 @@ internal static class BoundNodeFacts
             return true;
 
         return TryEvaluateBooleanConstant(guard) == true;
+    }
+
+    public static bool ContainsControlTransfer(BoundExpression expression)
+    {
+        var finder = new ControlTransferFinder();
+        finder.VisitExpression(expression);
+        return finder.Found;
+    }
+
+    private sealed class ControlTransferFinder : BoundTreeWalker
+    {
+        public bool Found { get; private set; }
+
+        public override void VisitStatement(BoundStatement statement)
+        {
+            if (!Found)
+                base.VisitStatement(statement);
+        }
+
+        public override void VisitExpression(BoundExpression node)
+        {
+            if (!Found)
+                base.VisitExpression(node);
+        }
+
+        public override void VisitGotoStatement(BoundGotoStatement node) => Found = true;
+        public override void VisitReturnStatement(BoundReturnStatement node) => Found = true;
+        public override void VisitThrowStatement(BoundThrowStatement node) => Found = true;
+        public override void VisitBreakStatement(BoundBreakStatement node) => Found = true;
+        public override void VisitContinueStatement(BoundContinueStatement node) => Found = true;
+        public override void VisitYieldBreakStatement(BoundYieldBreakStatement node) => Found = true;
+        public override void VisitReturnExpression(BoundReturnExpression node) => Found = true;
+        public override void VisitThrowExpression(BoundThrowExpression node) => Found = true;
+        public override void VisitBreakExpression(BoundBreakExpression node) => Found = true;
+        public override void VisitContinueExpression(BoundContinueExpression node) => Found = true;
+        public override void VisitYieldBreakExpression(BoundYieldBreakExpression node) => Found = true;
+
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
+        {
+            // Nested callables transfer within their own control-flow scope.
+        }
     }
 
     private static bool? TryEvaluateBooleanConstant(BoundExpression expression)

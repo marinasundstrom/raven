@@ -54,6 +54,10 @@ public enum OperationKind
     /// A return expression.
     /// </summary>
     ReturnExpression,
+    BreakExpression,
+    ContinueExpression,
+    YieldExpression,
+    YieldBreakExpression,
 
     /// <summary>
     /// A yield return statement.

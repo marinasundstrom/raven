@@ -27,7 +27,7 @@ func Main() {
     }
 
     [Fact]
-    public void BreakInExpressionContext_ReportsDiagnostic()
+    public void BreakExpressionOutsideLoop_ReportsLoopDiagnostic()
     {
         var code = """
 func Main() {
@@ -41,7 +41,7 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.BreakStatementInExpression.Id).WithSpan(3, 9, 3, 14),
+                new DiagnosticResult(CompilerDiagnostics.BreakStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 14),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
             ]);
 
@@ -49,7 +49,7 @@ func Main() {
     }
 
     [Fact]
-    public void BreakInExpressionContextWithinLoop_ReportsDiagnostic()
+    public void BreakExpressionWithinLoop_IsAllowed()
     {
         var code = """
 func Main() {
@@ -65,7 +65,6 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.BreakStatementInExpression.Id).WithSpan(4, 13, 4, 18),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(5, 13, 5, 15)
             ]);
 
@@ -116,7 +115,7 @@ func Main() {
     }
 
     [Fact]
-    public void ContinueInExpressionContext_ReportsDiagnostic()
+    public void ContinueExpressionOutsideLoop_ReportsLoopDiagnostic()
     {
         var code = """
 func Main() {
@@ -130,7 +129,7 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ContinueStatementInExpression.Id).WithSpan(3, 9, 3, 17),
+                new DiagnosticResult(CompilerDiagnostics.ContinueStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 17),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
             ]);
 
@@ -138,7 +137,7 @@ func Main() {
     }
 
     [Fact]
-    public void ContinueInExpressionContextWithinLoop_ReportsDiagnostic()
+    public void ContinueExpressionWithinLoop_IsAllowed()
     {
         var code = """
 func Main() {
@@ -154,7 +153,6 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.ContinueStatementInExpression.Id).WithSpan(4, 13, 4, 21),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(5, 13, 5, 15)
             ]);
 

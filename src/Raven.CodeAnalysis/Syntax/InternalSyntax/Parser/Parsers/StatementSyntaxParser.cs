@@ -55,7 +55,9 @@ internal class StatementSyntaxParser : SyntaxParser
             switch (token.Kind)
             {
                 case SyntaxKind.YieldKeyword:
-                    statement = ParseYieldStatementSyntax();
+                    statement = _parseAbruptTransfersAsExpressions
+                        ? ParseDeclarationOrExpressionStatementSyntax()
+                        : ParseYieldStatementSyntax();
                     break;
 
                 case SyntaxKind.ReturnKeyword:
@@ -120,11 +122,15 @@ internal class StatementSyntaxParser : SyntaxParser
                     break;
 
                 case SyntaxKind.BreakKeyword:
-                    statement = ParseBreakStatementSyntax();
+                    statement = _parseAbruptTransfersAsExpressions
+                        ? ParseDeclarationOrExpressionStatementSyntax()
+                        : ParseBreakStatementSyntax();
                     break;
 
                 case SyntaxKind.ContinueKeyword:
-                    statement = ParseContinueStatementSyntax();
+                    statement = _parseAbruptTransfersAsExpressions
+                        ? ParseDeclarationOrExpressionStatementSyntax()
+                        : ParseContinueStatementSyntax();
                     break;
 
                 case SyntaxKind.MatchKeyword:

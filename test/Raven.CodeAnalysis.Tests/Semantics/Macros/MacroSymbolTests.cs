@@ -12,7 +12,7 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class MacroSymbolTests : CompilationTestBase
 {
     [Fact]
-    public void AuthoredMacroBody_RejectsBreakFromExpressionBlockWithinLoop()
+    public void AuthoredMacroBody_AllowsBreakFromExpressionBlockWithinLoop()
     {
         var sourceTree = SyntaxTree.ParseText(
             """
@@ -34,9 +34,9 @@ public sealed class MacroSymbolTests : CompilationTestBase
 
         var diagnostics = compilation.GetDocumentDiagnostics(sourceTree);
 
-        Assert.Contains(
+        Assert.DoesNotContain(
             diagnostics,
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.BreakStatementInExpression);
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]

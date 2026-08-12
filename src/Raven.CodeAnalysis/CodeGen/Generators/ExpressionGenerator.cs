@@ -5103,7 +5103,9 @@ internal partial class ExpressionGenerator : Generator
                         break;
                     }
 
-                    var cacheRightValue = !fieldSymbol.IsStatic && containingType?.IsValueType == true;
+                    var cacheRightValue = !fieldSymbol.IsStatic &&
+                        (containingType?.IsValueType == true ||
+                         receiver is BoundSelfExpression && BoundNodeFacts.ContainsControlTransfer(right));
                     IILocal? cachedRightLocal = null;
 
                     if (cacheRightValue)

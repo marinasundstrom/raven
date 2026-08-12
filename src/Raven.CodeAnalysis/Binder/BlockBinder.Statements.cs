@@ -2475,7 +2475,7 @@ partial class BlockBinder
         return bound;
     }
 
-    private ILabelSymbol? BindControlFlowLabel(SyntaxToken identifier, StatementSyntax transferStatement)
+    private ILabelSymbol? BindControlFlowLabel(SyntaxToken identifier, SyntaxNode transferNode)
     {
         if (IsMissingControlFlowLabel(identifier))
             return null;
@@ -2488,14 +2488,14 @@ partial class BlockBinder
         }
 
         var name = identifier.ValueText;
-        EnsureLabelsDeclaredForLookup(transferStatement);
+        EnsureLabelsDeclaredForLookup(transferNode);
         if (!TryLookupLabel(name, out var label, out var labeledSyntax) || labeledSyntax is null)
         {
             _diagnostics.ReportLabelNotFound(name, identifier.GetLocation());
             return null;
         }
 
-        if (!IsEnclosingLoopLabel(labeledSyntax, transferStatement))
+        if (!IsEnclosingLoopLabel(labeledSyntax, transferNode))
         {
             _diagnostics.ReportLabelDoesNotIdentifyEnclosingLoop(name, identifier.GetLocation());
             return null;
@@ -2553,9 +2553,9 @@ partial class BlockBinder
             yield return binders.Pop();
     }
 
-    private static bool IsEnclosingLoopLabel(LabeledStatementSyntax labeledSyntax, StatementSyntax transferStatement)
+    private static bool IsEnclosingLoopLabel(LabeledStatementSyntax labeledSyntax, SyntaxNode transferNode)
     {
-        if (!transferStatement.Ancestors().OfType<LabeledStatementSyntax>().Any(ancestor =>
+        if (!transferNode.Ancestors().OfType<LabeledStatementSyntax>().Any(ancestor =>
                 ancestor.Span == labeledSyntax.Span &&
                 ancestor.Identifier.ValueText == labeledSyntax.Identifier.ValueText))
         {

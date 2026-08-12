@@ -2298,6 +2298,10 @@ partial class BlockBinder : Binder
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
             ReturnExpressionSyntax returnExpression => BindReturnExpression(returnExpression),
             ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
+            BreakExpressionSyntax breakExpression => BindBreakExpression(breakExpression),
+            ContinueExpressionSyntax continueExpression => BindContinueExpression(continueExpression),
+            YieldExpressionSyntax yieldExpression => BindYieldExpression(yieldExpression),
+            YieldBreakExpressionSyntax yieldBreakExpression => BindYieldBreakExpression(yieldBreakExpression),
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             FunctionExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
@@ -2540,7 +2544,8 @@ partial class BlockBinder : Binder
 
     private bool IsEarlyExitExpression(BoundExpression expression, ExpressionSyntax syntax)
     {
-        if (expression is BoundReturnExpression or BoundThrowExpression)
+        if (expression is BoundReturnExpression or BoundThrowExpression or
+            BoundBreakExpression or BoundContinueExpression or BoundYieldBreakExpression)
             return true;
 
         if (syntax is not BlockSyntax block)
@@ -4588,6 +4593,63 @@ partial class BlockBinder : Binder
             : Compilation.UnitTypeSymbol;
 
         return new BoundThrowExpression(expression, resultType);
+    }
+
+    private BoundExpression BindBreakExpression(BreakExpressionSyntax breakExpression)
+    {
+        var targetLabel = BindControlFlowLabel(breakExpression.Identifier, breakExpression);
+        if (IsMissingControlFlowLabel(breakExpression.Identifier) && _loopDepth == 0)
+            _diagnostics.ReportBreakStatementNotWithinLoop(breakExpression.BreakKeyword.GetLocation());
+
+        return new BoundBreakExpression(targetLabel, GetAbruptExpressionType(breakExpression));
+    }
+
+    private BoundExpression BindContinueExpression(ContinueExpressionSyntax continueExpression)
+    {
+        var targetLabel = BindControlFlowLabel(continueExpression.Identifier, continueExpression);
+        if (IsMissingControlFlowLabel(continueExpression.Identifier) && _loopDepth == 0)
+            _diagnostics.ReportContinueStatementNotWithinLoop(continueExpression.ContinueKeyword.GetLocation());
+
+        return new BoundContinueExpression(targetLabel, GetAbruptExpressionType(continueExpression));
+    }
+
+    private BoundExpression BindYieldExpression(YieldExpressionSyntax yieldExpression)
+    {
+        var expression = BindExpression(yieldExpression.Expression);
+        var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
+
+        if (elementType.TypeKind == TypeKind.Error)
+            elementType = Compilation.ErrorTypeSymbol;
+
+        if (ShouldAttemptConversion(expression) &&
+            expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
+            elementType.TypeKind != TypeKind.Error &&
+            IsAssignable(elementType, expressionType, out var conversion))
+        {
+            expression = ApplyConversion(expression, elementType, conversion, yieldExpression.Expression);
+        }
+
+        return new BoundYieldExpression(expression, elementType, kind, Compilation.UnitTypeSymbol);
+    }
+
+    private BoundExpression BindYieldBreakExpression(YieldBreakExpressionSyntax yieldBreakExpression)
+    {
+        var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
+        if (elementType.TypeKind == TypeKind.Error)
+            elementType = Compilation.ErrorTypeSymbol;
+
+        return new BoundYieldBreakExpression(elementType, kind, GetAbruptExpressionType(yieldBreakExpression));
+    }
+
+    private ITypeSymbol GetAbruptExpressionType(ExpressionSyntax expression)
+    {
+        var targetType = GetTargetType(expression);
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
+        return targetType is { TypeKind: not TypeKind.Error }
+            ? targetType
+            : Compilation.UnitTypeSymbol;
     }
 
     private BoundExpression BindPropagateExpression(PropagateExpressionSyntax propagateExpression)

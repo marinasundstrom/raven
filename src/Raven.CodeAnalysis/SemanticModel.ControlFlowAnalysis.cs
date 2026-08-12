@@ -215,7 +215,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return _endPointIsReachable;
             case WhileStatementSyntax whileStatement:
                 var whileConditionReachable = AnalyzeRequiredExpression(whileStatement.Condition, isReachable);
-                var whileHasReachableBreak = AnalyzeLoopBody(whileStatement.Statement, whileConditionReachable);
+                var whileHasReachableBreak = AnalyzeLoopBody(whileStatement, whileStatement.Statement, whileConditionReachable);
                 if (!whileConditionReachable)
                 {
                     _endPointIsReachable = false;
@@ -228,16 +228,16 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return _endPointIsReachable;
             case WhilePatternStatementSyntax whilePatternStatement:
                 var whilePatternExpressionReachable = AnalyzeRequiredExpression(whilePatternStatement.Expression, isReachable);
-                AnalyzeLoopBody(whilePatternStatement.Statement, whilePatternExpressionReachable);
+                AnalyzeLoopBody(whilePatternStatement, whilePatternStatement.Statement, whilePatternExpressionReachable);
                 _endPointIsReachable = whilePatternExpressionReachable;
                 return _endPointIsReachable;
             case ForStatementSyntax forStatement:
                 var forExpressionReachable = AnalyzeRequiredExpression(forStatement.Expression, isReachable);
-                AnalyzeLoopBody(forStatement.Body, forExpressionReachable);
+                AnalyzeLoopBody(forStatement, forStatement.Body, forExpressionReachable);
                 _endPointIsReachable = forExpressionReachable;
                 return _endPointIsReachable;
             case LoopStatementSyntax loopStatement:
-                var hasReachableBreak = AnalyzeLoopBody(loopStatement.Statement, isReachable);
+                var hasReachableBreak = AnalyzeLoopBody(loopStatement, loopStatement.Statement, isReachable);
                 _endPointIsReachable = isReachable && hasReachableBreak;
                 return _endPointIsReachable;
             case MatchStatementSyntax matchStatement:
@@ -263,8 +263,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return false;
             case BreakStatementSyntax breakStatement:
                 base.VisitBreakStatement(breakStatement);
-                if (_loopContexts.TryPeek(out var loopContext))
-                    loopContext.HasReachableBreak = true;
+                MarkReachableBreak(breakStatement.Identifier, breakStatement);
                 _endPointIsReachable = false;
                 return false;
             case ContinueStatementSyntax continueStatement:
@@ -315,6 +314,8 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
     {
         if (node is ReturnExpressionSyntax returnExpression)
             _returnStatements.Add(returnExpression);
+        else if (node is BreakExpressionSyntax breakExpression)
+            MarkReachableBreak(breakExpression.Identifier, breakExpression);
 
         foreach (var child in node.ChildNodes())
         {
@@ -359,9 +360,9 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         return currentReachable;
     }
 
-    private bool AnalyzeLoopBody(StatementSyntax body, bool isReachable)
+    private bool AnalyzeLoopBody(StatementSyntax loop, StatementSyntax body, bool isReachable)
     {
-        var context = new LoopContext();
+        var context = new LoopContext(loop);
         _loopContexts.Push(context);
 
         try
@@ -373,6 +374,40 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         {
             _loopContexts.Pop();
         }
+    }
+
+    private void MarkReachableBreak(SyntaxToken identifier, SyntaxNode transfer)
+    {
+        if (_loopContexts.Count == 0)
+            return;
+
+        if (identifier.IsMissing || identifier.Kind == SyntaxKind.None)
+        {
+            _loopContexts.Peek().HasReachableBreak = true;
+            return;
+        }
+
+        var labeledLoop = transfer.Ancestors().OfType<LabeledStatementSyntax>()
+            .FirstOrDefault(label => label.Identifier.ValueText == identifier.ValueText);
+        if (labeledLoop is null)
+            return;
+
+        var target = UnwrapLabeledStatement(labeledLoop.Statement);
+        foreach (var context in _loopContexts)
+        {
+            if (ReferenceEquals(context.Loop, target))
+            {
+                context.HasReachableBreak = true;
+                return;
+            }
+        }
+    }
+
+    private static StatementSyntax UnwrapLabeledStatement(StatementSyntax statement)
+    {
+        while (statement is LabeledStatementSyntax labeled)
+            statement = labeled.Statement;
+        return statement;
     }
 
     private static bool IsConstantTrue(ExpressionSyntax expression)
@@ -580,8 +615,10 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
             _unreachableStatements.Add(statement);
     }
 
-    private sealed class LoopContext
+    private sealed class LoopContext(StatementSyntax loop)
     {
+        public StatementSyntax Loop { get; } = loop;
+
         public bool HasReachableBreak { get; set; }
     }
 }

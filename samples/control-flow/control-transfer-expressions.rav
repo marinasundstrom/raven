@@ -1,0 +1,45 @@
+import System.*
+import System.Collections.Generic.*
+import System.Console.*
+
+// Feature: statement and expression forms of loop and iterator transfers.
+// Use statement forms for sequential flow and expression forms where a branch
+// should transfer directly without an extra block.
+outer: for row in 0..<4 {
+    for column in 0..<4 {
+        match (row, column) {
+            (0, 0) => continue
+            (0, 2) => break
+            (1, 0) => continue outer
+            (2, 1) => break outer
+            _ => WriteLine("cell ${row},${column}")
+        }
+    }
+}
+
+for item in Items() {
+    WriteLine("item ${item}")
+}
+
+func Items() -> IEnumerable<int> {
+    var index = 0
+
+    loop {
+        let next: Option<int> = match index {
+            0 => Some(1)
+            1 => Some(2)
+            _ => None
+        }
+        index += 1
+
+        let item = match next {
+            Some(let item) => item
+            None => yield break
+        }
+
+        match item {
+            2 => yield return item * 10
+            _ => yield item
+        }
+    }
+}

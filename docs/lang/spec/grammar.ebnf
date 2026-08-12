@@ -383,8 +383,8 @@ LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
 ReturnStatement          ::= 'return' Expression? ;
 ThrowStatement           ::= 'throw' Expression ;
-BreakStatement           ::= 'break' ;
-ContinueStatement        ::= 'continue' ;
+BreakStatement           ::= 'break' [Identifier] ;
+ContinueStatement        ::= 'continue' [Identifier] ;
 
 FunctionStatement        ::= {AttributeList | MacroAttributeList}
                              ('async' | 'unsafe' | 'extern')*
@@ -702,6 +702,10 @@ PrimaryExpression        ::= Literal
                            | UnsafeExpression
                            | ReturnExpression
                            | ThrowExpression
+                           | BreakExpression
+                           | ContinueExpression
+                           | YieldExpression
+                           | YieldBreakExpression
                            | Block
                            | IfExpression
                            | IfPatternExpression
@@ -728,6 +732,10 @@ TryExpression            ::= 'try' ['?'] Expression ;
 UnsafeExpression         ::= 'unsafe' Block ;
 ReturnExpression         ::= 'return' Expression ;
 ThrowExpression          ::= 'throw' Expression ;
+BreakExpression          ::= 'break' [Identifier] ;
+ContinueExpression       ::= 'continue' [Identifier] ;
+YieldExpression          ::= 'yield' ['return'] Expression ;
+YieldBreakExpression     ::= 'yield' 'break' ;
 
 Block                    ::= '{' {Statement} '}' ;
 

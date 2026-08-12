@@ -22,7 +22,7 @@ control path never completes normally.
 Expression blocks project a leading `return` item as an expression statement
 containing `ReturnExpressionSyntax`, rather than as `ReturnStatementSyntax`.
 This keeps the same early-exit model available after setup statements without
-turning `break` or `continue` into expressions. In other words:
+requiring an extra nested statement block. In other words:
 
 * `let b = if (a) e else return -1` is valid (`else return -1` is a return expression).
 * `let b = if (a) e else { return -1 }` is also valid; the expression block's
@@ -138,9 +138,9 @@ async func numbers([EnumeratorCancellation] cancellationToken: CancellationToken
 ```
 
 `yield expression` is shorthand for `yield return expression`. Raven continues
-to support the explicit `yield return` spelling as well. Like explicit `return`
-statements, both yield-value forms are limited to statement positions and
-cannot appear in expression context.
+to support the explicit `yield return` spelling as well. Both spellings are
+valid in statement and expression positions. In expression position, yielding
+suspends the iterator and evaluates to `unit` when enumeration resumes.
 
 ## `yield break` statements
 
@@ -159,6 +159,7 @@ func firstOrNone(values: IEnumerable<int>) -> IEnumerable<int> {
 }
 ```
 
-The `yield break` form follows the same placement rules as `yield return` and
-`break`—it must appear in statement position and is illegal outside iterator
-bodies.
+The `yield break` form is valid in statement and expression positions, but
+remains illegal outside iterator bodies. As an expression it never completes
+normally, so it can occupy a value-producing branch without affecting the
+branch type.

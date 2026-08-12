@@ -795,6 +795,16 @@ internal static class IteratorLowerer
             FoundYield = true;
         }
 
+        public override void VisitYieldExpression(BoundYieldExpression node)
+        {
+            FoundYield = true;
+        }
+
+        public override void VisitYieldBreakExpression(BoundYieldBreakExpression node)
+        {
+            FoundYield = true;
+        }
+
         public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
             // Nested lambdas are lowered independently.
@@ -1119,6 +1129,52 @@ internal static class IteratorLowerer
             });
         }
 
+        public override BoundNode? VisitYieldExpression(BoundYieldExpression node)
+        {
+            var rewritten = (BoundStatement)VisitYieldReturnStatement(
+                new BoundYieldReturnStatement(node.Expression, node.ElementType, node.IteratorKind))!;
+            return new BoundBlockExpression(
+                [rewritten, new BoundExpressionStatement(new BoundUnitExpression(_unitType))],
+                _unitType,
+                []);
+        }
+
+        public override BoundNode? VisitYieldBreakExpression(BoundYieldBreakExpression node)
+        {
+            var rewritten = (BoundBlockStatement)VisitYieldBreakStatement(
+                new BoundYieldBreakStatement(node.ElementType, node.IteratorKind))!;
+            return new BoundBlockExpression(rewritten.Statements, node.Type, rewritten.LocalsToDispose);
+        }
+
+        public override BoundNode? VisitMatchExpression(BoundMatchExpression node)
+        {
+            var expression = VisitExpression(node.Expression) ?? node.Expression;
+            var arms = RewriteMatchArms(node.Arms);
+            var rewritten = node.Update(expression, arms, node.Type);
+            return Lowerer.LowerExpression(_moveNextMethod, rewritten);
+        }
+
+        public override BoundNode? VisitMatchStatement(BoundMatchStatement node)
+        {
+            var expression = VisitExpression(node.Expression) ?? node.Expression;
+            var arms = RewriteMatchArms(node.Arms);
+            var rewritten = node.Update(expression, arms);
+            return Lowerer.LowerStatement(_moveNextMethod, rewritten);
+        }
+
+        private ImmutableArray<BoundMatchArm> RewriteMatchArms(ImmutableArray<BoundMatchArm> arms)
+        {
+            var rewritten = ImmutableArray.CreateBuilder<BoundMatchArm>(arms.Length);
+            foreach (var arm in arms)
+            {
+                var guard = arm.Guard is null ? null : VisitExpression(arm.Guard) ?? arm.Guard;
+                var expression = VisitExpression(arm.Expression) ?? arm.Expression;
+                rewritten.Add(new BoundMatchArm(arm.Pattern, guard, expression));
+            }
+
+            return rewritten.MoveToImmutable();
+        }
+
         public override BoundNode? VisitWhileStatement(BoundWhileStatement node)
         {
             if (node is null)
@@ -1193,6 +1249,45 @@ internal static class IteratorLowerer
 
             var (_, continueLabel) = _loopLabels.Peek();
             return new BoundGotoStatement(continueLabel, isBackward: true);
+        }
+
+        public override BoundNode? VisitBreakExpression(BoundBreakExpression node)
+        {
+            ILabelSymbol? breakLabel = null;
+            if (node.TargetLabel is { } targetLabel)
+            {
+                if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+                    breakLabel = target.BreakLabel;
+            }
+            else if (_loopLabels.Count > 0)
+            {
+                breakLabel = _loopLabels.Peek().BreakLabel;
+            }
+
+            return breakLabel is null
+                ? base.VisitBreakExpression(node)
+                : new BoundBlockExpression([new BoundGotoStatement(breakLabel)], node.Type, []);
+        }
+
+        public override BoundNode? VisitContinueExpression(BoundContinueExpression node)
+        {
+            ILabelSymbol? continueLabel = null;
+            if (node.TargetLabel is { } targetLabel)
+            {
+                if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+                    continueLabel = target.ContinueLabel;
+            }
+            else if (_loopLabels.Count > 0)
+            {
+                continueLabel = _loopLabels.Peek().ContinueLabel;
+            }
+
+            return continueLabel is null
+                ? base.VisitContinueExpression(node)
+                : new BoundBlockExpression(
+                    [new BoundGotoStatement(continueLabel, isBackward: true)],
+                    node.Type,
+                    []);
         }
 
         public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)

@@ -85,13 +85,19 @@ internal sealed partial class Lowerer
         foreach (var arm in rewrittenArms)
         {
             var expression = ApplyConversionIfNeeded(arm.Expression, resultType, compilation);
-
-            var resultLocalAccess = new BoundLocalAccess(resultLocal);
-
-            BoundStatement armResult = new BoundBlockStatement([
-                new BoundAssignmentStatement(new BoundLocalAssignmentExpression(resultLocal, resultLocalAccess, expression, unitType)),
-                new BoundGotoStatement(endLabel)
-            ]);
+            BoundStatement armResult;
+            if (BoundNodeFacts.IsAbruptExpression(expression))
+            {
+                armResult = new BoundExpressionStatement(expression);
+            }
+            else
+            {
+                var resultLocalAccess = new BoundLocalAccess(resultLocal);
+                armResult = new BoundBlockStatement([
+                    new BoundAssignmentStatement(new BoundLocalAssignmentExpression(resultLocal, resultLocalAccess, expression, unitType)),
+                    new BoundGotoStatement(endLabel)
+                ]);
+            }
 
             if (arm.Guard is not null)
             {
@@ -173,6 +179,10 @@ internal sealed partial class Lowerer
             BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements, blockExpr.LocalsToDispose),
             BoundReturnExpression returnExpr => new BoundReturnStatement(returnExpr.Expression),
             BoundThrowExpression throwExpr => new BoundThrowStatement(throwExpr.Expression),
+            BoundBreakExpression breakExpr => new BoundBreakStatement(breakExpr.TargetLabel),
+            BoundContinueExpression continueExpr => new BoundContinueStatement(continueExpr.TargetLabel),
+            BoundYieldExpression yieldExpr => new BoundYieldReturnStatement(yieldExpr.Expression, yieldExpr.ElementType, yieldExpr.IteratorKind),
+            BoundYieldBreakExpression yieldBreakExpr => new BoundYieldBreakStatement(yieldBreakExpr.ElementType, yieldBreakExpr.IteratorKind),
             BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => new BoundExpressionStatement(expression),
         };
@@ -184,6 +194,10 @@ internal sealed partial class Lowerer
         {
             BoundReturnStatement => true,
             BoundThrowStatement => true,
+            BoundGotoStatement => true,
+            BoundBreakStatement => true,
+            BoundContinueStatement => true,
+            BoundYieldBreakStatement => true,
             BoundBlockStatement block when block.Statements.Any() => IsTerminatingStatement(block.Statements.Last()),
             BoundIfStatement { ElseNode: not null } nestedIf =>
                 IsTerminatingStatement(nestedIf.ThenNode) &&

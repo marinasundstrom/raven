@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added expression forms of `break`, `continue`, `yield`, `yield return`, and
+  `yield break`, including labeled `break` and `continue` targets. These forms
+  can be used directly in `match`, `if`, null-coalescing, and other expression
+  positions, with abrupt branches integrated into type joins and control-flow
+  reachability analysis.
+
 - Made member-access completion receiver-aware: value and literal receivers now
   show only referencable instance members, excluding nested types and generated
   backing/accessor symbols, while type receivers retain static members and now

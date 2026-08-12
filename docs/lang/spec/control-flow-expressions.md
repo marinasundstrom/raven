@@ -256,14 +256,23 @@ than or equal to the end bound. With `..<`, the comparisons are strict (`<` and
 
 ## `break` and `continue`
 
+Raven deliberately supports both statement and expression forms of control
+transfers. The forms are complementary: statement syntax suits sequential flow,
+while expression syntax lets a branch transfer control without an otherwise
+unnecessary block. Programs may mix them according to the structure and style
+of the surrounding code; both bind to the same underlying control-flow action.
+
 `break` immediately exits the innermost loop (`loop`, `while`, or `for`).
 `continue` skips the remainder of the current iteration and jumps to the next
 loop pass. `break label` and `continue label` target the enclosing labeled loop
 with that name, allowing nested loops to exit or continue an outer loop directly.
 Both keywords are only valid inside loops; using them elsewhere produces
-diagnostics (`RAV2600` for `break`, `RAV2601` for `continue`). They are
-statements, not expressions, so placing them in an expression block reports
-`RAV1902` or `RAV1903` even when that block is nested lexically inside a loop.
+diagnostics (`RAV2600` for `break`, `RAV2601` for `continue`). Like `return` and
+`throw`, they also have expression forms, including their label-target forms.
+This allows a loop transfer directly in a `match` or `if` arm, a null-coalescing
+operand, or another expression position without adding a statement block.
+Because these expressions never complete normally, they do not contribute a
+type to an expression type join.
 
 ```raven
 while cond {
@@ -286,8 +295,10 @@ using it with `break` or `continue` reports `RAV2606`.
 ```raven
 outer: loop {
     for value in values {
-        if shouldStop(value) {
-            break outer
+        match classify(value) {
+            .Stop => break outer
+            .Skip => continue
+            .Use => consume(value)
         }
     }
 }
@@ -356,7 +367,7 @@ func parse(text: string) -> int {
 }
 ```
 
-## Iterator statements (`yield`, `yield return`, `yield break`)
+## Iterator statements and expressions (`yield`, `yield return`, `yield break`)
 
 Iterator methods and function expressions produce lazily-evaluated sequences by
 using `yield` statements.
@@ -372,6 +383,18 @@ methods or function expressions whose return type implements
 counterparts. When such a method or function expression contains `yield`, the
 compiler rewrites it into a state machine that implements the appropriate
 enumerator pattern. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L489-L527】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L25-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L302-L340】
+
+All three spellings are also available in expression position. `yield value`
+and `yield return value` produce `unit` when enumeration resumes, while
+`yield break` never resumes and therefore does not contribute to a type join.
+For example, an iterator can terminate directly from a match arm:
+
+```raven
+let item = match next() {
+    Some(let item) => item
+    None => yield break
+}
+```
 
 For function expressions, the iterator return type may be written explicitly or
 inferred from the presence of `yield`. Unannotated synchronous iterator lambdas

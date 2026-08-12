@@ -757,6 +757,18 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseThrowExpression();
                 break;
 
+            case SyntaxKind.BreakKeyword:
+                expr = ParseBreakExpression();
+                break;
+
+            case SyntaxKind.ContinueKeyword:
+                expr = ParseContinueExpression();
+                break;
+
+            case SyntaxKind.YieldKeyword:
+                expr = ParseYieldExpression();
+                break;
+
             case SyntaxKind.AwaitKeyword:
                 ReadToken();
                 expr = ParseFactorExpression();
@@ -823,6 +835,46 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         var throwKeyword = ReadToken();
         var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
         return ThrowExpression(throwKeyword, expression);
+    }
+
+    private BreakExpressionSyntax ParseBreakExpression()
+    {
+        var breakKeyword = ReadToken();
+        return BreakExpression(breakKeyword, ParseOptionalControlFlowLabel());
+    }
+
+    private ContinueExpressionSyntax ParseContinueExpression()
+    {
+        var continueKeyword = ReadToken();
+        return ContinueExpression(continueKeyword, ParseOptionalControlFlowLabel());
+    }
+
+    private SyntaxToken ParseOptionalControlFlowLabel()
+    {
+        if (HasLineBreakBeforePeekToken())
+            return Token(SyntaxKind.None);
+
+        var next = PeekToken();
+        if (CanTokenBeIdentifier(next))
+            return ReadIdentifierToken();
+
+        if (SyntaxFacts.IsReservedWordKind(next.Kind))
+            return ReadToken();
+
+        return Token(SyntaxKind.None);
+    }
+
+    private ExpressionSyntax ParseYieldExpression()
+    {
+        var yieldKeyword = ReadToken();
+        if (ConsumeToken(SyntaxKind.BreakKeyword, out var breakKeyword))
+            return YieldBreakExpression(yieldKeyword, breakKeyword);
+
+        var returnKeyword = ConsumeToken(SyntaxKind.ReturnKeyword, out var consumedReturnKeyword)
+            ? consumedReturnKeyword
+            : Token(SyntaxKind.None);
+        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        return YieldExpression(yieldKeyword, returnKeyword, expression);
     }
 
     private bool TryParseLambdaExpression(out FunctionExpressionSyntax? lambda)
@@ -2999,6 +3051,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.TryKeyword or
             SyntaxKind.ReturnKeyword or
             SyntaxKind.ThrowKeyword or
+            SyntaxKind.BreakKeyword or
+            SyntaxKind.ContinueKeyword or
+            SyntaxKind.YieldKeyword or
             SyntaxKind.AwaitKeyword or
             SyntaxKind.MinusToken or
             SyntaxKind.ExclamationToken or

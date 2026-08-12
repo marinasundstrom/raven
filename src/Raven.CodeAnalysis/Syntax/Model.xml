@@ -682,6 +682,23 @@
     <Slot Name="ThrowKeyword" Type="Token" DefaultToken="ThrowKeyword" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="BreakExpression" Inherits="Expression">
+    <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+  </Node>
+  <Node Name="ContinueExpression" Inherits="Expression">
+    <Slot Name="ContinueKeyword" Type="Token" DefaultToken="ContinueKeyword" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+  </Node>
+  <Node Name="YieldExpression" Inherits="Expression">
+    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
+    <Slot Name="ReturnKeyword" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
+  <Node Name="YieldBreakExpression" Inherits="Expression">
+    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
+    <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword" />
+  </Node>
   <Node Name="PropagateExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="QuestionToken" Type="Token" DefaultToken="QuestionToken" />
