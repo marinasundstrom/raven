@@ -261,9 +261,11 @@ This is the first optimization tier, not a claim that Raven now has a general
 optimizing backend. Release optimization runs as an ordered post-lowering
 pipeline of specialized bound-tree rewriters. `PatternOptimizer` owns only
 mechanically equivalent pattern algebra, while `ControlFlowOptimizer` prunes
-branches whose conditions are already Boolean literals. New passes should
-remain local and conservative until profiling or emitted-shape evidence
-justifies broader data-flow or control-flow optimization.
+branches whose conditions are already Boolean literals.
+`UnreachableCodeOptimizer` performs conservative reachability over each
+lowered block and removes statements that have no fallthrough or branch path.
+New passes should remain local and conservative until profiling or
+emitted-shape evidence justifies broader data-flow or control-flow optimization.
 
 This policy is especially relevant to ahead-of-time targets: Release should
 hand the AOT compiler canonical, verifiable IL with avoidable control-flow,
