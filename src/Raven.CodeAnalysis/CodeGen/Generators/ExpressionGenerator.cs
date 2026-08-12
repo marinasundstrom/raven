@@ -6920,7 +6920,7 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Pop);
 
             ILGenerator.MarkLabel(endLabel);
-            ILGenerator.Emit(OpCodes.Nop);
+            MethodBodyGenerator.EmitDebugNop();
             return;
         }
 

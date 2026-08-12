@@ -66,6 +66,12 @@ internal class MethodBodyGenerator
 
     public IILBuilder ILGenerator { get; private set; }
 
+    internal void EmitDebugNop()
+    {
+        if (Compilation.Options.OptimizationLevel == OptimizationLevel.Debug)
+            ILGenerator.Emit(OpCodes.Nop);
+    }
+
     /// <summary>The shared closure used by the outer method for reference-based local hoisting (null when not applicable).</summary>
     internal TypeGenerator.LambdaClosure? OuterMethodClosure => _outerMethodClosure;
 
@@ -294,7 +300,7 @@ internal class MethodBodyGenerator
             }
         }
 
-        ILGenerator.Emit(OpCodes.Nop);
+        EmitDebugNop();
         try
         {
             ILGenerator.MarkSequencePoint(document, startLine, startColumn, endLine, endColumn);
@@ -2502,8 +2508,11 @@ internal class MethodBodyGenerator
 
     private void EmitMethodEntrySequencePointOnce()
     {
-        if (_emittedMethodEntrySequencePoint)
+        if (_emittedMethodEntrySequencePoint ||
+            Compilation.Options.OptimizationLevel == OptimizationLevel.Release)
+        {
             return;
+        }
 
         var syntax = GetMethodEntrySequencePointSyntax();
         if (syntax is null)
@@ -2520,7 +2529,7 @@ internal class MethodBodyGenerator
 
         var document = GetOrAddDocument(syntax.SyntaxTree);
 
-        ILGenerator.Emit(OpCodes.Nop);
+        EmitDebugNop();
         ILGenerator.MarkSequencePoint(document, HiddenSequencePointLine, 0, HiddenSequencePointLine, 0);
     }
 
@@ -2647,7 +2656,7 @@ internal class MethodBodyGenerator
 
             if (!endsWithTerminator && ShouldEmitImplicitReturn())
             {
-                ILGenerator.Emit(OpCodes.Nop);
+                EmitDebugNop();
                 ILGenerator.Emit(OpCodes.Ret);
                 return;
             }
@@ -2930,7 +2939,7 @@ internal class MethodBodyGenerator
 
         if (statementArray.Length == 0)
         {
-            ILGenerator.Emit(OpCodes.Nop);
+            EmitDebugNop();
             ILGenerator.Emit(OpCodes.Ret);
             return;
         }
@@ -2955,7 +2964,7 @@ internal class MethodBodyGenerator
 
         if (withReturn && ShouldEmitImplicitReturn())
         {
-            ILGenerator.Emit(OpCodes.Nop);
+            EmitDebugNop();
             ILGenerator.Emit(OpCodes.Ret);
         }
     }

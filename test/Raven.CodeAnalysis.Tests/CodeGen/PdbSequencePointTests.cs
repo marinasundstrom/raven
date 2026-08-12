@@ -16,6 +16,30 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public sealed class PdbSequencePointTests
 {
     [Fact]
+    public void ReleaseMode_PreservesVisiblePortablePdbSequencePoints()
+    {
+        var code = """
+class C {
+    func AddOne(value: int) -> int {
+        let result = value + 1
+        return result
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithOptimizationLevel(OptimizationLevel.Release);
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, options);
+        var method = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "C" && methodName == "AddOne");
+
+        AssertMethodHasVisibleSequencePoint(pdbReader, method);
+        Assert.Equal([3, 4], GetVisibleSequencePointStartLines(pdbReader, method).Distinct().ToArray());
+
+        peReader.Dispose();
+    }
+
+    [Fact]
     public void CorrectedPdb_PreservesMissingTrailingMethodDebugRows()
     {
         var metadata = new MetadataBuilder();

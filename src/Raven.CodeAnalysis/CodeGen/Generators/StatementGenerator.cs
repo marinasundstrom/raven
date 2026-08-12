@@ -125,7 +125,7 @@ internal class StatementGenerator : Generator
         }
 
         ILGenerator.MarkLabel(endLabel);
-        ILGenerator.Emit(OpCodes.Nop);
+        MethodBodyGenerator.EmitDebugNop();
     }
 
     private void EmitBreakStatement(BoundBreakStatement breakStatement)
@@ -1285,7 +1285,7 @@ internal class StatementGenerator : Generator
 
         var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeledStatement.Label);
         ILGenerator.MarkLabel(ilLabel);
-        ILGenerator.Emit(OpCodes.Nop);
+        MethodBodyGenerator.EmitDebugNop();
 
         var activeLoopLabels = IsLabeledLoopStatement(labeledStatement.Statement)
             ? _activeLoopLabels.Add(labeledStatement.Label)
