@@ -499,6 +499,10 @@ try {
   if (await page.locator(".diagnostics li").count() === 0) {
     throw new Error("Expected invalid Raven source to produce at least one diagnostic.");
   }
+  const diagnosticLocation = (await page.locator(".diagnostic-location").first().textContent())?.trim();
+  if (!/^1:\d+$/.test(diagnosticLocation ?? "")) {
+    throw new Error(`Expected a line:column diagnostic start location, got '${diagnosticLocation}'.`);
+  }
 
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");

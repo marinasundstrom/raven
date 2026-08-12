@@ -150,7 +150,13 @@
                     <ul>
                         @foreach (var diagnostic in _diagnostics)
                         {
-                            <li>@diagnostic</li>
+                            <li>
+                                @if (diagnostic.Line is not null && diagnostic.Column is not null)
+                                {
+                                    <span class="diagnostic-location">@diagnostic.Line:@diagnostic.Column</span>
+                                }
+                                @diagnostic.Message
+                            </li>
                         }
                     </ul>
                 </div>
@@ -193,7 +199,7 @@
     private bool _runInitialExample;
     private bool _isBusy;
     private string _themeMode = "system";
-    private IReadOnlyList<string> _diagnostics = [];
+    private IReadOnlyList<PlaygroundDiagnostic> _diagnostics = [];
     private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
     private IReadOnlyList<PlaygroundSnippetEntry> _snippets = [];
 

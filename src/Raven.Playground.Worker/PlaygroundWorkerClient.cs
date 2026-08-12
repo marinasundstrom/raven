@@ -87,6 +87,6 @@ public sealed class PlaygroundWorkerClient(IJSRuntime jsRuntime) : IAsyncDisposa
 public sealed record PlaygroundWorkerResult(
     bool Success,
     int AssemblyLength,
-    IReadOnlyList<string> Diagnostics,
+    IReadOnlyList<PlaygroundDiagnostic> Diagnostics,
     int? ExitCode,
     string? Output);

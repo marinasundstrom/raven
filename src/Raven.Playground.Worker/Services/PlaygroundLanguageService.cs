@@ -134,7 +134,19 @@ public sealed class PlaygroundLanguageService
             using var assemblyStream = new MemoryStream();
             var emitResult = compilation.Emit(assemblyStream);
             var diagnostics = emitResult.Diagnostics
-                .Select(static diagnostic => diagnostic.ToString())
+                .Select(static diagnostic =>
+                {
+                    int? line = null;
+                    int? column = null;
+                    if (diagnostic.Location.SourceTree is not null)
+                    {
+                        var start = diagnostic.Location.GetLineSpan().StartLinePosition;
+                        line = start.Line + 1;
+                        column = start.Character + 1;
+                    }
+
+                    return new PlaygroundDiagnostic(diagnostic.ToString(), line, column);
+                })
                 .ToArray();
 
             var result = emitResult.Success
@@ -223,5 +235,10 @@ public sealed record PlaygroundHoverItem(
 public sealed record PlaygroundCompilationResult(
     bool Success,
     byte[]? AssemblyImage,
-    IReadOnlyList<string> Diagnostics,
+    IReadOnlyList<PlaygroundDiagnostic> Diagnostics,
     string? AsyncEntryPointImplementationName);
+
+public sealed record PlaygroundDiagnostic(
+    string Message,
+    int? Line,
+    int? Column);

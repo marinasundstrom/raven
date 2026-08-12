@@ -481,6 +481,12 @@ kbd {
 .diagnostics h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; }
 .diagnostics ul { margin: 0; padding-left: 20px; font: 12px/1.55 ui-monospace, monospace; }
 
+.diagnostic-location {
+    display: inline-block;
+    margin-right: 0.65em;
+    color: var(--muted);
+}
+
 .playground-footer {
     display: flex;
     justify-content: space-between;
