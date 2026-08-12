@@ -103,6 +103,9 @@ let registrationPromise;
 export async function setSharedSource(encodedSource) {
   const url = new URL(window.location.href);
   url.searchParams.set("source", encodedSource);
+  url.searchParams.delete("example");
+  url.searchParams.delete("snippet");
+  url.searchParams.delete("run");
   window.history.replaceState(null, "", url);
 
   try {
@@ -113,9 +116,12 @@ export async function setSharedSource(encodedSource) {
   }
 }
 
-export function clearSharedSource() {
+export function setSelectedExample(exampleId) {
   const url = new URL(window.location.href);
+  url.searchParams.set("example", exampleId);
   url.searchParams.delete("source");
+  url.searchParams.delete("snippet");
+  url.searchParams.delete("run");
   window.history.replaceState(null, "", url);
 }
 

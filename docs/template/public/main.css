@@ -143,6 +143,28 @@ article pre > code.hljs {
     font-family: var(--raven-font-mono);
 }
 
+[data-raven-playground] {
+    display: none;
+}
+
+.raven-sample-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem 1rem;
+    justify-content: flex-end;
+    margin: -0.5rem 0 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.raven-sample-actions a {
+    text-decoration: none;
+}
+
+.raven-playground-link::after {
+    content: " →";
+}
+
 /* VS Code Light+ syntax colors. Raven's brand accent stays outside code. */
 .hljs-keyword,
 .hljs-literal,

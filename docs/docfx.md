@@ -85,6 +85,22 @@ workload. Treat its current themes as a curation, not a permanent taxonomy:
 showcases can be reframed, replaced, or expanded as Raven and its audience
 evolve without changing the workload navigation.
 
+Runnable documentation blocks opt in with an empty marker immediately before
+the Raven code fence. Use `data-raven-playground="source"` when the displayed
+snippet is a complete standalone program. The generated action sends its text
+through the Playground's inline `source` parameter but does not execute it
+automatically. Use `data-raven-playground="example"` with `data-example="id"`
+when it should open an entry visible in the Playground's example picker. Use
+`data-snippet="id"` for a fuller documentation companion from the separate
+bundled snippet catalog. Keep each `.rvn` companion in a `snippets/` directory
+beside the documentation section that owns it; `docs/snippets/index.json`
+contains only the shared manifest. These entries remain out of the picker. The
+Playground project publishes the manifest and companions as static content.
+Use globally unique IDs and companion filenames because the published bundle
+uses a flat `snippets/` directory. Add `data-run="true"` only for a vetted
+example or snippet, and optionally add `data-source-url` for its checked-in
+source. Never place an external source URL in a Playground query parameter.
+
 ## Publication boundary
 
 `docs/docfx.json` explicitly lists public learning material, feature guides,

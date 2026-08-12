@@ -1,0 +1,23 @@
+import System.*
+
+record Shipment(Id: int, Weight: decimal)
+
+union QuoteResult {
+    case Quoted(amount: decimal)
+    case Rejected(reason: string)
+}
+
+func Quote(shipment: Shipment) -> QuoteResult {
+    if shipment.Weight <= 0 {
+        return .Rejected("Weight must be positive")
+    }
+
+    return .Quoted(12.50m + shipment.Weight * 1.75m)
+}
+
+let message = Quote(Shipment(42, 3.5m)) match {
+    .Quoted(let amount) => "Quote: $amount"
+    .Rejected(let reason) => "Rejected: $reason"
+}
+
+Console.WriteLine(message)

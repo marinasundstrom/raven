@@ -169,6 +169,9 @@ become durable.
 - Clarify extension points for compiler services, analyzers, formatters,
   macros, and build integration.
 - Separate stable, preview, and research surfaces in documentation and tests.
+- Evolve the Playground from a single source buffer to small multi-file
+  projects with a tabbed editor, while keeping shared links deterministic and
+  safe to load.
 - Expand the showcase only when a workload demonstrates a distinct, repeatable
   use case.
 

@@ -178,15 +178,19 @@
     private string _output = "Press Compile to check the program, or Run to execute it.";
     private string _status = "Loading editor";
     private string _selectedExampleId = string.Empty;
+    private string _selectedSnippetTitle = string.Empty;
     private string _initialSource = string.Empty;
+    private string _initialLinkNotice = string.Empty;
     private string _shareStatus = string.Empty;
     private string _exampleQuery = string.Empty;
     private bool _examplePickerOpen;
     private bool _initialSourceLoaded;
+    private bool _runInitialExample;
     private bool _isBusy;
     private string _themeMode = "system";
     private IReadOnlyList<string> _diagnostics = [];
     private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
+    private IReadOnlyList<PlaygroundSnippetEntry> _snippets = [];
 
     private IEnumerable<PlaygroundExampleEntry> FilteredExamples =>
         string.IsNullOrWhiteSpace(_exampleQuery)
@@ -200,6 +204,7 @@
 
     private string SelectedExampleTitle =>
         _examples.FirstOrDefault(example => example.Id == _selectedExampleId)?.Title
+        ?? (!string.IsNullOrEmpty(_selectedSnippetTitle) ? _selectedSnippetTitle : null)
         ?? "Shared program";
 
     private string StatusClass => _status switch
@@ -231,6 +236,15 @@
             _commandTarget);
         await _editor.InvokeVoidAsync("setValue", _initialSource);
         _status = "Ready";
+        if (!string.IsNullOrEmpty(_initialLinkNotice))
+            _output = $"{_initialLinkNotice} Loaded “{SelectedExampleTitle}” instead.";
+
+        if (_runInitialExample)
+        {
+            _runInitialExample = false;
+            await CompileAndRunAsync();
+        }
+
         StateHasChanged();
     }
 
@@ -294,11 +308,12 @@
             return;
 
         _selectedExampleId = example.Id;
+        _selectedSnippetTitle = string.Empty;
         CloseExamplePicker();
         var source = await Http.GetStringAsync($"examples/{example.File}");
         await _editor.InvokeVoidAsync("setValue", source);
         if (_module is not null)
-            await _module.InvokeVoidAsync("clearSharedSource");
+            await _module.InvokeVoidAsync("setSelectedExample", example.Id);
         _status = "Ready";
         _output = $"Loaded “{example.Title}”. Press Run to execute it.";
         _shareStatus = string.Empty;
@@ -314,6 +329,7 @@
         var encodedSource = EncodeSource(source);
         var copied = await _module.InvokeAsync<bool>("setSharedSource", encodedSource);
         _selectedExampleId = string.Empty;
+        _selectedSnippetTitle = string.Empty;
         CloseExamplePicker();
         _shareStatus = copied ? "Link copied" : "Link ready";
     }
@@ -324,16 +340,51 @@
             return;
 
         _examples = await Http.GetFromJsonAsync<PlaygroundExampleEntry[]>("examples/index.json") ?? [];
-        if (TryGetQueryParameter(new Uri(Navigation.Uri), "source", out var encodedSource) &&
-            TryDecodeSource(encodedSource, out var sharedSource))
+        _snippets = await Http.GetFromJsonAsync<PlaygroundSnippetEntry[]>("snippets/index.json") ?? [];
+        if (TryGetQueryParameter(new Uri(Navigation.Uri), "source", out var encodedSource))
         {
-            _initialSource = sharedSource;
-            _selectedExampleId = string.Empty;
-            _initialSourceLoaded = true;
-            return;
+            if (TryDecodeSource(encodedSource, out var sharedSource))
+            {
+                _initialSource = sharedSource;
+                _selectedExampleId = string.Empty;
+                _initialSourceLoaded = true;
+                return;
+            }
+
+            _initialLinkNotice = "The shared source in this link is invalid.";
         }
 
-        var initialExample = _examples.FirstOrDefault(static example => example.Id == "hello")
+        if (TryGetQueryParameter(new Uri(Navigation.Uri), "snippet", out var snippetId))
+        {
+            var snippet = _snippets.FirstOrDefault(snippet =>
+                string.Equals(snippet.Id, snippetId, StringComparison.Ordinal));
+            if (snippet is not null)
+            {
+                _selectedSnippetTitle = $"Documentation: {snippet.Title}";
+                _initialSource = await Http.GetStringAsync($"snippets/{snippet.File}");
+                _runInitialExample =
+                    TryGetQueryParameter(new Uri(Navigation.Uri), "run", out var runSnippet) &&
+                    string.Equals(runSnippet, "true", StringComparison.OrdinalIgnoreCase);
+                _initialSourceLoaded = true;
+                return;
+            }
+
+            _initialLinkNotice = "The requested documentation snippet was not found.";
+        }
+
+        PlaygroundExampleEntry? initialExample = null;
+        if (TryGetQueryParameter(new Uri(Navigation.Uri), "example", out var exampleId))
+        {
+            initialExample = _examples.FirstOrDefault(example =>
+                string.Equals(example.Id, exampleId, StringComparison.Ordinal));
+            _runInitialExample = initialExample is not null &&
+                TryGetQueryParameter(new Uri(Navigation.Uri), "run", out var run) &&
+                string.Equals(run, "true", StringComparison.OrdinalIgnoreCase);
+            if (initialExample is null)
+                _initialLinkNotice = "The requested Playground example was not found.";
+        }
+
+        initialExample ??= _examples.FirstOrDefault(static example => example.Id == "hello")
             ?? _examples.FirstOrDefault();
         if (initialExample is null)
             return;
@@ -408,6 +459,8 @@
         $"example-group-{category.ToLowerInvariant().Replace(' ', '-')}";
 
     private sealed record PlaygroundExampleEntry(string Id, string Title, string File, string Category);
+
+    private sealed record PlaygroundSnippetEntry(string Id, string Title, string File);
 
     private async Task CompileCoreAsync(bool run)
     {

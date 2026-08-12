@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added stable Playground links for public examples, documentation-owned
+  snippets, and inline shared source. Only bundled example and snippet IDs can
+  opt into automatic execution; invalid links now fall back to Hello World
+  with an inline explanation, and documentation snippets remain separate from
+  the Playground's visible example picker.
+
 - Made `dotnet build` package `netnano1.0` executables into compact `.pe`,
   `.pdbx`, and complete deployable `.bin` artifacts while staging the compact
   dependency closure for the official nanoFramework VS Code debugger. Added

@@ -4,6 +4,11 @@ This small quote sample shows Raven's preferred vocabulary for a domain
 decision: a record for input data, a union for the possible outcomes, and a
 plain function for the calculation.
 
+<div data-raven-playground="snippet"
+     data-snippet="shipment-quote"
+     data-run="true"
+     data-source-url="https://github.com/marinasundstrom/raven/blob/main/docs/showcases/snippets/shipment-quote.rvn"></div>
+
 ```raven
 record Shipment(Id: int, Weight: decimal)
 

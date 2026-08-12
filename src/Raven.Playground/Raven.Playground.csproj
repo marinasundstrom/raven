@@ -32,6 +32,17 @@
                ExternallyResolved="true" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\docs\snippets\index.json"
+             Link="wwwroot\snippets\index.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\docs\**\snippets\**\*.rvn"
+             Link="wwwroot\snippets\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
     <Exec Command="npm ci --no-audit --no-fund"
           WorkingDirectory="$(MSBuildProjectDirectory)"

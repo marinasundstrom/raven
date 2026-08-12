@@ -167,6 +167,18 @@ try {
   }
   await sharedPage.close();
 
+  const sharedRunPage = await browser.newPage();
+  const sharedRunUrl = new URL(sharedUrl);
+  sharedRunUrl.searchParams.set("run", "true");
+  await sharedRunPage.goto(sharedRunUrl.href);
+  await sharedRunPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  await sharedRunPage.waitForTimeout(500);
+  const sharedRunStatus = (await sharedRunPage.locator(".status-pill").textContent())?.trim();
+  if (sharedRunStatus !== "Ready") {
+    throw new Error(`Expected run=true to be ignored for shared source, got ${sharedRunStatus}.`);
+  }
+  await sharedRunPage.close();
+
   const invalidSharedPage = await browser.newPage();
   await invalidSharedPage.goto(`${url}?source=invalid!`);
   await invalidSharedPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
@@ -175,7 +187,72 @@ try {
   if (!fallbackSource.includes("Hello from $language in WebAssembly")) {
     throw new Error(`Expected an invalid share URL to load Hello World, got ${fallbackSource}.`);
   }
+  await invalidSharedPage.getByText(/shared source in this link is invalid/).waitFor();
   await invalidSharedPage.close();
+
+  const predefinedPage = await browser.newPage();
+  await predefinedPage.goto(`${url}?example=records`);
+  await predefinedPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  const predefinedSource = (await predefinedPage.locator(".monaco-editor .view-lines").textContent())
+    .replaceAll("\u00a0", " ");
+  if (!predefinedSource.includes("record Shipment")) {
+    throw new Error(`Expected the records example to load from the URL, got ${predefinedSource}.`);
+  }
+  const predefinedSelection = (await predefinedPage.locator(".example-picker-trigger").textContent()).trim();
+  if (!predefinedSelection.includes("Records")) {
+    throw new Error(`Expected the records selector state, got '${predefinedSelection}'.`);
+  }
+  await predefinedPage.close();
+
+  const runningPredefinedPage = await browser.newPage();
+  await runningPredefinedPage.goto(`${url}?example=records&run=true`);
+  await runningPredefinedPage.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
+  const runningPredefinedOutput = await runningPredefinedPage.locator(".program-output").textContent();
+  if (!runningPredefinedOutput.includes("Shipment 42 weighs 3.5 kg")) {
+    throw new Error(`Expected the trusted records example to run from the URL, got ${runningPredefinedOutput}.`);
+  }
+  await runningPredefinedPage.close();
+
+  const documentationSnippetPage = await browser.newPage();
+  await documentationSnippetPage.goto(`${url}?snippet=shipment-quote&run=true`);
+  await documentationSnippetPage.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
+  const documentationSnippetOutput = await documentationSnippetPage.locator(".program-output").textContent();
+  if (!documentationSnippetOutput.includes("Quote:")) {
+    throw new Error(`Expected the trusted documentation snippet to run, got ${documentationSnippetOutput}.`);
+  }
+  const documentationSnippetSelection =
+    (await documentationSnippetPage.locator(".example-picker-trigger").textContent()).trim();
+  if (!documentationSnippetSelection.includes("Documentation: Shipment quote")) {
+    throw new Error(`Expected a documentation-only selector state, got '${documentationSnippetSelection}'.`);
+  }
+  await documentationSnippetPage.close();
+
+  const externalExamplePage = await browser.newPage();
+  await externalExamplePage.goto(`${url}?example=${encodeURIComponent("https://example.com/program.rvn")}&run=true`);
+  await externalExamplePage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  await externalExamplePage.waitForTimeout(500);
+  const externalFallbackSource = (await externalExamplePage.locator(".monaco-editor .view-lines").textContent())
+    .replaceAll("\u00a0", " ");
+  if (!externalFallbackSource.includes("Hello from $language in WebAssembly")) {
+    throw new Error("Expected a non-bundled example value to fall back without loading a URL.");
+  }
+  const externalExampleStatus = (await externalExamplePage.locator(".status-pill").textContent())?.trim();
+  if (externalExampleStatus !== "Ready") {
+    throw new Error(`Expected run=true to be ignored for a non-bundled example, got ${externalExampleStatus}.`);
+  }
+  await externalExamplePage.getByText(/Playground example was not found/).waitFor();
+  await externalExamplePage.close();
+
+  const externalSnippetPage = await browser.newPage();
+  await externalSnippetPage.goto(`${url}?snippet=${encodeURIComponent("https://example.com/program.rvn")}&run=true`);
+  await externalSnippetPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  await externalSnippetPage.waitForTimeout(500);
+  const externalSnippetStatus = (await externalSnippetPage.locator(".status-pill").textContent())?.trim();
+  if (externalSnippetStatus !== "Ready") {
+    throw new Error(`Expected run=true to be ignored for a non-bundled snippet, got ${externalSnippetStatus}.`);
+  }
+  await externalSnippetPage.getByText(/documentation snippet was not found/).waitFor();
+  await externalSnippetPage.close();
 
   const tokenClasses = await editor.locator(".view-lines span[class]").evaluateAll(elements =>
     [...new Set(elements.map(element => element.className).filter(className => /^mtk\d+$/.test(className)))],
@@ -245,7 +322,11 @@ try {
       .getByRole("option", { name: example.title, exact: true })
       .click();
     await page.waitForFunction(
-      () => !new URL(window.location.href).searchParams.has("source"),
+      id => {
+        const parameters = new URL(window.location.href).searchParams;
+        return parameters.get("example") === id && !parameters.has("source");
+      },
+      example.id,
       { timeout: 30_000 },
     );
     await page.getByRole("button", { name: /^Run/ }).click();

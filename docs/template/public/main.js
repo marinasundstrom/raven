@@ -167,10 +167,75 @@ const initializeCarousels = () => {
   })
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeCarousels)
-} else {
+const encodePlaygroundSource = (source) => {
+  const bytes = new TextEncoder().encode(source)
+  let binary = ''
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte) })
+  return window.btoa(binary)
+    .replace(/=+$/, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+}
+
+const initializePlaygroundSamples = () => {
+  const docRoot = new URL(
+    document.querySelector('meta[name="docfx:rel"]')?.content ?? '',
+    document.baseURI)
+  const playgroundBase = new URL('playground/', docRoot)
+
+  document.querySelectorAll('[data-raven-playground]').forEach((marker) => {
+    const codeBlock = marker.nextElementSibling
+    if (codeBlock?.tagName !== 'PRE') return
+
+    const example = marker.dataset.example
+    const snippet = marker.dataset.snippet
+    const useDisplayedSource = marker.dataset.ravenPlayground === 'source'
+    if (!example && !snippet && !useDisplayedSource) return
+
+    const playgroundUrl = new URL(playgroundBase)
+    if (example) {
+      playgroundUrl.searchParams.set('example', example)
+      if (marker.dataset.run === 'true') playgroundUrl.searchParams.set('run', 'true')
+    } else if (snippet) {
+      playgroundUrl.searchParams.set('snippet', snippet)
+      if (marker.dataset.run === 'true') playgroundUrl.searchParams.set('run', 'true')
+    } else {
+      playgroundUrl.searchParams.set(
+        'source',
+        encodePlaygroundSource(codeBlock.querySelector('code')?.textContent ?? ''))
+    }
+
+    const actions = document.createElement('div')
+    actions.className = 'raven-sample-actions'
+
+    if (marker.dataset.sourceUrl) {
+      const sourceLink = document.createElement('a')
+      sourceLink.href = marker.dataset.sourceUrl
+      sourceLink.textContent = 'View source'
+      actions.append(sourceLink)
+    }
+
+    const playgroundLink = document.createElement('a')
+    playgroundLink.className = 'raven-playground-link'
+    playgroundLink.href = playgroundUrl.href
+    playgroundLink.target = '_blank'
+    playgroundLink.rel = 'noopener'
+    playgroundLink.textContent = example || snippet ? 'Try the complete example' : 'Try this code'
+    actions.append(playgroundLink)
+
+    codeBlock.insertAdjacentElement('afterend', actions)
+  })
+}
+
+const initializeRavenSite = () => {
   initializeCarousels()
+  initializePlaygroundSamples()
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeRavenSite)
+} else {
+  initializeRavenSite()
 }
 
 export default {
