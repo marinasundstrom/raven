@@ -1644,13 +1644,20 @@ internal abstract partial class Binder
     internal ITypeSymbol BindTypeSyntaxAndReport(
         TypeSyntax typeSyntax,
         TypeResolutionOptions? options = null,
-        RefKind? refKindHint = null)
+        RefKind? refKindHint = null,
+        DiagnosticBag? additionalDiagnostics = null)
     {
         var result = BindTypeSyntax(typeSyntax, options);
         if (result.Success)
             return ApplyBoundTypeContract(result.ResolvedType, typeSyntax.GetLocation(), refKindHint);
 
-        ReportResolveTypeResultDiagnostics(result, typeSyntax);
+        foreach (var diagnostic in MapResolveResultToDiagnostics(result, typeSyntax))
+        {
+            _diagnostics.Report(diagnostic);
+            if (additionalDiagnostics is not null && !ReferenceEquals(additionalDiagnostics, _diagnostics))
+                additionalDiagnostics.Report(diagnostic);
+        }
+
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 

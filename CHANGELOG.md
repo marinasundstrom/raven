@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Diagnosed unresolved types in both tuple-style and field-style union case
+  payloads. Hover signatures now preserve the authored unresolved type name,
+  including qualified names, and reserve `<Error>` for declarations without
+  usable source type syntax.
+
 - Preserved portable PDB symbols while normalizing or retargeting emitted
   assembly references. Final assemblies now retain a matching CodeView identity
   and executable source sequence points, allowing debuggers such as the .NET

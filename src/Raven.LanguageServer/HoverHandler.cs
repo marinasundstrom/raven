@@ -2986,7 +2986,10 @@ internal sealed class HoverHandler : IHoverHandler
                 localTypeSymbol = initializerType;
             }
 
-            var localType = FormatType(localTypeSymbol, plainTypeFormat);
+            var localType = localTypeSymbol.ContainsErrorType() &&
+                TryGetLocalDeclaredTypeSyntaxDisplay(local, out var declaredTypeDisplay)
+                    ? declaredTypeDisplay
+                    : FormatType(localTypeSymbol, plainTypeFormat);
             return $"{binding} {local.Name}: {localType}";
         }
 
@@ -4409,6 +4412,15 @@ internal sealed class HoverHandler : IHoverHandler
                 SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
         }
 
+        if (symbol is IParameterSymbol { ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Constructor } containingConstructor } &&
+            MethodSignatureContainsError(containingConstructor))
+        {
+            var plainTypeFormat = CreatePlainTypeFormat();
+            var parameters = FormatParameters(containingConstructor.Parameters, plainTypeFormat);
+            var returnType = FormatType(containingConstructor.ReturnType, plainTypeFormat);
+            return $"init({parameters}) -> {returnType}";
+        }
+
         if (symbol is IMethodSymbol method &&
             TryGetEnclosingCallableDisplayForLocalFunction(method, semanticModel, out var localContaining))
         {
@@ -4811,7 +4823,32 @@ internal sealed class HoverHandler : IHoverHandler
 
         foreach (var syntaxReference in parameter.DeclaringSyntaxReferences)
         {
-            if (syntaxReference.GetSyntax() is not ParameterSyntax { TypeAnnotation.Type: { } typeSyntax })
+            var typeSyntax = syntaxReference.GetSyntax() switch
+            {
+                ParameterSyntax { TypeAnnotation.Type: { } parameterType } => parameterType,
+                CaseFieldSyntax { TypeAnnotation.Type: { } fieldType } => fieldType,
+                _ => null
+            };
+
+            if (typeSyntax is null)
+                continue;
+
+            typeDisplay = typeSyntax.ToString();
+            return !string.IsNullOrWhiteSpace(typeDisplay);
+        }
+
+        return false;
+    }
+
+    private static bool TryGetLocalDeclaredTypeSyntaxDisplay(
+        ILocalSymbol local,
+        out string typeDisplay)
+    {
+        typeDisplay = string.Empty;
+
+        foreach (var syntaxReference in local.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not VariableDeclaratorSyntax { TypeAnnotation.Type: { } typeSyntax })
                 continue;
 
             typeDisplay = typeSyntax.ToString();
@@ -5399,7 +5436,10 @@ internal sealed class HoverHandler : IHoverHandler
                     RefKind.RefReadOnlyParameter => "ref readonly ",
                     _ => string.Empty
                 };
-                var parameterType = parameter.Type.ToDisplayString(format);
+                var parameterType = parameter.Type.ContainsErrorType() &&
+                    TryGetParameterDeclaredTypeSyntaxDisplay(parameter, out var declaredTypeDisplay)
+                        ? declaredTypeDisplay
+                        : FormatType(parameter.Type, format);
                 var defaultValue = FormatParameterDefaultValue(parameter, format);
                 return $"{paramsPrefix}{refPrefix}{parameter.Name}: {parameterType}{defaultValue}";
             }));

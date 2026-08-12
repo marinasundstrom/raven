@@ -13,6 +13,33 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class UnionSemanticTests : CompilationTestBase
 {
+    [Fact]
+    public void UnionCasePayloads_WithUnresolvedTypes_ReportDiagnostics()
+    {
+        const string source = """
+union KettleState {
+    case Filled(water: Water)
+    case Heating {
+        Fuel: Fuel
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var missingTypeDiagnostics = compilation.GetDiagnostics()
+            .Where(static diagnostic =>
+                diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext)
+            .ToArray();
+
+        Assert.Collection(
+            missingTypeDiagnostics.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.Start),
+            water => Assert.Contains("Water", water.GetMessage(), StringComparison.Ordinal),
+            fuel => Assert.Contains("Fuel", fuel.GetMessage(), StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("private field _state: int = 0", "field declarations")]
     [InlineData("static field Instances: int = 0", "field declarations")]

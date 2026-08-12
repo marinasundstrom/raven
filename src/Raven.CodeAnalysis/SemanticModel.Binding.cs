@@ -4776,7 +4776,9 @@ public partial class SemanticModel
                             var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                                 ? byRefType.ElementType
                                 : typeSyntax;
-                            parameterType = unionBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
+                            parameterType = unionBinder.BindTypeSyntaxAndReport(
+                                boundTypeSyntax,
+                                additionalDiagnostics: _declarationDiagnostics);
                         }
 
                         parameterType = TypeMemberBinder.NormalizeVarParamsParameterType(
@@ -4812,7 +4814,9 @@ public partial class SemanticModel
                 {
                     foreach (var fieldSyntax in fieldClause.Fields)
                     {
-                        var parameterType = unionBinder.BindTypeSyntaxAndReport(fieldSyntax.TypeAnnotation.Type);
+                        var parameterType = unionBinder.BindTypeSyntaxAndReport(
+                            fieldSyntax.TypeAnnotation.Type,
+                            additionalDiagnostics: _declarationDiagnostics);
                         var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                             fieldSyntax.Initializer,
                             parameterType,

@@ -2472,7 +2472,7 @@ class Functions {
     }
 
     [Fact]
-    public void LocalHover_WithErrorType_UsesAngleBracketPlaceholder()
+    public void LocalHover_WithErrorType_UsesAuthoredTypeSyntax()
     {
         const string code = """
 class Broken {
@@ -2500,11 +2500,11 @@ class Broken {
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var signature = (string)buildSignature.Invoke(null, [localSymbol, localDeclarator, semanticModel])!;
-        signature.ShouldBe("val value: <Error>");
+        signature.ShouldBe("val value: MissingType");
     }
 
     [Fact]
-    public void ParameterHover_WithErrorType_UsesAngleBracketPlaceholder()
+    public void ParameterHover_WithErrorType_UsesAuthoredTypeSyntax()
     {
         const string code = """
 class Broken {
@@ -2531,6 +2531,49 @@ class Broken {
 
         var signature = (string)buildSignature.Invoke(null, [parameterSymbol, parameterSyntax, semanticModel])!;
         signature.ShouldBe("value: MissingType");
+    }
+
+    [Fact]
+    public void UnionCaseParameterHover_WithErrorType_UsesAuthoredTypeSyntax()
+    {
+        const string code = """
+union KettleState {
+    case Filled(water: System.Foo)
+    case Heating {
+        Fuel: Devices.Fuel
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var cases = syntaxTree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>().ToArray();
+        var filled = semanticModel.GetDeclaredSymbol(cases[0]).ShouldBeAssignableTo<IUnionCaseTypeSymbol>();
+        var heating = semanticModel.GetDeclaredSymbol(cases[1]).ShouldBeAssignableTo<IUnionCaseTypeSymbol>();
+        var water = filled.ConstructorParameters.Single();
+        var fuel = heating.ConstructorParameters.Single();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var waterSignature = (string)buildSignature.Invoke(null, [water, cases[0], semanticModel])!;
+        var fuelSignature = (string)buildSignature.Invoke(null, [fuel, cases[1], semanticModel])!;
+        var waterContainingDisplay = (string)buildContainingDisplay.Invoke(null, [water, semanticModel])!;
+
+        waterSignature.ShouldBe("water: System.Foo");
+        fuelSignature.ShouldBe("Fuel: Devices.Fuel");
+        waterContainingDisplay.ShouldContain("water: System.Foo");
+        waterContainingDisplay.ShouldNotContain("Error");
     }
 
     [Fact]
