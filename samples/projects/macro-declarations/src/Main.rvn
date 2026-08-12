@@ -3,8 +3,10 @@ import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 
 macro Double(value: int) {
-    let doubled = value * 2
-    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression(doubled.ToString())
+    match value {
+        0 => expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("0")
+        _ => expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression((value * 2).ToString())
+    }
 }
 
 macro AddOffset(offset: int, expression: ExpressionSyntax) {

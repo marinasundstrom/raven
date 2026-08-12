@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added expression forms of the macro contribution constructs `expand`,
+  `replace`, and `introduce`. They can now be used directly in `match` arms and
+  other macro expression positions while retaining their standalone statement
+  forms; macro lowering, validation, semantic classification, and control-flow
+  analysis recognize both shapes. Unused-local and unused-parameter analysis
+  now treats macro declarations as callable owners and observes contribution
+  operands in either form.
+
 - Added expression forms of `break`, `continue`, `yield`, `yield return`, and
   `yield break`, including labeled `break` and `continue` targets. These forms
   can be used directly in `match`, `if`, null-coalescing, and other expression

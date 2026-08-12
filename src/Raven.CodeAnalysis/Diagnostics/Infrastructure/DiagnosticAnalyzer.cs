@@ -637,6 +637,8 @@ internal static class AnalyzerSymbolEnumerator
                 => symbolKinds.Contains(SymbolKind.Type),
             BaseMethodDeclarationSyntax or BaseConstructorDeclarationSyntax or ParameterlessConstructorDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax
                 => symbolKinds.Contains(SymbolKind.Method),
+            MacroDeclarationSyntax
+                => symbolKinds.Contains(SymbolKind.Macro),
             BasePropertyDeclarationSyntax
                 => symbolKinds.Contains(SymbolKind.Property),
             EventDeclarationSyntax

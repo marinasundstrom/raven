@@ -2214,6 +2214,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         if (CanTokenBeIdentifier(token))
         {
+            if (IsInMacro && IsMacroExpansionExpressionKeyword(token))
+                return ParseMacroExpansionExpression();
+
             if (IsInvocableMacroExpressionStart())
                 return ParseInvocableMacroExpression();
 
@@ -2367,6 +2370,17 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return expr ?? new ExpressionSyntax.Missing();
+    }
+
+    private static bool IsMacroExpansionExpressionKeyword(SyntaxToken token)
+        => token.IsKind(SyntaxKind.IdentifierToken) &&
+           token.GetValueText() is "expand" or "replace" or "introduce";
+
+    private MacroExpansionExpressionSyntax ParseMacroExpansionExpression()
+    {
+        var keyword = ReadToken();
+        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        return MacroExpansionExpression(keyword, expression);
     }
 
     private ExpressionSyntax ParseParenthesisOrTupleExpression()

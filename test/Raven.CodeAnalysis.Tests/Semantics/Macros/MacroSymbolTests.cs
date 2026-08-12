@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -478,6 +479,73 @@ public sealed class MacroSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void ExpandExpression_IsAControlFlowReturnInMatchArm()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            macro Choose(value: bool) {
+                match value {
+                    true => expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
+                    false => expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("2")
+                }
+                let unreachable = 3
+            }
+            """);
+        var body = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroDeclarationSyntax>()
+            .Single()
+            .Body!;
+
+        var analysis = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+
+        Assert.False(analysis.EndPointIsReachable);
+        Assert.Equal(
+            2,
+            analysis.ReturnStatements.Count(static node => node is MacroExpansionExpressionSyntax));
+        Assert.IsType<LocalDeclarationStatementSyntax>(Assert.Single(analysis.UnreachableStatements));
+    }
+
+    [Fact]
+    public void ContributionExpressions_ExposeAnalyzerOperations()
+    {
+        var (compilation, tree) = CreateCompilation("""
+            macro Compose(
+                kind: int,
+                on property: Raven.CodeAnalysis.Syntax.PropertyDeclarationSyntax
+            ) {
+                match kind {
+                    0 => expand property
+                    1 => replace property
+                    _ => introduce property
+                }
+            }
+            """);
+        var model = compilation.GetSemanticModel(tree);
+        var expressions = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroExpansionExpressionSyntax>()
+            .ToDictionary(static expression => expression.Keyword.ValueText);
+        Assert.All(
+            expressions.Values,
+            expression => Assert.Equal(
+                SpecialType.System_Unit,
+                model.GetTypeInfo(expression).Type!.SpecialType));
+
+        var expand = Assert.IsAssignableFrom<IReturnOperation>(model.GetOperation(expressions["expand"]));
+        Assert.Equal(OperationKind.ReturnExpression, expand.Kind);
+        Assert.Equal(OperationKind.ParameterReference, expand.ReturnedValue!.Kind);
+
+        foreach (var instruction in new[] { "replace", "introduce" })
+        {
+            var operation = Assert.IsAssignableFrom<IBlockOperation>(model.GetOperation(expressions[instruction]));
+            Assert.Equal(OperationKind.BlockExpression, operation.Kind);
+            Assert.Contains(
+                operation.ChildOperations,
+                static child => child.Kind == OperationKind.ParameterReference);
+        }
+    }
+
+    [Fact]
     public void FragmentContribution_RequiresTokenTreeMacro()
     {
         var (compilation, _) = CreateCompilation("""
@@ -496,6 +564,23 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Equal(4, diagnostics.Count(static diagnostic => diagnostic.Id == "RAV0928"));
+    }
+
+    [Fact]
+    public void ContributionExpression_UsesMacroKindValidation()
+    {
+        var (compilation, _) = CreateCompilation("""
+            macro Invalid(value: bool) {
+                match value {
+                    true => replace Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
+                    false => introduce Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseMemberDeclaration("class C {}")
+                }
+            }
+            """);
+
+        Assert.Equal(
+            2,
+            compilation.GetDiagnostics().Count(static diagnostic => diagnostic.Id == "RAV0928"));
     }
 
     [Fact]

@@ -366,6 +366,7 @@ Statement                ::= LocalDeclaration
                            | TryStatement
                            | LockStatement
                            | UnsafeStatement
+                           | MacroContributionStatement
                            | AssignmentStatement
                            | ExpressionStatement ;
 
@@ -385,6 +386,10 @@ ReturnStatement          ::= 'return' Expression? ;
 ThrowStatement           ::= 'throw' Expression ;
 BreakStatement           ::= 'break' [Identifier] ;
 ContinueStatement        ::= 'continue' [Identifier] ;
+MacroContributionStatement
+                         ::= ('expand' | 'replace' | 'introduce' | 'fragment' | 'token') Expression ;
+(* Macro contribution words are contextual and these statement forms are
+   available only inside macro declarations. *)
 
 FunctionStatement        ::= {AttributeList | MacroAttributeList}
                              ('async' | 'unsafe' | 'extern')*
@@ -706,6 +711,7 @@ PrimaryExpression        ::= Literal
                            | ContinueExpression
                            | YieldExpression
                            | YieldBreakExpression
+                           | MacroContributionExpression
                            | Block
                            | IfExpression
                            | IfPatternExpression
@@ -736,6 +742,9 @@ BreakExpression          ::= 'break' [Identifier] ;
 ContinueExpression       ::= 'continue' [Identifier] ;
 YieldExpression          ::= 'yield' ['return'] Expression ;
 YieldBreakExpression     ::= 'yield' 'break' ;
+MacroContributionExpression
+                         ::= ('expand' | 'replace' | 'introduce') Expression ;
+(* Macro contribution expressions are contextual to macro declarations. *)
 
 Block                    ::= '{' {Statement} '}' ;
 

@@ -18,7 +18,7 @@ public class UnusedParameterAnalyzerTests : AnalyzerTestBase
         Assert.Empty(analyzer.SyntaxNodeActions);
 
         var registration = Assert.Single(analyzer.SymbolActions);
-        Assert.Equal([SymbolKind.Method], registration.Kinds.ToArray());
+        Assert.Equal([SymbolKind.Method, SymbolKind.Macro], registration.Kinds.ToArray());
     }
 
     [Fact]
@@ -35,6 +35,34 @@ class C {
 
         Assert.Equal("Parameter 'value' is never used.", diagnostic.GetMessage());
         Assert.Equal("value", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
+    }
+
+    [Fact]
+    public void ParameterReadByMacroContributionExpression_DoesNotReportDiagnostic()
+    {
+        const string code = """
+macro Select(value: int) {
+    match value {
+        _ => expand value
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void UnusedMacroParameter_ReportsDiagnostic()
+    {
+        const string code = """
+macro Select(value: int) {
+    expand 0
+}
+""";
+
+        var diagnostic = Assert.Single(Analyze(code));
+
+        Assert.Equal("Parameter 'value' is never used.", diagnostic.GetMessage());
     }
 
     [Fact]

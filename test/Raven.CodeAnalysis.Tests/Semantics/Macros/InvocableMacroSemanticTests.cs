@@ -389,6 +389,123 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
                 .ToString());
     }
 
+    [Theory]
+    [InlineData(true, "1")]
+    [InlineData(false, "2")]
+    public void ExpandExpression_ReturnsDirectlyFromMatchArm(bool first, string expected)
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            $$"""
+            import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+            macro Choose(first: bool) {
+                match first {
+                    true => expand ParseExpression("1")
+                    false => expand ParseExpression("2")
+                }
+            }
+
+            func Main() -> int => Choose!({{first.ToString().ToLowerInvariant()}})
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "MatchArmMacro",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal(
+            expected,
+            compilation.GetSemanticModel(consumerTree)
+                .GetMacroExpansion(invocation)!
+                .Expression!
+                .ToString());
+    }
+
+    [Fact]
+    public void ExpandExpression_LowersFromExpressionBodiedMacro()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+            macro Answer() => expand ParseExpression("42")
+            func Main() -> int => Answer!()
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "ExpressionBodiedMacro",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+
+        Assert.Equal(
+            "42",
+            compilation.GetSemanticModel(consumerTree)
+                .GetMacroExpansion(invocation)!
+                .Expression!
+                .ToString());
+    }
+
+    [Theory]
+    [InlineData(true, 0)]
+    [InlineData(false, 1)]
+    public void AttachedContributionExpressions_ExecuteFromMatchArms(
+        bool shouldReplace,
+        int expectedIntroductions)
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            $$"""
+            macro Compose(
+                shouldReplace: bool,
+                on property: Raven.CodeAnalysis.Syntax.PropertyDeclarationSyntax
+            ) {
+                match shouldReplace {
+                    true => replace property
+                    false => introduce property
+                }
+            }
+
+            class Widget {
+                #[Compose({{shouldReplace.ToString().ToLowerInvariant()}})]
+                var Value: int = 1
+            }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "AttachedMatchArmMacro",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var attribute = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(attribute);
+
+        Assert.NotNull(expansion);
+        Assert.Equal(expectedIntroductions, expansion!.IntroducedMembers.Length);
+    }
+
     [Fact]
     public void AttachedMacro_CombinesReachedContributions()
     {

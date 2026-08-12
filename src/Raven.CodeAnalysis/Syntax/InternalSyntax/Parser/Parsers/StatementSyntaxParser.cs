@@ -46,7 +46,8 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = ParseTypeDeclarationStatementSyntax();
         }
-        else if (IsInMacro && IsMacroExpansionKeyword(token))
+        else if (IsInMacro && IsMacroExpansionKeyword(token) &&
+                 (!_parseAbruptTransfersAsExpressions || !IsMacroExpansionExpressionKeyword(token)))
         {
             statement = ParseMacroExpansionStatementSyntax();
         }
@@ -154,6 +155,10 @@ internal class StatementSyntaxParser : SyntaxParser
     private static bool IsMacroExpansionKeyword(SyntaxToken token)
         => token.IsKind(SyntaxKind.IdentifierToken) &&
            token.GetValueText() is "expand" or "replace" or "introduce" or "fragment" or "token";
+
+    private static bool IsMacroExpansionExpressionKeyword(SyntaxToken token)
+        => token.IsKind(SyntaxKind.IdentifierToken) &&
+           token.GetValueText() is "expand" or "replace" or "introduce";
 
     private MacroExpansionStatementSyntax ParseMacroExpansionStatementSyntax()
     {

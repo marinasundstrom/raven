@@ -21,4 +21,23 @@ internal sealed class MacroBodyBinder : BlockBinder
         CacheBoundNode(statement, bound);
         return bound;
     }
+
+    public override BoundExpression BindExpression(ExpressionSyntax expression)
+    {
+        if (expression is not MacroExpansionExpressionSyntax contribution)
+            return base.BindExpression(expression);
+
+        var operand = base.BindExpression(contribution.Expression);
+        BoundExpression bound = contribution.Keyword.ValueText == "expand"
+            ? new BoundReturnExpression(operand, Compilation.UnitTypeSymbol)
+            : new BoundBlockExpression(
+                [
+                    new BoundExpressionStatement(operand),
+                    new BoundExpressionStatement(BoundFactory.UnitExpression())
+                ],
+                Compilation.UnitTypeSymbol,
+                introduceILScope: false);
+        CacheBoundNode(expression, bound);
+        return bound;
+    }
 }

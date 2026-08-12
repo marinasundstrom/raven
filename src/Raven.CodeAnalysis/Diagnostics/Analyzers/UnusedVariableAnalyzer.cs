@@ -79,6 +79,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             context.RegisterSyntaxNodeAction(
                 AnalyzeLocalOwner,
                 SyntaxKind.MethodDeclaration,
+                SyntaxKind.MacroDeclaration,
                 SyntaxKind.FunctionStatement,
                 SyntaxKind.ConstructorDeclaration,
                 SyntaxKind.OperatorDeclaration,
@@ -88,7 +89,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         }
 
         if (_reportParameters)
-            context.RegisterSymbolAction(AnalyzeMethodSymbol, SymbolKind.Method);
+            context.RegisterSymbolAction(AnalyzeCallableSymbol, SymbolKind.Method, SymbolKind.Macro);
     }
 
     private void AnalyzeLocalOwner(SyntaxNodeAnalysisContext context)
@@ -118,15 +119,15 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         ReportDiagnostics(context.ReportDiagnostic, context.SemanticModel, candidates, usedSymbols);
     }
 
-    private void AnalyzeMethodSymbol(SymbolAnalysisContext context)
+    private void AnalyzeCallableSymbol(SymbolAnalysisContext context)
     {
-        if (context.Symbol is not IMethodSymbol method ||
-            AnalyzerContractFacts.IsContractMethod(method))
+        if (context.Symbol is not (IMethodSymbol or IMacroDeclarationSymbol) ||
+            context.Symbol is IMethodSymbol method && AnalyzerContractFacts.IsContractMethod(method))
         {
             return;
         }
 
-        foreach (var reference in method.DeclaringSyntaxReferences)
+        foreach (var reference in context.Symbol.DeclaringSyntaxReferences)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
@@ -187,6 +188,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         var body = node switch
         {
             MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
+            MacroDeclarationSyntax macro => (SyntaxNode?)macro.Body ?? macro.ExpressionBody?.Expression,
             FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
             BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
             FunctionExpressionSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
@@ -330,6 +332,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             IEnumerable<ParameterSyntax> parameters = node switch
             {
                 BaseMethodDeclarationSyntax method => method.ParameterList.Parameters,
+                MacroDeclarationSyntax macro => macro.ParameterList.Parameters,
                 FunctionStatementSyntax function => function.ParameterList.Parameters,
                 SimpleFunctionExpressionSyntax function => [function.Parameter],
                 ParenthesizedFunctionExpressionSyntax function => function.ParameterList.Parameters,

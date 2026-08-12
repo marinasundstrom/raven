@@ -269,40 +269,32 @@ internal static class MacroLowering
                 body.CloseBraceToken.Span.Start);
             var content = new StringBuilder(
                 source.Substring(contentSpan.Start, contentSpan.Length));
-            foreach (var contribution in body.DescendantNodes()
-                .OfType<MacroExpansionStatementSyntax>()
-                .OrderByDescending(static statement => statement.Span.Start))
+            foreach (var contribution in GetContributions(body)
+                .OrderByDescending(static contribution => contribution.Node.Span.Start))
             {
-                var relativeStart = contribution.Span.Start - contentSpan.Start;
+                var relativeStart = contribution.Node.Span.Start - contentSpan.Start;
                 var expression = source.Substring(
                     contribution.Expression.Span.Start,
                     contribution.Expression.Span.Length);
                 var lineStart = source.LastIndexOf(
                     '\n',
-                    Math.Max(0, contribution.Span.Start - 1));
+                    Math.Max(0, contribution.Node.Span.Start - 1));
                 var indentationStart = lineStart < 0 ? 0 : lineStart + 1;
                 var linePrefix = source.Substring(
                     indentationStart,
-                    contribution.Span.Start - indentationStart);
+                    contribution.Node.Span.Start - indentationStart);
                 var indentation = linePrefix.All(char.IsWhiteSpace)
                     ? linePrefix
                     : string.Empty;
                 var instruction = contribution.Keyword.ValueText;
-                var method = instruction switch
-                {
-                    "expand" => "Expand",
-                    "replace" => "Replace",
-                    "introduce" => "Introduce",
-                    "fragment" => "Fragment",
-                    "token" => "Token",
-                    _ => throw new InvalidOperationException()
-                };
-                content.Remove(relativeStart, contribution.Span.Length);
+                var method = GetContributionMethod(instruction);
+                content.Remove(relativeStart, contribution.Node.Span.Length);
                 var loweredContribution = $"{resultBuilderName}.{method}({expression})";
                 if (instruction == "expand")
                 {
-                    loweredContribution +=
-                        $"\n{indentation}return {resultBuilderName}.{buildMethod}()";
+                    loweredContribution = contribution.IsExpression
+                        ? $"{{ {loweredContribution}; return {resultBuilderName}.{buildMethod}() }}"
+                        : $"{loweredContribution}\n{indentation}return {resultBuilderName}.{buildMethod}()";
                 }
 
                 content.Insert(relativeStart, loweredContribution);
@@ -313,10 +305,59 @@ internal static class MacroLowering
         }
         else if (declaration.ExpressionBody is { } expressionBody)
         {
-            builder.AppendLine(
-                $"        {resultBuilderName}.Expand({expressionBody.Expression})");
+            if (expressionBody.Expression is MacroExpansionExpressionSyntax contribution)
+            {
+                builder.AppendLine(
+                    $"        {resultBuilderName}.{GetContributionMethod(contribution.Keyword.ValueText)}({contribution.Expression})");
+            }
+            else
+            {
+                builder.AppendLine(
+                    $"        {resultBuilderName}.Expand({expressionBody.Expression})");
+            }
         }
     }
+
+    private static string GetContributionMethod(string instruction)
+        => instruction switch
+        {
+            "expand" => "Expand",
+            "replace" => "Replace",
+            "introduce" => "Introduce",
+            "fragment" => "Fragment",
+            "token" => "Token",
+            _ => throw new InvalidOperationException()
+        };
+
+    private static IEnumerable<MacroContribution> GetContributions(SyntaxNode node)
+    {
+        foreach (var descendant in node.DescendantNodes())
+        {
+            switch (descendant)
+            {
+                case MacroExpansionStatementSyntax statement:
+                    yield return new MacroContribution(
+                        statement,
+                        statement.Keyword,
+                        statement.Expression,
+                        IsExpression: false);
+                    break;
+                case MacroExpansionExpressionSyntax expression:
+                    yield return new MacroContribution(
+                        expression,
+                        expression.Keyword,
+                        expression.Expression,
+                        IsExpression: true);
+                    break;
+            }
+        }
+    }
+
+    private readonly record struct MacroContribution(
+        SyntaxNode Node,
+        SyntaxToken Keyword,
+        ExpressionSyntax Expression,
+        bool IsExpression);
 
     private static string AllocateGeneratedName(
         ISet<string> usedNames,

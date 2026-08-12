@@ -555,7 +555,9 @@ provides the attribute syntax, original and current declarations, semantic
 model, arguments, and diagnostic APIs.
 
 Macro bodies are ordinary synchronous Raven blocks augmented by three
-contextual contribution statements:
+contextual contribution constructs. Each has both statement and expression
+form, so a contribution can stand alone in a block or appear directly in an
+expression position such as a `match` arm:
 
 * `expand expansion` supplies the final expansion and returns from the current
   macro execution path;
@@ -563,13 +565,27 @@ contextual contribution statements:
 * `introduce member-or-members` appends introduced members to an attached
   macro.
 
+For example, an invocable macro can select its expansion without wrapping each
+arm in a statement block:
+
+```raven
+macro Choose(first: bool) {
+    match first {
+        true => expand ParseExpression("1")
+        false => expand ParseExpression("2")
+    }
+}
+```
+
 `replace` and `introduce` update the invocation's accumulated result and
 execution continues. Repeated `introduce` statements append in execution order,
 and a later `replace` supersedes an earlier replacement. Reaching the end of the
-body returns the accumulated result. `expand` is different: it adds its final
+body returns the accumulated result. In expression position, `replace` and
+`introduce` have type `unit`. `expand` is different: it adds its final
 expansion value and immediately returns the accumulated result from that
-execution path. It can therefore be used in ordinary conditionals as the macro
-equivalent of a value-returning statement. Attached macros may use `expand`
+execution path, and is therefore abrupt for control-flow analysis. It can be
+used in ordinary conditionals and expression branches as the macro equivalent
+of a return. Attached macros may use `expand`
 when returning a complete `MacroExpansionResult` from a lower-level API.
 
 Macro contexts accumulate zero or more diagnostics through the ordinary

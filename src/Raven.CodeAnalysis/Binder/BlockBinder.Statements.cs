@@ -307,6 +307,10 @@ partial class BlockBinder
         {
             ReturnStatementSyntax or
             MacroExpansionStatementSyntax { Keyword.ValueText: "expand" } or
+            ExpressionStatementSyntax
+            {
+                Expression: MacroExpansionExpressionSyntax { Keyword.ValueText: "expand" }
+            } or
             ThrowStatementSyntax or
             BreakStatementSyntax or
             ContinueStatementSyntax => true,

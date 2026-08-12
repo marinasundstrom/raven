@@ -246,6 +246,37 @@ public sealed class MacroDeclarationParsingTests
     }
 
     [Fact]
+    public void MacroDeclaration_ParsesContributionExpressionsInMatchArms()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro Choose(kind: int, on property: PropertyDeclarationSyntax) {
+                match kind {
+                    0 => expand property
+                    1 => replace property
+                    _ => introduce property
+                }
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members));
+        var contributions = declaration.Body!
+            .DescendantNodes()
+            .OfType<MacroExpansionExpressionSyntax>()
+            .ToArray();
+
+        Assert.Equal(
+            ["expand", "replace", "introduce"],
+            contributions.Select(static contribution => contribution.Keyword.ValueText));
+        Assert.All(
+            contributions,
+            contribution => Assert.Equal(
+                SemanticClassification.Keyword,
+                SemanticClassifier.Classify(declaration).Tokens[contribution.Keyword]));
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ExpansionWords_RemainIdentifiersOutsideMacros()
     {
         var tree = SyntaxTree.ParseText("""
@@ -259,6 +290,7 @@ public sealed class MacroDeclarationParsingTests
             """);
 
         Assert.Empty(tree.GetRoot().DescendantNodes().OfType<MacroExpansionStatementSyntax>());
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<MacroExpansionExpressionSyntax>());
         Assert.Empty(tree.GetDiagnostics());
     }
 }

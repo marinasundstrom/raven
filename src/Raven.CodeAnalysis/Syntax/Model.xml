@@ -1269,6 +1269,10 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
+  <Node Name="MacroExpansionExpression" Inherits="Expression">
+    <Slot Name="Keyword" Type="Token" />
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
   <Node Name="TypeDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="BaseTypeDeclaration" />
   </Node>

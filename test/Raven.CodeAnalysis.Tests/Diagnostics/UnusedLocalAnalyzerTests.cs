@@ -21,6 +21,7 @@ public class UnusedLocalAnalyzerTests : AnalyzerTestBase
         var expectedKinds = new[]
             {
                 SyntaxKind.MethodDeclaration,
+                SyntaxKind.MacroDeclaration,
                 SyntaxKind.FunctionStatement,
                 SyntaxKind.ConstructorDeclaration,
                 SyntaxKind.OperatorDeclaration,
@@ -66,6 +67,36 @@ class C {
 """;
 
         Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void LocalReadByMacroContributionExpression_DoesNotReportDiagnostic()
+    {
+        const string code = """
+macro Select(value: int) {
+    let expansion = value
+    match value {
+        _ => expand expansion
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void UnusedMacroLocal_ReportsDiagnostic()
+    {
+        const string code = """
+macro Select(value: int) {
+    let unused = value
+    expand value
+}
+""";
+
+        var diagnostic = Assert.Single(Analyze(code));
+
+        Assert.Equal("Value 'unused' is never used.", diagnostic.GetMessage());
     }
 
     [Fact]

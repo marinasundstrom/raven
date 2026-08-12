@@ -639,7 +639,15 @@ public partial class SemanticModel
         SourceMacroSymbol symbol)
     {
         foreach (var contribution in declaration.DescendantNodes()
-            .OfType<MacroExpansionStatementSyntax>())
+            .Select(static node => node switch
+            {
+                MacroExpansionStatementSyntax statement =>
+                    (Node: (SyntaxNode)statement, statement.Keyword),
+                MacroExpansionExpressionSyntax expression =>
+                    (Node: (SyntaxNode)expression, expression.Keyword),
+                _ => (Node: (SyntaxNode?)null, Keyword: default)
+            })
+            .Where(static contribution => contribution.Node is not null))
         {
             var instruction = contribution.Keyword.ValueText;
             var valid = symbol.MacroKind switch

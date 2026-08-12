@@ -109,9 +109,12 @@ public static class SemanticClassifier
 
     private static bool IsMacroContributionKeyword(SyntaxToken token)
     {
-        var statement = token.Parent as MacroExpansionStatementSyntax ??
-            token.Parent?.Ancestors().OfType<MacroExpansionStatementSyntax>().FirstOrDefault();
-        return statement is not null && token == statement.Keyword;
+        return token.Parent switch
+        {
+            MacroExpansionStatementSyntax statement => token == statement.Keyword,
+            MacroExpansionExpressionSyntax expression => token == expression.Keyword,
+            _ => false
+        };
     }
 
     private static ISymbol? ResolveSymbol(SyntaxNode node, SemanticModel? model, bool allowBinding)

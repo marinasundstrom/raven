@@ -306,7 +306,12 @@ internal sealed class ReturnExpressionOperation : Operation, IReturnOperation
     {
     }
 
-    public IOperation? ReturnedValue => _returnedValue ??= SemanticModel.GetOperation(((ReturnExpressionSyntax)Syntax).Expression);
+    public IOperation? ReturnedValue => _returnedValue ??= Syntax switch
+    {
+        ReturnExpressionSyntax returnExpression => SemanticModel.GetOperation(returnExpression.Expression),
+        MacroExpansionExpressionSyntax macroExpansion => SemanticModel.GetOperation(macroExpansion.Expression),
+        _ => null
+    };
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {

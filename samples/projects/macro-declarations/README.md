@@ -3,7 +3,8 @@
 This same-project sample demonstrates Raven's concise macro syntax. The
 compiler lowers `macro Double` into the existing local provider contracts,
 binds its ordinary `int` parameter, and evaluates the reached `expand`
-statement while compiling the invocation.
+expression directly from a `match` arm while compiling the invocation. Macro
+contributions retain their standalone statement forms as well.
 
 `AddOffset` shows the other syntax-projection role. Its `offset: int` parameter
 binds a typed value, while `expression: ExpressionSyntax` receives the caller's

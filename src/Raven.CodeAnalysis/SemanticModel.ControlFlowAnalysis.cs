@@ -314,6 +314,8 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
     {
         if (node is ReturnExpressionSyntax returnExpression)
             _returnStatements.Add(returnExpression);
+        else if (node is MacroExpansionExpressionSyntax { Keyword.ValueText: "expand" } expandExpression)
+            _returnStatements.Add(expandExpression);
         else if (node is BreakExpressionSyntax breakExpression)
             MarkReachableBreak(breakExpression.Identifier, breakExpression);
 
@@ -467,6 +469,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return AnalyzeMatchArmExpression(parenthesized.Expression, boundExpression, isReachable);
             default:
                 Visit(expression);
+                CollectReturnExpressions(expression);
                 return !BoundNodeFacts.IsAbruptExpression(boundExpression);
         }
     }
