@@ -16,8 +16,8 @@ works today and identify areas whose design is still changing.
 - Follow the [language introduction](introduction.md) for a guided tour.
 - Use [Raven for C# developers](raven-for-csharp-developers.md) to translate
   familiar .NET concepts into Raven.
-- Read [Metaprogramming in Raven](metaprogramming.md) to choose between
-  procedural macros, .NET reflection, and the in-process compiler APIs.
+- Read [Transform code with macros](lang/features/macros.md) for Raven's
+  compile-time transformation model and the authoring path.
 - Read [Raven for absolute beginners](raven-for-absolute-beginners.md) for a
   slower introduction to programming and the language.
 
@@ -25,12 +25,10 @@ works today and identify areas whose design is still changing.
 
 - The [language documentation](lang/README.md) organizes syntax, features, and
   common language rules by topic.
-- The [non-normative EBNF grammar](lang/spec/grammar.ebnf) summarizes Raven's
-  structural syntax.
-- The [tooling documentation](compiler/index.md) covers command-line tools,
-  projects, diagnostics, and editor support.
-- The [compiler API documentation](compiler/api/README.md) covers the
-  `Raven.CodeAnalysis` programming model separately from language features.
+- The [language feature guides](lang/features/index.md) explain everyday Raven
+  constructs through focused examples.
+- The [tooling documentation](compiler/index.md) covers projects, compiler
+  commands, diagnostics, analyzers, distribution, and editor support.
 
 ## Documentation status
 

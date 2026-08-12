@@ -43,5 +43,5 @@ The workload area will grow from projects that are already exercised in the
 repository. Planned areas include data processing, libraries, background
 services, and mixed Raven/C# solutions.
 
-For individual language rules, use the [language specification](../lang/spec/language-specification.md).
+For individual language concepts, use the [language feature guides](../lang/features/index.md).
 For compiler and project commands, use the [tooling documentation](../compiler/index.md).

@@ -524,7 +524,7 @@ which representation must be available and when it must be available:
 
 Raven's macro system is currently a work in progress. Use it for experimentation
 with compile-time transformations, but expect the model and APIs to evolve. See
-[Metaprogramming in Raven](../metaprogramming.md) for its current status.
+[Macros](features/macros.md) for its current status and intended use.
 
 Prefer the least powerful representation that directly matches the use case.
 An ordinary generic, function, delegate, interface, or attribute is clearer
@@ -724,7 +724,7 @@ When generating or changing Raven code:
    expression trees, emitted metadata for reflection, or compile-time
    transformation for macros.
 10. Do not infer Raven support from similar C#, F#, Rust, or Swift syntax.
-   Consult the language reference and compile the code.
+   Consult the relevant feature guide and compile the code.
 11. Treat compiler diagnostics as semantic feedback. Fix the modeled mismatch
     instead of hiding it with casts, null suppression, or a broad catch-all.
 
@@ -749,5 +749,5 @@ workloads:
   `IQueryable` API.
 - [Raven Core](../compiler/raven-core-library.md) documents the precise
   `Option<T>` and `Result<T, E>` contracts and framework API projections.
-- [Language reference](spec/language-specification.md) is authoritative for
-  supported syntax and behavior.
+- [Language features](features/index.md) provides focused explanations and
+  examples for everyday syntax and behavior.

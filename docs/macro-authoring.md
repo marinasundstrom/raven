@@ -741,7 +741,8 @@ The repository examples progress from compact syntax to full DSL handling:
 * `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven
   fragments, fragment metadata, component macros, and Blazor lowering.
 
-See the [macro reference](lang/spec/macros.md) for current restrictions.
+The sections above describe the supported macro forms and their current
+restrictions. Use the working samples as the compatibility baseline.
 
 ## Tooling MVP and next slices
 
@@ -756,18 +757,12 @@ invocation braces. Repeated queries on the same semantic model reuse the
 cached result; an edit creates a new compilation snapshot. Cancellation aborts
 the query, while optional tooling metadata failures degrade safely.
 
-The predicted follow-on slices are maintained in dependency order under
-“Predicted post-MVP DSL tooling slices” in
-`docs/lang/proposals/macros/implementation-plan.md`. Ordinary Raven completion
-now works inside reported fragment spans without requiring public custom syntax
-trees. Query-like macros can also bridge an introduced sequence-element local
-into selected fragments. Broader custom scope shapes should wait for another
-concrete DSL use case.
+Ordinary Raven completion works inside reported fragment spans without
+requiring public custom syntax trees. Query-like macros can also bridge an
+introduced sequence-element local into selected fragments. Broader custom
+scope shapes remain future work and should be driven by a concrete DSL use
+case.
 
-The normalized rules for where a macro may be invoked and how declarations
-state their allowed output categories are tracked in the
-[macro application model](lang/proposals/macros/application-model.md). It
-separates application position from token-body and editor capabilities, and
-separates quotation body categories from macro placement. Expression and
-raw-body statement placement are implemented for the MVP; member, type,
-pattern, list-valued, and typed syntax-wrapper positions remain post-MVP work.
+Expression and raw-body statement placement are implemented for the current
+macro MVP. Member, type, pattern, list-valued, and typed syntax-wrapper
+positions are not currently supported.

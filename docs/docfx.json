@@ -20,20 +20,25 @@
           "workloads/command-line.md",
           "workloads/iot-monitor.md",
           "workloads/embedded-iot.md",
-          "metaprogramming.md",
           "macro-authoring.md",
           "libraries/index.md",
           "libraries/toc.yml",
           "lang/README.md",
           "lang/toc.yml",
-          "lang/spec/toc.yml",
+          "lang/features/index.md",
+          "lang/features/toc.yml",
+          "lang/features/values-and-functions.md",
+          "lang/features/data-modeling.md",
+          "lang/features/patterns.md",
+          "lang/features/option-and-result.md",
+          "lang/features/dotnet-interop.md",
+          "lang/features/async.md",
+          "lang/features/macros.md",
           "lang/philosophy.md",
           "lang/feature-meaning.md",
-          "lang/proposals/macros/application-model.md",
           "lang/domain-modeling.md",
           "lang/nullability.md",
           "lang/style-guide.md",
-          "lang/spec/*.md",
           "compiler/index.md",
           "compiler/toc.yml",
           "compiler/raven-compiler.md",
@@ -50,27 +55,15 @@
           "compiler/analyzers/built-in.md",
           "compiler/analyzers/configuration.md",
           "compiler/raven-vscode-extension.md",
-          "compiler/distribution.md",
-          "compiler/api/README.md",
-          "compiler/api/result-shapes.md",
-          "compiler/api/performance.md",
-          "compiler/api/operations.md",
-          "compiler/api/semantic-analysis.md",
-          "compiler/api/symbol-resolution.md",
-          "compiler/api/syntax-tree.md",
-          "compiler/architecture/dotnet-conformance-and-divergence.md",
-          "api/*.yml"
+          "compiler/distribution.md"
         ],
-        "exclude": [
-          "lang/spec/design-notes.md"
-        ]
+        "exclude": []
       }
     ],
     "resource": [
       {
         "files": [
-          "images/**",
-          "lang/spec/grammar.ebnf"
+          "images/**"
         ]
       }
     ],

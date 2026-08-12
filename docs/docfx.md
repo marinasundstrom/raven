@@ -49,10 +49,11 @@ Keep the global header deliberately compact. Detailed documentation hierarchy
 belongs in the Docs menu and section sidebars, while the root page serves as a
 dedicated introduction to Raven.
 
-## Guides and specification
+## Guides and internal specifications
 
 User-facing guides and the language specification serve different reading
-goals and must remain visibly separate in navigation and writing style.
+goals. The specification is maintained in source control for language and
+compiler development; it is not published as part of the documentation site.
 
 Guides teach a concept or help complete a task. They should lead with
 motivation and recognizable application code, explain the useful default, call
@@ -60,10 +61,14 @@ out important tradeoffs, and point to a next step. A feature guide should not
 attempt to enumerate every grammar production, conversion rule, diagnostic, or
 edge case.
 
-The specification is the precise reference for syntax and semantics. It may be
-exhaustive and organized around language constructs rather than a learning
-journey. Guides should link to the relevant specification section when exact
-rules matter instead of reproducing normative material.
+Public feature guides should resemble Microsoft Learn concept pages: explain
+why a feature exists, show its useful default with compact code, describe the
+choice it communicates, and link to a practical next step. They should not
+attempt to reproduce grammar productions, binding rules, or every edge case.
+
+The files under `docs/lang/spec/` remain available to contributors. Public
+pages must not link learners into that directory or depend on it for essential
+explanations.
 
 Workload guides live under `docs/workloads/`. Each homepage application sample
 must link to the guide for that workload, not only to its source directory. A
@@ -73,12 +78,12 @@ can be split as the application grows.
 
 ## Publication boundary
 
-`docs/docfx.json` explicitly lists public learning material, language reference,
-the library entry points, the tooling pages needed to use Raven, and the
-supporting compiler API section. Compiler architecture and implementation
-details, contributor instructions, testing notes, investigations, language
-proposals, historical material, and standalone design work remain available in
-source control but are intentionally excluded from the user-facing site.
+`docs/docfx.json` explicitly lists public learning material, feature guides,
+the library entry points, and the tooling pages needed to use Raven. Compiler
+APIs, architecture and implementation details, contributor instructions,
+testing notes, investigations, language proposals, historical material, and
+standalone design work remain available in source control but are intentionally
+excluded from the user-facing site.
 
 ## Validation
 

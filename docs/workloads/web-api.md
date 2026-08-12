@@ -184,5 +184,5 @@ model around them:
 
 Continue with [domain modeling](../lang/domain-modeling.md) for guidance on
 splitting functions and types as an application grows. Consult the
-[language specification](../lang/spec/language-specification.md) only when you
-need exact syntax or semantic rules.
+[language feature guides](../lang/features/index.md) when you want a focused
+explanation of the constructs used by the sample.

@@ -13,10 +13,10 @@ toolchain only when you are ready to execute code.
 3. Follow [Install and run Raven](getting-started.md) when you want to build the
    compiler, run a file, and create a project.
 
-Afterward, the [domain-modeling guide](lang/domain-modeling.md) shows how to
-choose among functions, records, unions, classes, and interfaces in larger
-programs. Use the [language reference](lang/README.md) when you need precise
-syntax or semantic rules.
+Afterward, the [language feature guides](lang/features/index.md) provide short,
+focused explanations, while the [domain-modeling guide](lang/domain-modeling.md)
+shows how to choose among functions, records, unions, classes, and interfaces
+in larger programs.
 
 ## Guides for your background
 

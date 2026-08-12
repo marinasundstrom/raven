@@ -1,5 +1,22 @@
 - name: Language guides
   href: README.md
+- name: Language features
+  href: features/index.md
+  items:
+    - name: Values and functions
+      href: features/values-and-functions.md
+    - name: Records, unions, and classes
+      href: features/data-modeling.md
+    - name: Pattern matching
+      href: features/patterns.md
+    - name: Option and Result
+      href: features/option-and-result.md
+    - name: .NET interoperability
+      href: features/dotnet-interop.md
+    - name: Asynchronous code
+      href: features/async.md
+    - name: Macros
+      href: features/macros.md
 - name: Meaning of Raven features
   href: feature-meaning.md
 - name: Domain modeling
@@ -10,5 +27,3 @@
   href: style-guide.md
 - name: Language philosophy
   href: philosophy.md
-- name: Language specification
-  href: spec/language-specification.md

@@ -3,7 +3,6 @@ set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 site_output="$repository_root/_site"
-api_output="$repository_root/docs/api"
 core_api_output="$site_output/libraries/raven-core"
 macros_api_output="$site_output/libraries/raven-macros"
 
@@ -14,10 +13,6 @@ dotnet tool restore --tool-manifest "$repository_root/.config/dotnet-tools.json"
 # later user-facing build.
 if [[ -d "$site_output" ]]; then
     rm -rf -- "$site_output"
-fi
-
-if [[ -d "$api_output" ]]; then
-    rm -rf -- "$api_output"
 fi
 
 # Build the compiler, Raven-authored libraries, and generated compiler sources
@@ -50,8 +45,7 @@ dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     --framework net10.0 \
     --reference "$repository_root/src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll" \
     --nav "Raven docs=https://marinasundstrom.github.io/raven/" \
-    --nav "Raven.Core API=https://marinasundstrom.github.io/raven/libraries/raven-core/" \
-    --nav "Syntax trees=https://marinasundstrom.github.io/raven/compiler/api/syntax-tree.html"
+    --nav "Raven.Core API=https://marinasundstrom.github.io/raven/libraries/raven-core/"
 
 required_library_pages=(
     "$core_api_output/index.html"
@@ -75,11 +69,6 @@ if ! grep -Fq \
     echo "RavenDoc did not preserve the Raven.Core source link." >&2
     exit 1
 fi
-
-# API metadata is generated separately. Existing source-comment warnings remain
-# visible without weakening strict validation of the authored documentation.
-dotnet docfx metadata "$repository_root/docs/docfx-metadata.json" \
-    --property "WarningLevel=0;TargetFrameworks=net10.0"
 
 if [[ "${1:-}" == "--serve" ]]; then
     dotnet docfx build "$repository_root/docs/docfx.json" --warningsAsErrors --serve

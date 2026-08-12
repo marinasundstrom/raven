@@ -1,4 +1,4 @@
-- name: Learn Raven
+- name: Docs
   href: learn.md
   items:
     - name: Learn Raven
@@ -16,64 +16,58 @@
           href: raven-for-absolute-beginners.md
         - name: Raven for C# developers
           href: raven-for-csharp-developers.md
-        - name: Metaprogramming in Raven
-          href: metaprogramming.md
-          items:
-            - name: Authoring Raven macros
-              href: macro-authoring.md
-            - name: Macro application model
-              href: lang/proposals/macros/application-model.md
-        - name: Meaning of Raven features
-          href: lang/feature-meaning.md
+        - name: Macros
+          href: lang/features/macros.md
+        - name: Authoring Raven macros
+          href: macro-authoring.md
+    - name: Language features
+      href: lang/features/index.md
+      items:
+        - name: Values and functions
+          href: lang/features/values-and-functions.md
+        - name: Records, unions, and classes
+          href: lang/features/data-modeling.md
+        - name: Pattern matching
+          href: lang/features/patterns.md
+        - name: Option and Result
+          href: lang/features/option-and-result.md
+        - name: .NET interoperability
+          href: lang/features/dotnet-interop.md
+        - name: Asynchronous code
+          href: lang/features/async.md
+        - name: Macros
+          href: lang/features/macros.md
         - name: Domain modeling
           href: lang/domain-modeling.md
         - name: Nullability and absence
           href: lang/nullability.md
         - name: Style guide
           href: lang/style-guide.md
-        - name: Language philosophy
-          href: lang/philosophy.md
-    - name: Get started
-      href: getting-started.md
-- name: Build apps
-  href: workloads/index.md
-  items:
-    - name: Workload guides
+    - name: Build applications
       href: workloads/index.md
-    - name: Web APIs with ASP.NET Core
-      href: workloads/web-api.md
-    - name: Command-line applications
-      href: workloads/command-line.md
-    - name: IoT and Native AOT
-      href: workloads/iot-monitor.md
-    - name: Embedded IoT
-      href: workloads/embedded-iot.md
-- name: Guides
-  href: lang/README.md
-  items:
-    - name: Language guides
-      href: lang/README.md
-    - name: Domain modeling
-      href: lang/domain-modeling.md
-    - name: Nullability and absence
-      href: lang/nullability.md
-    - name: Style guide
-      href: lang/style-guide.md
-- name: Reference
-  items:
-    - name: Language specification
-      href: lang/spec/language-specification.md
-    - name: Libraries
-      href: libraries/index.md
-    - name: Tools
+      items:
+        - name: Web APIs with ASP.NET Core
+          href: workloads/web-api.md
+        - name: Command-line applications
+          href: workloads/command-line.md
+        - name: IoT and Native AOT
+          href: workloads/iot-monitor.md
+        - name: Embedded IoT
+          href: workloads/embedded-iot.md
+    - name: Tools and libraries
       href: compiler/index.md
-- name: About
-  href: overview.md
-  items:
-    - name: Overview
+      items:
+        - name: Tools
+          href: compiler/index.md
+        - name: Libraries
+          href: libraries/index.md
+    - name: About
       href: overview.md
-    - name: MVP roadmap
-      href: roadmap.md
+      items:
+        - name: Overview
+          href: overview.md
+        - name: MVP roadmap
+          href: roadmap.md
 - name: Playground
   href: https://marinasundstrom.github.io/raven/playground/
 - name: GitHub

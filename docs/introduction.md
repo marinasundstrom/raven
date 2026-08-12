@@ -589,8 +589,9 @@ Raven is designed to work with the .NET ecosystem directly, including BCL APIs, 
 ## Where to go next
 
 - [Getting started](getting-started.md)
-- [Language spec](lang/spec/language-specification.md)
-- [Classes and members](lang/spec/classes-and-members.md)
+- [Language feature guides](lang/features/index.md)
+- [Records, unions, and classes](lang/features/data-modeling.md)
+- [Build applications with Raven](workloads/index.md)
 - `samples/cases/`
 
 > This is a living document and may evolve with the language.

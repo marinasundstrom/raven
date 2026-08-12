@@ -274,6 +274,6 @@ The built-in `RAV9012` analyzer identifies simple nullable code that may be
 better expressed with `Option`. Analyzer severity is configurable through
 `.editorconfig`; the meaning of `T?` is not configurable.
 
-Continue with [Pattern matching](spec/pattern-matching.md),
+Continue with [Pattern matching](features/patterns.md),
 [Raven.Core and `Option`](../compiler/raven-core-library.md), and
 [Analyzer configuration](../compiler/analyzers/configuration.md).

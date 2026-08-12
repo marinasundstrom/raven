@@ -2,16 +2,13 @@
 
 These guides explain how to write clear Raven programs and how to choose among
 the language's application-level constructs. They are written for people
-learning and using Raven, rather than as a normative definition of the
-language.
-
-The [language specification](spec/language-specification.md) is maintained as a
-separate reference for exact syntax and semantic rules. You do not need to read
-the specification in order to learn Raven or build an application.
+learning and using Raven: examples lead, essential behavior is explained in
+context, and compiler-internal detail stays out of the learning path.
 
 ## Start here
 
 * [Introduction](../introduction.md)
+* [Language features](features/index.md)
 * [Raven for absolute beginners](../raven-for-absolute-beginners.md)
 * [Raven for C# developers](../raven-for-csharp-developers.md)
 * [Authoring Raven macros](../macro-authoring.md)
@@ -48,9 +45,8 @@ func ParsePort(text: string) -> Result<int, string> {
 }
 ```
 
-Use the introduction for a guided overview and the application guides for
-complete project shapes. Open the specification when you need to resolve an
-exact language question.
+Use the introduction for a guided overview, the feature guides for focused
+concepts, and the application guides for complete project shapes.
 
 Language proposals and compiler development notes are maintained separately in
 the source repository. They are useful to contributors, but do not define the

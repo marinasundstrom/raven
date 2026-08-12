@@ -84,6 +84,6 @@ _layout: landing
 
 <section class="raven-reference-callout">
   <p><strong>Already learning Raven?</strong> Go directly to the
-  <a href="lang/README.md">language reference</a> or the
+  <a href="lang/features/index.md">language feature guides</a> or the
   <a href="compiler/index.md">tooling documentation</a>.</p>
 </section>

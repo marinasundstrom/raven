@@ -22,7 +22,6 @@ their short aliases into scope.
 
 - [Learn how Raven.Macros is referenced and authored](../compiler/raven-macros-library.md)
 - [Browse the Raven.Macros API reference](https://marinasundstrom.github.io/raven/libraries/raven-macros/)
-- [Understand Raven syntax trees](../compiler/api/syntax-tree.md)
 
 The library references intentionally remain separate RavenDoc sites. This is
 the first integration point for RavenDoc; its publishing and navigation model

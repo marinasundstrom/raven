@@ -1,0 +1,16 @@
+- name: Language features
+  href: index.md
+- name: Values, functions, and control flow
+  href: values-and-functions.md
+- name: Records, unions, and classes
+  href: data-modeling.md
+- name: Pattern matching
+  href: patterns.md
+- name: Option and Result
+  href: option-and-result.md
+- name: .NET interoperability
+  href: dotnet-interop.md
+- name: Asynchronous code
+  href: async.md
+- name: Macros
+  href: macros.md

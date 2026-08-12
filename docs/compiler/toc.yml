@@ -1,7 +1,5 @@
 - name: Tool overview
   href: index.md
-- name: .NET conformance and Raven divergences
-  href: architecture/dotnet-conformance-and-divergence.md
 - name: Compiler and command line
   href: raven-compiler.md
 - name: Target platforms
@@ -26,22 +24,3 @@
   href: raven-vscode-extension.md
 - name: Distribution
   href: distribution.md
-- name: Compiler API
-  href: api/README.md
-  items:
-    - name: Overview
-      href: api/README.md
-    - name: Result shapes after bootstrap
-      href: api/result-shapes.md
-    - name: Syntax trees
-      href: api/syntax-tree.md
-    - name: Semantic analysis
-      href: api/semantic-analysis.md
-    - name: Operations
-      href: api/operations.md
-    - name: Symbol resolution
-      href: api/symbol-resolution.md
-    - name: Performance guidance
-      href: api/performance.md
-    - name: .NET API reference
-      href: ../api/

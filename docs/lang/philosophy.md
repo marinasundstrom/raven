@@ -327,11 +327,6 @@ Union carriers are one example of that boundary. Raven follows the conventional
 but it keeps Raven-native case construction, pattern matching, and extension
 driven helper APIs instead of copying C# surface syntax wholesale.
 
-The implementation review rules, intentional-divergence inventory, treatment
-of unfinished C#/.NET proposals, and emitted-IL policy are recorded in [.NET
-conformance, Raven divergences, and emitted
-IL](../compiler/architecture/dotnet-conformance-and-divergence.md).
-
 ## Extensions over special cases
 
 Raven prefers to push common behavior into ordinary libraries and extension surfaces instead of baking every convenience into the compiler. Features like `Option`/`Result` helpers, collection adapters, and domain-specific APIs should compose through normal method calls, imports, and extension lookup.

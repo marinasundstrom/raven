@@ -12,5 +12,3 @@
       href: ../compiler/raven-macros-library.md
     - name: API reference
       href: https://marinasundstrom.github.io/raven/libraries/raven-macros/
-    - name: Syntax-tree guide
-      href: ../compiler/api/syntax-tree.md
