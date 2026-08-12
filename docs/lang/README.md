@@ -1,12 +1,13 @@
-# Raven programming language
+# Raven language guides
 
-This section covers Raven as it exists today: a .NET language with an
-expression-oriented style, explicit mutability, pattern matching,
-`Option`/`Result`-based flow, records and primary constructors,
-extensions/traits, and direct .NET interop.
+These guides explain how to write clear Raven programs and how to choose among
+the language's application-level constructs. They are written for people
+learning and using Raven, rather than as a normative definition of the
+language.
 
-Raven is under active development. The reference describes current behavior
-and marks features whose design is still especially likely to change.
+The [language specification](spec/language-specification.md) is maintained as a
+separate reference for exact syntax and semantic rules. You do not need to read
+the specification in order to learn Raven or build an application.
 
 ## Start here
 
@@ -16,24 +17,14 @@ and marks features whose design is still especially likely to change.
 * [Authoring Raven macros](../macro-authoring.md)
 * [Language philosophy](philosophy.md)
 * [Domain modeling](domain-modeling.md)
-* [Language reference](spec/language-specification.md)
-* [Type system](spec/type-system.md)
 * [Style guide](style-guide.md)
 
-## Language topics
+## Build something
 
-Use the [language reference index](spec/language-specification.md) for the
-complete topic list. The reference is grouped into recognizable areas:
+Workload guides teach the language in an application context:
 
-* [Language fundamentals](spec/language-specification.md#language-fundamentals)
-* [Types](spec/language-specification.md#types)
-* [Expressions](spec/language-specification.md#expressions)
-* [Declarations and members](spec/language-specification.md#declarations-and-members)
-* [Metaprogramming](spec/language-specification.md#metaprogramming)
-* [Pattern matching](spec/language-specification.md#pattern-matching)
-* [Control flow](spec/language-specification.md#control-flow)
-* [Error handling](spec/language-specification.md#error-handling)
-* [Systems programming and .NET interoperability](spec/language-specification.md#systems-programming-and-net-interoperability)
+- [Build applications with Raven](../workloads/index.md)
+- [Build a Web API with ASP.NET Core](../workloads/web-api.md)
 
 ## Current shape in one screen
 
@@ -57,8 +48,9 @@ func ParsePort(text: string) -> Result<int, string> {
 }
 ```
 
-Use the introduction for a guided overview and the language reference for
-feature documentation and the common rules developers need in practice.
+Use the introduction for a guided overview and the application guides for
+complete project shapes. Open the specification when you need to resolve an
+exact language question.
 
 Language proposals and compiler development notes are maintained separately in
 the source repository. They are useful to contributors, but do not define the
