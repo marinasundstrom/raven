@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made Playground completion appear automatically after a short, meaningful
+  Raven identifier prefix, while keeping compiler requests debounced and out
+  of comments and strings and preserving manual Ctrl+Space completion.
+
 - Added stable Playground links for public examples, documentation-owned
   snippets, and inline shared source. Only bundled example and snippet IDs can
   opt into automatic execution; invalid links now fall back to Hello World

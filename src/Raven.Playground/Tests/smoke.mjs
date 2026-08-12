@@ -285,11 +285,33 @@ try {
   await page.keyboard.press("Escape");
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
-  await page.keyboard.type("ret");
+  await page.keyboard.type("re");
+  await page.waitForTimeout(500);
+  if (await page.locator(".suggest-widget.visible").count() !== 0) {
+    throw new Error("Expected automatic completion to wait for a meaningful prefix.");
+  }
+  await page.keyboard.type("t");
+  const returnSuggestion = page.locator(".suggest-widget .monaco-list-row", { hasText: "return" });
+  await returnSuggestion.first().waitFor({ timeout: 30_000 });
+
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Control+Space");
-  await page.locator(".suggest-widget .monaco-list-row", { hasText: "return" })
-    .first()
-    .waitFor({ timeout: 30_000 });
+  await returnSuggestion.first().waitFor({ timeout: 30_000 });
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type("// ret");
+  await page.waitForTimeout(750);
+  if (await page.locator(".suggest-widget.visible").count() !== 0) {
+    throw new Error("Expected automatic completion to stay hidden while typing a comment.");
+  }
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type('let value = "ret"');
+  await page.waitForTimeout(750);
+  if (await page.locator(".suggest-widget.visible").count() !== 0) {
+    throw new Error("Expected automatic completion to stay hidden while typing a string.");
+  }
 
   const examplePicker = page.locator(".example-picker-trigger");
   const examples = await (await fetch(`${url}examples/index.json`)).json();

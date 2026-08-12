@@ -162,6 +162,21 @@ function toSnippetText(insertText, cursorOffset) {
   return `${escapeSnippet(insertText.slice(0, cursorOffset))}$0${escapeSnippet(insertText.slice(cursorOffset))}`;
 }
 
+function shouldTriggerAutomaticCompletion(model, position) {
+  const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+  const identifier = /[A-Za-z_][A-Za-z0-9_]*$/.exec(linePrefix)?.[0];
+  if (!identifier || identifier.length < 3) return false;
+
+  const tokens = monaco.editor.tokenize(linePrefix, "raven")[0] ?? [];
+  const offset = Math.max(0, linePrefix.length - 1);
+  let token;
+  for (const candidate of tokens) {
+    if (candidate.offset > offset) break;
+    token = candidate;
+  }
+  return !token?.type.includes("comment") && !token?.type.includes("string");
+}
+
 function registerRavenThemes() {
   const tokenRules = isDark => [
     { token: "comment", foreground: isDark ? "6A9955" : "008000", fontStyle: "italic" },
@@ -283,16 +298,16 @@ export async function createEditor(element, value, commandTarget) {
     },
   });
   let completionTimer;
-  const completionTrigger = editor.onDidType(() => {
+  const completionTrigger = editor.onDidType(text => {
     clearTimeout(completionTimer);
+    if (!/[A-Za-z0-9_]/.test(text)) return;
 
     const position = editor.getPosition();
-    const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
-    if (!/\.[A-Za-z_][A-Za-z0-9_]*$/.test(linePrefix)) return;
+    if (!shouldTriggerAutomaticCompletion(model, position)) return;
 
     completionTimer = setTimeout(() => {
       editor.trigger("raven.completion", "editor.action.triggerSuggest", {});
-    }, 150);
+    }, 350);
   });
 
   editor.addAction({
