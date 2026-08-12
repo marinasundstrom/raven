@@ -18,10 +18,10 @@ public sealed class UnionSemanticTests : CompilationTestBase
     {
         const string source = """
 union KettleState {
+    case Empty
     case Filled(water: Water)
-    case Heating {
-        Fuel: Fuel
-    }
+    case Heating(water: Water, temperature: double)
+    case Boiling(water: Water)
 }
 """;
 
@@ -37,7 +37,8 @@ union KettleState {
         Assert.Collection(
             missingTypeDiagnostics.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.Start),
             water => Assert.Contains("Water", water.GetMessage(), StringComparison.Ordinal),
-            fuel => Assert.Contains("Fuel", fuel.GetMessage(), StringComparison.Ordinal));
+            water => Assert.Contains("Water", water.GetMessage(), StringComparison.Ordinal),
+            water => Assert.Contains("Water", water.GetMessage(), StringComparison.Ordinal));
     }
 
     [Theory]
