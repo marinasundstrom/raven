@@ -104,9 +104,8 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `ConstructorParameterNamingAnalyzer`
 
 `PreferLetInsteadOfValAnalyzer` (`RAV9035`) remains available as an optional
-style-policy analyzer with a corresponding code fix, but it is not registered
-by `AddBuiltInAnalyzers`. Hosts or projects that want to enforce `let` for
-immutable lexical bindings must add it explicitly. It does not apply to
+style-policy analyzer with a corresponding code fix. Projects can enable it
+through `RavenEnabledAnalyzers`. It does not apply to
 properties or other signature-like declarations, where `val` remains the
 preferred read-only spelling.
 
@@ -180,6 +179,12 @@ remap that level by diagnostic ID. If a built-in analyzer needs a project-file m
 `ICompilationOptionsAwareAnalyzer.ShouldAnalyze` and model the mode on `CompilationOptions`;
 do not use descriptor disabled-by-default state or severity options to decide whether the
 analyzer runs.
+
+The built-in host groups analyzers by their diagnostic kind: Typing, Initialization,
+Immutability, Usage, ErrorHandling, Design, Naming, and Style. Each kind may contain both
+default correctness/safety checks and optional policy checks. Optional analyzers are registered
+when their type name or `category:<kind>` appears in `CompilationOptions.EnabledAnalyzers`
+(or when `all`/`*` is used).
 
 ## Semantic API usage
 

@@ -3,5 +3,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>AnalyzerEditorConfig</AssemblyName>
     <OutputType>Exe</OutputType>
+    <RavenEnabledAnalyzers>NonNullDeclarationsAnalyzer;ThrowStatementUseResultAnalyzer;PreferDuLinqExtensionsAnalyzer</RavenEnabledAnalyzers>
   </PropertyGroup>
 </Project>

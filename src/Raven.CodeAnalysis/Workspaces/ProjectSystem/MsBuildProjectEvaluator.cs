@@ -154,6 +154,9 @@ internal static class MsBuildProjectEvaluator
         var disabledAnalyzers = AnalyzerOptionUtilities.ParseAnalyzerNameSet(
             GetOptionalProperty(project, "DisabledAnalyzers") ??
             GetOptionalProperty(project, "RavenDisabledAnalyzers"));
+        var enabledAnalyzers = AnalyzerOptionUtilities.ParseAnalyzerNameSet(
+            GetOptionalProperty(project, "EnabledAnalyzers") ??
+            GetOptionalProperty(project, "RavenEnabledAnalyzers"));
         var returnedValueHandling = GetReturnedValueHandlingProperty(project);
         var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
@@ -201,6 +204,7 @@ internal static class MsBuildProjectEvaluator
             .WithRunAnalyzers(runAnalyzers)
             .WithEnableIsNotNullNarrowing(enableIsNotNullNarrowing)
             .WithDisabledAnalyzers(disabledAnalyzers)
+            .WithEnabledAnalyzers(enabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode)
             .WithExternalConstantValues(externalConstantValues);
 

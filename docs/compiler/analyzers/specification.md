@@ -91,8 +91,11 @@ Source suppression uses the same pragma warning mechanism as compiler diagnostic
 Analyzer participation is controlled by compilation and project options:
 
 - `RunAnalyzers=false` disables analyzer diagnostics for a project.
+- `EnabledAnalyzers` / `RavenEnabledAnalyzers` activates optional built-in analyzers for a
+  project by analyzer type name, fully qualified analyzer type name, or `category:<kind>`.
+  `all` or `*` activates the full optional set.
 - `DisabledAnalyzers` / `RavenDisabledAnalyzers` disables individual built-in analyzers for
-  a project by analyzer type name or fully qualified analyzer type name.
+  a project by analyzer type name or fully qualified analyzer type name and takes precedence.
 - Built-in analyzers may implement `ICompilationOptionsAwareAnalyzer` to skip a whole
   analyzer mode before callbacks run.
 - Analyzer mode should be modeled as a named `CompilationOptions` value, not as diagnostic

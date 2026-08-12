@@ -1,6 +1,6 @@
 root = true
 
-[*.rav]
+[*.rvn]
 # not-use-null (NonNullDeclarationsAnalyzer)
 dotnet_diagnostic.RAV9012.severity = none
 

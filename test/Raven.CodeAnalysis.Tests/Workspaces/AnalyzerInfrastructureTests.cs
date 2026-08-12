@@ -1043,6 +1043,97 @@ class C {
     }
 
     [Fact]
+    public void AddBuiltInAnalyzers_OnlyEnablesLikelyBugAnalyzersByDefault()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!
+            .AddBuiltInAnalyzers(enableSuggestions: true);
+
+        var analyzerTypes = project.AnalyzerReferences
+            .SelectMany(static reference => reference.GetAnalyzers())
+            .Select(static analyzer => analyzer.GetType())
+            .ToArray();
+
+        Assert.Equal(
+            [
+                typeof(EventDelegateMustBeNullableAnalyzer),
+                typeof(PreferIsNullOverEqualityAnalyzer),
+                typeof(UninitializedPropertyAnalyzer),
+                typeof(UninitializedFieldAnalyzer),
+                typeof(ImmutableCollectionOperationResultAnalyzer),
+                typeof(UnusedLocalAnalyzer),
+                typeof(UnusedImportDirectiveAnalyzer),
+                typeof(DisposableObjectAnalyzer),
+                typeof(UnusedExpressionResultAnalyzer),
+            ],
+            analyzerTypes);
+    }
+
+    [Fact]
+    public void AddBuiltInAnalyzers_EnablesOptionalAnalyzersByConfiguredName()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithEnabledAnalyzers(["MissingReturnTypeAnnotationAnalyzer", "UnusedVariableAnalyzer"]);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test", compilationOptions: options);
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!
+            .AddBuiltInAnalyzers(enableSuggestions: true);
+
+        var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers()).ToArray();
+        analyzers.ShouldContain(static analyzer => analyzer is MissingReturnTypeAnnotationAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is UnusedLocalAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is UnusedParameterAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is VarCanBeLetAnalyzer);
+    }
+
+    [Fact]
+    public void AddBuiltInAnalyzers_EnablesOptionalAnalyzersByKind()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithEnabledAnalyzers(["category:typing"]);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test", compilationOptions: options);
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!
+            .AddBuiltInAnalyzers(enableSuggestions: true);
+
+        var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers()).ToArray();
+        analyzers.ShouldContain(static analyzer => analyzer is MissingReturnTypeAnnotationAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is NonNullDeclarationsAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is VarCanBeLetAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is ThrowStatementUseResultAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is UnusedParameterAnalyzer);
+    }
+
+    [Fact]
+    public void AddBuiltInAnalyzers_AllEnablesEveryOptionalAnalyzer()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithEnabledAnalyzers(["all"]);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test", compilationOptions: options);
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!
+            .AddBuiltInAnalyzers(enableSuggestions: true);
+
+        var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers()).ToArray();
+        analyzers.ShouldContain(static analyzer => analyzer is NonNullDeclarationsAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is UnusedParameterAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is PreferLetInsteadOfValAnalyzer);
+    }
+
+    [Fact]
     public void AddBuiltInAnalyzers_EnablesStrictNullCheckGuidance()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -1062,7 +1153,8 @@ class C {
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var options = new CompilationOptions(OutputKind.ConsoleApplication)
-            .WithDisabledAnalyzers(["UnusedVariableAnalyzer"]);
+            .WithDisabledAnalyzers(["UnusedVariableAnalyzer"])
+            .WithEnabledAnalyzers(["UnusedVariableAnalyzer", "VarCanBeLetAnalyzer"]);
         var solutionWithProject = workspace.CurrentSolution.AddProject(
             "Test",
             compilationOptions: options);

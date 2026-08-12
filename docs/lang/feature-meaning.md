@@ -329,8 +329,8 @@ The canonical user-facing policy is in
 not an absent value.
 
 At a callable boundary, a `unit`-returning function still discards a
-non-`unit` tail value. The optional `RAV9034` analyzer diagnostic warns by
-default when that value looks like a result. Assign the expression to `_` when
+non-`unit` tail value. The `RAV9034` analyzer diagnostic warns by default when
+that value looks like a result. Assign the expression to `_` when
 discarding it is deliberate:
 
 ```raven

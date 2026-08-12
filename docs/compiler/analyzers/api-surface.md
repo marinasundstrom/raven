@@ -159,8 +159,10 @@ See [Operations API](../api/operations.md) and
 same options pipeline as compiler diagnostics:
 
 - `RunAnalyzers=false` disables analyzer diagnostics for the project.
+- `EnabledAnalyzers` / `RavenEnabledAnalyzers` activates optional built-in analyzers by
+  analyzer type name or `category:<kind>`; `all` or `*` activates the full optional set.
 - `DisabledAnalyzers` / `RavenDisabledAnalyzers` disables individual built-in analyzers by
-  analyzer type name or fully qualified type name.
+  analyzer type name or fully qualified type name and takes precedence over enablement.
 - `SpecificDiagnosticOptions` maps diagnostic severities and suppression.
 - `ICompilationOptionsAwareAnalyzer.ShouldAnalyze` can skip a whole analyzer before it runs.
 - Analyzer diagnostics are validated so external analyzers cannot use the reserved `RAV`

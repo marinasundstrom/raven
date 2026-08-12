@@ -1,6 +1,9 @@
 # Analyzer `.editorconfig` sample
 
-This sample demonstrates using Raven in a "regular" style while disabling selected analyzer diagnostics via a project-local `.editorconfig`.
+This sample demonstrates opting into policy analyzers in the project file, then
+using Raven in a "regular" style by suppressing their diagnostics through a
+project-local `.editorconfig`. Analyzer participation and diagnostic severity
+remain independent.
 
 Disabled rules in this sample:
 
@@ -11,7 +14,7 @@ Disabled rules in this sample:
 Files:
 
 - `.editorconfig`: rule severity overrides.
-- `AnalyzerEditorConfig.rvnproj`: project file.
+- `AnalyzerEditorConfig.rvnproj`: opts into the three optional analyzers.
 - `src/Program.rvn`: program that intentionally uses nullable values, `throw`, and regular LINQ.
 
 ## Build

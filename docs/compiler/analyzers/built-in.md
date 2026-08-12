@@ -24,6 +24,9 @@ dotnet_diagnostic.RAV9034.severity = error
 dotnet_diagnostic.RAV9013.severity = none
 ```
 
+For an opt-in rule, first add its analyzer type to `RavenEnabledAnalyzers` in
+the project file. A severity entry alone does not activate an optional analyzer.
+
 Use another section for legacy `.rav` files when a project contains them:
 
 ```ini
@@ -34,38 +37,41 @@ dotnet_diagnostic.RAV9034.severity = none
 Common values are `error`, `warning`, `info`, `hidden`, and `none`. `default`
 restores the level in the table below. See
 [Analyzer configuration](configuration.md) for project-wide analyzer
-participation, source suppression, and the opt-in returned-value analyzer.
+participation, source suppression, and the opt-in full returned-value mode.
 
 ## Analyzer reference
 
-“Default” means the descriptor severity before any `.editorconfig`, project, or
-command-line override. All listed analyzers participate by default. The full
-returned-value mode extends `RAV9034` to bare calls and member accesses.
+“Severity” means the descriptor severity before any `.editorconfig`, project,
+or command-line override. Analyzers are grouped by kind, and each analyzer has
+its own participation default. Raven enables correctness and safety checks by
+default; nonessential rules are opt-in. The full returned-value mode extends
+`RAV9034` to bare calls and member accesses.
 
-| ID | Default | Rule |
-| --- | --- | --- |
-| `RAV1051` | Warning | Prefer a newline between declarations. |
-| `RAV9001` | Info | Add an inferred return type annotation. |
-| `RAV9003` | Warning | Make an event delegate nullable when the event can be empty. |
-| `RAV9004` | Warning | Use `let` when a local declared with `var` is never reassigned. |
-| `RAV9006` | Warning | Initialize a property in storage or a constructor. |
-| `RAV9012` | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. A scoped code fix can rewrite simple local null-guarded flow to an `Option` pattern. |
-| `RAV9013` | Warning | Prefer `Result<T, E>` over `throw` for expected failure. |
-| `RAV9014` | Warning | Prefer Raven's `Option`/`Result` LINQ alternatives where applicable. |
-| `RAV9015` | Warning | Replace `== null` or `!= null`, which may invoke user-defined equality, with an identity-based `is null` or `is not null` check. Neither form refines the checked storage. This is a safety transformation, not a preference over pattern bindings or `Option<T>`. |
-| `RAV9016` | Info | Make an unexposed member private. |
-| `RAV9017` | Info | Make a method static when it does not use instance data. |
-| `RAV9018` | Warning | Remove or use a property that is never referenced. |
-| `RAV9019` | Warning | Remove or invoke a method that is never referenced. |
-| `RAV9023` | Warning | Follow Raven's constructor-parameter naming convention. |
-| `RAV9026` | Warning | Use the new value returned by an immutable collection operation. |
-| `RAV9027` | Warning | Remove or use an unused local value. |
-| `RAV9028` | Warning | Remove an unnecessary trailing separator. |
-| `RAV9030` | Warning | Remove or use an unused parameter. |
-| `RAV9031` | Hidden | Remove an unused import directive. |
-| `RAV9032` | Warning | Initialize a field in storage or a constructor. |
-| `RAV9033` | Warning | Dispose a disposable value before leaving its scope. |
-| `RAV9034` | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
+| Kind | ID | Participation | Severity | Rule |
+| --- | --- | --- | --- | --- |
+| Style | `RAV1051` | Opt-in | Warning | Prefer a newline between declarations. |
+| Typing | `RAV9001` | Opt-in | Info | Add an inferred return type annotation. |
+| Typing | `RAV9003` | Default | Warning | Make an event delegate nullable when the event can be empty. |
+| Typing | `RAV9004` | Opt-in | Warning | Use `let` when a local declared with `var` is never reassigned. |
+| Initialization | `RAV9006` | Default | Warning | Initialize a property in storage or a constructor. |
+| Typing | `RAV9012` | Opt-in | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. A scoped code fix can rewrite simple local null-guarded flow to an `Option` pattern. |
+| Error handling | `RAV9013` | Opt-in | Warning | Prefer `Result<T, E>` over `throw` for expected failure. |
+| Error handling | `RAV9014` | Opt-in | Warning | Prefer Raven's `Option`/`Result` LINQ alternatives where applicable. |
+| Typing | `RAV9015` | Default | Warning | Replace `== null` or `!= null`, which may invoke user-defined equality, with an identity-based `is null` or `is not null` check. Neither form refines the checked storage. This is a safety transformation, not a preference over pattern bindings or `Option<T>`. |
+| Design | `RAV9016` | Opt-in | Info | Make an unexposed member private. |
+| Design | `RAV9017` | Opt-in | Info | Make a method static when it does not use instance data. |
+| Usage | `RAV9018` | Opt-in | Warning | Remove or use a property that is never referenced. |
+| Usage | `RAV9019` | Opt-in | Warning | Remove or invoke a method that is never referenced. |
+| Naming | `RAV9023` | Opt-in | Warning | Follow Raven's constructor-parameter naming convention. |
+| Immutability | `RAV9026` | Default | Warning | Use the new value returned by an immutable collection operation. |
+| Usage | `RAV9027` | Default | Warning | Remove or use an unused local value. |
+| Style | `RAV9028` | Opt-in | Warning | Remove an unnecessary trailing separator. |
+| Usage | `RAV9030` | Opt-in | Warning | Remove or use an unused parameter. |
+| Usage | `RAV9031` | Default | Hidden | Remove an unused import directive. |
+| Initialization | `RAV9032` | Default | Warning | Initialize a field in storage or a constructor. |
+| Usage | `RAV9033` | Default | Warning | Dispose a disposable value before leaving its scope. |
+| Usage | `RAV9034` | Default | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
+| Style | `RAV9035` | Opt-in | Info | Prefer `let` over `val` for immutable lexical bindings. |
 
 ### Known `RAV9027` macro-fragment gap
 

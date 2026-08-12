@@ -20,14 +20,25 @@ Example `.rvnproj`:
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
-    <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
+    <RavenEnabledAnalyzers>category:typing;UnusedVariableAnalyzer</RavenEnabledAnalyzers>
+    <RavenDisabledAnalyzers>DisposableObjectAnalyzer</RavenDisabledAnalyzers>
   </PropertyGroup>
 </Project>
 ```
 
-`RavenDisabledAnalyzers` disables whole built-in analyzers by analyzer type name or fully
-qualified analyzer type name. Values may be separated with `;`, `,`, or whitespace. The
-short unqualified type name is preferred for project files.
+`RavenEnabledAnalyzers` opts into optional built-in analyzers by analyzer type name or fully
+qualified analyzer type name. It can also enable the optional analyzers in one analyzer kind
+with `category:typing`, `category:initialization`, `category:immutability`, `category:usage`,
+`category:errorhandling`, `category:design`, `category:naming`, or `category:style`. A kind
+may contain both default and optional analyzers; the category token adds only its optional
+members. Use `all` or `*` to enable every optional built-in analyzer.
+`RavenDisabledAnalyzers` disables an analyzer and takes precedence if a name appears in both
+sets. Values may be separated with `;`, `,`, or whitespace. The short unqualified type name
+is preferred for project files. `UnusedVariableAnalyzer` is a compatibility group name that
+controls both `UnusedLocalAnalyzer` and `UnusedParameterAnalyzer`.
+
+Setting a diagnostic severity in `.editorconfig` does not opt an analyzer in. Participation
+belongs in the project file; severity remains an independent policy choice.
 
 Boolean compatibility properties such as `EnableReturnedValueAnalyzer` and
 `RavenEnableReturnedValueAnalyzer` map to the same mode selection. The only non-off

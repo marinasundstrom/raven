@@ -65,6 +65,35 @@ public sealed class ProjectFileCompilationOptionTests
     }
 
     [Fact]
+    public void OpenProject_ReadsEnabledAnalyzersAttribute()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
+
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+                <RavenEnabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenEnabledAnalyzers>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        Assert.Contains("UnusedVariableAnalyzer", project.CompilationOptions!.EnabledAnalyzers);
+        Assert.Contains("VarCanBeLetAnalyzer", project.CompilationOptions.EnabledAnalyzers);
+    }
+
+    [Fact]
     public void OpenProject_ReadsReturnedValueHandlingAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -195,6 +224,28 @@ public sealed class ProjectFileCompilationOptionTests
 
         var document = XDocument.Load(projectPath);
         var value = (string?)document.Descendants("RavenDisabledAnalyzers").SingleOrDefault();
+        Assert.Equal("UnusedVariableAnalyzer", value);
+    }
+
+    [Fact]
+    public void SaveProject_WritesEnabledAnalyzersAttribute()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var projectPath = Path.Combine(root, "App.rvnproj");
+        File.WriteAllText(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "App",
+            filePath: projectPath,
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithEnabledAnalyzers(["UnusedVariableAnalyzer"]));
+
+        workspace.SaveProject(projectId, projectPath);
+
+        var document = XDocument.Load(projectPath);
+        var value = (string?)document.Descendants("RavenEnabledAnalyzers").SingleOrDefault();
         Assert.Equal("UnusedVariableAnalyzer", value);
     }
 

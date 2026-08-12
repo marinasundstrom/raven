@@ -6,35 +6,115 @@ namespace Raven.CodeAnalysis.Diagnostics;
 
 public static class BuiltInAnalyzers
 {
+    private const string TypingCategory = "typing";
+    private const string InitializationCategory = "initialization";
+    private const string ImmutabilityCategory = "immutability";
+    private const string UsageCategory = "usage";
+    private const string ErrorHandlingCategory = "errorhandling";
+    private const string DesignCategory = "design";
+    private const string NamingCategory = "naming";
+    private const string StyleCategory = "style";
+
     public static Project AddBuiltInAnalyzers(this Project project, bool enableSuggestions = false)
     {
-        project = AddAnalyzerIfMissing<MissingReturnTypeAnnotationAnalyzer>(project);
-        project = AddAnalyzerIfMissing<EventDelegateMustBeNullableAnalyzer>(project);
-        project = AddAnalyzerIfMissing<NonNullDeclarationsAnalyzer>(project);
-        project = AddAnalyzerIfMissing<VarCanBeLetAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UninitializedPropertyAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UninitializedFieldAnalyzer>(project);
-        project = AddAnalyzerIfMissing<PreferNewLineBetweenDeclarationsAnalyzer>(project);
-        project = AddAnalyzerIfMissing<ThrowStatementUseResultAnalyzer>(project);
-        project = AddAnalyzerIfMissing<MemberCanBePrivateAnalyzer>(project);
-        project = AddAnalyzerIfMissing<MemberCanBeStaticAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnusedPropertyAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnusedMethodAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnusedLocalAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnusedParameterAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnusedImportDirectiveAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnusedExpressionResultAnalyzer>(project);
-        project = AddAnalyzerIfMissing<DisposableObjectAnalyzer>(project);
-        project = AddAnalyzerIfMissing<ImmutableCollectionOperationResultAnalyzer>(project);
-        project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);
-        project = AddAnalyzerIfMissing<PreferIsNullOverEqualityAnalyzer>(project);
-        project = AddAnalyzerIfMissing<ConstructorParameterNamingAnalyzer>(project);
-        project = AddAnalyzerIfMissing<UnnecessaryTrailingSeparatorAnalyzer>(project);
+        project = AddTypingAnalyzers(project);
+        project = AddInitializationAnalyzers(project);
+        project = AddImmutabilityAnalyzers(project);
+        project = AddUsageAnalyzers(project);
+        project = AddErrorHandlingAnalyzers(project);
+        project = AddDesignAnalyzers(project);
+        project = AddNamingAnalyzers(project);
+        project = AddStyleAnalyzers(project);
 
         if (!enableSuggestions)
             return project;
 
         return project;
+    }
+
+    private static Project AddTypingAnalyzers(Project project)
+    {
+        project = AddOptionalAnalyzerIfEnabled<MissingReturnTypeAnnotationAnalyzer>(project, TypingCategory);
+        project = AddAnalyzerIfMissing<EventDelegateMustBeNullableAnalyzer>(project);
+        project = AddOptionalAnalyzerIfEnabled<VarCanBeLetAnalyzer>(project, TypingCategory);
+        project = AddOptionalAnalyzerIfEnabled<NonNullDeclarationsAnalyzer>(project, TypingCategory);
+        project = AddAnalyzerIfMissing<PreferIsNullOverEqualityAnalyzer>(project);
+
+        return project;
+    }
+
+    private static Project AddInitializationAnalyzers(Project project)
+    {
+        project = AddAnalyzerIfMissing<UninitializedPropertyAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UninitializedFieldAnalyzer>(project);
+
+        return project;
+    }
+
+    private static Project AddImmutabilityAnalyzers(Project project)
+    {
+        project = AddAnalyzerIfMissing<ImmutableCollectionOperationResultAnalyzer>(project);
+
+        return project;
+    }
+
+    private static Project AddUsageAnalyzers(Project project)
+    {
+        project = AddOptionalAnalyzerIfEnabled<UnusedPropertyAnalyzer>(project, UsageCategory);
+        project = AddOptionalAnalyzerIfEnabled<UnusedMethodAnalyzer>(project, UsageCategory);
+        project = AddAnalyzerIfMissing<UnusedLocalAnalyzer>(project);
+        project = AddOptionalAnalyzerIfEnabled<UnusedParameterAnalyzer>(project, UsageCategory);
+        project = AddAnalyzerIfMissing<UnusedImportDirectiveAnalyzer>(project);
+        project = AddAnalyzerIfMissing<DisposableObjectAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UnusedExpressionResultAnalyzer>(project);
+
+        return project;
+    }
+
+    private static Project AddErrorHandlingAnalyzers(Project project)
+    {
+        project = AddOptionalAnalyzerIfEnabled<ThrowStatementUseResultAnalyzer>(project, ErrorHandlingCategory);
+        project = AddOptionalAnalyzerIfEnabled<PreferDuLinqExtensionsAnalyzer>(project, ErrorHandlingCategory);
+
+        return project;
+    }
+
+    private static Project AddDesignAnalyzers(Project project)
+    {
+        project = AddOptionalAnalyzerIfEnabled<MemberCanBePrivateAnalyzer>(project, DesignCategory);
+        project = AddOptionalAnalyzerIfEnabled<MemberCanBeStaticAnalyzer>(project, DesignCategory);
+
+        return project;
+    }
+
+    private static Project AddNamingAnalyzers(Project project)
+    {
+        project = AddOptionalAnalyzerIfEnabled<ConstructorParameterNamingAnalyzer>(project, NamingCategory);
+
+        return project;
+    }
+
+    private static Project AddStyleAnalyzers(Project project)
+    {
+        project = AddOptionalAnalyzerIfEnabled<PreferNewLineBetweenDeclarationsAnalyzer>(project, StyleCategory);
+        project = AddOptionalAnalyzerIfEnabled<UnnecessaryTrailingSeparatorAnalyzer>(project, StyleCategory);
+        project = AddOptionalAnalyzerIfEnabled<PreferLetInsteadOfValAnalyzer>(project, StyleCategory);
+
+        return project;
+    }
+
+    private static Project AddOptionalAnalyzerIfEnabled<TAnalyzer>(
+        Project project,
+        string category)
+        where TAnalyzer : DiagnosticAnalyzer, new()
+    {
+        var options = project.CompilationOptions;
+        if (!AnalyzerOptionUtilities.IsAnalyzerEnabled(typeof(TAnalyzer), options?.EnabledAnalyzers ?? [], category))
+        {
+            return project;
+        }
+
+        return AddAnalyzerIfMissing<TAnalyzer>(project);
     }
 
     private static Project AddAnalyzerIfMissing<TAnalyzer>(Project project)

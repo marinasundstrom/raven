@@ -285,6 +285,10 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             UpdateProperty(root, "RavenDisabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(compilationOptions.DisabledAnalyzers));
         else
             RemoveProperty(root, "RavenDisabledAnalyzers");
+        if (compilationOptions is not null && !compilationOptions.EnabledAnalyzers.IsEmpty)
+            UpdateProperty(root, "RavenEnabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(compilationOptions.EnabledAnalyzers));
+        else
+            RemoveProperty(root, "RavenEnabledAnalyzers");
 
         if (compilationOptions?.ReturnedValueHandlingModeConfigured == true)
             UpdateProperty(root, "RavenReturnedValueHandlingMode", ReturnedValueHandlingOptions.ToProjectFileValue(compilationOptions.ReturnedValueHandlingMode));

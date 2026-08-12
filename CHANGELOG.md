@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reduced default analyzer noise by keeping only correctness and safety checks
+  enabled automatically. Built-in analyzers are grouped by diagnostic kind,
+  with nonessential members opt-in through individual names or
+  `category:<kind>` in `RavenEnabledAnalyzers`; `all` enables the full optional
+  set.
+
 - Added lightweight compiler-backed hover signatures to the browser
   Playground for resolved identifiers and members.
 

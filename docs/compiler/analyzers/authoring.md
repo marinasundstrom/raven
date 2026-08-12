@@ -264,6 +264,9 @@ Analyzer participation and diagnostic severity are separate concerns.
 
 - Project files and compilation options decide whether a whole analyzer mode runs.
 - `.editorconfig` decides the severity of diagnostics that are reported.
+- `RavenEnabledAnalyzers` activates optional built-in analyzers by analyzer type name.
+  `category:<kind>` activates the optional members of an analyzer kind, while `all` or `*`
+  activates the full optional set.
 - `RavenDisabledAnalyzers` can disable individual built-in analyzers for a project by
   analyzer type name. Use this for coarse participation control or performance isolation,
   not for ordinary diagnostic severity policy.
