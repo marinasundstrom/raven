@@ -35,6 +35,8 @@ or browse the Markdown sources under [`docs/`](docs/).
 
 - [Getting Started](docs/getting-started.md) - build the compiler, run a sample,
   and create a small project.
+- [MVP Roadmap](docs/roadmap.md) - outcome-based milestones for turning the
+  current language, tooling, and workloads into an evaluatable release.
 - [Raven for Absolute Beginners](docs/raven-for-absolute-beginners.md) - learn
   programming from the beginning with Raven.
 - [Language Introduction](docs/introduction.md) - guided language overview.
