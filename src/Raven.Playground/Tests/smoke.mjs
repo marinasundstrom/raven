@@ -263,6 +263,12 @@ try {
 
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.evaluate(() => {
+    window.ravenCompletionHeartbeat = 0;
+    window.ravenCompletionHeartbeatTimer = window.setInterval(() => {
+      window.ravenCompletionHeartbeat++;
+    }, 20);
+  });
   await page.keyboard.type("System.Console.");
   const suggestionWidget = page.locator(".suggest-widget.visible");
   const beepSuggestion = page.locator(".suggest-widget .monaco-list-row", {
@@ -276,6 +282,13 @@ try {
       `Console member completion did not appear.\nBrowser errors:\n${browserErrors.join("\n") || "<none>"}`,
       { cause: error },
     );
+  }
+  const completionHeartbeat = await page.evaluate(() => {
+    window.clearInterval(window.ravenCompletionHeartbeatTimer);
+    return window.ravenCompletionHeartbeat;
+  });
+  if (completionHeartbeat < 5) {
+    throw new Error(`Expected the UI thread to remain responsive during completion, got ${completionHeartbeat} ticks.`);
   }
   await beepSuggestion.first().dblclick();
   await page.waitForTimeout(100);

@@ -64,6 +64,10 @@ These documents live primarily under:
 * `docs/lang/proposals/`
 * `docs/testing/`
 
+The [Playground architecture](design/playground.md) document describes the
+browser editor, compiler worker, sample-link contract, security boundaries,
+and build and test workflow.
+
 Do not link to these areas from published pages. When a proposal becomes part
 of the language, move its user-relevant behavior into the specification and
 learning material rather than publishing the proposal as the feature guide.

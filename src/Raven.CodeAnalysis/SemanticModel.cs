@@ -135,6 +135,18 @@ public partial class SemanticModel
         _semanticAccessDepth.Value > 0 ||
         (_isCollectingDiagnostics && _diagnosticCollectionThreadId == Environment.CurrentManagedThreadId);
 
+    private static bool RequiresSemanticAccessGate
+    {
+        get
+        {
+#if NET11_0_OR_GREATER
+            return RuntimeFeature.IsMultithreadingSupported;
+#else
+            return true;
+#endif
+        }
+    }
+
     internal void ThrowIfDiagnosticBindingCancellationRequested()
         => _diagnosticBindingCancellationToken.ThrowIfCancellationRequested();
 
@@ -142,6 +154,13 @@ public partial class SemanticModel
     {
         if (HasSemanticAccessForCurrentFlow)
             return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
+        if (!RequiresSemanticAccessGate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _semanticAccessDepth.Value++;
+            return new SemanticAccessLease(this, releaseDepth: true, releaseGate: false);
+        }
 
         await _semanticAccessGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         _semanticAccessDepth.Value++;
@@ -153,6 +172,13 @@ public partial class SemanticModel
         if (HasSemanticAccessForCurrentFlow)
             return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
 
+        if (!RequiresSemanticAccessGate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _semanticAccessDepth.Value++;
+            return new SemanticAccessLease(this, releaseDepth: true, releaseGate: false);
+        }
+
         _semanticAccessGate.Wait(cancellationToken);
         _semanticAccessDepth.Value++;
         return new SemanticAccessLease(this, releaseDepth: true, releaseGate: true);
@@ -162,6 +188,13 @@ public partial class SemanticModel
     {
         if (HasSemanticAccessForCurrentFlow)
             return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
+        if (!RequiresSemanticAccessGate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _semanticAccessDepth.Value++;
+            return new SemanticAccessLease(this, releaseDepth: true, releaseGate: false);
+        }
 
         if (!await _semanticAccessGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
             return null;
@@ -174,6 +207,13 @@ public partial class SemanticModel
     {
         if (HasSemanticAccessForCurrentFlow)
             return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
+        if (!RequiresSemanticAccessGate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _semanticAccessDepth.Value++;
+            return new SemanticAccessLease(this, releaseDepth: true, releaseGate: false);
+        }
 
         if (!_semanticAccessGate.Wait(0, cancellationToken))
             return null;

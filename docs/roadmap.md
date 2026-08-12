@@ -171,10 +171,8 @@ become durable.
 - Separate stable, preview, and research surfaces in documentation and tests.
 - Evolve the Playground from a single source buffer to small multi-file
   projects with a tabbed editor, while keeping shared links deterministic and
-  safe to load.
-- Move Playground compilation and language-service work into a Web Worker
-  before adding richer continuous editor features, so compiler work cannot
-  stall the interactive UI.
+  safe to load and extending the existing compiler-worker protocol to carry a
+  versioned project snapshot.
 - Expand the showcase only when a workload demonstrates a distinct, repeatable
   use case.
 

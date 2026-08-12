@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Moved Playground completion, compilation, and emitted-program execution into
+  a persistent .NET 11 Web Worker so compiler work no longer stalls Monaco's UI
+  thread. Raven's semantic access gate now avoids unsupported blocking waits in
+  single-threaded WebAssembly runtimes while retaining synchronization when
+  multithreading is available.
+
 - Made Playground completion appear immediately after member-access dots and
   automatically after a short, meaningful Raven identifier prefix, while
   keeping compiler requests bounded and out of comments and strings and

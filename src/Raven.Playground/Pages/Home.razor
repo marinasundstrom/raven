@@ -3,8 +3,7 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Navigation
-@inject PlaygroundLanguageService LanguageService
-@inject PlaygroundProgramRunner Runner
+@inject PlaygroundWorkerClient Worker
 
 <PageTitle>Raven Playground</PageTitle>
 
@@ -235,6 +234,7 @@
             string.Empty,
             _commandTarget);
         await _editor.InvokeVoidAsync("setValue", _initialSource);
+        await Worker.WarmUpAsync();
         _status = "Ready";
         if (!string.IsNullOrEmpty(_initialLinkNotice))
             _output = $"{_initialLinkNotice} Loaded “{SelectedExampleTitle}” instead.";
@@ -253,11 +253,8 @@
         command == "run" ? CompileAndRunAsync() : CompileAsync();
 
     [JSInvokable]
-    public async Task<IReadOnlyList<PlaygroundCompletionItem>> GetCompletions(string source, int position)
-    {
-        await Task.Yield();
-        return LanguageService.GetCompletions(source, position);
-    }
+    public Task<IReadOnlyList<PlaygroundCompletionItem>> GetCompletions(string source, int position) =>
+        Worker.GetCompletionsAsync(source, position);
 
     private Task CompileAsync() => CompileCoreAsync(run: false);
 
@@ -475,11 +472,10 @@
         try
         {
             var source = await _editor.InvokeAsync<string>("getValue");
-            await Task.Yield();
-            var compilation = LanguageService.Compile(source);
+            var compilation = await Worker.CompileAsync(source, run);
             _diagnostics = compilation.Diagnostics;
 
-            if (!compilation.Success || compilation.AssemblyImage is null)
+            if (!compilation.Success)
             {
                 _status = "Compile error";
                 _output = "Compilation failed.";
@@ -489,19 +485,14 @@
             if (!run)
             {
                 _status = "Compiled";
-                _output = $"Compiled successfully ({compilation.AssemblyImage.Length:N0} bytes).";
+                _output = $"Compiled successfully ({compilation.AssemblyLength:N0} bytes).";
                 return;
             }
 
-            _status = "Running";
-            await Task.Yield();
-            var execution = await Runner.RunAsync(
-                compilation.AssemblyImage,
-                compilation.AsyncEntryPointImplementationName);
             _status = "Complete";
-            _output = string.IsNullOrEmpty(execution.Output)
-                ? $"Program exited with code {execution.ExitCode}."
-                : execution.Output;
+            _output = string.IsNullOrEmpty(compilation.Output)
+                ? $"Program exited with code {compilation.ExitCode ?? 0}."
+                : compilation.Output;
         }
         catch (Exception exception)
         {

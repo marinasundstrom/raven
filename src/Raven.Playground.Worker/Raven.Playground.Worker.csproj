@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlaygroundRuntimePackVersion>11.0.0-preview.7.26381.103</PlaygroundRuntimePackVersion>
+    <PlaygroundRuntimePackPath>$(NuGetPackageRoot)microsoft.netcore.app.runtime.mono.browser-wasm/$(PlaygroundRuntimePackVersion)</PlaygroundRuntimePackPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="11.0.0-preview.7.26381.103" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
+    <ProjectReference Include="..\Raven.Core\Raven.Core.rvnproj"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Raven.Macros\Raven.Macros.rvnproj"
+                      ReferenceOutputAssembly="false" />
+    <Reference Include="Raven.Core"
+               HintPath="..\Raven.Core\bin\$(Configuration)\net11.0\Raven.Core.dll"
+               Private="true"
+               ExternallyResolved="true" />
+    <Reference Include="Raven.Macros"
+               HintPath="..\Raven.Macros\bin\$(Configuration)\net11.0\Raven.Macros.dll"
+               Private="true"
+               ExternallyResolved="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Raven.CodeAnalysis\bin\$(Configuration)\net11.0\Raven.CodeAnalysis.dll"
+                      LogicalName="Raven.Playground.Framework.Raven.CodeAnalysis.dll" />
+    <EmbeddedResource Include="..\Raven.Core\bin\$(Configuration)\net11.0\Raven.Core.dll"
+                      LogicalName="Raven.Playground.Framework.Raven.Core.dll" />
+    <EmbeddedResource Include="..\Raven.Macros\bin\$(Configuration)\net11.0\Raven.Macros.dll"
+                      LogicalName="Raven.Playground.Framework.Raven.Macros.dll" />
+  </ItemGroup>
+
+  <Target Name="EmbedPlaygroundFrameworkAssemblies"
+          BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="ResolveFrameworkReferences">
+    <ItemGroup>
+      <PlaygroundTargetingPack Include="@(ResolvedFrameworkReference)"
+                               Condition="'%(Identity)' == 'Microsoft.NETCore.App'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <PlaygroundTargetingPackPath>@(PlaygroundTargetingPack->'%(TargetingPackPath)')</PlaygroundTargetingPackPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/native/System.Private.CoreLib.dll" />
+      <PlaygroundFrameworkAssembly Include="$(PlaygroundTargetingPackPath)/ref/$(TargetFramework)/*.dll" />
+      <PlaygroundSystemRuntime Include="@(PlaygroundFrameworkAssembly)"
+                               Condition="'%(Filename)' == 'System.Runtime'" />
+      <EmbeddedResource Include="@(PlaygroundFrameworkAssembly)"
+                        LogicalName="Raven.Playground.Framework.%(Filename).dll" />
+    </ItemGroup>
+    <Error Condition="'$(PlaygroundTargetingPackPath)' == ''"
+           Text="The Microsoft.NETCore.App targeting pack could not be resolved for the playground worker." />
+    <Error Condition="'@(PlaygroundSystemRuntime)' == ''"
+           Text="System.Runtime.dll was not found in the resolved playground targeting pack at '$(PlaygroundTargetingPackPath)'." />
+  </Target>
+
+</Project>
