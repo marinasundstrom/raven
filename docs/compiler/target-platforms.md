@@ -108,6 +108,10 @@ hardware; the correct identifier depends on the device and operating system.
 
 ## .NET nanoFramework
 
+For project setup, standard build outputs, firmware selection, direct `nanoff`
+deployment, and the VS Code debugger boundary, see [Getting started with
+`netnano1.0`](nanoframework.md).
+
 .NET nanoFramework is a distinct managed runtime for constrained
 microcontrollers. It uses its own core library and a compact executable format
 consumed by nanoCLR. Supporting it is separate from Native AOT even though both
@@ -204,9 +208,9 @@ Its build profiles conditionally select GPIO 25 for non-wireless Pico and Pico 2
 boards, or accept an external LED GPIO for Pico W and Pico 2 W. The scripts
 compile, package, assemble the referenced compact assemblies into a deployment
 image, and generate a dry-run `nanoff` command. nanoFramework's published
-Raspberry Pi firmware target currently covers RP2040 rather than Pico 2's RP2350,
-so compatible RP2350 nanoCLR firmware remains an external prerequisite for Pico
-2 device execution.
+Current `nanoff` tooling recognizes both RP2040 and RP2350 Pico-family targets;
+actual firmware availability still depends on the selected stable or preview
+feed and must be checked before flashing.
 
 The following example is the current compile-and-package MVP probe for a
 nanoFramework application. A DHT sensor reading becomes a closed domain state.
@@ -278,8 +282,8 @@ func Main() {
 
 This source has passed Raven compilation and nanoFramework metadata conversion;
 it has not yet run under nanoCLR or on hardware. Runnable support still depends
-on a nanoFramework Raven.Core build, packaging integration, and device
-validation listed below. The sensor and GPIO calls follow nanoFramework's
+on a nanoFramework Raven.Core build and device validation listed below. The
+sensor and GPIO calls follow nanoFramework's
 [`DHTxx`](https://docs.nanoframework.net/devicesdetails/Dhtxx/README.html) and
 [`System.Device.Gpio`](https://docs.nanoframework.net/api/System.Device.Gpio.GpioController.html)
 surfaces. Sensor implementations, pin numbering, and electrical requirements
@@ -312,12 +316,10 @@ target closure. The Blinky `.rvnproj` now drives those options from its evaluate
    audit.
 5. Produce a `netnano1.0` Raven.Core variant using conditional library sources
    where APIs differ.
-6. Integrate the nanoFramework metadata processor as a packaging stage after
-   Raven emits standard managed IL.
-7. Verify assembly references, generics, unions, exceptions, delegates, and
+6. Verify assembly references, generics, unions, exceptions, delegates, and
    static initialization in nanoCLR, then deploy and run smoke tests on an
    emulator and representative hardware.
-8. Add target-capability diagnostics and document unsupported Raven.Core APIs.
+7. Add target-capability diagnostics and document unsupported Raven.Core APIs.
 
 The first three items are general compiler infrastructure. They also improve
 cross-target compilation, compiler hosting, WebAssembly/WASI work, and future

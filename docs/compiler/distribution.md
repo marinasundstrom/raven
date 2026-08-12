@@ -26,6 +26,7 @@ raven-sdk-<version>-<rid>/
       Raven.Language.targets
       Raven.MSBuild.props
       Raven.nanoFramework.props
+      Raven.nanoFramework.targets
 ```
 
 The launchers require a compatible .NET SDK on `PATH`. Raven project builds

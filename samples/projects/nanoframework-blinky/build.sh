@@ -143,6 +143,7 @@ BUILD_ARGUMENTS=(
   --property:RavenBuildConfiguration=Debug
   --property:RavenCompilerHost="$COMPILER_DLL"
   --property:NanoFrameworkPackagesDirectory="$PACKAGES_DIR"
+  --property:NanoFrameworkPackageOnBuild=false
   --property:WarningLevel=0
 )
 

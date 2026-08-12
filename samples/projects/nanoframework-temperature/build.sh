@@ -79,6 +79,7 @@ dotnet build "$PROJECT" \
   --property:RavenBuildConfiguration=Debug \
   --property:RavenCompilerHost="$COMPILER_DLL" \
   --property:NanoFrameworkPackagesDirectory="$PACKAGES_DIR" \
+  --property:NanoFrameworkPackageOnBuild=false \
   --property:WarningLevel=0
 
 "$MONO_COMMAND" "$METADATA_PROCESSOR" \

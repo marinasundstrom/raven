@@ -66,6 +66,41 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void NanoFrameworkProject_ImportsPackagingTarget()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var projectPath = Path.Combine(
+            repoRoot,
+            "samples",
+            "projects",
+            "nanoframework-blinky",
+            "NanoFrameworkBlinky.rvnproj");
+        var preprocessedProjectPath = Path.Combine(CreateTempDirectory(), "NanoFrameworkBlinky.preprocessed.xml");
+        try
+        {
+            var result = RunProcess(
+                "dotnet",
+                $"msbuild \"{projectPath}\" -preprocess:\"{preprocessedProjectPath}\"",
+                repoRoot,
+                timeoutMilliseconds: 300_000);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"MSBuild preprocessing failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+
+            var projectText = File.ReadAllText(preprocessedProjectPath);
+            Assert.Contains("<NanoFrameworkPackageOnBuild", projectText, StringComparison.Ordinal);
+            Assert.Contains("TaskName=\"RavenStageNanoFrameworkDebuggerSymbols\"", projectText, StringComparison.Ordinal);
+            Assert.Contains("Name=\"RavenPackageNanoFrameworkApplication\"", projectText, StringComparison.Ordinal);
+            Assert.Contains("Name=\"_CleanRavenNanoFrameworkArtifacts\"", projectText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(Path.GetDirectoryName(preprocessedProjectPath)!);
+        }
+    }
+
+    [Fact]
     public void SampleProjects_CompileThroughRvnCli()
     {
         var repoRoot = GetRepositoryRoot();

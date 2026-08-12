@@ -8,7 +8,6 @@ BOARD="pico2"
 SERIAL_PORT=""
 USE_UF2=0
 EXECUTE=0
-ALLOW_UNPUBLISHED_RP2350_FIRMWARE=0
 
 usage() {
   cat <<'EOF'
@@ -18,7 +17,6 @@ Options:
   --board pico|pico-w|pico2|pico2-w
   --serial-port <port>                 Deploy through the nanoCLR wire protocol.
   --uf2                                Deploy through a Pico in BOOTSEL mode.
-  --allow-unpublished-rp2350-firmware  Acknowledge a custom/preview Pico 2 firmware.
   --execute                            Perform deployment; otherwise print the command.
 EOF
 }
@@ -39,10 +37,6 @@ while [[ $# -gt 0 ]]; do
       USE_UF2=1
       shift
       ;;
-    --allow-unpublished-rp2350-firmware)
-      ALLOW_UNPUBLISHED_RP2350_FIRMWARE=1
-      shift
-      ;;
     --execute)
       EXECUTE=1
       shift
@@ -60,15 +54,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$BOARD" in
-  pico|pico-w)
-    ;;
-  pico2|pico2-w)
-    if [[ "$ALLOW_UNPUBLISHED_RP2350_FIRMWARE" != "1" ]]; then
-      echo "Pico 2 deployment requires compatible RP2350 nanoCLR firmware." >&2
-      echo "Pass --allow-unpublished-rp2350-firmware only after installing such firmware." >&2
-      exit 2
-    fi
-    ;;
+  pico) TARGET="PICO_RP2040" ;;
+  pico-w) TARGET="PICO_RP2040_W" ;;
+  pico2) TARGET="PICO2_RP2350" ;;
+  pico2-w) TARGET="PICO2_RP2350_W" ;;
   *)
     echo "Unsupported board profile '$BOARD'." >&2
     exit 2
@@ -90,11 +79,10 @@ if [[ ! -f "$DEPLOYMENT_IMAGE" ]]; then
   exit 1
 fi
 
-COMMAND=("$NANOFF_COMMAND" --platform rpi_pico --deploy --image "$DEPLOYMENT_IMAGE")
 if [[ "$USE_UF2" == "1" ]]; then
-  COMMAND+=(--uf2deploy)
+  COMMAND=("$NANOFF_COMMAND" --platform rpi_pico --target "$TARGET" --deploy --image "$DEPLOYMENT_IMAGE" --uf2deploy)
 else
-  COMMAND+=(--serialport "$SERIAL_PORT")
+  COMMAND=("$NANOFF_COMMAND" --nanodevice --deploy --serialport "$SERIAL_PORT" --image "$DEPLOYMENT_IMAGE")
 fi
 
 printf 'Deployment command:'

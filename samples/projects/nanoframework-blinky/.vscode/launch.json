@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Raven nanoFramework: Launch and Debug",
+      "type": "nanoframework",
+      "request": "launch",
+      "preLaunchTask": "Raven nanoFramework: Build",
+      "program": "${workspaceFolder}/bin/Debug/netnano1.0/NanoFrameworkBlinky.pe",
+      "assembliesPath": "${workspaceFolder}/bin/Debug/netnano1.0",
+      "device": "",
+      "stopOnEntry": true,
+      "deployAssemblies": true,
+      "verbosity": "information"
+    },
+    {
+      "name": "Raven nanoFramework: Attach",
+      "type": "nanoframework",
+      "request": "attach",
+      "preLaunchTask": "Raven nanoFramework: Build",
+      "program": "${workspaceFolder}/bin/Debug/netnano1.0/NanoFrameworkBlinky.pe",
+      "device": "",
+      "stopOnEntry": false,
+      "verbosity": "information"
+    }
+  ]
+}

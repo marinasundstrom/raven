@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Raven nanoFramework: Build",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/NanoFrameworkBlinky.rvnproj",
+        "--configuration",
+        "Debug",
+        "/property:RavenLedPin=${input:ledPin}",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "ledPin",
+      "type": "promptString",
+      "description": "GPIO for the LED (25 for Pico/Pico 2; use the external LED GPIO for wireless boards)",
+      "default": "25"
+    }
+  ]
+}

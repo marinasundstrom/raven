@@ -45,6 +45,8 @@ and writes:
 `NANOFRAMEWORK_PACKAGES_DIR`, `OUTPUT_DIR`, `RAVEN_COMPILER_DLL`,
 and `MONO_COMMAND` can override the default tool and output locations.
 
-The next MVP step is to deploy the `.pe` image with the matching firmware and
-dependency assemblies, then validate the state transitions and GPIO output in
-nanoCLR or on representative hardware.
+An ordinary `dotnet build NanoFrameworkTemperature.rvnproj` now also stages the
+compact dependency closure and produces
+`bin/Debug/netnano1.0/NanoFrameworkTemperature.bin` for direct `nanoff`
+deployment. The remaining MVP step is to validate the state transitions and
+GPIO output in nanoCLR or on representative hardware.

@@ -253,4 +253,8 @@
     <Delete Files="$(_RavenCompilerDependencyFile);$(_RavenExternalConstantsStateFile);$(IntermediateOutputPath).raven-runtime-dependencies;$(_RavenCleanXmlDocumentationFile)" />
     <RemoveDir Directories="$(IntermediateOutputPath)raven/generated;$(IntermediateOutputPath)$(TargetName).docs;$(OutDir)$(TargetName).docs" />
   </Target>
+
+  <Import
+    Project="$(MSBuildThisFileDirectory)Raven.nanoFramework.targets"
+    Condition="'$(TargetFramework)' == 'netnano1.0' and Exists('$(MSBuildThisFileDirectory)Raven.nanoFramework.targets')" />
 </Project>

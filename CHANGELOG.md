@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made `dotnet build` package `netnano1.0` executables into compact `.pe`,
+  `.pdbx`, and complete deployable `.bin` artifacts while staging the compact
+  dependency closure for the official nanoFramework VS Code debugger. Added
+  checked-in build, launch, and attach configurations, plus a getting-started
+  guide covering firmware selection and direct `nanoff` UF2 and wire-protocol
+  deployment without sample utility scripts.
+
 - Fixed pattern matching over type parameters constrained to sealed hierarchies
   so permitted subtype patterns bind correctly and covering every permitted
   leaf is exhaustive. Parenthesized union carriers now also extract their active

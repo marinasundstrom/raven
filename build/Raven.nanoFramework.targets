@@ -1,0 +1,312 @@
+<Project>
+  <UsingTask
+    TaskName="RavenCreateNanoFrameworkDeploymentImage"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <InputFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var outputDirectory = Path.GetDirectoryName(OutputFile);
+        if (!string.IsNullOrEmpty(outputDirectory))
+            Directory.CreateDirectory(outputDirectory);
+
+        using (var output = File.Create(OutputFile))
+        {
+            foreach (var inputFile in InputFiles)
+            {
+                var path = inputFile.GetMetadata("FullPath");
+                if (string.IsNullOrEmpty(path))
+                    path = inputFile.ItemSpec;
+
+                using (var input = File.OpenRead(path))
+                    input.CopyTo(output);
+
+                var padding = (4 - (output.Position % 4)) % 4;
+                for (var index = 0; index < padding; index++)
+                    output.WriteByte(0);
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <UsingTask
+    TaskName="RavenStageNanoFrameworkDebuggerSymbols"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <InputFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputDirectory ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Reflection" />
+      <Using Namespace="System.Xml" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        object Property(object owner, string name)
+        {
+            return owner.GetType().GetMethod("GetProperty", new[] { typeof(string) }).Invoke(owner, new object[] { name });
+        }
+
+        bool TryProperty(object owner, string name, out object value)
+        {
+            try
+            {
+                value = Property(owner, name);
+                return true;
+            }
+            catch (TargetInvocationException)
+            {
+                value = null;
+                return false;
+            }
+        }
+
+        string StringValue(object value)
+        {
+            return (string)value.GetType().GetMethod("GetString", Type.EmptyTypes).Invoke(value, null);
+        }
+
+        bool BooleanValue(object value)
+        {
+            return (bool)value.GetType().GetMethod("GetBoolean", Type.EmptyTypes).Invoke(value, null);
+        }
+
+        IEnumerable ArrayValues(object value)
+        {
+            return (IEnumerable)value.GetType().GetMethod("EnumerateArray", Type.EmptyTypes).Invoke(value, null);
+        }
+
+        void WriteToken(XmlWriter writer, object owner)
+        {
+            if (!TryProperty(owner, "Token", out var token))
+                return;
+
+            writer.WriteStartElement("Token");
+            writer.WriteElementString("CLR", "0x" + StringValue(Property(token, "CLR")));
+            writer.WriteElementString("nanoCLR", "0x" + StringValue(Property(token, "NanoCLR")));
+            writer.WriteEndElement();
+        }
+
+        void WriteFields(XmlWriter writer, object owner)
+        {
+            writer.WriteStartElement("Fields");
+            if (TryProperty(owner, "Fields", out var fields))
+            {
+                foreach (var field in ArrayValues(fields))
+                {
+                    writer.WriteStartElement("Field");
+                    writer.WriteElementString("Name", StringValue(Property(field, "Name")));
+                    WriteToken(writer, field);
+                    writer.WriteEndElement();
+                }
+            }
+            writer.WriteEndElement();
+        }
+
+        void WriteMethods(XmlWriter writer, object owner)
+        {
+            writer.WriteStartElement("Methods");
+            if (TryProperty(owner, "Methods", out var methods))
+            {
+                foreach (var method in ArrayValues(methods))
+                {
+                    writer.WriteStartElement("Method");
+                    writer.WriteElementString("Name", StringValue(Property(method, "Name")));
+                    WriteToken(writer, method);
+                    if (TryProperty(method, "HasByteCode", out var hasByteCode))
+                        writer.WriteElementString("HasByteCode", BooleanValue(hasByteCode) ? "true" : "false");
+
+                    writer.WriteStartElement("ILMap");
+                    if (TryProperty(method, "ILMap", out var ilMap))
+                    {
+                        foreach (var entry in ArrayValues(ilMap))
+                        {
+                            writer.WriteStartElement("IL");
+                            var token = Property(entry, "Token");
+                            writer.WriteElementString("CLR", "0x" + StringValue(Property(token, "CLR")));
+                            writer.WriteElementString("nanoCLR", "0x" + StringValue(Property(token, "NanoCLR")));
+                            writer.WriteEndElement();
+                        }
+                    }
+                    writer.WriteEndElement();
+                    writer.WriteEndElement();
+                }
+            }
+            writer.WriteEndElement();
+        }
+
+        Directory.CreateDirectory(OutputDirectory);
+        foreach (var inputFile in InputFiles)
+        {
+            var inputPath = inputFile.GetMetadata("FullPath");
+            if (string.IsNullOrEmpty(inputPath))
+                inputPath = inputFile.ItemSpec;
+
+            var outputPath = Path.Combine(OutputDirectory, Path.GetFileName(inputPath));
+            var content = File.ReadAllText(inputPath);
+            if (content.TrimStart().StartsWith("<", StringComparison.Ordinal))
+            {
+                if (!string.Equals(inputPath, outputPath, StringComparison.OrdinalIgnoreCase))
+                    File.Copy(inputPath, outputPath, true);
+                continue;
+            }
+
+            var jsonAssembly = Assembly.Load("System.Text.Json");
+            var documentType = jsonAssembly.GetType("System.Text.Json.JsonDocument", true);
+            var optionsType = jsonAssembly.GetType("System.Text.Json.JsonDocumentOptions", true);
+            var parse = documentType.GetMethod("Parse", new[] { typeof(string), optionsType });
+            using (var document = (IDisposable)parse.Invoke(null, new[] { (object)content, Activator.CreateInstance(optionsType) }))
+            using (var writer = XmlWriter.Create(outputPath, new XmlWriterSettings { Indent = true }))
+            {
+                var root = documentType.GetProperty("RootElement").GetValue(document);
+                var assembly = Property(root, "Assembly");
+                writer.WriteStartDocument();
+                writer.WriteStartElement("PdbxFile");
+                writer.WriteStartElement("Assembly");
+                writer.WriteElementString("FileName", StringValue(Property(assembly, "FileName")));
+                WriteToken(writer, assembly);
+
+                var versionParts = StringValue(Property(assembly, "Version")).Split('.');
+                writer.WriteStartElement("Version");
+                writer.WriteElementString("Major", versionParts.Length > 0 ? versionParts[0] : "0");
+                writer.WriteElementString("Minor", versionParts.Length > 1 ? versionParts[1] : "0");
+                writer.WriteElementString("Build", versionParts.Length > 2 ? versionParts[2] : "0");
+                writer.WriteElementString("Revision", versionParts.Length > 3 ? versionParts[3] : "0");
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("Classes");
+                foreach (var type in ArrayValues(Property(assembly, "Classes")))
+                {
+                    writer.WriteStartElement("Class");
+                    writer.WriteElementString("Name", StringValue(Property(type, "Name")));
+                    WriteToken(writer, type);
+                    WriteFields(writer, type);
+                    WriteMethods(writer, type);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+                writer.WriteEndDocument();
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <PropertyGroup>
+    <NanoFrameworkPackageOnBuild Condition="'$(NanoFrameworkPackageOnBuild)' == ''">true</NanoFrameworkPackageOnBuild>
+    <NanoFrameworkCreateDeploymentImage Condition="'$(NanoFrameworkCreateDeploymentImage)' == '' and '$(OutputType)' != 'Library'">true</NanoFrameworkCreateDeploymentImage>
+    <NanoFrameworkCreateDeploymentImage Condition="'$(NanoFrameworkCreateDeploymentImage)' == ''">false</NanoFrameworkCreateDeploymentImage>
+    <NanoFrameworkApplicationImage Condition="'$(NanoFrameworkApplicationImage)' == ''">$(TargetDir)$(TargetName).pe</NanoFrameworkApplicationImage>
+    <NanoFrameworkDeploymentImage Condition="'$(NanoFrameworkDeploymentImage)' == ''">$(TargetDir)$(TargetName).bin</NanoFrameworkDeploymentImage>
+    <NanoFrameworkMetadataProcessorPath Condition="'$(NanoFrameworkMetadataProcessorPath)' == ''">$([System.IO.Path]::Combine('$(NanoFrameworkPackagesDirectory)', 'nanoframework.tools.metadataprocessor.cli', '$(NanoFrameworkMetadataProcessorVersion)', 'content', 'MetadataProcessor', 'nanoFramework.Tools.MetadataProcessor.exe'))</NanoFrameworkMetadataProcessorPath>
+    <NanoFrameworkMetadataProcessorPath Condition="!Exists('$(NanoFrameworkMetadataProcessorPath)')">$([System.IO.Path]::Combine('$(NanoFrameworkPackagesDirectory)', 'nanoframework.tools.metadataprocessor.cli', '$(NanoFrameworkMetadataProcessorVersion)', 'contentFiles', 'any', 'any', 'MetadataProcessor', 'nanoFramework.Tools.MetadataProcessor.exe'))</NanoFrameworkMetadataProcessorPath>
+    <NanoFrameworkMetadataProcessorCommand Condition="'$(NanoFrameworkMetadataProcessorCommand)' == '' and '$(OS)' == 'Windows_NT'">&quot;$(NanoFrameworkMetadataProcessorPath)&quot;</NanoFrameworkMetadataProcessorCommand>
+    <NanoFrameworkMetadataProcessorCommand Condition="'$(NanoFrameworkMetadataProcessorCommand)' == ''">mono &quot;$(NanoFrameworkMetadataProcessorPath)&quot;</NanoFrameworkMetadataProcessorCommand>
+    <NanoFrameworkStageDebuggerSymbols Condition="'$(NanoFrameworkStageDebuggerSymbols)' == ''">true</NanoFrameworkStageDebuggerSymbols>
+  </PropertyGroup>
+
+  <Target
+    Name="RavenPackageNanoFrameworkApplication"
+    AfterTargets="Build"
+    DependsOnTargets="ResolveReferences"
+    Condition="'$(NanoFrameworkPackageOnBuild)' == 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+    <Error
+      Condition="!Exists('$(NanoFrameworkMetadataProcessorPath)')"
+      Text="nanoFramework metadata processor not found at '$(NanoFrameworkMetadataProcessorPath)'. Restore the project or set NanoFrameworkMetadataProcessorPath." />
+    <Error
+      Condition="!Exists('$(TargetPath)')"
+      Text="Raven managed output '$(TargetPath)' was not found." />
+
+    <ItemGroup>
+      <_NanoFrameworkCoreManagedReference Include="$(RavenTargetCoreLibraryPath)" />
+      <_NanoFrameworkManagedReference
+        Include="@(ReferencePath)"
+        Condition="'%(ReferencePath.Filename)' != 'mscorlib' and Exists('%(ReferencePath.RootDir)%(ReferencePath.Directory)%(ReferencePath.Filename).pe')" />
+      <_NanoFrameworkMissingCompactReference
+        Include="@(ReferencePath)"
+        Condition="'%(ReferencePath.Filename)' != 'mscorlib' and !Exists('%(ReferencePath.RootDir)%(ReferencePath.Directory)%(ReferencePath.Filename).pe')" />
+      <_NanoFrameworkMissingCompactReference
+        Remove="@(_NanoFrameworkManagedReference)"
+        MatchOnMetadata="Filename"
+        MatchOnMetadataOptions="CaseInsensitive" />
+      <_NanoFrameworkMetadataReference Include="@(_NanoFrameworkCoreManagedReference);@(_NanoFrameworkManagedReference)" />
+      <_NanoFrameworkCompactReference Include="@(_NanoFrameworkCoreManagedReference->'%(RootDir)%(Directory)%(Filename).pe')" />
+      <_NanoFrameworkCompactReference Include="@(_NanoFrameworkManagedReference->'%(RootDir)%(Directory)%(Filename).pe')" />
+      <_NanoFrameworkCompactSymbols
+        Include="@(_NanoFrameworkMetadataReference->'%(RootDir)%(Directory)%(Filename).pdbx')"
+        Condition="Exists('%(RootDir)%(Directory)%(Filename).pdbx')" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_NanoFrameworkLoadHints>@(_NanoFrameworkMetadataReference->'-loadhints %(Filename) &quot;%(FullPath)&quot;', ' ')</_NanoFrameworkLoadHints>
+    </PropertyGroup>
+
+    <Error
+      Condition="!Exists('@(_NanoFrameworkCoreManagedReference->'%(RootDir)%(Directory)%(Filename).pe')')"
+      Text="Compact nanoFramework core library was not found next to '$(RavenTargetCoreLibraryPath)'." />
+    <Error
+      Condition="'@(_NanoFrameworkMissingCompactReference)' != ''"
+      Text="A compact nanoFramework .pe image was not found next to: @(_NanoFrameworkMissingCompactReference, ', '). Use packages that provide netnano1.0 runtime assets." />
+
+    <Message Importance="High" Text="nanoFramework package: $(TargetPath) -&gt; $(NanoFrameworkApplicationImage)" />
+    <Exec
+      Command="$(NanoFrameworkMetadataProcessorCommand) $(_NanoFrameworkLoadHints) -parse &quot;$(TargetPath)&quot; -compile &quot;$(NanoFrameworkApplicationImage)&quot; false" />
+
+    <Error
+      Condition="!Exists('$(NanoFrameworkApplicationImage)')"
+      Text="nanoFramework metadata processor did not produce '$(NanoFrameworkApplicationImage)'." />
+
+    <Copy
+      SourceFiles="@(_NanoFrameworkCompactReference)"
+      DestinationFolder="$(TargetDir)"
+      SkipUnchangedFiles="true" />
+
+    <ItemGroup Condition="'$(NanoFrameworkStageDebuggerSymbols)' == 'true'">
+      <_NanoFrameworkDebuggerSymbols Include="@(_NanoFrameworkCompactSymbols);$(TargetDir)$(TargetName).pdbx" />
+    </ItemGroup>
+
+    <RavenStageNanoFrameworkDebuggerSymbols
+      InputFiles="@(_NanoFrameworkDebuggerSymbols)"
+      OutputDirectory="$(TargetDir)"
+      Condition="'$(NanoFrameworkStageDebuggerSymbols)' == 'true'" />
+
+    <ItemGroup Condition="'$(NanoFrameworkCreateDeploymentImage)' == 'true'">
+      <_NanoFrameworkDeploymentInput Include="@(_NanoFrameworkCompactReference)" />
+      <_NanoFrameworkDeploymentInput Include="$(NanoFrameworkApplicationImage)" />
+    </ItemGroup>
+
+    <RavenCreateNanoFrameworkDeploymentImage
+      InputFiles="@(_NanoFrameworkDeploymentInput)"
+      OutputFile="$(NanoFrameworkDeploymentImage)"
+      Condition="'$(NanoFrameworkCreateDeploymentImage)' == 'true'" />
+
+    <Message
+      Importance="High"
+      Text="nanoFramework deployment image: $(NanoFrameworkDeploymentImage)"
+      Condition="'$(NanoFrameworkCreateDeploymentImage)' == 'true'" />
+
+    <ItemGroup>
+      <FileWrites Include="$(NanoFrameworkApplicationImage)" />
+      <FileWrites Include="$(TargetDir)$(TargetName).pdbx" />
+      <FileWrites Include="$(NanoFrameworkDeploymentImage)" Condition="'$(NanoFrameworkCreateDeploymentImage)' == 'true'" />
+      <FileWrites Include="@(_NanoFrameworkCompactReference->'$(TargetDir)%(Filename)%(Extension)')" />
+      <FileWrites Include="@(_NanoFrameworkCompactSymbols->'$(TargetDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_CleanRavenNanoFrameworkArtifacts" AfterTargets="Clean">
+    <ItemGroup>
+      <_RavenNanoFrameworkArtifact Include="$(TargetDir)*.pe;$(TargetDir)*.pdbx;$(TargetDir)$(TargetName).bin" />
+    </ItemGroup>
+    <Delete Files="@(_RavenNanoFrameworkArtifact)" />
+  </Target>
+</Project>

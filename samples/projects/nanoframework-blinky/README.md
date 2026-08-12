@@ -28,14 +28,12 @@ this deliberately GPIO-only sample requires an external LED and an explicit
 `--led-pin` for those profiles. `--led-pin` can also override the LED output for
 a non-wireless board.
 
-## Current Pico 2 boundary
+## Firmware boundary
 
-Raven can compile and package this managed application for the nanoFramework
-assembly surface. At the time of this investigation, nanoFramework's published
-Raspberry Pi target documentation covers the RP2040 Pico family, not Pico 2's
-RP2350. Running this sample on Pico 2 therefore also requires a compatible
-nanoCLR RP2350 firmware port or a future official target. The sample does not
-claim that firmware support already exists.
+Current `nanoff` versions recognize RP2040 and RP2350 Pico-family targets,
+including Pico 2. Firmware availability still depends on the selected stable or
+preview feed. Because this sample uses nanoFramework 2.0 preview managed
+packages, the board must run a matching preview/v2 nanoCLR image.
 
 ## Build and package
 
@@ -79,19 +77,19 @@ firmware must provide the native contracts used by CoreLibrary
   and the application, each aligned to four bytes for deployment
 
 This proves compilation and packaging for each profile. Deployment requires
-nanoFramework tooling and firmware compatible with the selected board. Pico 2
-additionally requires compatible RP2350 firmware. The official deployment
-pipeline deploys an application's compact image together with its referenced
-class libraries and checks native-component versions against the device
-firmware.
+nanoFramework tooling and firmware compatible with the selected board. The
+official deployment pipeline deploys an application's compact image together
+with its referenced class libraries and checks native-component versions
+against the device firmware.
 
 The application remains a stock `Microsoft.NET.Sdk` project. Raven's separate
 `Raven.nanoFramework.props` build asset fills the target-framework gap until an
 official SDK-style nanoFramework target is available.
 
-`deploy.sh` maps all four profiles to nanoFramework's `rpi_pico` platform and
-supports either the wire protocol or Pico BOOTSEL/UF2 deployment. It is a dry
-run unless `--execute` is supplied:
+`deploy.sh` maps the profiles to the current `PICO_RP2040`, `PICO_RP2040_W`,
+`PICO2_RP2350`, and `PICO2_RP2350_W` target names. It supports either the wire
+protocol or Pico BOOTSEL/UF2 deployment and is a dry run unless `--execute` is
+supplied:
 
 ```bash
 ./deploy.sh --board pico --uf2
@@ -99,15 +97,10 @@ run unless `--execute` is supplied:
 ./deploy.sh --board pico --serial-port /dev/ttyACM0 --execute
 ```
 
-Pico 2 profiles additionally require
-`--allow-unpublished-rp2350-firmware`. That flag is an acknowledgement, not a
-firmware installer: use it only after installing a compatible RP2350 nanoCLR
-build.
-
 ## Hardware validation
 
 The Pico W profile has been deployed to a Raspberry Pi Pico WH running the
-`RP_PICO_W_RP2040` nanoCLR `2.0.0-preview.29` firmware. The device accepted and
+`RP_PICO_W_RP2040` nanoCLR `2.0.0.29` firmware. The device accepted and
 loaded `NanoFrameworkBlinky` together with the matching 2.0 managed reference
 closure. The deployed entry point includes the closed `SelectLedPin<int>`
 generic method and targets external GPIO 15. The onboard Pico WH LED is not part
@@ -122,3 +115,17 @@ References:
 
 `NANOFRAMEWORK_PACKAGES_DIR`, `OUTPUT_DIR`, `RAVEN_COMPILER_DLL`,
 `MONO_COMMAND`, and `NANOFF_COMMAND` can override the default locations.
+
+For the normal project workflow without the sample deployment wrapper, see
+[Getting started with `netnano1.0`](../../../docs/compiler/nanoframework.md).
+It covers standard build output, direct `nanoff` firmware and deployment
+commands, and the current VS Code debugger boundary.
+
+When this sample directory is opened as the VS Code workspace, its checked-in
+`.vscode/tasks.json` and `.vscode/launch.json` provide **Raven nanoFramework:
+Launch and Debug** and **Raven nanoFramework: Attach**. The launch configuration
+runs the normal Raven MSBuild task first, lets the official nanoFramework
+extension select the connected device, deploys the staged compact assemblies,
+and starts its managed debugger. The build task prompts for the LED GPIO so the
+same launch configuration covers the onboard Pico/Pico 2 LED and an external
+LED on wireless boards.
