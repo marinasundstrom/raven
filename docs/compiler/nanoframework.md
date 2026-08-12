@@ -320,7 +320,7 @@ frames, unions and patterns, local values, and exception presentation remain
 explicitly provisional.
 
 The Blinky sample includes a separate [Pico 1 WH over USB setup
-recipe](../../samples/projects/nanoframework-blinky/PICO-1-WH-USB.md) with the
+recipe](https://github.com/marinasundstrom/raven/blob/main/samples/projects/nanoframework-blinky/PICO-1-WH-USB.md) with the
 tested GP15 build, explicit macOS USB-port deployment, baud rate, expected
 output, and current VS Code adapter limitation.
 
