@@ -1,16 +1,10 @@
-- name: Docs
-  href: overview.md
+- name: Learn Raven
+  href: learn.md
   items:
-    - name: Overview
-      href: overview.md
-    - name: MVP roadmap
-      href: roadmap.md
-    - name: Get started
-      href: getting-started.md
     - name: Learn Raven
       href: learn.md
       items:
-        - name: Choose your path
+        - name: Start here
           href: learn.md
         - name: Raven in 60 seconds
           href: raven-in-60-seconds.md
@@ -39,17 +33,46 @@
           href: lang/style-guide.md
         - name: Language philosophy
           href: lang/philosophy.md
-    - name: Language
-      href: lang/
+    - name: Get started
+      href: getting-started.md
+- name: Build apps
+  href: workloads/index.md
+  items:
+    - name: Workload guides
+      href: workloads/index.md
+    - name: Web APIs with ASP.NET Core
+      href: workloads/web-api.md
+    - name: Command-line applications
+      href: workloads/command-line.md
+    - name: IoT and Native AOT
+      href: workloads/iot-monitor.md
+- name: Guides
+  href: lang/README.md
+  items:
+    - name: Language guides
+      href: lang/README.md
+    - name: Domain modeling
+      href: lang/domain-modeling.md
+    - name: Nullability and absence
+      href: lang/nullability.md
+    - name: Style guide
+      href: lang/style-guide.md
+- name: Reference
+  items:
+    - name: Language specification
+      href: lang/spec/language-specification.md
     - name: Libraries
-      href: libraries/
+      href: libraries/index.md
     - name: Tools
-      href: compiler/
-    - name: Sample projects
-      href: https://github.com/marinasundstrom/raven/tree/main/samples/projects
+      href: compiler/index.md
+- name: About
+  href: overview.md
+  items:
+    - name: Overview
+      href: overview.md
+    - name: MVP roadmap
+      href: roadmap.md
 - name: Playground
   href: https://marinasundstrom.github.io/raven/playground/
-- name: Component template experiment
-  href: https://marinasundstrom.github.io/raven/experiments/html-macro/
 - name: GitHub
   href: https://github.com/marinasundstrom/raven

@@ -1,0 +1,8 @@
+- name: Build applications
+  href: index.md
+- name: Web APIs with ASP.NET Core
+  href: web-api.md
+- name: Command-line applications
+  href: command-line.md
+- name: IoT and Native AOT
+  href: iot-monitor.md
