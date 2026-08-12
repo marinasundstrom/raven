@@ -1,6 +1,6 @@
 # nanoFramework Raspberry Pi Pico-family Blinky
 
-This is Raven's smallest useful .NET nanoFramework MVP sample. It opens an LED
+This is Raven's smallest useful nanoFramework MVP sample. It opens an LED
 GPIO and uses Raven's unconditional `loop` construct to alternate the output
 between high and low every 500 milliseconds. The selected pin passes through a
 generic Raven function so the sample also exercises nanoFramework's 2.0 generic
@@ -117,7 +117,7 @@ References:
 `MONO_COMMAND`, and `NANOFF_COMMAND` can override the default locations.
 
 For the normal project workflow without the sample deployment wrapper, see
-[Getting started with `netnano1.0`](../../../docs/compiler/nanoframework.md).
+[Getting started with nanoFramework](../../../docs/compiler/nanoframework.md).
 It covers standard build output, direct `nanoff` firmware and deployment
 commands, and the current VS Code debugger boundary.
 
