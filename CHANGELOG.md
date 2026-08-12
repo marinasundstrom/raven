@@ -12,6 +12,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added diagnostic start locations to the Playground problems list.
 
+- Made header-brand destinations consistent across DocFX, RavenDoc, the
+  Playground, and the component-template showcase. Standalone applications
+  keep their own root while combined-site builds explicitly point at the
+  parent Raven documentation root.
+
 - Diagnosed unresolved types in both tuple-style and field-style union case
   payloads. Hover signatures now preserve the authored unresolved type name,
   including qualified names, and reserve `<Error>` for declarations without

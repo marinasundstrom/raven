@@ -1,10 +1,11 @@
 @page "/"
+@inject IConfiguration Configuration
 
 <PageTitle>Raven × Blazor</PageTitle>
 
 <main>
     <nav class="nav-shell" aria-label="Main navigation">
-        <a class="brand" href="../../" aria-label="Raven documentation">
+        <a class="brand" href="@SiteRootHref" aria-label="Raven documentation">
             <span class="brand-mark">R</span>
             <span>Raven</span>
         </a>
@@ -289,6 +290,10 @@
         <span>Macro-powered templates / native Blazor</span>
     </footer>
 </main>
+
+@code {
+    private string SiteRootHref => Configuration["RavenSiteRootHref"] ?? "./";
+}
 
 @code {
     private static readonly Dictionary<string, object?> CounterParameters = new()

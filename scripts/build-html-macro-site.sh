@@ -28,10 +28,12 @@ dotnet publish "$project" \
 rm -rf -- "$site_dir"
 mkdir -p "$site_dir"
 cp -R "$publish_dir/wwwroot/." "$site_dir/"
+cp "$repository_root/scripts/site-config/html-macro-appsettings.json" "$site_dir/appsettings.json"
 
 test -f "$site_dir/index.html"
 test -d "$site_dir/_framework"
 test -s "$site_dir/_content/HtmlBlazorSample/app.css"
+grep -Fq '"RavenSiteRootHref": "../../"' "$site_dir/appsettings.json"
 grep -Fq '<script type="importmap">' "$site_dir/index.html"
 find "$site_dir/_framework" -maxdepth 1 -name 'Raven.Core.*.wasm' -print -quit | grep -q .
 find "$site_dir/_framework" -maxdepth 1 -name 'ExistingBlazorComponents.*.wasm' -print -quit | grep -q .

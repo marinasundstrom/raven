@@ -195,6 +195,7 @@ internal static class RavenDocCommand
         string? inputPath = null;
         string? outputPath = null;
         var targetFramework = DefaultTargetFramework;
+        string? siteRootPath = null;
         var siteLinks = new List<DocumentationSiteLink>();
         var templateValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var referencePaths = new List<string>();
@@ -236,6 +237,14 @@ internal static class RavenDocCommand
                         return false;
                     }
                     siteLinks.Add(navigationLink);
+                    break;
+                case "--site-root":
+                    if (!TryReadValue(args, ref index, out siteRootPath))
+                    {
+                        Console.Error.WriteLine("Missing value for --site-root.");
+                        options = default;
+                        return false;
+                    }
                     break;
                 case "--value":
                     if (!TryReadValue(args, ref index, out var templateValue) ||
@@ -290,7 +299,10 @@ internal static class RavenDocCommand
             inputPath,
             outputPath,
             targetFramework!,
-            new DocumentationSiteOptions(siteLinks, templateValues),
+            new DocumentationSiteOptions(
+                siteLinks,
+                templateValues,
+                siteRootPath is null ? null : Path.GetFullPath(siteRootPath)),
             referencePaths,
             showHelp);
         return true;
@@ -362,6 +374,7 @@ internal static class RavenDocCommand
             Options:
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)
               -f, --framework <tfm>       Target framework used for references (default: net10.0)
+                  --site-root <directory>  Link the header brand to this site's root
                   --nav <label=url>        Add a related-site link to the generated header
                   --value <name=value>     Replace {{name}} in Markdown; may be repeated
               -r, --reference <assembly>   Add a metadata reference for source input

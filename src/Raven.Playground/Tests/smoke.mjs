@@ -73,6 +73,11 @@ try {
   await page.goto(url);
   await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
 
+  const playgroundBrandHref = await page.locator(".raven-brand").getAttribute("href");
+  if (playgroundBrandHref !== "./") {
+    throw new Error(`Expected standalone Playground brand href './', got '${playgroundBrandHref}'.`);
+  }
+
   const themeResponse = await page.request.get(`${url}css/raven-theme.css`);
   const themeContentType = themeResponse.headers()["content-type"] ?? "";
   const themeSource = await themeResponse.text();

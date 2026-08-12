@@ -38,6 +38,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             Path.GetTempPath(),
             "ravendoc-tests",
             Guid.NewGuid().ToString("N"));
+        var siteRootPath = Path.GetDirectoryName(outputPath)!;
 
         try
         {
@@ -54,7 +55,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                     {
                         ["productVersion"] = "1.2.3+build.7",
                         ["apiRoot"] = "../reference/"
-                    }));
+                    },
+                    siteRootPath));
 
             var typePagePath = Path.Combine(outputPath, "Samples", "Docs", "Widget", "index.html");
             var memberPagePath = Path.Combine(outputPath, "Samples", "Docs", "Widget", "method_GetTitle.html");
@@ -66,6 +68,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
 
             var typePage = File.ReadAllText(typePagePath);
             typePage.ShouldContain("Raven API reference");
+            typePage.ShouldContain("href=\"../../../../index.html\"");
             typePage.ShouldContain("api-hero");
             typePage.ShouldContain("member-card");
             typePage.ShouldContain("symbol-icon--function");

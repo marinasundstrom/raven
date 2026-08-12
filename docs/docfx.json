@@ -82,7 +82,6 @@
       "_appName": "Raven",
       "_appTitle": "Raven programming language",
       "_appLogoPath": "images/raven-mark.svg",
-      "_appLogoUrl": "index.html",
       "_appFooter": "The official website of the Raven programming language.",
       "_enableSearch": true,
       "pdf": false

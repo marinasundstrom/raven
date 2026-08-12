@@ -94,6 +94,11 @@ VS Code experience. New continuous semantic features should use the worker and
 must include a browser test proving that the UI remains responsive while the
 compiler is busy.
 
+The Playground header reads `RavenSiteRootHref` from `wwwroot/appsettings.json`.
+Standalone builds default it to `./`; the combined documentation build replaces
+the published setting with `../` so the Raven mark returns to the parent site.
+This keeps local standalone hosting independent from the GitHub Pages base path.
+
 ## Examples, snippets, and shared source
 
 The query-string contract has three separate source categories:

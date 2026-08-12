@@ -32,6 +32,7 @@ dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     -- \
     "$repository_root/src/Raven.Core/Raven.Core.rvnproj" \
     --output "$core_api_output" \
+    --site-root "$site_output" \
     --framework net10.0 \
     --nav "Raven docs=https://marinasundstrom.github.io/raven/" \
     --nav "Raven.Macros API=https://marinasundstrom.github.io/raven/libraries/raven-macros/"
@@ -42,6 +43,7 @@ dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     -- \
     "$repository_root/src/Raven.Macros" \
     --output "$macros_api_output" \
+    --site-root "$site_output" \
     --framework net10.0 \
     --reference "$repository_root/src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll" \
     --nav "Raven docs=https://marinasundstrom.github.io/raven/" \

@@ -12,6 +12,7 @@ on:
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
       - "scripts/build-html-macro-site.sh"
+      - "scripts/test-site-navigation.sh"
       - "scripts/add-production-analytics.sh"
       - "scripts/test-raven-highlighting-sync.mjs"
       - "scripts/codex-build.sh"
@@ -32,6 +33,7 @@ on:
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
       - "scripts/build-html-macro-site.sh"
+      - "scripts/test-site-navigation.sh"
       - "scripts/add-production-analytics.sh"
       - "scripts/test-raven-highlighting-sync.mjs"
       - "scripts/codex-build.sh"
@@ -85,6 +87,9 @@ jobs:
 
       - name: Add experimental component-template showcase
         run: scripts/build-html-macro-site.sh
+
+      - name: Check site-root navigation
+        run: scripts/test-site-navigation.sh
 
       - name: Add production analytics
         if: github.event_name != 'pull_request'

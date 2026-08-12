@@ -4,13 +4,14 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject PlaygroundWorkerClient Worker
+@inject IConfiguration Configuration
 
 <PageTitle>Raven Playground</PageTitle>
 
 <section class="playground-shell">
     <header class="hero">
         <div class="hero-copy">
-            <a class="raven-brand" href="." aria-label="Raven Playground home">
+            <a class="raven-brand" href="@SiteRootHref" aria-label="Raven home">
                 <span class="raven-brand-mark">R</span>
             </a>
             <p class="eyebrow">Browser playground · WebAssembly</p>
@@ -202,6 +203,8 @@
     private IReadOnlyList<PlaygroundDiagnostic> _diagnostics = [];
     private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
     private IReadOnlyList<PlaygroundSnippetEntry> _snippets = [];
+
+    private string SiteRootHref => Configuration["RavenSiteRootHref"] ?? "./";
 
     private IEnumerable<PlaygroundExampleEntry> FilteredExamples =>
         string.IsNullOrWhiteSpace(_exampleQuery)

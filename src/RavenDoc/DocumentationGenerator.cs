@@ -61,6 +61,7 @@ public static class DocumentationGenerator
         = new(StringComparer.Ordinal);
 
     private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
+    private static string SiteRootDirectory = outputDir;
     private static IReadOnlyDictionary<string, string> TemplateValues =
         new Dictionary<string, string>();
 
@@ -173,6 +174,7 @@ public static class DocumentationGenerator
         ReportedBrokenXrefs.Clear();
         AdditionalNamespaceMembers.Clear();
         SiteLinks = siteOptions?.Links ?? [];
+        SiteRootDirectory = Path.GetFullPath(siteOptions?.SiteRootDirectory ?? outputDir);
         TemplateValues = siteOptions?.TemplateValues ??
             new Dictionary<string, string>();
         foreach (var symbol in additionalNamespaceMembers)
@@ -243,7 +245,7 @@ public static class DocumentationGenerator
         var themeHref = RelLink(currentDir, Path.Combine(outputDir, "raven-theme.css"));
         var styleHref = RelLink(currentDir, Path.Combine(outputDir, "style.css"));
         var scriptHref = RelLink(currentDir, Path.Combine(outputDir, "site.js"));
-        var homeHref = RelLink(currentDir, Path.Combine(outputDir, "index.html"));
+        var homeHref = RelLink(currentDir, Path.Combine(SiteRootDirectory, "index.html"));
 
         return SiteTemplate.RenderPage(new RavenDocPageTemplateModel(
             pageLabelOrTitle,
@@ -2082,7 +2084,8 @@ public static class DocumentationGenerator
 
 public sealed record DocumentationSiteOptions(
     IReadOnlyList<DocumentationSiteLink> Links,
-    IReadOnlyDictionary<string, string>? TemplateValues = null)
+    IReadOnlyDictionary<string, string>? TemplateValues = null,
+    string? SiteRootDirectory = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

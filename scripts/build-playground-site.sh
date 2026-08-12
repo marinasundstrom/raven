@@ -29,6 +29,8 @@ dotnet publish "$playground_dir/Raven.Playground.csproj" \
 rm -rf -- "$site_dir"
 mkdir -p "$site_dir"
 cp -R "$publish_dir/wwwroot/." "$site_dir/"
+cp "$repository_root/scripts/site-config/playground-appsettings.json" "$site_dir/appsettings.json"
 
 test -f "$site_dir/index.html"
 test -d "$site_dir/_framework"
+grep -Fq '"RavenSiteRootHref": "../"' "$site_dir/appsettings.json"
