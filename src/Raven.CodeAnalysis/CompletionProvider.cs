@@ -850,6 +850,42 @@ public static class CompletionProvider
             }
         }
 
+        static IEnumerable<ISymbol> GetInstanceMembersIncludingBase(ITypeSymbol type)
+        {
+            return GetTypeMembersIncludingBase(type, includeStatic: false)
+                .Where(IsInstanceCompletionMember);
+        }
+
+        static bool IsInstanceCompletionMember(ISymbol member)
+        {
+            if (!member.CanBeReferencedByName || member is INamespaceOrTypeSymbol)
+                return false;
+
+            return member switch
+            {
+                IMethodSymbol method => method.AssociatedSymbol is null,
+                IFieldSymbol field => field.AssociatedSymbol is null,
+                IPropertySymbol or IEventSymbol => true,
+                _ => false
+            };
+        }
+
+        static bool IsTypeCompletionMember(ISymbol member)
+        {
+            if (!member.CanBeReferencedByName)
+                return false;
+
+            return member switch
+            {
+                INamedTypeSymbol => true,
+                IMethodSymbol method => method.IsStatic && method.AssociatedSymbol is null,
+                IFieldSymbol field => field.IsStatic && field.AssociatedSymbol is null,
+                IPropertySymbol property => property.IsStatic,
+                IEventSymbol @event => @event.IsStatic,
+                _ => false
+            };
+        }
+
         static ITypeSymbol UnwrapAliases(ITypeSymbol type)
         {
             while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
@@ -1140,7 +1176,7 @@ public static class CompletionProvider
             if (typeAccessSymbol is INamedTypeSymbol namedType)
             {
                 var staticMembers = namedType.GetMembers().Where(m =>
-                    m.IsStatic &&
+                    IsTypeCompletionMember(m) &&
                     IsAccessible(m) &&
                     !(model.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
                       FrameworkProjectionCatalog.TryGetStandard(namedType, m.Name, out var descriptor) &&
@@ -2513,7 +2549,7 @@ public static class CompletionProvider
                 else if (conditionalAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
                 {
                     var completionType = GetCarrierConditionalAccessLookupType(currentSelfType) ?? currentSelfType.GetNonNullableType();
-                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false)
+                    members = GetInstanceMembersIncludingBase(completionType)
                         .Where(member => IsAccessibleOnSelf(member, completionType));
                     instanceTypeForExtensions = completionType switch
                     {
@@ -2530,7 +2566,7 @@ public static class CompletionProvider
                 else if (type is ITypeSymbol instanceType)
                 {
                     var completionType = GetCarrierConditionalAccessLookupType(instanceType) ?? instanceType.GetNonNullableType();
-                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false).Where(IsAccessible);
+                    members = GetInstanceMembersIncludingBase(completionType).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch
                     {
                         INamedTypeSymbol named => named,
@@ -2643,7 +2679,7 @@ public static class CompletionProvider
                 else if (memberAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
                 {
                     var completionType = currentSelfType.GetNonNullableType();
-                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false)
+                    members = GetInstanceMembersIncludingBase(completionType)
                         .Where(member => IsAccessibleOnSelf(member, completionType));
                     instanceTypeForExtensions = completionType switch
                     {
@@ -2663,7 +2699,7 @@ public static class CompletionProvider
                 {
                     var completionType = instanceType.GetNonNullableType();
                     // Accessing an instance: show instance members
-                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false).Where(IsAccessible);
+                    members = GetInstanceMembersIncludingBase(completionType).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch
                     {
                         INamedTypeSymbol named => named,
@@ -2754,7 +2790,7 @@ public static class CompletionProvider
                 ?? model.GetTypeInfo(qualifiedName.Left).Type;
             if (receiverType is ITypeSymbol typeSymbolForQualified)
             {
-                var members = GetTypeMembersIncludingBase(typeSymbolForQualified, includeStatic: false)
+                var members = GetInstanceMembersIncludingBase(typeSymbolForQualified)
                     .Where(IsAccessible);
 
                 foreach (var member in members.Where(m => NameMatchesPrefix(m.Name, prefix)))

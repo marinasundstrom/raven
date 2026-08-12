@@ -709,6 +709,86 @@ literal.
         Assert.Contains(items, i => i.DisplayText == "Length");
     }
 
+    [Theory]
+    [InlineData("\"hello\".", "Length", "IsNullOrEmpty")]
+    [InlineData("true.", "ToString", "Parse")]
+    [InlineData("(42).", "ToString", "Parse")]
+    public void GetCompletions_AfterDot_OnDirectLiteral_ReturnsOnlyInstanceMembers(
+        string code,
+        string expectedMember,
+        string unexpectedStaticMember)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var items = compilation.GetCompletions(syntaxTree, code.Length).ToList();
+
+        Assert.Contains(items, item => item.DisplayText == expectedMember);
+        Assert.DoesNotContain(items, item => item.DisplayText == unexpectedStaticMember);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnInstance_ExcludesNestedTypesAndStaticMembers()
+    {
+        var code = """
+class Container {
+    public class Nested { }
+
+    public static func Create() -> Container {
+        Container()
+    }
+
+    public func Touch() -> unit { }
+}
+
+let value = Container()
+value.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = compilation.GetCompletions(syntaxTree, position).ToList();
+
+        Assert.Contains(items, item => item.DisplayText == "Touch");
+        Assert.DoesNotContain(items, item => item.DisplayText == "Nested");
+        Assert.DoesNotContain(items, item => item.DisplayText == "Create");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnType_IncludesNestedTypesAndStaticMembersOnly()
+    {
+        var code = """
+class Container {
+    public class Nested { }
+
+    public static func Create() -> Container {
+        Container()
+    }
+
+    public func Touch() -> unit { }
+}
+
+Container.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var items = compilation.GetCompletions(syntaxTree, code.Length).ToList();
+
+        Assert.Contains(items, item => item.DisplayText == "Nested");
+        Assert.Contains(items, item => item.DisplayText == "Create");
+        Assert.DoesNotContain(items, item => item.DisplayText == "Touch");
+    }
+
     [Fact]
     public void GetCompletions_AfterDot_OnProperty_ReturnsInstanceMembers()
     {

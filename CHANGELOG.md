@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made member-access completion receiver-aware: value and literal receivers now
+  show only referencable instance members, excluding nested types and generated
+  backing/accessor symbols, while type receivers retain static members and now
+  include accessible nested types.
+
 - Moved Playground completion, compilation, and emitted-program execution into
   a persistent .NET 11 Web Worker so compiler work no longer stalls Monaco's UI
   thread. Raven's semantic access gate now avoids unsupported blocking waits in

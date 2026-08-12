@@ -84,7 +84,8 @@ Monaco is bundled from `Editor/editor.js`. Raven TextMate scopes provide syntax
 highlighting. Compiler-backed completion is available through `Ctrl+Space`,
 opens for member access after `.`, and is debounced for meaningful identifier
 prefixes. Automatic identifier completion is suppressed in comments and
-strings.
+strings. Member access is receiver-aware: values and literals offer instance
+members, while type receivers offer static members and nested types.
 
 The Playground intentionally aims for a lightweight editor rather than a full
 VS Code experience. New continuous semantic features should use the worker and

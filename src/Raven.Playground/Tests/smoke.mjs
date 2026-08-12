@@ -298,6 +298,12 @@ try {
   }
 
   await page.keyboard.press("Escape");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type('let value = "Raven"\nvalue.Len');
+  const lengthSuggestion = page.locator(".suggest-widget .monaco-list-row", { hasText: "Length" });
+  await lengthSuggestion.first().waitFor({ timeout: 30_000 });
+
+  await page.keyboard.press("Escape");
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type("re");
