@@ -274,7 +274,7 @@ Then change the launch configuration to `request: "launch"`, add
 `deployAssemblies: true`. An empty `device` lets the nanoFramework extension
 reuse the last device, auto-select the only connected device, or show its device
 picker. The checked-in
-[`nanoframework-blinky`](../../samples/projects/nanoframework-blinky/) sample
+[`nanoframework-blinky`](https://github.com/marinasundstrom/raven/tree/main/samples/projects/nanoframework-blinky) sample
 contains complete `tasks.json` and `launch.json` examples for both launch and
 attach.
 
