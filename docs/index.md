@@ -9,94 +9,81 @@ _layout: landing
     <p class="raven-hero-lead">Raven brings typed, expression-oriented programming,
     algebraic modeling, and familiar object-oriented design to the .NET ecosystem.</p>
     <div class="raven-hero-actions">
-      <a class="raven-button raven-button-primary" href="getting-started.md">Get started <span aria-hidden="true">→</span></a>
-      <a class="raven-button" href="https://marinasundstrom.github.io/raven/playground/">Try the Playground</a>
+      <a class="raven-button raven-button-primary" href="raven-in-60-seconds.md">Learn Raven <span aria-hidden="true">→</span></a>
+      <a class="raven-button" href="https://marinasundstrom.github.io/raven/playground/">Try it online</a>
     </div>
     <p class="raven-preview-note">Raven is under active development. Evolving areas are marked in the documentation.</p>
   </div>
-  <div class="raven-hero-code raven-code-carousel" aria-label="Raven code examples" data-raven-carousel>
-    <div class="raven-code-slide" id="raven-sample-modeling" role="tabpanel" aria-labelledby="raven-sample-modeling-tab">
-      <div class="raven-code-titlebar">
-        <span>modeling.rvn</span>
-        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
-      </div>
-      <pre><code class="lang-raven">record Shipment(Id: int, Weight: decimal)&#10;&#10;union QuoteResult {&#10;&#32;&#32;&#32;&#32;case Quoted(amount: decimal)&#10;&#32;&#32;&#32;&#32;case Rejected(reason: string)&#10;}&#10;&#10;func Quote(shipment: Shipment) → QuoteResult {&#10;&#32;&#32;&#32;&#32;if shipment.Weight &lt;= 0 {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;return .Rejected("Weight must be positive")&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;return .Quoted(12.50m + shipment.Weight * 1.75m)&#10;}</code></pre>
+  <div class="raven-hero-code raven-code-carousel" aria-label="Raven application examples" data-raven-carousel>
+    <div class="raven-code-slide" id="raven-workload-web" role="tabpanel" aria-labelledby="raven-workload-web-tab">
+      <div class="raven-code-titlebar"><span>Web API · Program.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">import AspNetMinimalApi.Domain.*&#10;import Microsoft.AspNetCore.Builder.*&#10;&#10;let builder = WebApplication.CreateBuilder(args)&#10;builder.Services.AddOpenApi()&#10;&#10;use app = builder.Build()&#10;app.MapGet("/pets/{id}", FindPet)&#10;app.MapGet("/pets", StreamPets)&#10;app.MapPost("/pets/find", LookupPet)&#10;&#10;app.Run()</code></pre>
+      <div class="raven-code-learn"><span>ASP.NET Core, handlers, records, and unions</span><a href="workloads/web-api.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
-    <div class="raven-code-slide" id="raven-sample-expressions" role="tabpanel" aria-labelledby="raven-sample-expressions-tab" hidden>
-      <div class="raven-code-titlebar">
-        <span>expressions.rvn</span>
-        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
-      </div>
-      <pre><code class="lang-raven">func Describe(result: QuoteResult) → string {&#10;&#32;&#32;&#32;&#32;return match result {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.Quoted(let amount) when amount &gt; 100m&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;=&gt; "Large quote: $amount"&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.Quoted(let amount)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;=&gt; "Quote: $amount"&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;.Rejected(let reason)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;=&gt; "Cannot quote: $reason"&#10;&#32;&#32;&#32;&#32;}&#10;}&#10;&#10;let message = Describe(Quote(Shipment(42, 3.5m)))</code></pre>
+    <div class="raven-code-slide" id="raven-workload-cli" role="tabpanel" aria-labelledby="raven-workload-cli-tab" hidden>
+      <div class="raven-code-titlebar"><span>Command line · hello.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">#!/usr/bin/env rvn&#10;&#10;func Main(args: string[]) {&#10;&#32;&#32;&#32;&#32;System.Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Hello from a single Raven file!"&#10;&#32;&#32;&#32;&#32;)&#10;&#10;&#32;&#32;&#32;&#32;for argument in args {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;System.Console.WriteLine(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;"Argument: ${argument}"&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+      <div class="raven-code-learn"><span>One file, arguments, and direct execution</span><a href="workloads/command-line.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
-    <div class="raven-code-slide" id="raven-sample-dotnet" role="tabpanel" aria-labelledby="raven-sample-dotnet-tab" hidden>
-      <div class="raven-code-titlebar">
-        <span>dotnet.rvn</span>
-        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
-      </div>
-      <pre><code class="lang-raven">import System.Console.*&#10;import System.Text.Json.JsonSerializer&#10;&#10;record Package(Name: string, Version: string)&#10;&#10;let package = Package(&#10;&#32;&#32;&#32;&#32;Name: "Raven.Core",&#10;&#32;&#32;&#32;&#32;Version: "0.1.0"&#10;)&#10;&#10;let json = JsonSerializer.Serialize(package)&#10;WriteLine(json)</code></pre>
+    <div class="raven-code-slide" id="raven-workload-iot" role="tabpanel" aria-labelledby="raven-workload-iot-tab" hidden>
+      <div class="raven-code-titlebar"><span>IoT monitor · telemetry.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">async func Main() -&gt; Task {&#10;&#32;&#32;&#32;&#32;let telemetry: ITelemetrySource =&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;SimulatedTelemetrySource()&#10;&#10;&#32;&#32;&#32;&#32;await for result in telemetry.Poll(&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;CancellationToken.None&#10;&#32;&#32;&#32;&#32;) {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;match result {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Ok(let readings) =&gt; PrintReport(readings)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Error(let error) =&gt; PrintError(error)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+      <div class="raven-code-learn"><span>Async streams, typed errors, and Native AOT</span><a href="workloads/iot-monitor.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
-    <div class="raven-code-slide" id="raven-sample-components" role="tabpanel" aria-labelledby="raven-sample-components-tab" hidden>
-      <div class="raven-code-titlebar">
-        <span>Counter.rvn · experimental</span>
-        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
-      </div>
-      <pre><code class="lang-raven">#[Component]&#10;class Counter {&#10;&#32;&#32;&#32;&#32;var count = 0&#10;&#10;&#32;&#32;&#32;&#32;func increment() {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;count = count + 1&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;func Render() -&gt; RenderFragment =&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Html! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;button onClick={increment}&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Count: {count}&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/button&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}</code></pre>
-    </div>
-    <div class="raven-code-slide" id="raven-sample-embedded" role="tabpanel" aria-labelledby="raven-sample-embedded-tab" hidden>
-      <div class="raven-code-titlebar">
-        <span>blinky.rvn · .NET nanoFramework</span>
-        <span class="raven-code-dots" aria-hidden="true">● ● ●</span>
-      </div>
-      <pre><code class="lang-raven">import System.Device.Gpio.*&#10;import System.Threading.*&#10;&#10;func Main() {&#10;&#32;&#32;&#32;&#32;use gpio = GpioController()&#10;&#32;&#32;&#32;&#32;use led = gpio.OpenPin(25, PinMode.Output)&#10;&#10;&#32;&#32;&#32;&#32;loop {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;led.Write(PinValue.High)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Thread.Sleep(500)&#10;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;led.Write(PinValue.Low)&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Thread.Sleep(500)&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
-    </div>
-    <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">
-      <button id="raven-sample-modeling-tab" type="button" role="tab" aria-controls="raven-sample-modeling" aria-selected="true">
-        Modeling
-      </button>
-      <button id="raven-sample-expressions-tab" type="button" role="tab" aria-controls="raven-sample-expressions" aria-selected="false" tabindex="-1">
-        Expressions
-      </button>
-      <button id="raven-sample-dotnet-tab" type="button" role="tab" aria-controls="raven-sample-dotnet" aria-selected="false" tabindex="-1">
-        .NET
-      </button>
-      <button id="raven-sample-components-tab" type="button" role="tab" aria-controls="raven-sample-components" aria-selected="false" tabindex="-1">
-        Components
-      </button>
-      <button id="raven-sample-embedded-tab" type="button" role="tab" aria-controls="raven-sample-embedded" aria-selected="false" tabindex="-1">
-        Embedded
-      </button>
+    <div class="raven-carousel-controls" role="tablist" aria-label="Choose an application example">
+      <button id="raven-workload-web-tab" type="button" role="tab" aria-controls="raven-workload-web" aria-selected="true">Web API</button>
+      <button id="raven-workload-cli-tab" type="button" role="tab" aria-controls="raven-workload-cli" aria-selected="false" tabindex="-1">Command line</button>
+      <button id="raven-workload-iot-tab" type="button" role="tab" aria-controls="raven-workload-iot" aria-selected="false" tabindex="-1">IoT &amp; AOT</button>
     </div>
   </div>
 </section>
 
-<section class="raven-home-intro">
-  <p class="raven-eyebrow">One language, complementary tools</p>
-  <h2>Use the right shape for the problem.</h2>
-  <p>Build value-oriented models with records and unions, compose behavior with
-  functions and expressions, and reach for classes when identity or open
-  polymorphism matters—all with direct access to .NET libraries.</p>
+<section class="raven-learning-path">
+  <div class="raven-section-heading">
+    <p class="raven-eyebrow">Start here</p>
+    <h2>One clear path into Raven.</h2>
+    <p>Begin with the language itself. Install the compiler when you are ready
+    to run a program locally.</p>
+  </div>
+  <ol class="raven-path-steps">
+    <li>
+      <span class="raven-step-number">1</span>
+      <a href="raven-in-60-seconds.md">Raven in 60 seconds</a>
+      <p>Read one small program and learn the ideas that shape the language.</p>
+    </li>
+    <li>
+      <span class="raven-step-number">2</span>
+      <a href="introduction.md">Take the language tour</a>
+      <p>See functions, data modeling, patterns, failure handling, objects, and .NET interop.</p>
+    </li>
+    <li>
+      <span class="raven-step-number">3</span>
+      <a href="getting-started.md">Build and run Raven</a>
+      <p>Set up the source-built toolchain and create your first project.</p>
+    </li>
+  </ol>
+  <p class="raven-path-aside">Coming from .NET? Use the default path above, or keep the
+  <a href="raven-for-csharp-developers.md">Raven for C# developers</a> guide beside it.</p>
 </section>
 
-<div class="raven-feature-grid">
-  <a class="raven-feature-card" href="raven-in-60-seconds.md">
-    <span class="raven-card-kicker">Tour</span>
-    <strong>Raven in 60 seconds</strong>
-    <span>See the language's core ideas in one small program.</span>
-  </a>
-  <a class="raven-feature-card" href="learn.md">
-    <span class="raven-card-kicker">Learn</span>
-    <strong>Choose your path</strong>
-    <span>Start from .NET experience or from programming fundamentals.</span>
-  </a>
-  <a class="raven-feature-card" href="lang/README.md">
-    <span class="raven-card-kicker">Reference</span>
-    <strong>Explore the language</strong>
-    <span>Find precise syntax, semantics, and language guidance.</span>
-  </a>
-  <a class="raven-feature-card" href="https://marinasundstrom.github.io/raven/experiments/html-macro/">
-    <span class="raven-card-kicker">Experimental</span>
-    <strong>Macro-powered Blazor components</strong>
-    <span>Try a live Blazor WebAssembly showcase—no Raven installation required.</span>
-  </a>
-</div>
+<section class="raven-web-showcase">
+  <div>
+    <p class="raven-eyebrow">A real .NET workload</p>
+    <h2>Build an ASP.NET Core API.</h2>
+    <p>The pet-shelter sample uses ordinary ASP.NET Core routing, OpenAPI, async
+    handlers, and streaming responses. Raven records and unions model the API
+    domain without giving up the framework you already know.</p>
+    <a class="raven-button raven-button-primary" href="workloads/web-api.md">Build the web API <span aria-hidden="true">→</span></a>
+  </div>
+  <div class="raven-workload-points" aria-label="Web API sample capabilities">
+    <div><strong>ASP.NET Core</strong><span>Minimal APIs and dependency injection</span></div>
+    <div><strong>Typed domains</strong><span>Records, unions, and pattern matching</span></div>
+    <div><strong>Production shapes</strong><span>OpenAPI, async handlers, and streams</span></div>
+  </div>
+</section>
+
+<section class="raven-reference-callout">
+  <p><strong>Already learning Raven?</strong> Go directly to the
+  <a href="lang/README.md">language reference</a> or the
+  <a href="compiler/index.md">tooling documentation</a>.</p>
+</section>

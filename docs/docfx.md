@@ -38,17 +38,38 @@ those variables, while the Playground's Monaco themes use the corresponding
 editor and token palette. Changes to code colors should be applied consistently
 to all three surfaces.
 
-The home page presents five representative Raven examples in a carousel. It
-advances every six seconds, pauses while the user hovers or interacts with it,
-supports arrow-key tab navigation, and does not auto-advance when the user
-prefers reduced motion. Samples should remain short enough to avoid changing the
-hero's overall height as the carousel advances. Preserve normal source
+The home page presents an application-workload carousel and one ordered
+learning path. Keep the first decision obvious: learn the language or try it
+online. Every carousel item must represent a real, checked-in workload and
+include a **Learn more** link to its workload guide. Preserve normal source
 formatting in every sample: indentation communicates nesting, and blank lines
 should separate distinct declarations, constructs, and top-level operations.
 
 Keep the global header deliberately compact. Detailed documentation hierarchy
 belongs in the Docs menu and section sidebars, while the root page serves as a
 dedicated introduction to Raven.
+
+## Guides and specification
+
+User-facing guides and the language specification serve different reading
+goals and must remain visibly separate in navigation and writing style.
+
+Guides teach a concept or help complete a task. They should lead with
+motivation and recognizable application code, explain the useful default, call
+out important tradeoffs, and point to a next step. A feature guide should not
+attempt to enumerate every grammar production, conversion rule, diagnostic, or
+edge case.
+
+The specification is the precise reference for syntax and semantics. It may be
+exhaustive and organized around language constructs rather than a learning
+journey. Guides should link to the relevant specification section when exact
+rules matter instead of reproducing normative material.
+
+Workload guides live under `docs/workloads/`. Each homepage application sample
+must link to the guide for that workload, not only to its source directory. A
+workload guide should show the project layout, complete key files, build and run
+commands, ordinary .NET integration, Raven-specific choices, and how the code
+can be split as the application grows.
 
 ## Publication boundary
 

@@ -138,7 +138,7 @@ const initializeCarousels = () => {
     const start = () => {
       stop()
       if (!reduceMotion.matches) {
-        interval = window.setInterval(() => select(activeIndex + 1), 6000)
+        interval = window.setInterval(() => select(activeIndex + 1), 7000)
       }
     }
 
