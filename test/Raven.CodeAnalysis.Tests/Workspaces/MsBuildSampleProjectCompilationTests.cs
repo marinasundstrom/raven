@@ -272,6 +272,71 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_ForwardsConditionallyEvaluatedExternalConstantsToCompiler()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup Condition="'$(RavenLedPin)' != ''">
+                    <RavenConstant Include="LedPin" Value="$(RavenLedPin)" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(projectRoot, "Program.rvn"), """
+                import System.*
+
+                extern const LedPin: int = 25
+
+                func Main() {
+                    Console.WriteLine(LedPin)
+                }
+                """);
+
+            var buildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property:RavenLedPin=15 --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(buildResult.StdOut);
+            output.WriteLine(buildResult.StdErr);
+
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
+
+            var runResult = RunProcess(
+                "dotnet",
+                $"run --project \"{projectPath}\" --no-build",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(runResult.StdOut);
+            output.WriteLine(runResult.StdErr);
+
+            Assert.True(
+                runResult.ExitCode == 0,
+                $"dotnet run failed.\nstdout:\n{runResult.StdOut}\nstderr:\n{runResult.StdErr}");
+            Assert.Contains($"15{Environment.NewLine}", runResult.StdOut, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void RavenProject_BuildsExplicitCompileItems_WhenDefaultItemsAreDisabled()
     {
         var repoRoot = GetRepositoryRoot();

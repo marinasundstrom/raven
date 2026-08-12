@@ -54,10 +54,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$BOARD" in
-  pico) TARGET="PICO_RP2040" ;;
-  pico-w) TARGET="PICO_RP2040_W" ;;
-  pico2) TARGET="PICO2_RP2350" ;;
-  pico2-w) TARGET="PICO2_RP2350_W" ;;
+  pico|pico-w|pico2|pico2-w) ;;
   *)
     echo "Unsupported board profile '$BOARD'." >&2
     exit 2
@@ -80,7 +77,7 @@ if [[ ! -f "$DEPLOYMENT_IMAGE" ]]; then
 fi
 
 if [[ "$USE_UF2" == "1" ]]; then
-  COMMAND=("$NANOFF_COMMAND" --platform rpi_pico --target "$TARGET" --deploy --image "$DEPLOYMENT_IMAGE" --uf2deploy)
+  COMMAND=("$NANOFF_COMMAND" --platform rpi_pico --deploy --image "$DEPLOYMENT_IMAGE" --uf2deploy)
 else
   COMMAND=("$NANOFF_COMMAND" --nanodevice --deploy --serialport "$SERIAL_PORT" --image "$DEPLOYMENT_IMAGE")
 fi

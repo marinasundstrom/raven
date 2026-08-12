@@ -127,36 +127,50 @@ packages. Raven's current samples use nanoFramework 2.0 preview packages, so
 they require compatible preview/v2 firmware.
 
 Inspect the firmware targets currently published to the stable and preview
-feeds:
+feeds. Treat the result as repository state rather than a permanent board list:
 
 ```bash
 nanoff --listtargets --platform rpi_pico
 nanoff --listtargets --platform rpi_pico --preview
 ```
 
-Current `nanoff` versions recognize these Pico-family target identifiers:
+The flasher CLI and the firmware repository currently use different names for
+the RP2040 boards:
 
-| Board | Target |
-| --- | --- |
-| Pico | `PICO_RP2040` |
-| Pico W | `PICO_RP2040_W` |
-| Pico 2 | `PICO2_RP2350` |
-| Pico 2 W | `PICO2_RP2350_W` |
+| Board | Published firmware package | `nanoff` CLI alias |
+| --- | --- | --- |
+| Pico | `RP_PICO_RP2040` | `PICO_RP2040` |
+| Pico W | `RP_PICO_W_RP2040` | `PICO_RP2040_W` |
+| Pico 2 | Verify the current feed | `PICO2_RP2350` |
+| Pico 2 W | Verify the current feed | `PICO2_RP2350_W` |
 
 Tool support for a name does not guarantee that a matching firmware image is
-available in the selected feed. Do not flash a target missing from
-`--listtargets`.
+available in the selected feed. Verify the exact board package in the official
+[firmware repository](https://cloudsmith.io/~net-nanoframework/repos/nanoframework-images-dev/packages/)
+rather than inferring compatibility from a CLI alias alone.
+
+`nanoff` 2.5.162 has two relevant limitations observed during Raven's macOS
+hardware validation: its preview lookup can fail to find the published RP2040
+packages, and its UF2 application path can count one mounted `RPI-RP2` volume
+twice. If either occurs, install the official firmware UF2 directly and use the
+nanoCLR wire protocol for application deployment.
 
 For Pico-family firmware updates, hold BOOTSEL while connecting USB. The board
-appears as an `RPI-RP2` or `RP2350` mass-storage device. Install preview firmware
-with the target matching the board, for example:
+appears as an `RPI-RP2` or `RP2350` mass-storage device. Raven's Pico W hardware
+validation used the published `RP_PICO_W_RP2040` package at
+`2.0.0-preview.207`. Download and extract the package, then copy `nanoCLR.uf2`
+to the mounted board as an ordinary UF2 firmware installation:
 
 ```bash
-nanoff --platform rpi_pico \
-  --target PICO_RP2040 \
-  --preview \
-  --update
+curl -fLO https://dl.cloudsmith.io/public/net-nanoframework/nanoframework-images-dev/raw/names/RP_PICO_W_RP2040/versions/2.0.0-preview.207/RP_PICO_W_RP2040-2.0.0-preview.207.zip
+unzip RP_PICO_W_RP2040-2.0.0-preview.207.zip
+cp nanoCLR.uf2 /Volumes/RPI-RP2/
 ```
+
+The final command is the macOS form; on other hosts copy or drag `nanoCLR.uf2`
+to the board's BOOTSEL volume. Always select firmware for the exact board and
+chip family. Unplug and reconnect normally after the volume disappears or the
+copy completes.
 
 Firmware normally changes only when selecting a different target or runtime
 version; it does not need to be reflashed for every application build.
@@ -168,18 +182,19 @@ a Raven sample deployment script.
 
 ### BOOTSEL/UF2
 
-With the board in BOOTSEL mode, deploy using its explicit target:
+With the board in BOOTSEL mode, `nanoff` can detect the chip family and convert
+the application image without a firmware target name:
 
 ```bash
 nanoff --platform rpi_pico \
-  --target PICO_RP2040 \
   --deploy \
   --image bin/Debug/netnano1.0/Blinky.bin \
   --uf2deploy
 ```
 
-Use the corresponding Pico W or Pico 2 target when appropriate. `nanoff`
-performs the UF2 conversion and locates the mounted board.
+`nanoff` performs the UF2 conversion and locates the mounted board. With
+`nanoff` 2.5.162 on macOS, prefer the wire-protocol path below if this command
+incorrectly reports multiple BOOTSEL devices.
 
 ### nanoCLR wire protocol
 
@@ -203,9 +218,11 @@ nanoff --nanodevice \
 ```
 
 Replace the example with the reported host port, such as `COM3`,
-`/dev/ttyACM0`, or `/dev/cu.usbmodem...`. A debugger or serial monitor can hold
-the same port open, so close it before deployment. Add `-v d` or `-v diag` when
-investigating discovery, firmware compatibility, or deployment failures.
+`/dev/ttyACM0`, or `/dev/tty.usbmodem...`. Automatic `--listdevices` discovery
+can miss a Pico that responds when its port is supplied explicitly. A debugger
+or serial monitor can hold the same port open, so close it before deployment.
+Add `-v d` or `-v diag` when investigating discovery, firmware compatibility,
+or deployment failures.
 
 ## Visual Studio Code debugging
 

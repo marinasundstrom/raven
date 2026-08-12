@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed SDK builds so conditionally evaluated `RavenConstant` items are
+  forwarded to the compiler process instead of being used only for incremental
+  invalidation. Updated the nanoFramework deployment guidance with the
+  published RP2040 firmware package names and the tested `nanoff` 2.5.162
+  macOS UF2 and device-discovery workarounds.
+
 - Added expression forms of the macro contribution constructs `expand`,
   `replace`, and `introduce`. They can now be used directly in `match` arms and
   other macro expression positions while retaining their standalone statement

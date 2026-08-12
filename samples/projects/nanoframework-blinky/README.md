@@ -86,10 +86,10 @@ The application remains a stock `Microsoft.NET.Sdk` project. Raven's separate
 `Raven.nanoFramework.props` build asset fills the target-framework gap until an
 official SDK-style nanoFramework target is available.
 
-`deploy.sh` maps the profiles to the current `PICO_RP2040`, `PICO_RP2040_W`,
-`PICO2_RP2350`, and `PICO2_RP2350_W` target names. It supports either the wire
-protocol or Pico BOOTSEL/UF2 deployment and is a dry run unless `--execute` is
-supplied:
+`deploy.sh` supports either the wire protocol or Pico BOOTSEL/UF2 deployment
+and is a dry run unless `--execute` is supplied. Application deployment does
+not require a firmware target name because `nanoff` detects the attached chip
+family:
 
 ```bash
 ./deploy.sh --board pico --uf2
@@ -107,6 +107,11 @@ generic method and targets external GPIO 15. The onboard Pico WH LED is not part
 of this validation because it is attached to the CYW43 wireless controller; a
 visible blink requires an external LED and resistor or observation with a logic
 probe.
+
+The GP15 override and wire-protocol deployment were revalidated with `nanoff`
+2.5.162. That version can incorrectly report two UF2 devices for one Pico on
+macOS; the getting-started guide documents the tested firmware-copy and serial
+deployment fallback.
 
 References:
 
