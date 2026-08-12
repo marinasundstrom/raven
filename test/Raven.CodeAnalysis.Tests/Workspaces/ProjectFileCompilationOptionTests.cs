@@ -8,6 +8,65 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class ProjectFileCompilationOptionTests
 {
     [Fact]
+    public void OpenProject_UsesReleaseOptimizationForReleaseConfiguration()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
+
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <Configuration>Release</Configuration>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+
+        Assert.Equal(
+            OptimizationLevel.Release,
+            workspace.CurrentSolution.GetProject(projectId)!.CompilationOptions!.OptimizationLevel);
+    }
+
+    [Fact]
+    public void OpenProject_OptimizePropertyOverridesConfigurationDefault()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
+
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <Configuration>Release</Configuration>
+                <Optimize>false</Optimize>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Library</OutputType>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+
+        Assert.Equal(
+            OptimizationLevel.Debug,
+            workspace.CurrentSolution.GetProject(projectId)!.CompilationOptions!.OptimizationLevel);
+    }
+
+    [Fact]
     public void OpenProject_ReadsRunAnalyzersAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

@@ -197,6 +197,7 @@ internal static class MsBuildProjectEvaluator
                 ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
+            .WithOptimizationLevel(ParseOptimizationLevel(project, configuration))
             .WithAllowUnsafe(allowUnsafe)
             .WithAllowGlobalStatements(allowGlobalStatements)
             .WithAllowNamespaceMembers(allowNamespaceMembers)
@@ -414,6 +415,14 @@ internal static class MsBuildProjectEvaluator
 
     private static string GetNormalizedConfiguration(MSBuildProject project, RavenProjectConventions conventions)
         => conventions.NormalizeConfiguration(GetPropertyOrDefault(project, "Configuration", conventions.DefaultConfiguration));
+
+    private static OptimizationLevel ParseOptimizationLevel(MSBuildProject project, string configuration)
+    {
+        var optimize = GetBooleanProperty(project, "Optimize")
+            ?? string.Equals(configuration, "Release", StringComparison.OrdinalIgnoreCase);
+
+        return optimize ? OptimizationLevel.Release : OptimizationLevel.Debug;
+    }
 
     private static string GetFullPath(string projectDirectory, ProjectItem item)
     {

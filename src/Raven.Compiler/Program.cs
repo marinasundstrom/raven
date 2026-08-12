@@ -1036,6 +1036,9 @@ var performanceInstrumentation = PerformanceInstrumentation.Disabled;
 
 var executionOptions = new CompilerExecutionOptions(
     outputKind,
+    string.Equals(projectConfiguration, "Release", StringComparison.OrdinalIgnoreCase)
+        ? OptimizationLevel.Release
+        : OptimizationLevel.Debug,
     allowUnsafe,
     allowGlobalStatements,
     allowNamespaceMembers,
@@ -1180,6 +1183,7 @@ if (projectFileInput is not null)
     {
         options = projectOptions
             .WithSpecificDiagnosticOptions(options.SpecificDiagnosticOptions)
+            .WithOptimizationLevel(projectOptions.OptimizationLevel)
             .WithPerformanceInstrumentation(options.PerformanceInstrumentation)
             .WithLoweringTrace(options.LoweringTrace)
             .WithAsyncInvestigation(options.AsyncInvestigation)
@@ -1860,6 +1864,7 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
     CompilerExecutionOptions executionOptions)
 {
     var options = new CompilationOptions(executionOptions.OutputKind)
+        .WithOptimizationLevel(executionOptions.OptimizationLevel)
         .WithAllowUnsafe(executionOptions.AllowUnsafe)
         .WithAllowGlobalStatements(executionOptions.AllowGlobalStatements)
         .WithAllowNamespaceMembers(executionOptions.AllowNamespaceMembers)
@@ -3328,6 +3333,7 @@ enum DocumentationTool
 
 readonly record struct CompilerExecutionOptions(
     OutputKind OutputKind,
+    OptimizationLevel OptimizationLevel,
     bool AllowUnsafe,
     bool AllowGlobalStatements,
     bool AllowNamespaceMembers,
