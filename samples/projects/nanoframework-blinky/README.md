@@ -113,6 +113,10 @@ The GP15 override and wire-protocol deployment were revalidated with `nanoff`
 macOS; the getting-started guide documents the tested firmware-copy and serial
 deployment fallback.
 
+For the exact Pico 1 WH, external GP15 LED, and macOS USB commands used during
+hardware validation, see [Pico 1 WH over USB: build and
+deploy](PICO-1-WH-USB.md).
+
 References:
 
 - [Raspberry Pi Pico SDK: onboard LED pin](https://www.raspberrypi.com/documentation/microcontrollers/c_sdk.html)

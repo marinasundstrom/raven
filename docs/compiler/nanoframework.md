@@ -261,7 +261,19 @@ Raven project with the commands above, then attach the debugger with a
 
 The device must be running nanoCLR rather than sitting in BOOTSEL mode. Set
 `verbosity` to `debug` when investigating connection, symbol-loading, or
-breakpoint-binding failures.
+breakpoint-binding failures. Rebuild before launching so the deployed `.pe`,
+`.pdbx`, and portable `.pdb` come from the same compilation; Raven preserves a
+matching CodeView identity in the final assembly so the debugger can reject
+stale symbol files.
+
+Place breakpoints on executable statements. The nanoFramework adapter resolves
+a non-executable source line to the next portable-PDB sequence point. Current
+adapter versions do not consistently move the VS Code breakpoint marker to the
+resolved line, so a stop on the following statement can look like a misplaced
+Raven breakpoint even though the source-to-IL mapping is correct. With debug
+verbosity enabled, the adapter logs the requested line, available sequence
+points, resolved nanoCLR IL offset, and whether the device accepted the
+breakpoint.
 
 For a build-and-debug F5 workflow, connect the build through a standard VS Code
 task:
@@ -301,10 +313,16 @@ nanoFramework VS Code debugger expects the earlier XML PDBX contract. Raven's
 `netnano1.0` packaging target stages a debugger-compatible XML view without
 changing the compact application or deployment image.
 
-Connected-device validation currently covers deployment, debugger connection,
-symbol loading, and source breakpoint binding for the Blinky application.
-Stepping through `loop`, generic frames, unions and patterns, local values, and
-exception presentation remain explicitly unverified.
+Connected-device validation covers deployment, debugger connection, portable
+PDB loading, exact Raven source-breakpoint binding, and the corresponding stack
+frame location for the Blinky application. Stepping through `loop`, generic
+frames, unions and patterns, local values, and exception presentation remain
+explicitly provisional.
+
+The Blinky sample includes a separate [Pico 1 WH over USB setup
+recipe](../../samples/projects/nanoframework-blinky/PICO-1-WH-USB.md) with the
+tested GP15 build, explicit macOS USB-port deployment, baud rate, expected
+output, and current VS Code adapter limitation.
 
 ## Future integrated commands
 

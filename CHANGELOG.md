@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Preserved portable PDB symbols while normalizing or retargeting emitted
+  assembly references. Final assemblies now retain a matching CodeView identity
+  and executable source sequence points, allowing debuggers such as the .NET
+  nanoFramework VS Code adapter to bind Raven breakpoints to the selected line.
+
 - Fixed SDK builds so conditionally evaluated `RavenConstant` items are
   forwarded to the compiler process instead of being used only for incremental
   invalidation. Updated the nanoFramework deployment guidance with the

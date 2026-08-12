@@ -1,4 +1,5 @@
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -13,7 +14,9 @@ internal static class AssemblyReferenceNormalizer
     internal static void NormalizeCoreLibReference(
         Stream peInput,
         Stream peOutput,
-        IAssemblyResolver? assemblyResolver = null)
+        IAssemblyResolver? assemblyResolver = null,
+        Stream? pdbInput = null,
+        Stream? pdbOutput = null)
     {
         if (peInput is null)
             throw new ArgumentNullException(nameof(peInput));
@@ -27,6 +30,7 @@ internal static class AssemblyReferenceNormalizer
             InMemory = true,
             ReadingMode = ReadingMode.Deferred
         };
+        ConfigureSymbols(readerParameters, pdbInput, pdbOutput);
         if (assemblyResolver is not null)
             readerParameters.AssemblyResolver = assemblyResolver;
 
@@ -41,6 +45,7 @@ internal static class AssemblyReferenceNormalizer
         {
             peInput.Position = 0;
             peInput.CopyTo(peOutput);
+            CopySymbols(pdbInput, pdbOutput);
             return;
         }
 
@@ -59,14 +64,16 @@ internal static class AssemblyReferenceNormalizer
         if (!module.AssemblyReferences.Contains(runtimeRef))
             module.AssemblyReferences.Add(runtimeRef);
 
-        assembly.Write(peOutput);
+        assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
     }
 
     internal static void RetargetCoreLibraryReference(
         Stream peInput,
         Stream peOutput,
         AssemblyNameReference targetCoreLibrary,
-        IAssemblyResolver? assemblyResolver = null)
+        IAssemblyResolver? assemblyResolver = null,
+        Stream? pdbInput = null,
+        Stream? pdbOutput = null)
     {
         ArgumentNullException.ThrowIfNull(peInput);
         ArgumentNullException.ThrowIfNull(peOutput);
@@ -79,6 +86,7 @@ internal static class AssemblyReferenceNormalizer
             InMemory = true,
             ReadingMode = ReadingMode.Deferred
         };
+        ConfigureSymbols(readerParameters, pdbInput, pdbOutput);
         if (assemblyResolver is not null)
             readerParameters.AssemblyResolver = assemblyResolver;
 
@@ -106,7 +114,40 @@ internal static class AssemblyReferenceNormalizer
         if (sourceReferences.Length > 0 && !module.AssemblyReferences.Contains(targetReference))
             module.AssemblyReferences.Add(targetReference);
 
-        assembly.Write(peOutput);
+        assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
+    }
+
+    private static void ConfigureSymbols(
+        ReaderParameters readerParameters,
+        Stream? pdbInput,
+        Stream? pdbOutput)
+    {
+        if (pdbInput is null || pdbOutput is null)
+            return;
+
+        pdbInput.Position = 0;
+        readerParameters.ReadSymbols = true;
+        readerParameters.SymbolReaderProvider = new PortablePdbReaderProvider();
+        readerParameters.SymbolStream = pdbInput;
+    }
+
+    private static WriterParameters CreateWriterParameters(Stream? pdbOutput)
+        => pdbOutput is null
+            ? new WriterParameters()
+            : new WriterParameters
+            {
+                WriteSymbols = true,
+                SymbolWriterProvider = new PortablePdbWriterProvider(),
+                SymbolStream = pdbOutput
+            };
+
+    private static void CopySymbols(Stream? pdbInput, Stream? pdbOutput)
+    {
+        if (pdbInput is null || pdbOutput is null)
+            return;
+
+        pdbInput.Position = 0;
+        pdbInput.CopyTo(pdbOutput);
     }
 
     private static AssemblyNameReference CloneAssemblyReference(AssemblyNameReference source)

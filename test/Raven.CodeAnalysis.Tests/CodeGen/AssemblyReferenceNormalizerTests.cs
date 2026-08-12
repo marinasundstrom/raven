@@ -1,6 +1,11 @@
 using Mono.Cecil;
 
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+
+using MetadataReaderProvider = System.Reflection.Metadata.MetadataReaderProvider;
+using MetadataStreamOptions = System.Reflection.Metadata.MetadataStreamOptions;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Syntax;
@@ -71,6 +76,48 @@ public sealed class AssemblyReferenceNormalizerTests
         Assert.DoesNotContain(
             assembly.MainModule.AssemblyReferences,
             reference => reference.Name == "System.Private.CoreLib" || reference.Name == "System.Runtime");
+    }
+
+    [Fact]
+    public void EmitOptions_RetargetedAssemblyKeepsMatchingPortablePdb()
+    {
+        var syntaxTree = SyntaxTree.ParseText("func Main() { let value = 42 }");
+        var compilation = Compilation.Create(
+            "TargetCoreSymbolsProbe",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var targetIdentity = new AssemblyName("mscorlib, Version=1.17.11.0, Culture=neutral, PublicKeyToken=null");
+        using var output = new MemoryStream();
+        using var pdbOutput = new MemoryStream();
+
+        var result = compilation.Emit(output, pdbOutput, new EmitOptions(targetIdentity));
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        output.Position = 0;
+        pdbOutput.Position = 0;
+        using var peReader = new PEReader(output, PEStreamOptions.LeaveOpen);
+        var codeViewEntry = Assert.Single(
+            peReader.ReadDebugDirectory(),
+            static entry => entry.Type == DebugDirectoryEntryType.CodeView);
+        var codeView = peReader.ReadCodeViewDebugDirectoryData(codeViewEntry);
+        using var pdbProvider = MetadataReaderProvider.FromPortablePdbStream(
+            pdbOutput,
+            MetadataStreamOptions.LeaveOpen);
+        var pdbReader = pdbProvider.GetMetadataReader();
+        var pdbId = pdbReader.DebugMetadataHeader.Id;
+        var visibleSequencePoints = Enumerable.Range(
+                1,
+                pdbReader.GetTableRowCount(TableIndex.MethodDebugInformation))
+            .SelectMany(row => pdbReader
+                .GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(row))
+                .GetSequencePoints())
+            .Where(static point => !point.IsHidden)
+            .ToArray();
+
+        Assert.Equal(codeView.Guid, new Guid(pdbId.AsSpan(0, 16)));
+        Assert.Equal(codeViewEntry.Stamp, BitConverter.ToUInt32(pdbId.AsSpan(16, 4)));
+        Assert.Contains(visibleSequencePoints, static point => point.StartLine == 1);
     }
 
     private sealed class ThrowingAssemblyResolver : IAssemblyResolver

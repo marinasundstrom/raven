@@ -1412,7 +1412,7 @@ internal class CodeGenerator
                 entryPointHandle,
                 provisionalPdbStream,
                 pdbFileName,
-                out var pdbContentId);
+                out _);
 
             Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
             {
@@ -1444,27 +1444,9 @@ internal class CodeGenerator
             }
             else
             {
-                using var finalPeStream = new MemoryStream();
-                WriteFinalPe(rawPeStream, finalPeStream);
-
                 provisionalPdbStream.Position = 0;
                 rawPeStream.Position = 0;
-                finalPeStream.Position = 0;
-                using var rawPeReader = new PEReader(rawPeStream, PEStreamOptions.LeaveOpen);
-                using var finalPeReader = new PEReader(finalPeStream, PEStreamOptions.LeaveOpen);
-                var corrections = GetMethodDebugInformationCorrections(
-                    rawPeReader.GetMetadataReader(),
-                    finalPeReader.GetMetadataReader());
-                EmitCorrectedPdb(
-                    provisionalPdbStream,
-                    metadataBuilder.GetRowCounts(),
-                    entryPointHandle,
-                    corrections,
-                    pdbContentId,
-                    pdbStream);
-
-                finalPeStream.Position = 0;
-                finalPeStream.CopyTo(peStream);
+                WriteFinalPe(rawPeStream, peStream, provisionalPdbStream, pdbStream);
             }
         }
         catch (Exception ex)
@@ -1481,7 +1463,11 @@ internal class CodeGenerator
         }
     }
 
-    private void WriteFinalPe(Stream rawPeStream, Stream output)
+    private void WriteFinalPe(
+        Stream rawPeStream,
+        Stream output,
+        Stream? provisionalPdbStream = null,
+        Stream? pdbOutputStream = null)
     {
         if (_emitOptions?.TargetCoreLibraryIdentity is { } targetIdentity)
         {
@@ -1498,17 +1484,28 @@ internal class CodeGenerator
             AssemblyReferenceNormalizer.RetargetCoreLibraryReference(
                 rawPeStream,
                 output,
-                targetReference);
+                targetReference,
+                pdbInput: provisionalPdbStream,
+                pdbOutput: pdbOutputStream);
             return;
         }
 
         if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
         {
-            AssemblyReferenceNormalizer.NormalizeCoreLibReference(rawPeStream, output);
+            AssemblyReferenceNormalizer.NormalizeCoreLibReference(
+                rawPeStream,
+                output,
+                pdbInput: provisionalPdbStream,
+                pdbOutput: pdbOutputStream);
             return;
         }
 
         rawPeStream.CopyTo(output);
+        if (provisionalPdbStream is not null && pdbOutputStream is not null)
+        {
+            provisionalPdbStream.Position = 0;
+            provisionalPdbStream.CopyTo(pdbOutputStream);
+        }
     }
 
     private void DetermineShimTypeRequirements()
