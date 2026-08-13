@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   continue to receive standard XML documentation. Constructed and substituted
   metadata symbols now preserve their definitions' documentation, and generic
   method documentation IDs follow the standard .NET arity convention.
+  Documentation caches now reload when an assembly or sidecar is replaced at
+  the same output path, so editor sessions do not retain an older fallback.
 
 - Fixed clean Raven.Core bootstrap builds so `RavenEmitCoreTypesOnly` cannot be
   overwritten by a previously emitted Raven.Core reference. Multi-targeted

@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class ExternalDocumentationProvider
 {
-    private static readonly ConcurrentDictionary<string, Lazy<ExternalDocumentationSet?>> s_files =
+    private static readonly ConcurrentDictionary<string, CachedExternalDocumentationSet> s_files =
         new(StringComparer.OrdinalIgnoreCase);
 
     public static DocumentationComment? GetDocumentationComment(PESymbol symbol)
@@ -22,14 +22,78 @@ internal static class ExternalDocumentationProvider
         if (!TryGetAssemblyLocation(symbol, out var assemblyLocation))
             return null;
 
-        var docs = s_files.GetOrAdd(
+        var fingerprint = ExternalDocumentationFingerprint.Create(assemblyLocation);
+        var cached = s_files.AddOrUpdate(
             assemblyLocation,
-            static path => new Lazy<ExternalDocumentationSet?>(() => ExternalDocumentationSet.TryLoad(path))).Value;
+            static (path, currentFingerprint) => CachedExternalDocumentationSet.Load(path, currentFingerprint),
+            static (path, existing, currentFingerprint) => existing.Fingerprint == currentFingerprint
+                ? existing
+                : CachedExternalDocumentationSet.Load(path, currentFingerprint),
+            fingerprint);
+        var docs = cached.Documentation;
 
         if (docs is null)
             return null;
 
         return docs.GetDocumentationComment(memberId);
+    }
+
+    private readonly record struct CachedExternalDocumentationSet(
+        ExternalDocumentationFingerprint Fingerprint,
+        ExternalDocumentationSet? Documentation)
+    {
+        public static CachedExternalDocumentationSet Load(
+            string assemblyPath,
+            ExternalDocumentationFingerprint fingerprint)
+        {
+            return new CachedExternalDocumentationSet(
+                fingerprint,
+                ExternalDocumentationSet.TryLoad(assemblyPath));
+        }
+    }
+
+    private readonly record struct ExternalDocumentationFingerprint(
+        ExternalDocumentationFileStamp Assembly,
+        ExternalDocumentationFileStamp MarkdownManifest,
+        ExternalDocumentationFileStamp Xml)
+    {
+        public static ExternalDocumentationFingerprint Create(string assemblyPath)
+        {
+            var directory = Path.GetDirectoryName(assemblyPath);
+            var assemblyName = Path.GetFileNameWithoutExtension(assemblyPath);
+            var markdownManifestPath = string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(assemblyName)
+                ? string.Empty
+                : Path.Combine(directory, $"{assemblyName}.docs", "manifest.json");
+
+            return new ExternalDocumentationFingerprint(
+                ExternalDocumentationFileStamp.Create(assemblyPath),
+                ExternalDocumentationFileStamp.Create(markdownManifestPath),
+                ExternalDocumentationFileStamp.Create(Path.ChangeExtension(assemblyPath, ".xml")));
+        }
+    }
+
+    private readonly record struct ExternalDocumentationFileStamp(
+        bool Exists,
+        long Length,
+        long LastWriteTimeUtcTicks)
+    {
+        public static ExternalDocumentationFileStamp Create(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return default;
+
+            try
+            {
+                var file = new FileInfo(path);
+                return file.Exists
+                    ? new ExternalDocumentationFileStamp(true, file.Length, file.LastWriteTimeUtc.Ticks)
+                    : default;
+            }
+            catch
+            {
+                return default;
+            }
+        }
     }
 
     private static bool TryGetAssemblyLocation(PESymbol symbol, out string assemblyLocation)

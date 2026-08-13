@@ -282,6 +282,78 @@ WriteLine(message)
     }
 
     [Fact]
+    public void MetadataReferences_ReloadDocumentation_WhenMarkdownSidecarIsAdded()
+    {
+        var sourceAssemblyPath = typeof(Compilation).Assembly.Location;
+        var sourceXmlPath = Path.ChangeExtension(sourceAssemblyPath, ".xml");
+        Assert.True(File.Exists(sourceAssemblyPath));
+        Assert.True(File.Exists(sourceXmlPath));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-markdown-docs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var assemblyPath = Path.Combine(directory, Path.GetFileName(sourceAssemblyPath));
+        File.Copy(sourceAssemblyPath, assemblyPath);
+        File.Copy(sourceXmlPath, Path.Combine(directory, Path.GetFileName(sourceXmlPath)));
+
+        const string memberId =
+            "M:Raven.CodeAnalysis.Syntax.SyntaxFactory.StoredPropertyDeclaration(Raven.CodeAnalysis.Syntax.SyntaxList{Raven.CodeAnalysis.Syntax.AttributeListSyntax},Raven.CodeAnalysis.Syntax.SyntaxTokenList,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.SyntaxToken,Raven.CodeAnalysis.Syntax.TypeAnnotationClauseSyntax,Raven.CodeAnalysis.Syntax.EqualsValueClauseSyntax)";
+
+        DocumentationComment GetDocumentation()
+        {
+            var compilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var syntaxFactory = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.SyntaxFactory");
+            var method = Assert.Single(syntaxFactory!
+                .GetMembers("StoredPropertyDeclaration")
+                .OfType<IMethodSymbol>());
+            return Assert.IsType<DocumentationComment>(method.GetDocumentationComment());
+        }
+
+        try
+        {
+            Assert.Equal(DocumentationFormat.Xml, GetDocumentation().Format);
+
+            var docsRoot = Path.Combine(directory, "Raven.CodeAnalysis.docs");
+            var symbolsRoot = Path.Combine(docsRoot, "invariant", "symbols", "M");
+            Directory.CreateDirectory(symbolsRoot);
+            File.WriteAllText(
+                Path.Combine(docsRoot, "manifest.json"),
+                JsonSerializer.Serialize(new
+                {
+                    formatVersion = 1,
+                    assemblyName = "Raven.CodeAnalysis",
+                    documentationFormat = "markdown",
+                    idFormat = "doc-comment-id",
+                    defaultLocale = "invariant",
+                    locales = new[] { "invariant" },
+                    symbolsPath = "symbols"
+                }));
+            File.WriteAllText(
+                Path.Combine(symbolsRoot, DocumentationCommentIdBuilder.GetMarkdownPathHash(memberId) + ".md"),
+                $$"""
+                ---
+                xref: {{memberId}}
+                ---
+
+                Documentation loaded from the newly added Markdown sidecar.
+                """);
+
+            var documentation = GetDocumentation();
+            Assert.Equal(DocumentationFormat.Markdown, documentation.Format);
+            Assert.Contains("newly added Markdown sidecar", documentation.Content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void MetadataReferences_SkipMarkdownSidecar_WhenFrontMatterXrefDoesNotMatch()
     {
         var sourceAssemblyPath = typeof(Compilation).Assembly.Location;
