@@ -2783,10 +2783,7 @@ public partial class SemanticModel
             if (Compilation.Options.OutputKind != OutputKind.ConsoleApplication)
                 parentBinder.Diagnostics.ReportFileScopedCodeRequiresConsole(firstExecutableGlobal.GetLocation());
 
-            if (Compilation.SyntaxTreeWithFileScopedCode is null)
-                Compilation.SyntaxTreeWithFileScopedCode = cu.SyntaxTree;
-            else if (Compilation.SyntaxTreeWithFileScopedCode != cu.SyntaxTree)
-                parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(firstExecutableGlobal.GetLocation());
+            Compilation.SyntaxTreeWithFileScopedCode ??= cu.SyntaxTree;
         }
 
         if (!shouldCreateTopLevelProgram)

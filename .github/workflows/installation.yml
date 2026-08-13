@@ -6,7 +6,7 @@ on:
       version:
         description: Published release version without a leading v
         required: true
-        default: 0.1.0-preview.5
+        default: 0.1.0-preview.6
 
 permissions:
   contents: read
@@ -54,6 +54,7 @@ jobs:
             cd "$project_dir"
             "$RAVEN_INSTALL_ROOT/bin/rvn" init --name InstalledProject
             grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
+            grep -F 'func Main()' src/Main.rvn
             "$RAVEN_INSTALL_ROOT/bin/rvn" build InstalledProject.rvnproj
             project_output=$("$RAVEN_INSTALL_ROOT/bin/rvn" run InstalledProject.rvnproj)
             printf '%s\n' "$project_output"
@@ -103,6 +104,10 @@ jobs:
             $projectText = Get-Content "InstalledProject.rvnproj" -Raw
             if ($projectText -notmatch [regex]::Escape("<TargetFramework>net11.0</TargetFramework>")) {
               throw "rvn init did not write the expected target framework moniker."
+            }
+            $mainText = Get-Content "src/Main.rvn" -Raw
+            if ($mainText -notmatch [regex]::Escape("func Main()")) {
+              throw "rvn init did not create src/Main.rvn with an explicit Main function."
             }
             & $rvn build InstalledProject.rvnproj
             $projectOutput = & $rvn run InstalledProject.rvnproj 2>&1 | Out-String

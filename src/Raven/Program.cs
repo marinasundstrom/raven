@@ -864,7 +864,7 @@ static int RunInitCommand(string[] args)
     var projectName = SanitizeProjectName(string.IsNullOrWhiteSpace(name) ? fallbackName : name!);
     var projectFilePath = Path.Combine(cwd, $"{projectName}{RavenFileExtensions.Project}");
     var srcDir = Path.Combine(cwd, "src");
-    var mainSourcePath = Path.Combine(srcDir, $"main{RavenFileExtensions.Raven}");
+    var mainSourcePath = Path.Combine(srcDir, $"Main{RavenFileExtensions.Raven}");
     var binDir = Path.Combine(cwd, "bin");
     var binGitkeep = Path.Combine(binDir, ".gitkeep");
     if (!force)
@@ -895,10 +895,18 @@ static int RunInitCommand(string[] args)
                       """;
     File.WriteAllText(projectFilePath, projectXml + Environment.NewLine);
 
-    var sourceText = """
-                     val message = "Hello from Raven"
-                     System.Console.WriteLine(message)
-                     """;
+    var sourceText = isClassLibrary
+        ? """
+          public func Greet() -> string {
+              "Hello from Raven"
+          }
+          """
+        : """
+          func Main() {
+              val message = "Hello from Raven"
+              System.Console.WriteLine(message)
+          }
+          """;
     File.WriteAllText(mainSourcePath, sourceText + Environment.NewLine);
 
     if (!File.Exists(binGitkeep))
@@ -958,7 +966,7 @@ static void PrintInitHelp()
     Console.WriteLine();
     Console.WriteLine("Creates a Raven project scaffold in the current directory:");
     Console.WriteLine("  - <project-name>.rvnproj");
-    Console.WriteLine("  - src/main.rvn");
+    Console.WriteLine("  - src/Main.rvn");
     Console.WriteLine("  - bin/.gitkeep");
     Console.WriteLine();
     Console.WriteLine("Options:");

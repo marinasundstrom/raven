@@ -532,7 +532,7 @@ source lists are persisted as standard `Compile` items when
 `rvn init` creates a starter layout in the current directory:
 
 - `<ProjectName>.rvnproj`
-- `src/main.rvn`
+- `src/Main.rvn`
 - `bin/.gitkeep`
 
 Options:

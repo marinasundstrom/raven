@@ -17,14 +17,19 @@ public class FileScopedCodeDiagnosticsTests
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeRequiresConsole);
     }
 
-    [Fact(Skip = "Requires reference assemblies in this environment")]
+    [Fact]
     public void MultipleFiles_WithFileScopedCode_ProducesDiagnostic()
     {
-        var tree1 = SyntaxTree.ParseText("0");
-        var tree2 = SyntaxTree.ParseText("0");
+        var tree1 = SyntaxTree.ParseText("System.Console.WriteLine(\"First\")", path: "src/Main.rvn");
+        var tree2 = SyntaxTree.ParseText("System.Console.WriteLine(\"Second\")", path: "src/Program.rvn");
         var compilation = Compilation.Create("app", [tree1, tree2], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeMultipleFiles);
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Descriptor == CompilerDiagnostics.FileScopedCodeMultipleFiles)
+            .ToArray();
+
+        Assert.Equal(2, diagnostics.Length);
+        Assert.Contains(diagnostics, d => d.Location.SourceTree == tree1);
+        Assert.Contains(diagnostics, d => d.Location.SourceTree == tree2);
     }
 
     [Fact(Skip = "Requires reference assemblies in this environment")]

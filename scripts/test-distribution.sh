@@ -67,6 +67,7 @@ fi
   cd "$PROJECT_DIR"
   "$SDK_ROOT/bin/rvn" init --name InstalledProject
   grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
+  grep -F 'func Main()' src/Main.rvn
   "$SDK_ROOT/bin/rvn" build InstalledProject.rvnproj
   project_output="$("$SDK_ROOT/bin/rvn" run InstalledProject.rvnproj)"
   printf '%s\n' "$project_output"

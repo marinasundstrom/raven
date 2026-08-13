@@ -211,8 +211,11 @@ rvn init
 Generated files:
 
 - `<CurrentDirectoryName>.rvnproj`
-- `src/main.rvn`
+- `src/Main.rvn`
 - `bin/.gitkeep`
+
+Console projects use an explicit `func Main()` entry point. Class-library
+scaffolds contain a declaration instead of executable file-scope code.
 
 Useful init options:
 

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed project compilation on Windows when the intermediate output path ends
+  in a directory separator, and diagnose executable file-scope code in every
+  source file when more than one file contributes top-level statements.
+  `rvn init` now creates `src/Main.rvn` with an explicit `func Main` for console
+  projects and a declaration-only source file for class libraries.
+
 - Fixed installed `rvn build`, `rvn run`, and `rvn clean` commands so they load
   the packaged Raven MSBuild targets, and made `rvn init` emit a standard TFM.
 

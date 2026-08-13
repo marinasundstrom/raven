@@ -5,6 +5,7 @@ using System.Threading;
 
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -27,6 +28,8 @@ public partial class Compilation
             cancellationToken.ThrowIfCancellationRequested();
             AddTreeDiagnostics(syntaxTree);
         }
+
+        AddMultipleFileScopeCodeDiagnostics();
 
         cancellationToken.ThrowIfCancellationRequested();
         foreach (var diagnostic in GetMacroRegistry().Diagnostics)
@@ -66,6 +69,23 @@ public partial class Compilation
                 cancellationToken.ThrowIfCancellationRequested();
                 Add(diagnostic);
             }
+        }
+
+        void AddMultipleFileScopeCodeDiagnostics()
+        {
+            var executableGlobalsByTree = SyntaxTrees
+                .Select(tree => tree.GetRoot(cancellationToken))
+                .OfType<CompilationUnitSyntax>()
+                .Select(root => GetBindableGlobalStatements(root)
+                    .FirstOrDefault(static global => global.Statement is not FunctionStatementSyntax))
+                .Where(static global => global is not null)
+                .ToArray();
+
+            if (executableGlobalsByTree.Length <= 1)
+                return;
+
+            foreach (var global in executableGlobalsByTree)
+                Add(Diagnostic.Create(CompilerDiagnostics.FileScopedCodeMultipleFiles, global!.GetLocation()));
         }
 
         void Add(Diagnostic diagnostic)
