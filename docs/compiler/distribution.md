@@ -110,7 +110,8 @@ The dispatch form has separate opt-in switches for publishing a GitHub release
 and publishing the NuGet package family. Either publishing operation requires
 the workflow to be dispatched against the matching `v<version>` tag. This keeps
 building, creating a GitHub release, and pushing to NuGet.org explicit release
-operator decisions while reusing one validated artifact set.
+operator decisions while reusing one validated artifact set. Versions with a
+SemVer prerelease suffix, such as `0.1.0-preview.3`, create a GitHub prerelease.
 
 ## NuGet packages
 

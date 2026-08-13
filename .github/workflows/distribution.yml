@@ -126,7 +126,13 @@ jobs:
             echo "Select tag $expected_tag when manually dispatching a release." >&2
             exit 1
           fi
-          gh release view "$expected_tag" >/dev/null 2>&1 || gh release create "$expected_tag" --generate-notes
+          if ! gh release view "$expected_tag" >/dev/null 2>&1; then
+            release_args=(--generate-notes)
+            if [[ "${{ inputs.version }}" == *-* ]]; then
+              release_args+=(--prerelease)
+            fi
+            gh release create "$expected_tag" "${release_args[@]}"
+          fi
           gh release upload "$expected_tag" release/* --clobber
 
   publish-nuget:
