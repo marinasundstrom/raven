@@ -269,7 +269,8 @@ become visible.
 `UnreachableCodeOptimizer` performs conservative reachability over each
 lowered block and removes statements that have no fallthrough or branch path.
 `BranchOptimizer` then removes unconditional branches to immediately following
-labels. New passes should remain local and conservative until profiling or
+labels and inverts local conditional-branch-over-goto shapes. New passes should
+remain local and conservative until profiling or
 emitted-shape evidence justifies broader data-flow or control-flow optimization.
 
 This policy is especially relevant to ahead-of-time targets: Release should

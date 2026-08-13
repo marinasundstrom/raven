@@ -1,6 +1,3 @@
-using System.Collections.Immutable;
-using System.Linq;
-
 namespace Raven.CodeAnalysis;
 
 /// <summary>
@@ -19,21 +16,40 @@ internal sealed class BranchOptimizer : BoundTreeRewriter
     public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
     {
         var rewritten = (BoundBlockStatement)base.VisitBlockStatement(node)!;
-        var statements = rewritten.Statements.ToImmutableArray();
+        var statements = rewritten.Statements.ToArray();
         if (statements.Length < 2)
             return rewritten;
 
-        var keep = new bool[statements.Length];
-        Array.Fill(keep, true);
+        var optimized = new List<BoundStatement>(statements.Length);
         var changed = false;
 
-        for (var index = 0; index < statements.Length - 1; index++)
+        for (var index = 0; index < statements.Length; index++)
         {
-            if (statements[index] is BoundGotoStatement @goto &&
-                statements[index + 1] is BoundLabeledStatement labeled &&
+            if (index + 2 < statements.Length &&
+                statements[index] is BoundConditionalGotoStatement conditional &&
+                statements[index + 1] is BoundGotoStatement @goto &&
+                statements[index + 2] is BoundLabeledStatement labeled &&
+                ReferenceEquals(conditional.Target, labeled.Label))
+            {
+                optimized.Add(new BoundConditionalGotoStatement(
+                    @goto.Target,
+                    conditional.Condition,
+                    !conditional.JumpIfTrue));
+                index++;
+                changed = true;
+                continue;
+            }
+
+            optimized.Add(statements[index]);
+        }
+
+        for (var index = optimized.Count - 2; index >= 0; index--)
+        {
+            if (optimized[index] is BoundGotoStatement @goto &&
+                optimized[index + 1] is BoundLabeledStatement labeled &&
                 ReferenceEquals(@goto.Target, labeled.Label))
             {
-                keep[index] = false;
+                optimized.RemoveAt(index);
                 changed = true;
             }
         }
@@ -42,7 +58,7 @@ internal sealed class BranchOptimizer : BoundTreeRewriter
             return rewritten;
 
         return rewritten.Update(
-            statements.Where((_, index) => keep[index]),
+            optimized,
             rewritten.LocalsToDispose,
             rewritten.IntroduceILScope);
     }
