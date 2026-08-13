@@ -13,7 +13,7 @@ if [[ -z "$SDK_ROOT" ]]; then
   exit 1
 fi
 
-SDK_ROOT="$(cd "$SDK_ROOT" && pwd)"
+SDK_ROOT="$(cd "$SDK_ROOT" && pwd -P)"
 
 required_files=(
   "VERSION"

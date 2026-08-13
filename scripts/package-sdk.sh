@@ -25,6 +25,10 @@ mkdir -p "$STAGE_DIR/bin" "$STAGE_DIR/tools/rvn" "$STAGE_DIR/tools/rvnc" \
 # a host compiler first so packaging also works in a clean checkout.
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Debug -f "$TFM" \
   -p:UseRavenCoreReference=false /property:WarningLevel=0
+dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -f "$TFM" \
+  -p:UseRavenCoreReference=false /property:WarningLevel=0 \
+  /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
+  /property:IncludeSourceRevisionInInformationalVersion=false
 
 dotnet publish "$ROOT_DIR/src/Raven/Raven.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/rvn" /property:WarningLevel=0 \

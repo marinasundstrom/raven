@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed clean-checkout SDK packaging by bootstrapping the Release compiler host
+  before Raven-authored Release projects are built.
+
 - Added lockstep NuGet packaging for `Raven.Core`, `Raven.Macros`,
   `Raven.CodeAnalysis`, and `Raven.Analyzers`, including package metadata,
   symbols, isolated local-feed validation, GitHub release assets, and manual
