@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
 
@@ -11,6 +13,67 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTestBase
 {
+    [Fact]
+    public void RavenCoreInterfaceProperty_LoadsExternalDocumentation()
+    {
+        var compilation = Compilation.Create(
+            "consumer",
+            syntaxTrees: [],
+            references: TestMetadataReferences.DefaultWithRavenCore,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var errorType = compilation.GetTypeByMetadataName("System.IError");
+        Assert.NotNull(errorType);
+
+        var message = Assert.Single(errorType!.GetMembers("Message").OfType<IPropertySymbol>());
+        var documentation = message.GetDocumentationComment();
+
+        Assert.NotNull(documentation);
+        Assert.Contains("human-readable description", documentation!.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RavenCoreMethod_LoadsExternalDocumentation()
+    {
+        var compilation = Compilation.Create(
+            "consumer",
+            syntaxTrees: [],
+            references: TestMetadataReferences.DefaultWithRavenCore,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var extensionType = compilation.GetTypeByMetadataName("System.ErrorObjectExtensions");
+        Assert.NotNull(extensionType);
+
+        var method = Assert.Single(extensionType!.GetMembers("Box").OfType<IMethodSymbol>());
+        var documentation = method.GetDocumentationComment();
+
+        Assert.NotNull(documentation);
+        Assert.Contains("contextual error", documentation!.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RavenCoreGenericExtensionMethod_LoadsExternalDocumentation()
+    {
+        var compilation = Compilation.Create(
+            "consumer",
+            syntaxTrees: [],
+            references: TestMetadataReferences.DefaultWithRavenCore,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var extensionType = compilation.GetTypeByMetadataName("System.ResultErrorContextExtensions");
+        Assert.NotNull(extensionType);
+
+        var method = Assert.Single(extensionType!.GetMembers("WithContext").OfType<IMethodSymbol>());
+        var peMethod = Assert.IsType<PEMethodSymbol>(method);
+        Assert.Equal(
+            "M:System.ResultErrorContextExtensions.WithContext``2(System.Result{``0,``1},System.String)",
+            DocumentationCommentIdBuilder.GetMethodMemberId(peMethod.ReflectionMethodBase));
+
+        var documentation = method.GetDocumentationComment();
+        Assert.NotNull(documentation);
+        Assert.Contains("operation context", documentation!.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("int", "Option<int>", "Int32", "system.int32.tryparse.string.option.v1")]
     [InlineData("long", "Option<long>", "Int64", "system.int64.tryparse.string.option.v1")]

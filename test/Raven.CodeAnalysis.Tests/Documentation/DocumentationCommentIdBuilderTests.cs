@@ -52,4 +52,25 @@ public sealed class DocumentationCommentIdBuilderTests : CompilationTestBase
             "M:Parser.TryParse(System.String)",
             DocumentationCommentIdBuilder.GetMethodMemberId(method));
     }
+
+    [Fact]
+    public void GenericExtensionMethod_UsesEmittedMetadataShape()
+    {
+        var (compilation, _) = CreateCompilation("""
+            class Box<T> {}
+
+            extension BoxExtensions<T> for Box<T> {
+                /// Returns the supplied text.
+                func Echo(text: string) -> string => text
+            }
+            """);
+
+        var extensionType = compilation.GetTypeByMetadataName("BoxExtensions`1");
+        Assert.NotNull(extensionType);
+
+        var method = Assert.Single(extensionType!.GetMembers("Echo").OfType<IMethodSymbol>());
+        Assert.Equal(
+            "M:BoxExtensions.Echo``1(Box{``0},System.String)",
+            DocumentationCommentIdBuilder.GetMethodMemberId(method));
+    }
 }

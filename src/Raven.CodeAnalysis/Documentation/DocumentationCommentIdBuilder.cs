@@ -42,6 +42,9 @@ internal static class DocumentationCommentIdBuilder
         if (declaringType is null)
             return string.Empty;
 
+        if (TryGetSourceExtensionType(declaringType) is { } extensionType)
+            return GetSourceExtensionMethodMemberId(method, extensionType);
+
         var builder = new StringBuilder();
         builder.Append("M:");
         builder.Append(GetTypeName(declaringType));
@@ -56,6 +59,50 @@ internal static class DocumentationCommentIdBuilder
         }
 
         return builder.ToString();
+    }
+
+    private static string GetSourceExtensionMethodMemberId(
+        IMethodSymbol method,
+        SourceNamedTypeSymbol extensionType)
+    {
+        var builder = new StringBuilder();
+        builder.Append("M:");
+
+        if (extensionType.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
+        {
+            builder.Append(containingNamespace.ToMetadataName());
+            builder.Append('.');
+        }
+
+        builder.Append(extensionType.Name);
+        builder.Append('.');
+        builder.Append(GetMetadataName(method).Replace('.', '#'));
+
+        var emittedArity = method.Arity;
+        if (emittedArity > 0)
+        {
+            builder.Append("``");
+            builder.Append(emittedArity);
+        }
+
+        AppendParameterList(builder, method.Parameters);
+        return builder.ToString();
+    }
+
+    private static SourceNamedTypeSymbol? TryGetSourceExtensionType(INamedTypeSymbol type)
+    {
+        if (type is SourceNamedTypeSymbol { IsExtensionDeclaration: true } sourceType)
+            return sourceType;
+
+        if (type is ConstructedNamedTypeSymbol
+            {
+                ConstructedFrom: SourceNamedTypeSymbol { IsExtensionDeclaration: true } constructedFrom
+            })
+        {
+            return constructedFrom;
+        }
+
+        return null;
     }
 
     public static string GetMacroMemberId(IMacroDeclarationSymbol macro)

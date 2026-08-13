@@ -431,6 +431,100 @@ public class Widget {
         }
     }
 
+    [Theory]
+    [InlineData(DocumentationFormat.Xml, false)]
+    [InlineData(DocumentationFormat.Markdown, false)]
+    [InlineData(DocumentationFormat.Xml, true)]
+    [InlineData(DocumentationFormat.Markdown, true)]
+    public void ExternalDocumentationSidecars_LoadForNonGenericAndGenericExtensionDefinitions(
+        DocumentationFormat format,
+        bool genericExtension)
+    {
+        var source = genericExtension
+            ? """
+                public class Box<T> {}
+
+                public extension BoxExtensions<T> for Box<T> {
+                    /// Returns the supplied text from a generic extension.
+                    public func Echo(text: string) -> string => text
+                }
+                """
+            : """
+                /// Represents a simple widget.
+                public class Widget {
+                    /// Returns the current title from a non-generic definition.
+                    public func GetTitle() -> string => "Hello"
+                }
+                """;
+        var tree = SyntaxTree.ParseText(
+            source,
+            new ParseOptions
+            {
+                DocumentationMode = true,
+                DocumentationFormat = DocumentationFormat.Markdown
+            });
+        var assemblyName = genericExtension
+            ? "GenericExtensionDocumentationLibrary"
+            : "NonGenericDocumentationLibrary";
+        var compilation = Compilation.Create(
+            assemblyName,
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream, pdbStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-sidecar-matrix-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var assemblyPath = Path.Combine(directory, assemblyName + ".dll");
+        File.WriteAllBytes(assemblyPath, peStream.ToArray());
+
+        if (format == DocumentationFormat.Markdown)
+        {
+            ExternalDocumentationEmitter.WriteMarkdownDocumentation(
+                compilation,
+                Path.Combine(directory, assemblyName + ".docs"));
+        }
+        else
+        {
+            ExternalDocumentationEmitter.WriteXmlDocumentation(
+                compilation,
+                Path.Combine(directory, assemblyName + ".xml"));
+        }
+
+        try
+        {
+            var consumerCompilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var type = consumerCompilation.GetTypeByMetadataName(
+                genericExtension ? "BoxExtensions" : "Widget");
+            Assert.NotNull(type);
+
+            var method = Assert.Single(type!
+                .GetMembers(genericExtension ? "Echo" : "GetTitle")
+                .OfType<IMethodSymbol>());
+            var documentation = method.GetDocumentationComment();
+
+            Assert.NotNull(documentation);
+            Assert.Equal(format, documentation!.Format);
+            Assert.Contains(
+                genericExtension ? "generic extension" : "non-generic definition",
+                documentation.Content,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public void ConstructedMetadataSymbols_PreserveMarkdownDocumentation()
     {
