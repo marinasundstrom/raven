@@ -597,9 +597,9 @@ static bool IsAssemblyCompatibleWithTargetFramework(string path, TargetFramework
             }
 
             var referencedVersion = assemblyRef.Version;
-            // Framework reference versions must match target major/minor.
-            return referencedVersion.Major == targetVersion.Major &&
-                   referencedVersion.Minor == targetVersion.Minor;
+            // A library targeting an earlier .NET version is compatible with a
+            // later target, but the reverse direction is not.
+            return referencedVersion <= targetVersion;
         }
 
         return true;
@@ -988,9 +988,9 @@ string? ResolveAndCopyLocalDependency(
 
 var ravenCodeAnalysisCandidates = new List<string>
 {
+    Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
     Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, "Raven.CodeAnalysis.dll"),
     Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.CodeAnalysis.dll"),
-    Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
 };
 foreach (var tfm in fallbackLocalTfms)
 {
@@ -1005,10 +1005,10 @@ var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
     ravenCodeAnalysisCandidates.ToArray());
 var ravenMacrosCandidates = new List<string>
 {
-    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, "Raven.Macros.dll"),
-    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.Macros.dll"),
     Path.Combine(AppContext.BaseDirectory, "Raven.Macros.dll"),
     Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../sdk/Raven.Macros.dll")),
+    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, "Raven.Macros.dll"),
+    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.Macros.dll"),
 };
 foreach (var tfm in fallbackLocalTfms)
 {

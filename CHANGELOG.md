@@ -7,7 +7,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed clean Raven.Core bootstrap builds so `RavenEmitCoreTypesOnly` cannot be
   overwritten by a previously emitted Raven.Core reference. Multi-targeted
   compiler builds no longer load the net10.0 core library as a reference while
-  rebuilding that same library.
+  rebuilding that same library. Distributed compiler hosts now also prefer
+  their version-matched local CodeAnalysis and Macros assemblies over any
+  development outputs that happen to be reachable from their filesystem path,
+  and accept those host-targeted libraries when compiling for a newer .NET
+  target framework.
 
 - Fixed macro token queries to share the semantic model's fragment-region
   snapshot instead of invoking fragment providers again for the same syntax.
