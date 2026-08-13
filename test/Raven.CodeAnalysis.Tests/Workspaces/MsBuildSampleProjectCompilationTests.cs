@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 
 using Xunit.Abstractions;
@@ -264,6 +265,71 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 Path.Combine(projectRoot, "obj", "Debug", "net10.0"),
                 "*.rvn",
                 SearchOption.AllDirectories).Any());
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
+    public void RavenClassLibrary_DotnetPackIncludesDocumentationSidecars()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var packageOutputPath = Path.Combine(projectRoot, "packages");
+            var projectPath = Path.Combine(projectRoot, "DocumentedLibrary.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>DocumentedLibrary</AssemblyName>
+                    <OutputType>Library</OutputType>
+                    <PackageId>DocumentedLibrary</PackageId>
+                    <Version>1.2.3</Version>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(projectRoot, "Library.rvn"), """
+                /// Provides a documented value.
+                public class DocumentedValue {
+                    /// Gets the value.
+                    public static func Get() -> int => 42
+                }
+                """);
+
+            var result = RunProcess(
+                "dotnet",
+                $"pack \"{projectPath}\" --output \"{packageOutputPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet pack failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+
+            var packagePath = Path.Combine(packageOutputPath, "DocumentedLibrary.1.2.3.nupkg");
+            Assert.True(File.Exists(packagePath), $"Expected package at '{packagePath}'.");
+
+            using var package = ZipFile.OpenRead(packagePath);
+            var entries = package.Entries.Select(static entry => entry.FullName).ToArray();
+            Assert.Contains("lib/net10.0/DocumentedLibrary.dll", entries);
+            Assert.Contains("lib/net10.0/DocumentedLibrary.xml", entries);
+            Assert.Contains("lib/net10.0/DocumentedLibrary.docs/manifest.json", entries);
+            Assert.Contains(
+                entries,
+                static entry => entry.StartsWith(
+                    "lib/net10.0/DocumentedLibrary.docs/invariant/symbols/",
+                    StringComparison.Ordinal) && entry.EndsWith(".md", StringComparison.Ordinal));
         }
         finally
         {

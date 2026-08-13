@@ -17,11 +17,6 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
-    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_IncludeRavenXmlDocumentationInPackage</TargetsForTfmSpecificBuildOutput>
-    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_IncludeRavenMarkdownDocumentationInPackage</TargetsForTfmSpecificContentInPackage>
-  </PropertyGroup>
-
   <ItemGroup>
     <None Include="$(RavenPackageReadmePath)"
           Pack="true"
@@ -33,22 +28,4 @@
           Visible="false" />
   </ItemGroup>
 
-  <Target Name="_IncludeRavenXmlDocumentationInPackage"
-          Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
-    <ItemGroup>
-      <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).xml"
-                            Condition="Exists('$(OutputPath)$(AssemblyName).xml')" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="_IncludeRavenMarkdownDocumentationInPackage"
-          Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
-    <ItemGroup>
-      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/manifest.json" />
-      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/*.md" />
-      <TfmSpecificPackageFile Include="@(_RavenMarkdownDocumentation)">
-        <PackagePath>lib/$(TargetFramework)/$(AssemblyName).docs/%(_RavenMarkdownDocumentation.RecursiveDir)%(_RavenMarkdownDocumentation.Filename)%(_RavenMarkdownDocumentation.Extension)</PackagePath>
-      </TfmSpecificPackageFile>
-    </ItemGroup>
-  </Target>
 </Project>

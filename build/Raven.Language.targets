@@ -49,6 +49,8 @@
     <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">$(RavenGenerateDocumentation)</GenerateDocumentationFile>
     <GenerateMarkdownDocumentationFile Condition="'$(GenerateMarkdownDocumentationFile)' == ''">$(RavenGenerateDocumentation)</GenerateMarkdownDocumentationFile>
     <GenerateXmlDocumentationFromMarkdownComments Condition="'$(GenerateXmlDocumentationFromMarkdownComments)' == ''">$(RavenGenerateDocumentation)</GenerateXmlDocumentationFromMarkdownComments>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_IncludeRavenXmlDocumentationInPackage</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_IncludeRavenMarkdownDocumentationInPackage</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -226,6 +228,27 @@
     <ItemGroup>
       <FileWrites Include="@(_RavenCopyLocalXmlDocumentationFile->'$(OutDir)%(Filename)%(Extension)')" />
       <FileWrites Include="@(_RavenCopyLocalMarkdownDocumentationFile->'$(OutDir)%(DocumentationAssemblyName).docs/%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target
+    Name="_IncludeRavenXmlDocumentationInPackage"
+    Condition="'$(OutputType)' == 'Library' and ('$(RavenGenerateDocumentation)' == 'true' or '$(GenerateDocumentationFile)' == 'true')">
+    <ItemGroup>
+      <BuildOutputInPackage
+        Include="$(OutputPath)$(AssemblyName).xml"
+        Condition="Exists('$(OutputPath)$(AssemblyName).xml')" />
+    </ItemGroup>
+  </Target>
+
+  <Target
+    Name="_IncludeRavenMarkdownDocumentationInPackage"
+    Condition="'$(OutputType)' == 'Library' and '$(GenerateMarkdownDocumentationFile)' == 'true'">
+    <ItemGroup>
+      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/*" />
+      <TfmSpecificPackageFile Include="@(_RavenMarkdownDocumentation)">
+        <PackagePath>lib/$(TargetFramework)/$(AssemblyName).docs/%(_RavenMarkdownDocumentation.RecursiveDir)%(_RavenMarkdownDocumentation.Filename)%(_RavenMarkdownDocumentation.Extension)</PackagePath>
+      </TfmSpecificPackageFile>
     </ItemGroup>
   </Target>
 
