@@ -40,7 +40,7 @@ dotnet publish "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -
   /property:IncludeSourceRevisionInInformationalVersion=false
 dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c Release -f "$TFM" \
   /property:WarningLevel=0 \
-  /property:RavenCompilerHost="$PUBLISH_DIR/rvnc/rvnc.dll"
+  /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
 dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
