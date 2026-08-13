@@ -199,7 +199,6 @@ it already understands Raven-authored Markdown documentation and symbol-aware
 links. A later step can add:
 
 - RavenDoc generation that targets the sidecar layout directly
-- packaging support so Markdown sidecars flow into NuGet output
 - localized documentation emission beyond the invariant root
 
 The built-in compiler comment emitter already produces the `.docs/` layout for
@@ -244,6 +243,8 @@ Implemented:
 - compiler emission of `.docs/` sidecars from source documentation comments
   under an invariant locale root
 - default dual Markdown and XML emission for Raven library projects
+- automatic XML and Markdown sidecar inclusion in `dotnet pack` output
+- copy-local XML and Markdown sidecar propagation to consumer build output
 - Markdown-over-XML precedence for metadata symbols
 - XML fallback from adjacent sidecar XML documentation files
 

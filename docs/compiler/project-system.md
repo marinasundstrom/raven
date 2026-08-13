@@ -298,7 +298,7 @@ Raven project builds use the standard .NET output layout:
 - Normal build (`dotnet build App.rvnproj`)
   - default output directory: `<project-dir>/bin/<Configuration>`
   - emits apphost + `.dll` + `.runtimeconfig.json` for console apps
-  - does **not** copy package/runtime dependency sets
+  - copies the dependency assemblies selected as copy-local by MSBuild
 - Publish (`dotnet publish App.rvnproj`)
   - default output directory: `<project-dir>/bin/<Configuration>/publish`
   - copies runtime dependencies (NuGet/framework/local assemblies) to output
@@ -311,8 +311,14 @@ registry workflows.
 
 Dependency copy details:
 
-- Only `.dll` package dependencies are copied.
-- If a compile reference comes from `ref/`, Raven prefers the runtime assembly under `lib/`.
+- If a compile reference comes from `ref/`, Raven prefers the runtime assembly
+  under `lib/`.
+- For each copy-local assembly, adjacent `<AssemblyName>.xml` and
+  `<AssemblyName>.docs/` sidecars are copied beside the assembly when present.
+  The Markdown directory structure is preserved so compiler and editor symbol
+  lookup can use its manifest.
+- `dotnet pack` includes a Raven library's generated XML and Markdown sidecars
+  under the same `lib/<tfm>/` directory as its assembly.
 
 ## Generated intermediate sources
 

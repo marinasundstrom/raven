@@ -201,6 +201,77 @@ consumers. Other .NET languages can call their generated static container;
 for the global namespace used by the template, `Greet()` is emitted as
 `NamespaceMembers.Greet()`.
 
+### Package a Raven class library
+
+A Raven class library uses the standard .NET packing workflow. Add the normal
+NuGet metadata to the project and run `dotnet pack`:
+
+```xml
+<Project Sdk="Raven.Sdk/VERSION">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <PackageId>Contoso.RavenUtilities</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Contoso</Authors>
+    <Description>Reusable Raven utilities.</Description>
+  </PropertyGroup>
+</Project>
+```
+
+```bash
+dotnet pack --configuration Release --output artifacts/packages
+```
+
+Raven libraries generate both documentation formats by default. `dotnet pack`
+automatically includes the assembly, .NET-compatible XML documentation, and
+the complete Raven Markdown sidecar tree:
+
+```text
+lib/net11.0/Contoso.RavenUtilities.dll
+lib/net11.0/Contoso.RavenUtilities.xml
+lib/net11.0/Contoso.RavenUtilities.docs/
+  manifest.json
+  invariant/
+    symbols/
+      ...
+```
+
+Keep the `.xml` file and `.docs` directory adjacent to the assembly. Raven
+tooling prefers a matching Markdown symbol file and falls back to XML. C# and
+other conventional .NET tooling can consume the XML file. Consumers do not
+need to configure documentation paths: restore and build copy available
+sidecars from copy-local package references beside the referenced DLL.
+
+The SDK handles its own generated sidecar automatically. To package a manually
+maintained Markdown tree from another location, append a target to the standard
+NuGet pack hook. Preserve the directory name, manifest, and all relative paths:
+
+```xml
+<PropertyGroup>
+  <GenerateMarkdownDocumentationFile>false</GenerateMarkdownDocumentationFile>
+  <TargetsForTfmSpecificContentInPackage>
+    $(TargetsForTfmSpecificContentInPackage);IncludeCustomRavenDocumentation
+  </TargetsForTfmSpecificContentInPackage>
+</PropertyGroup>
+
+<Target Name="IncludeCustomRavenDocumentation">
+  <ItemGroup>
+    <TfmSpecificPackageFile Include="docs/$(AssemblyName).docs/**/*">
+      <PackagePath>
+        lib/$(TargetFramework)/$(AssemblyName).docs/%(RecursiveDir)%(Filename)%(Extension)
+      </PackagePath>
+    </TfmSpecificPackageFile>
+  </ItemGroup>
+</Target>
+```
+
+Do not flatten the Markdown directory or omit `manifest.json`; symbol lookup
+depends on that structure. See the
+[External Documentation Sidecars](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/design/external-documentation-sidecars.md)
+design note for the format contract and the [project system](project-system.md)
+for documentation-related properties.
+
 Replace `VERSION` with the release version being installed. Specifying it is
 required while Raven is distributed only as prerelease packages.
 
