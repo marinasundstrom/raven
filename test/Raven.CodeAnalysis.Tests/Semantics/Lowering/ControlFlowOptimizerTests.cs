@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.Tests.Semantics.Lowering;
 
@@ -41,5 +42,41 @@ public sealed class ControlFlowOptimizerTests
         Assert.Same(
             falseStatement,
             ControlFlowOptimizer.Rewrite(new BoundIfStatement(falseCondition, trueStatement, falseStatement)));
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public void Rewrite_SelectsLiteralConditionalGoto(
+        bool conditionValue,
+        bool jumpIfTrue,
+        bool shouldJump)
+    {
+        var compilation = Compilation.Create(
+            "control_flow_optimizer",
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+        var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
+        var label = new LabelSymbol(
+            "target",
+            compilation.Module,
+            containingType: null,
+            containingNamespace: compilation.GlobalNamespace,
+            locations: [],
+            declaringSyntaxReferences: []);
+        var condition = new BoundLiteralExpression(
+            conditionValue ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
+            conditionValue,
+            booleanType);
+
+        var rewritten = ControlFlowOptimizer.Rewrite(
+            new BoundConditionalGotoStatement(label, condition, jumpIfTrue));
+
+        if (shouldJump)
+            Assert.Same(label, Assert.IsType<BoundGotoStatement>(rewritten).Target);
+        else
+            Assert.Empty(Assert.IsType<BoundBlockStatement>(rewritten).Statements);
     }
 }
