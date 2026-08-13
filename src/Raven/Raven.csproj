@@ -13,4 +13,15 @@
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
     <ProjectReference Include="..\Raven.Compiler.Core\Raven.Compiler.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\console\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.console.RavenApp.rvnproj" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\console\src\Main.rvn" LogicalName="Raven.ProjectTemplates.console.src.Main.rvn" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\classlib\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.classlib.RavenApp.rvnproj" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\classlib\src\Library.rvn" LogicalName="Raven.ProjectTemplates.classlib.src.Library.rvn" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\web\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.web.RavenApp.rvnproj" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\web\src\Main.rvn" LogicalName="Raven.ProjectTemplates.web.src.Main.rvn" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\nano\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.nano.RavenApp.rvnproj" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\nano\src\Main.rvn" LogicalName="Raven.ProjectTemplates.nano.src.Main.rvn" />
+  </ItemGroup>
 </Project>

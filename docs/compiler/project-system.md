@@ -532,13 +532,33 @@ source lists are persisted as standard `Compile` items when
 `rvn init` creates a starter layout in the current directory:
 
 - `<ProjectName>.rvnproj`
-- `src/Main.rvn`
+- `src/Main.rvn` (`src/Library.rvn` for class libraries)
 - `bin/.gitkeep`
 
 Options:
 
 - `--name <project-name>`: set explicit project/assembly name.
 - `--framework <tfm>`: set `TargetFramework` in the generated `.rvnproj`.
-- `console|classlib`: select the scaffold type (`console` default).
-- `--type <console|classlib>`: compatibility alias for selecting the scaffold type.
+- `console|classlib|web|nano`: select the scaffold type (`console` default).
+- `--type <template>`: compatibility alias for selecting the scaffold type.
+- `--list`: list the available scaffold types.
 - `--force`: overwrite scaffold files when they already exist.
+
+The `web` scaffold references the shared ASP.NET Core framework. The `nano`
+scaffold targets `netnano1.0`, references the nanoFramework GPIO package, and
+contains a board-specific blinky starting point whose LED pin may need to be
+changed.
+The web template currently defaults to `net10.0`, the validated ASP.NET target;
+`--framework` can override it explicitly.
+
+The same canonical files are available to the standard .NET template engine
+through the `Raven.Templates` NuGet package:
+
+```bash
+dotnet new install Raven.Templates@VERSION
+dotnet new raven-console -n HelloRaven
+```
+
+Replace `VERSION` with the Raven prerelease version to install.
+
+The other short names are `raven-classlib`, `raven-web`, and `raven-nano`.

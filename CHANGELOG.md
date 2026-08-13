@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a lockstep `Raven.Templates` NuGet template package for normal
+  `dotnet new` usage. Console, class-library, ASP.NET Core, and .NET
+  nanoFramework templates now share their canonical project content with the
+  corresponding `rvn init` scaffolds; package validation installs and renders
+  all variants in an isolated .NET CLI home, builds each result, and executes
+  the console application.
+
 - Fixed project compilation on Windows when the intermediate output path ends
   in a directory separator, and diagnose executable file-scope code in every
   source file when more than one file contributes top-level statements.

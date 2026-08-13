@@ -79,6 +79,11 @@ dotnet pack "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" \
   -o "$OUTPUT_DIR" \
   "${COMMON_PROPERTIES[@]}"
 
+dotnet pack "$ROOT_DIR/templates/Raven.Templates/Raven.Templates.csproj" \
+  -c Release \
+  -o "$OUTPUT_DIR" \
+  "${COMMON_PROPERTIES[@]}"
+
 "$ROOT_DIR/scripts/test-nuget-packages.sh" "$VERSION" "$OUTPUT_DIR"
 
 echo "$OUTPUT_DIR"

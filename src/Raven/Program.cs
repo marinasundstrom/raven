@@ -792,8 +792,8 @@ static IEnumerable<ISymbol> EnumerateSymbols(ISymbol symbol)
 static int RunInitCommand(string[] args)
 {
     string? name = null;
-    var framework = TargetFrameworkUtil.ToTfm(TargetFrameworkUtil.GetLatestFramework());
-    var isClassLibrary = false;
+    string? framework = null;
+    var template = InitProjectTemplate.Catalog[0];
     var force = false;
     var typeSpecified = false;
 
@@ -804,6 +804,9 @@ static int RunInitCommand(string[] args)
             case "-h":
             case "--help":
                 PrintInitHelp();
+                return 0;
+            case "--list":
+                PrintInitTemplateList();
                 return 0;
             case "--name":
                 if (i + 1 >= args.Length)
@@ -834,9 +837,9 @@ static int RunInitCommand(string[] args)
                 }
 
                 var typeValue = args[++i];
-                if (!TryParseInitProjectType(typeValue, out isClassLibrary))
+                if (!TryGetInitProjectTemplate(typeValue, out template))
                 {
-                    Console.Error.WriteLine($"Invalid --type '{typeValue}'. Use 'console' or 'classlib'.");
+                    Console.Error.WriteLine($"Invalid --type '{typeValue}'. Use console, classlib, web, or nano.");
                     PrintInitHelp();
                     return 1;
                 }
@@ -847,7 +850,7 @@ static int RunInitCommand(string[] args)
                 force = true;
                 break;
             default:
-                if (!args[i].StartsWith('-') && !typeSpecified && TryParseInitProjectType(args[i], out isClassLibrary))
+                if (!args[i].StartsWith('-') && !typeSpecified && TryGetInitProjectTemplate(args[i], out template))
                 {
                     typeSpecified = true;
                     break;
@@ -862,14 +865,18 @@ static int RunInitCommand(string[] args)
     var cwd = Directory.GetCurrentDirectory();
     var fallbackName = Path.GetFileName(cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     var projectName = SanitizeProjectName(string.IsNullOrWhiteSpace(name) ? fallbackName : name!);
+    framework ??= template.DefaultFramework ?? TargetFrameworkUtil.ToTfm(TargetFrameworkUtil.GetLatestFramework());
     var projectFilePath = Path.Combine(cwd, $"{projectName}{RavenFileExtensions.Project}");
-    var srcDir = Path.Combine(cwd, "src");
-    var mainSourcePath = Path.Combine(srcDir, $"Main{RavenFileExtensions.Raven}");
     var binDir = Path.Combine(cwd, "bin");
     var binGitkeep = Path.Combine(binDir, ".gitkeep");
+    var generatedFiles = template.Files
+        .Select(file => new GeneratedInitFile(file, Path.Combine(cwd, file.OutputPath)))
+        .Prepend(new GeneratedInitFile(new InitTemplateFile("RavenApp.rvnproj", $"{projectName}{RavenFileExtensions.Project}"), projectFilePath))
+        .ToArray();
+
     if (!force)
     {
-        var existing = new[] { projectFilePath, mainSourcePath, binGitkeep }.Where(File.Exists).ToArray();
+        var existing = generatedFiles.Select(file => file.Path).Append(binGitkeep).Where(File.Exists).ToArray();
         if (existing.Length > 0)
         {
             Console.Error.WriteLine("Init aborted: one or more scaffold files already exist.");
@@ -880,46 +887,41 @@ static int RunInitCommand(string[] args)
         }
     }
 
-    Directory.CreateDirectory(srcDir);
     Directory.CreateDirectory(binDir);
 
-    var outputType = isClassLibrary ? "Library" : "Exe";
-    var projectXml = $"""
-                      <Project Sdk="Microsoft.NET.Sdk">
-                        <PropertyGroup>
-                          <TargetFramework>{framework}</TargetFramework>
-                          <AssemblyName>{projectName}</AssemblyName>
-                          <OutputType>{outputType}</OutputType>
-                        </PropertyGroup>
-                      </Project>
-                      """;
-    File.WriteAllText(projectFilePath, projectXml + Environment.NewLine);
+    foreach (var generatedFile in generatedFiles)
+    {
+        var directory = Path.GetDirectoryName(generatedFile.Path);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
 
-    var sourceText = isClassLibrary
-        ? """
-          public func Greet() -> string {
-              "Hello from Raven"
-          }
-          """
-        : """
-          func Main() {
-              val message = "Hello from Raven"
-              System.Console.WriteLine(message)
-          }
-          """;
-    File.WriteAllText(mainSourcePath, sourceText + Environment.NewLine);
+        var content = ReadInitTemplateResource(template.Name, generatedFile.Definition.ResourcePath)
+            .Replace("RavenTargetFramework", framework, StringComparison.Ordinal)
+            .Replace("RavenApp", projectName, StringComparison.Ordinal);
+        File.WriteAllText(generatedFile.Path, content);
+    }
 
     if (!File.Exists(binGitkeep))
         File.WriteAllText(binGitkeep, string.Empty);
 
-    Console.WriteLine("Raven project scaffold created.");
-    Console.WriteLine($"- {projectFilePath}");
-    Console.WriteLine($"- {mainSourcePath}");
+    Console.WriteLine($"Raven {template.DisplayName} scaffold created.");
+    foreach (var generatedFile in generatedFiles)
+        Console.WriteLine($"- {generatedFile.Path}");
     Console.WriteLine($"- {binGitkeep}");
     Console.WriteLine($"Build with: rvn build {Path.GetFileName(projectFilePath)}");
-    Console.WriteLine($"Run with: rvn run {Path.GetFileName(projectFilePath)}");
+    if (template.IsRunnable)
+        Console.WriteLine($"Run with: rvn run {Path.GetFileName(projectFilePath)}");
 
     return 0;
+}
+
+static string ReadInitTemplateResource(string templateName, string resourcePath)
+{
+    var resourceName = $"Raven.ProjectTemplates.{templateName}.{resourcePath.Replace('/', '.')}";
+    using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+        ?? throw new InvalidOperationException($"Embedded project template resource '{resourceName}' was not found.");
+    using var reader = new StreamReader(stream);
+    return reader.ReadToEnd();
 }
 
 static void PrintHelp()
@@ -962,41 +964,38 @@ static void PrintDevHelp()
 
 static void PrintInitHelp()
 {
-    Console.WriteLine("Usage: rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]");
+    Console.WriteLine("Usage: rvn init [console|classlib|web|nano] [--name <project-name>] [--framework <tfm>] [--type <template>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Creates a Raven project scaffold in the current directory:");
     Console.WriteLine("  - <project-name>.rvnproj");
-    Console.WriteLine("  - src/Main.rvn");
+    Console.WriteLine("  - src/Main.rvn (src/Library.rvn for class libraries)");
     Console.WriteLine("  - bin/.gitkeep");
     Console.WriteLine();
     Console.WriteLine("Options:");
-    Console.WriteLine("  console|classlib           Select the scaffold type (default: console).");
+    Console.WriteLine("  console|classlib|web|nano  Select the scaffold type (default: console).");
     Console.WriteLine("  --name <project-name>      Override generated project/assembly name.");
-    Console.WriteLine("  --framework <tfm>          Set TargetFramework (default: latest installed).");
-    Console.WriteLine("  --type <console|classlib>  Compatibility alias for selecting the scaffold type.");
+    Console.WriteLine("  --framework <tfm>          Set TargetFramework (defaults: latest installed; net10.0 web; netnano1.0 nano).");
+    Console.WriteLine("  --type <template>          Compatibility alias for selecting the scaffold type.");
+    Console.WriteLine("  --list                     List available scaffold types.");
     Console.WriteLine("  --force                    Overwrite scaffold files.");
+}
+
+static void PrintInitTemplateList()
+{
+    Console.WriteLine("Available Raven project templates:");
+    foreach (var template in InitProjectTemplate.Catalog)
+        Console.WriteLine($"  {template.Name,-10} {template.Description}");
 }
 
 static bool IsHelp(string value)
     => value is "-h" or "--help" or "help";
 
-static bool TryParseInitProjectType(string value, out bool isClassLibrary)
+static bool TryGetInitProjectTemplate(string value, out InitProjectTemplate template)
 {
-    if (string.Equals(value, "console", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(value, "app", StringComparison.OrdinalIgnoreCase))
-    {
-        isClassLibrary = false;
-        return true;
-    }
-
-    if (string.Equals(value, "classlib", StringComparison.OrdinalIgnoreCase))
-    {
-        isClassLibrary = true;
-        return true;
-    }
-
-    isClassLibrary = false;
-    return false;
+    template = InitProjectTemplate.Catalog.FirstOrDefault(candidate =>
+        string.Equals(candidate.Name, value, StringComparison.OrdinalIgnoreCase) ||
+        candidate.Aliases.Any(alias => string.Equals(alias, value, StringComparison.OrdinalIgnoreCase)))!;
+    return template is not null;
 }
 
 static string SanitizeProjectName(string name)
@@ -1063,6 +1062,32 @@ enum DevCommand
     Symbols,
     Quote
 }
+
+sealed record InitProjectTemplate(
+    string Name,
+    string DisplayName,
+    string Description,
+    string? DefaultFramework,
+    bool IsRunnable,
+    IReadOnlyList<string> Aliases,
+    IReadOnlyList<InitTemplateFile> Files)
+{
+    public static IReadOnlyList<InitProjectTemplate> Catalog { get; } =
+    [
+        new("console", "console application", "Command-line application", null, true, ["app"],
+            [new("src/Main.rvn", "src/Main.rvn")]),
+        new("classlib", "class library", "Reusable library", null, false, ["library", "lib"],
+            [new("src/Library.rvn", "src/Library.rvn")]),
+        new("web", "ASP.NET Core application", "Minimal ASP.NET Core application", "net10.0", true, ["aspnet"],
+            [new("src/Main.rvn", "src/Main.rvn")]),
+        new("nano", ".NET nanoFramework application", "GPIO blinky application for .NET nanoFramework", "netnano1.0", false, ["nanoframework", "iot"],
+            [new("src/Main.rvn", "src/Main.rvn")])
+    ];
+}
+
+sealed record InitTemplateFile(string ResourcePath, string OutputPath);
+
+sealed record GeneratedInitFile(InitTemplateFile Definition, string Path);
 
 enum SyntaxTreeFormat
 {

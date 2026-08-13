@@ -1,0 +1,4 @@
+func Main() {
+    val message = "Hello from Raven"
+    System.Console.WriteLine(message)
+}

@@ -447,6 +447,28 @@ Create a class library scaffold instead:
 rvn init --type classlib --name MyLibrary
 ```
 
+Web and .NET nanoFramework starting points are also available:
+
+```bash
+rvn init web --name RavenWeb
+rvn init nano --name RavenBlinky
+```
+
+Run `rvn init --list` to see every built-in scaffold. The nanoFramework
+template targets `netnano1.0`; adjust its GPIO pin for the selected board.
+
+The same projects can be created through the normal .NET CLI after installing
+the versioned template package:
+
+```bash
+dotnet new install Raven.Templates@VERSION
+dotnet new raven-console -n HelloRaven
+```
+
+Replace `VERSION` with the Raven prerelease version to install.
+
+Use `raven-classlib`, `raven-web`, or `raven-nano` for the other variants.
+
 The installed `rvn` commands select Raven's packaged MSBuild targets before
 delegating to the .NET SDK. A source checkout configures those targets through
 its `Directory.Build.props`, so repository contributors can also invoke

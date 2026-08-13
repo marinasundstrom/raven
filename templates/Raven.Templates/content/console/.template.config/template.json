@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Marina Sundström and contributors",
+  "classifications": [ "Raven", "Console" ],
+  "identity": "Raven.Templates.Console",
+  "name": "Raven Console Application",
+  "shortName": "raven-console",
+  "sourceName": "RavenApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "Raven",
+    "type": "project"
+  },
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "datatype": "string",
+      "defaultValue": "net10.0",
+      "replaces": "RavenTargetFramework",
+      "description": "The target framework for the project."
+    }
+  }
+}

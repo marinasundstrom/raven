@@ -60,6 +60,15 @@ jobs:
             printf '%s\n' "$project_output"
             grep -F 'Hello from Raven' <<< "$project_output"
           )
+          template_home="$RUNNER_TEMP/raven-template-home"
+          template_packages="$RUNNER_TEMP/raven-template-packages"
+          mkdir -p "$template_home" "$template_packages"
+          DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
+            dotnet new install "Raven.Templates@$VERSION"
+          DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
+            dotnet new raven-console --name DotnetTemplateProject --output "$RUNNER_TEMP/dotnet-template-project"
+          test -f "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj"
+          grep -F 'func Main()' "$RUNNER_TEMP/dotnet-template-project/src/Main.rvn"
 
   sdk-windows:
     name: SDK install ${{ matrix.rid }}
@@ -118,6 +127,21 @@ jobs:
           }
           finally {
             Pop-Location
+          }
+          $templateHome = Join-Path $env:RUNNER_TEMP "raven-template-home"
+          $templatePackages = Join-Path $env:RUNNER_TEMP "raven-template-packages"
+          New-Item -ItemType Directory -Path $templateHome, $templatePackages | Out-Null
+          $env:DOTNET_CLI_HOME = $templateHome
+          $env:NUGET_PACKAGES = $templatePackages
+          dotnet new install "Raven.Templates@$env:VERSION"
+          $templateProject = Join-Path $env:RUNNER_TEMP "dotnet-template-project"
+          dotnet new raven-console --name DotnetTemplateProject --output $templateProject
+          if (-not (Test-Path (Join-Path $templateProject "DotnetTemplateProject.rvnproj"))) {
+            throw "The published Raven.Templates package did not create the expected project."
+          }
+          $templateMain = Get-Content (Join-Path $templateProject "src/Main.rvn") -Raw
+          if ($templateMain -notmatch [regex]::Escape("func Main()")) {
+            throw "The published Raven console template did not contain an explicit Main function."
           }
 
   vscode:

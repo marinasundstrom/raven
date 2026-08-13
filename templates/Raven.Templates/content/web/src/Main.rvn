@@ -1,0 +1,9 @@
+import Microsoft.AspNetCore.Builder.*
+
+func Main(args: string[]) {
+    let builder = WebApplication.CreateBuilder(args)
+    use app = builder.Build()
+
+    app.MapGet("/", func () => "Hello from Raven")
+    app.Run()
+}

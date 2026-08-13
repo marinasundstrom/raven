@@ -65,6 +65,8 @@ fi
 
 (
   cd "$PROJECT_DIR"
+  "$SDK_ROOT/bin/rvn" init --list | grep -F 'web'
+  "$SDK_ROOT/bin/rvn" init --list | grep -F 'nano'
   "$SDK_ROOT/bin/rvn" init --name InstalledProject
   grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
   grep -F 'func Main()' src/Main.rvn
@@ -72,6 +74,14 @@ fi
   project_output="$("$SDK_ROOT/bin/rvn" run InstalledProject.rvnproj)"
   printf '%s\n' "$project_output"
   grep -F 'Hello from Raven' <<< "$project_output"
+
+  mkdir classlib web nano
+  (cd classlib && "$SDK_ROOT/bin/rvn" init classlib --name InstalledLibrary)
+  (cd web && "$SDK_ROOT/bin/rvn" init web --name InstalledWeb)
+  (cd nano && "$SDK_ROOT/bin/rvn" init nano --name InstalledNano)
+  test -f classlib/src/Library.rvn
+  grep -F '<FrameworkReference Include="Microsoft.AspNetCore.App" />' web/InstalledWeb.rvnproj
+  grep -F '<TargetFramework>netnano1.0</TargetFramework>' nano/InstalledNano.rvnproj
 )
 
 echo "Validated Raven SDK: $SDK_ROOT"

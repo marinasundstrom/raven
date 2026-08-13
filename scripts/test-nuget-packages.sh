@@ -103,6 +103,29 @@ if ! grep -Fq "<dependency id=\"Raven.CodeAnalysis\" version=\"$VERSION\"" <<<"$
   exit 1
 fi
 
+template_package="$PACKAGE_DIR/Raven.Templates.$VERSION.nupkg"
+if [[ ! -f "$template_package" ]]; then
+  echo "Missing package: $template_package" >&2
+  exit 1
+fi
+
+assert_archive_entry "$template_package" "README.md"
+assert_archive_entry "$template_package" "LICENSE"
+for template_name in console classlib web nano; do
+  assert_archive_entry "$template_package" "content/$template_name/.template.config/template.json"
+  assert_archive_entry "$template_package" "content/$template_name/RavenApp.rvnproj"
+done
+
+template_nuspec="$(unzip -p "$template_package" Raven.Templates.nuspec)"
+if ! grep -Fq "<version>$VERSION</version>" <<<"$template_nuspec"; then
+  echo "Incorrect version metadata in $(basename "$template_package")" >&2
+  exit 1
+fi
+if ! grep -Fq '<packageType name="Template"' <<<"$template_nuspec"; then
+  echo "Raven.Templates is not marked as a NuGet template package." >&2
+  exit 1
+fi
+
 TEMP_DIR="$(mktemp -d /tmp/raven-package-consumer.XXXXXX)"
 cleanup() {
   if [[ "${RAVEN_KEEP_PACKAGE_TEST_TEMP:-false}" == "true" ]]; then
@@ -116,6 +139,61 @@ cleanup() {
   esac
 }
 trap cleanup EXIT
+
+template_cli_home="$TEMP_DIR/dotnet-cli-home"
+template_packages="$TEMP_DIR/dotnet-packages"
+mkdir -p "$template_cli_home" "$template_packages" "$TEMP_DIR/templates"
+
+DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet new install "Raven.Templates@$VERSION" --add-source "$PACKAGE_DIR" --force >/dev/null
+
+for template_name in console classlib web nano; do
+  case "$template_name" in
+    console) project_name="TemplateConsole" ;;
+    classlib) project_name="TemplateClasslib" ;;
+    web) project_name="TemplateWeb" ;;
+    nano) project_name="TemplateNano" ;;
+  esac
+  output_dir="$TEMP_DIR/templates/$template_name"
+  DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+    dotnet new "raven-$template_name" --name "$project_name" --output "$output_dir" >/dev/null
+  if [[ ! -f "$output_dir/$project_name.rvnproj" ]]; then
+    echo "raven-$template_name did not create the expected project file." >&2
+    exit 1
+  fi
+  if grep -R -Fq -e RavenApp -e RavenTargetFramework "$output_dir"; then
+    echo "raven-$template_name left an unsubstituted template token." >&2
+    exit 1
+  fi
+done
+
+if [[ ! -f "$TEMP_DIR/templates/classlib/src/Library.rvn" ]]; then
+  echo "raven-classlib did not create src/Library.rvn." >&2
+  exit 1
+fi
+if ! grep -Fq '<TargetFramework>netnano1.0</TargetFramework>' "$TEMP_DIR/templates/nano/TemplateNano.rvnproj"; then
+  echo "raven-nano did not use the netnano1.0 default target framework." >&2
+  exit 1
+fi
+
+for template_name in console classlib web nano; do
+  project_file="$(find "$TEMP_DIR/templates/$template_name" -maxdepth 1 -name '*.rvnproj' -print -quit)"
+  template_build_log="$TEMP_DIR/template-$template_name-build.log"
+  if ! dotnet build "$project_file" \
+    /property:LanguageTargets="$ROOT_DIR/build/Raven.Language.targets" \
+    /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/net10.0/rvnc.dll" \
+    /property:RavenCoreReferencePath="$ROOT_DIR/src/Raven.Core/bin/Release/net10.0/Raven.Core.dll" \
+    /property:WarningLevel=0 >"$template_build_log" 2>&1; then
+    cat "$template_build_log" >&2
+    exit 1
+  fi
+done
+
+template_console_output="$(dotnet "$TEMP_DIR/templates/console/bin/Debug/net10.0/TemplateConsole.dll")"
+if [[ "$template_console_output" != "Hello from Raven" ]]; then
+  echo "Packaged raven-console template returned '$template_console_output'; expected 'Hello from Raven'." >&2
+  exit 1
+fi
 
 dotnet new console \
   --framework net10.0 \

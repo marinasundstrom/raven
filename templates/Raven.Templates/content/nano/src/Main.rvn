@@ -1,0 +1,15 @@
+import System.Device.Gpio.*
+import System.Threading.*
+
+func Main() {
+    use gpio = GpioController()
+    use led = gpio.OpenPin(25, PinMode.Output)
+
+    loop {
+        led.Write(PinValue.High)
+        Thread.Sleep(500)
+
+        led.Write(PinValue.Low)
+        Thread.Sleep(500)
+    }
+}

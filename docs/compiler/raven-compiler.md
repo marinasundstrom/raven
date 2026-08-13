@@ -21,7 +21,7 @@ rvn run [project-file.rvnproj] [dotnet-run-options] [-- application-args]
 rvn clean [project-file.rvnproj] [dotnet-clean-options]
 rvn doctor
 rvn dev <syntax|dump|macros|binders|bound-tree|symbols|quote> [options] <source-files|project-file.rvnproj>
-rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]
+rvn init [console|classlib|web|nano] [--name <project-name>] [--framework <tfm>] [--type <template>] [--force]
 rvn --version
 rvnc --version
 ```
@@ -211,7 +211,7 @@ rvn init
 Generated files:
 
 - `<CurrentDirectoryName>.rvnproj`
-- `src/Main.rvn`
+- `src/Main.rvn` (`src/Library.rvn` for class libraries)
 - `bin/.gitkeep`
 
 Console projects use an explicit `func Main()` entry point. Class-library
@@ -221,12 +221,19 @@ Useful init options:
 
 - `--name <project-name>` &ndash; override generated project and assembly name
 - `--framework <tfm>` &ndash; set `TargetFramework` in the generated project file
-- `console|classlib` &ndash; select the scaffold type (`console` default)
-- `--type <console|classlib>` &ndash; compatibility alias for selecting the scaffold type
+- `console|classlib|web|nano` &ndash; select the scaffold type (`console` default)
+- `--type <template>` &ndash; compatibility alias for selecting the scaffold type
+- `--list` &ndash; list all available scaffold types
 - `--force` &ndash; overwrite scaffold files if they already exist
 
 When no framework is specified the compiler defaults to the newest installed
 framework.
+The web scaffold defaults to the currently validated ASP.NET target, `net10.0`,
+and the nanoFramework scaffold defaults to `netnano1.0` instead.
+
+The canonical scaffold files are also shipped in the `Raven.Templates` NuGet
+package for `dotnet new raven-console`, `raven-classlib`, `raven-web`, and
+`raven-nano`.
 
 ## .NET 11 runtime-async
 

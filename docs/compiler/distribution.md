@@ -133,12 +133,16 @@ Raven's initial NuGet family contains:
   emission APIs.
 - `Raven.Analyzers`: recommended naming and style analyzers and code fixes,
   delivered through NuGet's `analyzers/dotnet` asset convention.
+- `Raven.Templates`: project templates for the standard `dotnet new` CLI,
+  with console, class-library, ASP.NET Core, and .NET nanoFramework variants.
 
 All packages in a release are built from the same commit and receive the same
 version. `Raven.Macros` carries a package dependency on the matching
 `Raven.CodeAnalysis` version. `Raven.Analyzers` intentionally carries no
 runtime dependency: it binds to the compiler host's matching
 `Raven.CodeAnalysis` assembly when the analyzer asset is loaded.
+`Raven.Templates` is versioned with the compiler family and uses the same
+canonical project content as `rvn init`.
 
 Build and validate the packages locally with:
 
@@ -151,6 +155,23 @@ Packages and symbol packages are written to `artifacts/packages`. Set
 contents and metadata, then restores and builds isolated consumer projects
 from the local package directory. The Raven consumer executes a packaged macro
 and asserts that a packaged analyzer reports its expected diagnostic.
+It also installs `Raven.Templates` into an isolated .NET CLI home and
+materializes and builds all four template variants without changing the
+operator's machine-wide template registrations. The console result is also
+executed.
+
+After publication, install and use the templates with:
+
+```bash
+dotnet new install Raven.Templates@VERSION
+dotnet new raven-console -n HelloRaven
+dotnet new raven-classlib -n MyLibrary
+dotnet new raven-web -n RavenWeb
+dotnet new raven-nano -n RavenBlinky
+```
+
+Replace `VERSION` with the release version being installed. Specifying it is
+required while Raven is distributed only as prerelease packages.
 
 NuGet.org publication only runs when an operator manually dispatches the
 workflow against the matching `v<version>` tag and enables `publish_nuget`.

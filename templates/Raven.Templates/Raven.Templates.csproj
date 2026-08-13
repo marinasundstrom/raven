@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RavenPackageReadmePath>$(MSBuildProjectDirectory)\README.md</RavenPackageReadmePath>
+  </PropertyGroup>
+
+  <Import Project="..\..\eng\Package.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Raven.Templates</PackageId>
+    <Title>Raven Project Templates</Title>
+    <Description>Project templates for Raven console, class library, ASP.NET Core, and .NET nanoFramework applications.</Description>
+    <PackageTags>$(PackageTags);templates;dotnet-new;aspnet;nanoFramework</PackageTags>
+    <PackageType>Template</PackageType>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <IncludeSymbols>false</IncludeSymbols>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="content\**\*"
+             Exclude="content\**\bin\**;content\**\obj\**"
+             Pack="true"
+             PackagePath="content" />
+  </ItemGroup>
+
+</Project>
