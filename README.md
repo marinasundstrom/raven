@@ -23,18 +23,19 @@ core follows a Roslyn-like shape with immutable syntax trees, semantic models,
 diagnostics, and services that can support command-line compilation, editor
 features, analyzers, and language experiments.
 
-Raven is source-build oriented today. The long-term distribution goal is to
-package the `rvn` frontend, `rvnc` compiler driver, language server, build
-assets, and `Raven.Core` together so projects do not depend on repo-relative
-paths.
+Preview releases provide platform-specific SDKs containing the `rvn` frontend,
+`rvnc` compiler driver, language server, build assets, core library, and macro
+library, plus a VS Code extension. See [Getting Started](docs/getting-started.md)
+for checksum-verified installation instructions. Building from source remains
+the contributor workflow for compiler development.
 
 ## Start Here
 
 Visit the official [Raven language website](https://marinasundstrom.github.io/raven/),
 or browse the Markdown sources under [`docs/`](docs/).
 
-- [Getting Started](docs/getting-started.md) - build the compiler, run a sample,
-  and create a small project.
+- [Getting Started](docs/getting-started.md) - install the preview SDK and VS
+  Code extension, run a sample, and create a small project.
 - [MVP Roadmap](docs/roadmap.md) - outcome-based milestones for turning the
   current language, tooling, and workloads into an evaluatable release.
 - [Raven for Absolute Beginners](docs/raven-for-absolute-beginners.md) - learn

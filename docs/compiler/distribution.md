@@ -50,16 +50,20 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/marinasundstrom/raven/main/scripts/install-raven.sh | sh -s -- 0.1.0
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/install-raven.sh \
+  | sh -s -- 0.1.0-preview.4
 ```
 
 ```powershell
-./install-raven.ps1 -Version 0.1.0
+$version = "0.1.0-preview.4"
+Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
+./install-raven.ps1 -Version $version
 ```
 
 Both installers verify the archive against the release's `SHA256SUMS` file and
 install versioned SDK files under `~/.raven` by default.
 Set `RAVEN_INSTALL_ROOT` to choose another installation directory.
+Add `~/.raven/bin` to PATH after installation, then run `rvn doctor`.
 
 ## Building an SDK archive
 
@@ -165,9 +169,18 @@ server so editor features work without a platform-specific VSIX. Build it with:
 scripts/package-vscode.sh 0.1.0
 ```
 
+Install the published preview directly from GitHub Releases:
+
+```bash
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/raven-vscode.vsix
+code --install-extension raven-vscode.vsix --force
+```
+
 The extension resolves the compiler SDK from `raven.sdkPath` first and then by
 running `rvn sdk path`. Build, run, and debug commands require the SDK, while
 the bundled server can provide editor features independently.
+For GUI sessions that do not inherit the shell PATH, set `raven.sdkPath` to the
+versioned directory reported by `rvn sdk path`.
 
 The TypeScript extension host and its runtime dependencies are bundled into a
 single production JavaScript entry point. The VSIX excludes `node_modules`,

@@ -16,8 +16,21 @@ from the Command Palette to open Explorer, focus the view, and select its mode.
 
 ## Prerequisites
 - .NET SDK available on your `PATH` so the client can start the language server.
-- Node.js 18+ for building and running the extension.
-- A built `Raven.LanguageServer.dll` (from `src/Raven.LanguageServer/bin/Debug/net10.0` or a packaged `server/` folder).
+- The Raven SDK for build, run, and debug commands. The packaged extension can
+  provide editor features from its bundled language server without the SDK.
+- Node.js 18+ only when building the extension from source.
+
+## Installing the preview
+
+Download and install the VSIX from the matching GitHub release:
+
+```bash
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/raven-vscode.vsix
+code --install-extension raven-vscode.vsix --force
+```
+
+Restart VS Code after installing. If VS Code cannot discover `rvn`, set
+`raven.sdkPath` to the versioned directory printed by `rvn sdk path`.
 
 ## Building the extension
 Install dependencies and compile the client bundle from the repository root:
@@ -28,7 +41,8 @@ npm install
 npm run compile
 ```
 
-The compiled JavaScript emits to `out/` and is referenced by the extension manifest.
+The production JavaScript bundle emits to `dist/extension.js` and is referenced
+by the extension manifest.
 
 ## Running inside VS Code
 1. Build the language server: `dotnet build src/Raven.LanguageServer/Raven.LanguageServer.csproj`.

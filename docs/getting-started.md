@@ -1,11 +1,9 @@
 # Getting Started
 
-This walkthrough takes a fresh source checkout from "can I build it?" to a
-small Raven program and a scaffolded `.rvnproj` application.
-
-Raven is currently source-build oriented. The commands below run the compiler
-and project frontend from this repository instead of assuming a globally
-installed SDK package.
+This walkthrough installs the current Raven preview SDK, runs a small Raven
+program, and introduces a scaffolded `.rvnproj` application. Building Raven
+itself from source remains available for compiler contributors, but is not
+required to try the language.
 
 If you are coming from C#, read this as more than a command checklist. The
 walkthrough uses familiar C# problem shapes and shows the Raven idioms for them:
@@ -27,62 +25,65 @@ developers](raven-for-csharp-developers.md).
 ## Prerequisites
 
 - A .NET SDK with `net10.0` targeting support.
-- A local clone of this repository.
-- A shell that can run the scripts in `scripts/`.
+- `curl` on macOS/Linux or PowerShell on Windows.
+- VS Code and its `code` command if you want editor support.
 
 Some sample projects target `net11.0`. For those, use a project-local
 `global.json` that selects an SDK with `net11.0` support.
 
-## 1. Build the compiler
+## 1. Install the preview SDK
 
-From the repository root:
-
-```bash
-scripts/codex-build.sh
-```
-
-This is the broad build entry point for a fresh checkout. It restores packages,
-builds the compiler, and keeps generated syntax and bound-model files current.
-
-After the initial build, most local iterations can use narrower commands, such
-as:
+On macOS or Linux:
 
 ```bash
-dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --property WarningLevel=0
-dotnet build src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/install-raven.sh \
+  | sh -s -- 0.1.0-preview.4
+export PATH="$HOME/.raven/bin:$PATH"
 ```
 
-## 2. Choose how to run tools
+Add the `export` line to your shell profile to make `rvn` available in future
+terminals.
 
-You can run tools directly through `dotnet run`:
+On Windows PowerShell:
+
+```powershell
+$version = "0.1.0-preview.4"
+Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
+./install-raven.ps1 -Version $version
+$env:PATH = "$HOME\.raven\bin;$env:PATH"
+```
+
+Both installers select the correct operating-system and CPU archive, verify its
+SHA-256 checksum, and install it under `~/.raven/sdk/<version>`.
+
+## 2. Verify the installation
+
+Open a new terminal after making the PATH change, then run:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven -- dev syntax path/to/file.rav
-dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rav -o /tmp/app.dll
+rvn sdk path
+rvn doctor
 ```
 
-Or build the command projects once and source helper functions for the current
-shell:
+`rvn doctor` checks the .NET SDK, compiler, language server, core library, macro
+library, and MSBuild assets. `rvn` is the project and developer frontend;
+`rvnc` is the lower-level compiler driver.
+
+To install the VS Code extension from the same release:
 
 ```bash
-dotnet build src/Raven/Raven.csproj -f net10.0
-dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
-source scripts/raven-env.sh
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/raven-vscode.vsix
+code --install-extension raven-vscode.vsix --force
 ```
 
-That defines:
-
-- `rvn` - project and developer frontend.
-- `rvnc` - direct compiler-driver command.
-
-The walkthrough keeps using explicit `dotnet run` commands so it works without
-shell setup. If you sourced `scripts/raven-env.sh`, you can replace those with
-the shorter `rvn` and `rvnc` forms.
+If a GUI-launched VS Code cannot find `rvn` on its PATH, set `raven.sdkPath` to
+the absolute directory printed by `rvn sdk path`.
 
 ## 3. Run one file without a project
 
 For a small program, learning exercise, or command-line helper, Raven can run a
-single source file as a file-based application:
+single source file as a file-based application. From a Raven source checkout,
+try the included sample:
 
 ```bash
 rvn run samples/scripts/hello.rvn -- Raven
@@ -101,9 +102,8 @@ provide the script-shaped flow directly:
 ./samples/scripts/hello.rvn Raven
 ```
 
-Sourcing `scripts/raven-env.sh` adds the repository's development launcher to
-`PATH`, so `/usr/bin/env` can find the locally built `rvn`. An installed Raven
-SDK provides the same launcher globally.
+The installed Raven SDK puts the launcher on `PATH`, so `/usr/bin/env` can find
+`rvn` for executable scripts.
 
 For `rvn run`, arguments after `--` are passed to `Main(args: string[])`; the
 shorthand and shebang forms pass arguments following the source path directly.
@@ -114,20 +114,18 @@ project-level sources, dependencies, or build configuration.
 
 ## 4. Compile and run a known sample
 
-Start with a sample that exercises .NET interop, LINQ-style extensions,
-`Option`, and `Result`:
+From a Raven source checkout, start with a sample that exercises .NET interop,
+LINQ-style extensions, `Option`, and `Result`:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-case.dll
+rvnc samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-case.dll
 dotnet /tmp/raven-case.dll
 ```
 
 To analyze without emitting an assembly, add `--no-emit`:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rav --no-emit
+rvnc samples/cases/quote-summary-linq-result-option.rav --no-emit
 ```
 
 To get source-highlighted diagnostics from the compiler driver, add
@@ -339,15 +337,13 @@ compiler.
 Print the parsed syntax tree:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
-  dev syntax samples/cases/quote-summary-linq-result-option.rav
+rvn dev syntax samples/cases/quote-summary-linq-result-option.rav
 ```
 
 Print the bound tree:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
-  dev bound-tree samples/cases/quote-summary-linq-result-option.rav
+rvn dev bound-tree samples/cases/quote-summary-linq-result-option.rav
 ```
 
 Other useful views include:
@@ -361,7 +357,7 @@ Creating a `.debug/` directory in the current or a parent folder also causes
 
 ## 7. Write a first Raven file
 
-Create `hello.rav` in the repository root or another scratch directory:
+Create `hello.rvn` in the repository root or another scratch directory:
 
 ```raven
 import System.Console.*
@@ -379,8 +375,7 @@ func BuildGreeting(name: string) -> string {
 Compile and run it:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  hello.rav -o /tmp/hello.dll
+rvnc hello.rvn -o /tmp/hello.dll
 dotnet /tmp/hello.dll
 ```
 
@@ -432,8 +427,7 @@ func Resolve(requests: ShipmentRequest[]) -> Result<ShipmentRequest, string> {
 
 ## 9. Create a project
 
-Project scaffolding lives behind the `rvn init` command. If you sourced
-`scripts/raven-env.sh`, run:
+Project scaffolding lives behind the `rvn init` command:
 
 ```bash
 mkdir hello-raven
@@ -441,18 +435,6 @@ cd hello-raven
 rvn init --type console --name HelloRaven
 rvn build HelloRaven.rvnproj
 rvn run HelloRaven.rvnproj
-```
-
-Without shell helpers, keep the repository path in a variable and call the
-frontend through `dotnet run`:
-
-```bash
-REPO_ROOT=/path/to/Raven
-mkdir hello-raven
-cd hello-raven
-dotnet run -f net10.0 --project "$REPO_ROOT/src/Raven" -- init --type console --name HelloRaven
-dotnet run -f net10.0 --project "$REPO_ROOT/src/Raven" -- build HelloRaven.rvnproj
-dotnet run -f net10.0 --project "$REPO_ROOT/src/Raven" -- run HelloRaven.rvnproj
 ```
 
 Create a class library scaffold instead:
