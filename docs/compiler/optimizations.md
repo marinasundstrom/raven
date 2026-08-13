@@ -38,8 +38,9 @@ For `.rvnproj` builds, the evaluated MSBuild `Optimize` property is authoritativ
 when it is explicitly present. Otherwise, the `Release` configuration selects
 Release optimization and other configurations select Debug.
 
-Both modes can emit portable PDBs. Release omits debug-only IL padding but keeps
-sequence points on meaningful instructions.
+Both modes can emit portable PDBs. Release omits debug-only IL padding that is
+not needed by a visible sequence point. Visible points retain a stable `nop`
+anchor so portable-PDB consumers can round-trip the emitted symbols.
 
 ## Pipeline
 
@@ -86,14 +87,15 @@ rewrite; Debug continues to lower and emit the original shape.
 
 Release emission also:
 
-- omits debug-only `nop` padding;
+- omits debug-only `nop` padding except where a visible portable-PDB sequence
+  point needs a stable IL offset;
 - avoids sequence-point-only entry-point padding while retaining portable-PDB
-  mappings on meaningful instructions;
-- avoids an unreachable match fallback when a final unguarded catch-all arm
-  already covers all remaining inputs.
+  mappings on meaningful instructions.
 
 These adjustments are selected by the same `OptimizationLevel.Release` policy
-as the bound-tree pipeline.
+as the bound-tree pipeline. Semantic lowering remains shared by Debug and
+Release; Release-only semantic simplification belongs in a specialized optimizer
+pass rather than configuration branches inside the lowerer.
 
 ## Validation policy
 
@@ -106,6 +108,7 @@ Changes to the optimization pipeline should normally validate:
   unchanged;
 - Debug and Release runtime behavior for side-effect-sensitive rewrites;
 - representative Release sample compilation with IL verification;
+- a fresh Raven.Core Release emission when PDBs or cross-cutting lowering change;
 - the native-AOT smoke test when lowered control flow or emission changes;
 - portable-PDB tests when sequence points or debug padding are affected.
 

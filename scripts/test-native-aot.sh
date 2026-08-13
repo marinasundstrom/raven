@@ -6,6 +6,7 @@ temporary_root="${TMPDIR:-/tmp}"
 output_directory="$(mktemp -d "$temporary_root/raven-native-aot-smoke.XXXXXX")"
 log_file="$(mktemp "$temporary_root/raven-native-aot-smoke.XXXXXX.log")"
 ilverify_directory="$(mktemp -d "$temporary_root/raven-native-aot-ilverify.XXXXXX")"
+core_output_directory="$(mktemp -d "$temporary_root/raven-core-release-smoke.XXXXXX")"
 
 cleanup() {
   case "$output_directory" in
@@ -31,6 +32,14 @@ cleanup() {
       fi
       ;;
   esac
+
+  case "$core_output_directory" in
+    "$temporary_root"/raven-core-release-smoke.*)
+      if [[ -d "$core_output_directory" && ! -L "$core_output_directory" ]]; then
+        rm -rf -- "$core_output_directory"
+      fi
+      ;;
+  esac
 }
 trap cleanup EXIT
 
@@ -42,6 +51,14 @@ if [[ "${FORCE_REBUILD:-0}" == "1" || ! -f "$compiler" ]]; then
 fi
 
 dotnet tool restore --tool-manifest "$repo_root/.config/dotnet-tools.json"
+
+dotnet "$compiler" \
+  "$repo_root/src/Raven.Core/Raven.Core.rvnproj" \
+  --configuration Release \
+  --framework net10.0 \
+  --output-type classlib \
+  --emit-core-types-only \
+  --output "$core_output_directory"
 
 dotnet "$compiler" \
   "$project" \

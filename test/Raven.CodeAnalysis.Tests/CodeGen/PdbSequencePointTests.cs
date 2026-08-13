@@ -288,8 +288,10 @@ class C {
         peReader.Dispose();
     }
 
-    [Fact]
-    public void TryCatchFinallyMethod_HasMultipleVisibleSequencePoints()
+    [Theory]
+    [InlineData(OptimizationLevel.Debug)]
+    [InlineData(OptimizationLevel.Release)]
+    public void TryCatchFinallyMethod_HasMultipleVisibleSequencePoints(OptimizationLevel optimizationLevel)
     {
         var code = """
 import System.*
@@ -311,7 +313,9 @@ class C {
 }
 """;
 
-        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code);
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithOptimizationLevel(optimizationLevel);
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(code, options);
         var method = FindMethod(metadataReader, static (typeName, methodName) =>
             typeName == "C" && methodName == "Compute");
 

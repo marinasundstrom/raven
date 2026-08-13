@@ -20,7 +20,6 @@ internal sealed partial class Lowerer
 
         var endLabel = CreateLabel("match_end");
         var needsEndLabel = false;
-        var hasFinalCatchAll = false;
 
         for (var armIndex = 0; armIndex < rewrittenArms.Length; armIndex++)
         {
@@ -42,7 +41,6 @@ internal sealed partial class Lowerer
             var isFinalArm = armIndex == rewrittenArms.Length - 1;
             if (isFinalArm && arm.Guard is null && arm.Pattern is BoundDiscardPattern)
             {
-                hasFinalCatchAll = true;
                 statements.Add(armResult);
                 break;
             }
@@ -58,8 +56,7 @@ internal sealed partial class Lowerer
             statements.Add(new BoundIfStatement(condition, armResult, null));
         }
 
-        if (!hasFinalCatchAll || compilation.Options.OptimizationLevel != OptimizationLevel.Release)
-            statements.Add(CreateMatchFallbackThrowStatement(compilation));
+        statements.Add(CreateMatchFallbackThrowStatement(compilation));
 
         if (needsEndLabel)
             statements.Add(CreateLabelStatement(endLabel));
@@ -84,18 +81,8 @@ internal sealed partial class Lowerer
         ]));
 
         var endLabel = CreateLabel("match_end");
-        var hasFinalCatchAll = false;
-
-        for (var armIndex = 0; armIndex < rewrittenArms.Length; armIndex++)
+        foreach (var arm in rewrittenArms)
         {
-            var arm = rewrittenArms[armIndex];
-            if (armIndex == rewrittenArms.Length - 1 &&
-                arm.Guard is null &&
-                arm.Pattern is BoundDiscardPattern)
-            {
-                hasFinalCatchAll = true;
-            }
-
             var expression = ApplyConversionIfNeeded(arm.Expression, resultType, compilation);
             BoundStatement armResult;
             if (BoundNodeFacts.IsAbruptExpression(expression))
@@ -116,12 +103,6 @@ internal sealed partial class Lowerer
                 armResult = new BoundIfStatement(arm.Guard, armResult, null);
             }
 
-            if (hasFinalCatchAll && compilation.Options.OptimizationLevel == OptimizationLevel.Release)
-            {
-                statements.Add(armResult);
-                break;
-            }
-
             var condition = new BoundIsPatternExpression(
                 new BoundLocalAccess(scrutineeLocal),
                 arm.Pattern,
@@ -130,8 +111,7 @@ internal sealed partial class Lowerer
             statements.Add(new BoundIfStatement(condition, armResult, null));
         }
 
-        if (!hasFinalCatchAll || compilation.Options.OptimizationLevel != OptimizationLevel.Release)
-            statements.Add(CreateMatchFallbackThrowStatement(compilation));
+        statements.Add(CreateMatchFallbackThrowStatement(compilation));
         statements.Add(CreateLabelStatement(endLabel));
         statements.Add(new BoundExpressionStatement(new BoundLocalAccess(resultLocal)));
 

@@ -300,7 +300,10 @@ internal class MethodBodyGenerator
             }
         }
 
-        EmitDebugNop();
+        // Every visible sequence point needs a stable IL offset. In Release,
+        // adjacent points can otherwise collapse onto the same offset and
+        // produce a portable PDB that symbol rewriters cannot round-trip.
+        ILGenerator.Emit(OpCodes.Nop);
         try
         {
             ILGenerator.MarkSequencePoint(document, startLine, startColumn, endLine, endColumn);
