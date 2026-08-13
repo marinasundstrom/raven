@@ -16,6 +16,7 @@
           "raven-for-csharp-developers.md",
           "workloads/index.md",
           "workloads/toc.yml",
+          "workloads/containerization.md",
           "workloads/web-api.md",
           "workloads/file-based-apps.md",
           "workloads/iot-monitor.md",

@@ -1,5 +1,7 @@
 - name: Build applications
   href: index.md
+- name: Containerize an application
+  href: containerization.md
 - name: Web APIs with ASP.NET Core
   href: web-api.md
 - name: File-based applications

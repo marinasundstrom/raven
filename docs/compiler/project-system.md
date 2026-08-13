@@ -284,6 +284,11 @@ Raven project builds use the standard .NET output layout:
   - copies runtime dependencies (NuGet/framework/local assemblies) to output
   - emits runtime artifacts (`.runtimeconfig.json`, apphost)
 
+The standard SDK publish pipeline can also create an OCI container image
+without a Dockerfile. See [Containerize a Raven
+application](../workloads/containerization.md) for local-runtime, archive, and
+registry workflows.
+
 Dependency copy details:
 
 - Only `.dll` package dependencies are copied.

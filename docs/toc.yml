@@ -46,6 +46,8 @@
     - name: Build applications
       href: workloads/index.md
       items:
+        - name: Containerize an application
+          href: workloads/containerization.md
         - name: Web APIs with ASP.NET Core
           href: workloads/web-api.md
         - name: File-based applications

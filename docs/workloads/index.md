@@ -6,6 +6,12 @@ which checked-in samples demonstrate it.
 
 ## Available guides
 
+### [Containerize an application](containerization.md)
+
+Publish a Raven project as an OCI container image with the .NET SDK, without a
+Dockerfile. Load it into Docker or Podman, save it as an archive, or push it
+directly to a registry.
+
 ### [Web APIs with ASP.NET Core](web-api.md)
 
 Build a Minimal API with routes, OpenAPI, async handlers, streaming responses,
