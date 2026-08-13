@@ -1,6 +1,9 @@
 .vscode/**
+node_modules/**
+out/**
 src/**
 tsconfig.json
+esbuild.js
 server/*.pdb
 server/*.xml
 **/*.map

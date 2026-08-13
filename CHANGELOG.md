@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Bundled the VS Code extension host and its runtime dependencies into one
+  production JavaScript entry point. VSIX packages now include repository and
+  MIT license metadata, exclude development dependencies and intermediate
+  outputs, preserve the source manifest version during release packaging, and
+  resolve with no production npm audit findings.
+
 - Fixed clean-checkout SDK packaging by bootstrapping the Release compiler host
   before Raven-authored Release projects are built, and using that
   host-compatible compiler while cross-publishing target-architecture SDKs.

@@ -4,6 +4,12 @@
   "description": "VS Code extension for the Raven language server.",
   "version": "0.1.0",
   "publisher": "raven",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marinasundstrom/raven.git"
+  },
+  "homepage": "https://github.com/marinasundstrom/raven#readme",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -29,7 +35,7 @@
     "onView:raven.syntaxTree",
     "onCommand:raven.openDocumentation"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
@@ -459,11 +465,13 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p ./tsconfig.json",
-    "watch": "tsc -watch -p ./tsconfig.json",
+    "check-types": "tsc -p ./tsconfig.json --noEmit",
+    "compile": "npm run check-types && node esbuild.js",
+    "watch": "node esbuild.js --watch",
     "lint": "echo 'No lint configuration'",
     "prepare": "npm run compile",
-    "package": "vsce package"
+    "package:extension": "npm run check-types && node esbuild.js --production",
+    "package": "npm run package:extension && vsce package"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
@@ -471,6 +479,7 @@
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@types/vscode": "1.80.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.4.5",
     "@vscode/vsce": "^3.7.1"
   }

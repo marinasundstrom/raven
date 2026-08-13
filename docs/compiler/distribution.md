@@ -162,3 +162,9 @@ scripts/package-vscode.sh 0.1.0
 The extension resolves the compiler SDK from `raven.sdkPath` first and then by
 running `rvn sdk path`. Build, run, and debug commands require the SDK, while
 the bundled server can provide editor features independently.
+
+The TypeScript extension host and its runtime dependencies are bundled into a
+single production JavaScript entry point. The VSIX excludes `node_modules`,
+source files, source maps, and language-server symbols while retaining the
+framework-dependent server binaries, grammar, configuration, README, and MIT
+license.

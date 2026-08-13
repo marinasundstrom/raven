@@ -18,11 +18,14 @@ dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" 
 
 npm --prefix "$EXTENSION_DIR" ci
 node "$ROOT_DIR/scripts/test-raven-highlighting-sync.mjs"
-npm --prefix "$EXTENSION_DIR" run compile
+npm --prefix "$EXTENSION_DIR" run package:extension
 if [[ -n "$VERSION" ]]; then
-  (cd "$EXTENSION_DIR" && npm exec -- vsce package "$VERSION" --out "$OUTPUT_DIR/raven-vscode.vsix")
+  (cd "$EXTENSION_DIR" && npm exec -- vsce package "$VERSION" \
+    --no-update-package-json --no-dependencies \
+    --out "$OUTPUT_DIR/raven-vscode.vsix")
 else
-  (cd "$EXTENSION_DIR" && npm exec -- vsce package --out "$OUTPUT_DIR/raven-vscode.vsix")
+  (cd "$EXTENSION_DIR" && npm exec -- vsce package --no-dependencies \
+    --out "$OUTPUT_DIR/raven-vscode.vsix")
 fi
 
 echo "$OUTPUT_DIR/raven-vscode.vsix"
