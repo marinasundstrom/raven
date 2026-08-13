@@ -196,6 +196,40 @@
   </Target>
 
   <Target
+    Name="_CopyRavenReferenceDocumentationToOutputDirectory"
+    AfterTargets="CopyFilesToOutputDirectory"
+    Condition="'$(IsCrossTargetingBuild)' != 'true'">
+    <ItemGroup>
+      <_RavenCopyLocalXmlDocumentationAssembly
+        Include="@(ReferenceCopyLocalPaths)"
+        Condition="'%(Extension)' == '.dll' and Exists('%(RootDir)%(Directory)%(Filename).xml')" />
+      <_RavenCopyLocalMarkdownDocumentationAssembly
+        Include="@(ReferenceCopyLocalPaths)"
+        Condition="'%(Extension)' == '.dll' and Exists('%(RootDir)%(Directory)%(Filename).docs')" />
+      <_RavenCopyLocalXmlDocumentationFile
+        Include="@(_RavenCopyLocalXmlDocumentationAssembly->'%(RootDir)%(Directory)%(Filename).xml')" />
+      <_RavenCopyLocalMarkdownDocumentationFile
+        Include="%(_RavenCopyLocalMarkdownDocumentationAssembly.RootDir)%(_RavenCopyLocalMarkdownDocumentationAssembly.Directory)%(_RavenCopyLocalMarkdownDocumentationAssembly.Filename).docs/**/*">
+        <DocumentationAssemblyName>%(_RavenCopyLocalMarkdownDocumentationAssembly.Filename)</DocumentationAssemblyName>
+      </_RavenCopyLocalMarkdownDocumentationFile>
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_RavenCopyLocalXmlDocumentationFile)"
+      DestinationFiles="@(_RavenCopyLocalXmlDocumentationFile->'$(OutDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_RavenCopyLocalXmlDocumentationFile)' != ''" />
+    <Copy
+      SourceFiles="@(_RavenCopyLocalMarkdownDocumentationFile)"
+      DestinationFiles="@(_RavenCopyLocalMarkdownDocumentationFile->'$(OutDir)%(DocumentationAssemblyName).docs/%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_RavenCopyLocalMarkdownDocumentationFile)' != ''" />
+    <ItemGroup>
+      <FileWrites Include="@(_RavenCopyLocalXmlDocumentationFile->'$(OutDir)%(Filename)%(Extension)')" />
+      <FileWrites Include="@(_RavenCopyLocalMarkdownDocumentationFile->'$(OutDir)%(DocumentationAssemblyName).docs/%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target
     Name="_CaptureRavenRuntimeDependencies"
     BeforeTargets="CoreCompile"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">

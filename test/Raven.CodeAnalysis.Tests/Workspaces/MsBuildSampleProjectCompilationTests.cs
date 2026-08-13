@@ -825,8 +825,15 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             var outputDirectory = Path.Combine(projectRoot, "bin", "Debug", "net10.0");
             var depsPath = Path.Combine(outputDirectory, "RavenCoreRuntimeDependency.deps.json");
             var corePath = Path.Combine(outputDirectory, "Raven.Core.dll");
+            var coreXmlPath = Path.Combine(outputDirectory, "Raven.Core.xml");
+            var coreMarkdownRoot = Path.Combine(outputDirectory, "Raven.Core.docs");
 
             Assert.True(File.Exists(corePath), $"Expected Raven.Core copy-local output at '{corePath}'.");
+            Assert.True(File.Exists(coreXmlPath), $"Expected Raven.Core XML documentation at '{coreXmlPath}'.");
+            Assert.True(
+                File.Exists(Path.Combine(coreMarkdownRoot, "manifest.json")),
+                $"Expected Raven.Core Markdown documentation at '{coreMarkdownRoot}'.");
+            Assert.NotEmpty(Directory.EnumerateFiles(coreMarkdownRoot, "*.md", SearchOption.AllDirectories));
             Assert.True(File.Exists(depsPath), $"Expected deps file at '{depsPath}'.");
 
             var depsJson = File.ReadAllText(depsPath);
