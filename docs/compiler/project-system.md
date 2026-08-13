@@ -104,7 +104,7 @@ ordinary source files do not need to be listed in the project file.
 Minimal example:
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk/VERSION">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>App</AssemblyName>
@@ -220,15 +220,14 @@ properties:
 
 MSBuild still owns restore and reference selection. Its evaluated
 `ReferencePath` is passed to `rvnc`, and the workspace/language server reads the
-same project properties and explicit package assets. The
-`Raven.Language.targets` recognizes `netnano1.0` and imports
+same project properties and explicit package assets. `Raven.Sdk` recognizes
+`netnano1.0` and imports
 `Raven.nanoFramework.props`, which supplies the target identity, core-library
 package, metadata processor, and reduced-runtime compiler defaults missing from
-the stock SDK. Application projects remain standard `Microsoft.NET.Sdk`
-projects and contain only their target framework, device package references,
-and application settings. The profile is deliberately a separate build asset
-so it can later become the `Sdk.props` of a dedicated Raven nanoFramework SDK
-without changing the project contract.
+the stock SDK. Application projects remain standard SDK-style projects and
+contain only their target framework, device package references, and application
+settings. The profile remains a separate build asset so it can later become a
+dedicated `Raven.Sdk.nanoFramework` without changing source or MSBuild items.
 
 See [Getting started with .NET nanoFramework](nanoframework.md) for the build outputs,
 direct `nanoff` deployment commands, and current VS Code debugger integration.
@@ -422,14 +421,11 @@ SampleRate=250` overrides the project item for that invocation; otherwise the
 project value overrides the source initializer. A required declaration without
 either provider value fails compilation.
 
-For standalone projects before Raven is packaged as an SDK/NuGet build asset,
-set `LanguageTargets` and, when needed, `RavenCompilerHost` explicitly:
+Standalone projects select the published Raven SDK and need no compiler paths:
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk/VERSION">
   <PropertyGroup>
-    <LanguageTargets>/path/to/Raven/build/Raven.Language.targets</LanguageTargets>
-    <RavenCompilerHost>/path/to/Raven/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll</RavenCompilerHost>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>RavenGreeter</AssemblyName>
     <OutputType>Library</OutputType>
@@ -498,7 +494,7 @@ from the standard evaluated `Compile` item list.
 Example:
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk/VERSION">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Library</OutputType>
@@ -535,6 +531,18 @@ source lists are persisted as standard `Compile` items when
 - `src/Main.rvn` (`src/Library.rvn` for class libraries)
 - `bin/.gitkeep`
 
+The generated project selects the matching NuGet-resolved Raven SDK:
+
+```xml
+<Project Sdk="Raven.Sdk/VERSION">
+```
+
+`Raven.Sdk` composes the standard `Microsoft.NET.Sdk` behavior with Raven's
+compiler targets and implicit lockstep Core and standard-macro packages. A
+generated project therefore uses normal `dotnet restore`, `dotnet build`,
+`dotnet run`, and `dotnet publish` commands without machine-specific MSBuild
+properties.
+
 Options:
 
 - `--name <project-name>`: set explicit project/assembly name.
@@ -557,6 +565,8 @@ through the `Raven.Templates` NuGet package:
 ```bash
 dotnet new install Raven.Templates@VERSION
 dotnet new raven-console -n HelloRaven
+cd HelloRaven
+dotnet run
 ```
 
 Replace `VERSION` with the Raven prerelease version to install.

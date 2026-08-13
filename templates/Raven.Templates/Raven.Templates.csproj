@@ -18,11 +18,12 @@
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <IncludeSymbols>false</IncludeSymbols>
     <NoDefaultExcludes>true</NoDefaultExcludes>
+    <RavenTemplateContentRoot Condition="'$(RavenTemplateContentRoot)' == ''">$(MSBuildProjectDirectory)\content</RavenTemplateContentRoot>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="content\**\*"
-             Exclude="content\**\bin\**;content\**\obj\**"
+    <Content Include="$(RavenTemplateContentRoot)\**\*"
+             Exclude="$(RavenTemplateContentRoot)\**\bin\**;$(RavenTemplateContentRoot)\**\obj\**"
              Pack="true"
              PackagePath="content" />
   </ItemGroup>

@@ -896,6 +896,7 @@ static int RunInitCommand(string[] args)
             Directory.CreateDirectory(directory);
 
         var content = ReadInitTemplateResource(template.Name, generatedFile.Definition.ResourcePath)
+            .Replace("RavenSdkVersion", GetVersion(), StringComparison.Ordinal)
             .Replace("RavenTargetFramework", framework, StringComparison.Ordinal)
             .Replace("RavenApp", projectName, StringComparison.Ordinal);
         File.WriteAllText(generatedFile.Path, content);
@@ -908,9 +909,9 @@ static int RunInitCommand(string[] args)
     foreach (var generatedFile in generatedFiles)
         Console.WriteLine($"- {generatedFile.Path}");
     Console.WriteLine($"- {binGitkeep}");
-    Console.WriteLine($"Build with: rvn build {Path.GetFileName(projectFilePath)}");
+    Console.WriteLine($"Build with: dotnet build {Path.GetFileName(projectFilePath)}");
     if (template.IsRunnable)
-        Console.WriteLine($"Run with: rvn run {Path.GetFileName(projectFilePath)}");
+        Console.WriteLine($"Run with: dotnet run --project {Path.GetFileName(projectFilePath)}");
 
     return 0;
 }

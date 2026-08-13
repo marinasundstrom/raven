@@ -164,9 +164,9 @@ Raven's MVP now provides an SDK-style `.rvnproj` for the same runtime. Normal
 `PackageReference` restore selects `netnano1.0` compile assets, and the evaluated
 target profile is shared by `rvnc`, MSBuild, and the language server. Raven's
 separate `Raven.nanoFramework.props` build asset supplies the target defaults
-that the standard SDK does not yet know while the application continues to use
-`Microsoft.NET.Sdk`. That asset can become a dedicated MSBuild SDK profile, or
-be replaced by an official SDK-style nanoFramework target, without changing the
+that the standard SDK does not yet know while the application uses the common
+`Raven.Sdk`. That asset can become a dedicated `Raven.Sdk.nanoFramework`, or be
+replaced by an official SDK-style nanoFramework target, without changing the
 application's package-reference model. See nanoFramework's
 [description of the `.nfproj` metadata-processing stage](https://docs.nanoframework.net/content/architecture/guide-version-checksums.html)
 and its [VS Code managed-code workflow](https://docs.nanoframework.net/content/getting-started-guides/getting-started-managed-vscode.html)

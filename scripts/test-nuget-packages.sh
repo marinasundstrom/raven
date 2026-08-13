@@ -103,6 +103,33 @@ if ! grep -Fq "<dependency id=\"Raven.CodeAnalysis\" version=\"$VERSION\"" <<<"$
   exit 1
 fi
 
+sdk_package="$PACKAGE_DIR/Raven.Sdk.$VERSION.nupkg"
+if [[ ! -f "$sdk_package" ]]; then
+  echo "Missing package: $sdk_package" >&2
+  exit 1
+fi
+
+for sdk_entry in \
+  README.md \
+  LICENSE \
+  Sdk/Sdk.props \
+  Sdk/Sdk.targets \
+  build/Raven.Language.targets \
+  tools/rvnc/rvnc.dll \
+  tools/rvnc/rvnc.runtimeconfig.json; do
+  assert_archive_entry "$sdk_package" "$sdk_entry"
+done
+
+sdk_nuspec="$(unzip -p "$sdk_package" Raven.Sdk.nuspec)"
+if ! grep -Fq "<version>$VERSION</version>" <<<"$sdk_nuspec"; then
+  echo "Incorrect version metadata in $(basename "$sdk_package")" >&2
+  exit 1
+fi
+if ! grep -Fq '<packageType name="MSBuildSdk"' <<<"$sdk_nuspec"; then
+  echo "Raven.Sdk is not marked as an MSBuild project SDK." >&2
+  exit 1
+fi
+
 template_package="$PACKAGE_DIR/Raven.Templates.$VERSION.nupkg"
 if [[ ! -f "$template_package" ]]; then
   echo "Missing package: $template_package" >&2
@@ -161,8 +188,12 @@ for template_name in console classlib web nano; do
     echo "raven-$template_name did not create the expected project file." >&2
     exit 1
   fi
-  if grep -R -Fq -e RavenApp -e RavenTargetFramework "$output_dir"; then
+  if grep -R -Fq -e RavenApp -e RavenTargetFramework -e RavenSdkVersion "$output_dir"; then
     echo "raven-$template_name left an unsubstituted template token." >&2
+    exit 1
+  fi
+  if ! grep -Fq "<Project Sdk=\"Raven.Sdk/$VERSION\">" "$output_dir/$project_name.rvnproj"; then
+    echo "raven-$template_name did not select the matching Raven.Sdk version." >&2
     exit 1
   fi
 done
@@ -176,13 +207,22 @@ if ! grep -Fq '<TargetFramework>netnano1.0</TargetFramework>' "$TEMP_DIR/templat
   exit 1
 fi
 
+cat > "$TEMP_DIR/NuGet.Config" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="raven-local" value="$PACKAGE_DIR" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+</configuration>
+EOF
+
 for template_name in console classlib web nano; do
   project_file="$(find "$TEMP_DIR/templates/$template_name" -maxdepth 1 -name '*.rvnproj' -print -quit)"
   template_build_log="$TEMP_DIR/template-$template_name-build.log"
-  if ! dotnet build "$project_file" \
-    /property:LanguageTargets="$ROOT_DIR/build/Raven.Language.targets" \
-    /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/net10.0/rvnc.dll" \
-    /property:RavenCoreReferencePath="$ROOT_DIR/src/Raven.Core/bin/Release/net10.0/Raven.Core.dll" \
+  if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+    dotnet build "$project_file" --disable-build-servers \
     /property:WarningLevel=0 >"$template_build_log" 2>&1; then
     cat "$template_build_log" >&2
     exit 1
@@ -192,6 +232,22 @@ done
 template_console_output="$(dotnet "$TEMP_DIR/templates/console/bin/Debug/net10.0/TemplateConsole.dll")"
 if [[ "$template_console_output" != "Hello from Raven" ]]; then
   echo "Packaged raven-console template returned '$template_console_output'; expected 'Hello from Raven'." >&2
+  exit 1
+fi
+
+template_publish_log="$TEMP_DIR/template-console-publish.log"
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet publish "$TEMP_DIR/templates/console/TemplateConsole.rvnproj" \
+  -c Release \
+  --no-restore \
+  --disable-build-servers \
+  /property:WarningLevel=0 >"$template_publish_log" 2>&1; then
+  cat "$template_publish_log" >&2
+  exit 1
+fi
+template_published_output="$(dotnet "$TEMP_DIR/templates/console/bin/Release/net10.0/publish/TemplateConsole.dll")"
+if [[ "$template_published_output" != "Hello from Raven" ]]; then
+  echo "Published raven-console template returned '$template_published_output'; expected 'Hello from Raven'." >&2
   exit 1
 fi
 
@@ -210,7 +266,8 @@ dotnet add "$TEMP_DIR/consumer/consumer.csproj" package Raven.Macros \
   --source "$PACKAGE_DIR" \
   --no-restore >/dev/null
 
-dotnet restore "$TEMP_DIR/consumer/consumer.csproj" \
+DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet restore "$TEMP_DIR/consumer/consumer.csproj" \
   --source "$PACKAGE_DIR" \
   --source https://api.nuget.org/v3/index.json \
   /property:WarningLevel=0 >/dev/null
@@ -223,24 +280,21 @@ for package_identity in "Raven.Core/$VERSION" "Raven.Macros/$VERSION" "Raven.Cod
   fi
 done
 
-dotnet build "$TEMP_DIR/consumer/consumer.csproj" \
+DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet build "$TEMP_DIR/consumer/consumer.csproj" \
   --no-restore \
+  --disable-build-servers \
   /property:WarningLevel=0 >/dev/null
 
 mkdir -p "$TEMP_DIR/raven-consumer/src"
 mkdir -p "$TEMP_DIR/analyzer-consumer/src"
-mkdir -p "$TEMP_DIR/compiler-host"
-cp -R "$ROOT_DIR/src/Raven.Compiler/bin/Release/net10.0/." "$TEMP_DIR/compiler-host/"
 printf '%s\n' \
-  '<Project Sdk="Microsoft.NET.Sdk">' \
+  "<Project Sdk=\"Raven.Sdk/$VERSION\">" \
   '  <PropertyGroup>' \
   '    <TargetFramework>net10.0</TargetFramework>' \
   '    <AssemblyName>PackageMacroConsumer</AssemblyName>' \
   '    <OutputType>Exe</OutputType>' \
   '  </PropertyGroup>' \
-  '  <ItemGroup>' \
-  "    <PackageReference Include=\"Raven.Macros\" Version=\"[$VERSION]\" />" \
-  '  </ItemGroup>' \
   '</Project>' \
   > "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj"
 
@@ -254,21 +308,26 @@ printf '%s\n' \
   > "$TEMP_DIR/raven-consumer/src/Main.rvn"
 
 raven_restore_log="$TEMP_DIR/raven-restore.log"
-if ! dotnet restore "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj" \
-  --source "$PACKAGE_DIR" \
-  --source https://api.nuget.org/v3/index.json \
-  /property:LanguageTargets="$ROOT_DIR/build/Raven.Language.targets" \
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet restore "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj" \
   /property:WarningLevel=0 >"$raven_restore_log" 2>&1; then
   cat "$raven_restore_log" >&2
   exit 1
 fi
 
+raven_assets_file="$TEMP_DIR/raven-consumer/obj/project.assets.json"
+for package_identity in "Raven.Core/$VERSION" "Raven.Macros/$VERSION" "Raven.CodeAnalysis/$VERSION"; do
+  if ! grep -Fq "\"$package_identity\"" "$raven_assets_file"; then
+    echo "Raven.Sdk did not resolve implicit package $package_identity" >&2
+    exit 1
+  fi
+done
+
 raven_build_log="$TEMP_DIR/raven-build.log"
-if ! dotnet build "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj" \
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet build "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj" \
   --no-restore \
-  /property:LanguageTargets="$ROOT_DIR/build/Raven.Language.targets" \
-  /property:RavenCompilerHost="$TEMP_DIR/compiler-host/rvnc.dll" \
-  /property:RavenCoreReferencePath="$ROOT_DIR/src/Raven.Core/bin/Release/net10.0/Raven.Core.dll" \
+  --disable-build-servers \
   /property:WarningLevel=0 >"$raven_build_log" 2>&1; then
   cat "$raven_build_log" >&2
   exit 1
@@ -282,7 +341,7 @@ if [[ "$macro_output" != "$expected_digest" ]]; then
 fi
 
 printf '%s\n' \
-  '<Project Sdk="Microsoft.NET.Sdk">' \
+  "<Project Sdk=\"Raven.Sdk/$VERSION\">" \
   '  <PropertyGroup>' \
   '    <TargetFramework>net10.0</TargetFramework>' \
   '    <AssemblyName>PackageAnalyzerConsumer</AssemblyName>' \
@@ -308,21 +367,18 @@ printf '%s\n' \
   > "$TEMP_DIR/analyzer-consumer/.editorconfig"
 
 analyzer_restore_log="$TEMP_DIR/analyzer-restore.log"
-if ! dotnet restore "$TEMP_DIR/analyzer-consumer/PackageAnalyzerConsumer.rvnproj" \
-  --source "$PACKAGE_DIR" \
-  --source https://api.nuget.org/v3/index.json \
-  /property:LanguageTargets="$ROOT_DIR/build/Raven.Language.targets" \
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet restore "$TEMP_DIR/analyzer-consumer/PackageAnalyzerConsumer.rvnproj" \
   /property:WarningLevel=0 >"$analyzer_restore_log" 2>&1; then
   cat "$analyzer_restore_log" >&2
   exit 1
 fi
 
 analyzer_build_log="$TEMP_DIR/analyzer-build.log"
-if ! dotnet build "$TEMP_DIR/analyzer-consumer/PackageAnalyzerConsumer.rvnproj" \
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet build "$TEMP_DIR/analyzer-consumer/PackageAnalyzerConsumer.rvnproj" \
   --no-restore \
-  /property:LanguageTargets="$ROOT_DIR/build/Raven.Language.targets" \
-  /property:RavenCompilerHost="$TEMP_DIR/compiler-host/rvnc.dll" \
-  /property:RavenCoreReferencePath="$ROOT_DIR/src/Raven.Core/bin/Release/net10.0/Raven.Core.dll" \
+  --disable-build-servers \
   /property:WarningLevel=0 >"$analyzer_build_log" 2>&1; then
   cat "$analyzer_build_log" >&2
   exit 1
@@ -331,6 +387,40 @@ fi
 if ! grep -Fq "RAV9036" "$analyzer_build_log"; then
   cat "$analyzer_build_log" >&2
   echo "Packaged Raven.Analyzers did not report the expected RAV9036 diagnostic." >&2
+  exit 1
+fi
+
+mkdir -p "$TEMP_DIR/diagnostic-consumer/src"
+printf '%s\n' \
+  "<Project Sdk=\"Raven.Sdk/$VERSION\">" \
+  '  <PropertyGroup>' \
+  '    <TargetFramework>net10.0</TargetFramework>' \
+  '    <OutputType>Exe</OutputType>' \
+  '  </PropertyGroup>' \
+  '</Project>' \
+  > "$TEMP_DIR/diagnostic-consumer/DiagnosticConsumer.rvnproj"
+printf '%s\n' 'System.Console.WriteLine("First")' \
+  > "$TEMP_DIR/diagnostic-consumer/src/First.rvn"
+printf '%s\n' 'System.Console.WriteLine("Second")' \
+  > "$TEMP_DIR/diagnostic-consumer/src/Second.rvn"
+
+diagnostic_build_log="$TEMP_DIR/diagnostic-build.log"
+if DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet build "$TEMP_DIR/diagnostic-consumer/DiagnosticConsumer.rvnproj" \
+  --disable-build-servers \
+  /property:WarningLevel=0 >"$diagnostic_build_log" 2>&1; then
+  cat "$diagnostic_build_log" >&2
+  echo "The multiple top-level file diagnostic project unexpectedly built successfully." >&2
+  exit 1
+fi
+if [[ "$(grep -c 'RAV1013' "$diagnostic_build_log")" -lt 2 ]]; then
+  cat "$diagnostic_build_log" >&2
+  echo "The SDK build did not report RAV1013 for both top-level source files." >&2
+  exit 1
+fi
+if grep -Fq -e 'MSB3073' -e '--refs' "$diagnostic_build_log"; then
+  cat "$diagnostic_build_log" >&2
+  echo "The SDK build exposed the compiler command after a normal diagnostic failure." >&2
   exit 1
 fi
 

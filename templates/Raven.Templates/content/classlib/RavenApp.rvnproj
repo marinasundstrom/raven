@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk/RavenSdkVersion">
   <PropertyGroup>
     <TargetFramework>RavenTargetFramework</TargetFramework>
     <AssemblyName>RavenApp</AssemblyName>

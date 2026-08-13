@@ -79,9 +79,29 @@ dotnet pack "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" \
   -o "$OUTPUT_DIR" \
   "${COMMON_PROPERTIES[@]}"
 
+dotnet pack "$ROOT_DIR/sdk/Raven.Sdk/Raven.Sdk.csproj" \
+  -c Release \
+  -o "$OUTPUT_DIR" \
+  "${COMMON_PROPERTIES[@]}"
+
+TEMPLATE_STAGE_DIR="$(mktemp -d /tmp/raven-template-package.XXXXXX)"
+cleanup_template_stage() {
+  case "$TEMPLATE_STAGE_DIR" in
+    /tmp/raven-template-package.*) rm -rf "$TEMPLATE_STAGE_DIR" ;;
+    *) echo "Refusing to remove unexpected template staging path: $TEMPLATE_STAGE_DIR" >&2 ;;
+  esac
+}
+trap cleanup_template_stage EXIT
+
+cp -R "$ROOT_DIR/templates/Raven.Templates/content" "$TEMPLATE_STAGE_DIR/content"
+while IFS= read -r project_file; do
+  perl -pi -e "s/RavenSdkVersion/$VERSION/g" "$project_file"
+done < <(find "$TEMPLATE_STAGE_DIR/content" -name '*.rvnproj' -type f -print)
+
 dotnet pack "$ROOT_DIR/templates/Raven.Templates/Raven.Templates.csproj" \
   -c Release \
   -o "$OUTPUT_DIR" \
+  "/property:RavenTemplateContentRoot=$TEMPLATE_STAGE_DIR/content" \
   "${COMMON_PROPERTIES[@]}"
 
 "$ROOT_DIR/scripts/test-nuget-packages.sh" "$VERSION" "$OUTPUT_DIR"

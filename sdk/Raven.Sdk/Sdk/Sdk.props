@@ -1,0 +1,11 @@
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup>
+    <RavenSdkRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</RavenSdkRoot>
+    <RavenSdkPackageVersion>$([System.IO.Path]::GetFileName('$(RavenSdkRoot)'))</RavenSdkPackageVersion>
+    <LanguageTargets>$(RavenSdkRoot)\build\Raven.Language.targets</LanguageTargets>
+    <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
+  </PropertyGroup>
+
+</Project>

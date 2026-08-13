@@ -97,7 +97,7 @@ Standard .NET SDK container properties and items work in a `.rvnproj`. Keeping
 stable image metadata in the project makes local and CI publishing consistent:
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk/VERSION">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
@@ -129,8 +129,9 @@ platform at runtime rather than embedding them in the project or image.
 
 ## How Raven fits into the publish pipeline
 
-A `.rvnproj` uses `Microsoft.NET.Sdk`. Raven replaces the language compilation
-step while leaving the standard SDK publish and container targets in place.
+A `.rvnproj` uses `Raven.Sdk`, which composes `Microsoft.NET.Sdk`. Raven
+replaces the language compilation step while leaving the standard SDK publish
+and container targets in place.
 Consequently, container settings are standard MSBuild properties rather than
 Raven-specific command-line switches.
 

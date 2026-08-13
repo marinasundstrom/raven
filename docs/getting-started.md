@@ -463,9 +463,15 @@ the versioned template package:
 ```bash
 dotnet new install Raven.Templates@VERSION
 dotnet new raven-console -n HelloRaven
+cd HelloRaven
+dotnet run
 ```
 
 Replace `VERSION` with the Raven prerelease version to install.
+
+The generated `.rvnproj` pins the matching `Raven.Sdk` version. The .NET CLI
+restores the Raven compiler, Core, and standard macros automatically; no
+`RavenSdkRoot`, `LanguageTargets`, or compiler path needs to be configured.
 
 Use `raven-classlib`, `raven-web`, or `raven-nano` for the other variants.
 

@@ -53,10 +53,11 @@ jobs:
           (
             cd "$project_dir"
             "$RAVEN_INSTALL_ROOT/bin/rvn" init --name InstalledProject
+            grep -F "<Project Sdk=\"Raven.Sdk/$VERSION\">" InstalledProject.rvnproj
             grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
             grep -F 'func Main()' src/Main.rvn
-            "$RAVEN_INSTALL_ROOT/bin/rvn" build InstalledProject.rvnproj
-            project_output=$("$RAVEN_INSTALL_ROOT/bin/rvn" run InstalledProject.rvnproj)
+            dotnet build InstalledProject.rvnproj
+            project_output=$(dotnet run --project InstalledProject.rvnproj)
             printf '%s\n' "$project_output"
             grep -F 'Hello from Raven' <<< "$project_output"
           )
@@ -68,7 +69,15 @@ jobs:
           DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
             dotnet new raven-console --name DotnetTemplateProject --output "$RUNNER_TEMP/dotnet-template-project"
           test -f "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj"
+          grep -F "<Project Sdk=\"Raven.Sdk/$VERSION\">" "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj"
           grep -F 'func Main()' "$RUNNER_TEMP/dotnet-template-project/src/Main.rvn"
+          template_output=$(dotnet run --project "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj")
+          printf '%s\n' "$template_output"
+          grep -F 'Hello from Raven' <<< "$template_output"
+          dotnet publish "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj" -c Release
+          published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net10.0/publish/DotnetTemplateProject.dll")
+          printf '%s\n' "$published_output"
+          grep -F 'Hello from Raven' <<< "$published_output"
 
   sdk-windows:
     name: SDK install ${{ matrix.rid }}
@@ -111,6 +120,9 @@ jobs:
             $rvn = Join-Path $installRoot "bin/rvn.cmd"
             & $rvn init --name InstalledProject
             $projectText = Get-Content "InstalledProject.rvnproj" -Raw
+            if ($projectText -notmatch [regex]::Escape("<Project Sdk=`"Raven.Sdk/$env:VERSION`">")) {
+              throw "rvn init did not select the matching Raven.Sdk version."
+            }
             if ($projectText -notmatch [regex]::Escape("<TargetFramework>net11.0</TargetFramework>")) {
               throw "rvn init did not write the expected target framework moniker."
             }
@@ -118,8 +130,8 @@ jobs:
             if ($mainText -notmatch [regex]::Escape("func Main()")) {
               throw "rvn init did not create src/Main.rvn with an explicit Main function."
             }
-            & $rvn build InstalledProject.rvnproj
-            $projectOutput = & $rvn run InstalledProject.rvnproj 2>&1 | Out-String
+            dotnet build InstalledProject.rvnproj
+            $projectOutput = dotnet run --project InstalledProject.rvnproj 2>&1 | Out-String
             Write-Output $projectOutput
             if ($projectOutput -notmatch [regex]::Escape("Hello from Raven")) {
               throw "The installed SDK did not run the scaffolded Raven project."
@@ -139,9 +151,26 @@ jobs:
           if (-not (Test-Path (Join-Path $templateProject "DotnetTemplateProject.rvnproj"))) {
             throw "The published Raven.Templates package did not create the expected project."
           }
+          $templateProjectText = Get-Content (Join-Path $templateProject "DotnetTemplateProject.rvnproj") -Raw
+          if ($templateProjectText -notmatch [regex]::Escape("<Project Sdk=`"Raven.Sdk/$env:VERSION`">")) {
+            throw "The published Raven template did not select the matching Raven.Sdk version."
+          }
           $templateMain = Get-Content (Join-Path $templateProject "src/Main.rvn") -Raw
           if ($templateMain -notmatch [regex]::Escape("func Main()")) {
             throw "The published Raven console template did not contain an explicit Main function."
+          }
+          $templateOutput = dotnet run --project (Join-Path $templateProject "DotnetTemplateProject.rvnproj") 2>&1 | Out-String
+          Write-Output $templateOutput
+          if ($templateOutput -notmatch [regex]::Escape("Hello from Raven")) {
+            throw "The published Raven template project did not run successfully through the .NET CLI."
+          }
+          $templateProjectFile = Join-Path $templateProject "DotnetTemplateProject.rvnproj"
+          dotnet publish $templateProjectFile -c Release
+          $publishedAssembly = Join-Path $templateProject "bin/Release/net10.0/publish/DotnetTemplateProject.dll"
+          $publishedOutput = dotnet $publishedAssembly 2>&1 | Out-String
+          Write-Output $publishedOutput
+          if ($publishedOutput -notmatch [regex]::Escape("Hello from Raven")) {
+            throw "The published Raven template output did not run successfully."
           }
 
   vscode:

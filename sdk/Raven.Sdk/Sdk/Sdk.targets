@@ -1,0 +1,14 @@
+<Project>
+  <ItemGroup Condition="'$(TargetFramework)' != 'netnano1.0'">
+    <PackageReference Include="Raven.Core"
+                      Version="[$(RavenSdkPackageVersion)]"
+                      IsImplicitlyDefined="true" />
+    <PackageReference Include="Raven.Macros"
+                      Version="[$(RavenSdkPackageVersion)]"
+                      IsImplicitlyDefined="true"
+                      PrivateAssets="all"
+                      ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

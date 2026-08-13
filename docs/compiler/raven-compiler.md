@@ -233,7 +233,8 @@ and the nanoFramework scaffold defaults to `netnano1.0` instead.
 
 The canonical scaffold files are also shipped in the `Raven.Templates` NuGet
 package for `dotnet new raven-console`, `raven-classlib`, `raven-web`, and
-`raven-nano`.
+`raven-nano`. Both template channels pin the matching `Raven.Sdk` package in
+the generated project so it builds directly through the normal .NET CLI.
 
 ## .NET 11 runtime-async
 

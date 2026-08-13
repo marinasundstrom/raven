@@ -35,6 +35,8 @@ for relative_path in "${required_files[@]}"; do
   fi
 done
 
+SDK_VERSION="$(tr -d '\r\n' < "$SDK_ROOT/VERSION")"
+
 if [[ "$STRUCTURE_ONLY" == true ]]; then
   echo "Validated Raven SDK structure: $SDK_ROOT"
   exit 0
@@ -68,8 +70,15 @@ fi
   "$SDK_ROOT/bin/rvn" init --list | grep -F 'web'
   "$SDK_ROOT/bin/rvn" init --list | grep -F 'nano'
   "$SDK_ROOT/bin/rvn" init --name InstalledProject
+  grep -F "<Project Sdk=\"Raven.Sdk/$SDK_VERSION\">" InstalledProject.rvnproj
   grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
   grep -F 'func Main()' src/Main.rvn
+
+  # The pre-publication archive smoke test runs before Raven.Sdk exists on the
+  # public feed. Use the archive's packaged targets to validate rvn build/run;
+  # the post-publication installation workflow validates the generated
+  # Raven.Sdk project unchanged through the normal .NET CLI.
+  perl -pi -e 's#Raven\.Sdk/[^"<]+#Microsoft.NET.Sdk#' InstalledProject.rvnproj
   "$SDK_ROOT/bin/rvn" build InstalledProject.rvnproj
   project_output="$("$SDK_ROOT/bin/rvn" run InstalledProject.rvnproj)"
   printf '%s\n' "$project_output"

@@ -225,10 +225,15 @@ rvnc path/to/file.rav -o /tmp/app.dll
 Project commands use the SDK workflow:
 
 ```bash
-rvn init --type console --name HelloRaven
-rvn build HelloRaven.rvnproj
-rvn run HelloRaven.rvnproj
+dotnet new install Raven.Templates@VERSION
+dotnet new raven-console --name HelloRaven
+cd HelloRaven
+dotnet run
 ```
+
+The template pins the matching NuGet-resolved `Raven.Sdk`; no compiler or
+MSBuild paths need to be configured. The installed `rvn init`, `rvn build`,
+and `rvn run` commands remain available for the standalone SDK workflow.
 
 For a small program or learning exercise, run one source file without creating
 a project:

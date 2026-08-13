@@ -133,6 +133,9 @@ Raven's initial NuGet family contains:
   emission APIs.
 - `Raven.Analyzers`: recommended naming and style analyzers and code fixes,
   delivered through NuGet's `analyzers/dotnet` asset convention.
+- `Raven.Sdk`: the NuGet-resolved MSBuild Project SDK containing the Raven
+  compiler host and language targets. It builds on `Microsoft.NET.Sdk` and
+  adds exact-version implicit references to `Raven.Core` and `Raven.Macros`.
 - `Raven.Templates`: project templates for the standard `dotnet new` CLI,
   with console, class-library, ASP.NET Core, and .NET nanoFramework variants.
 
@@ -141,8 +144,10 @@ version. `Raven.Macros` carries a package dependency on the matching
 `Raven.CodeAnalysis` version. `Raven.Analyzers` intentionally carries no
 runtime dependency: it binds to the compiler host's matching
 `Raven.CodeAnalysis` assembly when the analyzer asset is loaded.
-`Raven.Templates` is versioned with the compiler family and uses the same
-canonical project content as `rvn init`.
+`Raven.Sdk` is the .NET CLI entry point for `.rvnproj` projects. Both
+`Raven.Templates` and `rvn init` write `<Project Sdk="Raven.Sdk/VERSION">`, so
+users do not configure `LanguageTargets`, compiler paths, or SDK installation
+roots. The SDK, templates, compiler, Core, and Macros versions move together.
 
 Build and validate the packages locally with:
 
@@ -153,8 +158,9 @@ scripts/package-nuget.sh 0.1.0-preview.1
 Packages and symbol packages are written to `artifacts/packages`. Set
 `RAVEN_NUGET_OUTPUT` to use another directory. Validation checks package
 contents and metadata, then restores and builds isolated consumer projects
-from the local package directory. The Raven consumer executes a packaged macro
-and asserts that a packaged analyzer reports its expected diagnostic.
+from the local package directory. The Raven consumer resolves Core and Macros
+implicitly through `Raven.Sdk`, executes a packaged macro, and asserts that a
+packaged analyzer reports its expected diagnostic.
 It also installs `Raven.Templates` into an isolated .NET CLI home and
 materializes and builds all four template variants without changing the
 operator's machine-wide template registrations. The console result is also
@@ -165,6 +171,8 @@ After publication, install and use the templates with:
 ```bash
 dotnet new install Raven.Templates@VERSION
 dotnet new raven-console -n HelloRaven
+cd HelloRaven
+dotnet run
 dotnet new raven-classlib -n MyLibrary
 dotnet new raven-web -n RavenWeb
 dotnet new raven-nano -n RavenBlinky
@@ -172,6 +180,34 @@ dotnet new raven-nano -n RavenBlinky
 
 Replace `VERSION` with the release version being installed. Specifying it is
 required while Raven is distributed only as prerelease packages.
+
+The MVP intentionally uses the base `Raven.Sdk` plus a framework reference for
+minimal ASP.NET Core applications. A dedicated `Raven.Sdk.Web` remains future
+work for Razor, static web assets, and the complete Web SDK publishing model.
+The nanoFramework template remains on its specialized target and does not take
+the desktop `Raven.Core` or `Raven.Macros` packages, which currently target
+`net10.0` and `net11.0`.
+
+### MVP boundary and follow-up
+
+The first installable SDK release is complete when the manually dispatched
+release publishes one lockstep version of the NuGet family, standalone SDK
+archives/installers, and VSIX; the separate installation workflow must then
+create, restore, build, run, and publish generated projects through the public
+distribution channels on the supported operating systems.
+
+The following improvements are intentionally outside that MVP:
+
+- a dedicated `Raven.Sdk.Web` for Razor, static web assets, and all Web SDK
+  publish defaults;
+- a nanoFramework-compatible Raven.Core and standard-macro surface, potentially
+  exposed through `Raven.Sdk.nanoFramework`;
+- a .NET global tool and package-manager manifests for installing `rvn`;
+- VS Code Marketplace publication (the VSIX remains a GitHub release asset);
+- a .NET workload manifest, which is unnecessary while the compiler toolchain
+  can be restored as a normal NuGet Project SDK; and
+- signing/notarization and additional supply-chain provenance beyond release
+  checksums and NuGet Trusted Publishing.
 
 NuGet.org publication only runs when an operator manually dispatches the
 workflow against the matching `v<version>` tag and enables `publish_nuget`.

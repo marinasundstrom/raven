@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added the NuGet-resolved `Raven.Sdk` MSBuild Project SDK on top of
+  `Microsoft.NET.Sdk`. Generated projects now pin the matching Raven SDK and
+  build through ordinary `dotnet restore`, `build`, `run`, and `publish`
+  commands without machine-specific compiler paths. The SDK adds lockstep
+  implicit `Raven.Core` and `Raven.Macros` packages, and failed builds retain
+  Raven diagnostics without printing the complete compiler reference command.
+
 - Added a lockstep `Raven.Templates` NuGet template package for normal
   `dotnet new` usage. Console, class-library, ASP.NET Core, and .NET
   nanoFramework templates now share their canonical project content with the

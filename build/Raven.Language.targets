@@ -122,17 +122,28 @@
     <MakeDir Directories="$(_RavenIntermediateOutputPath)" />
 
     <ItemGroup>
+      <_RavenCoreReference Include="@(ReferencePath)" Condition="Exists('%(FullPath)') and '%(Filename)' == 'Raven.Core'" />
       <_RavenReferencePath Include="@(ReferencePath)" Condition="Exists('%(FullPath)') and '%(Filename)' != 'Raven.Core'" />
     </ItemGroup>
 
     <PropertyGroup>
+      <RavenCoreReferencePath Condition="'$(RavenCoreReferencePath)' == '' and '@(_RavenCoreReference)' != ''">@(_RavenCoreReference->'%(FullPath)')</RavenCoreReferencePath>
+      <RavenCoreArgument Condition="'$(RavenCoreReferencePath)' != ''">--raven-core &quot;$(RavenCoreReferencePath)&quot;</RavenCoreArgument>
       <RavenReferenceArguments>@(_RavenReferencePath->'--refs &quot;%(FullPath)&quot;', ' ')</RavenReferenceArguments>
       <_RavenConstantArguments>@(RavenConstant->'--constant &quot;%(Identity)=%(Value)&quot;', ' ')</_RavenConstantArguments>
     </PropertyGroup>
 
     <Message Importance="High" Text="Raven CoreCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath).&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(RavenExternalConstantOverridesArgument) $(_RavenConstantArguments) --no-project-restore $(RavenFrameworkReferencesArgument) $(RavenTargetCoreLibraryArgument) $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath).&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(RavenExternalConstantOverridesArgument) $(_RavenConstantArguments) --no-project-restore $(RavenFrameworkReferencesArgument) $(RavenTargetCoreLibraryArgument) $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)"
+      EchoOff="true"
+      IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="_RavenCompilerExitCode" />
+    </Exec>
+    <Error
+      Condition="'$(_RavenCompilerExitCode)' != '0'"
+      Code="RAVENBUILD"
+      Text="Raven compilation failed. See the compiler diagnostics above." />
 
     <MakeDir Directories="@(IntermediateRefAssembly->'%(RootDir)%(Directory)')" Condition="'@(IntermediateRefAssembly)' != ''" />
     <Copy
