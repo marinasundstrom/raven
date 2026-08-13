@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 temporary_root="${TMPDIR:-/tmp}"
 output_directory="$(mktemp -d "$temporary_root/raven-native-aot-smoke.XXXXXX")"
 log_file="$(mktemp "$temporary_root/raven-native-aot-smoke.XXXXXX.log")"
+ilverify_directory="$(mktemp -d "$temporary_root/raven-native-aot-ilverify.XXXXXX")"
 
 cleanup() {
   case "$output_directory" in
@@ -22,8 +23,29 @@ cleanup() {
       fi
       ;;
   esac
+
+  case "$ilverify_directory" in
+    "$temporary_root"/raven-native-aot-ilverify.*)
+      if [[ -d "$ilverify_directory" && ! -L "$ilverify_directory" ]]; then
+        rm -rf -- "$ilverify_directory"
+      fi
+      ;;
+  esac
 }
 trap cleanup EXIT
+
+compiler="$repo_root/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll"
+project="$repo_root/samples/projects/greenhouse-monitor/GreenhouseMonitor.rvnproj"
+
+if [[ "${FORCE_REBUILD:-0}" == "1" || ! -f "$compiler" ]]; then
+  "$repo_root/scripts/codex-build.sh"
+fi
+
+dotnet "$compiler" \
+  "$project" \
+  --configuration Release \
+  --ilverify \
+  --output "$ilverify_directory"
 
 if ! OUTPUT_DIR="$output_directory" RUN=1 \
   "$repo_root/samples/projects/greenhouse-monitor/publish-aot.sh" "$@" \

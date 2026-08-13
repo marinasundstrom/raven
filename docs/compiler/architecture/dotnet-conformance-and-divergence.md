@@ -266,12 +266,12 @@ pass, `BooleanExpressionOptimizer` applies side-effect-preserving identities to
 built-in Boolean expressions, normalizes comparisons with Boolean literals,
 and recognizes constants through identity wrappers so more literal conditions
 become visible.
-`UnreachableCodeOptimizer` performs conservative reachability over each
-lowered block and removes statements that have no fallthrough or branch path.
-`BranchOptimizer` then removes unconditional branches to immediately following
-labels and inverts local conditional-branch-over-goto shapes. New passes should
-remain local and conservative until profiling or
-emitted-shape evidence justifies broader data-flow or control-flow optimization.
+Unreachable-statement deletion is deferred until reachability accounts for all
+resumable state-machine entry paths. Branch removal and inversion are likewise
+deferred until the analysis can preserve scope-exit disposal behavior carried
+by lowered gotos. New passes should remain local and conservative until
+profiling or emitted-shape evidence justifies broader data-flow or control-flow
+optimization.
 
 This policy is especially relevant to ahead-of-time targets: Release should
 hand the AOT compiler canonical, verifiable IL with avoidable control-flow,

@@ -49,13 +49,9 @@ Release-only coordinator applies specialized rewriters in this order:
 1. `PatternOptimizer`
 2. `BooleanExpressionOptimizer`
 3. `ControlFlowOptimizer`
-4. `UnreachableCodeOptimizer`
-5. `BranchOptimizer`
 
 Ordering is intentional. Expression and pattern simplification can expose
-literal conditions; literal conditions can expose unreachable statements;
-reachability cleanup can make branches adjacent; branch cleanup then canonicalizes
-the remaining lowered control flow.
+literal conditions, which the control-flow pass can then simplify.
 
 ### Pattern algebra
 
@@ -86,31 +82,6 @@ operators and lifted operators are not treated as built-in Boolean identities.
 conditions have become Boolean constants. This is a structural bound-tree
 rewrite; Debug continues to lower and emit the original shape.
 
-### Reachability
-
-`UnreachableCodeOptimizer` performs conservative reachability within each
-lowered block. It follows fallthrough, direct gotos, conditional gotos, and
-lowered break/continue targets. Statements after terminal transfers are removed
-when no branch can reach them.
-
-The analysis does not claim whole-method or exception-region knowledge. Authored
-source labels are seeded as reachable, and transfers found in nested statements
-are retained conservatively.
-
-### Branch cleanup
-
-`BranchOptimizer` removes an unconditional goto whose target label immediately
-follows it. It also rewrites the local shape:
-
-```text
-conditional-goto fallthrough
-goto target
-fallthrough:
-```
-
-to an inverted conditional goto targeting `target`, followed by normal
-fallthrough. The condition is still evaluated exactly once.
-
 ## Release emission adjustments
 
 Release emission also:
@@ -140,8 +111,13 @@ Changes to the optimization pipeline should normally validate:
 
 ## Deferred work
 
-The MVP intentionally does not include arithmetic constant folding, dead-store
-elimination, copy propagation, common-subexpression elimination, inlining,
-loop optimization, or general cross-block data-flow analysis. Those features
+The MVP intentionally does not include unreachable-statement deletion, branch
+removal, or branch inversion. Resumable state machines have entry paths that a
+block-local reachability pass cannot see, and lowered gotos can carry scope-exit
+disposal behavior during emission. Future `UnreachableCodeOptimizer` and
+`BranchOptimizer` passes must therefore use state-machine- and scope-aware
+control-flow information. Arithmetic constant folding, dead-store elimination,
+copy propagation, common-subexpression elimination, inlining, loop optimization,
+and general cross-block data-flow analysis are also deferred. Those features
 need stronger overflow, exception, aliasing, lifetime, and side-effect models,
 and should be justified by emitted-shape measurements or profiles.

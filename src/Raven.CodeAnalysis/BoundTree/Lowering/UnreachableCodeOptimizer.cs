@@ -5,8 +5,8 @@ namespace Raven.CodeAnalysis;
 
 /// <summary>
 /// Removes statements proven unreachable within one lowered block. The
-/// analysis is deliberately conservative across nested blocks and exception
-/// regions.
+/// analysis is not part of the Release pipeline until it can account for all
+/// resumable state-machine entry paths.
 /// </summary>
 internal sealed class UnreachableCodeOptimizer : BoundTreeRewriter
 {

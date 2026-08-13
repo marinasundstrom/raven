@@ -2,7 +2,9 @@ namespace Raven.CodeAnalysis;
 
 /// <summary>
 /// Removes unconditional branches that target the immediately following
-/// label and therefore have the same behavior as fallthrough.
+/// label and inverts local conditional-branch-over-goto shapes. This rewriter
+/// is not part of the Release pipeline until it can preserve scope-exit
+/// disposal semantics.
 /// </summary>
 internal sealed class BranchOptimizer : BoundTreeRewriter
 {
