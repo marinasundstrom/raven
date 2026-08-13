@@ -71,7 +71,32 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
 
         var documentation = method.GetDocumentationComment();
         Assert.NotNull(documentation);
+        Assert.Equal(DocumentationFormat.Markdown, documentation!.Format);
         Assert.Contains("operation context", documentation!.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RavenCoreGenericResultType_PreservesMarkdownDocumentation()
+    {
+        var compilation = Compilation.Create(
+            "consumer",
+            syntaxTrees: [],
+            references: TestMetadataReferences.DefaultWithRavenCore,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var resultType = compilation.GetTypeByMetadataName("System.Result`2");
+        Assert.NotNull(resultType);
+
+        var documentation = resultType!.GetDocumentationComment();
+        Assert.NotNull(documentation);
+        Assert.Equal(DocumentationFormat.Markdown, documentation!.Format);
+        Assert.Contains("## Usage", documentation.Content, StringComparison.Ordinal);
+        Assert.Contains("```raven", documentation.Content, StringComparison.Ordinal);
+
+        var formatted = DocumentationDisplayFormatter.FormatForMarkdown(documentation);
+        Assert.NotNull(formatted);
+        Assert.Contains("## Usage", formatted, StringComparison.Ordinal);
+        Assert.Contains("```raven", formatted, StringComparison.Ordinal);
     }
 
     [Theory]

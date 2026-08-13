@@ -2950,6 +2950,47 @@ class WidgetPrinter
     }
 
     [Fact]
+    public void MarkdownDocumentationHover_PreservesHeadingsAndFencedCodeBlocks()
+    {
+        const string code = """
+/// Represents a result value.
+///
+/// ## Usage
+///
+/// ```raven
+/// let result: Result<int, string> = Ok(42)
+/// ```
+class ResultExample
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(
+            code,
+            new ParseOptions { DocumentationFormat = DocumentationFormat.Markdown },
+            path: "/workspace/test.rav");
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var typeDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var documentation = semanticModel.GetDeclaredSymbol(typeDeclaration)!.GetDocumentationComment();
+
+        var formatDocumentation = typeof(HoverHandler)
+            .GetMethod("FormatDocumentation", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var formatted = (string?)formatDocumentation.Invoke(null, [documentation]);
+
+        formatted.ShouldNotBeNull();
+        formatted.ShouldContain("## Usage");
+        formatted.ShouldContain("```raven");
+        formatted.ShouldContain("let result: Result<int, string> = Ok(42)");
+    }
+
+    [Fact]
     public void ContinueWithBody_ResultHover_ResolvesTaskResultProperty()
     {
         const string code = """
