@@ -72,6 +72,7 @@ default; nonessential rules are opt-in. The full returned-value mode extends
 | Usage | `RAV9033` | Default | Warning | Dispose a disposable value before leaving its scope. |
 | Usage | `RAV9034` | Default | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
 | Style | `RAV9035` | Opt-in | Info | Prefer `let` over `val` for immutable lexical bindings. |
+| Style | `RAV9036` | Opt-in | Info | Prefer `loop` over `while true` for an unconditional loop. |
 
 ### Known `RAV9027` macro-fragment gap
 

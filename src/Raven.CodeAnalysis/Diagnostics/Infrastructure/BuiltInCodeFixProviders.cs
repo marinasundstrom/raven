@@ -18,6 +18,7 @@ public static class BuiltInCodeFixProviders
             new PreferOptionOverNullableCodeFixProvider(),
             new PreferDuLinqExtensionsCodeFixProvider(),
             new PreferIsNullOverEqualityCodeFixProvider(),
+            new PreferLoopOverWhileTrueCodeFixProvider(),
             new ConstructorParameterNamingCodeFixProvider(),
             new ConversionCastCodeFixProvider(),
             new MatchExhaustivenessCodeFixProvider(),

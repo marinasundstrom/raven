@@ -99,6 +99,7 @@ public static class BuiltInAnalyzers
         project = AddOptionalAnalyzerIfEnabled<PreferNewLineBetweenDeclarationsAnalyzer>(project, StyleCategory);
         project = AddOptionalAnalyzerIfEnabled<UnnecessaryTrailingSeparatorAnalyzer>(project, StyleCategory);
         project = AddOptionalAnalyzerIfEnabled<PreferLetInsteadOfValAnalyzer>(project, StyleCategory);
+        project = AddOptionalAnalyzerIfEnabled<PreferLoopOverWhileTrueAnalyzer>(project, StyleCategory);
 
         return project;
     }

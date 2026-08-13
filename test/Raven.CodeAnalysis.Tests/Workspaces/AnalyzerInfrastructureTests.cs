@@ -1131,6 +1131,7 @@ class C {
         analyzers.ShouldContain(static analyzer => analyzer is NonNullDeclarationsAnalyzer);
         analyzers.ShouldContain(static analyzer => analyzer is UnusedParameterAnalyzer);
         analyzers.ShouldContain(static analyzer => analyzer is PreferLetInsteadOfValAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is PreferLoopOverWhileTrueAnalyzer);
     }
 
     [Fact]

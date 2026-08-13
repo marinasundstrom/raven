@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added the opt-in `PreferLoopOverWhileTrueAnalyzer` (`RAV9036`) and a code fix
+  that replaces unconditional `while true` statements with `loop`.
+
 - Added explicit Debug and Release compiler optimization policies. Release
   project builds now run an ordered pipeline of specialized bound-tree
   rewriters, beginning with conservative pattern algebra, Boolean-expression
