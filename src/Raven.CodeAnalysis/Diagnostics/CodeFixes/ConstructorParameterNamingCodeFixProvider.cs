@@ -81,7 +81,7 @@ public sealed class ConstructorParameterNamingCodeFixProvider : CodeFixProvider
                     if (document is null)
                         return solution;
 
-                    var updated = document.Text;
+                    var updated = document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult();
                     foreach (var span in replacements
                                  .Distinct()
                                  .OrderByDescending(static s => s.Start))

@@ -1,7 +1,7 @@
 # Built-in analyzers
 
-Raven ships analyzers with the compiler so projects can adopt consistent
-guidance without installing a separate package. Analyzer diagnostics do not
+Raven ships a core analyzer set with the compiler and publishes recommended
+naming and style rules in `Raven.Analyzers`. Analyzer diagnostics do not
 change whether a program is valid Raven. They form a policy layer over the
 language: keep the defaults, promote selected rules to errors, lower their
 severity, or disable them to suit the project.
@@ -24,8 +24,9 @@ dotnet_diagnostic.RAV9034.severity = error
 dotnet_diagnostic.RAV9013.severity = none
 ```
 
-For an opt-in rule, first add its analyzer type to `RavenEnabledAnalyzers` in
-the project file. A severity entry alone does not activate an optional analyzer.
+For an opt-in core rule, first add its analyzer type to
+`RavenEnabledAnalyzers` in the project file. For a disabled-by-default rule in
+`Raven.Analyzers`, an explicit non-`default` severity activates that rule.
 
 Use another section for legacy `.rav` files when a project contains them:
 
@@ -43,13 +44,15 @@ participation, source suppression, and the opt-in full returned-value mode.
 
 “Severity” means the descriptor severity before any `.editorconfig`, project,
 or command-line override. Analyzers are grouped by kind, and each analyzer has
-its own participation default. Raven enables correctness and safety checks by
-default; nonessential rules are opt-in. The full returned-value mode extends
-`RAV9034` to bare calls and member accesses.
+its own participation default. Raven enables correctness and safety checks in
+the core set by default. Install `Raven.Analyzers` to add the recommended
+policy layer. The full returned-value mode extends `RAV9034` to bare calls and
+member accesses.
+
+### Core compiler analyzers
 
 | Kind | ID | Participation | Severity | Rule |
 | --- | --- | --- | --- | --- |
-| Style | `RAV1051` | Opt-in | Warning | Prefer a newline between declarations. |
 | Typing | `RAV9001` | Opt-in | Info | Add an inferred return type annotation. |
 | Typing | `RAV9003` | Default | Warning | Make an event delegate nullable when the event can be empty. |
 | Typing | `RAV9004` | Opt-in | Warning | Use `let` when a local declared with `var` is never reassigned. |
@@ -62,17 +65,26 @@ default; nonessential rules are opt-in. The full returned-value mode extends
 | Design | `RAV9017` | Opt-in | Info | Make a method static when it does not use instance data. |
 | Usage | `RAV9018` | Opt-in | Warning | Remove or use a property that is never referenced. |
 | Usage | `RAV9019` | Opt-in | Warning | Remove or invoke a method that is never referenced. |
-| Naming | `RAV9023` | Opt-in | Warning | Follow Raven's constructor-parameter naming convention. |
 | Immutability | `RAV9026` | Default | Warning | Use the new value returned by an immutable collection operation. |
 | Usage | `RAV9027` | Default | Warning | Remove or use an unused local value. |
-| Style | `RAV9028` | Opt-in | Warning | Remove an unnecessary trailing separator. |
 | Usage | `RAV9030` | Opt-in | Warning | Remove or use an unused parameter. |
 | Usage | `RAV9031` | Default | Hidden | Remove an unused import directive. |
 | Initialization | `RAV9032` | Default | Warning | Initialize a field in storage or a constructor. |
 | Usage | `RAV9033` | Default | Warning | Dispose a disposable value before leaving its scope. |
 | Usage | `RAV9034` | Default | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
+
+### Recommended analyzer package
+
+Add a `PackageReference` to `Raven.Analyzers`. NuGet exposes its assembly
+through `analyzers/dotnet`, which Raven's project system loads automatically.
+
+| Kind | ID | Participation | Severity | Rule |
+| --- | --- | --- | --- | --- |
+| Naming | `RAV9023` | Opt-in | Warning | Follow Raven's constructor-parameter naming convention. |
+| Style | `RAV9028` | Opt-in | Warning | Remove an unnecessary trailing separator. |
 | Style | `RAV9035` | Opt-in | Info | Prefer `let` over `val` for immutable lexical bindings. |
-| Style | `RAV9036` | Opt-in | Info | Prefer `loop` over `while true` for an unconditional loop. |
+| Style | `RAV9036` | Default | Info | Prefer `loop` over `while true` for an unconditional loop. |
+| Style | `RAV1051` | Opt-in | Warning | Prefer a newline between declarations. |
 
 ### Known `RAV9027` macro-fragment gap
 

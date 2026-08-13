@@ -81,7 +81,7 @@ Not every built-in rewrite should stay diagnostic-backed. The current rule is:
 - Use a context-driven refactoring/suggestion when the rewrite is primarily stylistic, reversible,
   and not meaningfully "wrong" code.
 
-Built-in analyzers that should remain diagnostic-backed include:
+Core and packaged analyzers that should remain diagnostic-backed include:
 
 - `MissingReturnTypeAnnotationAnalyzer`
 - `EventDelegateMustBeNullableAnalyzer`
@@ -103,9 +103,9 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`
 
-`PreferLetInsteadOfValAnalyzer` (`RAV9035`) remains available as an optional
-style-policy analyzer with a corresponding code fix. Projects can enable it
-through `RavenEnabledAnalyzers`. It does not apply to
+`PreferLetInsteadOfValAnalyzer` (`RAV9035`) is distributed in
+`Raven.Analyzers` as an optional style-policy analyzer with a corresponding
+code fix. Projects enable it with an explicit diagnostic severity. It does not apply to
 properties or other signature-like declarations, where `val` remains the
 preferred read-only spelling.
 

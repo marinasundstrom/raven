@@ -3,6 +3,13 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public class AnalyzerDiagnosticIdValidatorTests
 {
     [Fact]
+    public void IsInternalAnalyzer_RecognizesOfficialAnalyzerPackage()
+    {
+        AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(new global::Raven.CodeAnalysis.Diagnostics.PreferLoopOverWhileTrueAnalyzer())
+            .ShouldBeTrue();
+    }
+
+    [Fact]
     public void Validate_ExternalAnalyzerWithRavPrefix_Throws()
     {
         Should.Throw<InvalidOperationException>(() =>
@@ -30,10 +37,4 @@ public class AnalyzerDiagnosticIdValidatorTests
             AnalyzerDiagnosticIdValidator.Validate("Raven.CodeAnalysis.Diagnostics.InternalAnalyzer", "RAV9900", isInternalAnalyzer: true));
     }
 
-    [Fact]
-    public void Validate_PreferNewLineAnalyzerWithRav1051_DoesNotThrow()
-    {
-        Should.NotThrow(() =>
-            AnalyzerDiagnosticIdValidator.Validate("Raven.CodeAnalysis.Diagnostics.PreferNewLineBetweenDeclarationsAnalyzer", "RAV1051", isInternalAnalyzer: true));
-    }
 }

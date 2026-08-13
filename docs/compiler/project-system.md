@@ -253,6 +253,12 @@ Both paths are resolved relative to the project file. An extension assembly may
 contain multiple public, non-abstract extension types with parameterless
 constructors.
 
+A direct `PackageReference` can provide the same analyzer assembly through
+NuGet's conventional `analyzers/dotnet` path. Raven reads those assets from the
+existing `project.assets.json` during `dotnet build --no-project-restore`, so it
+does not perform a nested restore. Analyzer assets from unrelated transitive
+compiler dependencies are not loaded as Raven analyzers.
+
 When the extension is built alongside the Raven project, use a
 `ProjectReference` to establish build ordering without adding the extension as
 an application metadata reference:

@@ -28,7 +28,13 @@ public class CodeFixVerifier<TAnalyzer, TCodeFixProvider>
 
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         if (project.CompilationOptions is { } compilationOptions)
-            project = project.WithCompilationOptions(compilationOptions.WithEnableSuggestions(Test.State.EnableSuggestions));
+        {
+            compilationOptions = compilationOptions.WithEnableSuggestions(Test.State.EnableSuggestions);
+            foreach (var (diagnosticId, option) in Test.State.SpecificDiagnosticOptions)
+                compilationOptions = compilationOptions.WithSpecificDiagnosticOption(diagnosticId, option);
+
+            project = project.WithCompilationOptions(compilationOptions);
+        }
 
         project = project.AddAnalyzerReference(new AnalyzerReference(new TAnalyzer()));
         foreach (var reference in Test.State.ReferenceAssemblies)

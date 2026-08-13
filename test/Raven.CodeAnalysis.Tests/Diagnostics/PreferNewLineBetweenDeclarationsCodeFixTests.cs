@@ -17,7 +17,11 @@ extension T for A {}
         var verifier = CreateCodeFixVerifier<PreferNewLineBetweenDeclarationsAnalyzer, PreferNewLineBetweenDeclarationsCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(PreferNewLineBetweenDeclarationsAnalyzer.DiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(PreferNewLineBetweenDeclarationsAnalyzer.DiagnosticId).WithAnySpan()],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [PreferNewLineBetweenDeclarationsAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }

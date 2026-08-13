@@ -23,7 +23,11 @@ class Foo {
                     .WithLocation(2, 10)
                     .WithArguments("Name", "camelCase naming")
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [ConstructorParameterNamingAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }
@@ -43,7 +47,11 @@ class Foo(var name: string)
                     .WithLocation(1, 15)
                     .WithArguments("name", "PascalCase naming")
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [ConstructorParameterNamingAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }
@@ -65,7 +73,11 @@ class Foo(Name: string) {
                     .WithLocation(1, 11)
                     .WithArguments("Name", "camelCase naming")
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [ConstructorParameterNamingAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }

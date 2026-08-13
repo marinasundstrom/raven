@@ -365,6 +365,75 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void ResolveReferencesFromAssets_ExposesNuGetAnalyzerAssets()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var analyzerAssemblyPath = Path.Combine(
+            globalPackages,
+            "fake.analyzers",
+            "1.0.0",
+            "analyzers",
+            "dotnet",
+            "Fake.Analyzers.dll");
+        var assetsPath = Path.Combine(root, "project.assets.json");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(analyzerAssemblyPath)!);
+        File.Copy(typeof(object).Assembly.Location, analyzerAssemblyPath);
+        File.WriteAllText(
+            assetsPath,
+            $$"""
+            {
+              "targets": {
+                "{{TestMetadataReferences.TargetFramework}}": {
+                  "Fake.Analyzers/1.0.0": {
+                    "type": "package"
+                  }
+                }
+              },
+              "libraries": {
+                "Fake.Analyzers/1.0.0": {
+                  "type": "package",
+                  "path": "fake.analyzers/1.0.0",
+                  "files": [
+                    "analyzers/dotnet/Fake.Analyzers.dll",
+                    "analyzers/dotnet/Fake.Analyzers.pdb"
+                  ]
+                }
+              },
+              "project": {
+                "frameworks": {
+                  "{{TestMetadataReferences.TargetFramework}}": {
+                    "dependencies": {
+                      "Fake.Analyzers": {
+                        "target": "Package",
+                        "version": "[1.0.0, )"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var resolution = NuGetPackageResolver.ResolveReferencesFromAssets(
+                assetsPath,
+                globalPackages,
+                TestMetadataReferences.TargetFramework);
+
+            Assert.Equal(
+                Path.GetFullPath(analyzerAssemblyPath),
+                Assert.Single(resolution.AnalyzerReferencePaths));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ResolveReferencesFromAssets_NanoFrameworkAcceptsCanonicalFrameworkName()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

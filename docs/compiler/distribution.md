@@ -1,9 +1,9 @@
 # Raven Distribution
 
-Raven ships as two artifacts: a platform-specific Raven SDK archive and a
-platform-independent VS Code extension. The SDK archive is the canonical
-installation layout used by direct downloads and future package-manager
-manifests.
+Raven ships platform-specific SDK archives, a platform-independent VS Code
+extension, and a lockstep family of compiler libraries as NuGet packages. The
+SDK archive is the canonical installation layout used by direct downloads and
+future package-manager manifests.
 
 ## SDK layout
 
@@ -100,9 +100,54 @@ Release automation should build these runtime identifiers:
 - `osx-arm64`
 
 The `Distribution` GitHub Actions workflow builds all six archives and the
-VSIX. Tagging a commit as `v<version>` creates or updates the corresponding
-GitHub release with installers and checksums. A manual workflow run produces
-the same files as a workflow artifact without publishing a release.
+VSIX together with the NuGet package family. Distribution is deliberately a
+manual process: neither a branch push nor a tag push starts the workflow. Start
+`Distribution` from the GitHub Actions UI, select the commit or tag to build,
+and provide the version explicitly. By default the run only produces retained
+workflow artifacts and does not publish anything externally.
+
+The dispatch form has separate opt-in switches for publishing a GitHub release
+and publishing the NuGet package family. Either publishing operation requires
+the workflow to be dispatched against the matching `v<version>` tag. This keeps
+building, creating a GitHub release, and pushing to NuGet.org explicit release
+operator decisions while reusing one validated artifact set.
+
+## NuGet packages
+
+Raven's initial NuGet family contains:
+
+- `Raven.Core`: core types and runtime support for compiled Raven programs.
+- `Raven.Macros`: Raven's standard compiler macros.
+- `Raven.CodeAnalysis`: public syntax, semantic, workspace, diagnostic, and
+  emission APIs.
+- `Raven.Analyzers`: recommended naming and style analyzers and code fixes,
+  delivered through NuGet's `analyzers/dotnet` asset convention.
+
+All packages in a release are built from the same commit and receive the same
+version. `Raven.Macros` carries a package dependency on the matching
+`Raven.CodeAnalysis` version. `Raven.Analyzers` intentionally carries no
+runtime dependency: it binds to the compiler host's matching
+`Raven.CodeAnalysis` assembly when the analyzer asset is loaded.
+
+Build and validate the packages locally with:
+
+```bash
+scripts/package-nuget.sh 0.1.0-preview.1
+```
+
+Packages and symbol packages are written to `artifacts/packages`. Set
+`RAVEN_NUGET_OUTPUT` to use another directory. Validation checks package
+contents and metadata, then restores and builds isolated consumer projects
+from the local package directory. The Raven consumer executes a packaged macro
+and asserts that a packaged analyzer reports its expected diagnostic.
+
+NuGet.org publication only runs when an operator manually dispatches the
+workflow against the matching `v<version>` tag and enables `publish_nuget`.
+The publishing job uses NuGet Trusted Publishing for package owner `marna.li`,
+repository `marinasundstrom/raven`, and workflow file `distribution.yml`; it
+does not use a stored, long-lived API key. Leave the trusted publisher's
+environment field empty because this workflow does not declare a GitHub
+environment.
 
 ## VS Code extension
 

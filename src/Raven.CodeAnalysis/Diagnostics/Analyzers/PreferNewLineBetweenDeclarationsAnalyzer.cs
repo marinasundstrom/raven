@@ -6,6 +6,16 @@ public sealed class PreferNewLineBetweenDeclarationsAnalyzer : DiagnosticAnalyze
 {
     public const string DiagnosticId = "RAV1051";
 
+    private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+        id: DiagnosticId,
+        title: "Prefer a newline between declarations",
+        description: null,
+        helpLinkUri: string.Empty,
+        messageFormat: "Place declarations on separate lines.",
+        category: "Style",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: false);
+
     public override void Initialize(AnalysisContext context)
     {
         context.RegisterSyntaxNodeAction(AnalyzeCompilationUnit, SyntaxKind.CompilationUnit);
@@ -57,7 +67,7 @@ public sealed class PreferNewLineBetweenDeclarationsAnalyzer : DiagnosticAnalyze
             {
                 context.ReportDiagnostic(
                     Diagnostic.Create(
-                        CompilerDiagnostics.PreferNewLineBetweenDeclarations,
+                        Descriptor,
                         terminatorToken.GetLocation()));
             }
         }

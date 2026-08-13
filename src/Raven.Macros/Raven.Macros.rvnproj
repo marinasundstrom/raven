@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\eng\Package.props" />
+
   <PropertyGroup>
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <AssemblyName>Raven.Macros</AssemblyName>
@@ -7,11 +9,14 @@
     <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
     <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
     <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Raven.Compiler\bin\$(Configuration)\$(TargetFramework)\rvnc.dll'))</RavenCompilerHost>
+    <PackageId>Raven.Macros</PackageId>
+    <Title>Raven Standard Macros</Title>
+    <Description>Standard compiler macros for Raven programs.</Description>
+    <PackageTags>$(PackageTags);macros;metaprogramming</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj"
-                      PrivateAssets="all" />
+    <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" />
     <ProjectReference Include="../Raven.Compiler/Raven.Compiler.csproj"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all"

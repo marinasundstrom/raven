@@ -12,6 +12,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 {
     private readonly RavenProjectConventions _conventions;
     private readonly bool _resolvePackageReferences;
+    private readonly bool _allowPackageRestore;
     private readonly string? _requestedConfiguration;
     private readonly string? _requestedTargetFramework;
     private readonly bool? _useHostFrameworkReferences;
@@ -34,7 +35,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             requestedConfiguration: null,
             requestedTargetFramework: null,
             useHostFrameworkReferences: null,
-            compilerSupportReferencePaths: null)
+            compilerSupportReferencePaths: null,
+            allowPackageRestore: true)
     {
     }
 
@@ -44,10 +46,12 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         string? requestedConfiguration,
         string? requestedTargetFramework,
         bool? useHostFrameworkReferences = null,
-        IEnumerable<string>? compilerSupportReferencePaths = null)
+        IEnumerable<string>? compilerSupportReferencePaths = null,
+        bool allowPackageRestore = true)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
+        _allowPackageRestore = allowPackageRestore;
         _requestedConfiguration = requestedConfiguration;
         _requestedTargetFramework = requestedTargetFramework;
         _useHostFrameworkReferences = useHostFrameworkReferences;
@@ -166,12 +170,18 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 projectFilePath,
                 tfm,
                 evaluation.PackageReferences,
-                evaluation.FrameworkReferences);
+                evaluation.FrameworkReferences,
+                _allowPackageRestore);
 
             foreach (var packageReference in packageReferences.MetadataReferences)
                 solution = solution.AddMetadataReference(projectId, packageReference);
             foreach (var macroReference in packageReferences.MacroReferences)
                 solution = solution.AddMacroReference(projectId, macroReference);
+            foreach (var analyzerReferencePath in packageReferences.AnalyzerReferencePaths)
+            {
+                var assembly = ExtensionAssemblyLoader.LoadFromPath(analyzerReferencePath);
+                solution = solution.AddAnalyzerReference(projectId, new AnalyzerReference(assembly));
+            }
         }
 
         foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)

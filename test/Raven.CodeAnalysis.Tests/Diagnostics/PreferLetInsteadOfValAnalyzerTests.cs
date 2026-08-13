@@ -17,7 +17,11 @@ public class PreferLetInsteadOfValAnalyzerTests : AnalyzerTestBase
                 new DiagnosticResult(PreferLetInsteadOfValAnalyzer.PreferLetInsteadOfValDiagnosticId)
                     .WithLocation(1, 1)
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [PreferLetInsteadOfValAnalyzer.PreferLetInsteadOfValDiagnosticId] = ReportDiagnostic.Info,
+            });
 
         verifier.Verify();
     }

@@ -27,7 +27,11 @@ class Foo {
         var verifier = CreateCodeFixVerifier<ConstructorParameterNamingAnalyzer, ConstructorParameterNamingCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(ConstructorParameterNamingAnalyzer.DiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(ConstructorParameterNamingAnalyzer.DiagnosticId).WithAnySpan()],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [ConstructorParameterNamingAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }
@@ -50,7 +54,11 @@ class Foo(var Name: string) {
         var verifier = CreateCodeFixVerifier<ConstructorParameterNamingAnalyzer, ConstructorParameterNamingCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(ConstructorParameterNamingAnalyzer.DiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(ConstructorParameterNamingAnalyzer.DiagnosticId).WithAnySpan()],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [ConstructorParameterNamingAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }

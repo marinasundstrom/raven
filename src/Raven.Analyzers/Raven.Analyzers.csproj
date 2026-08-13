@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RavenPackageReadmePath>$(MSBuildProjectDirectory)\README.md</RavenPackageReadmePath>
+  </PropertyGroup>
+
+  <Import Project="..\..\eng\Package.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Raven.Analyzers</AssemblyName>
+    <PackageId>Raven.Analyzers</PackageId>
+    <Title>Raven Recommended Analyzers</Title>
+    <Description>Recommended convention and style analyzers and code fixes for Raven projects.</Description>
+    <PackageTags>$(PackageTags);analyzers;code-fixes</PackageTags>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\Analyzers\PreferNewLineBetweenDeclarationsAnalyzer.cs" Link="Analyzers\PreferNewLineBetweenDeclarationsAnalyzer.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\Analyzers\ConstructorParameterNamingAnalyzer.cs" Link="Analyzers\ConstructorParameterNamingAnalyzer.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\Analyzers\UnnecessaryTrailingSeparatorAnalyzer.cs" Link="Analyzers\UnnecessaryTrailingSeparatorAnalyzer.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\Analyzers\PreferLetInsteadOfValAnalyzer.cs" Link="Analyzers\PreferLetInsteadOfValAnalyzer.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\Analyzers\PreferLoopOverWhileTrueAnalyzer.cs" Link="Analyzers\PreferLoopOverWhileTrueAnalyzer.cs" />
+
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\CodeFixes\PreferNewLineBetweenDeclarationsCodeFixProvider.cs" Link="CodeFixes\PreferNewLineBetweenDeclarationsCodeFixProvider.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\CodeFixes\ConstructorParameterNamingCodeFixProvider.cs" Link="CodeFixes\ConstructorParameterNamingCodeFixProvider.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\CodeFixes\PreferLetInsteadOfValCodeFixProvider.cs" Link="CodeFixes\PreferLetInsteadOfValCodeFixProvider.cs" />
+    <Compile Include="..\Raven.CodeAnalysis\Diagnostics\CodeFixes\PreferLoopOverWhileTrueCodeFixProvider.cs" Link="CodeFixes\PreferLoopOverWhileTrueCodeFixProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(TargetPath)" Pack="true" PackagePath="analyzers/dotnet" Visible="false" />
+    <None Include="$(TargetDir)$(AssemblyName).pdb" Pack="true" PackagePath="analyzers/dotnet" Visible="false" />
+  </ItemGroup>
+
+</Project>

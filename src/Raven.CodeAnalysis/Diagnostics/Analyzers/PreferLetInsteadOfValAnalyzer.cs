@@ -16,7 +16,8 @@ public sealed class PreferLetInsteadOfValAnalyzer : DiagnosticAnalyzer
         helpLinkUri: string.Empty,
         messageFormat: "Prefer 'let' for an immutable lexical binding.",
         category: "Style",
-        defaultSeverity: DiagnosticSeverity.Info);
+        defaultSeverity: DiagnosticSeverity.Info,
+        isEnabledByDefault: false);
 
     public override void Initialize(AnalysisContext context)
     {

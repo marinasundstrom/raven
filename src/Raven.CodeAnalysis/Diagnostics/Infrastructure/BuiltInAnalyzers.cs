@@ -12,8 +12,6 @@ public static class BuiltInAnalyzers
     private const string UsageCategory = "usage";
     private const string ErrorHandlingCategory = "errorhandling";
     private const string DesignCategory = "design";
-    private const string NamingCategory = "naming";
-    private const string StyleCategory = "style";
 
     public static Project AddBuiltInAnalyzers(this Project project, bool enableSuggestions = false)
     {
@@ -23,8 +21,6 @@ public static class BuiltInAnalyzers
         project = AddUsageAnalyzers(project);
         project = AddErrorHandlingAnalyzers(project);
         project = AddDesignAnalyzers(project);
-        project = AddNamingAnalyzers(project);
-        project = AddStyleAnalyzers(project);
 
         if (!enableSuggestions)
             return project;
@@ -83,23 +79,6 @@ public static class BuiltInAnalyzers
     {
         project = AddOptionalAnalyzerIfEnabled<MemberCanBePrivateAnalyzer>(project, DesignCategory);
         project = AddOptionalAnalyzerIfEnabled<MemberCanBeStaticAnalyzer>(project, DesignCategory);
-
-        return project;
-    }
-
-    private static Project AddNamingAnalyzers(Project project)
-    {
-        project = AddOptionalAnalyzerIfEnabled<ConstructorParameterNamingAnalyzer>(project, NamingCategory);
-
-        return project;
-    }
-
-    private static Project AddStyleAnalyzers(Project project)
-    {
-        project = AddOptionalAnalyzerIfEnabled<PreferNewLineBetweenDeclarationsAnalyzer>(project, StyleCategory);
-        project = AddOptionalAnalyzerIfEnabled<UnnecessaryTrailingSeparatorAnalyzer>(project, StyleCategory);
-        project = AddOptionalAnalyzerIfEnabled<PreferLetInsteadOfValAnalyzer>(project, StyleCategory);
-        project = AddOptionalAnalyzerIfEnabled<PreferLoopOverWhileTrueAnalyzer>(project, StyleCategory);
 
         return project;
     }

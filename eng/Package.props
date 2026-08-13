@@ -1,0 +1,46 @@
+<Project>
+  <PropertyGroup>
+    <Authors>Marina Sundström</Authors>
+    <Copyright>Copyright © Marina Sundström and contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/marinasundstrom/raven</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/marinasundstrom/raven.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RavenPackageReadmePath Condition="'$(RavenPackageReadmePath)' == ''">$(MSBuildThisFileDirectory)..\README.md</RavenPackageReadmePath>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>raven;compiler;dotnet</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Keep the CLR binding identity stable across lockstep preview packages.
+         PackageVersion and FileVersion still identify the concrete release. -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_IncludeRavenDocumentationInPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(RavenPackageReadmePath)"
+          Pack="true"
+          PackagePath="/"
+          Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)..\LICENSE"
+          Pack="true"
+          PackagePath="/"
+          Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_IncludeRavenDocumentationInPackage"
+          Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).xml"
+                            Condition="Exists('$(OutputPath)$(AssemblyName).xml')" />
+      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/*" />
+      <BuildOutputInPackage Include="@(_RavenMarkdownDocumentation)">
+        <TargetPath>$(AssemblyName).docs/%(_RavenMarkdownDocumentation.RecursiveDir)%(_RavenMarkdownDocumentation.Filename)%(_RavenMarkdownDocumentation.Extension)</TargetPath>
+      </BuildOutputInPackage>
+    </ItemGroup>
+  </Target>
+</Project>

@@ -17,7 +17,11 @@ public class PreferNewLineBetweenDeclarationsAnalyzerTests : AnalyzerTestBase
                 new DiagnosticResult(PreferNewLineBetweenDeclarationsAnalyzer.DiagnosticId)
                     .WithLocation(1, 11)
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [PreferNewLineBetweenDeclarationsAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }

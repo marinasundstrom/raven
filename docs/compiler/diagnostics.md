@@ -196,7 +196,6 @@ call site.
 | `RAV1024` | Error | Catch pattern must be an exception type pattern | Catch pattern '{patternKind}' is not supported here. Use an exception type pattern such as 'Exception ex'. | — |
 | `RAV1026` | Warning | List separators are inconsistent | Use either commas or newlines consistently to separate items in this list. | — |
 | `RAV1050` | Error | Public extension requires an identifier | Public extension declarations must have an explicit identifier | `samples/extensions/extension-methods-basic.rav`, `samples/extensions/static-extensions.rav` |
-| `RAV1051` | Warning | Prefer newline between declarations | Prefer newline between declarations. | — |
 | `RAV1501` | Error | No overload for method taking argument | No overload for {type} '{name}' takes {count} arguments | — |
 | `RAV1503` | Error | Cannot convert from type to type | Cannot convert from '{fromType}' to '{toType}' | — |
 | `RAV1504` | Error | Cannot assign to type | Cannot assign {fromType} to {toType} | — |

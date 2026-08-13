@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\eng\Package.props" />
+
   <PropertyGroup>
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <AssemblyName>Raven.Core</AssemblyName>
@@ -8,5 +10,9 @@
     <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GenerateXmlDocumentationFromMarkdownComments>true</GenerateXmlDocumentationFromMarkdownComments>
+    <PackageId>Raven.Core</PackageId>
+    <Title>Raven Core Library</Title>
+    <Description>Core types and runtime support used by programs compiled with the Raven compiler.</Description>
+    <PackageTags>$(PackageTags);core-library;runtime</PackageTags>
   </PropertyGroup>
 </Project>

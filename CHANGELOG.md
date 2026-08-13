@@ -4,6 +4,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added lockstep NuGet packaging for `Raven.Core`, `Raven.Macros`,
+  `Raven.CodeAnalysis`, and `Raven.Analyzers`, including package metadata,
+  symbols, isolated local-feed validation, GitHub release assets, and manual
+  matching-tag NuGet.org publication through Trusted Publishing. Distribution
+  runs and both publication operations require explicit workflow choices.
+  Package validation executes a distributed macro and loads a distributed
+  analyzer through the standard NuGet analyzer asset convention.
+
+- Separated documentation-site validation from publication. Relevant pull
+  requests continue to build the complete website, while pushes to `main` no
+  longer deploy it; GitHub Pages publication requires a manually dispatched
+  workflow with an explicit `publish_site` choice.
+
 - Added the opt-in `PreferLoopOverWhileTrueAnalyzer` (`RAV9036`) and a code fix
   that replaces unconditional `while true` statements with `loop`.
 

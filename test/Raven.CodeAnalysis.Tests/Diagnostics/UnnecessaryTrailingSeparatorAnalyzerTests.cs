@@ -18,7 +18,11 @@ public class UnnecessaryTrailingSeparatorAnalyzerTests : AnalyzerTestBase
                     .WithSpan(1, 32, 1, 33)
                     .WithArguments(",")
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [UnnecessaryTrailingSeparatorAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }
@@ -44,7 +48,11 @@ class C {
                     .WithSpan(5, 28, 5, 29)
                     .WithArguments(",")
             ],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [UnnecessaryTrailingSeparatorAnalyzer.DiagnosticId] = ReportDiagnostic.Warn,
+            });
 
         verifier.Verify();
     }

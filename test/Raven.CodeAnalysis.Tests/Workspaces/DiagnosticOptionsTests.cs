@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
@@ -32,6 +33,42 @@ public class DiagnosticOptionsTests
         }
     }
 
+    private sealed class DisabledByDefaultAnalyzer : DiagnosticAnalyzer
+    {
+        public static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0002",
+            title: "Disabled by default",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Disabled by default",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info,
+            isEnabledByDefault: false);
+
+        public override void Initialize(AnalysisContext context)
+            => context.RegisterSyntaxTreeAction(ctx =>
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None)));
+    }
+
+    [Fact]
+    public void DisabledByDefaultAnalyzer_IsSuppressedWithoutExplicitSeverity()
+    {
+        var diagnostics = GetDisabledByDefaultAnalyzerDiagnostics(new CompilationOptions(OutputKind.ConsoleApplication));
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == DisabledByDefaultAnalyzer.Descriptor.Id);
+    }
+
+    [Fact]
+    public void DisabledByDefaultAnalyzer_IsEnabledByExplicitSeverity()
+    {
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithSpecificDiagnosticOption(DisabledByDefaultAnalyzer.Descriptor.Id, ReportDiagnostic.Warn);
+
+        var diagnostics = GetDisabledByDefaultAnalyzerDiagnostics(options);
+        var diagnostic = Assert.Single(diagnostics, diagnostic => diagnostic.Id == DisabledByDefaultAnalyzer.Descriptor.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
     [Fact]
     public void SpecificDiagnosticOptions_RemapsAnalyzerSeverity()
     {
@@ -51,6 +88,22 @@ public class DiagnosticOptionsTests
         var diagnostics = workspace.GetDiagnostics(projectId);
         var diagnostic = Assert.Single(diagnostics, d => d.Descriptor.Id == TodoAnalyzer.Descriptor.Id);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    private static ImmutableArray<Diagnostic> GetDisabledByDefaultAnalyzerDiagnostics(CompilationOptions options)
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject("Test", compilationOptions: options);
+        var documentId = DocumentId.CreateNew(projectId);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(documentId, "test.rvn", SourceText.From("val x = 1")));
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new DisabledByDefaultAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        return workspace.GetDiagnostics(projectId);
     }
 
     [Fact]

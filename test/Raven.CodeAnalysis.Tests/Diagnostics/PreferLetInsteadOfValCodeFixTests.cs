@@ -14,7 +14,11 @@ public class PreferLetInsteadOfValCodeFixTests : CodeFixTestBase
         var verifier = CreateCodeFixVerifier<PreferLetInsteadOfValAnalyzer, PreferLetInsteadOfValCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(PreferLetInsteadOfValAnalyzer.PreferLetInsteadOfValDiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(PreferLetInsteadOfValAnalyzer.PreferLetInsteadOfValDiagnosticId).WithAnySpan()],
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>
+            {
+                [PreferLetInsteadOfValAnalyzer.PreferLetInsteadOfValDiagnosticId] = ReportDiagnostic.Info,
+            });
 
         verifier.Verify();
     }

@@ -1,29 +1,6 @@
 name: Raven website
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/docs.yml"
-      - ".config/dotnet-tools.json"
-      - "docs/**"
-      - "build/**"
-      - "scripts/build-docs.sh"
-      - "scripts/build-playground-site.sh"
-      - "scripts/build-html-macro-site.sh"
-      - "scripts/test-site-navigation.sh"
-      - "scripts/add-production-analytics.sh"
-      - "scripts/test-raven-highlighting-sync.mjs"
-      - "scripts/codex-build.sh"
-      - "src/Raven.CodeAnalysis/**"
-      - "src/Raven.Compiler/**"
-      - "src/Raven.Core/**"
-      - "src/Raven.Macros/**"
-      - "src/RavenDoc/**"
-      - "src/Raven.Playground/**"
-      - "samples/projects/macro-html-blazor/**"
-      - "tools/**Generator/**"
   pull_request:
     paths:
       - ".github/workflows/docs.yml"
@@ -46,6 +23,12 @@ on:
       - "samples/projects/macro-html-blazor/**"
       - "tools/**Generator/**"
   workflow_dispatch:
+    inputs:
+      publish_site:
+        description: Publish the validated site to GitHub Pages
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -92,21 +75,21 @@ jobs:
         run: scripts/test-site-navigation.sh
 
       - name: Add production analytics
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_site
         run: scripts/add-production-analytics.sh _site
 
       - name: Configure GitHub Pages
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_site
         uses: actions/configure-pages@v6
 
       - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_site
         uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_site
     needs: build
     runs-on: ubuntu-latest
     permissions:

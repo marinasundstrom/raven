@@ -1,12 +1,14 @@
 # Analyzer Configuration
 
-Analyzer configuration has two separate layers:
+Analyzer configuration has three separate layers:
 
+- analyzer references decide which analyzer assemblies are available;
 - project and compilation options decide which analyzers or analyzer modes run;
 - diagnostic options decide the severity or suppression of diagnostics that are reported.
 
-Keeping these separate matches Roslyn-style behavior and avoids surprising cases where a
-severity entry silently enables an opt-in analyzer.
+Keeping these separate matches Roslyn-style behavior. A configured severity
+does activate a disabled-by-default rule after its external analyzer assembly
+has been referenced.
 
 ## Project Options
 
@@ -29,7 +31,7 @@ Example `.rvnproj`:
 `RavenEnabledAnalyzers` opts into optional built-in analyzers by analyzer type name or fully
 qualified analyzer type name. It can also enable the optional analyzers in one analyzer kind
 with `category:typing`, `category:initialization`, `category:immutability`, `category:usage`,
-`category:errorhandling`, `category:design`, `category:naming`, or `category:style`. A kind
+`category:errorhandling`, or `category:design`. A kind
 may contain both default and optional analyzers; the category token adds only its optional
 members. Use `all` or `*` to enable every optional built-in analyzer.
 `RavenDisabledAnalyzers` disables an analyzer and takes precedence if a name appears in both
@@ -37,8 +39,10 @@ sets. Values may be separated with `;`, `,`, or whitespace. The short unqualifie
 is preferred for project files. `UnusedVariableAnalyzer` is a compatibility group name that
 controls both `UnusedLocalAnalyzer` and `UnusedParameterAnalyzer`.
 
-Setting a diagnostic severity in `.editorconfig` does not opt an analyzer in. Participation
-belongs in the project file; severity remains an independent policy choice.
+These participation properties apply to compiler-hosted analyzers. For the
+separate `Raven.Analyzers` package, the `PackageReference` makes the assembly
+available. Its disabled-by-default rules are activated by assigning an
+explicit non-`default` severity in `.editorconfig`.
 
 Boolean compatibility properties such as `EnableReturnedValueAnalyzer` and
 `RavenEnableReturnedValueAnalyzer` map to the same mode selection. The only non-off
@@ -51,6 +55,9 @@ Severity is configured by diagnostic ID in `.editorconfig`:
 ```ini
 [*.rvn]
 dotnet_diagnostic.RAV9034.severity = warning
+
+# Activate an optional Raven.Analyzers convention.
+dotnet_diagnostic.RAV9035.severity = info
 ```
 
 Accepted severity values follow the analyzer diagnostic options supported by Raven:
@@ -63,6 +70,8 @@ Accepted severity values follow the analyzer diagnostic options supported by Rav
 - `default`.
 
 The descriptor's `DefaultSeverity` is used when no option remaps the diagnostic.
+For a descriptor whose `IsEnabledByDefault` value is false, no diagnostic is
+reported unless an explicit non-`default` severity enables it.
 
 ## Language Server Updates
 

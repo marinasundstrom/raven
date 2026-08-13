@@ -9,18 +9,24 @@ public class AnalyzerDiagnosticIdUniquenessTests
     [Fact]
     public void BuiltInAnalyzers_UseUniqueDiagnosticIds_AndDoNotOverrideCompilerDiagnostics()
     {
-        var analyzerAssembly = typeof(DiagnosticAnalyzer).Assembly;
-        var analyzerTypes = analyzerAssembly.GetTypes()
+        var analyzerAssemblies = new[]
+        {
+            typeof(DiagnosticAnalyzer).Assembly,
+            typeof(PreferLoopOverWhileTrueAnalyzer).Assembly,
+        };
+        var analyzerTypes = analyzerAssemblies.SelectMany(static assembly => assembly.GetTypes())
             .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract)
             .ToArray();
 
         var ids = new List<(string AnalyzerName, string Id)>();
 
-        foreach (var analyzerType in analyzerTypes) {
+        foreach (var analyzerType in analyzerTypes)
+        {
             var descriptorFields = analyzerType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
                 .Where(f => typeof(DiagnosticDescriptor).IsAssignableFrom(f.FieldType));
 
-            foreach (var field in descriptorFields) {
+            foreach (var field in descriptorFields)
+            {
                 if (field.GetValue(null) is not DiagnosticDescriptor descriptor)
                     continue;
 

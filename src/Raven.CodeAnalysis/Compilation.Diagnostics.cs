@@ -407,7 +407,15 @@ public partial class Compilation
         var mappedDiagnostic = diagnostic;
         var isSuppressed = false;
 
-        if (TryGetReportDiagnostic(diagnostic.Descriptor.Id, out var report))
+        var hasConfiguredReport = TryGetReportDiagnostic(diagnostic.Descriptor.Id, out var report);
+
+        if (!diagnostic.Descriptor.IsEnabledByDefault &&
+            (!hasConfiguredReport || report == ReportDiagnostic.Default))
+        {
+            isSuppressed = true;
+        }
+
+        if (hasConfiguredReport)
         {
             if (report == ReportDiagnostic.Suppress)
                 isSuppressed = true;

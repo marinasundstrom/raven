@@ -657,9 +657,6 @@
     Title="Embedded statement must begin on the next line"
     Message="A non-block control-flow body must begin on the next line." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1051" Identifier="PreferNewLineBetweenDeclarations"
-    Title="Prefer newline between declarations" Message="Prefer newline between declarations."
-    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1003" Identifier="CharacterExpected" Title="Character expected"
     Message="'{character}' expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />

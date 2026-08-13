@@ -13,7 +13,8 @@ public abstract class CodeFixTestBase
         IEnumerable<string>? disabledDiagnostics = null,
         IEnumerable<MetadataReference>? additionalReferences = null,
         int? expectedAppliedFixCount = 1,
-        bool enableSuggestions = false)
+        bool enableSuggestions = false,
+        IDictionary<string, ReportDiagnostic>? specificDiagnosticOptions = null)
         where TAnalyzer : DiagnosticAnalyzer, new()
         where TCodeFixProvider : CodeFixProvider, new()
     {
@@ -36,6 +37,9 @@ public abstract class CodeFixTestBase
                     ReferenceAssemblies = ReferenceAssemblies.Default,
                     AdditionalReferences = additionalReferences?.ToImmutableArray() ?? [],
                     EnableSuggestions = enableSuggestions,
+                    SpecificDiagnosticOptions = specificDiagnosticOptions is not null
+                        ? new Dictionary<string, ReportDiagnostic>(specificDiagnosticOptions, StringComparer.OrdinalIgnoreCase)
+                        : [],
                 }
             }
         };

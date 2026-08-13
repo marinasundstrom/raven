@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
+    <ProjectReference Include="..\..\src\Raven.Analyzers\Raven.Analyzers.csproj" />
     <ProjectReference
       Include="..\..\src\Raven.CodeAnalysis.Testing\Raven.CodeAnalysis.Testing.csproj" />
     <ProjectReference

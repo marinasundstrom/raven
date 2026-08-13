@@ -20,7 +20,8 @@ internal static class NuGetPackageResolver
         string projectFilePath,
         string targetFramework,
         ImmutableArray<PackageReferenceInfo> packageReferences,
-        ImmutableArray<FrameworkReferenceInfo> frameworkReferences)
+        ImmutableArray<FrameworkReferenceInfo> frameworkReferences,
+        bool allowRestore = true)
     {
         if (packageReferences.IsDefaultOrEmpty && frameworkReferences.IsDefaultOrEmpty)
             return PackageResolutionResult.Empty;
@@ -29,6 +30,7 @@ internal static class NuGetPackageResolver
         var resolvedPaths = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroPaths = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroDependencyPaths = ImmutableArray.CreateBuilder<string>();
+        var resolvedAnalyzerPaths = ImmutableArray.CreateBuilder<string>();
 
         if (frameworkReferences.IsDefaultOrEmpty &&
             TryResolveDirectlyFromGlobalCache(globalPackagesFolder, targetFramework, packageReferences, out var directReferences))
@@ -36,8 +38,21 @@ internal static class NuGetPackageResolver
             resolvedPaths.AddRange(directReferences.PackageReferencePaths);
             resolvedMacroPaths.AddRange(directReferences.MacroReferencePaths);
             resolvedMacroDependencyPaths.AddRange(directReferences.MacroDependencyPaths);
+            resolvedAnalyzerPaths.AddRange(directReferences.AnalyzerReferencePaths);
         }
-        else
+        else if (!allowRestore && TryResolveFromExistingAssets(
+                     projectFilePath,
+                     globalPackagesFolder,
+                     targetFramework,
+                     out var existingAssetsResolution))
+        {
+            resolvedPaths.AddRange(existingAssetsResolution.PackageReferencePaths);
+            resolvedPaths.AddRange(existingAssetsResolution.FrameworkPackReferencePaths);
+            resolvedMacroPaths.AddRange(existingAssetsResolution.MacroReferencePaths);
+            resolvedMacroDependencyPaths.AddRange(existingAssetsResolution.MacroDependencyPaths);
+            resolvedAnalyzerPaths.AddRange(existingAssetsResolution.AnalyzerReferencePaths);
+        }
+        else if (allowRestore)
         {
             var restoreResult = RestoreAndResolveReferencesFromAssets(
                 projectFilePath,
@@ -50,12 +65,32 @@ internal static class NuGetPackageResolver
             resolvedPaths.AddRange(restoreResult.FrameworkPackReferencePaths);
             resolvedMacroPaths.AddRange(restoreResult.MacroReferencePaths);
             resolvedMacroDependencyPaths.AddRange(restoreResult.MacroDependencyPaths);
+            resolvedAnalyzerPaths.AddRange(restoreResult.AnalyzerReferencePaths);
         }
 
         return CreatePackageResolution(
             resolvedPaths,
             resolvedMacroPaths,
-            resolvedMacroDependencyPaths);
+            resolvedMacroDependencyPaths,
+            resolvedAnalyzerPaths);
+    }
+
+    private static bool TryResolveFromExistingAssets(
+        string projectFilePath,
+        string globalPackagesFolder,
+        string targetFramework,
+        out RestoreResolutionResult resolution)
+    {
+        var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
+        var assetsPath = Path.Combine(projectDirectory, "obj", "project.assets.json");
+        if (!File.Exists(assetsPath))
+        {
+            resolution = RestoreResolutionResult.Empty;
+            return false;
+        }
+
+        resolution = ParseResolutionFromAssets(assetsPath, globalPackagesFolder, targetFramework);
+        return true;
     }
 
     internal static PackageResolutionResult ResolveReferencesFromAssets(
@@ -70,13 +105,15 @@ internal static class NuGetPackageResolver
         return CreatePackageResolution(
             resolution.PackageReferencePaths.Concat(resolution.FrameworkPackReferencePaths),
             resolution.MacroReferencePaths,
-            resolution.MacroDependencyPaths);
+            resolution.MacroDependencyPaths,
+            resolution.AnalyzerReferencePaths);
     }
 
     private static PackageResolutionResult CreatePackageResolution(
         IEnumerable<string> resolvedPaths,
         IEnumerable<string> resolvedMacroPaths,
-        IEnumerable<string> resolvedMacroDependencyPaths)
+        IEnumerable<string> resolvedMacroDependencyPaths,
+        IEnumerable<string> resolvedAnalyzerPaths)
     {
         var metadataReferences = resolvedPaths
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -94,7 +131,11 @@ internal static class NuGetPackageResolver
                 dependencyAssemblyPaths: macroDependencyPaths))
             .ToImmutableArray();
 
-        return new PackageResolutionResult(metadataReferences, macroReferences);
+        var analyzerReferencePaths = resolvedAnalyzerPaths
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
+        return new PackageResolutionResult(metadataReferences, macroReferences, analyzerReferencePaths);
     }
 
     private static bool TryResolveDirectlyFromGlobalCache(
@@ -106,16 +147,19 @@ internal static class NuGetPackageResolver
         var resolved = ImmutableArray.CreateBuilder<string>();
         var resolvedMacros = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroDependencies = ImmutableArray.CreateBuilder<string>();
+        var resolvedAnalyzers = ImmutableArray.CreateBuilder<string>();
 
         foreach (var package in packageReferences)
         {
+            var packageVersion = NormalizeNuGetVersionRange(package.Version);
             var packageRoot = Path.Combine(
                 globalPackagesFolder,
                 package.Id.ToLowerInvariant(),
-                package.Version.ToLowerInvariant());
+                packageVersion.ToLowerInvariant());
 
             var packageReferencesForTarget = ResolvePackageAssemblies(packageRoot, targetFramework);
-            if (packageReferencesForTarget.IsDefaultOrEmpty)
+            var analyzerAssemblies = ResolveAnalyzerAssemblies(packageRoot);
+            if (packageReferencesForTarget.IsDefaultOrEmpty && analyzerAssemblies.IsDefaultOrEmpty)
             {
                 references = RestoreResolutionResult.Empty;
                 return false;
@@ -130,6 +174,7 @@ internal static class NuGetPackageResolver
                 implementationAssemblies.Where(
                     MacroAssemblyMetadata.HasCompilerPluginMarker));
             resolvedMacroDependencies.AddRange(implementationAssemblies);
+            resolvedAnalyzers.AddRange(analyzerAssemblies);
         }
 
         if (!CanResolveMacroDependenciesDirectly(
@@ -144,6 +189,7 @@ internal static class NuGetPackageResolver
             resolved.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedMacros.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedMacroDependencies.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
+            resolvedAnalyzers.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             ImmutableArray<string>.Empty);
 
         return true;
@@ -328,6 +374,7 @@ internal static class NuGetPackageResolver
         var fullTargetFramework = TargetFrameworkMoniker.TryParse(targetFramework, out var parsedTargetFramework)
             ? parsedTargetFramework!.ToFrameworkString()
             : null;
+        var directPackageIds = GetDirectPackageIds(root, targetFramework);
         var targetKey = targets.EnumerateObject()
             .Select(static x => x.Name)
             .FirstOrDefault(name => string.Equals(name, targetFramework, StringComparison.OrdinalIgnoreCase)
@@ -342,6 +389,7 @@ internal static class NuGetPackageResolver
         var resolvedPackagePaths = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroPaths = ImmutableArray.CreateBuilder<string>();
         var resolvedMacroDependencyPaths = ImmutableArray.CreateBuilder<string>();
+        var resolvedAnalyzerPaths = ImmutableArray.CreateBuilder<string>();
         foreach (var libraryTarget in targets.GetProperty(targetKey).EnumerateObject())
         {
             var libraryName = libraryTarget.Name;
@@ -354,6 +402,30 @@ internal static class NuGetPackageResolver
             var packagePath = libraryPathElement.GetString();
             if (string.IsNullOrWhiteSpace(packagePath))
                 continue;
+
+            var packageId = libraryName.Split('/')[0];
+            if (directPackageIds.Contains(packageId) &&
+                libraryInfo.TryGetProperty("files", out var packageFiles) &&
+                packageFiles.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var packageFile in packageFiles.EnumerateArray())
+                {
+                    var assetPath = packageFile.GetString();
+                    if (string.IsNullOrWhiteSpace(assetPath) ||
+                        !assetPath.StartsWith("analyzers/dotnet/", StringComparison.OrdinalIgnoreCase) ||
+                        !assetPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var fullPath = Path.Combine(
+                        globalPackagesFolder,
+                        packagePath.Replace('/', Path.DirectorySeparatorChar),
+                        assetPath.Replace('/', Path.DirectorySeparatorChar));
+                    if (File.Exists(fullPath))
+                        resolvedAnalyzerPaths.Add(fullPath);
+                }
+            }
 
             if (libraryPayload.TryGetProperty("compile", out var compileAssets) &&
                 compileAssets.ValueKind == JsonValueKind.Object)
@@ -399,7 +471,34 @@ internal static class NuGetPackageResolver
             resolvedPackagePaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedMacroPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedMacroDependencyPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
+            resolvedAnalyzerPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
             resolvedFrameworkPackPaths);
+    }
+
+    private static ImmutableHashSet<string> GetDirectPackageIds(JsonElement root, string targetFramework)
+    {
+        if (!root.TryGetProperty("project", out var projectElement) ||
+            projectElement.ValueKind != JsonValueKind.Object ||
+            !projectElement.TryGetProperty("frameworks", out var frameworksElement) ||
+            frameworksElement.ValueKind != JsonValueKind.Object)
+        {
+            return ImmutableHashSet<string>.Empty.WithComparer(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var frameworkNode = frameworksElement.EnumerateObject()
+            .FirstOrDefault(framework =>
+                string.Equals(framework.Name, targetFramework, StringComparison.OrdinalIgnoreCase) ||
+                framework.Name.StartsWith(targetFramework + "/", StringComparison.OrdinalIgnoreCase));
+        if (frameworkNode.Value.ValueKind != JsonValueKind.Object ||
+            !frameworkNode.Value.TryGetProperty("dependencies", out var dependencies) ||
+            dependencies.ValueKind != JsonValueKind.Object)
+        {
+            return ImmutableHashSet<string>.Empty.WithComparer(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return dependencies.EnumerateObject()
+            .Select(static dependency => dependency.Name)
+            .ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static ImmutableArray<string> ResolveFrameworkPackReferencesFromAssets(JsonElement root, string targetFramework)
@@ -586,6 +685,16 @@ internal static class NuGetPackageResolver
         return ResolveAssembliesFromGroupFolder(packageRoot, "lib", targetFramework);
     }
 
+    private static ImmutableArray<string> ResolveAnalyzerAssemblies(string packageRoot)
+    {
+        var analyzerRoot = Path.Combine(packageRoot, "analyzers", "dotnet");
+        if (!Directory.Exists(analyzerRoot))
+            return ImmutableArray<string>.Empty;
+
+        return Directory.EnumerateFiles(analyzerRoot, "*.dll", SearchOption.AllDirectories)
+            .ToImmutableArray();
+    }
+
     private static ImmutableArray<string> ResolveAssembliesFromGroupFolder(string packageRoot, string groupFolder, string targetFramework)
     {
         var root = Path.Combine(packageRoot, groupFolder);
@@ -678,9 +787,11 @@ internal static class NuGetPackageResolver
         ImmutableArray<string> PackageReferencePaths,
         ImmutableArray<string> MacroReferencePaths,
         ImmutableArray<string> MacroDependencyPaths,
+        ImmutableArray<string> AnalyzerReferencePaths,
         ImmutableArray<string> FrameworkPackReferencePaths)
     {
         public static RestoreResolutionResult Empty { get; } = new(
+            ImmutableArray<string>.Empty,
             ImmutableArray<string>.Empty,
             ImmutableArray<string>.Empty,
             ImmutableArray<string>.Empty,
@@ -689,10 +800,12 @@ internal static class NuGetPackageResolver
 
     internal sealed record PackageResolutionResult(
         ImmutableArray<MetadataReference> MetadataReferences,
-        ImmutableArray<MacroReference> MacroReferences)
+        ImmutableArray<MacroReference> MacroReferences,
+        ImmutableArray<string> AnalyzerReferencePaths)
     {
         public static PackageResolutionResult Empty { get; } = new(
             ImmutableArray<MetadataReference>.Empty,
-            ImmutableArray<MacroReference>.Empty);
+            ImmutableArray<MacroReference>.Empty,
+            ImmutableArray<string>.Empty);
     }
 }

@@ -15,7 +15,8 @@ public sealed class UnnecessaryTrailingSeparatorAnalyzer : DiagnosticAnalyzer
         helpLinkUri: string.Empty,
         messageFormat: "Trailing separator '{0}' is unnecessary here.",
         category: "Style",
-        defaultSeverity: DiagnosticSeverity.Warning);
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: false);
 
     public override void Initialize(AnalysisContext context)
     {

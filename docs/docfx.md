@@ -122,15 +122,22 @@ defects during review.
 
 ## Publish the official website with GitHub Pages
 
-The `.github/workflows/docs.yml` workflow builds the Raven language website for pull
-requests and pushes to `main`. A successful push to `main` uploads `_site/` as a
-GitHub Pages artifact and deploys it to:
+The `.github/workflows/docs.yml` workflow builds and validates the Raven
+language website for relevant pull requests, but pull requests never deploy
+it. Pushes to `main` do not run or publish the website automatically.
+
+Publishing is a separate manual operation. Start `Raven website` from the
+GitHub Actions UI against the intended commit and explicitly enable
+`publish_site`. Only that opt-in run adds production analytics, uploads
+`_site/` as a GitHub Pages artifact, and deploys it to:
 
 <https://marinasundstrom.github.io/raven/>
 
 The repository's Pages source must be set to **GitHub Actions** in the GitHub
 Pages settings. The workflow keeps build and deployment as separate jobs, so a
-failed DocFX validation cannot replace the published site.
+failed DocFX validation cannot replace the published site. A manually
+dispatched run with `publish_site` disabled only validates the site and has no
+external publishing effect.
 
 The same Pages artifact includes the browser playground at:
 

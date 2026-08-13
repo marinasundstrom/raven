@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="..\..\eng\Package.props" />
+
   <PropertyGroup>
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <Nullable>enable</Nullable>
@@ -7,6 +9,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <NoWarn>CS8669,CS1591,CS1574</NoWarn>
+    <PackageId>Raven.CodeAnalysis</PackageId>
+    <Title>Raven Compiler APIs</Title>
+    <Description>Syntax, semantic analysis, diagnostics, workspaces, and emission APIs for the Raven compiler.</Description>
+    <PackageTags>$(PackageTags);code-analysis;compiler-api</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -33,6 +39,18 @@
   <ItemGroup>
     <EmbeddedResource Include="FrameworkProjections/standard.json"
       LogicalName="Raven.CodeAnalysis.FrameworkProjections.standard.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Diagnostics/Analyzers/PreferNewLineBetweenDeclarationsAnalyzer.cs" />
+    <Compile Remove="Diagnostics/Analyzers/ConstructorParameterNamingAnalyzer.cs" />
+    <Compile Remove="Diagnostics/Analyzers/UnnecessaryTrailingSeparatorAnalyzer.cs" />
+    <Compile Remove="Diagnostics/Analyzers/PreferLetInsteadOfValAnalyzer.cs" />
+    <Compile Remove="Diagnostics/Analyzers/PreferLoopOverWhileTrueAnalyzer.cs" />
+    <Compile Remove="Diagnostics/CodeFixes/PreferNewLineBetweenDeclarationsCodeFixProvider.cs" />
+    <Compile Remove="Diagnostics/CodeFixes/ConstructorParameterNamingCodeFixProvider.cs" />
+    <Compile Remove="Diagnostics/CodeFixes/PreferLetInsteadOfValCodeFixProvider.cs" />
+    <Compile Remove="Diagnostics/CodeFixes/PreferLoopOverWhileTrueCodeFixProvider.cs" />
   </ItemGroup>
 
   <ItemGroup>

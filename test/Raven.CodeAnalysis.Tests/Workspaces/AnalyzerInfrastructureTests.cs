@@ -1130,8 +1130,8 @@ class C {
         var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers()).ToArray();
         analyzers.ShouldContain(static analyzer => analyzer is NonNullDeclarationsAnalyzer);
         analyzers.ShouldContain(static analyzer => analyzer is UnusedParameterAnalyzer);
-        analyzers.ShouldContain(static analyzer => analyzer is PreferLetInsteadOfValAnalyzer);
-        analyzers.ShouldContain(static analyzer => analyzer is PreferLoopOverWhileTrueAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is PreferLetInsteadOfValAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is PreferLoopOverWhileTrueAnalyzer);
     }
 
     [Fact]

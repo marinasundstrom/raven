@@ -6,10 +6,17 @@ on:
       version:
         description: Version to package without a leading v
         required: true
-        default: 0.1.0
-  push:
-    tags:
-      - "v*"
+        default: 0.1.0-preview.1
+      publish_github_release:
+        description: Publish the artifacts to the matching v<version> GitHub release
+        required: true
+        type: boolean
+        default: false
+      publish_nuget:
+        description: Publish the validated package family to NuGet.org
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,26 +41,17 @@ jobs:
         with:
           dotnet-version: 11.0.x
           dotnet-quality: preview
-      - name: Resolve version
-        id: version
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          fi
       - name: Build SDK
-        run: scripts/package-sdk.sh "${{ matrix.rid }}" "${{ steps.version.outputs.value }}"
+        run: scripts/package-sdk.sh "${{ matrix.rid }}" "${{ inputs.version }}"
       - name: Validate SDK structure
-        run: scripts/test-distribution.sh --structure-only "artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}"
+        run: scripts/test-distribution.sh --structure-only "artifacts/distribution/raven-sdk-${{ inputs.version }}-${{ matrix.rid }}"
       - name: Smoke test native SDK
         if: matrix.rid == 'linux-x64'
-        run: scripts/test-distribution.sh "artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}"
+        run: scripts/test-distribution.sh "artifacts/distribution/raven-sdk-${{ inputs.version }}-${{ matrix.rid }}"
       - uses: actions/upload-artifact@v6
         with:
           name: raven-sdk-${{ matrix.rid }}
-          path: artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}.*
+          path: artifacts/distribution/raven-sdk-${{ inputs.version }}-${{ matrix.rid }}.*
           if-no-files-found: error
 
   vscode:
@@ -70,25 +68,35 @@ jobs:
           node-version: 20.x
           cache: npm
           cache-dependency-path: src/Raven.VSCode/package-lock.json
-      - name: Resolve version
-        id: version
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          fi
-      - run: scripts/package-vscode.sh "${{ steps.version.outputs.value }}"
+      - run: scripts/package-vscode.sh "${{ inputs.version }}"
       - uses: actions/upload-artifact@v6
         with:
           name: raven-vscode
           path: artifacts/distribution/raven-vscode.vsix
           if-no-files-found: error
 
+  packages:
+    name: NuGet packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - name: Build and validate packages
+        run: scripts/package-nuget.sh "${{ inputs.version }}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: raven-nuget
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          if-no-files-found: error
+
   collect:
     name: Collect release artifacts
-    needs: [sdk, vscode]
+    needs: [sdk, vscode, packages]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,16 +110,58 @@ jobs:
         run: |
           cp scripts/install-raven.sh scripts/install-raven.ps1 release/
           cd release
-          sha256sum raven-sdk-* raven-vscode.vsix > SHA256SUMS
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
       - uses: actions/upload-artifact@v6
         with:
           name: raven-distribution
           path: release/*
           if-no-files-found: error
       - name: Publish GitHub release
-        if: github.ref_type == 'tag'
+        if: inputs.publish_github_release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
-          gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          expected_tag="v${{ inputs.version }}"
+          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Select tag $expected_tag when manually dispatching a release." >&2
+            exit 1
+          fi
+          gh release view "$expected_tag" >/dev/null 2>&1 || gh release create "$expected_tag" --generate-notes
+          gh release upload "$expected_tag" release/* --clobber
+
+  publish-nuget:
+    name: Publish NuGet packages
+    if: inputs.publish_nuget
+    needs: collect
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: raven-nuget
+          path: packages
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - name: Validate selected release tag
+        shell: bash
+        run: |
+          expected_tag="v${{ inputs.version }}"
+          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Select tag $expected_tag when manually dispatching NuGet publication." >&2
+            exit 1
+          fi
+      - name: Authenticate with NuGet.org
+        uses: NuGet/login@v1
+        id: nuget
+        with:
+          user: marna.li
+      - name: Publish package family
+        run: |
+          dotnet nuget push "packages/*.nupkg" \
+            --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate

@@ -1079,7 +1079,11 @@ public class Workspace
         if (diagnostics is null)
             throw new ArgumentNullException(nameof(diagnostics));
 
-        var providerList = providers.ToImmutableArray();
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+        var providerList = providers
+            .Concat(project.AnalyzerReferences.SelectMany(static reference => reference.GetCodeFixProviders()))
+            .ToImmutableArray();
         var diagnosticList = diagnostics.ToImmutableArray();
         if (providerList.Length == 0)
             return ImmutableArray<CodeFix>.Empty;
@@ -1105,9 +1109,6 @@ public class Workspace
                 list.Add(provider);
             }
         }
-
-        var project = CurrentSolution.GetProject(projectId)
-            ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var fixes = ImmutableArray.CreateBuilder<CodeFix>();
         foreach (var diagnostic in diagnosticList)

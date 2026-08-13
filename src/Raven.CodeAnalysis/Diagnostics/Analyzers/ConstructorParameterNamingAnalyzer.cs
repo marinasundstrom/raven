@@ -17,7 +17,8 @@ public sealed class ConstructorParameterNamingAnalyzer : DiagnosticAnalyzer
         helpLinkUri: string.Empty,
         messageFormat: "Constructor parameter '{0}' should use {1}.",
         category: "Naming",
-        defaultSeverity: DiagnosticSeverity.Warning);
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: false);
 
     public override void Initialize(AnalysisContext context)
     {
