@@ -41,6 +41,8 @@ if [[ "${FORCE_REBUILD:-0}" == "1" || ! -f "$compiler" ]]; then
   "$repo_root/scripts/codex-build.sh"
 fi
 
+dotnet tool restore --tool-manifest "$repo_root/.config/dotnet-tools.json"
+
 dotnet "$compiler" \
   "$project" \
   --configuration Release \
