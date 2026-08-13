@@ -228,6 +228,16 @@ public sealed class MacroReferenceTests
         Assert.DoesNotContain(
             consumer.GetDiagnostics(),
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var consumerTree = Assert.Single(consumer.SyntaxTrees);
+        var invocation = Assert.Single(
+            consumerTree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>());
+        var macroSymbol = Assert.IsAssignableFrom<IMacroSymbol>(
+            consumer.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+        var documentation = macroSymbol.GetDocumentationComment();
+        Assert.NotNull(documentation);
+        Assert.Equal(DocumentationFormat.Markdown, documentation!.Format);
+        Assert.Contains("Expands to `42`", documentation.Content, StringComparison.Ordinal);
     }
 
     [Fact]

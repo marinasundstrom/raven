@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Included both XML and Markdown symbol documentation for Raven.Core and
+  Raven.Macros in NuGet packages and standalone SDK archives. Raven tooling
+  prefers Markdown and falls back to XML, while C# and other .NET consumers
+  continue to receive standard XML documentation. Constructed and substituted
+  metadata symbols now preserve their definitions' documentation, and generic
+  method documentation IDs follow the standard .NET arity convention.
+
 - Fixed clean Raven.Core bootstrap builds so `RavenEmitCoreTypesOnly` cannot be
   overwritten by a previously emitted Raven.Core reference. Multi-targeted
   compiler builds no longer load the net10.0 core library as a reference while

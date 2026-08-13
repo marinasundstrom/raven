@@ -54,8 +54,12 @@ cp "$ROOT_DIR/build/Raven.MSBuild.props" "$STAGE_DIR/sdk/build/"
 cp "$ROOT_DIR/build/Raven.nanoFramework.props" "$STAGE_DIR/sdk/build/"
 cp "$ROOT_DIR/build/Raven.nanoFramework.targets" "$STAGE_DIR/sdk/build/"
 cp "$ROOT_DIR/src/Raven.Core/bin/Release/$TFM/Raven.Core.dll" "$STAGE_DIR/sdk/"
+cp "$ROOT_DIR/src/Raven.Core/bin/Release/$TFM/Raven.Core.xml" "$STAGE_DIR/sdk/"
 cp "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.dll" "$STAGE_DIR/sdk/"
 cp "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.xml" "$STAGE_DIR/sdk/"
+if [[ -d "$ROOT_DIR/src/Raven.Core/bin/Release/$TFM/Raven.Core.docs" ]]; then
+  cp -R "$ROOT_DIR/src/Raven.Core/bin/Release/$TFM/Raven.Core.docs" "$STAGE_DIR/sdk/"
+fi
 if [[ -d "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.docs" ]]; then
   cp -R "$ROOT_DIR/src/Raven.Macros/bin/Release/$TFM/Raven.Macros.docs" "$STAGE_DIR/sdk/"
 fi

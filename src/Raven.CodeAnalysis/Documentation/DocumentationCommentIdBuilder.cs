@@ -191,7 +191,11 @@ internal static class DocumentationCommentIdBuilder
         if (method.IsConstructor)
             return method.IsStatic ? "#cctor" : "#ctor";
 
-        return GetMetadataName(method).Replace('.', '#');
+        var name = GetMetadataName(method).Replace('.', '#');
+        if (method.Arity > 0)
+            name += "``" + method.Arity;
+
+        return name;
     }
 
     private static string GetMethodName(MethodBase method)

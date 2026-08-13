@@ -18,7 +18,11 @@ SDK_ROOT="$(cd "$SDK_ROOT" && pwd -P)"
 required_files=(
   "VERSION"
   "sdk/Raven.Core.dll"
+  "sdk/Raven.Core.xml"
+  "sdk/Raven.Core.docs/manifest.json"
   "sdk/Raven.Macros.dll"
+  "sdk/Raven.Macros.xml"
+  "sdk/Raven.Macros.docs/manifest.json"
   "sdk/build/Raven.Language.targets"
   "sdk/build/Raven.MSBuild.props"
   "sdk/build/Raven.nanoFramework.props"
@@ -31,6 +35,13 @@ required_files=(
 for relative_path in "${required_files[@]}"; do
   if [[ ! -f "$SDK_ROOT/$relative_path" ]]; then
     echo "Missing SDK file: $relative_path" >&2
+    exit 1
+  fi
+done
+
+for documentation_root in Raven.Core.docs Raven.Macros.docs; do
+  if ! find "$SDK_ROOT/sdk/$documentation_root" -type f -name '*.md' -print -quit | grep -q .; then
+    echo "Missing Markdown symbol documentation under sdk/$documentation_root." >&2
     exit 1
   fi
 done

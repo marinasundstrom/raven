@@ -33,6 +33,7 @@ assert_package() {
   local assembly_name="$2"
   local package="$PACKAGE_DIR/$package_id.$VERSION.nupkg"
   local symbols="$PACKAGE_DIR/$package_id.$VERSION.snupkg"
+  local package_entries
 
   if [[ ! -f "$package" ]]; then
     echo "Missing package: $package" >&2
@@ -44,6 +45,8 @@ assert_package() {
     exit 1
   fi
 
+  package_entries="$(unzip -Z1 "$package")"
+
   assert_archive_entry "$package" "README.md"
   assert_archive_entry "$package" "LICENSE"
   assert_archive_entry "$package" "lib/net10.0/$assembly_name.dll"
@@ -54,6 +57,12 @@ assert_package() {
     assert_archive_entry "$package" "lib/net11.0/$assembly_name.xml"
     assert_archive_entry "$package" "lib/net10.0/$assembly_name.docs/manifest.json"
     assert_archive_entry "$package" "lib/net11.0/$assembly_name.docs/manifest.json"
+    for target_framework in net10.0 net11.0; do
+      if ! grep -Eq "^lib/$target_framework/$assembly_name\\.docs/.+\\.md$" <<<"$package_entries"; then
+        echo "Missing Markdown symbol documentation for $assembly_name $target_framework in $(basename "$package")" >&2
+        exit 1
+      fi
+    done
   fi
 
   local nuspec

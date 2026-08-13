@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.CodeGen;
+using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -1023,6 +1024,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _originalDefinition.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _originalDefinition.GetDocumentationComment();
     public int Arity => _originalDefinition.Arity;
     public ImmutableArray<ITypeSymbol> GetTypeArguments() => TypeArguments;
     public ITypeSymbol? OriginalDefinition => _originalDefinition;
@@ -1585,6 +1587,7 @@ internal sealed class SubstitutedNamedTypeParameterSymbol : ITypeParameterSymbol
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _original.GetDocumentationComment();
 
     public int Ordinal => _original.Ordinal;
     public TypeParameterOwnerKind OwnerKind => _original.OwnerKind;
@@ -1834,6 +1837,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _original.GetDocumentationComment();
 
     public void Accept(SymbolVisitor visitor)
     {
@@ -2191,6 +2195,7 @@ internal sealed class SubstitutedMethodTypeParameterSymbol : ITypeParameterSymbo
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _original.GetDocumentationComment();
 
     public int Ordinal => _original.Ordinal;
     public TypeParameterOwnerKind OwnerKind => TypeParameterOwnerKind.Method;
@@ -2279,6 +2284,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _original.GetDocumentationComment();
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitField(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitField(this);
@@ -2470,6 +2476,7 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _original.GetDocumentationComment();
 
     public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations
     {
@@ -2572,6 +2579,7 @@ internal sealed class SubstitutedEventSymbol : IEventSymbol
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _original.GetDocumentationComment();
 
     public ImmutableArray<IEventSymbol> ExplicitInterfaceImplementations
     {

@@ -25,7 +25,7 @@ from the Command Palette to open Explorer, focus the view, and select its mode.
 Download and install the VSIX from the matching GitHub release:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.6/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.7/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 

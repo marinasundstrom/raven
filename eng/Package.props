@@ -18,7 +18,8 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
-    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_IncludeRavenDocumentationInPackage</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_IncludeRavenXmlDocumentationInPackage</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_IncludeRavenMarkdownDocumentationInPackage</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,15 +33,22 @@
           Visible="false" />
   </ItemGroup>
 
-  <Target Name="_IncludeRavenDocumentationInPackage"
+  <Target Name="_IncludeRavenXmlDocumentationInPackage"
           Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
     <ItemGroup>
       <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).xml"
                             Condition="Exists('$(OutputPath)$(AssemblyName).xml')" />
-      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/*" />
-      <BuildOutputInPackage Include="@(_RavenMarkdownDocumentation)">
-        <TargetPath>$(AssemblyName).docs/%(_RavenMarkdownDocumentation.RecursiveDir)%(_RavenMarkdownDocumentation.Filename)%(_RavenMarkdownDocumentation.Extension)</TargetPath>
-      </BuildOutputInPackage>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_IncludeRavenMarkdownDocumentationInPackage"
+          Condition="'$(MSBuildProjectExtension)' == '.rvnproj'">
+    <ItemGroup>
+      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/manifest.json" />
+      <_RavenMarkdownDocumentation Include="$(OutputPath)$(AssemblyName).docs/**/*.md" />
+      <TfmSpecificPackageFile Include="@(_RavenMarkdownDocumentation)">
+        <PackagePath>lib/$(TargetFramework)/$(AssemblyName).docs/%(_RavenMarkdownDocumentation.RecursiveDir)%(_RavenMarkdownDocumentation.Filename)%(_RavenMarkdownDocumentation.Extension)</PackagePath>
+      </TfmSpecificPackageFile>
     </ItemGroup>
   </Target>
 </Project>

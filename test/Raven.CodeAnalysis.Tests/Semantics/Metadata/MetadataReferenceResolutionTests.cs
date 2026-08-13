@@ -432,6 +432,98 @@ public class Widget {
     }
 
     [Fact]
+    public void ConstructedMetadataSymbols_PreserveMarkdownDocumentation()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+/// Represents a generic box.
+public class Box<T> {
+    /// Echoes a value of the requested type.
+    public func Echo<U>(value: U) -> U => value
+}
+
+/// Represents a generic outcome.
+public union Outcome<T, E> {
+    case Success(T)
+    case Failure(E)
+}
+""",
+            new ParseOptions
+            {
+                DocumentationMode = true,
+                DocumentationFormat = DocumentationFormat.Markdown
+            });
+
+        var compilation = Compilation.Create(
+            "GenericDocumentationLibrary",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream, pdbStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-constructed-markdown-docs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var assemblyPath = Path.Combine(directory, "GenericDocumentationLibrary.dll");
+        File.WriteAllBytes(assemblyPath, peStream.ToArray());
+        ExternalDocumentationEmitter.WriteMarkdownDocumentation(
+            compilation,
+            Path.Combine(directory, "GenericDocumentationLibrary.docs"));
+
+        try
+        {
+            var consumerCompilation = Compilation.Create(
+                "consumer",
+                syntaxTrees: [],
+                references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var boxDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+                consumerCompilation.GetTypeByMetadataName("Box`1"));
+            var box = Assert.IsAssignableFrom<INamedTypeSymbol>(
+                boxDefinition.Construct(consumerCompilation.GetSpecialType(SpecialType.System_Int32)));
+
+            var boxDocumentation = box.GetDocumentationComment();
+            Assert.NotNull(boxDocumentation);
+            Assert.Equal(DocumentationFormat.Markdown, boxDocumentation!.Format);
+            Assert.Contains("generic box", boxDocumentation.Content, StringComparison.OrdinalIgnoreCase);
+
+            var echoDefinition = Assert.Single(box.GetMembers("Echo").OfType<IMethodSymbol>());
+            Assert.Contains(
+                "Echoes a value",
+                echoDefinition.GetDocumentationComment()!.Content,
+                StringComparison.Ordinal);
+
+            var echo = echoDefinition.Construct(
+                consumerCompilation.GetSpecialType(SpecialType.System_String));
+            Assert.Contains(
+                "Echoes a value",
+                echo.GetDocumentationComment()!.Content,
+                StringComparison.Ordinal);
+
+            var outcomeDefinition = Assert.IsAssignableFrom<IUnionSymbol>(
+                consumerCompilation.GetTypeByMetadataName("Outcome`2"));
+            var outcome = Assert.IsAssignableFrom<IUnionSymbol>(
+                outcomeDefinition.Construct(
+                    consumerCompilation.GetSpecialType(SpecialType.System_Int32),
+                    consumerCompilation.GetSpecialType(SpecialType.System_String)));
+            Assert.Contains(
+                "generic outcome",
+                outcome.GetDocumentationComment()!.Content,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ExternalDocumentationEmitter_LoadsUnionCaseDocumentationByLogicalName()
     {
         var tree = SyntaxTree.ParseText(

@@ -54,15 +54,15 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
 
     public override DocumentationComment? GetDocumentationComment()
     {
-        if (ImplementationType?.GetDocumentationComment() is { } implementationDocumentation)
-            return implementationDocumentation;
-
         var documentation = Descriptor.Definition.Documentation;
-        return string.IsNullOrWhiteSpace(documentation)
-            ? null
-            : DocumentationComment.Create(
+        if (!string.IsNullOrWhiteSpace(documentation))
+        {
+            return DocumentationComment.Create(
                 Descriptor.Definition.DocumentationFormat,
                 documentation);
+        }
+
+        return ImplementationType?.GetDocumentationComment();
     }
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);

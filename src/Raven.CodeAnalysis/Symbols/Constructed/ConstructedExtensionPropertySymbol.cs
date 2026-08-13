@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Documentation;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
@@ -48,6 +50,7 @@ internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
         _definition.ExplicitInterfaceImplementations;
 
     public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _definition.GetDocumentationComment();
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
 

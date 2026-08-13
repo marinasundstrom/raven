@@ -165,6 +165,16 @@ completion, links, and diagnostics directly inside documentation comments.
 Literal code spans and fenced code blocks must remain code, not documentation
 syntax.
 
+## Current preview limitations
+
+Documentation on ordinary, non-generic macro definitions is carried by the
+compiler's macro descriptor and is available to editor hover independently of
+the generated runtime provider type. Documentation for generic macro
+definitions is not yet reliably recovered after loading a distributed macro
+assembly. Their signatures and expansion behavior remain available, but hover
+may omit the documentation text until the macro-definition metadata mapping is
+completed.
+
 Initial semantic highlighting is compiler-owned and recognizes:
 
 - Raven documentation tags at the start of Markdown comment content

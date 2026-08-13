@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -111,6 +112,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     }
 
     public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
+    public DocumentationComment? GetDocumentationComment() => _definition.GetDocumentationComment();
 
     public ITypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
 
