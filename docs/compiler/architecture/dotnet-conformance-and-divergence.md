@@ -263,7 +263,9 @@ pipeline of specialized bound-tree rewriters. `PatternOptimizer` owns only
 mechanically equivalent pattern algebra, while `ControlFlowOptimizer` prunes
 branches whose conditions are already Boolean literals. Before that branch
 pass, `BooleanExpressionOptimizer` applies side-effect-preserving identities to
-built-in Boolean expressions so more literal conditions become visible.
+built-in Boolean expressions, normalizes comparisons with Boolean literals,
+and recognizes constants through identity wrappers so more literal conditions
+become visible.
 `UnreachableCodeOptimizer` performs conservative reachability over each
 lowered block and removes statements that have no fallthrough or branch path.
 `BranchOptimizer` then removes unconditional branches to immediately following

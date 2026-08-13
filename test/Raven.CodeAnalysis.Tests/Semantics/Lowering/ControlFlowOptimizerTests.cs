@@ -79,4 +79,28 @@ public sealed class ControlFlowOptimizerTests
         else
             Assert.Empty(Assert.IsType<BoundBlockStatement>(rewritten).Statements);
     }
+
+    [Fact]
+    public void Rewrite_RecognizesLiteralThroughIdentityWrappers()
+    {
+        var compilation = Compilation.Create(
+            "control_flow_optimizer",
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+        var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
+        var literal = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.TrueLiteral,
+            true,
+            booleanType);
+        var wrapped = new BoundParenthesizedExpression(new BoundConversionExpression(
+            literal,
+            booleanType,
+            new Conversion(isImplicit: true, isIdentity: true)));
+        var whenTrue = new BoundExpressionStatement(new BoundUnitExpression(
+            compilation.GetSpecialType(SpecialType.System_Unit)));
+
+        var rewritten = ControlFlowOptimizer.Rewrite(new BoundIfStatement(wrapped, whenTrue));
+
+        Assert.IsType<BoundExpressionStatement>(rewritten);
+    }
 }

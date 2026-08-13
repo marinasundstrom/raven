@@ -17,7 +17,7 @@ internal static class BoundTreeOptimizer
         }
 
         var optimized = PatternOptimizer.Rewrite(node);
-        optimized = BooleanExpressionOptimizer.Rewrite(optimized);
+        optimized = BooleanExpressionOptimizer.Rewrite(sourceAssembly.Compilation, optimized);
         optimized = ControlFlowOptimizer.Rewrite(optimized);
         optimized = UnreachableCodeOptimizer.Rewrite(optimized);
         optimized = BranchOptimizer.Rewrite(optimized);

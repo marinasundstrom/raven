@@ -15,7 +15,7 @@ internal sealed class ControlFlowOptimizer : BoundTreeRewriter
     public override BoundNode? VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
     {
         var rewritten = (BoundConditionalGotoStatement)base.VisitConditionalGotoStatement(node)!;
-        if (!TryGetBooleanValue(rewritten.Condition, out var condition))
+        if (!BoundBooleanFacts.TryGetConstantValue(rewritten.Condition, out var condition))
             return rewritten;
 
         return condition == rewritten.JumpIfTrue
@@ -26,7 +26,7 @@ internal sealed class ControlFlowOptimizer : BoundTreeRewriter
     public override BoundNode? VisitIfExpression(BoundIfExpression node)
     {
         var rewritten = (BoundIfExpression)base.VisitIfExpression(node)!;
-        if (!TryGetBooleanValue(rewritten.Condition, out var condition))
+        if (!BoundBooleanFacts.TryGetConstantValue(rewritten.Condition, out var condition))
             return rewritten;
 
         if (condition)
@@ -38,29 +38,13 @@ internal sealed class ControlFlowOptimizer : BoundTreeRewriter
     public override BoundNode? VisitIfStatement(BoundIfStatement node)
     {
         var rewritten = (BoundIfStatement)base.VisitIfStatement(node)!;
-        if (!TryGetBooleanValue(rewritten.Condition, out var condition))
+        if (!BoundBooleanFacts.TryGetConstantValue(rewritten.Condition, out var condition))
             return rewritten;
 
         if (condition)
             return rewritten.ThenNode;
 
         return rewritten.ElseNode ?? CreateEmptyStatement();
-    }
-
-    private static bool TryGetBooleanValue(BoundExpression expression, out bool value)
-    {
-        if (expression is BoundLiteralExpression
-            {
-                Kind: BoundLiteralExpressionKind.TrueLiteral or BoundLiteralExpressionKind.FalseLiteral,
-                Value: bool booleanValue,
-            })
-        {
-            value = booleanValue;
-            return true;
-        }
-
-        value = false;
-        return false;
     }
 
     private static BoundBlockStatement CreateEmptyStatement()

@@ -36,7 +36,7 @@ public sealed class BooleanExpressionOptimizerTests
         var literal = BooleanLiteral(value: true, booleanType);
 
         var rewritten = Assert.IsType<BoundLiteralExpression>(
-            BooleanExpressionOptimizer.Rewrite(new BoundUnaryExpression(logicalNot, literal)));
+            BooleanExpressionOptimizer.Rewrite(compilation, new BoundUnaryExpression(logicalNot, literal)));
 
         Assert.Equal(BoundLiteralExpressionKind.FalseLiteral, rewritten.Kind);
         Assert.Equal(false, rewritten.Value);
@@ -67,6 +67,7 @@ public sealed class BooleanExpressionOptimizerTests
                 refKind: RefKind.None));
 
         var rewritten = BooleanExpressionOptimizer.Rewrite(
+            compilation,
             new BoundBinaryExpression(literal, logicalOperator, right));
 
         var rewrittenLiteral = Assert.IsType<BoundLiteralExpression>(rewritten);
@@ -96,12 +97,81 @@ public sealed class BooleanExpressionOptimizerTests
             logicalOperator,
             BooleanLiteral(rightValue, booleanType));
 
-        var rewritten = BooleanExpressionOptimizer.Rewrite(expression);
+        var rewritten = BooleanExpressionOptimizer.Rewrite(compilation, expression);
 
         if (canRemoveOperator)
             Assert.IsType<BoundParameterAccess>(rewritten);
         else
             Assert.IsType<BoundBinaryExpression>(rewritten);
+    }
+
+    [Theory]
+    [InlineData(SyntaxKind.EqualsEqualsToken, true, true, false)]
+    [InlineData(SyntaxKind.EqualsEqualsToken, false, true, false)]
+    [InlineData(SyntaxKind.NotEqualsToken, true, false, false)]
+    [InlineData(SyntaxKind.NotEqualsToken, false, false, false)]
+    [InlineData(SyntaxKind.EqualsEqualsToken, true, false, true)]
+    [InlineData(SyntaxKind.EqualsEqualsToken, false, false, true)]
+    [InlineData(SyntaxKind.NotEqualsToken, true, true, true)]
+    [InlineData(SyntaxKind.NotEqualsToken, false, true, true)]
+    public void Rewrite_NormalizesBooleanComparisonWithLiteral(
+        SyntaxKind operatorKind,
+        bool literalOnLeft,
+        bool literalValue,
+        bool expectedNegation)
+    {
+        var (compilation, booleanType) = CreateCompilation();
+        Assert.True(BoundBinaryOperator.TryLookup(
+            compilation,
+            operatorKind,
+            booleanType,
+            booleanType,
+            out var comparison));
+        var parameter = CreateParameterAccess(compilation, booleanType);
+        var literal = BooleanLiteral(literalValue, booleanType);
+        var expression = literalOnLeft
+            ? new BoundBinaryExpression(literal, comparison, parameter)
+            : new BoundBinaryExpression(parameter, comparison, literal);
+
+        var rewritten = BooleanExpressionOptimizer.Rewrite(compilation, expression);
+
+        if (expectedNegation)
+        {
+            var logicalNot = Assert.IsType<BoundUnaryExpression>(rewritten);
+            Assert.Equal(BoundUnaryOperatorKind.LogicalNot, logicalNot.Operator.OperatorKind);
+            Assert.IsType<BoundParameterAccess>(logicalNot.Operand);
+        }
+        else
+        {
+            Assert.IsType<BoundParameterAccess>(rewritten);
+        }
+    }
+
+    [Theory]
+    [InlineData(SyntaxKind.EqualsEqualsToken, true, false, false)]
+    [InlineData(SyntaxKind.NotEqualsToken, true, false, true)]
+    public void Rewrite_FoldsBooleanLiteralComparison(
+        SyntaxKind operatorKind,
+        bool leftValue,
+        bool rightValue,
+        bool expected)
+    {
+        var (compilation, booleanType) = CreateCompilation();
+        Assert.True(BoundBinaryOperator.TryLookup(
+            compilation,
+            operatorKind,
+            booleanType,
+            booleanType,
+            out var comparison));
+        var expression = new BoundBinaryExpression(
+            BooleanLiteral(leftValue, booleanType),
+            comparison,
+            BooleanLiteral(rightValue, booleanType));
+
+        var rewritten = Assert.IsType<BoundLiteralExpression>(
+            BooleanExpressionOptimizer.Rewrite(compilation, expression));
+
+        Assert.Equal(expected, rewritten.Value);
     }
 
     private static (Compilation Compilation, ITypeSymbol BooleanType) CreateCompilation(
