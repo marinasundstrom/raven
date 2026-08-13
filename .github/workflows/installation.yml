@@ -1,0 +1,164 @@
+name: Installation verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published release version without a leading v
+        required: true
+        default: 0.1.0-preview.4
+
+permissions:
+  contents: read
+
+jobs:
+  sdk-unix:
+    name: SDK install ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            rid: linux-x64
+          - runner: ubuntu-24.04-arm
+            rid: linux-arm64
+          - runner: macos-15-intel
+            rid: osx-x64
+          - runner: macos-15
+            rid: osx-arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - name: Install and exercise released SDK
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          release_base="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION"
+          curl --fail --location --silent --show-error \
+            "$release_base/install-raven.sh" --output "$RUNNER_TEMP/install-raven.sh"
+          export RAVEN_INSTALL_ROOT="$RUNNER_TEMP/raven"
+          sh "$RUNNER_TEMP/install-raven.sh" "$VERSION"
+          "$RAVEN_INSTALL_ROOT/bin/rvn" doctor
+          output=$("$RAVEN_INSTALL_ROOT/bin/rvn" run samples/scripts/hello.rvn -- Raven)
+          printf '%s\n' "$output"
+          grep -F 'Hello from a single Raven file!' <<< "$output"
+          grep -F 'Argument: Raven' <<< "$output"
+
+  sdk-windows:
+    name: SDK install ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            rid: win-x64
+          - runner: windows-11-arm
+            rid: win-arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - name: Install and exercise released SDK
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          $releaseBase = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:VERSION"
+          $installer = Join-Path $env:RUNNER_TEMP "install-raven.ps1"
+          $installRoot = Join-Path $env:RUNNER_TEMP "raven"
+          Invoke-WebRequest "$releaseBase/install-raven.ps1" -OutFile $installer
+          & $installer -Version $env:VERSION -InstallRoot $installRoot
+          & (Join-Path $installRoot "bin/rvn.cmd") doctor
+          $output = & (Join-Path $installRoot "bin/rvn.cmd") run samples/scripts/hello.rvn -- Raven 2>&1 | Out-String
+          Write-Output $output
+          if ($output -notmatch [regex]::Escape("Hello from a single Raven file!") -or
+              $output -notmatch [regex]::Escape("Argument: Raven")) {
+            throw "The installed SDK did not run the expected Raven program."
+          }
+
+  vscode:
+    name: VSIX install ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux-x64
+            archive: tar
+            code_pattern: '[\\/]bin[\\/]code$'
+          - runner: macos-15
+            platform: darwin-arm64
+            archive: zip
+            code_pattern: 'Resources[\\/]app[\\/]bin[\\/]code$'
+          - runner: windows-latest
+            platform: win32-x64-archive
+            archive: zip
+            code_pattern: '[\\/]bin[\\/]code\.cmd$'
+    steps:
+      - name: Download, verify, and install released VSIX
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          VSCODE_PLATFORM: ${{ matrix.platform }}
+          ARCHIVE_TYPE: ${{ matrix.archive }}
+          CODE_PATTERN: ${{ matrix.code_pattern }}
+        run: |
+          $releaseBase = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:VERSION"
+          $vsix = Join-Path $env:RUNNER_TEMP "raven-vscode.vsix"
+          $checksums = Join-Path $env:RUNNER_TEMP "SHA256SUMS"
+          Invoke-WebRequest "$releaseBase/raven-vscode.vsix" -OutFile $vsix
+          Invoke-WebRequest "$releaseBase/SHA256SUMS" -OutFile $checksums
+
+          $checksumLine = Get-Content $checksums |
+            Where-Object { $_ -match "\s\*?(?:\./)?raven-vscode\.vsix$" } |
+            Select-Object -First 1
+          if (-not $checksumLine) {
+            throw "No checksum was published for raven-vscode.vsix."
+          }
+          $expected = ($checksumLine -split "\s+")[0].ToLowerInvariant()
+          $actual = (Get-FileHash $vsix -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "VSIX checksum verification failed."
+          }
+
+          $vscodeRoot = Join-Path $env:RUNNER_TEMP "vscode"
+          New-Item -ItemType Directory -Path $vscodeRoot | Out-Null
+          if ($env:ARCHIVE_TYPE -eq "tar") {
+            $archive = Join-Path $env:RUNNER_TEMP "vscode.tar.gz"
+            Invoke-WebRequest "https://update.code.visualstudio.com/latest/$env:VSCODE_PLATFORM/stable" -OutFile $archive
+            tar -xzf $archive -C $vscodeRoot
+          }
+          else {
+            $archive = Join-Path $env:RUNNER_TEMP "vscode.zip"
+            Invoke-WebRequest "https://update.code.visualstudio.com/latest/$env:VSCODE_PLATFORM/stable" -OutFile $archive
+            Expand-Archive $archive -DestinationPath $vscodeRoot
+          }
+
+          $code = Get-ChildItem $vscodeRoot -Recurse -File |
+            Where-Object { $_.FullName -match $env:CODE_PATTERN } |
+            Select-Object -First 1
+          if (-not $code) {
+            throw "Could not locate the VS Code CLI."
+          }
+          if (-not $IsWindows) {
+            chmod +x $code.FullName
+          }
+
+          $extensions = Join-Path $env:RUNNER_TEMP "extensions"
+          $userData = Join-Path $env:RUNNER_TEMP "user-data"
+          & $code.FullName --version
+          & $code.FullName --install-extension $vsix --force --extensions-dir $extensions --user-data-dir $userData
+          $installed = & $code.FullName --list-extensions --show-versions --extensions-dir $extensions --user-data-dir $userData
+          Write-Output $installed
+          if ($installed -notcontains "raven.raven-vscode@$env:VERSION") {
+            throw "VS Code did not report the expected Raven extension version."
+          }

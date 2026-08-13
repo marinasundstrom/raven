@@ -26,7 +26,7 @@ try {
     Invoke-WebRequest "$baseUrl/$asset" -OutFile $archivePath
     Invoke-WebRequest "$baseUrl/SHA256SUMS" -OutFile $checksumPath
 
-    $checksumLine = Get-Content $checksumPath | Where-Object { $_ -match "\s\*?$([regex]::Escape($asset))$" } | Select-Object -First 1
+    $checksumLine = Get-Content $checksumPath | Where-Object { $_ -match "\s\*?(?:\./)?$([regex]::Escape($asset))$" } | Select-Object -First 1
     if (-not $checksumLine) {
         throw "No checksum was published for $asset."
     }

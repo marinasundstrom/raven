@@ -33,7 +33,17 @@ trap 'rm -rf "$TEMP_DIR"' EXIT INT TERM
 curl --fail --location --silent --show-error "$BASE_URL/$ASSET" --output "$TEMP_DIR/$ASSET"
 curl --fail --location --silent --show-error "$BASE_URL/SHA256SUMS" --output "$TEMP_DIR/SHA256SUMS"
 
-EXPECTED="$(awk -v asset="$ASSET" '$2 == asset || $2 == "*" asset { print $1 }' "$TEMP_DIR/SHA256SUMS")"
+EXPECTED="$(awk -v asset="$ASSET" '
+  {
+    name = $2
+    sub(/^\*/, "", name)
+    sub(/^\.\//, "", name)
+    if (name == asset) {
+      print $1
+      exit
+    }
+  }
+' "$TEMP_DIR/SHA256SUMS")"
 if [ -z "$EXPECTED" ]; then
   echo "No checksum was published for $ASSET." >&2
   exit 1

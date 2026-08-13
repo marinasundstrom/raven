@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed SDK installers to accept checksum manifest paths both with and without
+  a leading `./`, and normalized future release manifests to use bare asset
+  names. Added a separate manual post-publication workflow that exercises the
+  public SDK installers across all release targets and installs the public VSIX
+  into clean VS Code instances on Windows, Linux, and macOS.
+
 - Bundled the VS Code extension host and its runtime dependencies into one
   production JavaScript entry point. VSIX packages now include repository and
   MIT license metadata, exclude development dependencies and intermediate

@@ -113,6 +113,12 @@ building, creating a GitHub release, and pushing to NuGet.org explicit release
 operator decisions while reusing one validated artifact set. Versions with a
 SemVer prerelease suffix, such as `0.1.0-preview.3`, create a GitHub prerelease.
 
+After publication, manually run the `Installation verification` workflow with
+the published version. It downloads the public release rather than reusing
+workflow artifacts, installs and exercises the SDK on Windows, Linux, and
+macOS across the published architectures, and installs the checksum-verified
+VSIX into clean portable VS Code instances on all three operating systems.
+
 ## NuGet packages
 
 Raven's initial NuGet family contains:
