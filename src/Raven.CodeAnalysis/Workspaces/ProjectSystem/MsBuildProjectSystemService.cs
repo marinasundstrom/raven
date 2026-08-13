@@ -8,6 +8,12 @@ using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis;
 
+public enum ProjectReferenceLoadMode
+{
+    Source,
+    Metadata
+}
+
 public sealed class MsBuildProjectSystemService : IProjectSystemService
 {
     private readonly RavenProjectConventions _conventions;
@@ -16,6 +22,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     private readonly string? _requestedConfiguration;
     private readonly string? _requestedTargetFramework;
     private readonly bool? _useHostFrameworkReferences;
+    private readonly ProjectReferenceLoadMode _projectReferenceLoadMode;
     private readonly string[] _compilerSupportReferencePaths;
 
     public MsBuildProjectSystemService()
@@ -47,7 +54,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         string? requestedTargetFramework,
         bool? useHostFrameworkReferences = null,
         IEnumerable<string>? compilerSupportReferencePaths = null,
-        bool allowPackageRestore = true)
+        bool allowPackageRestore = true,
+        ProjectReferenceLoadMode projectReferenceLoadMode = ProjectReferenceLoadMode.Source)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
@@ -55,6 +63,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         _requestedConfiguration = requestedConfiguration;
         _requestedTargetFramework = requestedTargetFramework;
         _useHostFrameworkReferences = useHostFrameworkReferences;
+        _projectReferenceLoadMode = projectReferenceLoadMode;
         _compilerSupportReferencePaths = compilerSupportReferencePaths?
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Select(Path.GetFullPath)
@@ -85,37 +94,49 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     }
 
     public ProjectId OpenProject(Workspace workspace, string projectFilePath)
-        => OpenProject(workspace, projectFilePath, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-
-    private ProjectId OpenProject(Workspace workspace, string projectFilePath, HashSet<string> loadingProjectPaths)
     {
         if (workspace is not RavenWorkspace raven)
             throw new NotSupportedException("Project persistence requires a RavenWorkspace.");
 
+        var (solution, projectId) = LoadProjectGraph(
+            raven,
+            workspace.CurrentSolution,
+            projectFilePath,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        workspace.TryApplyChanges(solution);
+        return projectId;
+    }
+
+    private (Solution Solution, ProjectId ProjectId) LoadProjectGraph(
+        RavenWorkspace raven,
+        Solution solution,
+        string projectFilePath,
+        HashSet<string> loadingProjectPaths)
+    {
         var normalizedProjectPath = Path.GetFullPath(projectFilePath);
         if (!loadingProjectPaths.Add(normalizedProjectPath))
             throw new InvalidOperationException($"Cyclic project reference detected while opening '{projectFilePath}'.");
 
-        var existingProject = raven.CurrentSolution.Projects.FirstOrDefault(
+        var existingProject = solution.Projects.FirstOrDefault(
             project => string.Equals(project.FilePath, normalizedProjectPath, StringComparison.OrdinalIgnoreCase));
         if (existingProject is not null)
         {
             loadingProjectPaths.Remove(normalizedProjectPath);
-            return existingProject.Id;
+            return (solution, existingProject.Id);
         }
 
         MsBuildLocatorRegistration.EnsureRegistered();
         var evaluation = EvaluateProject(projectFilePath);
-        var projectId = raven.AddProject(
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(
+            projectId,
             evaluation.Name,
             projectFilePath,
             evaluation.AssemblyName,
-            evaluation.CompilationOptions,
-            evaluation.TargetFramework,
+            evaluation.CompilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication),
             evaluation.DocumentationOptions,
             evaluation.ParseOptions);
-
-        var solution = workspace.CurrentSolution;
+        solution = solution.WithTargetFramework(projectId, evaluation.TargetFramework);
         foreach (var document in evaluation.Documents)
         {
             var documentId = DocumentId.CreateNew(projectId);
@@ -208,7 +229,28 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 continue;
             }
 
-            var loadedProject = raven.CurrentSolution.Projects.FirstOrDefault(
+            if (_projectReferenceLoadMode == ProjectReferenceLoadMode.Metadata)
+            {
+                var outputPath = CanOpenProject(referencedProjectPath)
+                    ? referencedEvaluation.OutputPath
+                    : MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+                        referencedProjectPath,
+                        evaluation.Configuration,
+                        evaluation.TargetFramework);
+                if (string.IsNullOrWhiteSpace(outputPath) || !File.Exists(outputPath))
+                {
+                    throw new FileNotFoundException(
+                        $"The output for referenced project '{referencedProjectPath}' was not found. Build project references before compiling '{projectFilePath}'.",
+                        outputPath);
+                }
+
+                solution = solution.AddMetadataReference(
+                    projectId,
+                    MetadataReference.CreateFromFile(outputPath));
+                continue;
+            }
+
+            var loadedProject = solution.Projects.FirstOrDefault(
                 project => string.Equals(project.FilePath, referencedProjectPath, StringComparison.OrdinalIgnoreCase));
 
             if (loadedProject is not null)
@@ -219,8 +261,13 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
             if (CanOpenProject(referencedProjectPath))
             {
-                var loadedProjectId = OpenProject(workspace, referencedProjectPath, loadingProjectPaths);
-                solution = workspace.CurrentSolution;
+                var loadedGraph = LoadProjectGraph(
+                    raven,
+                    solution,
+                    referencedProjectPath,
+                    loadingProjectPaths);
+                solution = loadedGraph.Solution;
+                var loadedProjectId = loadedGraph.ProjectId;
                 solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProjectId));
                 continue;
             }
@@ -246,9 +293,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             solution = solution.AddGeneratorReference(projectId, new GeneratorReference(assembly));
         }
 
-        workspace.TryApplyChanges(solution);
         loadingProjectPaths.Remove(normalizedProjectPath);
-        return projectId;
+        return (solution, projectId);
     }
 
     public void SaveProject(Project project, string filePath)

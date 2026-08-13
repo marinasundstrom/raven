@@ -251,6 +251,73 @@ if [[ "$template_published_output" != "Hello from Raven" ]]; then
   exit 1
 fi
 
+classlib_raven_consumer="$TEMP_DIR/classlib-raven-consumer"
+DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet new raven-console \
+  --name ClasslibRavenConsumer \
+  --output "$classlib_raven_consumer" >/dev/null
+dotnet add "$classlib_raven_consumer/ClasslibRavenConsumer.rvnproj" reference \
+  "$TEMP_DIR/templates/classlib/TemplateClasslib.rvnproj" >/dev/null
+printf '%s\n' \
+  'func Main() {' \
+  '    System.Console.WriteLine(Greet())' \
+  '}' \
+  > "$classlib_raven_consumer/src/Main.rvn"
+
+classlib_raven_run_log="$TEMP_DIR/classlib-raven-run.log"
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet run --project "$classlib_raven_consumer/ClasslibRavenConsumer.rvnproj" \
+  --disable-build-servers \
+  /property:WarningLevel=0 >"$classlib_raven_run_log" 2>&1; then
+  cat "$classlib_raven_run_log" >&2
+  exit 1
+fi
+if ! grep -Fxq "Hello from Raven" "$classlib_raven_run_log"; then
+  cat "$classlib_raven_run_log" >&2
+  echo "Raven class-library consumer did not print 'Hello from Raven'." >&2
+  exit 1
+fi
+
+classlib_raven_publish_log="$TEMP_DIR/classlib-raven-publish.log"
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet publish "$classlib_raven_consumer/ClasslibRavenConsumer.rvnproj" \
+  -c Release \
+  --disable-build-servers \
+  /property:WarningLevel=0 >"$classlib_raven_publish_log" 2>&1; then
+  cat "$classlib_raven_publish_log" >&2
+  exit 1
+fi
+classlib_raven_published_output="$(dotnet "$classlib_raven_consumer/bin/Release/net10.0/publish/ClasslibRavenConsumer.dll")"
+if [[ "$classlib_raven_published_output" != "Hello from Raven" ]]; then
+  echo "Published Raven class-library consumer returned '$classlib_raven_published_output'; expected 'Hello from Raven'." >&2
+  exit 1
+fi
+
+classlib_csharp_consumer="$TEMP_DIR/classlib-csharp-consumer"
+dotnet new console \
+  --framework net10.0 \
+  --no-restore \
+  --output "$classlib_csharp_consumer" >/dev/null
+dotnet add "$classlib_csharp_consumer/classlib-csharp-consumer.csproj" reference \
+  "$TEMP_DIR/templates/classlib/TemplateClasslib.rvnproj" >/dev/null
+printf '%s\n' \
+  'Console.WriteLine(NamespaceMembers.Greet());' \
+  > "$classlib_csharp_consumer/Program.cs"
+
+classlib_csharp_run_log="$TEMP_DIR/classlib-csharp-run.log"
+if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet run --project "$classlib_csharp_consumer/classlib-csharp-consumer.csproj" \
+  --disable-build-servers \
+  /property:WarningLevel=0 >"$classlib_csharp_run_log" 2>&1; then
+  cat "$classlib_csharp_run_log" >&2
+  exit 1
+fi
+if ! grep -Fxq "Hello from Raven" "$classlib_csharp_run_log"; then
+  cat "$classlib_csharp_run_log" >&2
+  echo "C# class-library consumer did not print 'Hello from Raven'." >&2
+  exit 1
+fi
+
 dotnet new console \
   --framework net10.0 \
   --no-restore \

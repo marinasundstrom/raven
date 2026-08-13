@@ -4,6 +4,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed macro token queries to share the semantic model's fragment-region
+  snapshot instead of invoking fragment providers again for the same syntax.
+
+- Fixed Raven project-reference loading so command-line builds consume the
+  referenced project's MSBuild-built output as metadata, matching the normal
+  .NET build model, while workspaces retain source project references for live
+  analysis and navigation. Generated Raven class libraries can therefore be
+  consumed without merging their source into the application's assembly or
+  hiding its `Main` entry point. Dependent workspace compilations and diagnostic
+  caches are now invalidated when a referenced project changes. Package
+  validation also runs and publishes a Raven consumer and exercises the same
+  generated library from C#.
+
 - Added the NuGet-resolved `Raven.Sdk` MSBuild Project SDK on top of
   `Microsoft.NET.Sdk`. Generated projects now pin the matching Raven SDK and
   build through ordinary `dotnet restore`, `build`, `run`, and `publish`

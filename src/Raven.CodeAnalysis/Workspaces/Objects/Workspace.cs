@@ -218,15 +218,20 @@ public class Workspace
 
             try
             {
+                var referencedCompilations = GetReferencedCompilations(project, building, compilationCache);
+
                 if (!compilationCache.TryGetValue(projectId, out var state))
                 {
-                    return BuildCompilation(project, null, building, compilationCache);
+                    return BuildCompilation(project, null, referencedCompilations, compilationCache);
                 }
 
-                if (state.Version == project.Version)
+                if (state.Version == project.Version &&
+                    ReferencedCompilationsMatch(state, referencedCompilations))
+                {
                     return state.Compilation;
+                }
 
-                return BuildCompilation(project, state, building, compilationCache);
+                return BuildCompilation(project, state, referencedCompilations, compilationCache);
             }
             finally
             {
@@ -239,17 +244,42 @@ public class Workspace
     {
         ArgumentNullException.ThrowIfNull(project);
 
-        return GetCompilation(project, building, _analysisProjectCompilations);
+        var compilation = GetCompilation(project, building, _analysisProjectCompilations);
+        RemoveSupersededDiagnosticCaches(project.Id, compilation);
+        return compilation;
+    }
+
+    private void RemoveSupersededDiagnosticCaches(ProjectId projectId, Compilation compilation)
+    {
+        foreach (var key in _projectDiagnosticsCache.Keys)
+        {
+            if (key.ProjectId == projectId && !ReferenceEquals(key.Compilation, compilation))
+                _projectDiagnosticsCache.TryRemove(key, out _);
+        }
+
+        foreach (var key in _projectAnalyzerDiagnosticsCache.Keys)
+        {
+            if (key.ProjectId == projectId && !ReferenceEquals(key.Compilation, compilation))
+                _projectAnalyzerDiagnosticsCache.TryRemove(key, out _);
+        }
+
+        foreach (var key in _documentAnalyzerDiagnosticsCache.Keys)
+        {
+            if (key.ProjectId == projectId && !ReferenceEquals(key.Compilation, compilation))
+                _documentAnalyzerDiagnosticsCache.TryRemove(key, out _);
+        }
     }
 
     private Compilation BuildCompilation(
         Project project,
         ProjectCompilationState? state,
-        HashSet<ProjectId> building,
+        ImmutableArray<(ProjectId ProjectId, Compilation Compilation)> referencedCompilations,
         Dictionary<ProjectId, ProjectCompilationState> compilationCache)
     {
         state ??= new ProjectCompilationState();
         var previousCompilation = state.Compilation;
+        var projectReferencesChanged = previousCompilation is not null &&
+            !ReferencedCompilationsMatch(state, referencedCompilations);
 
         var syntaxTrees = new List<SyntaxTree>();
         var reusedSyntaxTrees = ImmutableArray.CreateBuilder<SyntaxTree>();
@@ -302,14 +332,8 @@ public class Workspace
         var references = new List<MetadataReference>();
         references.AddRange(project.MetadataReferences);
 
-        foreach (var projRef in project.ProjectReferences)
-        {
-            var referencedProject = project.Solution.GetProject(projRef.ProjectId)
-                ?? throw new ArgumentException("Project not found", nameof(projRef.ProjectId));
-            var referencedCompilation = GetCompilation(referencedProject, building, compilationCache);
-            var compRef = referencedCompilation.ToMetadataReference();
-            references.Add(compRef);
-        }
+        foreach (var (_, referencedCompilation) in referencedCompilations)
+            references.Add(referencedCompilation.ToMetadataReference());
 
         var assemblyName = !string.IsNullOrWhiteSpace(project.AssemblyName)
             ? project.AssemblyName
@@ -342,11 +366,14 @@ public class Workspace
                 new Compilation.IncrementalCompilationPlan(
                     reusedSyntaxTrees.ToImmutable(),
                     changedSyntaxTrees.ToImmutable(),
-                    BlocksSemanticDiagnosticTransfer: documentSetChanged));
+                    BlocksSemanticDiagnosticTransfer: documentSetChanged || projectReferencesChanged));
         }
 
         state.Version = project.Version;
         state.Compilation = compilation;
+        state.ReferencedCompilations.Clear();
+        foreach (var (referencedProjectId, referencedCompilation) in referencedCompilations)
+            state.ReferencedCompilations.Add(referencedProjectId, referencedCompilation);
         compilationCache[project.Id] = state;
 
         return compilation;
@@ -357,11 +384,45 @@ public class Workspace
         public VersionStamp Version;
         public Compilation? Compilation;
         public Dictionary<DocumentId, DocumentState> DocumentStates { get; } = new();
+        public Dictionary<ProjectId, Compilation> ReferencedCompilations { get; } = new();
+    }
+
+    private ImmutableArray<(ProjectId ProjectId, Compilation Compilation)> GetReferencedCompilations(
+        Project project,
+        HashSet<ProjectId> building,
+        Dictionary<ProjectId, ProjectCompilationState> compilationCache)
+    {
+        var references = ImmutableArray.CreateBuilder<(ProjectId, Compilation)>(project.ProjectReferences.Count);
+        foreach (var projectReference in project.ProjectReferences)
+        {
+            var referencedProject = project.Solution.GetProject(projectReference.ProjectId)
+                ?? throw new ArgumentException("Project not found", nameof(projectReference.ProjectId));
+            references.Add((
+                projectReference.ProjectId,
+                GetCompilation(referencedProject, building, compilationCache)));
+        }
+
+        return references.MoveToImmutable();
+    }
+
+    private static bool ReferencedCompilationsMatch(
+        ProjectCompilationState state,
+        ImmutableArray<(ProjectId ProjectId, Compilation Compilation)> referencedCompilations)
+    {
+        if (state.ReferencedCompilations.Count != referencedCompilations.Length)
+            return false;
+
+        return referencedCompilations.All(reference =>
+            state.ReferencedCompilations.TryGetValue(reference.ProjectId, out var previousCompilation) &&
+            ReferenceEquals(previousCompilation, reference.Compilation));
     }
 
     private sealed record DocumentState(VersionStamp Version, SyntaxTree SyntaxTree);
 
-    private readonly record struct ProjectDiagnosticsCacheKey(ProjectId ProjectId, VersionStamp Version);
+    private readonly record struct ProjectDiagnosticsCacheKey(
+        ProjectId ProjectId,
+        VersionStamp Version,
+        Compilation Compilation);
 
     private readonly record struct ProjectAnalyzerDiagnosticsCacheKey(
         ProjectId ProjectId,
@@ -374,6 +435,7 @@ public class Workspace
         DocumentId DocumentId,
         VersionStamp ProjectVersion,
         VersionStamp DocumentVersion,
+        Compilation Compilation,
         bool ReportSuppressedDiagnostics);
 
     /// <summary>
@@ -388,14 +450,14 @@ public class Workspace
         var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
-        var cacheKey = new ProjectDiagnosticsCacheKey(projectId, project.Version);
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+        var cacheKey = new ProjectDiagnosticsCacheKey(projectId, project.Version, compilation);
         if (analyzerOptions is null &&
             _projectDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
         {
             return cachedDiagnostics;
         }
 
-        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         var diagnostics = compilation.GetDiagnostics(analyzerOptions, cancellationToken).ToHashSet();
 
         if (project.CompilationOptions?.RunAnalyzers != false)
@@ -748,11 +810,13 @@ public class Workspace
         if (project.CompilationOptions?.RunAnalyzers == false)
             return [];
 
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         var cacheKey = new DocumentAnalyzerDiagnosticsCacheKey(
             projectId,
             documentId,
             project.Version,
             document.Version,
+            compilation,
             analyzerOptions?.ReportSuppressedDiagnostics ?? false);
         if (_documentAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
         {
@@ -773,7 +837,6 @@ public class Workspace
             elapsedMilliseconds: 0,
             $"projectVersion={project.Version}, documentVersion={document.Version}, allowBusySkip=false");
 
-        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         var compilationSyntaxTrees = GetCompilationSyntaxTrees(document, compilation);
         ImmutableArray<Diagnostic> diagnostics;
         try
@@ -843,6 +906,7 @@ public class Workspace
             document.Id,
             document.Project.Version,
             document.Version,
+            compilation,
             analyzerOptions?.ReportSuppressedDiagnostics ?? false);
         if (_documentAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
         {

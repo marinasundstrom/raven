@@ -224,6 +224,7 @@
     <ItemGroup>
       <_ResolvedRavenReferenceName Include="@(ReferencePath->'%(Filename)%(Extension)')" />
       <_ResolvedRavenReferenceName Include="@(ReferenceCopyLocalPaths->'%(Filename)%(Extension)')" />
+      <_RavenRuntimeDependencyName Remove="@(_ResolvedRavenReferenceName)" />
       <_StaleRavenRuntimeDependencyName Include="@(_PreviousRavenRuntimeDependencyName)" />
       <_StaleRavenRuntimeDependencyName Remove="@(_RavenRuntimeDependencyName)" />
       <_StaleRavenRuntimeDependencyName Remove="@(_ResolvedRavenReferenceName)" />

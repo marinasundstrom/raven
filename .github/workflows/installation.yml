@@ -78,6 +78,22 @@ jobs:
           published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net10.0/publish/DotnetTemplateProject.dll")
           printf '%s\n' "$published_output"
           grep -F 'Hello from Raven' <<< "$published_output"
+          DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
+            dotnet new raven-classlib --name DotnetTemplateLibrary --output "$RUNNER_TEMP/dotnet-template-library"
+          dotnet add "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj" reference \
+            "$RUNNER_TEMP/dotnet-template-library/DotnetTemplateLibrary.rvnproj"
+          printf '%s\n' \
+            'func Main() {' \
+            '    System.Console.WriteLine(Greet())' \
+            '}' \
+            > "$RUNNER_TEMP/dotnet-template-project/src/Main.rvn"
+          classlib_output=$(dotnet run --project "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj")
+          printf '%s\n' "$classlib_output"
+          grep -F 'Hello from Raven' <<< "$classlib_output"
+          dotnet publish "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj" -c Release
+          classlib_published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net10.0/publish/DotnetTemplateProject.dll")
+          printf '%s\n' "$classlib_published_output"
+          grep -F 'Hello from Raven' <<< "$classlib_published_output"
 
   sdk-windows:
     name: SDK install ${{ matrix.rid }}
@@ -171,6 +187,26 @@ jobs:
           Write-Output $publishedOutput
           if ($publishedOutput -notmatch [regex]::Escape("Hello from Raven")) {
             throw "The published Raven template output did not run successfully."
+          }
+          $templateLibrary = Join-Path $env:RUNNER_TEMP "dotnet-template-library"
+          dotnet new raven-classlib --name DotnetTemplateLibrary --output $templateLibrary
+          $templateLibraryProject = Join-Path $templateLibrary "DotnetTemplateLibrary.rvnproj"
+          dotnet add $templateProjectFile reference $templateLibraryProject
+          Set-Content (Join-Path $templateProject "src/Main.rvn") -Value @(
+            "func Main() {",
+            "    System.Console.WriteLine(Greet())",
+            "}"
+          )
+          $classlibOutput = dotnet run --project $templateProjectFile 2>&1 | Out-String
+          Write-Output $classlibOutput
+          if ($classlibOutput -notmatch [regex]::Escape("Hello from Raven")) {
+            throw "The released Raven SDK did not consume the generated Raven class library."
+          }
+          dotnet publish $templateProjectFile -c Release
+          $classlibPublishedOutput = dotnet $publishedAssembly 2>&1 | Out-String
+          Write-Output $classlibPublishedOutput
+          if ($classlibPublishedOutput -notmatch [regex]::Escape("Hello from Raven")) {
+            throw "The released Raven SDK did not publish an application with a Raven project reference."
           }
 
   vscode:

@@ -55,11 +55,13 @@ internal static class MacroTokenInfoService
             var classifier = loaded.Macro as IMacroTokenClassifier;
             var kindProvider = loaded.Macro as IMacroTokenKindProvider;
             var symbolProvider = loaded.Macro as IMacroTokenSymbolProvider;
-            var fragmentRegions = MacroFragmentRegionService.GetFragmentRegions(
-                semanticModel,
-                expression,
-                resolutionContext,
-                cancellationToken);
+            var fragmentRegions = ReferenceEquals(resolutionContext, expression)
+                ? semanticModel.GetMacroFragmentRegions(expression, cancellationToken)
+                : MacroFragmentRegionService.GetFragmentRegions(
+                    semanticModel,
+                    expression,
+                    resolutionContext,
+                    cancellationToken);
             var stream = context.CreateTokenStream();
             var builder = ImmutableArray.CreateBuilder<MacroTokenInfo>();
 

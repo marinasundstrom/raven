@@ -339,6 +339,50 @@ class A {
     }
 
     [Fact]
+    public void GetCompilation_ReferencedProjectChange_RebuildsDependentCompilation()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var libId = ProjectId.CreateNew(solution.Id);
+        var appId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(libId, "Lib");
+        solution = solution.AddProject(appId, "App");
+
+        var libDocumentId = DocumentId.CreateNew(libId);
+        solution = solution.AddDocument(
+            libDocumentId,
+            "Api.rvn",
+            SourceText.From("public class Api { public static func Before() { } }"));
+        var appDocumentId = DocumentId.CreateNew(appId);
+        solution = solution.AddDocument(
+            appDocumentId,
+            "App.rvn",
+            SourceText.From("func Use() { Api.Before() }"));
+        solution = solution.AddProjectReference(appId, new ProjectReference(libId));
+        workspace.TryApplyChanges(solution);
+
+        var initialAppCompilation = workspace.GetCompilation(appId);
+        var initialReference = Assert.Single(initialAppCompilation.References.OfType<CompilationReference>());
+        Assert.Single(initialReference.Compilation.GetTypeByMetadataName("Api")!.GetMembers("Before"));
+        Assert.DoesNotContain(workspace.GetDiagnostics(appId), diagnostic => diagnostic.Id == "RAV0117");
+
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            libDocumentId,
+            SourceText.From("public class Api { public static func After() { } }"));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedAppCompilation = workspace.GetCompilation(appId);
+        var updatedReference = Assert.Single(updatedAppCompilation.References.OfType<CompilationReference>());
+
+        Assert.NotSame(initialAppCompilation, updatedAppCompilation);
+        Assert.NotSame(initialReference.Compilation, updatedReference.Compilation);
+        Assert.Empty(updatedReference.Compilation.GetTypeByMetadataName("Api")!.GetMembers("Before"));
+        Assert.Single(updatedReference.Compilation.GetTypeByMetadataName("Api")!.GetMembers("After"));
+        Assert.Contains(workspace.GetDiagnostics(appId), diagnostic => diagnostic.Id == "RAV0117");
+    }
+
+    [Fact]
     public void GetCompilation_CircularProjectReference_ShouldThrow()
     {
         var workspace = new AdhocWorkspace();

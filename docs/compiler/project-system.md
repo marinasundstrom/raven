@@ -443,6 +443,16 @@ C# and other SDK projects can reference a Raven project with normal
 </ItemGroup>
 ```
 
+Raven projects use the same `ProjectReference` form and build-order semantics.
+During `dotnet build`, MSBuild first builds referenced projects and the Raven
+compiler consumes their output assemblies as metadata, just as C# compilation
+does. In an editor workspace, those same references remain source project edges
+so live analysis and navigation can cross project boundaries. Each project
+therefore retains its own compilation options, assembly identity, and entry
+point in both representations. A source or public-API change in a referenced
+workspace project invalidates dependent compilations and their diagnostic
+caches transitively.
+
 ## Remaining C# project-system parity work
 
 The `.rvnproj` authoring model now uses the same standard properties and items

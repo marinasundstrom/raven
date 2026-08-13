@@ -581,14 +581,16 @@ public sealed class MsBuildProjectSystemServiceTests
 namespace Samples.Docs
 
 public class WidgetFactory {
-    static func CreateDefault() -> int => 42
+    public static func CreateDefault() -> int => 42
 }
 """);
 
             File.WriteAllText(Path.Combine(appDirectory, "app.rvn"), """
 import Samples.Docs.*
 
-let value = WidgetFactory.CreateDefault()
+func Main() {
+    System.Console.WriteLine(WidgetFactory.CreateDefault())
+}
 """);
 
             var libProjectPath = Path.Combine(libDirectory, "Lib.rvnproj");
@@ -626,9 +628,12 @@ let value = WidgetFactory.CreateDefault()
 
             Assert.NotNull(libProject);
             Assert.True(string.Equals(libProject!.FilePath, libProjectPath, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(appProject.Documents, document => document.Name == "app.rvn");
 
             var compilation = workspace.GetCompilation(appProjectId);
             Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0103");
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1014");
+            Assert.NotNull(compilation.GetEntryPoint());
         }
         finally
         {

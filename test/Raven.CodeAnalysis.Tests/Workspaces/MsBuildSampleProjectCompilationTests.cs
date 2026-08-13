@@ -868,8 +868,8 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 """);
 
             File.WriteAllText(Path.Combine(ravenDirectory, "main.rvn"), """
-                class Greeter {
-                    static func Message() -> string {
+                public class Greeter {
+                    public static func Message() -> string {
                         "Hello from Raven reference"
                     }
                 }

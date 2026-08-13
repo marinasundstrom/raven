@@ -164,7 +164,9 @@ packaged analyzer reports its expected diagnostic.
 It also installs `Raven.Templates` into an isolated .NET CLI home and
 materializes and builds all four template variants without changing the
 operator's machine-wide template registrations. The console result is also
-executed.
+executed. The class-library check creates a second Raven application with a
+normal `ProjectReference`, runs and publishes that application, and verifies
+the library's public API from a C# project as well.
 
 After publication, install and use the templates with:
 
@@ -177,6 +179,18 @@ dotnet new raven-classlib -n MyLibrary
 dotnet new raven-web -n RavenWeb
 dotnet new raven-nano -n RavenBlinky
 ```
+
+To use the generated class library from another project, add an ordinary .NET
+project reference:
+
+```bash
+dotnet add HelloRaven/HelloRaven.rvnproj reference MyLibrary/MyLibrary.rvnproj
+```
+
+Public top-level Raven functions are imported as namespace members by Raven
+consumers. Other .NET languages can call their generated static container;
+for the global namespace used by the template, `Greet()` is emitted as
+`NamespaceMembers.Greet()`.
 
 Replace `VERSION` with the release version being installed. Specifying it is
 required while Raven is distributed only as prerelease packages.

@@ -7199,9 +7199,7 @@ public partial class SemanticModel
             if (matchingMethods.Length == 0)
                 continue;
 
-            var declaringModel = ReferenceEquals(declaration.SyntaxTree, SyntaxTree)
-                ? this
-                : Compilation.GetSemanticModel(declaration.SyntaxTree);
+            var declaringModel = GetDeclaringSemanticModel(sourceType, declaration.SyntaxTree);
             declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
             declaringModel.EnsureDeclarations();
 
@@ -7280,9 +7278,7 @@ public partial class SemanticModel
             if (matchingMembers.Length == 0)
                 continue;
 
-            var declaringModel = ReferenceEquals(declaration.SyntaxTree, SyntaxTree)
-                ? this
-                : Compilation.GetSemanticModel(declaration.SyntaxTree);
+            var declaringModel = GetDeclaringSemanticModel(sourceType, declaration.SyntaxTree);
             declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
             declaringModel.EnsureDeclarations();
 
@@ -7370,9 +7366,7 @@ public partial class SemanticModel
         if (declarationSyntax?.SyntaxTree is null)
             return false;
 
-        var declaringModel = ReferenceEquals(declarationSyntax.SyntaxTree, SyntaxTree)
-            ? this
-            : Compilation.GetSemanticModel(declarationSyntax.SyntaxTree);
+        var declaringModel = GetDeclaringSemanticModel(sourceType, declarationSyntax.SyntaxTree);
 
         declaringModel.Compilation.EnsureSourceDeclarationsDeclared();
 
@@ -7389,6 +7383,20 @@ public partial class SemanticModel
             ensuredReceiverType = ReconstructSourceReceiverType(receiverType, declaredType);
 
         return ensured;
+    }
+
+    private SemanticModel GetDeclaringSemanticModel(
+        SourceNamedTypeSymbol sourceType,
+        SyntaxTree syntaxTree)
+    {
+        var declaringCompilation = sourceType.ContainingAssembly is SourceAssemblySymbol sourceAssembly
+            ? sourceAssembly.Compilation
+            : Compilation;
+
+        return ReferenceEquals(declaringCompilation, Compilation) &&
+            ReferenceEquals(syntaxTree, SyntaxTree)
+                ? this
+                : declaringCompilation.GetSemanticModel(syntaxTree);
     }
 
     private static INamedTypeSymbol ReconstructSourceReceiverType(

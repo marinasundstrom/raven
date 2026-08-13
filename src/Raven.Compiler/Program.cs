@@ -1069,7 +1069,8 @@ var workspace = RavenWorkspace.Create(
         targetFrameworkTfm,
         includeFrameworkReferences,
         new[] { ravenMacrosPath, ravenCodeAnalysisPath }.OfType<string>(),
-        allowPackageRestore: restoreProjectReferences));
+        allowPackageRestore: restoreProjectReferences,
+        projectReferenceLoadMode: ProjectReferenceLoadMode.Metadata));
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,
@@ -1175,7 +1176,7 @@ if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreC
 foreach (var r in additionalRefs)
 {
     var full = Path.GetFullPath(r);
-    project = project.AddMetadataReference(MetadataReference.CreateFromFile(full));
+    project = AddMetadataReferenceIfMissing(project, full);
 }
 
 if (projectFileInput is not null)
