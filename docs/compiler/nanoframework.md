@@ -44,7 +44,7 @@ This project targets nanoFramework 2.0 preview packages so Raven generics can
 run on compatible v2 firmware:
 
 ```xml
-<Project Sdk="Raven.Sdk/VERSION">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>netnano1.0</TargetFramework>
     <AssemblyName>Blinky</AssemblyName>

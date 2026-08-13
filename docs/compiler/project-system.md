@@ -104,7 +104,7 @@ ordinary source files do not need to be listed in the project file.
 Minimal example:
 
 ```xml
-<Project Sdk="Raven.Sdk/VERSION">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>App</AssemblyName>
@@ -115,6 +115,21 @@ Minimal example:
   </ItemGroup>
 </Project>
 ```
+
+Custom MSBuild SDK versions can be selected once for a repository in
+`global.json`, keeping individual Raven projects concise:
+
+```json
+{
+  "msbuild-sdks": {
+    "Raven.Sdk": "VERSION"
+  }
+}
+```
+
+The NuGet-based MSBuild SDK resolver restores that version from the configured
+package sources. A standalone project can instead pin the version directly as
+`Sdk="Raven.Sdk/VERSION"`; use one form consistently within a repository.
 
 Set the standard `EnableDefaultCompileItems` property to `false` when the
 project needs an explicit source list:
@@ -421,10 +436,11 @@ SampleRate=250` overrides the project item for that invocation; otherwise the
 project value overrides the source initializer. A required declaration without
 either provider value fails compilation.
 
-Standalone projects select the published Raven SDK and need no compiler paths:
+Projects whose repository selects the published Raven SDK in `global.json`
+need no compiler paths:
 
 ```xml
-<Project Sdk="Raven.Sdk/VERSION">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>RavenGreeter</AssemblyName>
@@ -504,7 +520,7 @@ from the standard evaluated `Compile` item list.
 Example:
 
 ```xml
-<Project Sdk="Raven.Sdk/VERSION">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Library</OutputType>
@@ -541,7 +557,8 @@ source lists are persisted as standard `Compile` items when
 - `src/Main.rvn` (`src/Library.rvn` for class libraries)
 - `bin/.gitkeep`
 
-The generated project selects the matching NuGet-resolved Raven SDK:
+The generated standalone project currently pins the matching NuGet-resolved
+Raven SDK:
 
 ```xml
 <Project Sdk="Raven.Sdk/VERSION">

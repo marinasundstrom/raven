@@ -48,7 +48,7 @@ public class AnalyzerReference
     private static Func<IEnumerable<DiagnosticAnalyzer>> CreateAssemblyAnalyzerFactory(Assembly assembly)
     {
         var analyzerTypes = new Lazy<Type[]>(
-            () => assembly.GetTypes()
+            () => GetLoadableTypes(assembly)
                 .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)
                 .OrderBy(static t => t.FullName, StringComparer.Ordinal)
                 .ToArray(),
@@ -60,12 +60,24 @@ public class AnalyzerReference
     private static Func<IEnumerable<CodeFixProvider>> CreateAssemblyCodeFixProviderFactory(Assembly assembly)
     {
         var providerTypes = new Lazy<Type[]>(
-            () => assembly.GetTypes()
+            () => GetLoadableTypes(assembly)
                 .Where(t => typeof(CodeFixProvider).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)
                 .OrderBy(static t => t.FullName, StringComparer.Ordinal)
                 .ToArray(),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
         return () => providerTypes.Value.Select(t => (CodeFixProvider)Activator.CreateInstance(t)!);
+    }
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException exception)
+        {
+            return exception.Types.OfType<Type>();
+        }
     }
 }

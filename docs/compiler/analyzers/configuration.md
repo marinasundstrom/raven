@@ -18,7 +18,7 @@ selected. This is intended for coarse feature selection, not severity control.
 Example `.rvnproj`:
 
 ```xml
-<Project Sdk="Raven.Sdk/VERSION">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>

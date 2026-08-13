@@ -97,7 +97,7 @@ Standard .NET SDK container properties and items work in a `.rvnproj`. Keeping
 stable image metadata in the project makes local and CI publishing consistent:
 
 ```xml
-<Project Sdk="Raven.Sdk/VERSION">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>

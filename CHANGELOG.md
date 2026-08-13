@@ -20,6 +20,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   net11.0 applications. Emission now also retargets reflection-derived assembly
   identities to the selected target framework's reference assemblies.
 
+- Migrated repository sample projects to the NuGet-resolved `Raven.Sdk` and
+  centralized their SDK version in `global.json`, so samples use the same
+  project-system contract as distributed Raven applications without requiring
+  a globally installed Raven SDK.
+
 - Fixed macro token queries to share the semantic model's fragment-region
   snapshot instead of invoking fragment providers again for the same syntax.
 

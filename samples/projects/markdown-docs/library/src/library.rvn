@@ -18,24 +18,24 @@ namespace Samples.Docs
 ///
 /// - [WidgetFactory.CreateDefault](xref:M:Samples.Docs.WidgetFactory.CreateDefault)
 /// - [WidgetPrinter](xref:T:Samples.Docs.Consumer.WidgetPrinter)
-class Widget(val Title: string) {
+public class Widget(val Title: string) {
     /// Returns the current title.
     ///
     /// `Title` is returned unchanged.
     ///
     /// @result The title that was supplied when the widget was created.
     /// @see xref:T:Samples.Docs.Consumer.WidgetPrinter
-    func GetTitle() -> string => Title
+    public func GetTitle() -> string => Title
 }
 
 /// Creates ready-made [Widget](xref:T:Samples.Docs.Widget) instances.
-class WidgetFactory {
+public class WidgetFactory {
     /// Creates a default widget for samples.
     ///
     /// The returned value has the title **Hello from docs**.
     ///
     /// @returns A [Widget](xref:T:Samples.Docs.Widget) instance with a sample title.
-    static func CreateDefault() -> Widget {
+    public static func CreateDefault() -> Widget {
         Widget("Hello from docs")
     }
 }

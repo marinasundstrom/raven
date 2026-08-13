@@ -1,7 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Library</OutputType>
+    <DefaultItemExcludes>$(DefaultItemExcludes);extension/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

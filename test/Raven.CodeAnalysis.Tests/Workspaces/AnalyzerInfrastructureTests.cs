@@ -1,4 +1,5 @@
 using System.Threading;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Operations;
@@ -9,12 +10,30 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public class AnalyzerInfrastructureTests
 {
+    private sealed class PartiallyLoadableAnalyzerAssembly : Assembly
+    {
+        public override Type[] GetTypes()
+            => throw new ReflectionTypeLoadException(
+                [typeof(CountingAnalyzer), null!],
+                [new TypeLoadException("Unrelated analyzer dependency is unavailable.")]);
+    }
+
     private sealed class CollectingWorkspaceEventSink : IWorkspaceEventSink
     {
         public List<WorkspaceEvent> Events { get; } = [];
 
         public void Report(WorkspaceEvent workspaceEvent)
             => Events.Add(workspaceEvent);
+    }
+
+    [Fact]
+    public void AnalyzerReference_IgnoresUnrelatedTypesThatCannotBeLoaded()
+    {
+        var reference = new AnalyzerReference(new PartiallyLoadableAnalyzerAssembly());
+
+        var analyzer = Assert.Single(reference.GetAnalyzers());
+
+        Assert.IsType<CountingAnalyzer>(analyzer);
     }
 
     private sealed class ReservedPrefixAnalyzer : DiagnosticAnalyzer

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>netnano1.0</TargetFramework>
     <AssemblyName>NanoFrameworkBlinky</AssemblyName>
