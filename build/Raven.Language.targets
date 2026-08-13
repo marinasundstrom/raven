@@ -128,7 +128,8 @@
 
     <PropertyGroup>
       <RavenCoreReferencePath Condition="'$(RavenCoreReferencePath)' == '' and '@(_RavenCoreReference)' != ''">@(_RavenCoreReference->'%(FullPath)')</RavenCoreReferencePath>
-      <RavenCoreArgument Condition="'$(RavenCoreReferencePath)' != ''">--raven-core &quot;$(RavenCoreReferencePath)&quot;</RavenCoreArgument>
+      <RavenCoreArgument Condition="'$(RavenEmitCoreTypesOnly)' == 'true'">--emit-core-types-only</RavenCoreArgument>
+      <RavenCoreArgument Condition="'$(RavenEmitCoreTypesOnly)' != 'true' and '$(RavenCoreReferencePath)' != ''">--raven-core &quot;$(RavenCoreReferencePath)&quot;</RavenCoreArgument>
       <RavenReferenceArguments>@(_RavenReferencePath->'--refs &quot;%(FullPath)&quot;', ' ')</RavenReferenceArguments>
       <_RavenConstantArguments>@(RavenConstant->'--constant &quot;%(Identity)=%(Value)&quot;', ' ')</_RavenConstantArguments>
     </PropertyGroup>

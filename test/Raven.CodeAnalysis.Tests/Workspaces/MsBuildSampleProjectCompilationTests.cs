@@ -839,6 +839,27 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenCoreProject_RebuildsWithoutReferencingPreviousOutput()
+    {
+        var repoRoot = GetRepositoryRoot();
+        _ = EnsureCompilerBuilt(repoRoot, "net10.0");
+        EnsureRavenCoreBuilt(repoRoot, "net10.0");
+        var ravenCoreProjectPath = Path.Combine(repoRoot, "src", "Raven.Core", "Raven.Core.rvnproj");
+
+        var result = RunProcess(
+            "dotnet",
+            $"build \"{ravenCoreProjectPath}\" --framework net10.0 --no-restore --target CoreCompile /property:WarningLevel=0 /property:RavenGenerateDocumentation=false",
+            repoRoot,
+            timeoutMilliseconds: 300_000);
+        output.WriteLine(result.StdOut);
+        output.WriteLine(result.StdErr);
+
+        Assert.True(
+            result.ExitCode == 0,
+            $"Raven.Core rebuild failed. The core bootstrap must not reference an earlier Raven.Core output.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+    }
+
+    [Fact]
     public void CSharpProject_CanReferenceRavenProjectThroughProjectReference()
     {
         var repoRoot = GetRepositoryRoot();
