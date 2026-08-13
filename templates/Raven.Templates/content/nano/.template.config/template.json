@@ -12,7 +12,7 @@
     "type": "project"
   },
   "symbols": {
-    "Framework": {
+    "framework": {
       "type": "parameter",
       "datatype": "string",
       "defaultValue": "netnano1.0",

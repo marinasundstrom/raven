@@ -25,6 +25,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   project-system contract as distributed Raven applications without requiring
   a globally installed Raven SDK.
 
+- Aligned Raven templates with the .NET CLI's lowercase `--framework` option
+  and made net11.0 the default for console, class-library, and Web projects in
+  the .NET 11 distribution. Package and installation validation now builds Web
+  projects and verifies nanoFramework `.pe`, `.pdbx`, and `.bin` artifacts;
+  package validation also starts the Web app and checks its HTTP response.
+
 - Fixed macro token queries to share the semantic model's fragment-region
   snapshot instead of invoking fragment providers again for the same syntax.
 

@@ -6,7 +6,7 @@ on:
       version:
         description: Published release version without a leading v
         required: true
-        default: 0.1.0-preview.6
+        default: 0.1.0-preview.7
 
 permissions:
   contents: read
@@ -75,7 +75,7 @@ jobs:
           printf '%s\n' "$template_output"
           grep -F 'Hello from Raven' <<< "$template_output"
           dotnet publish "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj" -c Release
-          published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net10.0/publish/DotnetTemplateProject.dll")
+          published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net11.0/publish/DotnetTemplateProject.dll")
           printf '%s\n' "$published_output"
           grep -F 'Hello from Raven' <<< "$published_output"
           DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
@@ -91,9 +91,18 @@ jobs:
           printf '%s\n' "$classlib_output"
           grep -F 'Hello from Raven' <<< "$classlib_output"
           dotnet publish "$RUNNER_TEMP/dotnet-template-project/DotnetTemplateProject.rvnproj" -c Release
-          classlib_published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net10.0/publish/DotnetTemplateProject.dll")
+          classlib_published_output=$(dotnet "$RUNNER_TEMP/dotnet-template-project/bin/Release/net11.0/publish/DotnetTemplateProject.dll")
           printf '%s\n' "$classlib_published_output"
           grep -F 'Hello from Raven' <<< "$classlib_published_output"
+          DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
+            dotnet new raven-web --name DotnetTemplateWeb --output "$RUNNER_TEMP/dotnet-template-web"
+          dotnet build "$RUNNER_TEMP/dotnet-template-web/DotnetTemplateWeb.rvnproj"
+          DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
+            dotnet new raven-nano --name DotnetTemplateNano --output "$RUNNER_TEMP/dotnet-template-nano"
+          dotnet build "$RUNNER_TEMP/dotnet-template-nano/DotnetTemplateNano.rvnproj"
+          test -f "$RUNNER_TEMP/dotnet-template-nano/bin/Debug/netnano1.0/DotnetTemplateNano.pe"
+          test -f "$RUNNER_TEMP/dotnet-template-nano/bin/Debug/netnano1.0/DotnetTemplateNano.pdbx"
+          test -f "$RUNNER_TEMP/dotnet-template-nano/bin/Debug/netnano1.0/DotnetTemplateNano.bin"
 
   sdk-windows:
     name: SDK install ${{ matrix.rid }}
@@ -182,7 +191,7 @@ jobs:
           }
           $templateProjectFile = Join-Path $templateProject "DotnetTemplateProject.rvnproj"
           dotnet publish $templateProjectFile -c Release
-          $publishedAssembly = Join-Path $templateProject "bin/Release/net10.0/publish/DotnetTemplateProject.dll"
+          $publishedAssembly = Join-Path $templateProject "bin/Release/net11.0/publish/DotnetTemplateProject.dll"
           $publishedOutput = dotnet $publishedAssembly 2>&1 | Out-String
           Write-Output $publishedOutput
           if ($publishedOutput -notmatch [regex]::Escape("Hello from Raven")) {
@@ -207,6 +216,18 @@ jobs:
           Write-Output $classlibPublishedOutput
           if ($classlibPublishedOutput -notmatch [regex]::Escape("Hello from Raven")) {
             throw "The released Raven SDK did not publish an application with a Raven project reference."
+          }
+          $templateWeb = Join-Path $env:RUNNER_TEMP "dotnet-template-web"
+          dotnet new raven-web --name DotnetTemplateWeb --output $templateWeb
+          dotnet build (Join-Path $templateWeb "DotnetTemplateWeb.rvnproj")
+          $templateNano = Join-Path $env:RUNNER_TEMP "dotnet-template-nano"
+          dotnet new raven-nano --name DotnetTemplateNano --output $templateNano
+          dotnet build (Join-Path $templateNano "DotnetTemplateNano.rvnproj")
+          foreach ($extension in "pe", "pdbx", "bin") {
+            $artifact = Join-Path $templateNano "bin/Debug/netnano1.0/DotnetTemplateNano.$extension"
+            if (-not (Test-Path $artifact)) {
+              throw "The released nanoFramework template did not produce $artifact."
+            }
           }
 
   vscode:

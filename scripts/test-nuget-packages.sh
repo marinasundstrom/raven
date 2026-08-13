@@ -159,7 +159,13 @@ if ! grep -Fq '<packageType name="Template"' <<<"$template_nuspec"; then
 fi
 
 TEMP_DIR="$(mktemp -d /tmp/raven-package-consumer.XXXXXX)"
+web_server_pid=""
 cleanup() {
+  if [[ -n "$web_server_pid" ]]; then
+    kill "$web_server_pid" 2>/dev/null || true
+    wait "$web_server_pid" 2>/dev/null || true
+  fi
+
   if [[ "${RAVEN_KEEP_PACKAGE_TEST_TEMP:-false}" == "true" ]]; then
     echo "Preserved package-test workspace: $TEMP_DIR" >&2
     return
@@ -187,8 +193,14 @@ for template_name in console classlib web nano; do
     nano) project_name="TemplateNano" ;;
   esac
   output_dir="$TEMP_DIR/templates/$template_name"
-  DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
-    dotnet new "raven-$template_name" --name "$project_name" --output "$output_dir" >/dev/null
+  if [[ "$template_name" == "web" ]]; then
+    DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+      dotnet new "raven-$template_name" --name "$project_name" --output "$output_dir" \
+      --framework net11.0 >/dev/null
+  else
+    DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+      dotnet new "raven-$template_name" --name "$project_name" --output "$output_dir" >/dev/null
+  fi
   if [[ ! -f "$output_dir/$project_name.rvnproj" ]]; then
     echo "raven-$template_name did not create the expected project file." >&2
     exit 1
@@ -207,6 +219,18 @@ if [[ ! -f "$TEMP_DIR/templates/classlib/src/Library.rvn" ]]; then
   echo "raven-classlib did not create src/Library.rvn." >&2
   exit 1
 fi
+for template_name in console classlib web; do
+  case "$template_name" in
+    console) project_name="TemplateConsole" ;;
+    classlib) project_name="TemplateClasslib" ;;
+    web) project_name="TemplateWeb" ;;
+  esac
+  if ! grep -Fq '<TargetFramework>net11.0</TargetFramework>' \
+    "$TEMP_DIR/templates/$template_name/$project_name.rvnproj"; then
+    echo "raven-$template_name did not use the net11.0 default target framework." >&2
+    exit 1
+  fi
+done
 if ! grep -Fq '<TargetFramework>netnano1.0</TargetFramework>' "$TEMP_DIR/templates/nano/TemplateNano.rvnproj"; then
   echo "raven-nano did not use the netnano1.0 default target framework." >&2
   exit 1
@@ -234,7 +258,46 @@ for template_name in console classlib web nano; do
   fi
 done
 
-template_console_output="$(dotnet "$TEMP_DIR/templates/console/bin/Debug/net10.0/TemplateConsole.dll")"
+for nano_artifact in TemplateNano.pe TemplateNano.pdbx TemplateNano.bin; do
+  if [[ ! -f "$TEMP_DIR/templates/nano/bin/Debug/netnano1.0/$nano_artifact" ]]; then
+    echo "Packaged raven-nano template did not produce $nano_artifact." >&2
+    exit 1
+  fi
+done
+
+web_log="$TEMP_DIR/template-web-run.log"
+DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+  dotnet run --project "$TEMP_DIR/templates/web/TemplateWeb.rvnproj" \
+  --no-build --no-restore -- --urls http://127.0.0.1:0 >"$web_log" 2>&1 &
+web_server_pid=$!
+web_url=""
+for _ in {1..60}; do
+  web_url="$(sed -n 's/.*Now listening on: \(http:\/\/127\.0\.0\.1:[0-9][0-9]*\).*/\1/p' "$web_log" | head -1)"
+  if [[ -n "$web_url" ]]; then
+    break
+  fi
+  if ! kill -0 "$web_server_pid" 2>/dev/null; then
+    cat "$web_log" >&2
+    echo "Packaged raven-web template exited before listening." >&2
+    exit 1
+  fi
+  sleep 0.5
+done
+if [[ -z "$web_url" ]]; then
+  cat "$web_log" >&2
+  echo "Packaged raven-web template did not start listening." >&2
+  exit 1
+fi
+web_output="$(curl --fail --silent --show-error "$web_url/")"
+if [[ "$web_output" != "Hello from Raven" ]]; then
+  echo "Packaged raven-web template returned '$web_output'; expected 'Hello from Raven'." >&2
+  exit 1
+fi
+kill "$web_server_pid"
+wait "$web_server_pid" 2>/dev/null || true
+web_server_pid=""
+
+template_console_output="$(dotnet "$TEMP_DIR/templates/console/bin/Debug/net11.0/TemplateConsole.dll")"
 if [[ "$template_console_output" != "Hello from Raven" ]]; then
   echo "Packaged raven-console template returned '$template_console_output'; expected 'Hello from Raven'." >&2
   exit 1
@@ -250,7 +313,7 @@ if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
   cat "$template_publish_log" >&2
   exit 1
 fi
-template_published_output="$(dotnet "$TEMP_DIR/templates/console/bin/Release/net10.0/publish/TemplateConsole.dll")"
+template_published_output="$(dotnet "$TEMP_DIR/templates/console/bin/Release/net11.0/publish/TemplateConsole.dll")"
 if [[ "$template_published_output" != "Hello from Raven" ]]; then
   echo "Published raven-console template returned '$template_published_output'; expected 'Hello from Raven'." >&2
   exit 1
@@ -292,7 +355,7 @@ if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
   cat "$classlib_raven_publish_log" >&2
   exit 1
 fi
-classlib_raven_published_output="$(dotnet "$classlib_raven_consumer/bin/Release/net10.0/publish/ClasslibRavenConsumer.dll")"
+classlib_raven_published_output="$(dotnet "$classlib_raven_consumer/bin/Release/net11.0/publish/ClasslibRavenConsumer.dll")"
 if [[ "$classlib_raven_published_output" != "Hello from Raven" ]]; then
   echo "Published Raven class-library consumer returned '$classlib_raven_published_output'; expected 'Hello from Raven'." >&2
   exit 1
@@ -300,7 +363,7 @@ fi
 
 classlib_csharp_consumer="$TEMP_DIR/classlib-csharp-consumer"
 dotnet new console \
-  --framework net10.0 \
+  --framework net11.0 \
   --no-restore \
   --output "$classlib_csharp_consumer" >/dev/null
 dotnet add "$classlib_csharp_consumer/classlib-csharp-consumer.csproj" reference \
