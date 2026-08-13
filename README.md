@@ -164,14 +164,15 @@ not part of the normal test focus.
 
 ## Prerequisites
 
-- A .NET SDK with `net10.0` targeting support.
+- A .NET 11 SDK. The distributed toolchain is hosted on .NET 11; it can still
+  target net10.0 when the corresponding targeting packs are installed.
 - A shell that can run the repository scripts.
 
 The documentation build restores its pinned DocFX tool automatically; see
 [`docs/docfx.md`](docs/docfx.md).
 
-Some samples target `net11.0`; those samples include or require a project-local
-`global.json` that selects an SDK with `net11.0` support.
+Use a project-local `global.json` to pin the exact .NET SDK feature band for a
+repository when reproducible SDK selection is required.
 
 ## Quick Start
 

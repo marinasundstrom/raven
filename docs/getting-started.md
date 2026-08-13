@@ -24,20 +24,22 @@ developers](raven-for-csharp-developers.md).
 
 ## Prerequisites
 
-- A .NET SDK with `net10.0` targeting support.
+- A .NET 11 SDK. The distributed Raven toolchain itself runs on .NET 11 and can
+  also build `net10.0` applications when the .NET 10 targeting packs are
+  installed.
 - `curl` on macOS/Linux or PowerShell on Windows.
 - VS Code and its `code` command if you want editor support.
 
-Some sample projects target `net11.0`. For those, use a project-local
-`global.json` that selects an SDK with `net11.0` support.
+Use a project-local `global.json` when a repository needs to pin the exact .NET
+SDK feature band used by `dotnet` and MSBuild.
 
 ## 1. Install the preview SDK
 
 On macOS or Linux:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.6/install-raven.sh \
-  | sh -s -- 0.1.0-preview.6
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.7/install-raven.sh \
+  | sh -s -- 0.1.0-preview.7
 export PATH="$HOME/.raven/bin:$PATH"
 ```
 
@@ -47,7 +49,7 @@ terminals.
 On Windows PowerShell:
 
 ```powershell
-$version = "0.1.0-preview.6"
+$version = "0.1.0-preview.7"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 $env:PATH = "$HOME\.raven\bin;$env:PATH"
@@ -72,7 +74,7 @@ library, and MSBuild assets. `rvn` is the project and developer frontend;
 To install the VS Code extension from the same release:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.6/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.7/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 

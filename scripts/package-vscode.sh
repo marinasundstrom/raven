@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:-}"
 EXTENSION_DIR="$ROOT_DIR/src/Raven.VSCode"
 OUTPUT_DIR="${RAVEN_PACKAGE_OUTPUT:-$ROOT_DIR/artifacts/distribution}"
-TFM="${RAVEN_PACKAGE_TFM:-net10.0}"
+TFM="net11.0"
 SERVER_DIR="$EXTENSION_DIR/server"
 
 rm -rf "$SERVER_DIR"

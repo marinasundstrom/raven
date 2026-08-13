@@ -27,6 +27,38 @@ public sealed class AssemblyReferenceNormalizerTests
     }
 
     [Fact]
+    public void RetargetAssemblyReferences_UsesTargetCompilationIdentity()
+    {
+        using var input = File.OpenRead(typeof(Compilation).Assembly.Location);
+        using var source = AssemblyDefinition.ReadAssembly(typeof(Compilation).Assembly.Location);
+        var sourceReference = source.MainModule.AssemblyReferences.First();
+        var targetVersion = new Version(42, 0, 0, 0);
+        var targetReference = new AssemblyNameReference(sourceReference.Name, targetVersion)
+        {
+            Culture = sourceReference.Culture,
+            PublicKeyToken = [.. sourceReference.PublicKeyToken]
+        };
+        var targetReferences = new Dictionary<string, AssemblyNameReference>(StringComparer.OrdinalIgnoreCase)
+        {
+            [targetReference.Name] = targetReference
+        };
+        using var output = new MemoryStream();
+        using var resolver = new ThrowingAssemblyResolver();
+
+        AssemblyReferenceNormalizer.RetargetAssemblyReferences(
+            input,
+            output,
+            targetReferences,
+            resolver);
+
+        output.Position = 0;
+        using var retargeted = AssemblyDefinition.ReadAssembly(output);
+        Assert.Contains(
+            retargeted.MainModule.AssemblyReferences,
+            reference => reference.Name == targetReference.Name && reference.Version == targetVersion);
+    }
+
+    [Fact]
     public void RetargetCoreLibraryReference_RewritesHostCoreScopesToTargetIdentity()
     {
         using var input = File.OpenRead(typeof(Compilation).Assembly.Location);

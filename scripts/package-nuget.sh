@@ -32,10 +32,16 @@ COMMON_PROPERTIES=(
 
 "$ROOT_DIR/scripts/generate-compiler-sources.sh"
 
-# Bootstrap both compiler frameworks without Raven.Core so the Raven-authored
-# library projects can then be built from a clean checkout.
+# Build both public API target assets, then bootstrap the distributed .NET 11
+# compiler host without Raven.Core so Raven-authored libraries can be built
+# from a clean checkout.
+dotnet build "$ROOT_DIR/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" \
+  -c Release \
+  "${COMMON_PROPERTIES[@]}"
+
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" \
   -c Release \
+  -f net11.0 \
   -p:UseRavenCoreReference=false \
   "${COMMON_PROPERTIES[@]}"
 

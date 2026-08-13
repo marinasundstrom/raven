@@ -37,6 +37,16 @@ done
 
 SDK_VERSION="$(tr -d '\r\n' < "$SDK_ROOT/VERSION")"
 
+if ! grep -Fq '"tfm": "net11.0"' "$SDK_ROOT/tools/rvnc/rvnc.runtimeconfig.json"; then
+  echo "The staged SDK does not contain a .NET 11 compiler host." >&2
+  exit 1
+fi
+
+if ! grep -Fq '"tfm": "net11.0"' "$SDK_ROOT/tools/language-server/Raven.LanguageServer.runtimeconfig.json"; then
+  echo "The staged SDK does not contain a .NET 11 language server." >&2
+  exit 1
+fi
+
 if [[ "$STRUCTURE_ONLY" == true ]]; then
   echo "Validated Raven SDK structure: $SDK_ROOT"
   exit 0

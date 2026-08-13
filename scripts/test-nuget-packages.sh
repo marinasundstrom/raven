@@ -120,6 +120,11 @@ for sdk_entry in \
   assert_archive_entry "$sdk_package" "$sdk_entry"
 done
 
+if ! unzip -p "$sdk_package" tools/rvnc/rvnc.runtimeconfig.json | grep -Fq '"tfm": "net11.0"'; then
+  echo "Raven.Sdk does not contain a .NET 11 compiler host." >&2
+  exit 1
+fi
+
 sdk_nuspec="$(unzip -p "$sdk_package" Raven.Sdk.nuspec)"
 if ! grep -Fq "<version>$VERSION</version>" <<<"$sdk_nuspec"; then
   echo "Incorrect version metadata in $(basename "$sdk_package")" >&2
@@ -353,59 +358,62 @@ DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
   --disable-build-servers \
   /property:WarningLevel=0 >/dev/null
 
-mkdir -p "$TEMP_DIR/raven-consumer/src"
 mkdir -p "$TEMP_DIR/analyzer-consumer/src"
-printf '%s\n' \
-  "<Project Sdk=\"Raven.Sdk/$VERSION\">" \
-  '  <PropertyGroup>' \
-  '    <TargetFramework>net10.0</TargetFramework>' \
-  '    <AssemblyName>PackageMacroConsumer</AssemblyName>' \
-  '    <OutputType>Exe</OutputType>' \
-  '  </PropertyGroup>' \
-  '</Project>' \
-  > "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj"
+for target_framework in net10.0 net11.0; do
+  raven_consumer="$TEMP_DIR/raven-consumer-$target_framework"
+  mkdir -p "$raven_consumer/src"
+  printf '%s\n' \
+    "<Project Sdk=\"Raven.Sdk/$VERSION\">" \
+    '  <PropertyGroup>' \
+    "    <TargetFramework>$target_framework</TargetFramework>" \
+    '    <AssemblyName>PackageMacroConsumer</AssemblyName>' \
+    '    <OutputType>Exe</OutputType>' \
+    '  </PropertyGroup>' \
+    '</Project>' \
+    > "$raven_consumer/PackageMacroConsumer.rvnproj"
 
-printf '%s\n' \
-  'import System.Console.*' \
-  'import Raven.Macros.*' \
-  '' \
-  'func Main() {' \
-  '    WriteLine(sha256Digest!("hello"))' \
-  '}' \
-  > "$TEMP_DIR/raven-consumer/src/Main.rvn"
+  printf '%s\n' \
+    'import System.Console.*' \
+    'import Raven.Macros.*' \
+    '' \
+    'func Main() {' \
+    '    WriteLine(sha256Digest!("hello"))' \
+    '}' \
+    > "$raven_consumer/src/Main.rvn"
 
-raven_restore_log="$TEMP_DIR/raven-restore.log"
-if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
-  dotnet restore "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj" \
-  /property:WarningLevel=0 >"$raven_restore_log" 2>&1; then
-  cat "$raven_restore_log" >&2
-  exit 1
-fi
+  raven_restore_log="$TEMP_DIR/raven-restore-$target_framework.log"
+  if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+    dotnet restore "$raven_consumer/PackageMacroConsumer.rvnproj" \
+    /property:WarningLevel=0 >"$raven_restore_log" 2>&1; then
+    cat "$raven_restore_log" >&2
+    exit 1
+  fi
 
-raven_assets_file="$TEMP_DIR/raven-consumer/obj/project.assets.json"
-for package_identity in "Raven.Core/$VERSION" "Raven.Macros/$VERSION" "Raven.CodeAnalysis/$VERSION"; do
-  if ! grep -Fq "\"$package_identity\"" "$raven_assets_file"; then
-    echo "Raven.Sdk did not resolve implicit package $package_identity" >&2
+  raven_assets_file="$raven_consumer/obj/project.assets.json"
+  for package_identity in "Raven.Core/$VERSION" "Raven.Macros/$VERSION" "Raven.CodeAnalysis/$VERSION"; do
+    if ! grep -Fq "\"$package_identity\"" "$raven_assets_file"; then
+      echo "Raven.Sdk did not resolve implicit package $package_identity for $target_framework" >&2
+      exit 1
+    fi
+  done
+
+  raven_build_log="$TEMP_DIR/raven-build-$target_framework.log"
+  if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
+    dotnet build "$raven_consumer/PackageMacroConsumer.rvnproj" \
+    --no-restore \
+    --disable-build-servers \
+    /property:WarningLevel=0 >"$raven_build_log" 2>&1; then
+    cat "$raven_build_log" >&2
+    exit 1
+  fi
+
+  macro_output="$(dotnet "$raven_consumer/bin/Debug/$target_framework/PackageMacroConsumer.dll")"
+  expected_digest="2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  if [[ "$macro_output" != "$expected_digest" ]]; then
+    echo "Packaged Raven.Macros $target_framework smoke test returned '$macro_output'; expected '$expected_digest'." >&2
     exit 1
   fi
 done
-
-raven_build_log="$TEMP_DIR/raven-build.log"
-if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
-  dotnet build "$TEMP_DIR/raven-consumer/PackageMacroConsumer.rvnproj" \
-  --no-restore \
-  --disable-build-servers \
-  /property:WarningLevel=0 >"$raven_build_log" 2>&1; then
-  cat "$raven_build_log" >&2
-  exit 1
-fi
-
-macro_output="$(dotnet "$TEMP_DIR/raven-consumer/bin/Debug/net10.0/PackageMacroConsumer.dll")"
-expected_digest="2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-if [[ "$macro_output" != "$expected_digest" ]]; then
-  echo "Packaged Raven.Macros smoke test returned '$macro_output'; expected '$expected_digest'." >&2
-  exit 1
-fi
 
 printf '%s\n' \
   "<Project Sdk=\"Raven.Sdk/$VERSION\">" \

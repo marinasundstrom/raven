@@ -13,6 +13,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and accept those host-targeted libraries when compiling for a newer .NET
   target framework.
 
+- Standardized the distributable Raven toolchain on .NET 11. The standalone
+  SDK, NuGet Project SDK, analyzers, language server, and VS Code extension now
+  carry .NET 11-hosted tooling, while Raven library packages retain their
+  target-specific assets so the toolchain can continue to build net10.0 and
+  net11.0 applications. Emission now also retargets reflection-derived assembly
+  identities to the selected target framework's reference assemblies.
+
 - Fixed macro token queries to share the semantic model's fragment-region
   snapshot instead of invoking fragment providers again for the same syntax.
 

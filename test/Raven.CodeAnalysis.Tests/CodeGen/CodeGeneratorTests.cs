@@ -602,6 +602,38 @@ class Greeter {
     }
 
     [Fact]
+    public void Emit_ConsoleApplication_UsesTargetReferenceAssemblyIdentities()
+    {
+        var syntaxTree = SyntaxTree.ParseText("func Main() { System.Console.WriteLine(\"Hello\") }");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var consoleReference = TestMetadataReferences.Default
+            .OfType<PortableExecutableReference>()
+            .Single(reference => Path.GetFileName(reference.FilePath) == "System.Console.dll");
+        var expectedConsoleVersion = AssemblyName.GetAssemblyName(consoleReference.FilePath!).Version;
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Position = 0;
+        using var peReader = new PEReader(peStream, PEStreamOptions.PrefetchEntireImage);
+        var metadataReader = peReader.GetMetadataReader();
+        var assemblyReferences = metadataReader.AssemblyReferences
+            .Select(metadataReader.GetAssemblyReference)
+            .ToArray();
+        var consoleAssemblyReference = Assert.Single(
+            assemblyReferences,
+            reference => metadataReader.GetString(reference.Name) == "System.Console");
+
+        Assert.Equal(expectedConsoleVersion, consoleAssemblyReference.Version);
+        Assert.DoesNotContain(
+            assemblyReferences,
+            reference => metadataReader.GetString(reference.Name) == "System.Private.CoreLib");
+    }
+
+    [Fact]
     public void Emit_InterfaceStaticMembers_EmitsCallableStatics()
     {
         var code = """

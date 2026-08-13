@@ -15,6 +15,7 @@ internal static class AssemblyReferenceNormalizer
         Stream peInput,
         Stream peOutput,
         IAssemblyResolver? assemblyResolver = null,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null)
     {
@@ -43,6 +44,13 @@ internal static class AssemblyReferenceNormalizer
 
         if (coreLibRefs.Length == 0)
         {
+            if (targetReferences is not null && targetReferences.Count > 0)
+            {
+                RetargetAssemblyIdentities(module, targetReferences);
+                assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
+                return;
+            }
+
             peInput.Position = 0;
             peInput.CopyTo(peOutput);
             CopySymbols(pdbInput, pdbOutput);
@@ -64,6 +72,34 @@ internal static class AssemblyReferenceNormalizer
         if (!module.AssemblyReferences.Contains(runtimeRef))
             module.AssemblyReferences.Add(runtimeRef);
 
+        RetargetAssemblyIdentities(module, targetReferences);
+        assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
+    }
+
+    internal static void RetargetAssemblyReferences(
+        Stream peInput,
+        Stream peOutput,
+        IReadOnlyDictionary<string, AssemblyNameReference> targetReferences,
+        IAssemblyResolver? assemblyResolver = null,
+        Stream? pdbInput = null,
+        Stream? pdbOutput = null)
+    {
+        ArgumentNullException.ThrowIfNull(peInput);
+        ArgumentNullException.ThrowIfNull(peOutput);
+        ArgumentNullException.ThrowIfNull(targetReferences);
+
+        peInput.Position = 0;
+        var readerParameters = new ReaderParameters
+        {
+            InMemory = true,
+            ReadingMode = ReadingMode.Deferred
+        };
+        ConfigureSymbols(readerParameters, pdbInput, pdbOutput);
+        if (assemblyResolver is not null)
+            readerParameters.AssemblyResolver = assemblyResolver;
+
+        var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
+        RetargetAssemblyIdentities(assembly.MainModule, targetReferences);
         assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
     }
 
@@ -72,6 +108,7 @@ internal static class AssemblyReferenceNormalizer
         Stream peOutput,
         AssemblyNameReference targetCoreLibrary,
         IAssemblyResolver? assemblyResolver = null,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null)
     {
@@ -92,6 +129,7 @@ internal static class AssemblyReferenceNormalizer
 
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
         var module = assembly.MainModule;
+        RetargetAssemblyIdentities(module, targetReferences);
         var targetReference = module.AssemblyReferences.FirstOrDefault(reference =>
             string.Equals(reference.FullName, targetCoreLibrary.FullName, StringComparison.OrdinalIgnoreCase));
         targetReference ??= CloneAssemblyReference(targetCoreLibrary);
@@ -115,6 +153,38 @@ internal static class AssemblyReferenceNormalizer
             module.AssemblyReferences.Add(targetReference);
 
         assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
+    }
+
+    private static void RetargetAssemblyIdentities(
+        ModuleDefinition module,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+    {
+        if (targetReferences is null || targetReferences.Count == 0)
+            return;
+
+        foreach (var reference in module.AssemblyReferences)
+        {
+            if (!targetReferences.TryGetValue(reference.Name, out var targetReference))
+                continue;
+
+            reference.Version = targetReference.Version;
+            reference.Culture = targetReference.Culture;
+            reference.IsRetargetable = targetReference.IsRetargetable;
+            reference.IsWindowsRuntime = targetReference.IsWindowsRuntime;
+            reference.HasPublicKey = targetReference.HasPublicKey;
+            if (targetReference.HasPublicKey)
+            {
+                reference.PublicKey = [.. targetReference.PublicKey];
+                reference.PublicKeyToken = null;
+            }
+            else
+            {
+                reference.PublicKey = null;
+                reference.PublicKeyToken = targetReference.PublicKeyToken is { Length: > 0 }
+                    ? [.. targetReference.PublicKeyToken]
+                    : null;
+            }
+        }
     }
 
     private static void ConfigureSymbols(

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RID="${1:-}"
 VERSION="${2:-0.1.0-dev}"
-TFM="${RAVEN_PACKAGE_TFM:-net10.0}"
+TFM="net11.0"
 OUTPUT_DIR="${RAVEN_PACKAGE_OUTPUT:-$ROOT_DIR/artifacts/distribution}"
 
 if [[ -z "$RID" ]]; then

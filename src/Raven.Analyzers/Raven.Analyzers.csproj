@@ -7,7 +7,7 @@
   <Import Project="..\..\eng\Package.props" />
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Raven.Analyzers</AssemblyName>
@@ -39,8 +39,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="$(TargetPath)" Pack="true" PackagePath="analyzers/dotnet" Visible="false" />
-    <None Include="$(TargetDir)$(AssemblyName).pdb" Pack="true" PackagePath="analyzers/dotnet" Visible="false" />
+    <None Include="$(MSBuildProjectDirectory)\bin\$(Configuration)\net11.0\$(AssemblyName).dll"
+          Pack="true" PackagePath="analyzers/dotnet" Visible="false" />
+    <None Include="$(MSBuildProjectDirectory)\bin\$(Configuration)\net11.0\$(AssemblyName).pdb"
+          Pack="true" PackagePath="analyzers/dotnet" Visible="false" />
   </ItemGroup>
 
 </Project>

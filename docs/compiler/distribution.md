@@ -5,6 +5,12 @@ extension, and a lockstep family of compiler libraries as NuGet packages. The
 SDK archive is the canonical installation layout used by direct downloads and
 future package-manager manifests.
 
+The MVP distribution is a .NET 11-hosted toolchain and requires a compatible
+.NET 11 SDK. All processes and plugins loaded by the distributed compiler use
+that host line. This does not restrict application targets: target-specific
+Raven.Core and Raven.Macros package assets allow the .NET 11 toolchain to build
+both net10.0 and net11.0 projects when their targeting packs are installed.
+
 ## SDK layout
 
 An installed SDK has the following stable structure:
@@ -50,12 +56,12 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.6/install-raven.sh \
-  | sh -s -- 0.1.0-preview.6
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.7/install-raven.sh \
+  | sh -s -- 0.1.0-preview.7
 ```
 
 ```powershell
-$version = "0.1.0-preview.6"
+$version = "0.1.0-preview.7"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 ```
@@ -75,8 +81,8 @@ scripts/package-sdk.sh linux-x64 0.1.0
 scripts/package-sdk.sh win-x64 0.1.0
 ```
 
-Artifacts are written to `artifacts/distribution` by default. Override the
-target framework with `RAVEN_PACKAGE_TFM` and the output directory with
+Artifacts are written to `artifacts/distribution` by default. The distributable
+toolchain is fixed to net11.0 for this MVP. Override the output directory with
 `RAVEN_PACKAGE_OUTPUT`.
 
 The packaging scripts regenerate compiler sources before building, so they are
@@ -220,6 +226,9 @@ The following improvements are intentionally outside that MVP:
 - VS Code Marketplace publication (the VSIX remains a GitHub release asset);
 - a .NET workload manifest, which is unnecessary while the compiler toolchain
   can be restored as a normal NuGet Project SDK; and
+- side-by-side installation and selection of Raven SDK versions. The intended
+  default is the latest compatible installed Raven SDK unless a project pins a
+  version; the resolver policy is a post-MVP concern; and
 - signing/notarization and additional supply-chain provenance beyond release
   checksums and NuGet Trusted Publishing.
 
@@ -243,7 +252,7 @@ scripts/package-vscode.sh 0.1.0
 Install the published preview directly from GitHub Releases:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.6/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.7/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 

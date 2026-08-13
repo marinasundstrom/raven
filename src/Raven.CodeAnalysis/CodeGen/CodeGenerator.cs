@@ -1469,6 +1469,7 @@ internal class CodeGenerator
         Stream? provisionalPdbStream = null,
         Stream? pdbOutputStream = null)
     {
+        var targetReferences = GetTargetAssemblyReferences();
         if (_emitOptions?.TargetCoreLibraryIdentity is { } targetIdentity)
         {
             var targetReference = new Mono.Cecil.AssemblyNameReference(
@@ -1485,27 +1486,58 @@ internal class CodeGenerator
                 rawPeStream,
                 output,
                 targetReference,
+                targetReferences: targetReferences,
                 pdbInput: provisionalPdbStream,
                 pdbOutput: pdbOutputStream);
             return;
         }
 
-        if (_compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
+        AssemblyReferenceNormalizer.NormalizeCoreLibReference(
+            rawPeStream,
+            output,
+            targetReferences: targetReferences,
+            pdbInput: provisionalPdbStream,
+            pdbOutput: pdbOutputStream);
+    }
+
+    private IReadOnlyDictionary<string, Mono.Cecil.AssemblyNameReference> GetTargetAssemblyReferences()
+    {
+        var references = new Dictionary<string, Mono.Cecil.AssemblyNameReference>(StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in _compilation.References.OfType<PortableExecutableReference>())
         {
-            AssemblyReferenceNormalizer.NormalizeCoreLibReference(
-                rawPeStream,
-                output,
-                pdbInput: provisionalPdbStream,
-                pdbOutput: pdbOutputStream);
-            return;
+            if (string.IsNullOrWhiteSpace(reference.FilePath))
+                continue;
+
+            try
+            {
+                var identity = AssemblyName.GetAssemblyName(reference.FilePath);
+                if (string.IsNullOrWhiteSpace(identity.Name))
+                    continue;
+
+                var targetReference = new Mono.Cecil.AssemblyNameReference(
+                    identity.Name,
+                    identity.Version ?? new Version(0, 0, 0, 0))
+                {
+                    Culture = identity.CultureName ?? string.Empty
+                };
+                var publicKeyToken = identity.GetPublicKeyToken();
+                if (publicKeyToken is { Length: > 0 })
+                    targetReference.PublicKeyToken = publicKeyToken;
+
+                references.TryAdd(identity.Name, targetReference);
+            }
+            catch (BadImageFormatException)
+            {
+            }
+            catch (FileLoadException)
+            {
+            }
+            catch (FileNotFoundException)
+            {
+            }
         }
 
-        rawPeStream.CopyTo(output);
-        if (provisionalPdbStream is not null && pdbOutputStream is not null)
-        {
-            provisionalPdbStream.Position = 0;
-            provisionalPdbStream.CopyTo(pdbOutputStream);
-        }
+        return references;
     }
 
     private void DetermineShimTypeRequirements()
