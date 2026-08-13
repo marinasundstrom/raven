@@ -34,6 +34,35 @@ func Main() {
         AssertOutput(source, ["then", "else"], OptimizationLevel.Release);
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Debug)]
+    [InlineData(OptimizationLevel.Release)]
+    public void BooleanIdentities_PreserveShortCircuitSideEffects(OptimizationLevel optimizationLevel)
+    {
+        const string source = """
+import System.*
+
+func Observe(value: bool) -> bool {
+    Console.WriteLine(value)
+    return value
+}
+
+func Main() {
+    Console.WriteLine(false && Observe(true))
+    Console.WriteLine(true || Observe(false))
+    Console.WriteLine(Observe(true) && true)
+    Console.WriteLine(Observe(false) || false)
+    Console.WriteLine(Observe(true) && false)
+    Console.WriteLine(Observe(false) || true)
+}
+""";
+
+        AssertOutput(
+            source,
+            ["False", "True", "True", "True", "False", "False", "True", "False", "False", "True"],
+            optimizationLevel);
+    }
+
     [Fact]
     public void MatchArms_WithBreakContinueAndLabels_EmitAndRun()
     {

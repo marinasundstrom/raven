@@ -6,9 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added explicit Debug and Release compiler optimization policies. Release
   project builds now run an ordered pipeline of specialized bound-tree
-  rewriters, beginning with conservative pattern algebra and Boolean-literal
-  branch pruning followed by lowered-block reachability and redundant-branch
-  cleanup, omit debug-only IL `nop` padding, and retain portable PDB sequence
+  rewriters, beginning with conservative pattern algebra, Boolean-expression
+  simplification, and literal branch pruning followed by lowered-block
+  reachability and redundant-branch cleanup, omit debug-only IL `nop` padding,
+  and retain portable PDB sequence
   points on meaningful instructions. Release match lowering avoids unreachable
   catch-all fallbacks; Debug remains the unchanged default path. The evaluated
   MSBuild `Optimize` property can override the configuration default.
