@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed installed `rvn build`, `rvn run`, and `rvn clean` commands so they load
+  the packaged Raven MSBuild targets, and made `rvn init` emit a standard TFM.
+
 - Fixed SDK installers to accept checksum manifest paths both with and without
   a leading `./`, and normalized future release manifests to use bare asset
   names. Added a separate manual post-publication workflow that exercises the

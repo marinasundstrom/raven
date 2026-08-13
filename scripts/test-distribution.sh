@@ -55,4 +55,22 @@ if [[ "$actual_root" != "$SDK_ROOT" ]]; then
   exit 1
 fi
 
+"$SDK_ROOT/bin/rvn" doctor
+
+PROJECT_DIR="$(mktemp -d)"
+if [[ -z "$PROJECT_DIR" || ! -d "$PROJECT_DIR" ]]; then
+  echo "Failed to create a temporary project directory." >&2
+  exit 1
+fi
+
+(
+  cd "$PROJECT_DIR"
+  "$SDK_ROOT/bin/rvn" init --name InstalledProject
+  grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
+  "$SDK_ROOT/bin/rvn" build InstalledProject.rvnproj
+  project_output="$("$SDK_ROOT/bin/rvn" run InstalledProject.rvnproj)"
+  printf '%s\n' "$project_output"
+  grep -F 'Hello from Raven' <<< "$project_output"
+)
+
 echo "Validated Raven SDK: $SDK_ROOT"

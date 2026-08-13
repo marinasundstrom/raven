@@ -50,12 +50,12 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/install-raven.sh \
-  | sh -s -- 0.1.0-preview.4
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.5/install-raven.sh \
+  | sh -s -- 0.1.0-preview.5
 ```
 
 ```powershell
-$version = "0.1.0-preview.4"
+$version = "0.1.0-preview.5"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 ```
@@ -172,7 +172,7 @@ scripts/package-vscode.sh 0.1.0
 Install the published preview directly from GitHub Releases:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.5/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 

@@ -792,7 +792,7 @@ static IEnumerable<ISymbol> EnumerateSymbols(ISymbol symbol)
 static int RunInitCommand(string[] args)
 {
     string? name = null;
-    var framework = TargetFrameworkUtil.GetLatestFramework();
+    var framework = TargetFrameworkUtil.ToTfm(TargetFrameworkUtil.GetLatestFramework());
     var isClassLibrary = false;
     var force = false;
     var typeSpecified = false;
@@ -908,8 +908,8 @@ static int RunInitCommand(string[] args)
     Console.WriteLine($"- {projectFilePath}");
     Console.WriteLine($"- {mainSourcePath}");
     Console.WriteLine($"- {binGitkeep}");
-    Console.WriteLine($"Build with: dotnet build {Path.GetFileName(projectFilePath)}");
-    Console.WriteLine($"Run with: dotnet run --project {Path.GetFileName(projectFilePath)}");
+    Console.WriteLine($"Build with: rvn build {Path.GetFileName(projectFilePath)}");
+    Console.WriteLine($"Run with: rvn run {Path.GetFileName(projectFilePath)}");
 
     return 0;
 }

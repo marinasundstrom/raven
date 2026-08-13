@@ -36,8 +36,8 @@ Some sample projects target `net11.0`. For those, use a project-local
 On macOS or Linux:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/install-raven.sh \
-  | sh -s -- 0.1.0-preview.4
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.5/install-raven.sh \
+  | sh -s -- 0.1.0-preview.5
 export PATH="$HOME/.raven/bin:$PATH"
 ```
 
@@ -47,7 +47,7 @@ terminals.
 On Windows PowerShell:
 
 ```powershell
-$version = "0.1.0-preview.4"
+$version = "0.1.0-preview.5"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 $env:PATH = "$HOME\.raven\bin;$env:PATH"
@@ -72,7 +72,7 @@ library, and MSBuild assets. `rvn` is the project and developer frontend;
 To install the VS Code extension from the same release:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.4/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.5/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 
@@ -443,12 +443,10 @@ Create a class library scaffold instead:
 rvn init --type classlib --name MyLibrary
 ```
 
-`.rvnproj` files also participate in the normal .NET SDK workflow:
-
-```bash
-dotnet build path/to/App.rvnproj
-dotnet run --project path/to/App.rvnproj
-```
+The installed `rvn` commands select Raven's packaged MSBuild targets before
+delegating to the .NET SDK. A source checkout configures those targets through
+its `Directory.Build.props`, so repository contributors can also invoke
+`dotnet build` and `dotnet run` directly there.
 
 ## 10. Where to go next
 

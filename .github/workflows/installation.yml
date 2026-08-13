@@ -6,7 +6,7 @@ on:
       version:
         description: Published release version without a leading v
         required: true
-        default: 0.1.0-preview.4
+        default: 0.1.0-preview.5
 
 permissions:
   contents: read
@@ -48,6 +48,17 @@ jobs:
           printf '%s\n' "$output"
           grep -F 'Hello from a single Raven file!' <<< "$output"
           grep -F 'Argument: Raven' <<< "$output"
+          project_dir="$RUNNER_TEMP/raven-project"
+          mkdir "$project_dir"
+          (
+            cd "$project_dir"
+            "$RAVEN_INSTALL_ROOT/bin/rvn" init --name InstalledProject
+            grep -F '<TargetFramework>net11.0</TargetFramework>' InstalledProject.rvnproj
+            "$RAVEN_INSTALL_ROOT/bin/rvn" build InstalledProject.rvnproj
+            project_output=$("$RAVEN_INSTALL_ROOT/bin/rvn" run InstalledProject.rvnproj)
+            printf '%s\n' "$project_output"
+            grep -F 'Hello from Raven' <<< "$project_output"
+          )
 
   sdk-windows:
     name: SDK install ${{ matrix.rid }}
@@ -82,6 +93,26 @@ jobs:
           if ($output -notmatch [regex]::Escape("Hello from a single Raven file!") -or
               $output -notmatch [regex]::Escape("Argument: Raven")) {
             throw "The installed SDK did not run the expected Raven program."
+          }
+          $projectDirectory = Join-Path $env:RUNNER_TEMP "raven-project"
+          New-Item -ItemType Directory -Path $projectDirectory | Out-Null
+          Push-Location $projectDirectory
+          try {
+            $rvn = Join-Path $installRoot "bin/rvn.cmd"
+            & $rvn init --name InstalledProject
+            $projectText = Get-Content "InstalledProject.rvnproj" -Raw
+            if ($projectText -notmatch [regex]::Escape("<TargetFramework>net11.0</TargetFramework>")) {
+              throw "rvn init did not write the expected target framework moniker."
+            }
+            & $rvn build InstalledProject.rvnproj
+            $projectOutput = & $rvn run InstalledProject.rvnproj 2>&1 | Out-String
+            Write-Output $projectOutput
+            if ($projectOutput -notmatch [regex]::Escape("Hello from Raven")) {
+              throw "The installed SDK did not run the scaffolded Raven project."
+            }
+          }
+          finally {
+            Pop-Location
           }
 
   vscode:
