@@ -68,6 +68,10 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup Condition="'$(IsCrossTargetingBuild)' != 'true' and Exists('$(RavenCompilerHostDirectory)')">
+    <_RavenCompilerToolchainInput Include="$(RavenCompilerHostDirectory)/*.dll" />
+  </ItemGroup>
+
   <PropertyGroup>
     <RavenCommonTargetsPath Condition="'$(IsCrossTargetingBuild)' == 'true'">$(MSBuildToolsPath)\Microsoft.Common.CrossTargeting.targets</RavenCommonTargetsPath>
     <RavenCommonTargetsPath Condition="'$(RavenCommonTargetsPath)' == ''">$(MSBuildToolsPath)\Microsoft.Common.targets</RavenCommonTargetsPath>
@@ -109,7 +113,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator);$(_RavenExternalConstantsStateFile)"
+    Inputs="$(MSBuildProjectFullPath);$(RavenCompilerHost);@(_RavenCompilerToolchainInput);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator);$(_RavenExternalConstantsStateFile)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>

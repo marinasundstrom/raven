@@ -273,6 +273,64 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_RebuildsWhenCompilerToolchainDependencyChanges()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var builtCompilerPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var compilerDirectory = Path.Combine(projectRoot, "compiler");
+            CopyDirectory(Path.GetDirectoryName(builtCompilerPath)!, compilerDirectory);
+            var compilerPath = Path.Combine(compilerDirectory, Path.GetFileName(builtCompilerPath));
+            var codeAnalysisPath = Path.Combine(compilerDirectory, "Raven.CodeAnalysis.dll");
+            Assert.True(File.Exists(codeAnalysisPath), $"Expected compiler dependency at '{codeAnalysisPath}'.");
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(projectRoot, "Library.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(projectRoot, "Library.rvn"), "public class Library { }");
+
+            var firstBuild = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(firstBuild.StdOut);
+            output.WriteLine(firstBuild.StdErr);
+            Assert.True(
+                firstBuild.ExitCode == 0,
+                $"Initial dotnet build failed.\nstdout:\n{firstBuild.StdOut}\nstderr:\n{firstBuild.StdErr}");
+
+            File.SetLastWriteTimeUtc(codeAnalysisPath, DateTime.UtcNow.AddMinutes(1));
+
+            var rebuild = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --no-restore --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(rebuild.StdOut);
+            output.WriteLine(rebuild.StdErr);
+            Assert.True(
+                rebuild.ExitCode == 0,
+                $"Compiler-triggered rebuild failed.\nstdout:\n{rebuild.StdOut}\nstderr:\n{rebuild.StdErr}");
+            Assert.Contains("Raven CoreCompile:", rebuild.StdOut, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void RavenClassLibrary_DotnetPackIncludesDocumentationSidecars()
     {
         var repoRoot = GetRepositoryRoot();
@@ -1101,6 +1159,16 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         var directory = Path.Combine(Path.GetTempPath(), "raven-msbuild-sample-project-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         return directory;
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+    {
+        foreach (var sourcePath in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var destinationPath = Path.Combine(destinationDirectory, Path.GetRelativePath(sourceDirectory, sourcePath));
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.Copy(sourcePath, destinationPath);
+        }
     }
 
     private static void DeleteDirectoryIfExists(string path)
