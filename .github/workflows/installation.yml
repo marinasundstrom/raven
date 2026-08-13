@@ -140,7 +140,15 @@ jobs:
           else {
             $archive = Join-Path $env:RUNNER_TEMP "vscode.zip"
             Invoke-WebRequest "https://update.code.visualstudio.com/latest/$env:VSCODE_PLATFORM/stable" -OutFile $archive
-            Expand-Archive $archive -DestinationPath $vscodeRoot
+            if ($IsMacOS) {
+              # Preserve the symlinks inside the macOS application bundle.
+              # Expand-Archive materializes them as regular files, which makes
+              # Electron's embedded frameworks invalid Mach-O binaries.
+              ditto -x -k $archive $vscodeRoot
+            }
+            else {
+              Expand-Archive $archive -DestinationPath $vscodeRoot
+            }
           }
 
           $code = Get-ChildItem $vscodeRoot -Recurse -File |
