@@ -124,8 +124,17 @@ all other versioned documentation. Prepare those references from a clean
 worktree:
 
 ```bash
-scripts/prepare-release.sh VERSION
+scripts/prepare-release.sh
 ```
+
+Until the project deliberately transitions to its first stable major release,
+Raven uses one monotonically increasing prerelease counter:
+`0.1.0-preview.N`. Release preparation derives the next counter from
+`global.json`; for example, both `preview.8` and the historical `preview.8.1`
+advance to `preview.9`. Do not add another nested patch counter. An optional
+argument such as `scripts/prepare-release.sh 0.1.0-preview.9` asserts the
+expected derived version but cannot override it. Moving to `1.0.0` or another
+release line is an explicit project decision and requires updating this policy.
 
 The script replaces the previously selected release version in tracked files,
 creates the dated changelog section, and validates the known release references.

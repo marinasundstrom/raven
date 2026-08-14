@@ -2,12 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${1:-}"
-
-if [[ -z "$VERSION" || "$VERSION" == v* || ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-  echo "Usage: scripts/prepare-release.sh <version-without-leading-v>" >&2
-  exit 2
-fi
+REQUESTED_VERSION="${1:-}"
 
 worktree_state="$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all)"
 if [[ -n "$worktree_state" ]]; then
@@ -16,18 +11,27 @@ if [[ -n "$worktree_state" ]]; then
   exit 1
 fi
 
-if git -C "$REPO_ROOT" rev-parse --verify --quiet "refs/tags/v$VERSION" >/dev/null; then
-  echo "Release tag v$VERSION already exists." >&2
-  exit 1
-fi
-
 current_version="$(sed -n 's/.*"Raven.Sdk"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REPO_ROOT/global.json")"
 if [[ -z "$current_version" ]]; then
   echo "Could not determine the current Raven.Sdk version from global.json." >&2
   exit 1
 fi
-if [[ "$current_version" == "$VERSION" ]]; then
-  echo "global.json already selects $VERSION; refusing an ambiguous second preparation." >&2
+
+if [[ ! "$current_version" =~ ^0\.1\.0-preview\.([0-9]+)(\.[0-9]+)*$ ]]; then
+  echo "Cannot infer the next preview from $current_version; decide the next release line explicitly." >&2
+  exit 1
+fi
+
+next_preview_number="$((BASH_REMATCH[1] + 1))"
+VERSION="0.1.0-preview.$next_preview_number"
+
+if [[ -n "$REQUESTED_VERSION" && "$REQUESTED_VERSION" != "$VERSION" ]]; then
+  echo "The next release after $current_version is $VERSION, not $REQUESTED_VERSION." >&2
+  exit 2
+fi
+
+if git -C "$REPO_ROOT" rev-parse --verify --quiet "refs/tags/v$VERSION" >/dev/null; then
+  echo "Release tag v$VERSION already exists." >&2
   exit 1
 fi
 
