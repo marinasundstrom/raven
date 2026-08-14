@@ -75,6 +75,10 @@ internal static class MsBuildProjectEvaluator
             .ToImmutableArray();
 
         var projectReferencePaths = project.GetItems("ProjectReference")
+            .Where(item => !string.Equals(
+                item.GetMetadataValue("ReferenceOutputAssembly"),
+                "false",
+                StringComparison.OrdinalIgnoreCase))
             .Select(item => GetFullPath(projectDirectory, item))
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)

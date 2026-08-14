@@ -9,6 +9,41 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper output)
 {
     [Fact]
+    public void ProjectReferenceWithReferenceOutputAssemblyFalse_IsNotACompilationReference()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var referencedProjectPath = Path.Combine(root, "BuildDependency.csproj");
+            File.WriteAllText(referencedProjectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net11.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <ProjectReference Include="BuildDependency.csproj"
+                                      ReferenceOutputAssembly="false" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var evaluation = MsBuildProjectEvaluator.Evaluate(
+                projectPath,
+                RavenProjectConventions.Default);
+
+            Assert.Empty(evaluation.ProjectReferencePaths);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void NanoFrameworkProject_UsesStandardSdkWithRavenTargetProfile()
     {
         var repoRoot = GetRepositoryRoot();
