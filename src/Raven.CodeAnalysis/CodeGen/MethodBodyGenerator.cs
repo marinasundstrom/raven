@@ -1556,6 +1556,11 @@ internal class MethodBodyGenerator
 
     private MethodInfo? ResolveRuntimeAsyncEntryPointHandler(ITypeSymbol returnType)
     {
+        // Entry-point adaptation must use the same target-runtime decision as async lowering.
+        // The compiler host may expose AsyncHelpers even when the target framework does not.
+        if (!Compilation.IsRuntimeAsyncEnabled)
+            return null;
+
         if (!EntryPointSignature.IsRuntimeAsyncEntryPointReturnType(returnType, Compilation, out var returnsInt))
             return null;
 
