@@ -100,6 +100,14 @@ fi
   # the post-publication installation workflow validates the generated
   # Raven.Sdk project unchanged through the normal .NET CLI.
   perl -pi -e 's#Raven\.Sdk/[^"<]+#Microsoft.NET.Sdk#' InstalledProject.rvnproj
+  RAVEN_TEST_LANGUAGE_TARGETS="$SDK_ROOT/sdk/build/Raven.Language.targets" perl -0pi -e '
+    $path = $ENV{"RAVEN_TEST_LANGUAGE_TARGETS"};
+    $path =~ s/&/&amp;/g;
+    $path =~ s/</&lt;/g;
+    $path =~ s/>/&gt;/g;
+    $path =~ s/"/&quot;/g;
+    s#</PropertyGroup>#    <LanguageTargets>$path</LanguageTargets>\n  </PropertyGroup>#;
+  ' InstalledProject.rvnproj
   "$SDK_ROOT/bin/rvn" build InstalledProject.rvnproj
   project_output="$("$SDK_ROOT/bin/rvn" run InstalledProject.rvnproj)"
   printf '%s\n' "$project_output"

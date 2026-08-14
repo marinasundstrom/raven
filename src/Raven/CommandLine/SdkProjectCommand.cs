@@ -30,13 +30,6 @@ internal static class SdkProjectCommand
             dotnetArgs.Add(projectFilePath);
         }
 
-        if (SdkLocator.TryFindRoot() is { } sdkRoot)
-        {
-            var languageTargets = Path.Combine(sdkRoot, "sdk", "build", "Raven.Language.targets");
-            if (File.Exists(languageTargets))
-                dotnetArgs.Add($"-p:LanguageTargets={languageTargets}");
-        }
-
         dotnetArgs.AddRange(forwardedArgs);
         return RunDotnet(dotnetArgs);
     }

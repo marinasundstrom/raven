@@ -73,8 +73,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `rvn init` now creates `src/Main.rvn` with an explicit `func Main` for console
   projects and a declaration-only source file for class libraries.
 
-- Fixed installed `rvn build`, `rvn run`, and `rvn clean` commands so they load
-  the packaged Raven MSBuild targets, and made `rvn init` emit a standard TFM.
+- Fixed installed `rvn build`, `rvn run`, and `rvn clean` commands so canonical
+  `Raven.Sdk` projects own their MSBuild target selection instead of receiving
+  a command-line `LanguageTargets` override. This preserves the .NET SDK's
+  reference-assembly configuration across incremental `dotnet run` builds and
+  avoids missing `refint` outputs. `rvn init` also emits a standard TFM.
 
 - Fixed SDK installers to accept checksum manifest paths both with and without
   a leading `./`, and normalized future release manifests to use bare asset
