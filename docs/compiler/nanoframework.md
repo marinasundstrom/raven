@@ -90,6 +90,24 @@ Build as an ordinary Raven project:
 dotnet build Blinky.rvnproj --configuration Debug
 ```
 
+Inside a Raven source checkout, an SDK-style build normally uses the
+`Raven.Sdk` selected by `global.json`. A sample can override only the compiler
+host with a freshly built checkout-local compiler:
+
+```bash
+dotnet build src/Raven.Compiler/Raven.Compiler.csproj \
+  --framework net10.0 \
+  --property WarningLevel=0
+
+dotnet build path/to/App.rvnproj \
+  --property:RavenCompilerHost="$PWD/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll"
+```
+
+The nanoFramework Wi-Fi HTTP sample packages this workflow as
+`./build.sh --repo-compiler` and `./deploy.sh --repo-compiler ...`. These flags
+rebuild the compiler first and print the exact `Raven compiler host` path, which
+avoids accidentally testing a stale compiler from an installed SDK.
+
 For an executable project, the `netnano1.0` target produces this directory:
 
 ```text

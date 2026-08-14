@@ -10,6 +10,7 @@ SERIAL_PORT=""
 LED_PIN=""
 USE_UF2=0
 EXECUTE=0
+USE_REPO_COMPILER=0
 
 usage() {
   cat <<'EOF'
@@ -21,6 +22,7 @@ Options:
   --serial-port <port>                Deploy through the nanoCLR wire protocol.
   --baud <rate>                       Wire-protocol baud rate (default: 1500000).
   --uf2                                Deploy through a Pico in BOOTSEL mode.
+  --repo-compiler                      Rebuild and use this checkout's compiler.
   --execute                            Perform deployment; otherwise print the command.
 
 The script prompts for Wi-Fi credentials and compiles them into the image
@@ -53,6 +55,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --uf2)
       USE_UF2=1
+      shift
+      ;;
+    --repo-compiler)
+      USE_REPO_COMPILER=1
       shift
       ;;
     --execute)
@@ -152,6 +158,9 @@ fi
 BUILD_ARGUMENTS=(--board "$BOARD")
 if [[ -n "$LED_PIN" ]]; then
   BUILD_ARGUMENTS+=(--led-pin "$LED_PIN")
+fi
+if [[ "$USE_REPO_COMPILER" == "1" ]]; then
+  BUILD_ARGUMENTS+=(--repo-compiler)
 fi
 
 RAVEN_WIFI_SSID="$WIFI_SSID" RAVEN_WIFI_PASSWORD="$WIFI_PASSWORD" \

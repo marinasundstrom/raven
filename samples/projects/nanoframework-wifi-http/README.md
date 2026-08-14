@@ -22,6 +22,21 @@ successful response, or repeats one of these failure patterns:
 - 2 blinks: the server returned a non-success HTTP status
 - 3 blinks: the HTTP, DNS, or TLS operation threw an exception
 
+`ConnectAndGet` returns an exhaustive `NetworkRequestResult` union rather than
+an integer status code. Every failure case carries the information valid for
+that outcome: a DHCP/IP-address failure description, a setup exception
+message, the HTTP status, or the request exception message. `Main` matches
+those cases to the physical LED signal and debugger output.
+
+`ScanAndConnectDhcp` scans for the supplied SSID and associates using the
+credentials embedded by the build. When it returns `false`, the debugger
+message includes the numeric value of `WifiNetworkHelper.Status`. The official
+[nanoFramework status values](https://docs.nanoframework.net/api/nanoFramework.Networking.NetworkHelperStatus.html)
+distinguish no configured interface (`3`), an address timeout (`4`), a
+scan/association error (`6`), and an exception (`7`, with details in
+`HelperException`). Raven reads the enum's underlying integer without runtime
+reflection, which keeps this diagnostic available on nanoCLR.
+
 Both the network phase and HTTP request have timeouts, so invalid credentials
 no longer leave the sample apparently stuck forever. The successful path also
 keeps `Main` alive; otherwise disposing the GPIO scope immediately after
@@ -67,9 +82,53 @@ RAVEN_WIFI_PASSWORD='network-password' \
 ./build.sh --board pico-w
 ```
 
+### Use the compiler from this checkout
+
+An ordinary `dotnet build` resolves the `Raven.Sdk` version selected by the
+repository's `global.json`. To test compiler changes that have not been
+published in that SDK, add `--repo-compiler`:
+
+```bash
+RAVEN_WIFI_SSID='network-name' \
+RAVEN_WIFI_PASSWORD='network-password' \
+./build.sh --board pico-w --repo-compiler
+```
+
+This first rebuilds `src/Raven.Compiler` for `net10.0`, then passes the resulting
+checkout-local `rvnc.dll` to the SDK through `RavenCompilerHost`. The build logs
+print `Raven compiler host:` followed by the exact path used. The SDK still
+provides the MSBuild targets; compilation and emission run in the freshly built
+repo compiler.
+
+`build.sh` uses the checkout-local compiler by default when that DLL already
+exists, but `--repo-compiler` is the reproducible choice after changing compiler
+source because it cannot accidentally reuse a stale build. Set
+`RAVEN_COMPILER_DLL=/absolute/path/to/rvnc.dll` only when testing another
+specific compiler build.
+
 Outputs are written under `artifacts/<board>/` as a managed `.dll`, a compact
 `NFMRK2` `.pe`, and a deployable `.bin` containing the application's complete
-managed reference closure.
+managed reference closure. `artifacts/<board>/debug/` contains the individual
+compact assemblies used by the VS Code nanoFramework debugger.
+
+## VS Code launch and attach
+
+Open this sample directory itself as the VS Code workspace and install the
+recommended official nanoFramework extension. The checked-in launch profiles
+provide **Raven nanoFramework Wi-Fi: Launch Pico W** and **Raven nanoFramework
+Wi-Fi: Attach Pico W**.
+
+Launching prompts for the external LED GPIO, 2.4 GHz SSID, and password, then
+runs `build.sh`, deploys the staged compact assemblies, and starts the managed
+debugger. Password input is masked and the value is supplied to the build
+through its environment rather than a command-line argument. Leave `device`
+empty to let the extension select the connected nanoFramework device, or put a
+serial port such as `/dev/tty.usbmodem11201` in `.vscode/launch.json`.
+
+Attach connects to an application that is already deployed and uses the most
+recent files under `artifacts/pico-w/debug/` for symbols; run the build task or
+the launch profile first when those files do not exist or the source changed.
+The credentials remain embedded in the generated files as described below.
 
 ## Deploy
 
@@ -80,8 +139,13 @@ those values, and remains a dry run unless `--execute` is supplied:
 ```bash
 ./deploy.sh --board pico-w --serial-port /dev/ttyACM0
 ./deploy.sh --board pico-w --serial-port /dev/ttyACM0 --execute
+./deploy.sh --board pico-w --serial-port /dev/ttyACM0 --repo-compiler --execute
 ./deploy.sh --board pico2-w --uf2 --execute
 ```
+
+Use the `--repo-compiler` form when validating changes in this Raven checkout.
+It rebuilds the compiler before compiling credentials into the deployment
+image, so the installed SDK's bundled compiler cannot be selected accidentally.
 
 Serial deployment defaults to 1,500,000 baud, the rate validated with Pico WH
 on macOS. Use `--baud <rate>` or `NANOFF_BAUD` to override it.
@@ -91,7 +155,7 @@ image, the script checks the device firmware target. Pico W requires the
 current `PICO_RP2040_W` target and Pico 2 W requires `PICO2_RP2350_W`. The
 legacy `RP_PICO_W_RP2040` build is rejected: although it advertises the
 `System.Device.Wifi` native assembly, `WifiAdapter.FindAllAdapters()` returns
-an empty array and `WifiNetworkHelper.ConnectDhcp` fails before association.
+an empty array and the Wi-Fi helper fails before association.
 
 For automation, set `RAVEN_WIFI_SSID` and `RAVEN_WIFI_PASSWORD` instead of
 answering prompts. Credentials are not printed by the scripts or included in

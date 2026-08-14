@@ -254,6 +254,20 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.DoesNotContain(
                 assembly.MainModule.GetTypeReferences(),
                 type => type.FullName == "System.UIntPtr");
+
+            var unionTypes = assembly.MainModule.Types
+                .Where(type => type.Name == "NetworkRequestResult")
+                .SelectMany(type => new[] { type }.Concat(type.NestedTypes))
+                .ToArray();
+            Assert.NotEmpty(unionTypes);
+            Assert.All(
+                unionTypes,
+                type => Assert.DoesNotContain(
+                    type.Methods,
+                    method => method.Name is nameof(object.ToString) or
+                        SynthesizedUnionMethodNames.DisplayNameHelper or
+                        SynthesizedUnionMethodNames.FriendlyTypeNameHelper or
+                        SynthesizedUnionMethodNames.FormatValueHelper));
         }
         finally
         {

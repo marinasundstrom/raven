@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Raven nanoFramework Wi-Fi: Launch Pico W",
+      "type": "nanoframework",
+      "request": "launch",
+      "preLaunchTask": "Raven nanoFramework Wi-Fi: Build Pico W",
+      "program": "${workspaceFolder}/artifacts/pico-w/debug/NanoFrameworkWifiHttp.pe",
+      "assembliesPath": "${workspaceFolder}/artifacts/pico-w/debug",
+      "device": "",
+      "stopOnEntry": true,
+      "deployAssemblies": true,
+      "verbosity": "information"
+    },
+    {
+      "name": "Raven nanoFramework Wi-Fi: Attach Pico W",
+      "type": "nanoframework",
+      "request": "attach",
+      "program": "${workspaceFolder}/artifacts/pico-w/debug/NanoFrameworkWifiHttp.pe",
+      "device": "",
+      "stopOnEntry": false,
+      "verbosity": "information"
+    }
+  ]
+}

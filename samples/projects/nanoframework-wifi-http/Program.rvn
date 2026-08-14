@@ -10,6 +10,14 @@ extern const LedPin: int = 15
 extern const Wifi_SSID: string
 extern const Wifi_Password: string
 
+union NetworkRequestResult {
+    case Success
+    case NetworkUnavailable(message: string)
+    case NetworkSetupFailed(message: string)
+    case HttpFailureStatus(status: string)
+    case HttpRequestFailed(message: string)
+}
+
 func Pulse(led: GpioPin, pulses: int) {
     var remaining = pulses
 
@@ -29,22 +37,22 @@ func SignalFailure(led: GpioPin, pulses: int) {
     }
 }
 
-func ConnectAndGet(ssid: string, password: string, requestUri: string) -> int {
+func ConnectAndGet(ssid: string, password: string, requestUri: string) -> NetworkRequestResult {
     Debug.WriteLine("Wi-Fi: waiting for an address...")
 
     try {
         use networkTimeout = CancellationTokenSource(60000)
-        if !WifiNetworkHelper.ConnectDhcp(
+        if !WifiNetworkHelper.ScanAndConnectDhcp(
             ssid,
             password,
-            requiresDateTime: false,
+            requiresDateTime: true,
             token: networkTimeout.Token) {
-            Debug.WriteLine("Wi-Fi failed")
-            return 1
+            let status = (int)WifiNetworkHelper.Status
+            return .NetworkUnavailable(
+                "ScanAndConnectDhcp failed with status " + status.ToString())
         }
     } catch (Exception exception) {
-        Debug.WriteLine("Wi-Fi setup threw: " + exception.Message)
-        return 1
+        return .NetworkSetupFailed(exception.Message)
     }
 
     Debug.WriteLine("Wi-Fi ready. Sending GET " + requestUri)
@@ -56,15 +64,13 @@ func ConnectAndGet(ssid: string, password: string, requestUri: string) -> int {
         Debug.WriteLine("WARNING: TLS certificate verification is disabled for this sample.")
 
         use response = client.Get(requestUri)
-        Debug.WriteLine("HTTP status: " + response.StatusCode.ToString())
         if response.IsSuccessStatusCode {
-            return 0
+            return .Success
         }
 
-        return 2
+        return .HttpFailureStatus(response.StatusCode.ToString())
     } catch (Exception exception) {
-        Debug.WriteLine("HTTP request failed: " + exception.Message)
-        return 3
+        return .HttpRequestFailed(exception.Message)
     }
 }
 
@@ -80,14 +86,30 @@ func Main() {
     led.Write(PinValue.Low)
     let result = ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com")
 
-    if result == 0 {
-        led.Write(PinValue.High)
+    match result {
+        .Success => {
+            led.Write(PinValue.High)
 
-        // Keep the pin and controller alive so the success LED stays on.
-        loop {
-            Thread.Sleep(60000)
+            // Keep the pin and controller alive so the success LED stays on.
+            loop {
+                Thread.Sleep(60000)
+            }
+        }
+        .NetworkUnavailable(let message) => {
+            Debug.WriteLine("Wi-Fi failed: " + message)
+            SignalFailure(led, 1)
+        }
+        .NetworkSetupFailed(let message) => {
+            Debug.WriteLine("Wi-Fi setup threw: " + message)
+            SignalFailure(led, 1)
+        }
+        .HttpFailureStatus(let status) => {
+            Debug.WriteLine("HTTP failure status: " + status)
+            SignalFailure(led, 2)
+        }
+        .HttpRequestFailed(let message) => {
+            Debug.WriteLine("HTTP request failed: " + message)
+            SignalFailure(led, 3)
         }
     }
-
-    SignalFailure(led, result)
 }

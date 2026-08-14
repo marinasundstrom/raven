@@ -16,7 +16,34 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   requirement and the observed status-4 IP-address timeout on a non-compatible
   network, followed by immediate success on a 2.4 GHz network. The LED remains
   off during the blocking network operation so steady high now indicates only
-  a successful HTTP response.
+  a successful HTTP response. Its network workflow now returns an exhaustive
+  union whose failure cases preserve network details, HTTP status, or safe
+  exception details instead of encoding outcomes as integer constants. Its VS
+  Code launch task now prompts for masked Wi-Fi credentials and stages the full
+  compact assembly closure expected by the nanoFramework debugger. Its build
+  and deploy scripts accept `--repo-compiler` to rebuild and select the compiler
+  from the current checkout instead of reusing the compiler bundled with the
+  installed SDK.
+
+- Synthesized union `ToString()` now builds the carrier and case representation
+  directly from the statically known union shape. It no longer emits runtime
+  `System.Type` inspection or reflection-based display-name helpers. Closed
+  generic type arguments are intentionally omitted from the display (for
+  example, `Result.Ok(42)`), while strings and characters remain quoted through
+  ordinary runtime type tests. Restricted targets such as `netnano1.0` can also
+  disable structural `ToString()` synthesis entirely and inherit the runtime
+  default without affecting Raven.Core builds.
+
+- Direct numeric conversions to or from metadata enums now normalize through
+  the enum's declared underlying type before Reflection.Emit runtime-type
+  resolution. Target-only enums therefore support conversions such as
+  `(int)WifiNetworkHelper.Status` without requiring the target assembly to be
+  loadable in the compiler host.
+
+- Explicit external-constant overrides now take precedence over project
+  `RavenConstant` defaults regardless of command-line argument order. This
+  prevents SDK project defaults from replacing values supplied by deployment
+  tooling, such as the Wi-Fi SSID and password embedded in a device image.
 
 - External metadata method calls no longer require the target assembly to be
   loadable in the compiler host. When Reflection.Emit cannot materialize a

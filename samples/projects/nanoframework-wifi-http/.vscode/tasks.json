@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Raven nanoFramework Wi-Fi: Build Pico W",
+      "type": "process",
+      "command": "${workspaceFolder}/build.sh",
+      "args": [
+        "--board",
+        "pico-w",
+        "--led-pin",
+        "${input:ledPin}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "RAVEN_WIFI_SSID": "${input:wifiSsid}",
+          "RAVEN_WIFI_PASSWORD": "${input:wifiPassword}"
+        }
+      },
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "ledPin",
+      "type": "promptString",
+      "description": "GPIO for the external LED on the Pico W",
+      "default": "15"
+    },
+    {
+      "id": "wifiSsid",
+      "type": "promptString",
+      "description": "2.4 GHz Wi-Fi SSID"
+    },
+    {
+      "id": "wifiPassword",
+      "type": "promptString",
+      "description": "Wi-Fi password",
+      "password": true
+    }
+  ]
+}

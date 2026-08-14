@@ -7,17 +7,21 @@ PROJECT="$SAMPLE_DIR/NanoFrameworkWifiHttp.rvnproj"
 PACKAGES_DIR="${NANOFRAMEWORK_PACKAGES_DIR:-$SAMPLE_DIR/.packages}"
 OUTPUT_DIR="${OUTPUT_DIR:-$SAMPLE_DIR/artifacts}"
 COMPILER_DLL="${RAVEN_COMPILER_DLL:-$REPO_ROOT/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll}"
+REPO_COMPILER_DLL="$REPO_ROOT/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll"
 MONO_COMMAND="${MONO_COMMAND:-mono}"
 BOARD="pico-w"
 LED_PIN=""
+BUILD_REPO_COMPILER=0
 
 usage() {
   cat <<'EOF'
-Usage: ./build.sh [--board pico-w|pico2-w] [--led-pin <gpio>]
+Usage: ./build.sh [--board pico-w|pico2-w] [--led-pin <gpio>] [--repo-compiler]
 
 Defaults to Pico W with an external LED on GP15. When RAVEN_WIFI_SSID and
 RAVEN_WIFI_PASSWORD are set, their values replace the sample's nonfunctional
 placeholder credentials at compile time.
+
+  --repo-compiler                    Rebuild and use this checkout's compiler.
 EOF
 }
 
@@ -32,6 +36,11 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo "Missing value for --led-pin." >&2; exit 2; }
       LED_PIN="$2"
       shift 2
+      ;;
+    --repo-compiler)
+      BUILD_REPO_COMPILER=1
+      COMPILER_DLL="$REPO_COMPILER_DLL"
+      shift
       ;;
     -h|--help)
       usage
@@ -59,6 +68,7 @@ if [[ -n "$LED_PIN" && ! "$LED_PIN" =~ ^[0-9]+$ ]]; then
 fi
 
 PROFILE_OUTPUT_DIR="$OUTPUT_DIR/$BOARD"
+DEBUG_OUTPUT_DIR="$PROFILE_OUTPUT_DIR/debug"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -93,14 +103,21 @@ require_command dotnet
 require_command "$MONO_COMMAND"
 require_command python3
 
-mkdir -p "$PACKAGES_DIR" "$PROFILE_OUTPUT_DIR"
+mkdir -p "$PACKAGES_DIR" "$PROFILE_OUTPUT_DIR" "$DEBUG_OUTPUT_DIR"
 dotnet restore "$PROJECT" --packages "$PACKAGES_DIR" --property WarningLevel=0
 
-if [[ ! -f "$COMPILER_DLL" ]]; then
+if [[ "$BUILD_REPO_COMPILER" == "1" ]]; then
+  echo "Building Raven compiler from this checkout..."
+  dotnet build "$REPO_ROOT/src/Raven.Compiler/Raven.Compiler.csproj" \
+    --framework net10.0 \
+    --property WarningLevel=0
+elif [[ ! -f "$COMPILER_DLL" ]]; then
   dotnet build "$REPO_ROOT/src/Raven.Compiler/Raven.Compiler.csproj" \
     --framework net10.0 \
     --property WarningLevel=0
 fi
+
+echo "Raven compiler host: $COMPILER_DLL"
 if [[ ! -f "$COMPILER_DLL" ]]; then
   echo "Raven compiler '$COMPILER_DLL' was not produced." >&2
   exit 1
@@ -190,6 +207,30 @@ if [[ "$NANO_HEADER" != "4e464d524b32" ]]; then
   exit 1
 fi
 
+# The VS Code nanoFramework debugger deploys every compact assembly from one
+# directory. Keep that directory separate from the combined .bin image and
+# stage the exact managed reference closure required by this application.
+cp \
+  "$CORE_LIBRARY_PE" \
+  "$EVENTS_LIBRARY_PE" \
+  "$COLLECTIONS_LIBRARY_PE" \
+  "$TEXT_LIBRARY_PE" \
+  "$NET_LIBRARY_PE" \
+  "$THREADING_LIBRARY_PE" \
+  "$STREAMS_LIBRARY_PE" \
+  "$GPIO_LIBRARY_PE" \
+  "$WIFI_LIBRARY_PE" \
+  "$HTTP_LIBRARY_PE" \
+  "$NANO_OUTPUT" \
+  "$DEBUG_OUTPUT_DIR/"
+
+for symbol_extension in pdb pdbx; do
+  symbol_path="$PROFILE_OUTPUT_DIR/NanoFrameworkWifiHttp.$symbol_extension"
+  if [[ -f "$symbol_path" ]]; then
+    cp "$symbol_path" "$DEBUG_OUTPUT_DIR/"
+  fi
+done
+
 append_aligned_pe() {
   local source_path="$1"
   local source_size padding_size
@@ -219,3 +260,4 @@ echo "Board profile: $BOARD"
 echo "Managed assembly: $MANAGED_OUTPUT"
 echo "nanoFramework image: $NANO_OUTPUT"
 echo "Deployment image: $DEPLOYMENT_OUTPUT"
+echo "VS Code debug assemblies: $DEBUG_OUTPUT_DIR"
