@@ -366,13 +366,13 @@ Sample:
 
 ## Runtime async for `net11.0`
 
-If a `.rvnproj` sets `<TargetFramework>net11.0</TargetFramework>` (or newer), Raven enables runtime-async mode by default.
+If a `.rvnproj` sets `<TargetFramework>net11.0</TargetFramework>` (or newer), Raven enables runtime-async mode by default. Raven verifies support from the target framework's corlib, following Roslyn's capability-based model rather than inspecting the compiler host framework.
 
 - Async methods emit with runtime async metadata.
 - Await expressions emit `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` calls when available.
 - State-machine type synthesis is skipped.
 
-When invoking the compiler driver through `dotnet run`, make sure the compiler host itself runs as `net11.0`:
+The distributed compiler host targets .NET 11. When invoking the compiler driver from source through `dotnet run`, select its `net11.0` target:
 
 ```bash
 dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj
@@ -387,6 +387,16 @@ You can still override behavior explicitly:
 
 - `--runtime-async` to force on.
 - `--no-runtime-async` to force off.
+
+For `dotnet build`, use the corresponding project property:
+
+```xml
+<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>
+```
+
+Leaving the property unset preserves the default: enabled for a capable
+`net11.0` target and classic state-machine lowering for `net10.0`. Explicitly
+enabling it for a target without the runtime contract fails compilation.
 
 ## MSBuild build integration
 

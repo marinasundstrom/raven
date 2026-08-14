@@ -82,6 +82,7 @@ public partial class Compilation
     private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
     private ImmutableArray<Diagnostic> _generatorDiagnostics = ImmutableArray<Diagnostic>.Empty;
     private SubmissionCompilationState? _submissionState;
+    private int _runtimeSupportsAsyncMethods = -1;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -143,6 +144,34 @@ public partial class Compilation
     public string AssemblyName { get; }
 
     public CompilationOptions Options { get; }
+
+    /// <summary>
+    /// Gets whether runtime-async lowering is both requested and supported by
+    /// the target framework reference assemblies.
+    /// </summary>
+    internal bool IsRuntimeAsyncEnabled
+    {
+        get
+        {
+            if (!Options.UseRuntimeAsync)
+                return false;
+
+            var cached = Volatile.Read(ref _runtimeSupportsAsyncMethods);
+            if (cached >= 0)
+                return cached == 1;
+
+            var objectType = GetSpecialType(SpecialType.System_Object);
+            var asyncHelpers = GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers");
+            var supported = objectType.TypeKind is not TypeKind.Error &&
+                            asyncHelpers is { TypeKind: TypeKind.Class, IsStatic: true } &&
+                            SymbolEqualityComparer.Default.Equals(
+                                objectType.ContainingAssembly,
+                                asyncHelpers.ContainingAssembly);
+
+            Interlocked.CompareExchange(ref _runtimeSupportsAsyncMethods, supported ? 1 : 0, -1);
+            return Volatile.Read(ref _runtimeSupportsAsyncMethods) == 1;
+        }
+    }
 
     /// <summary>
     /// Gets information about this compilation's script submission chain, or <see langword="null"/>

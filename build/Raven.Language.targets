@@ -27,6 +27,8 @@
     <RavenCoreArgument Condition="'$(RavenCoreArgument)' == '' and '$(RavenCoreReferencePath)' != ''">--raven-core &quot;$(RavenCoreReferencePath)&quot;</RavenCoreArgument>
     <RavenCoreArgument Condition="'$(RavenCoreArgument)' == ''">--emit-core-types-only</RavenCoreArgument>
     <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''"></RavenBuildArgs>
+    <RavenRuntimeAsyncArgument Condition="'$(RavenUseRuntimeAsync)' == 'true'">--runtime-async</RavenRuntimeAsyncArgument>
+    <RavenRuntimeAsyncArgument Condition="'$(RavenUseRuntimeAsync)' == 'false'">--no-runtime-async</RavenRuntimeAsyncArgument>
     <RavenFrameworkReferencesArgument Condition="'$(RavenUseHostFrameworkReferences)' == 'false'">--no-framework-references</RavenFrameworkReferencesArgument>
     <RavenTargetCoreLibraryArgument Condition="'$(RavenTargetCoreLibraryPath)' != ''">--target-core-library &quot;$(RavenTargetCoreLibraryPath)&quot;</RavenTargetCoreLibraryArgument>
     <RavenTargetFrameworkArgument Condition="'$(TargetFramework)' != ''">--framework &quot;$(TargetFramework)&quot;</RavenTargetFrameworkArgument>
@@ -141,7 +143,7 @@
 
     <Message Importance="High" Text="Raven CoreCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath).&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(RavenExternalConstantOverridesArgument) $(_RavenConstantArguments) --no-project-restore $(RavenFrameworkReferencesArgument) $(RavenTargetCoreLibraryArgument) $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)"
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath).&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(RavenExternalConstantOverridesArgument) $(_RavenConstantArguments) --no-project-restore $(RavenFrameworkReferencesArgument) $(RavenTargetCoreLibraryArgument) $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenRuntimeAsyncArgument) $(RavenBuildArgs)"
       EchoOff="true"
       IgnoreExitCode="true">
       <Output TaskParameter="ExitCode" PropertyName="_RavenCompilerExitCode" />

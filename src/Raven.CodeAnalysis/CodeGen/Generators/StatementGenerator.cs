@@ -309,7 +309,7 @@ internal class StatementGenerator : Generator
 
     private ITypeSymbol GetEffectiveReturnTypeForEmission()
     {
-        if (!Compilation.Options.UseRuntimeAsync || !MethodSymbol.IsAsync)
+        if (!Compilation.IsRuntimeAsyncEnabled || !MethodSymbol.IsAsync)
             return MethodSymbol.ReturnType;
 
         return AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, MethodSymbol.ReturnType)

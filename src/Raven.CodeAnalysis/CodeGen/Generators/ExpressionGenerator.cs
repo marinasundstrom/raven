@@ -377,7 +377,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitAwaitExpression(BoundAwaitExpression awaitExpression)
     {
-        if (Compilation.Options.UseRuntimeAsync && TryEmitRuntimeAsyncAwait(awaitExpression, out var runtimeAsyncProducesValue))
+        if (Compilation.IsRuntimeAsyncEnabled && TryEmitRuntimeAsyncAwait(awaitExpression, out var runtimeAsyncProducesValue))
         {
             if (_preserveResult &&
                 !runtimeAsyncProducesValue &&
@@ -437,6 +437,14 @@ internal partial class ExpressionGenerator : Generator
     private bool TryEmitRuntimeAsyncAwait(BoundAwaitExpression awaitExpression, out bool producesValue)
     {
         producesValue = false;
+
+        if (Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers") is not INamedTypeSymbol
+            {
+                TypeKind: not TypeKind.Error
+            })
+        {
+            return false;
+        }
 
         var asyncHelpersType = typeof(AsyncTaskMethodBuilder).Assembly.GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false)
             ?? Type.GetType("System.Runtime.CompilerServices.AsyncHelpers, System.Private.CoreLib", throwOnError: false);

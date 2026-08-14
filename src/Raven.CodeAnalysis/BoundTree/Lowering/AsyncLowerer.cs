@@ -28,7 +28,7 @@ internal static class AsyncLowerer
         lambda.SetContainsAwait(containsAwait);
 
         var compilation = GetCompilation(lambda);
-        var requiresStateMachine = containsAwait && !compilation.Options.UseRuntimeAsync;
+        var requiresStateMachine = containsAwait && !compilation.IsRuntimeAsyncEnabled;
         return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
     }
 
@@ -47,7 +47,7 @@ internal static class AsyncLowerer
         method.SetContainsAwait(containsAwait);
 
         var compilation = GetCompilation(method);
-        var requiresStateMachine = containsAwait && !compilation.Options.UseRuntimeAsync;
+        var requiresStateMachine = containsAwait && !compilation.IsRuntimeAsyncEnabled;
         return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
     }
 
@@ -177,7 +177,7 @@ internal static class AsyncLowerer
             body = LowerBeforeAsyncRewrite(lambda, body);
         var compilation = GetCompilation(lambda);
 
-        if (!analysis.ContainsAwait && !compilation.Options.UseRuntimeAsync)
+        if (!analysis.ContainsAwait && !compilation.IsRuntimeAsyncEnabled)
             body = RewriteAwaitlessAsyncBody(compilation, lambda.ReturnType, body);
 
         if (!analysis.RequiresStateMachine)
@@ -237,7 +237,7 @@ internal static class AsyncLowerer
             throw new ArgumentNullException(nameof(body));
 
         var compilation = GetCompilation(symbol);
-        if (!compilation.Options.UseRuntimeAsync)
+        if (!compilation.IsRuntimeAsyncEnabled)
         {
             var stateMachineHasUsingDeclaration = ContainsUsingDeclaration(body);
             var preStateMachineMatchLowerer = new AsyncMatchLowerer(symbol);
@@ -647,7 +647,7 @@ internal static class AsyncLowerer
         AsyncMethodAnalysis analysis)
     {
 
-        if (!analysis.ContainsAwait && !compilation.Options.UseRuntimeAsync)
+        if (!analysis.ContainsAwait && !compilation.IsRuntimeAsyncEnabled)
             body = RewriteAwaitlessAsyncBody(compilation, method.ReturnType, body);
 
         if (!analysis.RequiresStateMachine)

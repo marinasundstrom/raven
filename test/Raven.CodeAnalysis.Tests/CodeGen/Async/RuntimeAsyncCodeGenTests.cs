@@ -237,6 +237,38 @@ async func Main() -> Task<int> {
     }
 
     [Fact]
+    public void RuntimeAsyncRequested_Net10AsyncTaskEntryPoint_UsesAwaiterFallback()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+
+async func Main() -> Task<int> {
+    await Task.Yield()
+    return 5
+}
+""";
+
+        using var loaded = EmitAssembly(
+            code,
+            useRuntimeAsync: true,
+            outputKind: OutputKind.ConsoleApplication,
+            references: GetFrameworkReferences("net10.0"));
+
+        var entryPoint = Assert.IsAssignableFrom<MethodInfo>(loaded.Assembly.EntryPoint);
+        var calledMembers = ILReader.GetCalledMembers(entryPoint);
+
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.Contains("System.Runtime.CompilerServices.AsyncHelpers::HandleAsyncEntryPoint", StringComparison.Ordinal));
+        Assert.Contains(
+            calledMembers,
+            static member => member.EndsWith("::GetAwaiter", StringComparison.Ordinal));
+        Assert.Contains(
+            calledMembers,
+            static member => member.EndsWith("::GetResult", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void RuntimeAsyncEnabled_TryCatchReturn_UsesEffectiveReturnTypeForExitLocal()
     {
         const string code = """

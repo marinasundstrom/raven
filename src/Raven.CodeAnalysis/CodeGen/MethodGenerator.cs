@@ -513,7 +513,7 @@ internal class MethodGenerator
 
     private void ApplyRuntimeAsyncMethodImplFlags()
     {
-        if (!Compilation.Options.UseRuntimeAsync)
+        if (!Compilation.IsRuntimeAsyncEnabled)
             return;
 
         if (!MethodSymbol.IsAsync)
@@ -820,7 +820,7 @@ internal class MethodGenerator
 
             rewrittenBody = IteratorLowerer.Rewrite(sourceLambda, block, closureSelfType);
         }
-        else if (!Compilation.Options.UseRuntimeAsync &&
+        else if (!Compilation.IsRuntimeAsyncEnabled &&
                  lambda.Symbol is SourceLambdaSymbol sourceAsyncLambda &&
                  sourceAsyncLambda.IsAsync)
         {

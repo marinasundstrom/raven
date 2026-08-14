@@ -1559,6 +1559,24 @@ internal class MethodBodyGenerator
         if (!EntryPointSignature.IsRuntimeAsyncEntryPointReturnType(returnType, Compilation, out var returnsInt))
             return null;
 
+        if (Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers") is not INamedTypeSymbol
+            {
+                TypeKind: not TypeKind.Error
+            } targetAsyncHelpers)
+        {
+            return null;
+        }
+
+        if (!targetAsyncHelpers.GetMembers("HandleAsyncEntryPoint")
+                .OfType<IMethodSymbol>()
+                .Any(static method =>
+                    method.IsStatic &&
+                    method.Arity == 0 &&
+                    method.Parameters.Length == 1))
+        {
+            return null;
+        }
+
         var asyncHelpersType = typeof(AsyncTaskMethodBuilder).Assembly.GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false)
             ?? Type.GetType("System.Runtime.CompilerServices.AsyncHelpers, System.Private.CoreLib", throwOnError: false);
         if (asyncHelpersType is null)
@@ -2983,7 +3001,7 @@ internal class MethodBodyGenerator
 
     private ITypeSymbol GetEffectiveReturnTypeForEmission()
     {
-        if (!Compilation.Options.UseRuntimeAsync || !MethodSymbol.IsAsync)
+        if (!Compilation.IsRuntimeAsyncEnabled || !MethodSymbol.IsAsync)
             return MethodSymbol.ReturnType;
 
         return AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, MethodSymbol.ReturnType)

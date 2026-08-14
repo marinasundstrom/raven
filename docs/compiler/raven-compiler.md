@@ -238,13 +238,13 @@ the generated project so it builds directly through the normal .NET CLI.
 
 ## .NET 11 runtime-async
 
-When the project target framework is `net11.0` (or newer), Raven auto-enables runtime-async emission.
+When the project target framework is `net11.0` (or newer), Raven auto-enables runtime-async emission. The target framework's reference assemblies are the authority: Raven only uses runtime async when the target corlib defines `System.Runtime.CompilerServices.AsyncHelpers`, matching Roslyn's runtime-capability check.
 
 - Async methods are emitted with the async method-impl flag.
-- Await sites are emitted as `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` when the compiler host runtime exposes that API.
+- Await sites are emitted as `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` when the target runtime surface exposes that API.
 - Async state-machine synthesis is skipped in this mode.
 
-Important: if you run the compiler driver via `dotnet run`, run it on `net11.0` so `AsyncHelpers` is available:
+The distributed compiler host targets .NET 11. If you run the compiler driver from source via `dotnet run`, use its `net11.0` target as well:
 
 ```bash
 dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj
@@ -281,7 +281,9 @@ What runtime-async fills:
 
 Current limitations:
 
-- To emit `AsyncHelpers.Await(...)`, the compiler host process must run on `net11.0` (for example `dotnet run -f net11.0 ...`).
-- If the host runtime does not expose `AsyncHelpers`, Raven falls back to awaiter calls (`GetAwaiter`/`GetResult`).
+- The distributed compiler host must run on .NET 11. Source builds should likewise use `dotnet run -f net11.0 ...` when compiling a `net11.0` target.
+- A target framework without `AsyncHelpers`, such as `net10.0`, uses classic state-machine lowering even when the compiler itself runs on .NET 11.
+- Pass `--no-runtime-async` to opt a direct compiler invocation out explicitly. For an SDK project, set `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`.
+- Setting `<RavenUseRuntimeAsync>true</RavenUseRuntimeAsync>` or passing `--runtime-async` explicitly for an unsupported target is rejected instead of producing incompatible output.
 - Raven-specific `Result<..., ...>` entry-point wrappers still use compiler-emitted bridge logic to map success and error payloads to process results.
 - Custom task-like return types that rely on `AsyncMethodBuilderAttribute` are not supported yet.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Runtime async now follows the target runtime capability, matching Roslyn's
+  .NET 11 model. It remains enabled by default for `net11.0`, falls back to
+  classic state-machine lowering for `net10.0`, and can be disabled in SDK
+  projects with `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`.
+
 - Included both XML and Markdown symbol documentation for Raven.Core and
   Raven.Macros in NuGet packages and standalone SDK archives. Raven tooling
   prefers Markdown and falls back to XML, while C# and other .NET consumers
