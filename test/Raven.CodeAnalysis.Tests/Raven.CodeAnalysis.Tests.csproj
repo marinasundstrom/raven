@@ -63,4 +63,26 @@
       Condition="Exists('..\..\.config\dotnet-tools.json')" />
   </Target>
 
+  <Target Name="CopyRavenTestMarkdownDocumentation" AfterTargets="Build">
+    <ItemGroup>
+      <_RavenTestMarkdownDocumentation
+        Include="..\..\src\Raven.Core\bin\$(Configuration)\$(TargetFramework)\Raven.Core.docs\**\*">
+        <DocumentationAssemblyName>Raven.Core</DocumentationAssemblyName>
+      </_RavenTestMarkdownDocumentation>
+      <_RavenTestMarkdownDocumentation
+        Include="..\..\src\Raven.Macros\bin\$(Configuration)\$(TargetFramework)\Raven.Macros.docs\**\*">
+        <DocumentationAssemblyName>Raven.Macros</DocumentationAssemblyName>
+      </_RavenTestMarkdownDocumentation>
+    </ItemGroup>
+
+    <Copy
+      SourceFiles="@(_RavenTestMarkdownDocumentation)"
+      DestinationFiles="@(_RavenTestMarkdownDocumentation->'$(OutDir)%(DocumentationAssemblyName).docs\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+
+    <ItemGroup>
+      <FileWrites Include="@(_RavenTestMarkdownDocumentation->'$(OutDir)%(DocumentationAssemblyName).docs\%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+  </Target>
+
 </Project>
