@@ -22,8 +22,44 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    name: Release metadata preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Validate version, commit, tag, and publication availability
+        env:
+          VERSION: ${{ inputs.version }}
+          PUBLISH_GITHUB_RELEASE: ${{ inputs.publish_github_release }}
+          PUBLISH_NUGET: ${{ inputs.publish_nuget }}
+        run: |
+          args=("$VERSION" --require-clean)
+          if [[ "$PUBLISH_GITHUB_RELEASE" == "true" || "$PUBLISH_NUGET" == "true" ]]; then
+            args+=(--require-tag)
+          fi
+          if [[ "$PUBLISH_NUGET" == "true" ]]; then
+            args+=(--check-nuget-available)
+          fi
+          scripts/validate-release.sh "${args[@]}"
+
+  tests:
+    name: Release test gate
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+      - name: Test the exact release commit
+        run: scripts/test-release.sh
+
   sdk:
     name: SDK ${{ matrix.rid }}
+    needs: tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -56,6 +92,7 @@ jobs:
 
   vscode:
     name: VS Code extension
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -77,6 +114,7 @@ jobs:
 
   packages:
     name: NuGet packages
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -169,5 +207,4 @@ jobs:
         run: |
           dotnet nuget push "packages/*.nupkg" \
             --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+            --source https://api.nuget.org/v3/index.json

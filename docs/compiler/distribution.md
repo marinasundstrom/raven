@@ -116,6 +116,59 @@ manual process: neither a branch push nor a tag push starts the workflow. Start
 and provide the version explicitly. By default the run only produces retained
 workflow artifacts and does not publish anything externally.
 
+## Release procedure
+
+A release is one immutable Git commit. That commit must contain the code,
+generated files, package version, changelog entry, installation examples, and
+all other versioned documentation. Prepare those references from a clean
+worktree:
+
+```bash
+scripts/prepare-release.sh VERSION
+```
+
+The script replaces the previously selected release version in tracked files,
+creates the dated changelog section, and validates the known release references.
+Review its complete diff and finish the changelog before committing. Do not tag
+an earlier code commit and then add release references in a later commit.
+
+Review the diff, finish the changelog, and commit every intended release change.
+Then run the release checks against that clean commit:
+
+```bash
+scripts/validate-release.sh VERSION --require-clean
+scripts/test-release.sh
+scripts/package-nuget.sh VERSION
+```
+
+`test-release.sh` runs the normal baseline, the isolated runtime/emission suite,
+and all language-server unit, integration, and performance-test projects. If a
+check requires a fix, commit the fix and repeat the checks so the tested commit
+remains the release candidate. Push it and make sure its ordinary CI checks
+pass. Only then tag that exact commit and push the tag:
+
+```bash
+git tag vVERSION
+git push origin vVERSION
+```
+
+Dispatch `Distribution` against `vVERSION`, never against the branch name, when
+either publication switch is enabled. The workflow verifies that the tag points
+to the checked-out commit, checks that the NuGet version is still unused, and
+runs the complete release test gate on that exact commit before any archive,
+VSIX, or NuGet package is built. Package validation also checks that
+`Raven.Sdk` records the same Git commit. NuGet publication deliberately fails
+on duplicate versions; published versions are immutable and must never be
+silently skipped.
+
+The repository's `NuGet.Config` puts `artifacts/packages` before NuGet.org for
+source-build testing. NuGet's global package cache is keyed only by package ID
+and version, so rebuilding a local package with the same version does not update
+an already restored cache entry. Use a fresh `NUGET_PACKAGES` directory when
+validating repacked local artifacts or the public release, and inspect
+`.nupkg.metadata` when package provenance is uncertain. A local restore is not
+evidence of what NuGet.org contains.
+
 The dispatch form has separate opt-in switches for publishing a GitHub release
 and publishing the NuGet package family. Either publishing operation requires
 the workflow to be dispatched against the matching `v<version>` tag. This keeps

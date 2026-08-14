@@ -1,8 +1,10 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 ## Unreleased
+
+## 0.1.0-preview.8.1 - 2026-08-14
 
 - Added a Pico W nanoFramework Wi-Fi/HTTP LED sample whose deployment wrapper
   securely prompts for compile-time SSID and password constants, builds the

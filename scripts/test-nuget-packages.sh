@@ -139,6 +139,11 @@ if ! grep -Fq "<version>$VERSION</version>" <<<"$sdk_nuspec"; then
   echo "Incorrect version metadata in $(basename "$sdk_package")" >&2
   exit 1
 fi
+expected_repository_commit="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+if ! grep -Fq "commit=\"$expected_repository_commit\"" <<<"$sdk_nuspec"; then
+  echo "Raven.Sdk was not packed from the current commit $expected_repository_commit." >&2
+  exit 1
+fi
 if ! grep -Fq '<packageType name="MSBuildSdk"' <<<"$sdk_nuspec"; then
   echo "Raven.Sdk is not marked as an MSBuild project SDK." >&2
   exit 1
