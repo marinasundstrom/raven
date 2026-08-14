@@ -231,13 +231,13 @@ let wrapped = result.WithContext("reading value")
 
         var caseText = okCase.ToString();
         Assert.NotNull(caseText);
-        Assert.Contains("Result<String>.Ok(\"Foo\")", caseText!, StringComparison.Ordinal);
+        Assert.Equal("Result.Ok(\"Foo\")", caseText);
         Assert.DoesNotContain(".Ok(Foo)", caseText!, StringComparison.Ordinal);
 
         var carrier = ConvertCaseToCarrier(resultType, okCase);
         var carrierText = carrier.ToString();
         Assert.NotNull(carrierText);
-        Assert.Contains("Result<String, InvalidOperationException>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
+        Assert.Equal("Result.Ok(\"Foo\")", carrierText);
         Assert.DoesNotContain(".Ok(Foo)", carrierText!, StringComparison.Ordinal);
     }
 
@@ -256,7 +256,7 @@ let wrapped = result.WithContext("reading value")
     }
 
     [Fact]
-    public void ToString_UsesTypePlaceholder_ForNonVettedPayloadTypes()
+    public void ToString_UsesPayloadToStringWithoutReflection()
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(StringBuilder));
@@ -265,8 +265,7 @@ let wrapped = result.WithContext("reading value")
 
         var caseText = errorCase.ToString();
         Assert.NotNull(caseText);
-        Assert.Contains("Result<StringBuilder>.Error(<StringBuilder>)", caseText!, StringComparison.Ordinal);
-        Assert.DoesNotContain("secret", caseText!, StringComparison.Ordinal);
+        Assert.Equal("Result.Error(secret)", caseText);
     }
 
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)

@@ -14,7 +14,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 - Removed a stale union semantic test for the reflection-era friendly-type-name
   helper and aligned conversion diagnostics coverage with the explicit-cast
   hint emitted alongside an incompatible assignment. Unused-variable analyzer
-  registration coverage now also includes macro declarations.
+  registration coverage now also includes macro declarations, and Raven.Core
+  `Result.ToString()` coverage matches the reflection-free union display
+  contract.
 
 ## 0.1.0-preview.8.1 - 2026-08-14
 
