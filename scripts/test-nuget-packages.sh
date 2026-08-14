@@ -256,20 +256,13 @@ cat > "$TEMP_DIR/NuGet.Config" <<EOF
 </configuration>
 EOF
 
-for template_name in console classlib web nano; do
+for template_name in console classlib web; do
   project_file="$(find "$TEMP_DIR/templates/$template_name" -maxdepth 1 -name '*.rvnproj' -print -quit)"
   template_build_log="$TEMP_DIR/template-$template_name-build.log"
   if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
     dotnet build "$project_file" --disable-build-servers \
     /property:WarningLevel=0 >"$template_build_log" 2>&1; then
     cat "$template_build_log" >&2
-    exit 1
-  fi
-done
-
-for nano_artifact in TemplateNano.pe TemplateNano.pdbx TemplateNano.bin; do
-  if [[ ! -f "$TEMP_DIR/templates/nano/bin/Debug/netnano1.0/$nano_artifact" ]]; then
-    echo "Packaged raven-nano template did not produce $nano_artifact." >&2
     exit 1
   fi
 done

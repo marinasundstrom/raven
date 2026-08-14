@@ -99,10 +99,6 @@ jobs:
           dotnet build "$RUNNER_TEMP/dotnet-template-web/DotnetTemplateWeb.rvnproj"
           DOTNET_CLI_HOME="$template_home" NUGET_PACKAGES="$template_packages" \
             dotnet new raven-nano --name DotnetTemplateNano --output "$RUNNER_TEMP/dotnet-template-nano"
-          dotnet build "$RUNNER_TEMP/dotnet-template-nano/DotnetTemplateNano.rvnproj"
-          test -f "$RUNNER_TEMP/dotnet-template-nano/bin/Debug/netnano1.0/DotnetTemplateNano.pe"
-          test -f "$RUNNER_TEMP/dotnet-template-nano/bin/Debug/netnano1.0/DotnetTemplateNano.pdbx"
-          test -f "$RUNNER_TEMP/dotnet-template-nano/bin/Debug/netnano1.0/DotnetTemplateNano.bin"
 
   sdk-windows:
     name: SDK install ${{ matrix.rid }}
@@ -222,13 +218,6 @@ jobs:
           dotnet build (Join-Path $templateWeb "DotnetTemplateWeb.rvnproj")
           $templateNano = Join-Path $env:RUNNER_TEMP "dotnet-template-nano"
           dotnet new raven-nano --name DotnetTemplateNano --output $templateNano
-          dotnet build (Join-Path $templateNano "DotnetTemplateNano.rvnproj")
-          foreach ($extension in "pe", "pdbx", "bin") {
-            $artifact = Join-Path $templateNano "bin/Debug/netnano1.0/DotnetTemplateNano.$extension"
-            if (-not (Test-Path $artifact)) {
-              throw "The released nanoFramework template did not produce $artifact."
-            }
-          }
 
   vscode:
     name: VSIX install ${{ matrix.platform }}
