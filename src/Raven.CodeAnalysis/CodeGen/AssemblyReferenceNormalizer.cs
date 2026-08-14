@@ -178,6 +178,7 @@ internal static class AssemblyReferenceNormalizer
             pair => pair.Key,
             pair => CreateMethodReference(module, pair.Value, targetReferences),
             StringComparer.Ordinal);
+        RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
 
         foreach (var type in EnumerateTypes(module.Types))
         {
@@ -231,6 +232,9 @@ internal static class AssemblyReferenceNormalizer
         ITypeSymbol symbol,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
     {
+        if (symbol.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            return module.TypeSystem.Void;
+
         if (symbol is NullableTypeSymbol nullable)
         {
             var underlying = CreateTypeReference(module, nullable.UnderlyingType, targetReferences);
@@ -300,6 +304,64 @@ internal static class AssemblyReferenceNormalizer
         {
             IsValueType = named.IsValueType
         };
+    }
+
+    private static void RetargetHostTypeScopesFromMetadataMethods(
+        ModuleDefinition module,
+        IEnumerable<MethodReference> methods)
+    {
+        var targetScopes = new Dictionary<string, AssemblyNameReference>(StringComparer.Ordinal);
+        foreach (var method in methods)
+        {
+            AddTargetTypeScope(method.DeclaringType, targetScopes);
+            AddTargetTypeScope(method.ReturnType, targetScopes);
+            foreach (var parameter in method.Parameters)
+                AddTargetTypeScope(parameter.ParameterType, targetScopes);
+        }
+
+        if (targetScopes.Count == 0)
+            return;
+
+        var replacedScopes = new HashSet<AssemblyNameReference>();
+        foreach (var typeReference in module.GetTypeReferences())
+        {
+            var innermost = GetInnermostTypeReference(typeReference);
+            if (!targetScopes.TryGetValue(innermost.FullName, out var targetScope) ||
+                innermost.Scope is not AssemblyNameReference currentScope ||
+                ReferenceEquals(currentScope, targetScope))
+            {
+                continue;
+            }
+
+            innermost.Scope = targetScope;
+            replacedScopes.Add(currentScope);
+        }
+
+        foreach (var replacedScope in replacedScopes)
+        {
+            if (!ModuleStillUsesReference(module, replacedScope))
+                module.AssemblyReferences.Remove(replacedScope);
+        }
+    }
+
+    private static void AddTargetTypeScope(
+        TypeReference typeReference,
+        IDictionary<string, AssemblyNameReference> targetScopes)
+    {
+        var innermost = GetInnermostTypeReference(typeReference);
+        if (innermost.Scope is AssemblyNameReference scope)
+            targetScopes.TryAdd(innermost.FullName, scope);
+
+        if (typeReference is GenericInstanceType generic)
+        {
+            foreach (var argument in generic.GenericArguments)
+                AddTargetTypeScope(argument, targetScopes);
+        }
+        else if (typeReference is TypeSpecification specification &&
+                 !ReferenceEquals(specification.ElementType, typeReference))
+        {
+            AddTargetTypeScope(specification.ElementType, targetScopes);
+        }
     }
 
     private static IEnumerable<TypeDefinition> EnumerateTypes(IEnumerable<TypeDefinition> types)

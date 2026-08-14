@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 
+using Mono.Cecil;
+
 using Xunit.Abstractions;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
@@ -238,7 +240,20 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 result.ExitCode == 0,
                 $"Wi-Fi sample compilation failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
-            Assert.True(File.Exists(Path.Combine(outputDirectory, "NanoFrameworkWifiHttp.dll")));
+            var assemblyPath = Path.Combine(outputDirectory, "NanoFrameworkWifiHttp.dll");
+            Assert.True(File.Exists(assemblyPath));
+
+            using var assembly = AssemblyDefinition.ReadAssembly(assemblyPath);
+            Assert.DoesNotContain(
+                assembly.MainModule.AssemblyReferences,
+                reference => reference.Name is "System.Net.Primitives" or "NanoFrameworkWifiHttp");
+            Assert.Contains(
+                assembly.MainModule.GetTypeReferences(),
+                type => type.FullName == "System.Net.HttpStatusCode" &&
+                        type.Scope is AssemblyNameReference { Name: "System.Net.Http" });
+            Assert.DoesNotContain(
+                assembly.MainModule.GetTypeReferences(),
+                type => type.FullName == "System.UIntPtr");
         }
         finally
         {

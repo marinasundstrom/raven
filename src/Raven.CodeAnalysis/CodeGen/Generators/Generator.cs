@@ -236,6 +236,17 @@ internal abstract class Generator
         if (to is RefTypeSymbol && from is IAddressTypeSymbol)
             return;
 
+        // A direct enum numeric conversion only depends on the enum's metadata
+        // underlying type. Resolve it before asking Reflection.Emit for runtime
+        // types so target-only enums can be converted without being loadable in
+        // the compiler host.
+        if (conversion.IsNumeric &&
+            (from.TypeKind == TypeKind.Enum || to.TypeKind == TypeKind.Enum))
+        {
+            EmitNumericConversion(from, to);
+            return;
+        }
+
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
