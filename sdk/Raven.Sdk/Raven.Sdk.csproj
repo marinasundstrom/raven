@@ -16,6 +16,7 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <IncludeSymbols>false</IncludeSymbols>
+    <RavenCompilerConfiguration Condition="'$(RavenCompilerConfiguration)' == ''">Release</RavenCompilerConfiguration>
     <!-- The build files are imported by Sdk.props rather than buildTransitive. -->
     <NoWarn>$(NoWarn);NU5129</NoWarn>
   </PropertyGroup>
@@ -26,8 +27,8 @@
     <None Include="..\..\build\Raven.MSBuild.props" Pack="true" PackagePath="build" />
     <None Include="..\..\build\Raven.nanoFramework.props" Pack="true" PackagePath="build" />
     <None Include="..\..\build\Raven.nanoFramework.targets" Pack="true" PackagePath="build" />
-    <None Include="..\..\src\Raven.Compiler\bin\Release\net11.0\**\*"
-          Exclude="..\..\src\Raven.Compiler\bin\Release\net11.0\linux-*\**;..\..\src\Raven.Compiler\bin\Release\net11.0\osx-*\**;..\..\src\Raven.Compiler\bin\Release\net11.0\win-*\**"
+    <None Include="..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\**\*"
+          Exclude="..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\linux-*\**;..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\osx-*\**;..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\win-*\**"
           Pack="true"
           PackagePath="tools\rvnc" />
   </ItemGroup>

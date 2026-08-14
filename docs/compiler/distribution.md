@@ -146,18 +146,19 @@ Then run the release checks against that clean commit:
 
 ```bash
 scripts/validate-release.sh VERSION --require-clean
-scripts/test-release.sh
 scripts/package-nuget.sh VERSION
 ```
 
-`test-release.sh` first runs the repository's ordered generator/compiler build,
-then the normal baseline, the isolated runtime/emission suite, and all
-language-server unit, integration, and performance-test projects. This makes a
-clean checkout produce the generated compiler sources before any multi-targeted
-test build can consume them. If a check requires a fix, commit the fix and
-repeat the affected checks so the tested commit remains the release candidate.
-Push it and make sure its ordinary CI checks pass. Only then tag that exact
-commit and push the tag:
+Every push to `main` runs `scripts/test-ci.sh`: the repository's ordered
+generator/compiler build, the normal baseline, the isolated runtime/emission
+suite, and all language-server unit, integration, and performance-test
+projects. The gate also packs the just-built SDK into the repository-local feed
+so workspace tests never depend on a previously published or globally cached
+Raven SDK. During development, run the smallest affected suites before
+integration; Main CI is the one authoritative complete gate.
+
+If a check requires a fix, commit the fix, repeat the affected checks, and push
+it. Wait for Main CI to pass, then tag that exact commit and push the tag:
 
 ```bash
 git tag vVERSION
@@ -166,9 +167,10 @@ git push origin vVERSION
 
 Dispatch `Distribution` against `vVERSION`, never against the branch name, when
 either publication switch is enabled. The workflow verifies that the tag points
-to the checked-out commit, checks that the NuGet version is still unused, and
-runs the complete release test gate on that exact commit before any archive,
-VSIX, or NuGet package is built. Package validation also checks that
+to the checked-out commit, requires a successful Main CI push run for that exact
+commit, checks that the NuGet version is still unused, and then runs only the
+release-specific archive, VSIX, NuGet package, and installation smoke checks.
+Package validation also checks that
 `Raven.Sdk` records the same Git commit. NuGet publication deliberately fails
 on duplicate versions; published versions are immutable and must never be
 silently skipped.

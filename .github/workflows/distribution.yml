@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   preflight:
@@ -43,23 +44,25 @@ jobs:
             args+=(--check-nuget-available)
           fi
           scripts/validate-release.sh "${args[@]}"
-
-  tests:
-    name: Release test gate
-    needs: preflight
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 11.0.x
-          dotnet-quality: preview
-      - name: Test the exact release commit
-        run: scripts/test-release.sh
+      - name: Require successful main CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion="$(gh run list \
+            --workflow ci.yml \
+            --commit "$GITHUB_SHA" \
+            --event push \
+            --limit 1 \
+            --json status,conclusion \
+            --jq '.[0] | select(.status == "completed") | .conclusion')"
+          if [[ "$conclusion" != "success" ]]; then
+            echo "Commit $GITHUB_SHA does not have a successful completed Main CI push run." >&2
+            exit 1
+          fi
 
   sdk:
     name: SDK ${{ matrix.rid }}
-    needs: tests
+    needs: preflight
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -92,7 +95,7 @@ jobs:
 
   vscode:
     name: VS Code extension
-    needs: tests
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -114,7 +117,7 @@ jobs:
 
   packages:
     name: NuGet packages
-    needs: tests
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

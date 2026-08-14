@@ -8,8 +8,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 - Added a guarded release procedure that derives one monotonically increasing
   `0.1.0-preview.N` version, validates all current documentation and package
-  references, tests the exact tagged commit before packaging, records package
-  provenance, and rejects duplicate immutable NuGet versions.
+  references, requires the tagged commit to have passed the full Main CI gate,
+  records package provenance, and rejects duplicate immutable NuGet versions.
+  Every push to `main` now runs the complete ordered build, baseline,
+  runtime/emission, and language-server suites. Distribution reuses that result
+  and runs only release-specific packaging and smoke checks.
 
 - Removed a stale union semantic test for the reflection-era friendly-type-name
   helper and aligned conversion diagnostics coverage with the explicit-cast

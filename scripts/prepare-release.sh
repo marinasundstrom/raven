@@ -54,11 +54,12 @@ Prepared release references for $VERSION.
 Next:
   1. Review every changed file and finish the $VERSION changelog entry.
   2. Commit every intended release change.
-  3. Run scripts/validate-release.sh $VERSION --require-clean,
-     scripts/test-release.sh, and scripts/package-nuget.sh $VERSION.
-  4. Push the tested commit and wait for its ordinary CI checks.
+  3. Run scripts/validate-release.sh $VERSION --require-clean and
+     scripts/package-nuget.sh $VERSION.
+  4. Push the commit and wait for its Main CI full build/test gate.
   5. Tag that exact tested commit with v$VERSION and push the tag.
   6. Dispatch Distribution against v$VERSION with the desired publish switches.
 
-The Distribution workflow repeats the release test gate on the tagged commit before packaging.
+The Distribution workflow requires a successful Main CI run for the tagged commit,
+then repeats only release-specific package and distribution checks.
 EOF
