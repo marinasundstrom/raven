@@ -1,11 +1,18 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
 public class ReferenceAssemblyPathsTests
 {
+    [Fact]
+    public void Default_test_target_matches_the_test_project()
+    {
+        Assert.Equal("net11.0", TestTargetFramework.Default);
+    }
+
     [Fact]
     public void GetReferenceAssemblyDir_accepts_version_without_wildcard()
     {
