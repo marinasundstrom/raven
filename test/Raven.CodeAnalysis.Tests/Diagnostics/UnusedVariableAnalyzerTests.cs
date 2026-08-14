@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnusedVariableAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
-    public void Analyzer_RegistersGlobalAndOwnerScopedSyntaxActions()
+    public void Analyzer_RegistersCompilationUnitAndLocalOwnerSyntaxActions()
     {
         var analyzer = new UnusedVariableAnalyzer();
 
@@ -21,6 +21,7 @@ public class UnusedVariableAnalyzerTests : AnalyzerTestBase
         var expectedKinds = new[]
             {
                 SyntaxKind.MethodDeclaration,
+                SyntaxKind.MacroDeclaration,
                 SyntaxKind.FunctionStatement,
                 SyntaxKind.ConstructorDeclaration,
                 SyntaxKind.OperatorDeclaration,
