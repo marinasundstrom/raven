@@ -110,6 +110,8 @@ dotnet pack "$ROOT_DIR/templates/Raven.Templates/Raven.Templates.csproj" \
   "/property:RavenTemplateContentRoot=$TEMPLATE_STAGE_DIR/content" \
   "${COMMON_PROPERTIES[@]}"
 
-"$ROOT_DIR/scripts/test-nuget-packages.sh" "$VERSION" "$OUTPUT_DIR"
+if [[ "${RAVEN_SKIP_PACKAGE_VALIDATION:-0}" != "1" ]]; then
+  "$ROOT_DIR/scripts/test-nuget-packages.sh" "$VERSION" "$OUTPUT_DIR"
+fi
 
 echo "$OUTPUT_DIR"
