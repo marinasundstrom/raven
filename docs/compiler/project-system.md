@@ -452,6 +452,15 @@ SampleRate=250` overrides the project item for that invocation; otherwise the
 project value overrides the source initializer. A required declaration without
 either provider value fails compilation.
 
+Build tooling can pass several explicit overrides through the
+`RavenExternalConstantOverrides` MSBuild property as a Base64-encoded JSON
+object. These overrides have the highest precedence, independent of compiler
+argument order. The complete precedence is therefore:
+
+1. explicit compiler or build-tool override;
+2. evaluated `RavenConstant` project item;
+3. source initializer on the `extern const` declaration.
+
 Projects whose repository selects the published Raven SDK in `global.json`
 need no compiler paths:
 

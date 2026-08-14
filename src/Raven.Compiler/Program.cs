@@ -90,6 +90,7 @@ var sourceFiles = new List<string>();
 var applicationArguments = new List<string>();
 var additionalRefs = new List<string>();
 var externalConstantValues = new Dictionary<string, string>(StringComparer.Ordinal);
+var externalConstantOverrides = new Dictionary<string, string>(StringComparer.Ordinal);
 var conditionalSymbols = new HashSet<string>(StringComparer.Ordinal);
 string? targetFrameworkTfm = null;
 string? targetCoreLibraryPath = null;
@@ -389,7 +390,7 @@ for (int i = 0; i < args.Length; i++)
                 hasInvalidOption = true;
             break;
         case "--constant-overrides":
-            if (i + 1 >= args.Length || !TryDecodeExternalConstantOverrides(args[++i], externalConstantValues))
+            if (i + 1 >= args.Length || !TryDecodeExternalConstantOverrides(args[++i], externalConstantOverrides))
                 hasInvalidOption = true;
             break;
         case "--raven-core":
@@ -1033,6 +1034,12 @@ var performanceInstrumentation = FindDebugDirectory() is not null
 #else
 var performanceInstrumentation = PerformanceInstrumentation.Disabled;
 #endif
+
+// Overrides are intentionally applied after every ordinary --constant value,
+// independent of their position on the command line. MSBuild project items
+// provide defaults; an explicit override must always win over those defaults.
+foreach (var pair in externalConstantOverrides)
+    externalConstantValues[pair.Key] = pair.Value;
 
 var executionOptions = new CompilerExecutionOptions(
     outputKind,

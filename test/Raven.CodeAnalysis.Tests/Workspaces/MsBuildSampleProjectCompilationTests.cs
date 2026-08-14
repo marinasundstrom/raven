@@ -576,6 +576,74 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_ExternalConstantOverridesTakePrecedenceOverProjectItems()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenConstant Include="DeviceName" Value="project-default" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(projectRoot, "Program.rvn"), """
+                import System.*
+
+                extern const DeviceName: string = "source-default"
+
+                func Main() {
+                    Console.WriteLine(DeviceName)
+                }
+                """);
+
+            var overridePayload = Convert.ToBase64String(
+                Encoding.UTF8.GetBytes("{\"DeviceName\":\"explicit-override\"}"));
+            var buildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property:RavenExternalConstantOverrides={overridePayload} --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(buildResult.StdOut);
+            output.WriteLine(buildResult.StdErr);
+
+            Assert.True(
+                buildResult.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
+
+            var runResult = RunProcess(
+                "dotnet",
+                $"run --project \"{projectPath}\" --no-build",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(runResult.StdOut);
+            output.WriteLine(runResult.StdErr);
+
+            Assert.True(
+                runResult.ExitCode == 0,
+                $"dotnet run failed.\nstdout:\n{runResult.StdOut}\nstderr:\n{runResult.StdErr}");
+            Assert.Contains($"explicit-override{Environment.NewLine}", runResult.StdOut, StringComparison.Ordinal);
+            Assert.DoesNotContain($"project-default{Environment.NewLine}", runResult.StdOut, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void RavenProject_BuildsExplicitCompileItems_WhenDefaultItemsAreDisabled()
     {
         var repoRoot = GetRepositoryRoot();

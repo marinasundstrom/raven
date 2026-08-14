@@ -104,6 +104,9 @@ editors can discover the same SDK root.
   symbols; repeat the option or separate symbols with commas or semicolons
 - `--constant <name=value>` &ndash; supply or override a typed `extern const`;
   repeat the option for multiple values
+- `--constant-overrides <base64-json>` &ndash; supply build-tool overrides as a
+  Base64-encoded JSON object; these values take precedence over every
+  `--constant` value regardless of argument order
 - `-o <path>` &ndash; output path (`.rvn`/legacy `.rav` inputs: assembly file path; `.rvnproj` inputs: output directory path)
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
