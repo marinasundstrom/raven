@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 ## Unreleased
 
+## 0.1.0-preview.9 - 2026-08-14
+
+- Added a guarded release procedure that derives one monotonically increasing
+  `0.1.0-preview.N` version, validates all current documentation and package
+  references, tests the exact tagged commit before packaging, records package
+  provenance, and rejects duplicate immutable NuGet versions.
+
+- Removed a stale union semantic test for the reflection-era friendly-type-name
+  helper and aligned conversion diagnostics coverage with the explicit-cast
+  hint emitted alongside an incompatible assignment.
+
 ## 0.1.0-preview.8.1 - 2026-08-14
 
 - Added a Pico W nanoFramework Wi-Fi/HTTP LED sample whose deployment wrapper

@@ -3402,33 +3402,6 @@ union Option {
     }
 
     [Fact]
-    public void FriendlyTypeNameHelper_HasSynthesizedBody()
-    {
-        const string source = """
-union Result<T, E> {
-    case Ok(value: T)
-    case Error(message: E)
-}
-""";
-
-        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        compilation.EnsureSetup();
-        var model = compilation.GetSemanticModel(tree);
-        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-        var helper = unionSymbol
-            .GetMembers(SynthesizedUnionMethodNames.FriendlyTypeNameHelper)
-            .OfType<IMethodSymbol>()
-            .Single(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, unionSymbol));
-
-        Assert.True(compilation.TryGetSynthesizedMethodBody(helper, BoundTreeView.Original, out var body));
-        Assert.NotNull(body);
-        Assert.Contains(body!.Statements, static statement => statement is BoundIfStatement);
-        var @return = Assert.IsType<BoundReturnStatement>(body.Statements.Last());
-        Assert.IsType<BoundLocalAccess>(@return.Expression);
-    }
-
-    [Fact]
     public void UnqualifiedCaseInvocation_BindsWhenUniqueInScope()
     {
         const string source = """
