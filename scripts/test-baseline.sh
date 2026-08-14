@@ -37,8 +37,6 @@ build_heavy_exclusion_filter() {
     "ProjectDocumentationEmissionTests"
     "ProjectFileTargetFrameworkAttributeTests"
     "RavenProjectOutputDeterminismTests"
-    "NuGetHarness_AvaloniaRefAssemblySignature_EmitsWithoutRuntimeTypeLoadCrash"
-    "NuGetHarness_AvaloniaConstructedGenericContainerMember_Emits"
     "StaticFactoryMethod_UsesCanonicalSourceMethodForEmission"
     "OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter"
   )
