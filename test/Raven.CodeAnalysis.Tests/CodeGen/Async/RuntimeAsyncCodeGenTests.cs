@@ -237,6 +237,69 @@ async func Main() -> Task<int> {
     }
 
     [Fact]
+    public void RuntimeAsyncEnabled_YieldAwaitable_UsesRuntimeSuspensionHelperAndCompletes()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+
+class Program {
+    public async func Compute() -> Task<int> {
+        await Task.Yield()
+        return 42
+    }
+}
+""";
+
+        using var loaded = EmitAssembly(code, useRuntimeAsync: true);
+
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var methodFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        var computeMethod = programType.GetMethod("Compute", methodFlags)!;
+        var calledMembers = ILReader.GetCalledMembers(computeMethod);
+
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("System.Runtime.CompilerServices.AsyncHelpers::UnsafeAwaitAwaiter", StringComparison.Ordinal));
+
+        var program = Activator.CreateInstance(programType);
+        var task = Assert.IsAssignableFrom<Task<int>>(computeMethod.Invoke(program, null));
+        Assert.Equal(42, task.GetAwaiter().GetResult());
+    }
+
+    [Fact]
+    public void RuntimeAsyncDisabled_Net11YieldAwaitable_UsesStateMachineAndCompletes()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+
+class Program {
+    public async func Compute() -> Task<int> {
+        await Task.Yield()
+        return 42
+    }
+}
+""";
+
+        using var loaded = EmitAssembly(
+            code,
+            useRuntimeAsync: false,
+            references: GetFrameworkReferences("net11.0"));
+
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var methodFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        var computeMethod = programType.GetMethod("Compute", methodFlags)!;
+
+        Assert.Equal(0, ((int)computeMethod.GetMethodImplementationFlags()) & RuntimeAsyncMethodImplBit);
+        Assert.Contains(
+            loaded.Assembly.GetTypes(),
+            static type => type.Name.Contains("AsyncStateMachine", StringComparison.Ordinal));
+
+        var program = Activator.CreateInstance(programType);
+        var task = Assert.IsAssignableFrom<Task<int>>(computeMethod.Invoke(program, null));
+        Assert.Equal(42, task.GetAwaiter().GetResult());
+    }
+
+    [Fact]
     public void RuntimeAsyncRequested_Net10AsyncTaskEntryPoint_UsesAwaiterFallback()
     {
         const string code = """

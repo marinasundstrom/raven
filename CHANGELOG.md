@@ -15,6 +15,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   projects with `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`. Capability
   detection requires the complete `AsyncHelpers` contract because .NET 10
   exposes an earlier experimental form without the entry-point handlers.
+  General awaiters now lower through the runtime suspension helpers instead of
+  synchronously calling `GetResult`; this includes `Task.Yield()`.
 
 - Fixed .NET 11 compiler hosts leaking host-only runtime APIs into net10.0
   output. Net10 unions now bind their `IUnion` compatibility contract from

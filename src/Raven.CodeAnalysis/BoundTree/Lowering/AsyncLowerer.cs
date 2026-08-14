@@ -152,9 +152,13 @@ internal static class AsyncLowerer
         body = AwaitForLowerer.Rewrite(method, body);
 
         var analysis = Analyze(method, body);
-        if (analysis.ContainsAwait)
-            body = LowerBeforeAsyncRewrite(method, body);
         var compilation = GetCompilation(method);
+        if (analysis.ContainsAwait)
+        {
+            body = LowerBeforeAsyncRewrite(method, body);
+            if (compilation.IsRuntimeAsyncEnabled)
+                body = RuntimeAsyncLowerer.Rewrite(method, body);
+        }
 
         return RewriteMethod(compilation, method, body, analysis);
     }
@@ -173,9 +177,13 @@ internal static class AsyncLowerer
         body = AwaitForLowerer.Rewrite(lambda, body);
 
         var analysis = Analyze(lambda, body);
-        if (analysis.ContainsAwait)
-            body = LowerBeforeAsyncRewrite(lambda, body);
         var compilation = GetCompilation(lambda);
+        if (analysis.ContainsAwait)
+        {
+            body = LowerBeforeAsyncRewrite(lambda, body);
+            if (compilation.IsRuntimeAsyncEnabled)
+                body = RuntimeAsyncLowerer.Rewrite(lambda, body);
+        }
 
         if (!analysis.ContainsAwait && !compilation.IsRuntimeAsyncEnabled)
             body = RewriteAwaitlessAsyncBody(compilation, lambda.ReturnType, body);

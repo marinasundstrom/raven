@@ -242,6 +242,7 @@ When the project target framework is `net11.0` (or newer), Raven auto-enables ru
 
 - Async methods are emitted with the async method-impl flag.
 - Await sites are emitted as `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` when the target runtime surface exposes that API.
+- Other awaitable patterns use `UnsafeAwaitAwaiter<TAwaiter>` or `AwaitAwaiter<TAwaiter>` after their `IsCompleted` check, matching the runtime suspension protocol.
 - Async state-machine synthesis is skipped in this mode.
 
 The distributed compiler host targets .NET 11. If you run the compiler driver from source via `dotnet run`, use its `net11.0` target as well:
