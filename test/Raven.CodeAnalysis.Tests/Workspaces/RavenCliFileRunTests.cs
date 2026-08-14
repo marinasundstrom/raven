@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text;
 
+using Raven.CodeAnalysis.Testing;
+
 namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class RavenCliFileRunTests
@@ -93,7 +95,7 @@ public sealed class RavenCliFileRunTests
 
     private static string EnsureFrontendBuilt(string repoRoot)
     {
-        const string targetFramework = "net10.0";
+        const string targetFramework = TestTargetFramework.Default;
         var frontendPath = Path.Combine(repoRoot, "src", "Raven", "bin", "Debug", targetFramework, "rvn.dll");
         if (!File.Exists(frontendPath))
         {
