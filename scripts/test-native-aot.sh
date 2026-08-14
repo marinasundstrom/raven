@@ -43,7 +43,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-compiler="$repo_root/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll"
+compiler="$repo_root/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll"
 project="$repo_root/samples/projects/greenhouse-monitor/GreenhouseMonitor.rvnproj"
 sdk_version="$(sed -n 's/.*"Raven.Sdk"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$repo_root/global.json")"
 
