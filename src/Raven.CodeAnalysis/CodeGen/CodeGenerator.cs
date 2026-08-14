@@ -1572,7 +1572,11 @@ internal class CodeGenerator
             _discriminatedUnionCtor = DiscriminatedUnionAttributeType?.GetConstructor(Type.EmptyTypes);
         }
 
-        UnionInterfaceType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.IUnion");
+        if (UnionInterfaceType is null &&
+            Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.IUnion") is PENamedTypeSymbol unionInterfaceSymbol)
+        {
+            UnionInterfaceType = unionInterfaceSymbol.GetTypeInfo().AsType();
+        }
 
     }
 

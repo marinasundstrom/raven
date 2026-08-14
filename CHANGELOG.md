@@ -9,6 +9,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   classic state-machine lowering for `net10.0`, and can be disabled in SDK
   projects with `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`.
 
+- Fixed .NET 11 compiler hosts leaking host-only runtime APIs into net10.0
+  output. Net10 unions now bind their `IUnion` compatibility contract from
+  Raven.Core instead of `System.Runtime`, and async entry-point bridges use the
+  target-compatible awaiter pattern when `AsyncHelpers` is absent from the
+  selected target framework.
+
 - Included both XML and Markdown symbol documentation for Raven.Core and
   Raven.Macros in NuGet packages and standalone SDK archives. Raven tooling
   prefers Markdown and falls back to XML, while C# and other .NET consumers

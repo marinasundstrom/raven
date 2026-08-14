@@ -506,6 +506,88 @@ union Option {
     }
 
     [Fact]
+    public void DiscriminatedUnion_Net10UsesRavenCoreIUnionInsteadOfHostRuntimeType()
+    {
+        var syntaxTree = SyntaxTree.ParseText(
+            """
+union Option {
+    case Some(value: int)
+}
+""");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path)),
+            CreateNet10RavenCoreUnionReference()
+        ];
+        var compilation = Compilation.Create(
+            "net10-raven-core-union",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var peReader = new PEReader(ImmutableArray.Create(peStream.ToArray()));
+        var metadata = peReader.GetMetadataReader();
+        var optionDefinition = metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Single(type => metadata.StringComparer.Equals(type.Name, "Option"));
+        var unionReferenceHandle = optionDefinition.GetInterfaceImplementations()
+            .Select(metadata.GetInterfaceImplementation)
+            .Select(static implementation => implementation.Interface)
+            .Single(handle => IsMetadataType(
+                metadata,
+                handle,
+                "System.Runtime.CompilerServices",
+                "IUnion"));
+        var unionReference = metadata.GetTypeReference((TypeReferenceHandle)unionReferenceHandle);
+        var assemblyReference = metadata.GetAssemblyReference((AssemblyReferenceHandle)unionReference.ResolutionScope);
+
+        Assert.Equal("Raven.Core", metadata.GetString(assemblyReference.Name));
+    }
+
+    private static MetadataReference CreateNet10RavenCoreUnionReference()
+    {
+        const string source = """
+namespace System.Runtime.CompilerServices
+{
+    public interface IUnion
+    {
+        object Value { get; }
+    }
+}
+""";
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Where(File.Exists)
+            .Select(static path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path));
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+            "Raven.Core",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)],
+            references,
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        var outputDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "raven-net10-core-fixture",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outputDirectory);
+        var assemblyPath = Path.Combine(outputDirectory, "Raven.Core.dll");
+        Microsoft.CodeAnalysis.Emit.EmitResult emitResult;
+        using (var assemblyStream = File.Create(assemblyPath))
+            emitResult = compilation.Emit(assemblyStream);
+
+        Assert.True(
+            emitResult.Success,
+            string.Join(Environment.NewLine, emitResult.Diagnostics));
+        return MetadataReference.CreateFromFile(assemblyPath);
+    }
+
+    [Fact]
     public void UnionWithoutStorageModifier_EmitsValueTypeCarrier()
     {
         var code = """
