@@ -75,13 +75,30 @@ union TemperatureState {
             [coreLibrary],
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithEmbedCoreTypes(true)
-                .WithFrameworkProjectionMode(FrameworkProjectionMode.None));
+                .WithFrameworkProjectionMode(FrameworkProjectionMode.None)
+                .WithSynthesizeStructuralToString(false));
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         Assert.NotEqual(0, peStream.Length);
+
+        peStream.Position = 0;
+        using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(peStream);
+        var unionTypes = assembly.MainModule.Types
+            .Where(type => type.Name == "TemperatureState")
+            .SelectMany(type => new[] { type }.Concat(type.NestedTypes))
+            .ToArray();
+        Assert.NotEmpty(unionTypes);
+        Assert.All(
+            unionTypes,
+            type => Assert.DoesNotContain(
+                type.Methods,
+                method => method.Name is nameof(object.ToString) or
+                    SynthesizedUnionMethodNames.DisplayNameHelper or
+                    SynthesizedUnionMethodNames.FriendlyTypeNameHelper or
+                    SynthesizedUnionMethodNames.FormatValueHelper));
     }
 
     [Fact]
@@ -1340,8 +1357,8 @@ union Either<T1, T2>(T1 | T2)
         var left = leftMethod.Invoke(null, Array.Empty<object?>());
         var right = rightMethod.Invoke(null, Array.Empty<object?>());
 
-        Assert.Equal("Either<Int32, String>(42)", left?.ToString());
-        Assert.Equal("Either<Int32, String>(\"invoice\")", right?.ToString());
+        Assert.Equal("Either(42)", left?.ToString());
+        Assert.Equal("Either(\"invoice\")", right?.ToString());
     }
 
     [Fact]
@@ -1380,7 +1397,7 @@ union Message(string | int)
     }
 
     [Fact]
-    public void ParenthesizedUnion_ToString_FormatsTypeArgumentsAndFriendlyPayloadTypeNames()
+    public void ParenthesizedUnion_ToString_UsesPayloadToStringWithoutReflection()
     {
         const string code = """
 import System.Collections.Generic.*
@@ -1413,7 +1430,7 @@ union MyResult<T>(List<T> | int)
         var value = valueMethod.Invoke(null, Array.Empty<object?>());
 
         Assert.NotNull(value);
-        Assert.Equal("MyResult<String>(<List<String>>)", value!.ToString());
+        Assert.Equal("MyResult(System.Collections.Generic.List`1[System.String])", value!.ToString());
     }
 
     [Fact]
@@ -2331,7 +2348,7 @@ class Container {
         var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
         var text = (string)toString.Invoke(unionValue, Array.Empty<object?>())!;
 
-        Assert.Equal("Result<Int32>.Ok(5)", text);
+        Assert.Equal("Result.Ok(5)", text);
     }
 
     [Fact]
@@ -2365,11 +2382,11 @@ union Result<T> {
         var okCaseType = runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
         var okCase = okCaseType.GetConstructor(new[] { typeof(int) })!.Invoke([42]);
 
-        Assert.Equal("Result<Int32>.Ok(42)", okCase!.ToString());
+        Assert.Equal("Result.Ok(42)", okCase!.ToString());
     }
 
     [Fact]
-    public void GenericUnionCaseDisplayNameHelper_DirectCaseInstance_FormatsCapturedTypeArguments()
+    public void GenericUnionCaseToString_DoesNotEmitReflectionHelpers()
     {
         var code = """
 union Result<T> {
@@ -2394,15 +2411,23 @@ union Result<T> {
         var result = compilation.Emit(peStream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var runtimeAssembly = loaded.Assembly;
-        var okCaseType = runtimeAssembly.GetType("Result+Ok`1", throwOnError: true)!.MakeGenericType(typeof(int));
-        var okCase = okCaseType.GetConstructor(new[] { typeof(int) })!.Invoke([42]);
-        var displayNameHelper = okCaseType.GetMethod("<RavenUnionDisplayName>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        peStream.Position = 0;
+        using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(peStream);
+        Assert.DoesNotContain(
+            assembly.MainModule.GetTypeReferences(),
+            type => type.Namespace == "System.Reflection" || type.FullName == "System.Type");
 
-        var displayName = (string)displayNameHelper.Invoke(okCase, Array.Empty<object?>())!;
-
-        Assert.Equal("Result<Int32>", displayName);
+        var unionTypes = assembly.MainModule.Types
+            .Where(type => type.Name == "Result`1")
+            .SelectMany(type => new[] { type }.Concat(type.NestedTypes))
+            .ToArray();
+        Assert.NotEmpty(unionTypes);
+        Assert.All(
+            unionTypes,
+            type => Assert.DoesNotContain(
+                type.Methods,
+                method => method.Name is SynthesizedUnionMethodNames.DisplayNameHelper or
+                    SynthesizedUnionMethodNames.FriendlyTypeNameHelper));
     }
 
     [Fact]
@@ -2447,7 +2472,7 @@ class Container {
 
         var unionValue = buildMethod.Invoke(null, Array.Empty<object?>());
         Assert.NotNull(unionValue);
-        Assert.Equal("Result<Int32, String>.Ok(42)", unionValue!.ToString());
+        Assert.Equal("Result.Ok(42)", unionValue!.ToString());
     }
 
     [Fact]
@@ -2511,10 +2536,10 @@ class Container {
         Assert.NotNull(carrierQualified);
         Assert.NotNull(carrierTargetTyped);
 
-        Assert.Equal("Result<Int32>.Ok(2)", caseValue!.ToString());
-        Assert.Equal("Result<Int32>.Ok(2)", caseValueExplicit!.ToString());
-        Assert.Equal("Result<Int32, String>.Ok(2)", carrierQualified!.ToString());
-        Assert.Equal("Result<Int32, String>.Ok(2)", carrierTargetTyped!.ToString());
+        Assert.Equal("Result.Ok(2)", caseValue!.ToString());
+        Assert.Equal("Result.Ok(2)", caseValueExplicit!.ToString());
+        Assert.Equal("Result.Ok(2)", carrierQualified!.ToString());
+        Assert.Equal("Result.Ok(2)", carrierTargetTyped!.ToString());
     }
 
     [Fact]
@@ -2666,7 +2691,7 @@ union Result<T> {
         var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
 
         var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
-        Assert.Equal("Result<Int32>.Ok(99)", text);
+        Assert.Equal("Result.Ok(99)", text);
     }
 
     [Fact]
@@ -2764,7 +2789,7 @@ class Container {
         Assert.NotNull(unionValue);
 
         var text = unionValue!.ToString();
-        Assert.Equal("Result<String, CustomError>.Ok(\"Foo\")", text);
+        Assert.Equal("Result.Ok(\"Foo\")", text);
     }
 
     [Fact]
@@ -2803,7 +2828,7 @@ union Either<T1, T2>(T1 | T2)
         var unionValue = createMethod.Invoke(null, Array.Empty<object?>());
 
         Assert.NotNull(unionValue);
-        Assert.Equal("Either<Char, String>('x')", unionValue!.ToString());
+        Assert.Equal("Either('x')", unionValue!.ToString());
     }
 
     [Fact]
@@ -2997,7 +3022,7 @@ class Container {
         var empty = Array.Empty<int>();
         var value = create.Invoke(null, [empty])!;
 
-        Assert.Equal("Result<Int32, String>.Error(\"oops\")", value.ToString());
+        Assert.Equal("Result.Error(\"oops\")", value.ToString());
     }
 
     [Fact]

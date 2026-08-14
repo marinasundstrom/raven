@@ -1060,6 +1060,8 @@ var options = optionsResult.Options;
 overloadResolutionLog = optionsResult.OverloadResolutionLog;
 if (skipDefaultRavenCoreLookup)
     options = options.WithFrameworkProjectionMode(FrameworkProjectionMode.None);
+if (targetFrameworkTfm?.StartsWith("netnano", StringComparison.OrdinalIgnoreCase) == true)
+    options = options.WithSynthesizeStructuralToString(false);
 var workspace = RavenWorkspace.Create(
     targetFramework: targetFramework,
     projectSystemService: new MsBuildProjectSystemService(
@@ -1240,6 +1242,8 @@ if (returnedValueHandlingModeOverride is { } returnedValueHandlingMode)
 
 if (skipDefaultRavenCoreLookup)
     options = options.WithFrameworkProjectionMode(FrameworkProjectionMode.None);
+if (targetFrameworkTfm?.StartsWith("netnano", StringComparison.OrdinalIgnoreCase) == true)
+    options = options.WithSynthesizeStructuralToString(false);
 
 project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project, options.EnableSuggestions);

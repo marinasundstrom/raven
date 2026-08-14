@@ -290,6 +290,12 @@ let missing: LookupResult = Missing
   members.
 * As with records, an authored `override ToString()` suppresses the synthesized
   union `ToString()`.
+* The synthesized representation is derived from the statically known carrier,
+  active case, and payload members. It does not use runtime reflection. Generic
+  type arguments are therefore omitted from the union name: a closed
+  `Result<int, string>` value is displayed as `Result.Ok(42)`, not
+  `Result<Int32, String>.Ok(42)`. String and character payloads remain quoted,
+  including when their declared payload type is a type parameter.
 * Authored `Equals`, `GetHashCode`, and equality operators on unions are
   currently rejected.
 

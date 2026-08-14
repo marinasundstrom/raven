@@ -1739,13 +1739,15 @@ union Token {
         var output = writer.ToString();
         Assert.Contains("=== Synthesized Method Bodies ===", output);
         Assert.Contains("SynthesizedMethod=virtual override Token.ToString() -> string", output);
-        Assert.Contains("SynthesizedMethod=Token.<RavenUnionDisplayName>() -> string", output);
         Assert.Contains("SynthesizedMethod=virtual override Token.Identifier.ToString() -> string", output);
-        Assert.Contains("SynthesizedMethod=Token.Identifier.<RavenUnionDisplayName>() -> string", output);
+        Assert.Contains("<RavenFormatUnionValue>(value: object) -> string", output);
+        Assert.DoesNotContain("<RavenUnionDisplayName>", output);
+        Assert.DoesNotContain("<RavenFriendlyTypeName>", output);
+        Assert.DoesNotContain("TypeOfExpression", output);
     }
 
     [Fact]
-    public void PrintBoundTree_IncludesGenericUnionDisplayNameSynthesis()
+    public void PrintBoundTree_UsesReflectionFreeGenericUnionFormatting()
     {
         const string source = """
 union Result<T, E> {
@@ -1773,11 +1775,11 @@ union Result<T, E> {
 
         var output = writer.ToString();
         Assert.Contains("SynthesizedMethod=virtual override Result<T, E>.ToString() -> string", output);
-        Assert.Contains("SynthesizedMethod=Result<T, E>.<RavenUnionDisplayName>() -> string", output);
         Assert.Contains("FieldAccess [Type=Result<T, E>.Ok<T>, Symbol=Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>, Field=Result<T, E>.<OkPayload>: Result<T, E>.Ok<T>]", output);
-        Assert.Contains("Symbol=static Result<T, E>.<RavenFriendlyTypeName>(type: Type) -> string", output);
-        Assert.Contains("TypeOfExpression [Type=Type, OperandType=T, SystemType=Type]", output);
-        Assert.Contains("TypeOfExpression [Type=Type, OperandType=E, SystemType=Type]", output);
+        Assert.Contains("<RavenFormatUnionValue>(value: object) -> string", output);
+        Assert.DoesNotContain("<RavenUnionDisplayName>", output);
+        Assert.DoesNotContain("<RavenFriendlyTypeName>", output);
+        Assert.DoesNotContain("TypeOfExpression", output);
     }
 
     [Fact]

@@ -224,6 +224,9 @@ internal static class MsBuildProjectEvaluator
             projectFilePath,
             documents.Select(static document => document.FilePath));
 
+        if (targetFramework.StartsWith("netnano", StringComparison.OrdinalIgnoreCase))
+            compilationOptions = compilationOptions.WithSynthesizeStructuralToString(false);
+
         var intermediateOutputPath = project.GetPropertyValue("IntermediateOutputPath");
         var generatedSourceDirectory = GetGeneratedSourceDirectory(projectDirectory, intermediateOutputPath, configuration, conventions);
         var name = GetProjectName(project, projectFilePath);

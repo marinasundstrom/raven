@@ -42,6 +42,16 @@ internal static partial class SynthesizedMethodBodyFactory
 
         if (method.Name == SynthesizedUnionMethodNames.FormatValueHelper &&
             method.IsStatic &&
+            method.Parameters.Length == 1 &&
+            method.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
+            method.ReturnType.SpecialType == SpecialType.System_String)
+        {
+            body = CreateReflectionFreeUnionFormatValueHelperBody(compilation, method);
+            return true;
+        }
+
+        if (method.Name == SynthesizedUnionMethodNames.FormatValueHelper &&
+            method.IsStatic &&
             method.Parameters.Length == 3 &&
             method.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
             method.Parameters[1].Type.SpecialType == SpecialType.System_Type &&

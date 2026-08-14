@@ -33,7 +33,7 @@ class Program {
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Result<Int32>.Ok(42)" }, output);
+        Assert.Equal(new[] { "Result.Ok(42)" }, output);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ class Program {
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal("Result<Int32>.Ok(42)", output[0]);
+        Assert.Equal("Result.Ok(42)", output[0]);
         Assert.Contains("Error", output[1], StringComparison.Ordinal);
     }
 
@@ -212,7 +212,7 @@ class Program {
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Result<Int32>.Ok(5)" }, output);
+        Assert.Equal(new[] { "Result.Ok(5)" }, output);
     }
 
     [Fact]

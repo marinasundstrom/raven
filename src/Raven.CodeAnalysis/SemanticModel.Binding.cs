@@ -4348,6 +4348,9 @@ public partial class SemanticModel
 
         void EnsureUnionToStringMethod(Location location, SyntaxReference reference)
         {
+            if (!Compilation.Options.SynthesizeStructuralToString)
+                return;
+
             if (HasDeclaredUnionToStringMethod(unionDecl, introducedMembers))
                 return;
 
@@ -4371,51 +4374,10 @@ public partial class SemanticModel
 
         void EnsureUnionHelperMethods(Location location, SyntaxReference reference)
         {
-            if (!HasMethod(unionSymbol, SynthesizedUnionMethodNames.DisplayNameHelper, MethodKind.Ordinary))
-            {
-                var helper = new SourceMethodSymbol(
-                    SynthesizedUnionMethodNames.DisplayNameHelper,
-                    stringType!,
-                    ImmutableArray<SourceParameterSymbol>.Empty,
-                    unionSymbol,
-                    unionSymbol,
-                    namespaceSymbol,
-                    [location],
-                    [reference],
-                    isStatic: false,
-                    methodKind: MethodKind.Ordinary,
-                    declaredAccessibility: Accessibility.Private);
-                RegisterMember(unionSymbol, helper);
-            }
+            if (!Compilation.Options.SynthesizeStructuralToString)
+                return;
 
-            if (!HasMethod(unionSymbol, SynthesizedUnionMethodNames.FriendlyTypeNameHelper, MethodKind.Ordinary, systemType!))
-            {
-                var friendlyTypeNameHelper = new SourceMethodSymbol(
-                    SynthesizedUnionMethodNames.FriendlyTypeNameHelper,
-                    stringType!,
-                    ImmutableArray<SourceParameterSymbol>.Empty,
-                    unionSymbol,
-                    unionSymbol,
-                    namespaceSymbol,
-                    [location],
-                    [reference],
-                    isStatic: true,
-                    methodKind: MethodKind.Ordinary,
-                    declaredAccessibility: Accessibility.Private);
-
-                var typeParameter = new SourceParameterSymbol(
-                    "type",
-                    systemType!,
-                    friendlyTypeNameHelper,
-                    unionSymbol,
-                    namespaceSymbol,
-                    [location],
-                    [reference]);
-                friendlyTypeNameHelper.SetParameters([typeParameter]);
-                RegisterMember(unionSymbol, friendlyTypeNameHelper);
-            }
-
-            if (!HasMethod(unionSymbol, SynthesizedUnionMethodNames.FormatValueHelper, MethodKind.Ordinary, objectType!, systemType!, boolType!))
+            if (!HasMethod(unionSymbol, SynthesizedUnionMethodNames.FormatValueHelper, MethodKind.Ordinary, objectType!))
             {
                 var formatValueHelper = new SourceMethodSymbol(
                     SynthesizedUnionMethodNames.FormatValueHelper,
@@ -4438,23 +4400,7 @@ public partial class SemanticModel
                     namespaceSymbol,
                     [location],
                     [reference]);
-                var formatValueTypeParameter = new SourceParameterSymbol(
-                    "valueType",
-                    systemType!,
-                    formatValueHelper,
-                    unionSymbol,
-                    namespaceSymbol,
-                    [location],
-                    [reference]);
-                var formatStructuredParameter = new SourceParameterSymbol(
-                    "renderStructured",
-                    boolType!,
-                    formatValueHelper,
-                    unionSymbol,
-                    namespaceSymbol,
-                    [location],
-                    [reference]);
-                formatValueHelper.SetParameters([formatValueParameter, formatValueTypeParameter, formatStructuredParameter]);
+                formatValueHelper.SetParameters([formatValueParameter]);
                 RegisterMember(unionSymbol, formatValueHelper);
             }
         }
@@ -5035,7 +4981,9 @@ public partial class SemanticModel
                     }
                 }
 
-                var caseToString = new SourceMethodSymbol(
+                if (Compilation.Options.SynthesizeStructuralToString)
+                {
+                    var caseToString = new SourceMethodSymbol(
                     "ToString",
                     stringType!,
                     ImmutableArray<SourceParameterSymbol>.Empty,
@@ -5049,24 +4997,9 @@ public partial class SemanticModel
                     isOverride: true,
                     declaredAccessibility: Accessibility.Public);
 
-                RegisterCaseMember(caseToString);
+                    RegisterCaseMember(caseToString);
 
-                var caseDisplayNameHelper = new SourceMethodSymbol(
-                    SynthesizedUnionMethodNames.DisplayNameHelper,
-                    stringType!,
-                    ImmutableArray<SourceParameterSymbol>.Empty,
-                    caseSymbol,
-                    caseSymbol,
-                    namespaceSymbol,
-                    new[] { caseClause.GetLocation() },
-                    Array.Empty<SyntaxReference>(),
-                    isStatic: false,
-                    methodKind: MethodKind.Ordinary,
-                    declaredAccessibility: Accessibility.Private);
-
-                RegisterCaseMember(caseDisplayNameHelper);
-
-                var caseFormatValueHelper = new SourceMethodSymbol(
+                    var caseFormatValueHelper = new SourceMethodSymbol(
                     SynthesizedUnionMethodNames.FormatValueHelper,
                     stringType!,
                     ImmutableArray<SourceParameterSymbol>.Empty,
@@ -5079,60 +5012,21 @@ public partial class SemanticModel
                     methodKind: MethodKind.Ordinary,
                     declaredAccessibility: Accessibility.Private);
 
-                var caseFormatValueParameter = new SourceParameterSymbol(
-                    "value",
-                    Compilation.GetSpecialType(SpecialType.System_Object)!,
-                    caseFormatValueHelper,
-                    caseSymbol,
-                    namespaceSymbol,
-                    [caseClause.GetLocation()],
-                    Array.Empty<SyntaxReference>());
-                var caseFormatValueTypeParameter = new SourceParameterSymbol(
-                    "valueType",
-                    Compilation.GetSpecialType(SpecialType.System_Type)!,
-                    caseFormatValueHelper,
-                    caseSymbol,
-                    namespaceSymbol,
-                    [caseClause.GetLocation()],
-                    Array.Empty<SyntaxReference>());
-                var caseFormatStructuredParameter = new SourceParameterSymbol(
-                    "renderStructured",
-                    Compilation.GetSpecialType(SpecialType.System_Boolean)!,
-                    caseFormatValueHelper,
-                    caseSymbol,
-                    namespaceSymbol,
-                    [caseClause.GetLocation()],
-                    Array.Empty<SyntaxReference>());
-                caseFormatValueHelper.SetParameters([caseFormatValueParameter, caseFormatValueTypeParameter, caseFormatStructuredParameter]);
+                    var caseFormatValueParameter = new SourceParameterSymbol(
+                        "value",
+                        Compilation.GetSpecialType(SpecialType.System_Object)!,
+                        caseFormatValueHelper,
+                        caseSymbol,
+                        namespaceSymbol,
+                        [caseClause.GetLocation()],
+                        Array.Empty<SyntaxReference>());
+                    caseFormatValueHelper.SetParameters([caseFormatValueParameter]);
 
-                RegisterCaseMember(caseFormatValueHelper);
+                    RegisterCaseMember(caseFormatValueHelper);
 
-                var caseFriendlyTypeNameHelper = new SourceMethodSymbol(
-                    SynthesizedUnionMethodNames.FriendlyTypeNameHelper,
-                    stringType!,
-                    ImmutableArray<SourceParameterSymbol>.Empty,
-                    caseSymbol,
-                    caseSymbol,
-                    namespaceSymbol,
-                    new[] { caseClause.GetLocation() },
-                    Array.Empty<SyntaxReference>(),
-                    isStatic: true,
-                    methodKind: MethodKind.Ordinary,
-                    declaredAccessibility: Accessibility.Private);
+                    caseToString.SetOverriddenMethod(objectToString);
+                }
 
-                var caseFriendlyTypeParameter = new SourceParameterSymbol(
-                    "type",
-                    Compilation.GetSpecialType(SpecialType.System_Type)!,
-                    caseFriendlyTypeNameHelper,
-                    caseSymbol,
-                    namespaceSymbol,
-                    [caseClause.GetLocation()],
-                    Array.Empty<SyntaxReference>());
-                caseFriendlyTypeNameHelper.SetParameters([caseFriendlyTypeParameter]);
-
-                RegisterCaseMember(caseFriendlyTypeNameHelper);
-
-                caseToString.SetOverriddenMethod(objectToString);
                 RegisterUnionCaseSymbol(caseClause, caseSymbol);
                 caseSymbols.Add(caseSymbol);
                 RegisterUnionMemberArtifacts(caseTypeForUnionMembers, caseTypeForUnionMembers, caseClause.GetLocation(), caseClause.GetReference());
@@ -5283,15 +5177,31 @@ public partial class SemanticModel
             null,
             declaredAccessibility: Accessibility.Private);
 
-        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
-        var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
-        var objectToString = GetObjectToStringMethod();
-
-        SourceMethodSymbol? unionToString = null;
-        if (!HasDeclaredUnionToStringMethod(unionDecl, introducedMembers))
+        if (Compilation.Options.SynthesizeStructuralToString)
         {
-            unionToString = new SourceMethodSymbol(
-                "ToString",
+            var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+            var objectToString = GetObjectToStringMethod();
+
+            SourceMethodSymbol? unionToString = null;
+            if (!HasDeclaredUnionToStringMethod(unionDecl, introducedMembers))
+            {
+                unionToString = new SourceMethodSymbol(
+                    "ToString",
+                    stringType!,
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    unionSymbol,
+                    unionSymbol,
+                    namespaceSymbol,
+                    new[] { unionDecl.GetLocation() },
+                    Array.Empty<SyntaxReference>(),
+                    isStatic: false,
+                    methodKind: MethodKind.Ordinary,
+                    isOverride: true,
+                    declaredAccessibility: Accessibility.Public);
+            }
+
+            var formatValueHelper = new SourceMethodSymbol(
+                SynthesizedUnionMethodNames.FormatValueHelper,
                 stringType!,
                 ImmutableArray<SourceParameterSymbol>.Empty,
                 unionSymbol,
@@ -5299,63 +5209,9 @@ public partial class SemanticModel
                 namespaceSymbol,
                 new[] { unionDecl.GetLocation() },
                 Array.Empty<SyntaxReference>(),
-                isStatic: false,
+                isStatic: true,
                 methodKind: MethodKind.Ordinary,
-                isOverride: true,
-                declaredAccessibility: Accessibility.Public);
-        }
-
-        _ = new SourceMethodSymbol(
-            SynthesizedUnionMethodNames.DisplayNameHelper,
-            stringType!,
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            unionSymbol,
-            unionSymbol,
-            namespaceSymbol,
-            new[] { unionDecl.GetLocation() },
-            Array.Empty<SyntaxReference>(),
-            isStatic: false,
-            methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Private);
-
-        var friendlyTypeNameHelper = new SourceMethodSymbol(
-            SynthesizedUnionMethodNames.FriendlyTypeNameHelper,
-            stringType!,
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            unionSymbol,
-            unionSymbol,
-            namespaceSymbol,
-            new[] { unionDecl.GetLocation() },
-            Array.Empty<SyntaxReference>(),
-            isStatic: true,
-            methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Private);
-
-        var formatValueHelper = new SourceMethodSymbol(
-            SynthesizedUnionMethodNames.FormatValueHelper,
-            stringType!,
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            unionSymbol,
-            unionSymbol,
-            namespaceSymbol,
-            new[] { unionDecl.GetLocation() },
-            Array.Empty<SyntaxReference>(),
-            isStatic: true,
-            methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Private);
-
-        if (systemType is not null)
-        {
-            var typeParameter = new SourceParameterSymbol(
-                "type",
-                systemType,
-                friendlyTypeNameHelper,
-                unionSymbol,
-                namespaceSymbol,
-                [unionDecl.GetLocation()],
-                Array.Empty<SyntaxReference>());
-
-            friendlyTypeNameHelper.SetParameters([typeParameter]);
+                declaredAccessibility: Accessibility.Private);
 
             var formatValueParameter = new SourceParameterSymbol(
                 "value",
@@ -5365,26 +5221,10 @@ public partial class SemanticModel
                 namespaceSymbol,
                 [unionDecl.GetLocation()],
                 Array.Empty<SyntaxReference>());
-            var formatValueTypeParameter = new SourceParameterSymbol(
-                "valueType",
-                systemType,
-                formatValueHelper,
-                unionSymbol,
-                namespaceSymbol,
-                [unionDecl.GetLocation()],
-                Array.Empty<SyntaxReference>());
-            var formatStructuredParameter = new SourceParameterSymbol(
-                "renderStructured",
-                Compilation.GetSpecialType(SpecialType.System_Boolean)!,
-                formatValueHelper,
-                unionSymbol,
-                namespaceSymbol,
-                [unionDecl.GetLocation()],
-                Array.Empty<SyntaxReference>());
-            formatValueHelper.SetParameters([formatValueParameter, formatValueTypeParameter, formatStructuredParameter]);
-        }
+            formatValueHelper.SetParameters([formatValueParameter]);
 
-        unionToString?.SetOverriddenMethod(objectToString);
+            unionToString?.SetOverriddenMethod(objectToString);
+        }
         unionSymbol.SetDiscriminatorField(discriminatorField);
 
         RegisterUnionSymbol(unionDecl, unionSymbol);
@@ -6981,7 +6821,8 @@ public partial class SemanticModel
             hashMethod.SetOverriddenMethod(getHashCode);
         }
 
-        if (!HasMethod(recordSymbol, "ToString", MethodKind.Ordinary))
+        if (Compilation.Options.SynthesizeStructuralToString &&
+            !HasMethod(recordSymbol, "ToString", MethodKind.Ordinary))
         {
             var toStringMethod = new SourceMethodSymbol(
                 "ToString",
@@ -7000,7 +6841,8 @@ public partial class SemanticModel
             toStringMethod.SetOverriddenMethod(objectToString);
         }
 
-        if (!HasMethod(recordSymbol, SynthesizedUnionMethodNames.FriendlyTypeNameHelper, MethodKind.Ordinary, systemType))
+        if (Compilation.Options.SynthesizeStructuralToString &&
+            !HasMethod(recordSymbol, SynthesizedUnionMethodNames.FriendlyTypeNameHelper, MethodKind.Ordinary, systemType))
         {
             var friendlyTypeNameHelper = new SourceMethodSymbol(
                 SynthesizedUnionMethodNames.FriendlyTypeNameHelper,
@@ -7026,7 +6868,8 @@ public partial class SemanticModel
             friendlyTypeNameHelper.SetParameters(ImmutableArray.Create(typeParameter));
         }
 
-        if (!HasMethod(recordSymbol, SynthesizedUnionMethodNames.FormatValueHelper, MethodKind.Ordinary, objectType, systemType, boolType))
+        if (Compilation.Options.SynthesizeStructuralToString &&
+            !HasMethod(recordSymbol, SynthesizedUnionMethodNames.FormatValueHelper, MethodKind.Ordinary, objectType, systemType, boolType))
         {
             var formatValueHelper = new SourceMethodSymbol(
                 SynthesizedUnionMethodNames.FormatValueHelper,

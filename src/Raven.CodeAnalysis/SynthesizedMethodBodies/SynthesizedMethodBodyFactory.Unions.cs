@@ -73,7 +73,7 @@ internal static partial class SynthesizedMethodBodyFactory
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
                 var parts = new List<BoundExpression>
                 {
-                    InvokeUnionDisplayNameHelper(method),
+                    CreateStringLiteral(compilation, unionSymbol.Name),
                     CreateStringLiteral(compilation, "."),
                     CreateStringLiteral(compilation, caseType.Name)
                 };
@@ -108,7 +108,7 @@ internal static partial class SynthesizedMethodBodyFactory
             var text = ConcatSequence(
                 compilation,
                 [
-                    InvokeUnionDisplayNameHelper(method),
+                    CreateStringLiteral(compilation, unionSymbol.Name),
                     CreateStringLiteral(compilation, "("),
                     formatted,
                     CreateStringLiteral(compilation, ")")
@@ -196,24 +196,10 @@ internal static partial class SynthesizedMethodBodyFactory
         SourceUnionCaseTypeSymbol caseSymbol)
     {
         var statements = new List<BoundStatement>();
-        BoundExpression unionDisplayName;
-
-        if (caseSymbol.Arity > 0 || caseSymbol.Union.Arity > 0)
-        {
-            unionDisplayName = CreateInlineUnionDisplayName(
-                compilation,
-                method,
-                caseSymbol.Union.Name,
-                statements);
-        }
-        else
-        {
-            unionDisplayName = InvokeUnionDisplayNameHelper(method);
-        }
 
         var parts = new List<BoundExpression>
         {
-            unionDisplayName,
+            CreateStringLiteral(compilation, caseSymbol.Union.Name),
             CreateStringLiteral(compilation, "."),
             CreateStringLiteral(compilation, caseSymbol.Name)
         };
@@ -638,7 +624,34 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static BoundExpression FormatUnionValue(Compilation compilation, IMethodSymbol method, BoundExpression value, ITypeSymbol? declaredType = null)
-        => InvokeUnionFormatValueHelper(compilation, method, value, declaredType);
+    {
+        var containingType = GetInvocationContainingType(method);
+        var helper = containingType
+            .GetMembers(SynthesizedUnionMethodNames.FormatValueHelper)
+            .OfType<IMethodSymbol>()
+            .First(candidate => candidate.IsStatic &&
+                                candidate.Parameters.Length == 1 &&
+                                candidate.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
+                                candidate.ReturnType.SpecialType == SpecialType.System_String);
+        var displayType = (declaredType ?? value.Type).GetNonNullableType();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object)!;
+        var formatted = new BoundInvocationExpression(
+            helper,
+            [
+                CreateConversion(compilation, value, objectType)
+            ]);
+
+        if (displayType.TypeKind != TypeKind.Enum)
+            return formatted;
+
+        return ConcatSequence(
+            compilation,
+            [
+                CreateStringLiteral(compilation, displayType.Name),
+                CreateStringLiteral(compilation, "."),
+                formatted
+            ]);
+    }
 
     private static List<(string? Name, BoundExpression Value)> CreateUnionCaseDisplayMembers(
         Compilation compilation,
@@ -778,6 +791,45 @@ internal static partial class SynthesizedMethodBodyFactory
                 CreateStringLiteral(compilation, ">")
             ])));
         return new BoundBlockStatement(statements);
+    }
+
+    private static BoundBlockStatement CreateReflectionFreeUnionFormatValueHelperBody(Compilation compilation, IMethodSymbol method)
+    {
+        var valueAccess = new BoundParameterAccess(method.Parameters[0]);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
+        var charType = compilation.GetSpecialType(SpecialType.System_Char)!;
+        var boolType = compilation.GetSpecialType(SpecialType.System_Boolean)!;
+        var isString = new BoundIsPatternExpression(
+            valueAccess,
+            new BoundDeclarationPattern(stringType, new BoundDiscardDesignator(stringType)),
+            boolType);
+        var isChar = new BoundIsPatternExpression(
+            valueAccess,
+            new BoundDeclarationPattern(charType, new BoundDiscardDesignator(charType)),
+            boolType);
+
+        return new BoundBlockStatement([
+            new BoundIfStatement(
+                CreateBinaryExpression(
+                    compilation,
+                    SyntaxKind.EqualsEqualsToken,
+                    valueAccess,
+                    CreateNullLiteral(compilation)),
+                new BoundReturnStatement(CreateStringLiteral(compilation, "null"))),
+            new BoundIfStatement(
+                isString,
+                new BoundReturnStatement(CreateQuotedStringValue(
+                    compilation,
+                    CreateConversion(compilation, valueAccess, stringType),
+                    quote: "\""))),
+            new BoundIfStatement(
+                isChar,
+                new BoundReturnStatement(CreateQuotedStringValue(
+                    compilation,
+                    CreateObjectToStringInvocation(compilation, valueAccess),
+                    quote: "'"))),
+            new BoundReturnStatement(CreateObjectToStringInvocation(compilation, valueAccess))
+        ]);
     }
 
     private static BoundExpression CreateStructuredDisplayTypeCheck(
