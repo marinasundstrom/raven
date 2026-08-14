@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
@@ -980,7 +981,7 @@ func Main() {
             File.WriteAllText(macroProjectPath, $$"""
                 <Project Sdk="Microsoft.NET.Sdk">
                   <PropertyGroup>
-                    <TargetFramework>net10.0</TargetFramework>
+                    <TargetFramework>{{TestTargetFramework.Default}}</TargetFramework>
                     <AssemblyName>AnswerMacros</AssemblyName>
                     <Nullable>enable</Nullable>
                   </PropertyGroup>
@@ -999,7 +1000,7 @@ func Main() {
             File.WriteAllText(appProjectPath, $$"""
                 <Project Sdk="Microsoft.NET.Sdk">
                   <PropertyGroup>
-                    <TargetFramework>net10.0</TargetFramework>
+                    <TargetFramework>{{TestTargetFramework.Default}}</TargetFramework>
                     <OutputType>Library</OutputType>
                   </PropertyGroup>
                   <ItemGroup>
@@ -1023,7 +1024,7 @@ func Main() {
                 macrosDirectory,
                 "bin",
                 "Debug",
-                "net10.0",
+                TestTargetFramework.Default,
                 "AnswerMacros.dll")));
         }
         finally
