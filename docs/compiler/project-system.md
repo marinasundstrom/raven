@@ -391,7 +391,7 @@ You can still override behavior explicitly:
 For `dotnet build`, use the corresponding project property:
 
 ```xml
-<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>
+<UseRuntimeAsync>false</UseRuntimeAsync>
 ```
 
 Leaving the property unset preserves the default: enabled for a capable

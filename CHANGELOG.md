@@ -12,7 +12,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to
   classic state-machine lowering for `net10.0`, and can be disabled in SDK
-  projects with `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`. Capability
+  projects with `<UseRuntimeAsync>false</UseRuntimeAsync>`. Capability
   detection requires the complete `AsyncHelpers` contract because .NET 10
   exposes an earlier experimental form without the entry-point handlers.
   General awaiters now lower through the runtime suspension helpers instead of

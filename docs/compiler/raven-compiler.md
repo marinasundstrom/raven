@@ -284,7 +284,7 @@ Current limitations:
 
 - The distributed compiler host must run on .NET 11. Source builds should likewise use `dotnet run -f net11.0 ...` when compiling a `net11.0` target.
 - A target framework without the complete runtime-async contract, such as `net10.0`, uses classic state-machine lowering even when the compiler itself runs on .NET 11.
-- Pass `--no-runtime-async` to opt a direct compiler invocation out explicitly. For an SDK project, set `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`.
-- Setting `<RavenUseRuntimeAsync>true</RavenUseRuntimeAsync>` or passing `--runtime-async` explicitly for an unsupported target is rejected instead of producing incompatible output.
+- Pass `--no-runtime-async` to opt a direct compiler invocation out explicitly. For an SDK project, set `<UseRuntimeAsync>false</UseRuntimeAsync>`.
+- Setting `<UseRuntimeAsync>true</UseRuntimeAsync>` or passing `--runtime-async` explicitly for an unsupported target is rejected instead of producing incompatible output.
 - Raven-specific `Result<..., ...>` entry-point wrappers still use compiler-emitted bridge logic to map success and error payloads to process results.
 - Custom task-like return types that rely on `AsyncMethodBuilderAttribute` are not supported yet.
