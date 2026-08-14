@@ -1,11 +1,31 @@
 # .NET nanoFramework Wi-Fi HTTP LED
 
 This sample extends the Pico-family Blinky project with Wi-Fi and HTTP. It
-connects a wireless Pico to a DHCP network, waits for a valid device clock for
-TLS certificate validation, sends a request to
+connects a wireless Pico to a DHCP network, sends an HTTPS request to
 `https://example.com`, and turns an external LED on when the response succeeds.
 The external LED defaults to GP15 because the onboard LED on Pico W boards is
 attached to the CYW43 wireless controller rather than an ordinary GPIO.
+
+> [!WARNING]
+> This sample deliberately sets `SslVerification.NoVerification` so it can
+> demonstrate HTTPS transport without provisioning a root CA. The connection
+> is encrypted, but the server's identity is not authenticated, making it
+> vulnerable to man-in-the-middle attacks. Never use this setting for
+> production traffic, credentials, tokens, or other sensitive data.
+
+The LED also makes each stage observable without a debugger. It first blinks
+three times to prove that `Main` started and GP15 works, stays on while the
+network and request operation is running, stays on permanently after a
+successful response, or repeats one of these failure patterns:
+
+- 1 blink: Wi-Fi association, DHCP, or network-interface failure
+- 2 blinks: the server returned a non-success HTTP status
+- 3 blinks: the HTTP, DNS, or TLS operation threw an exception
+
+Both the network phase and HTTP request have timeouts, so invalid credentials
+no longer leave the sample apparently stuck forever. The successful path also
+keeps `Main` alive; otherwise disposing the GPIO scope immediately after
+writing `High` could make a successful request look like a failure.
 
 The Wi-Fi credentials are required Raven `extern const` values. The project
 contains nonfunctional placeholders so it can be evaluated without secrets;
@@ -48,6 +68,9 @@ those values, and remains a dry run unless `--execute` is supplied:
 ./deploy.sh --board pico2-w --uf2 --execute
 ```
 
+Serial deployment defaults to 1,500,000 baud, the rate validated with Pico WH
+on macOS. Use `--baud <rate>` or `NANOFF_BAUD` to override it.
+
 For automation, set `RAVEN_WIFI_SSID` and `RAVEN_WIFI_PASSWORD` instead of
 answering prompts. Credentials are not printed by the scripts or included in
 the deployment command, but they are compiled into the generated application
@@ -67,8 +90,23 @@ because its bridge is produced by `build.sh`.
 
 The board must run a matching nanoFramework 2.0 preview nanoCLR image with the
 Wi-Fi, networking, TLS, HTTP, and GPIO native contracts used by the pinned
-managed packages. The current HTTP package places its assembly directly in its
+managed packages. The package snapshot is aligned with Pico W nanoCLR
+`2.0.0.29`; in particular, `System.Device.Wifi` requires native checksum
+`0x7AE2272F` and `System.Net` requires `0x0D0C3837`. A native-checksum mismatch
+causes nanoCLR to reject the affected managed assembly before `Main` starts.
+The current HTTP package places its assembly directly in its
 `lib` directory, so the project includes an explicit reference until that
 package advertises its `netnano1.0` asset normally. See
 [Getting started with .NET nanoFramework](../../../docs/compiler/nanoframework.md)
 for firmware and tooling guidance.
+
+For the exact Pico 1 WH, external GP15 LED, and macOS USB procedure used during
+hardware validation, see [Pico 1 WH over USB: build and deploy](PICO-1-WH-USB.md).
+
+## HTTPS certificate verification
+
+`HttpClient` normally validates the server certificate. This sample overrides
+that secure default with `SslVerification.NoVerification` only to keep the
+hardware walkthrough self-contained. A real application must remove that
+assignment and provision the appropriate root CA in the device certificate
+store or set `HttpClient.HttpsAuthentCert` for its controlled endpoint.

@@ -110,20 +110,20 @@ CORE_LIBRARY="$(package_file nanoFramework.CoreLibrary 2.0.0-preview.52 lib/netn
 CORE_LIBRARY_PE="$(package_file nanoFramework.CoreLibrary 2.0.0-preview.52 lib/netnano1.0/mscorlib.pe)"
 EVENTS_LIBRARY="$(package_file nanoFramework.Runtime.Events 2.0.0-preview.13 lib/netnano1.0/nanoFramework.Runtime.Events.dll)"
 EVENTS_LIBRARY_PE="$(package_file nanoFramework.Runtime.Events 2.0.0-preview.13 lib/netnano1.0/nanoFramework.Runtime.Events.pe)"
-COLLECTIONS_LIBRARY="$(package_file nanoFramework.System.Collections 2.0.0-preview.14 lib/netnano1.0/nanoFramework.System.Collections.dll)"
-COLLECTIONS_LIBRARY_PE="$(package_file nanoFramework.System.Collections 2.0.0-preview.14 lib/netnano1.0/nanoFramework.System.Collections.pe)"
-TEXT_LIBRARY="$(package_file nanoFramework.System.Text 2.0.0-preview.18 lib/netnano1.0/nanoFramework.System.Text.dll)"
-TEXT_LIBRARY_PE="$(package_file nanoFramework.System.Text 2.0.0-preview.18 lib/netnano1.0/nanoFramework.System.Text.pe)"
-NET_LIBRARY="$(package_file nanoFramework.System.Net 2.0.0-preview.19 lib/netnano1.0/System.Net.dll)"
-NET_LIBRARY_PE="$(package_file nanoFramework.System.Net 2.0.0-preview.19 lib/netnano1.0/System.Net.pe)"
-THREADING_LIBRARY="$(package_file nanoFramework.System.Threading 2.0.0-preview.11 lib/netnano1.0/System.Threading.dll)"
-THREADING_LIBRARY_PE="$(package_file nanoFramework.System.Threading 2.0.0-preview.11 lib/netnano1.0/System.Threading.pe)"
-STREAMS_LIBRARY="$(package_file nanoFramework.System.IO.Streams 2.0.0-preview.18 lib/netnano1.0/System.IO.Streams.dll)"
-STREAMS_LIBRARY_PE="$(package_file nanoFramework.System.IO.Streams 2.0.0-preview.18 lib/netnano1.0/System.IO.Streams.pe)"
+COLLECTIONS_LIBRARY="$(package_file nanoFramework.System.Collections 2.0.0-preview.15 lib/netnano1.0/nanoFramework.System.Collections.dll)"
+COLLECTIONS_LIBRARY_PE="$(package_file nanoFramework.System.Collections 2.0.0-preview.15 lib/netnano1.0/nanoFramework.System.Collections.pe)"
+TEXT_LIBRARY="$(package_file nanoFramework.System.Text 2.0.0-preview.23 lib/netnano1.0/nanoFramework.System.Text.dll)"
+TEXT_LIBRARY_PE="$(package_file nanoFramework.System.Text 2.0.0-preview.23 lib/netnano1.0/nanoFramework.System.Text.pe)"
+NET_LIBRARY="$(package_file nanoFramework.System.Net 2.0.0-preview.32 lib/netnano1.0/System.Net.dll)"
+NET_LIBRARY_PE="$(package_file nanoFramework.System.Net 2.0.0-preview.32 lib/netnano1.0/System.Net.pe)"
+THREADING_LIBRARY="$(package_file nanoFramework.System.Threading 2.0.0-preview.14 lib/netnano1.0/System.Threading.dll)"
+THREADING_LIBRARY_PE="$(package_file nanoFramework.System.Threading 2.0.0-preview.14 lib/netnano1.0/System.Threading.pe)"
+STREAMS_LIBRARY="$(package_file nanoFramework.System.IO.Streams 2.0.0-preview.22 lib/netnano1.0/System.IO.Streams.dll)"
+STREAMS_LIBRARY_PE="$(package_file nanoFramework.System.IO.Streams 2.0.0-preview.22 lib/netnano1.0/System.IO.Streams.pe)"
 GPIO_LIBRARY="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.18 lib/netnano1.0/System.Device.Gpio.dll)"
 GPIO_LIBRARY_PE="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.18 lib/netnano1.0/System.Device.Gpio.pe)"
-WIFI_LIBRARY="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.23 lib/netnano1.0/System.Device.Wifi.dll)"
-WIFI_LIBRARY_PE="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.23 lib/netnano1.0/System.Device.Wifi.pe)"
+WIFI_LIBRARY="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.32 lib/netnano1.0/System.Device.Wifi.dll)"
+WIFI_LIBRARY_PE="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.32 lib/netnano1.0/System.Device.Wifi.pe)"
 HTTP_LIBRARY="$(package_file nanoFramework.System.Net.Http 2.0.0-preview.9 lib/System.Net.Http.dll)"
 HTTP_LIBRARY_PE="$(package_file nanoFramework.System.Net.Http 2.0.0-preview.9 lib/System.Net.Http.pe)"
 
@@ -158,6 +158,7 @@ dotnet "$CSC_DLL" \
   -noconfig \
   -nostdlib+ \
   -target:library \
+  -define:DEBUG \
   -langversion:latest \
   -out:"$BRIDGE_MANAGED_OUTPUT" \
   -reference:"$CORE_LIBRARY" \

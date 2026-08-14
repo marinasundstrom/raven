@@ -1,15 +1,51 @@
 import Raven.Samples.NanoFramework.*
 import System.Device.Gpio.*
+import System.Threading.*
 
 extern const LedPin: int = 15
 extern const Wifi_SSID: string
 extern const Wifi_Password: string
 
+func Pulse(led: GpioPin, pulses: int) {
+    var remaining = pulses
+
+    while remaining > 0 {
+        led.Write(PinValue.High)
+        Thread.Sleep(200)
+        led.Write(PinValue.Low)
+        Thread.Sleep(250)
+        remaining = remaining - 1
+    }
+}
+
+func SignalFailure(led: GpioPin, pulses: int) {
+    loop {
+        Pulse(led, pulses)
+        Thread.Sleep(1200)
+    }
+}
+
 func Main() {
     use gpio = GpioController()
     use led = gpio.OpenPin(LedPin, PinMode.Output)
 
-    if NetworkHttpBridge.ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com") {
+    // Three startup pulses prove that Main and GP15 are working before Wi-Fi.
+    Pulse(led, 3)
+    Thread.Sleep(750)
+
+    // Steady high while ConnectAndGet is running marks the network phase.
+    led.Write(PinValue.High)
+    let result = NetworkHttpBridge.ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com")
+    led.Write(PinValue.Low)
+
+    if result == 0 {
         led.Write(PinValue.High)
+
+        // Keep the pin and controller alive so the success LED stays on.
+        loop {
+            Thread.Sleep(60000)
+        }
     }
+
+    SignalFailure(led, result)
 }

@@ -4,6 +4,7 @@ set -euo pipefail
 SAMPLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$SAMPLE_DIR/artifacts}"
 NANOFF_COMMAND="${NANOFF_COMMAND:-nanoff}"
+BAUD_RATE="${NANOFF_BAUD:-1500000}"
 BOARD="pico-w"
 SERIAL_PORT=""
 LED_PIN=""
@@ -18,6 +19,7 @@ Options:
   --board pico-w|pico2-w
   --led-pin <gpio>                    External LED GPIO (default: 15).
   --serial-port <port>                Deploy through the nanoCLR wire protocol.
+  --baud <rate>                       Wire-protocol baud rate (default: 1500000).
   --uf2                                Deploy through a Pico in BOOTSEL mode.
   --execute                            Perform deployment; otherwise print the command.
 
@@ -42,6 +44,11 @@ while [[ $# -gt 0 ]]; do
     --serial-port)
       [[ $# -ge 2 ]] || { echo "Missing value for --serial-port." >&2; exit 2; }
       SERIAL_PORT="$2"
+      shift 2
+      ;;
+    --baud)
+      [[ $# -ge 2 ]] || { echo "Missing value for --baud." >&2; exit 2; }
+      BAUD_RATE="$2"
       shift 2
       ;;
     --uf2)
@@ -74,6 +81,10 @@ esac
 
 if [[ -n "$LED_PIN" && ! "$LED_PIN" =~ ^[0-9]+$ ]]; then
   echo "--led-pin must be a non-negative GPIO number." >&2
+  exit 2
+fi
+if [[ ! "$BAUD_RATE" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--baud must be a positive integer." >&2
   exit 2
 fi
 if [[ "$USE_UF2" == "1" && -n "$SERIAL_PORT" ]]; then
@@ -119,7 +130,7 @@ fi
 if [[ "$USE_UF2" == "1" ]]; then
   COMMAND=("$NANOFF_COMMAND" --platform rpi_pico --deploy --image "$DEPLOYMENT_IMAGE" --uf2deploy)
 else
-  COMMAND=("$NANOFF_COMMAND" --nanodevice --deploy --serialport "$SERIAL_PORT" --image "$DEPLOYMENT_IMAGE")
+  COMMAND=("$NANOFF_COMMAND" --nanodevice --deploy --serialport "$SERIAL_PORT" --baud "$BAUD_RATE" --image "$DEPLOYMENT_IMAGE")
 fi
 
 printf 'Deployment command:'

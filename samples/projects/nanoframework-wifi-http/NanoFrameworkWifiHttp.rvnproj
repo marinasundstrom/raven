@@ -7,10 +7,10 @@
 
   <ItemGroup>
     <PackageReference Include="nanoFramework.System.Device.Gpio" Version="2.0.0-preview.18" />
-    <PackageReference Include="nanoFramework.System.Device.Wifi" Version="2.0.0-preview.23" />
-    <PackageReference Include="nanoFramework.System.Collections" Version="2.0.0-preview.14" />
-    <PackageReference Include="nanoFramework.System.Text" Version="2.0.0-preview.18" />
-    <PackageReference Include="nanoFramework.System.Threading" Version="2.0.0-preview.11" />
+    <PackageReference Include="nanoFramework.System.Device.Wifi" Version="2.0.0-preview.32" />
+    <PackageReference Include="nanoFramework.System.Collections" Version="2.0.0-preview.15" />
+    <PackageReference Include="nanoFramework.System.Text" Version="2.0.0-preview.23" />
+    <PackageReference Include="nanoFramework.System.Threading" Version="2.0.0-preview.14" />
     <PackageDownload Include="nanoFramework.System.Net.Http" Version="[2.0.0-preview.9]" />
     <!-- The HTTP package currently places its netnano assembly directly in lib/. -->
     <Reference Include="System.Net.Http">

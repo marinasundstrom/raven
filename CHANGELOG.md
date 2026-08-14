@@ -7,7 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added a Pico W nanoFramework Wi-Fi/HTTP LED sample whose deployment wrapper
   securely prompts for compile-time SSID and password constants, builds the
   device-only networking bridge, and packages the complete compact-assembly
-  closure for wire-protocol or UF2 deployment.
+  closure for wire-protocol or UF2 deployment. Its managed networking package
+  snapshot now matches the native checksums in Pico W nanoCLR `2.0.0.29`, so
+  nanoCLR loads the dependency closure and starts the application.
 
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to
