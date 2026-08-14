@@ -40,7 +40,7 @@
     <TargetRuntime>Managed</TargetRuntime>
     <GenerateAssemblyInfo Condition="'$(GenerateAssemblyInfo)' == ''">false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute Condition="'$(GenerateTargetFrameworkAttribute)' == ''">false</GenerateTargetFrameworkAttribute>
-    <ProduceReferenceAssembly Condition="'$(ProduceReferenceAssembly)' == ''">false</ProduceReferenceAssembly>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <EnableDefaultCompileItems Condition="'$(EnableDefaultCompileItems)' == ''">true</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems Condition="'$(EnableDefaultEmbeddedResourceItems)' == ''">false</EnableDefaultEmbeddedResourceItems>
     <RavenGenerateDocumentation Condition="'$(RavenGenerateDocumentation)' == '' and '$(OutputType)' == 'Library'">true</RavenGenerateDocumentation>

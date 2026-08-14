@@ -9,6 +9,41 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper output)
 {
     [Fact]
+    public void RavenLanguageTargets_DisableReferenceAssemblyProduction()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var root = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <TargetFramework>net11.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            var result = RunProcess(
+                "dotnet",
+                $"msbuild \"{projectPath}\" -getProperty:ProduceReferenceAssembly",
+                root,
+                timeoutMilliseconds: 300_000);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"MSBuild property evaluation failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.Equal("false", result.StdOut.Trim());
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void ProjectReferenceWithReferenceOutputAssemblyFalse_IsNotACompilationReference()
     {
         var root = CreateTempDirectory();
