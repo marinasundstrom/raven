@@ -41,10 +41,10 @@ public sealed class ProjectFileNuGetReferenceTests
         var projectPath = Path.Combine(projectDir, "App.rvnproj");
         File.WriteAllText(
             projectPath,
-            """
+            $$"""
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
-                <TargetFramework>net10.0</TargetFramework>
+                <TargetFramework>{{TestMetadataReferences.TargetFramework}}</TargetFramework>
                 <AssemblyName>App</AssemblyName>
               </PropertyGroup>
               <ItemGroup>
@@ -97,10 +97,10 @@ public sealed class ProjectFileNuGetReferenceTests
         var projectPath = Path.Combine(projectDirectory, "App.rvnproj");
         File.WriteAllText(
             projectPath,
-            """
+            $$"""
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
-                <TargetFramework>net10.0</TargetFramework>
+                <TargetFramework>{{TestMetadataReferences.TargetFramework}}</TargetFramework>
                 <AssemblyName>App</AssemblyName>
               </PropertyGroup>
               <ItemGroup>
@@ -181,10 +181,10 @@ public sealed class ProjectFileNuGetReferenceTests
         var projectPath = Path.Combine(projectDirectory, "App.rvnproj");
         File.WriteAllText(
             projectPath,
-            """
+            $$"""
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
-                <TargetFramework>net10.0</TargetFramework>
+                <TargetFramework>{{TestMetadataReferences.TargetFramework}}</TargetFramework>
                 <AssemblyName>App</AssemblyName>
               </PropertyGroup>
               <ItemGroup>
