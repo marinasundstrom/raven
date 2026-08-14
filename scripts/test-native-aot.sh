@@ -7,6 +7,7 @@ output_directory="$(mktemp -d "$temporary_root/raven-native-aot-smoke.XXXXXX")"
 log_file="$(mktemp "$temporary_root/raven-native-aot-smoke.XXXXXX.log")"
 ilverify_directory="$(mktemp -d "$temporary_root/raven-native-aot-ilverify.XXXXXX")"
 core_output_directory="$(mktemp -d "$temporary_root/raven-core-release-smoke.XXXXXX")"
+package_cache_directory="$(mktemp -d "$temporary_root/raven-native-aot-packages.XXXXXX")"
 
 cleanup() {
   case "$output_directory" in
@@ -40,6 +41,14 @@ cleanup() {
       fi
       ;;
   esac
+
+  case "$package_cache_directory" in
+    "$temporary_root"/raven-native-aot-packages.*)
+      if [[ -d "$package_cache_directory" && ! -L "$package_cache_directory" ]]; then
+        rm -rf -- "$package_cache_directory"
+      fi
+      ;;
+  esac
 }
 trap cleanup EXIT
 
@@ -63,6 +72,11 @@ if [[ ! -f "$repo_root/artifacts/packages/Raven.Sdk.$sdk_version.nupkg" ]]; then
   RAVEN_SKIP_PACKAGE_VALIDATION=1 \
     "$repo_root/scripts/package-nuget.sh" "$sdk_version"
 fi
+
+# The selected version may already exist on NuGet.org. Restore the packages we
+# just built into an isolated cache so this test cannot reuse an older package
+# with the same version from the machine-wide cache.
+export NUGET_PACKAGES="$package_cache_directory"
 
 dotnet tool restore --tool-manifest "$repo_root/.config/dotnet-tools.json"
 
