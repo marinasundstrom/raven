@@ -150,11 +150,14 @@ scripts/test-release.sh
 scripts/package-nuget.sh VERSION
 ```
 
-`test-release.sh` runs the normal baseline, the isolated runtime/emission suite,
-and all language-server unit, integration, and performance-test projects. If a
-check requires a fix, commit the fix and repeat the checks so the tested commit
-remains the release candidate. Push it and make sure its ordinary CI checks
-pass. Only then tag that exact commit and push the tag:
+`test-release.sh` first runs the repository's ordered generator/compiler build,
+then the normal baseline, the isolated runtime/emission suite, and all
+language-server unit, integration, and performance-test projects. This makes a
+clean checkout produce the generated compiler sources before any multi-targeted
+test build can consume them. If a check requires a fix, commit the fix and
+repeat the affected checks so the tested commit remains the release candidate.
+Push it and make sure its ordinary CI checks pass. Only then tag that exact
+commit and push the tag:
 
 ```bash
 git tag vVERSION
