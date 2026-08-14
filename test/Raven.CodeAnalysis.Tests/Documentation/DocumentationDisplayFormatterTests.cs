@@ -99,4 +99,27 @@ and metadata loading scenarios.
         formatted.ShouldNotContain("### Remarks");
         formatted.Split("**Remarks**", StringSplitOptions.None).Length.ShouldBe(2);
     }
+
+    [Fact]
+    public void MarkdownDocumentation_FreeformBody_IsPreservedWithoutSyntheticRemarks()
+    {
+        var comment = DocumentationComment.Create(
+            DocumentationFormat.Markdown,
+            """
+Represents a result value.
+
+## Usage
+
+```raven
+let result: Result<int, string> = Ok(42)
+```
+""");
+
+        var formatted = DocumentationDisplayFormatter.FormatForMarkdown(comment);
+
+        formatted.ShouldNotBeNull();
+        formatted.Split("## Usage", StringSplitOptions.None).Length.ShouldBe(2);
+        formatted.Split("```raven", StringSplitOptions.None).Length.ShouldBe(2);
+        formatted.ShouldNotContain("**Remarks**");
+    }
 }

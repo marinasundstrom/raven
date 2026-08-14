@@ -2988,6 +2988,9 @@ class ResultExample
         formatted.ShouldContain("## Usage");
         formatted.ShouldContain("```raven");
         formatted.ShouldContain("let result: Result<int, string> = Ok(42)");
+        formatted.Split("## Usage", StringSplitOptions.None).Length.ShouldBe(2);
+        formatted.Split("```raven", StringSplitOptions.None).Length.ShouldBe(2);
+        formatted.ShouldNotContain("**Remarks**");
     }
 
     [Fact]

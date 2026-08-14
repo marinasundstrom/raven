@@ -44,9 +44,6 @@ public static class DocumentationStructureExtractor
         if (string.IsNullOrWhiteSpace(example))
             example = markdownSections.Example;
 
-        if (string.IsNullOrWhiteSpace(remarks) && !string.IsNullOrWhiteSpace(additionalBody))
-            remarks = additionalBody;
-
         return new DocumentationStructure(
             SourceFormat: DocumentationFormat.Markdown,
             Summary: summary,
