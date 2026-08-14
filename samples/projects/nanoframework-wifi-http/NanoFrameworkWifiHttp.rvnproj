@@ -1,0 +1,37 @@
+<Project Sdk="Raven.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netnano1.0</TargetFramework>
+    <AssemblyName>NanoFrameworkWifiHttp</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nanoFramework.System.Device.Gpio" Version="2.0.0-preview.18" />
+    <PackageReference Include="nanoFramework.System.Device.Wifi" Version="2.0.0-preview.23" />
+    <PackageReference Include="nanoFramework.System.Collections" Version="2.0.0-preview.14" />
+    <PackageReference Include="nanoFramework.System.Text" Version="2.0.0-preview.18" />
+    <PackageReference Include="nanoFramework.System.Threading" Version="2.0.0-preview.11" />
+    <PackageDownload Include="nanoFramework.System.Net.Http" Version="[2.0.0-preview.9]" />
+    <!-- The HTTP package currently places its netnano assembly directly in lib/. -->
+    <Reference Include="System.Net.Http">
+      <HintPath>$(NanoFrameworkPackagesDirectory)/nanoframework.system.net.http/2.0.0-preview.9/lib/System.Net.Http.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(NanoFrameworkBridgePath)' != ''">
+    <Reference Include="NanoFrameworkWifiHttp.Bridge">
+      <HintPath>$(NanoFrameworkBridgePath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <RavenConstant Include="Wifi_SSID" Value="not-configured" />
+    <RavenConstant Include="Wifi_Password" Value="not-configured" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RavenLedPin)' != ''">
+    <RavenConstant Include="LedPin" Value="$(RavenLedPin)" />
+  </ItemGroup>
+</Project>

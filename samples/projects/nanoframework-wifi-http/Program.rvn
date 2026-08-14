@@ -1,0 +1,15 @@
+import Raven.Samples.NanoFramework.*
+import System.Device.Gpio.*
+
+extern const LedPin: int = 15
+extern const Wifi_SSID: string
+extern const Wifi_Password: string
+
+func Main() {
+    use gpio = GpioController()
+    use led = gpio.OpenPin(LedPin, PinMode.Output)
+
+    if NetworkHttpBridge.ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com") {
+        led.Write(PinValue.High)
+    }
+}

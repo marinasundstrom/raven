@@ -177,8 +177,12 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         var repoRoot = GetRepositoryRoot();
         var projectsRoot = Path.Combine(repoRoot, "samples", "projects");
         var compilerDllPath = EnsureCompilerBuilt(repoRoot);
+        // The Wi-Fi sample intentionally compiles its device-only API bridge in build.sh.
         var projectPaths = Directory
             .EnumerateFiles(projectsRoot, "*.rvnproj", SearchOption.AllDirectories)
+            .Where(static path => !path.EndsWith(
+                "NanoFrameworkWifiHttp.rvnproj",
+                StringComparison.OrdinalIgnoreCase))
             .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 

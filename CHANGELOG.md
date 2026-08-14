@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a Pico W nanoFramework Wi-Fi/HTTP LED sample whose deployment wrapper
+  securely prompts for compile-time SSID and password constants, builds the
+  device-only networking bridge, and packages the complete compact-assembly
+  closure for wire-protocol or UF2 deployment.
+
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to
   classic state-machine lowering for `net10.0`, and can be disabled in SDK

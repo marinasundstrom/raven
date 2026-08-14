@@ -109,6 +109,9 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/nanoframework-blinky/README.md` (minimal Raspberry Pi
   Pico-family GPIO blink, board profiles, nanoFramework packaging and deployment
   commands, and the current RP2350 firmware boundary)
+- `samples/projects/nanoframework-wifi-http/README.md` (Pico W Wi-Fi connection,
+  synchronous HTTP request, external GPIO success indicator, and credential-aware
+  deployment)
 
 ### Source file naming and organization
 
