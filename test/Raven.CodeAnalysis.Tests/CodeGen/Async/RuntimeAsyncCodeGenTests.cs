@@ -256,6 +256,12 @@ async func Main() -> Task<int> {
 
         var entryPoint = Assert.IsAssignableFrom<MethodInfo>(loaded.Assembly.EntryPoint);
         var calledMembers = ILReader.GetCalledMembers(entryPoint);
+        var methodFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        var asyncMain = loaded.Assembly
+            .GetTypes()
+            .SelectMany(type => type.GetMethods(methodFlags))
+            .Single(method => method.Name == "Main");
+        var asyncMainCalls = ILReader.GetCalledMembers(asyncMain);
 
         Assert.DoesNotContain(
             calledMembers,
@@ -266,6 +272,10 @@ async func Main() -> Task<int> {
         Assert.Contains(
             calledMembers,
             static member => member.EndsWith("::GetResult", StringComparison.Ordinal));
+        Assert.Equal(0, ((int)asyncMain.GetMethodImplementationFlags()) & RuntimeAsyncMethodImplBit);
+        Assert.DoesNotContain(
+            asyncMainCalls,
+            static member => member.Contains("System.Runtime.CompilerServices.AsyncHelpers::Await", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -372,7 +382,9 @@ class Program {
         MetadataReference[]? references = null)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
-        references ??= TestMetadataReferences.Default;
+        references ??= useRuntimeAsync
+            ? GetFrameworkReferences("net11.0")
+            : TestMetadataReferences.Default;
 
         var compilation = Compilation.Create(
             $"runtime-async-{Guid.NewGuid():N}",

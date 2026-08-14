@@ -166,11 +166,22 @@ public partial class Compilation
                             asyncHelpers is { TypeKind: TypeKind.Class, IsStatic: true } &&
                             SymbolEqualityComparer.Default.Equals(
                                 objectType.ContainingAssembly,
-                                asyncHelpers.ContainingAssembly);
+                                asyncHelpers.ContainingAssembly) &&
+                            HasRuntimeAsyncEntryPointContract(asyncHelpers);
 
             Interlocked.CompareExchange(ref _runtimeSupportsAsyncMethods, supported ? 1 : 0, -1);
             return Volatile.Read(ref _runtimeSupportsAsyncMethods) == 1;
         }
+    }
+
+    private static bool HasRuntimeAsyncEntryPointContract(INamedTypeSymbol asyncHelpers)
+    {
+        return asyncHelpers.GetMembers("HandleAsyncEntryPoint")
+            .OfType<IMethodSymbol>()
+            .Any(static method =>
+                method.IsStatic &&
+                method.Arity == 0 &&
+                method.Parameters.Length == 1);
     }
 
     /// <summary>

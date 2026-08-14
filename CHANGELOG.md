@@ -7,7 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to
   classic state-machine lowering for `net10.0`, and can be disabled in SDK
-  projects with `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`.
+  projects with `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`. Capability
+  detection requires the complete `AsyncHelpers` contract because .NET 10
+  exposes an earlier experimental form without the entry-point handlers.
 
 - Fixed .NET 11 compiler hosts leaking host-only runtime APIs into net10.0
   output. Net10 unions now bind their `IUnion` compatibility contract from

@@ -238,7 +238,7 @@ the generated project so it builds directly through the normal .NET CLI.
 
 ## .NET 11 runtime-async
 
-When the project target framework is `net11.0` (or newer), Raven auto-enables runtime-async emission. The target framework's reference assemblies are the authority: Raven only uses runtime async when the target corlib defines `System.Runtime.CompilerServices.AsyncHelpers`, matching Roslyn's runtime-capability check.
+When the project target framework is `net11.0` (or newer), Raven auto-enables runtime-async emission. The target framework's reference assemblies are the authority: Raven only uses runtime async when the target corlib exposes the complete `System.Runtime.CompilerServices.AsyncHelpers` contract, including the runtime entry-point handlers. Earlier frameworks may contain an experimental form of the type without that complete contract.
 
 - Async methods are emitted with the async method-impl flag.
 - Await sites are emitted as `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` when the target runtime surface exposes that API.
@@ -282,7 +282,7 @@ What runtime-async fills:
 Current limitations:
 
 - The distributed compiler host must run on .NET 11. Source builds should likewise use `dotnet run -f net11.0 ...` when compiling a `net11.0` target.
-- A target framework without `AsyncHelpers`, such as `net10.0`, uses classic state-machine lowering even when the compiler itself runs on .NET 11.
+- A target framework without the complete runtime-async contract, such as `net10.0`, uses classic state-machine lowering even when the compiler itself runs on .NET 11.
 - Pass `--no-runtime-async` to opt a direct compiler invocation out explicitly. For an SDK project, set `<RavenUseRuntimeAsync>false</RavenUseRuntimeAsync>`.
 - Setting `<RavenUseRuntimeAsync>true</RavenUseRuntimeAsync>` or passing `--runtime-async` explicitly for an unsupported target is rejected instead of producing incompatible output.
 - Raven-specific `Result<..., ...>` entry-point wrappers still use compiler-emitted bridge logic to map success and error payloads to process results.
