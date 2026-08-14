@@ -71,6 +71,13 @@ those values, and remains a dry run unless `--execute` is supplied:
 Serial deployment defaults to 1,500,000 baud, the rate validated with Pico WH
 on macOS. Use `--baud <rate>` or `NANOFF_BAUD` to override it.
 
+Before an executed wire-protocol deployment asks for credentials or builds the
+image, the script checks the device firmware target. Pico W requires the
+current `PICO_RP2040_W` target and Pico 2 W requires `PICO2_RP2350_W`. The
+legacy `RP_PICO_W_RP2040` build is rejected: although it advertises the
+`System.Device.Wifi` native assembly, `WifiAdapter.FindAllAdapters()` returns
+an empty array and `WifiNetworkHelper.ConnectDhcp` fails before association.
+
 For automation, set `RAVEN_WIFI_SSID` and `RAVEN_WIFI_PASSWORD` instead of
 answering prompts. Credentials are not printed by the scripts or included in
 the deployment command, but they are compiled into the generated application
@@ -90,9 +97,9 @@ because its bridge is produced by `build.sh`.
 
 The board must run a matching nanoFramework 2.0 preview nanoCLR image with the
 Wi-Fi, networking, TLS, HTTP, and GPIO native contracts used by the pinned
-managed packages. The package snapshot is aligned with Pico W nanoCLR
-`2.0.0.29`; in particular, `System.Device.Wifi` requires native checksum
-`0x7AE2272F` and `System.Net` requires `0x0D0C3837`. A native-checksum mismatch
+managed packages. The managed package snapshot requires native checksums
+`0x7AE2272F` for `System.Device.Wifi` and `0x0D0C3837` for `System.Net`. A
+native-checksum mismatch
 causes nanoCLR to reject the affected managed assembly before `Main` starts.
 The current HTTP package places its assembly directly in its
 `lib` directory, so the project includes an explicit reference until that

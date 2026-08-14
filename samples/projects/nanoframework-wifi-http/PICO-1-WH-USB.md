@@ -5,8 +5,8 @@ an external LED on GP15, and `nanoff` 2.5.162. The board is connected directly
 through its USB debugger interface; no UART or network deployment transport is
 involved.
 
-The validated board reported the `RP_PICO_W_RP2040` target, nanoCLR `2.0.0.29`,
-and the native Wi-Fi and networking assemblies required by this sample.
+The board must report the current `PICO_RP2040_W` target and the native Wi-Fi
+and networking assemblies required by this sample.
 The corresponding checksums are `System.Device.Wifi` `0x7AE2272F` and
 `System.Net` `0x0D0C3837`; the sample packages are pinned to that exact native
 contract snapshot.
@@ -47,6 +47,13 @@ nanoff --nanodevice \
 `nanoff` may first print `Can't check the version` and continue. The important
 result is that `Getting details from nano device` succeeds and the command
 prints the firmware, assemblies, and native assemblies.
+
+Do not proceed if `Target` is `RP_PICO_W_RP2040`. The observed nanoCLR
+`2.0.0.29` build from July 13, 2026 loads the Wi-Fi assembly but returns no
+adapters from `WifiAdapter.FindAllAdapters()`. The resulting
+`WifiNetworkHelper.ScanAndConnect` call throws `IndexOutOfRangeException` and
+reports status `7` (`ExceptionOccurred`). Install current `PICO_RP2040_W`
+preview firmware as described below.
 
 If it instead reports `Couldn't connect to specified nano device`, unplug and
 reconnect the Pico normally, list the port again, and repeat the command. A
@@ -125,11 +132,25 @@ The credentials are compile-time constants embedded in the application image.
 ## Firmware boundary
 
 Application deployment assumes compatible nanoCLR firmware is already running.
-If `--devicedetails` does not report a Pico W target with the required
+If `--devicedetails` does not report `PICO_RP2040_W` with the required
 `System.Device.Wifi`, `System.Net`, GPIO, and core native assemblies, install a
 matching nanoFramework 2.0 preview firmware before deploying the application.
 Firmware installation through BOOTSEL is separate from normal application
 deployment and is not required for every rebuild.
+
+With the Pico disconnected, hold BOOTSEL while connecting USB. Download and
+extract the current official Pico W preview firmware, then copy `nanoCLR.uf2`
+to the mounted `RPI-RP2` volume. For the currently published preview:
+
+```bash
+curl -fLO https://dl.cloudsmith.io/public/net-nanoframework/nanoframework-images-dev/raw/names/PICO_RP2040_W/versions/2.0.0-preview.42/PICO_RP2040_W-2.0.0-preview.42.zip
+unzip PICO_RP2040_W-2.0.0-preview.42.zip
+cp nanoCLR.uf2 /Volumes/RPI-RP2/
+```
+
+The volume disappears when the copy completes. Reconnect normally and repeat
+the `--devicedetails` command; it must now report `PICO_RP2040_W` before the
+sample is deployed.
 
 See [Getting started with .NET nanoFramework](../../../docs/compiler/nanoframework.md)
 for firmware installation and BOOTSEL guidance.

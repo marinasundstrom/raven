@@ -96,6 +96,42 @@ if [[ "$USE_UF2" != "1" && -z "$SERIAL_PORT" ]]; then
   exit 2
 fi
 
+if [[ "$EXECUTE" == "1" ]] && ! command -v "$NANOFF_COMMAND" >/dev/null 2>&1; then
+  echo "Required command '$NANOFF_COMMAND' was not found." >&2
+  exit 1
+fi
+
+if [[ "$EXECUTE" == "1" && "$USE_UF2" != "1" ]]; then
+  echo "Checking nanoCLR firmware on $SERIAL_PORT..."
+  if ! DEVICE_DETAILS="$($NANOFF_COMMAND --nanodevice \
+      --serialport "$SERIAL_PORT" \
+      --baud "$BAUD_RATE" \
+      --devicedetails 2>&1)"; then
+    printf '%s\n' "$DEVICE_DETAILS" >&2
+    echo "Could not inspect the nanoFramework device before deployment." >&2
+    exit 1
+  fi
+
+  DEVICE_TARGET="$(printf '%s\n' "$DEVICE_DETAILS" | sed -n 's/^[[:space:]]*Target:[[:space:]]*//p' | head -n 1)"
+  case "$BOARD" in
+    pico-w) EXPECTED_TARGET="PICO_RP2040_W" ;;
+    pico2-w) EXPECTED_TARGET="PICO2_RP2350_W" ;;
+  esac
+
+  if [[ "$DEVICE_TARGET" == "RP_PICO_W_RP2040" ]]; then
+    echo "Unsupported legacy Pico W firmware target '$DEVICE_TARGET'." >&2
+    echo "This firmware exposes System.Device.Wifi but returns no Wi-Fi adapters." >&2
+    echo "Flash current PICO_RP2040_W preview firmware in BOOTSEL mode, then retry." >&2
+    exit 1
+  fi
+  if [[ "$DEVICE_TARGET" != "$EXPECTED_TARGET" ]]; then
+    echo "Board profile '$BOARD' requires firmware target '$EXPECTED_TARGET', but the device reports '${DEVICE_TARGET:-unknown}'." >&2
+    exit 1
+  fi
+
+  echo "Firmware target: $DEVICE_TARGET"
+fi
+
 WIFI_SSID="${RAVEN_WIFI_SSID:-}"
 WIFI_PASSWORD="${RAVEN_WIFI_PASSWORD:-}"
 
@@ -140,11 +176,6 @@ printf '\n'
 if [[ "$EXECUTE" != "1" ]]; then
   echo "Dry run only. Add --execute to deploy."
   exit 0
-fi
-
-if ! command -v "$NANOFF_COMMAND" >/dev/null 2>&1; then
-  echo "Required command '$NANOFF_COMMAND' was not found." >&2
-  exit 1
 fi
 
 "${COMMAND[@]}"

@@ -134,15 +134,15 @@ nanoff --listtargets --platform rpi_pico
 nanoff --listtargets --platform rpi_pico --preview
 ```
 
-The flasher CLI and the firmware repository currently use different names for
-the RP2040 boards:
+The flasher CLI and firmware repository now use the same Pico-family target
+names:
 
-| Board | Published firmware package | `nanoff` CLI alias |
-| --- | --- | --- |
-| Pico | `RP_PICO_RP2040` | `PICO_RP2040` |
-| Pico W | `RP_PICO_W_RP2040` | `PICO_RP2040_W` |
-| Pico 2 | Verify the current feed | `PICO2_RP2350` |
-| Pico 2 W | Verify the current feed | `PICO2_RP2350_W` |
+| Board | Firmware target |
+| --- | --- |
+| Pico | `PICO_RP2040` |
+| Pico W | `PICO_RP2040_W` |
+| Pico 2 | `PICO2_RP2350` |
+| Pico 2 W | `PICO2_RP2350_W` |
 
 Tool support for a name does not guarantee that a matching firmware image is
 available in the selected feed. Verify the exact board package in the official
@@ -157,13 +157,15 @@ nanoCLR wire protocol for application deployment.
 
 For Pico-family firmware updates, hold BOOTSEL while connecting USB. The board
 appears as an `RPI-RP2` or `RP2350` mass-storage device. Raven's Pico W hardware
-validation used the published `RP_PICO_W_RP2040` package at
-`2.0.0-preview.207`. Download and extract the package, then copy `nanoCLR.uf2`
-to the mounted board as an ordinary UF2 firmware installation:
+validation uses the published `PICO_RP2040_W` package. The legacy
+`RP_PICO_W_RP2040` nanoCLR `2.0.0.29` build can load `System.Device.Wifi` but
+still return no Wi-Fi adapters, so do not use successful assembly loading as
+the compatibility test. Download and extract the current package, then copy
+`nanoCLR.uf2` to the mounted board as an ordinary UF2 firmware installation:
 
 ```bash
-curl -fLO https://dl.cloudsmith.io/public/net-nanoframework/nanoframework-images-dev/raw/names/RP_PICO_W_RP2040/versions/2.0.0-preview.207/RP_PICO_W_RP2040-2.0.0-preview.207.zip
-unzip RP_PICO_W_RP2040-2.0.0-preview.207.zip
+curl -fLO https://dl.cloudsmith.io/public/net-nanoframework/nanoframework-images-dev/raw/names/PICO_RP2040_W/versions/2.0.0-preview.42/PICO_RP2040_W-2.0.0-preview.42.zip
+unzip PICO_RP2040_W-2.0.0-preview.42.zip
 cp nanoCLR.uf2 /Volumes/RPI-RP2/
 ```
 

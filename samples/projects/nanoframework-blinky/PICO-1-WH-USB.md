@@ -1,9 +1,14 @@
 # Pico 1 WH over USB: build and deploy
 
 This is the exact workflow validated on macOS with a Raspberry Pi Pico 1 WH,
-an external LED on GP15, the `RP_PICO_W_RP2040` nanoCLR firmware, and `nanoff`
+an external LED on GP15, `PICO_RP2040_W` nanoCLR firmware, and `nanoff`
 2.5.162. The board is connected directly over its USB debugger interface; no
 UART or network transport is involved.
+
+The older `RP_PICO_W_RP2040` target is sufficient for GPIO-only Blinky but is
+not a valid firmware baseline for Wi-Fi samples because it can expose zero
+wireless adapters. Use the current target so follow-up samples exercise the
+same supported firmware.
 
 Run all commands from the Raven repository root.
 

@@ -8,8 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   securely prompts for compile-time SSID and password constants, builds the
   device-only networking bridge, and packages the complete compact-assembly
   closure for wire-protocol or UF2 deployment. Its managed networking package
-  snapshot now matches the native checksums in Pico W nanoCLR `2.0.0.29`, so
-  nanoCLR loads the dependency closure and starts the application.
+  snapshot matches the current `PICO_RP2040_W` preview firmware's native
+  checksums. Wire-protocol deployment now rejects the legacy
+  `RP_PICO_W_RP2040` firmware, which loads the Wi-Fi assembly but exposes no
+  wireless adapter, before prompting for credentials or rebuilding the image.
 
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to
