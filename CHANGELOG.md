@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   checksums. Wire-protocol deployment now rejects the legacy
   `RP_PICO_W_RP2040` firmware, which loads the Wi-Fi assembly but exposes no
   wireless adapter, before prompting for credentials or rebuilding the image.
+  Hardware guidance now records the Pico W family's single-band 2.4 GHz
+  requirement and the observed status-4 IP-address timeout on a non-compatible
+  network, followed by immediate success on a 2.4 GHz network.
 
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to

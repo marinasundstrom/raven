@@ -77,6 +77,14 @@ compact image:
 The script defaults to 1,500,000 baud, so `--baud 1500000` may be omitted. It
 is shown above to make the hardware-specific requirement explicit.
 
+The Pico WH radio is single-band 2.4 GHz. Enter an SSID that is advertised on
+2.4 GHz; a 5 GHz-only SSID cannot work. During validation, the original
+network ended after 60 seconds with `WifiNetworkHelper` status `4`
+(`TokenExpiredWaitingIPAddress`) and the one-blink failure pattern. Using a
+2.4 GHz network with the same firmware and application connected immediately.
+If status `4` persists on a 2.4 GHz SSID, verify the compiled credentials and
+the access point's DHCP configuration.
+
 A successful deployment reports:
 
 ```text

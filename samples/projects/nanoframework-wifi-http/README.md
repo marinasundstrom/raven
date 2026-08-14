@@ -32,6 +32,21 @@ contains nonfunctional placeholders so it can be evaluated without secrets;
 `deploy.sh` always replaces them with prompted or environment-provided values
 before creating the deployment image.
 
+## Wi-Fi requirements
+
+Pico W and Pico 2 W have single-band 2.4 GHz Wi-Fi. The SSID supplied to this
+sample must therefore be available on 2.4 GHz; a 5 GHz-only SSID cannot be
+used. A dual-band SSID is suitable when the access point also advertises it on
+2.4 GHz.
+
+This was verified on the Pico WH hardware setup: the application repeatedly
+returned `NetworkUnavailable` on the original network, and debugger output
+reported `WifiNetworkHelper` status `4` (`TokenExpiredWaitingIPAddress`) after
+60 seconds. The same deployed application connected immediately when tested
+against a 2.4 GHz network. Status `4` means that no valid IP address arrived
+before the token expired; it can also indicate invalid credentials or a DHCP
+problem, so verify those when the selected SSID already supports 2.4 GHz.
+
 ## Build
 
 Install a .NET SDK, Python 3, and Mono, then build either wireless board profile:
@@ -99,8 +114,8 @@ The board must run a matching nanoFramework 2.0 preview nanoCLR image with the
 Wi-Fi, networking, TLS, HTTP, and GPIO native contracts used by the pinned
 managed packages. The managed package snapshot requires native checksums
 `0x7AE2272F` for `System.Device.Wifi` and `0x0D0C3837` for `System.Net`. A
-native-checksum mismatch
-causes nanoCLR to reject the affected managed assembly before `Main` starts.
+native-checksum mismatch causes nanoCLR to reject the affected managed
+assembly before `Main` starts.
 The current HTTP package places its assembly directly in its
 `lib` directory, so the project includes an explicit reference until that
 package advertises its `netnano1.0` asset normally. See
