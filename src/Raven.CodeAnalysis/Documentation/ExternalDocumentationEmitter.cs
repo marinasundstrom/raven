@@ -243,7 +243,11 @@ internal static class ExternalDocumentationEmitter
 
         AppendXmlSection(builder, documentation, DocumentationSectionKind.Result, "returns");
         AppendXmlSection(builder, documentation, DocumentationSectionKind.Value, "value");
-        AppendXmlSection(builder, documentation, DocumentationSectionKind.Remarks, "remarks");
+        var remarks = documentation.GetSection(DocumentationSectionKind.Remarks);
+        if (string.IsNullOrWhiteSpace(remarks))
+            remarks = documentation.GetSection(DocumentationSectionKind.Details);
+
+        AppendXmlElement(builder, "remarks", MarkdownDocumentationTextConverter.ToPlainText(remarks));
         AppendXmlSection(builder, documentation, DocumentationSectionKind.Example, "example");
 
         foreach (var association in documentation.GetAssociations(DocumentationAssociationKind.Error))
