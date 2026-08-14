@@ -14,8 +14,8 @@ attached to the CYW43 wireless controller rather than an ordinary GPIO.
 > production traffic, credentials, tokens, or other sensitive data.
 
 The LED also makes each stage observable without a debugger. It first blinks
-three times to prove that `Main` started and GP15 works, stays on while the
-network and request operation is running, stays on permanently after a
+three times to prove that `Main` started and GP15 works, stays off while the
+network and request operation is running, turns on permanently only after a
 successful response, or repeats one of these failure patterns:
 
 - 1 blink: Wi-Fi association, DHCP, or network-interface failure
@@ -101,14 +101,12 @@ and written to local MSBuild intermediates under `obj/`. Both `obj/` and
 credentials should no longer remain on disk, and treat a deployed device as
 containing the credentials.
 
-`NetworkHttpBridge.cs` is deliberately narrow: Raven's current Reflection.Emit
-backend cannot safely materialize `WifiNetworkHelper`, whose device-only static
-state is not loadable in the compiler's host runtime. The bridge is compiled
-against the same nanoFramework references, converted to a compact `.pe`, and
-included immediately before the Raven application in the deployment image.
-The Raven source continues to own GPIO setup, credentials, and success control
-flow. Repository-wide direct-compiler sample coverage excludes this one project
-because its bridge is produced by `build.sh`.
+The Raven source calls `WifiNetworkHelper` and `HttpClient` directly. Raven's
+emitter preserves device-only method symbols as target metadata references, so
+the nanoFramework assemblies do not need to be loadable in the desktop
+compiler runtime. The build produces one application assembly and the
+deployment image contains only that application plus its nanoFramework
+reference closure.
 
 The board must run a matching nanoFramework 2.0 preview nanoCLR image with the
 Wi-Fi, networking, TLS, HTTP, and GPIO native contracts used by the pinned

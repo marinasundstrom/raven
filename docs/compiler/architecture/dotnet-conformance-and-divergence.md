@@ -220,6 +220,12 @@ identity and should not be defended as such:
   normalizes forwarded public identities to `System.Runtime`. The executable
   choice works on the tested runtime but should be reviewed for portability and
   consistency; it is not a Raven semantic feature.
+- External PE methods that cannot be materialized as host reflection objects
+  retain their compiler symbols through IL generation and are written as
+  target `MemberRef` metadata before the final PE is serialized. This is the
+  first metadata-native operand path; source definitions and host-loadable
+  operands still use Reflection.Emit while the emitter is migrated
+  incrementally.
 
 When investigation finds another mismatch, add it here until it is either fixed
 or promoted to the intentional inventory with a rationale and interop evidence.

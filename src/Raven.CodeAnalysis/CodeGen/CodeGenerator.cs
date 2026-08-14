@@ -31,7 +31,10 @@ internal class CodeGenerator
     readonly HashSet<PETypeParameterIdentity> _resolvingMetadataTypeParameters = new();
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<string, IMethodSymbol> _metadataMethodProxies = new(StringComparer.Ordinal);
     readonly EmitOptions? _emitOptions;
+    TypeBuilder? _metadataMethodProxyType;
+    int _metadataMethodProxyOrdinal;
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
     internal RuntimeTypeMap RuntimeTypeMap { get; }
@@ -1322,6 +1325,8 @@ internal class CodeGenerator
             PrintDebug("Member IL bodies emitted.");
 
             CreateTypes();
+            if (_metadataMethodProxyType is { } metadataMethodProxyType && !metadataMethodProxyType.IsCreated())
+                metadataMethodProxyType.CreateType();
             PrintDebug("All types created.");
             ApplyCustomAttributes(_compilation.Module.GetAttributes(), attribute => ModuleBuilder.SetCustomAttribute(attribute));
 
@@ -1487,6 +1492,7 @@ internal class CodeGenerator
                 output,
                 targetReference,
                 targetReferences: targetReferences,
+                metadataMethodProxies: _metadataMethodProxies,
                 pdbInput: provisionalPdbStream,
                 pdbOutput: pdbOutputStream);
             return;
@@ -1496,8 +1502,137 @@ internal class CodeGenerator
             rawPeStream,
             output,
             targetReferences: targetReferences,
+            metadataMethodProxies: _metadataMethodProxies,
             pdbInput: provisionalPdbStream,
             pdbOutput: pdbOutputStream);
+    }
+
+    internal MethodInfo GetMethodInfoOrMetadataProxy(IMethodSymbol methodSymbol)
+    {
+        if (_emitOptions?.TargetCoreLibraryIdentity is not null &&
+            TryGetMetadataMethod(methodSymbol, out var targetMetadataMethod) &&
+            !targetMetadataMethod.IsGenericMethod)
+        {
+            return CreateMetadataMethodProxy(targetMetadataMethod);
+        }
+
+        try
+        {
+            return RuntimeSymbolResolver.GetMethodInfo(methodSymbol);
+        }
+        catch (InvalidOperationException) when (TryGetMetadataMethod(methodSymbol, out var metadataMethod))
+        {
+            if (metadataMethod.IsGenericMethod)
+                throw;
+
+            return CreateMetadataMethodProxy(metadataMethod);
+        }
+    }
+
+    private MethodInfo CreateMetadataMethodProxy(IMethodSymbol metadataMethod)
+    {
+        _metadataMethodProxyType ??= ModuleBuilder.DefineType(
+            "<RavenMetadataMethodReferences>",
+            TypeAttributes.NotPublic | TypeAttributes.Class,
+            typeof(object));
+
+        var proxyName = $"Reference{++_metadataMethodProxyOrdinal}";
+        var returnType = GetMetadataProxySignatureType(metadataMethod.ReturnType);
+        var parameterTypes = metadataMethod.Parameters
+            .Select(parameter => GetMetadataProxySignatureType(parameter.Type))
+            .ToArray();
+        var proxy = _metadataMethodProxyType.DefineMethod(
+            proxyName,
+            MethodAttributes.Assembly | MethodAttributes.HideBySig |
+                (metadataMethod.IsStatic ? MethodAttributes.Static : 0),
+            returnType,
+            parameterTypes);
+
+        var il = proxy.GetILGenerator();
+        if (returnType == typeof(void))
+        {
+            il.Emit(OpCodes.Ret);
+        }
+        else if (returnType.IsValueType)
+        {
+            var local = il.DeclareLocal(returnType);
+            il.Emit(OpCodes.Ldloca, local);
+            il.Emit(OpCodes.Initobj, returnType);
+            il.Emit(OpCodes.Ldloc, local);
+            il.Emit(OpCodes.Ret);
+        }
+        else
+        {
+            il.Emit(OpCodes.Ldnull);
+            il.Emit(OpCodes.Ret);
+        }
+
+        _metadataMethodProxies.Add(proxyName, metadataMethod);
+        return proxy;
+    }
+
+    private Type GetMetadataProxySignatureType(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } enumUnderlyingType })
+            return GetMetadataProxySignatureType(enumUnderlyingType);
+
+        var specialType = typeSymbol.SpecialType switch
+        {
+            SpecialType.System_Void or SpecialType.System_Unit => typeof(void),
+            SpecialType.System_Object => typeof(object),
+            SpecialType.System_String => typeof(string),
+            SpecialType.System_Boolean => typeof(bool),
+            SpecialType.System_Char => typeof(char),
+            SpecialType.System_SByte => typeof(sbyte),
+            SpecialType.System_Byte => typeof(byte),
+            SpecialType.System_Int16 => typeof(short),
+            SpecialType.System_UInt16 => typeof(ushort),
+            SpecialType.System_Int32 => typeof(int),
+            SpecialType.System_UInt32 => typeof(uint),
+            SpecialType.System_Int64 => typeof(long),
+            SpecialType.System_UInt64 => typeof(ulong),
+            SpecialType.System_Single => typeof(float),
+            SpecialType.System_Double => typeof(double),
+            SpecialType.System_Decimal => typeof(decimal),
+            SpecialType.System_IntPtr => typeof(IntPtr),
+            SpecialType.System_UIntPtr => typeof(UIntPtr),
+            _ => null
+        };
+        if (specialType is not null)
+            return specialType;
+
+        try
+        {
+            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(typeSymbol, this);
+        }
+        catch (InvalidOperationException)
+        {
+            // The proxy exists only long enough for Reflection.Emit to allocate an IL token.
+            // Its signature is replaced with the target metadata signature before the PE is written.
+            return typeSymbol.IsValueType ? typeof(int) : typeof(object);
+        }
+    }
+
+    private static bool TryGetMetadataMethod(IMethodSymbol methodSymbol, out IMethodSymbol metadataMethod)
+    {
+        while (true)
+        {
+            if (methodSymbol is PEMethodSymbol)
+            {
+                metadataMethod = methodSymbol;
+                return true;
+            }
+
+            if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+                !ReferenceEquals(underlying, methodSymbol))
+            {
+                methodSymbol = underlying;
+                continue;
+            }
+
+            metadataMethod = null!;
+            return false;
+        }
     }
 
     private IReadOnlyDictionary<string, Mono.Cecil.AssemblyNameReference> GetTargetAssemblyReferences()

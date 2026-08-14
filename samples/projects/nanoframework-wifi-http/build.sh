@@ -127,16 +127,6 @@ WIFI_LIBRARY_PE="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.3
 HTTP_LIBRARY="$(package_file nanoFramework.System.Net.Http 2.0.0-preview.9 lib/System.Net.Http.dll)"
 HTTP_LIBRARY_PE="$(package_file nanoFramework.System.Net.Http 2.0.0-preview.9 lib/System.Net.Http.pe)"
 
-DOTNET_SDK_LINE="$(dotnet --list-sdks | tail -n 1)"
-DOTNET_SDK_VERSION="${DOTNET_SDK_LINE%% *}"
-DOTNET_SDK_ROOT="${DOTNET_SDK_LINE#*[}"
-DOTNET_SDK_ROOT="${DOTNET_SDK_ROOT%]}"
-CSC_DLL="$DOTNET_SDK_ROOT/$DOTNET_SDK_VERSION/Roslyn/bincore/csc.dll"
-if [[ ! -f "$CSC_DLL" ]]; then
-  echo "The C# compiler was not found at '$CSC_DLL'." >&2
-  exit 1
-fi
-
 METADATA_PROCESSOR_PACKAGE="$PACKAGES_DIR/nanoframework.tools.metadataprocessor.cli/4.0.0-preview.101"
 METADATA_PROCESSOR="$METADATA_PROCESSOR_PACKAGE/content/MetadataProcessor/nanoFramework.Tools.MetadataProcessor.exe"
 if [[ ! -f "$METADATA_PROCESSOR" ]]; then
@@ -150,27 +140,6 @@ fi
 MANAGED_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkWifiHttp.dll"
 NANO_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkWifiHttp.pe"
 DEPLOYMENT_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkWifiHttp.bin"
-BRIDGE_MANAGED_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkWifiHttp.Bridge.dll"
-BRIDGE_NANO_OUTPUT="$PROFILE_OUTPUT_DIR/NanoFrameworkWifiHttp.Bridge.pe"
-
-dotnet "$CSC_DLL" \
-  -nologo \
-  -noconfig \
-  -nostdlib+ \
-  -target:library \
-  -define:DEBUG \
-  -langversion:latest \
-  -out:"$BRIDGE_MANAGED_OUTPUT" \
-  -reference:"$CORE_LIBRARY" \
-  -reference:"$EVENTS_LIBRARY" \
-  -reference:"$COLLECTIONS_LIBRARY" \
-  -reference:"$TEXT_LIBRARY" \
-  -reference:"$THREADING_LIBRARY" \
-  -reference:"$STREAMS_LIBRARY" \
-  -reference:"$NET_LIBRARY" \
-  -reference:"$WIFI_LIBRARY" \
-  -reference:"$HTTP_LIBRARY" \
-  "$SAMPLE_DIR/NetworkHttpBridge.cs"
 
 BUILD_ARGUMENTS=(
   --no-restore
@@ -180,7 +149,6 @@ BUILD_ARGUMENTS=(
   --property:RavenCompilerHost="$COMPILER_DLL"
   --property:NanoFrameworkPackagesDirectory="$PACKAGES_DIR"
   --property:NanoFrameworkPackageOnBuild=false
-  --property:NanoFrameworkBridgePath="$BRIDGE_MANAGED_OUTPUT"
   --property:WarningLevel=0
 )
 
@@ -208,32 +176,6 @@ RavenExternalConstantOverrides="$EXTERNAL_CONSTANT_OVERRIDES" \
   -loadhints System.Device.Gpio "$GPIO_LIBRARY" \
   -loadhints System.Device.Wifi "$WIFI_LIBRARY" \
   -loadhints System.Net.Http "$HTTP_LIBRARY" \
-  -parse "$BRIDGE_MANAGED_OUTPUT" \
-  -compile "$BRIDGE_NANO_OUTPUT" false
-
-if [[ ! -f "$BRIDGE_NANO_OUTPUT" ]]; then
-  echo "The metadata processor did not produce '$BRIDGE_NANO_OUTPUT'." >&2
-  exit 1
-fi
-
-BRIDGE_NANO_HEADER="$(od -An -N6 -tx1 "$BRIDGE_NANO_OUTPUT" | tr -d ' \n')"
-if [[ "$BRIDGE_NANO_HEADER" != "4e464d524b32" ]]; then
-  echo "Unexpected nanoFramework bridge image header '$BRIDGE_NANO_HEADER'." >&2
-  exit 1
-fi
-
-"$MONO_COMMAND" "$METADATA_PROCESSOR" \
-  -loadhints mscorlib "$CORE_LIBRARY" \
-  -loadhints nanoFramework.Runtime.Events "$EVENTS_LIBRARY" \
-  -loadhints nanoFramework.System.Collections "$COLLECTIONS_LIBRARY" \
-  -loadhints nanoFramework.System.Text "$TEXT_LIBRARY" \
-  -loadhints System.Net "$NET_LIBRARY" \
-  -loadhints System.Threading "$THREADING_LIBRARY" \
-  -loadhints System.IO.Streams "$STREAMS_LIBRARY" \
-  -loadhints System.Device.Gpio "$GPIO_LIBRARY" \
-  -loadhints System.Device.Wifi "$WIFI_LIBRARY" \
-  -loadhints System.Net.Http "$HTTP_LIBRARY" \
-  -loadhints NanoFrameworkWifiHttp.Bridge "$BRIDGE_MANAGED_OUTPUT" \
   -parse "$MANAGED_OUTPUT" \
   -compile "$NANO_OUTPUT" false
 
@@ -271,11 +213,9 @@ append_aligned_pe "$STREAMS_LIBRARY_PE"
 append_aligned_pe "$GPIO_LIBRARY_PE"
 append_aligned_pe "$WIFI_LIBRARY_PE"
 append_aligned_pe "$HTTP_LIBRARY_PE"
-append_aligned_pe "$BRIDGE_NANO_OUTPUT"
 append_aligned_pe "$NANO_OUTPUT"
 
 echo "Board profile: $BOARD"
 echo "Managed assembly: $MANAGED_OUTPUT"
 echo "nanoFramework image: $NANO_OUTPUT"
-echo "nanoFramework bridge: $BRIDGE_NANO_OUTPUT"
 echo "Deployment image: $DEPLOYMENT_OUTPUT"

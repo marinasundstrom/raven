@@ -177,12 +177,8 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         var repoRoot = GetRepositoryRoot();
         var projectsRoot = Path.Combine(repoRoot, "samples", "projects");
         var compilerDllPath = EnsureCompilerBuilt(repoRoot);
-        // The Wi-Fi sample intentionally compiles its device-only API bridge in build.sh.
         var projectPaths = Directory
             .EnumerateFiles(projectsRoot, "*.rvnproj", SearchOption.AllDirectories)
-            .Where(static path => !path.EndsWith(
-                "NanoFrameworkWifiHttp.rvnproj",
-                StringComparison.OrdinalIgnoreCase))
             .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -217,6 +213,36 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         finally
         {
             DeleteDirectoryIfExists(outputRoot);
+        }
+    }
+
+    [Fact]
+    public void NanoFrameworkWifiHttp_CompilesDeviceOnlyMethodReferencesWithoutBridge()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var projectPath = Path.Combine(
+            repoRoot,
+            "samples",
+            "projects",
+            "nanoframework-wifi-http",
+            "NanoFrameworkWifiHttp.rvnproj");
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot);
+        var outputDirectory = CreateTempDirectory();
+
+        try
+        {
+            var result = RunCompiler(repoRoot, compilerDllPath, projectPath, outputDirectory);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"Wi-Fi sample compilation failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(File.Exists(Path.Combine(outputDirectory, "NanoFrameworkWifiHttp.dll")));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(outputDirectory);
         }
     }
 

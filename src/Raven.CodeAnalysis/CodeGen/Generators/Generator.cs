@@ -888,7 +888,7 @@ internal abstract class Generator
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
         methodSymbol = SubstituteAsyncStateMachineMethodTypeParameters(methodSymbol);
-        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(methodSymbol);
+        return MethodGenerator.TypeGenerator.CodeGen.GetMethodInfoOrMetadataProxy(methodSymbol);
     }
 
     public ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)

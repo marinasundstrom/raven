@@ -63,8 +63,7 @@ left the USB endpoint unresponsive.
 ## Build and deploy with Wi-Fi credentials
 
 The deployment wrapper asks for the SSID and password, hides the password,
-rebuilds the application and networking bridge, and deploys the combined
-compact image:
+rebuilds the application, and deploys the combined compact image:
 
 ```bash
 ./deploy.sh \
@@ -94,14 +93,15 @@ Rebooting...OK
 ```
 
 After reboot, GP15 first blinks three times to prove that `Main` started before
-any networking code runs. It then stays high while the operation is running,
-stays high permanently when the request succeeds, or repeats a failure code:
+any networking code runs. It then stays off while the operation is running,
+stays high permanently only when the request succeeds, or repeats a failure
+code:
 
 - 1 blink: Wi-Fi, DHCP, or network-interface failure
 - 2 blinks: the server returned a non-success HTTP status
 - 3 blinks: HTTP, DNS, or TLS raised an exception
 
-The application also writes the network-helper status, HTTP status, and safe
+The application also writes connection progress, HTTP status, and safe
 exception messages through `Debug.WriteLine`; it never writes the SSID or
 password. To inspect this output without a managed debugger, close anything
 using the device port, open a serial terminal at nanoFramework's diagnostic

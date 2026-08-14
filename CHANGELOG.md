@@ -6,7 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added a Pico W nanoFramework Wi-Fi/HTTP LED sample whose deployment wrapper
   securely prompts for compile-time SSID and password constants, builds the
-  device-only networking bridge, and packages the complete compact-assembly
+  direct device-only networking calls, and packages the complete compact-assembly
   closure for wire-protocol or UF2 deployment. Its managed networking package
   snapshot matches the current `PICO_RP2040_W` preview firmware's native
   checksums. Wire-protocol deployment now rejects the legacy
@@ -14,7 +14,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   wireless adapter, before prompting for credentials or rebuilding the image.
   Hardware guidance now records the Pico W family's single-band 2.4 GHz
   requirement and the observed status-4 IP-address timeout on a non-compatible
-  network, followed by immediate success on a 2.4 GHz network.
+  network, followed by immediate success on a 2.4 GHz network. The LED remains
+  off during the blocking network operation so steady high now indicates only
+  a successful HTTP response.
+
+- External metadata method calls no longer require the target assembly to be
+  loadable in the compiler host. When Reflection.Emit cannot materialize a
+  target `MethodInfo`, emission now preserves the compiler method symbol and
+  replaces its temporary IL operand with a target `MemberRef` before writing
+  the PE. This first metadata-token path allows nanoFramework Wi-Fi and HTTP
+  APIs to be called directly from Raven without a C# bridge.
 
 - Runtime async now follows the target runtime capability, matching Roslyn's
   .NET 11 model. It remains enabled by default for `net11.0`, falls back to

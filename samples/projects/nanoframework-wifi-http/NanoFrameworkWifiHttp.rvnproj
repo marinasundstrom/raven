@@ -19,13 +19,6 @@
     </Reference>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(NanoFrameworkBridgePath)' != ''">
-    <Reference Include="NanoFrameworkWifiHttp.Bridge">
-      <HintPath>$(NanoFrameworkBridgePath)</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
-
   <ItemGroup>
     <RavenConstant Include="Wifi_SSID" Value="not-configured" />
     <RavenConstant Include="Wifi_Password" Value="not-configured" />

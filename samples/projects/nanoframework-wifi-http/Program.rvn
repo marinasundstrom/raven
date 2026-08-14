@@ -1,5 +1,9 @@
-import Raven.Samples.NanoFramework.*
+import nanoFramework.Networking.*
+import System.*
 import System.Device.Gpio.*
+import System.Diagnostics.*
+import System.Net.Http.*
+import System.Net.Security.*
 import System.Threading.*
 
 extern const LedPin: int = 15
@@ -25,6 +29,45 @@ func SignalFailure(led: GpioPin, pulses: int) {
     }
 }
 
+func ConnectAndGet(ssid: string, password: string, requestUri: string) -> int {
+    Debug.WriteLine("Wi-Fi: waiting for an address...")
+
+    try {
+        use networkTimeout = CancellationTokenSource(60000)
+        if !WifiNetworkHelper.ConnectDhcp(
+            ssid,
+            password,
+            requiresDateTime: false,
+            token: networkTimeout.Token) {
+            Debug.WriteLine("Wi-Fi failed")
+            return 1
+        }
+    } catch (Exception exception) {
+        Debug.WriteLine("Wi-Fi setup threw: " + exception.Message)
+        return 1
+    }
+
+    Debug.WriteLine("Wi-Fi ready. Sending GET " + requestUri)
+
+    try {
+        use client = HttpClient()
+        client.Timeout = TimeSpan.FromSeconds(30)
+        client.SslVerification = SslVerification.NoVerification
+        Debug.WriteLine("WARNING: TLS certificate verification is disabled for this sample.")
+
+        use response = client.Get(requestUri)
+        Debug.WriteLine("HTTP status: " + response.StatusCode.ToString())
+        if response.IsSuccessStatusCode {
+            return 0
+        }
+
+        return 2
+    } catch (Exception exception) {
+        Debug.WriteLine("HTTP request failed: " + exception.Message)
+        return 3
+    }
+}
+
 func Main() {
     use gpio = GpioController()
     use led = gpio.OpenPin(LedPin, PinMode.Output)
@@ -33,10 +76,9 @@ func Main() {
     Pulse(led, 3)
     Thread.Sleep(750)
 
-    // Steady high while ConnectAndGet is running marks the network phase.
-    led.Write(PinValue.High)
-    let result = NetworkHttpBridge.ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com")
+    // Stay off while the blocking network operation runs. High means success.
     led.Write(PinValue.Low)
+    let result = ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com")
 
     if result == 0 {
         led.Write(PinValue.High)

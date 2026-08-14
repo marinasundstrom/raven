@@ -1,6 +1,8 @@
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal static class AssemblyReferenceNormalizer
@@ -16,6 +18,7 @@ internal static class AssemblyReferenceNormalizer
         Stream peOutput,
         IAssemblyResolver? assemblyResolver = null,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
+        IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null)
     {
@@ -38,13 +41,15 @@ internal static class AssemblyReferenceNormalizer
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
 
         var module = assembly.MainModule;
+        var rewroteMetadataMethods = metadataMethodProxies is { Count: > 0 };
+        RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         var coreLibRefs = module.AssemblyReferences
             .Where(reference => string.Equals(reference.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
         if (coreLibRefs.Length == 0)
         {
-            if (targetReferences is not null && targetReferences.Count > 0)
+            if (rewroteMetadataMethods || targetReferences is { Count: > 0 })
             {
                 RetargetAssemblyIdentities(module, targetReferences);
                 assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
@@ -109,6 +114,7 @@ internal static class AssemblyReferenceNormalizer
         AssemblyNameReference targetCoreLibrary,
         IAssemblyResolver? assemblyResolver = null,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
+        IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null)
     {
@@ -129,6 +135,7 @@ internal static class AssemblyReferenceNormalizer
 
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
         var module = assembly.MainModule;
+        RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         RetargetAssemblyIdentities(module, targetReferences);
         var targetReference = module.AssemblyReferences.FirstOrDefault(reference =>
             string.Equals(reference.FullName, targetCoreLibrary.FullName, StringComparison.OrdinalIgnoreCase));
@@ -153,6 +160,156 @@ internal static class AssemblyReferenceNormalizer
             module.AssemblyReferences.Add(targetReference);
 
         assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
+    }
+
+    private static void RewriteMetadataMethodProxies(
+        ModuleDefinition module,
+        IReadOnlyDictionary<string, IMethodSymbol>? proxies,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+    {
+        if (proxies is null || proxies.Count == 0)
+            return;
+
+        var proxyType = module.Types.FirstOrDefault(type => type.Name == "<RavenMetadataMethodReferences>");
+        if (proxyType is null)
+            throw new InvalidOperationException("Metadata method proxy type was not emitted.");
+
+        var replacements = proxies.ToDictionary(
+            pair => pair.Key,
+            pair => CreateMethodReference(module, pair.Value, targetReferences),
+            StringComparer.Ordinal);
+
+        foreach (var type in EnumerateTypes(module.Types))
+        {
+            foreach (var method in type.Methods)
+            {
+                if (!method.HasBody)
+                    continue;
+
+                foreach (var instruction in method.Body.Instructions)
+                {
+                    if (instruction.Operand is MethodReference operand &&
+                        operand.DeclaringType.Name == proxyType.Name &&
+                        replacements.TryGetValue(operand.Name, out var replacement))
+                    {
+                        instruction.Operand = replacement;
+                    }
+                }
+            }
+        }
+
+        module.Types.Remove(proxyType);
+    }
+
+    private static MethodReference CreateMethodReference(
+        ModuleDefinition module,
+        IMethodSymbol method,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+    {
+        var reference = new MethodReference(
+            method.MetadataName,
+            CreateTypeReference(module, method.ReturnType, targetReferences),
+            CreateTypeReference(module, method.ContainingType!, targetReferences))
+        {
+            HasThis = !method.IsStatic,
+            ExplicitThis = false
+        };
+
+        foreach (var parameter in method.Parameters)
+        {
+            var parameterType = CreateTypeReference(module, parameter.Type, targetReferences);
+            if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+                parameterType = new ByReferenceType(parameterType);
+            reference.Parameters.Add(new ParameterDefinition(parameterType));
+        }
+
+        return reference;
+    }
+
+    private static TypeReference CreateTypeReference(
+        ModuleDefinition module,
+        ITypeSymbol symbol,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+    {
+        if (symbol is NullableTypeSymbol nullable)
+        {
+            var underlying = CreateTypeReference(module, nullable.UnderlyingType, targetReferences);
+            if (nullable.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
+                return underlying;
+
+            var nullableDefinition = new TypeReference("System", "Nullable`1", module, underlying.Scope)
+            {
+                IsValueType = true
+            };
+            var constructedNullable = new GenericInstanceType(nullableDefinition);
+            constructedNullable.GenericArguments.Add(underlying);
+            return constructedNullable;
+        }
+
+        if (symbol is IArrayTypeSymbol array)
+            return new ArrayType(CreateTypeReference(module, array.ElementType, targetReferences), array.Rank);
+
+        if (symbol is ConstructedNamedTypeSymbol constructed &&
+            constructed.ConstructedFrom is INamedTypeSymbol definition &&
+            !SymbolEqualityComparer.Default.Equals(constructed, definition))
+        {
+            var generic = new GenericInstanceType(CreateTypeReference(module, definition, targetReferences));
+            foreach (var argument in constructed.TypeArguments)
+                generic.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences));
+            return generic;
+        }
+
+        if (symbol is not INamedTypeSymbol named)
+            throw new NotSupportedException($"Metadata emission does not yet support type '{symbol}'.");
+
+        IMetadataScope scope = module;
+        if (named.ContainingAssembly is { } assembly)
+        {
+            if (targetReferences is null || !targetReferences.TryGetValue(assembly.Name, out var targetReference))
+                targetReference = new AssemblyNameReference(assembly.Name, new Version(0, 0, 0, 0));
+
+            var existing = module.AssemblyReferences.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, targetReference.Name, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                existing = CloneAssemblyReference(targetReference);
+                module.AssemblyReferences.Add(existing);
+            }
+
+            scope = existing;
+        }
+
+        if (named.ContainingType is { } containingType)
+        {
+            return new TypeReference(string.Empty, named.MetadataName, module, scope)
+            {
+                DeclaringType = CreateTypeReference(module, containingType, targetReferences)
+            };
+        }
+
+        var fullMetadataName = named.ToFullyQualifiedMetadataName();
+        var namespaceSeparator = fullMetadataName.LastIndexOf('.');
+        var namespaceName = namespaceSeparator >= 0
+            ? fullMetadataName[..namespaceSeparator]
+            : string.Empty;
+        var typeName = namespaceSeparator >= 0
+            ? fullMetadataName[(namespaceSeparator + 1)..]
+            : fullMetadataName;
+
+        return new TypeReference(namespaceName, typeName, module, scope)
+        {
+            IsValueType = named.IsValueType
+        };
+    }
+
+    private static IEnumerable<TypeDefinition> EnumerateTypes(IEnumerable<TypeDefinition> types)
+    {
+        foreach (var type in types)
+        {
+            yield return type;
+            foreach (var nested in EnumerateTypes(type.NestedTypes))
+                yield return nested;
+        }
     }
 
     private static void RetargetAssemblyIdentities(
