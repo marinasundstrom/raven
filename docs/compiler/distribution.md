@@ -175,6 +175,13 @@ Package validation also checks that
 on duplicate versions; published versions are immutable and must never be
 silently skipped.
 
+`allow_missing_main_ci` is an exceptional, opt-in escape hatch for a release
+whose remaining commit changes only repair CI or release infrastructure and
+whose affected checks have been rerun directly. It defaults to `false` and
+requires a non-empty `main_ci_exception_reason`, which is recorded in the
+workflow run. Do not use it for compiler, runtime, SDK behavior, or untested
+product changes.
+
 The repository's `NuGet.Config` puts `artifacts/packages` before NuGet.org for
 source-build testing. NuGet's global package cache is keyed only by package ID
 and version, so rebuilding a local package with the same version does not update

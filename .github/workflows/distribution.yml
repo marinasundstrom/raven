@@ -17,6 +17,16 @@ on:
         required: true
         type: boolean
         default: false
+      allow_missing_main_ci:
+        description: Exceptional override when the exact commit lacks a successful Main CI run
+        required: true
+        type: boolean
+        default: false
+      main_ci_exception_reason:
+        description: Required audit reason when the Main CI override is enabled
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -47,6 +57,8 @@ jobs:
       - name: Require successful main CI for this commit
         env:
           GH_TOKEN: ${{ github.token }}
+          ALLOW_MISSING_MAIN_CI: ${{ inputs.allow_missing_main_ci }}
+          MAIN_CI_EXCEPTION_REASON: ${{ inputs.main_ci_exception_reason }}
         run: |
           conclusion="$(gh run list \
             --workflow ci.yml \
@@ -56,8 +68,15 @@ jobs:
             --json status,conclusion \
             --jq '.[0] | select(.status == "completed") | .conclusion')"
           if [[ "$conclusion" != "success" ]]; then
-            echo "Commit $GITHUB_SHA does not have a successful completed Main CI push run." >&2
-            exit 1
+            if [[ "$ALLOW_MISSING_MAIN_CI" != "true" ]]; then
+              echo "Commit $GITHUB_SHA does not have a successful completed Main CI push run." >&2
+              exit 1
+            fi
+            if [[ -z "$MAIN_CI_EXCEPTION_REASON" ]]; then
+              echo "A Main CI exception requires main_ci_exception_reason." >&2
+              exit 1
+            fi
+            echo "::warning::Main CI exception for $GITHUB_SHA: $MAIN_CI_EXCEPTION_REASON"
           fi
 
   sdk:

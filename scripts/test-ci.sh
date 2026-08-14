@@ -11,10 +11,29 @@ fi
 
 "$REPO_ROOT/scripts/codex-build.sh"
 
-# Workspace tests open repository samples through MSBuild. Build a Debug SDK
-# package into the repository-local feed so a clean CI runner resolves the same
-# compiler that was just built instead of depending on a previously published
-# or globally cached package.
+# Workspace tests open repository samples through MSBuild. Build the Debug SDK
+# and its implicit package dependencies into the repository-local feed so a
+# clean CI runner resolves the same compiler that was just built instead of
+# depending on previously published or globally cached packages.
+dotnet build "$REPO_ROOT/src/Raven.Macros/Raven.Macros.rvnproj" \
+  -c Debug \
+  -f net11.0 \
+  -p:BuildProjectReferences=false \
+  /property:WarningLevel=0
+
+for project in \
+  "$REPO_ROOT/src/Raven.Core/Raven.Core.rvnproj" \
+  "$REPO_ROOT/src/Raven.Macros/Raven.Macros.rvnproj"; do
+  dotnet pack "$project" \
+    -c Debug \
+    --no-build \
+    -o "$REPO_ROOT/artifacts/packages" \
+    /property:Version="$SDK_VERSION" \
+    /property:PackageVersion="$SDK_VERSION" \
+    /property:InformationalVersion="$SDK_VERSION" \
+    /property:IncludeSourceRevisionInInformationalVersion=false
+done
+
 dotnet pack "$REPO_ROOT/sdk/Raven.Sdk/Raven.Sdk.csproj" \
   -c Debug \
   -o "$REPO_ROOT/artifacts/packages" \
