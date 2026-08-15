@@ -1663,6 +1663,8 @@ internal static class AsyncLowerer
 
             var enclosingErrorCtor = SubstituteMethod(node.EnclosingErrorConstructor) ?? node.EnclosingErrorConstructor;
             var unwrapError = SubstituteMethod(node.UnwrapErrorMethod) ?? node.UnwrapErrorMethod;
+            var tryGetOutput = SubstituteMethod(node.TryGetOutputMethod) ?? node.TryGetOutputMethod;
+            var tryGetResidual = SubstituteMethod(node.TryGetResidualMethod) ?? node.TryGetResidualMethod;
 
             var okValueProperty = SubstituteProperty(node.OkValueProperty) ?? node.OkValueProperty;
 
@@ -1674,6 +1676,8 @@ internal static class AsyncLowerer
                 SymbolEqualityComparer.Default.Equals(errorCaseType, node.ErrorCaseType) &&
                 SymbolEqualityComparer.Default.Equals(enclosingErrorCtor, node.EnclosingErrorConstructor) &&
                 SymbolEqualityComparer.Default.Equals(unwrapError, node.UnwrapErrorMethod) &&
+                SymbolEqualityComparer.Default.Equals(tryGetOutput, node.TryGetOutputMethod) &&
+                SymbolEqualityComparer.Default.Equals(tryGetResidual, node.TryGetResidualMethod) &&
                 SymbolEqualityComparer.Default.Equals(okValueProperty, node.OkValueProperty))
             {
                 return node;
@@ -1692,7 +1696,9 @@ internal static class AsyncLowerer
                 okCaseType: okCaseType,
                 errorCaseType: errorCaseType,
                 okValueProperty: okValueProperty,
-                errorConversion: node.ErrorConversion);
+                errorConversion: node.ErrorConversion,
+                tryGetOutputMethod: tryGetOutput,
+                tryGetResidualMethod: tryGetResidual);
         }
 
         public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)

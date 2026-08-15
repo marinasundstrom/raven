@@ -7,7 +7,7 @@ namespace Raven.Core.Tests;
 public sealed class CarrierPropagationDiagnosticsTests : RavenCoreDiagnosticTestBase
 {
     [Fact]
-    public void OptionPropagation_IntoResultReturn_ReportsErrors()
+    public void OptionPropagation_IntoResultReturn_ReportsResidualConversionError()
     {
         const string code = """
 import System.*
@@ -26,12 +26,9 @@ func test2() -> Option<int> {
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV0023")
-                    .WithAnySpan()
-                    .WithArguments("?", "Option<int>"),
                 new DiagnosticResult("RAV1503")
                     .WithAnySpan()
-                    .WithArguments("Option<int>", "Result<int, string>")
+                    .WithArguments("unit", "string")
             ]);
 
         verifier.Verify();

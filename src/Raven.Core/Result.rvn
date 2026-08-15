@@ -45,12 +45,35 @@ import System.Text.Json.Serialization.*
 /// @typeparam T The successful value type.
 /// @typeparam E The error value type.
 [JsonConverter(typeof(ResultJsonConverterFactory))]
-public union Result<T, E> {
+public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
     /// Represents a successful result value.
     case Ok(T)
 
     /// Represents an error result.
     case Error(E)
+
+    /// Attempts to extract the successful output used by the propagation protocol.
+    func TryGetOutput(out output: T) -> bool {
+        output = default
+        if self is Ok(val value) {
+            output = value
+            return true
+        }
+        return false
+    }
+
+    /// Attempts to extract the residual used by the propagation protocol.
+    func TryGetResidual(out residual: E) -> bool {
+        residual = default
+        if self is Error(val error) {
+            residual = error
+            return true
+        }
+        return false
+    }
+
+    /// Constructs an error result from a propagated residual.
+    static func FromResidual(residual: E) -> Result<T, E> => Error(residual)
 
     /// Gets a value indicating whether this result is `Ok`.
     val HasOk: bool => self is Ok(val message)

@@ -111,10 +111,14 @@ internal sealed partial class Lowerer
         if (operandType is null || operandType.TypeKind == TypeKind.Error || operandNamedType is null)
             return null;
 
-        if (!UnionFacts.UsesCarrierRepresentation(operandNamedType))
-            return null;
+        var tryGetMethod = propagate.TryGetOutputMethod;
+        if (tryGetMethod is null)
+        {
+            if (!UnionFacts.UsesCarrierRepresentation(operandNamedType))
+                return null;
 
-        var tryGetMethod = FindTryGetMethod(operandNamedType, propagate);
+            tryGetMethod = FindTryGetMethod(operandNamedType, propagate);
+        }
         if (tryGetMethod is null)
             return null;
 
@@ -240,6 +244,45 @@ internal sealed partial class Lowerer
         Compilation compilation)
     {
         var ctor = propagate.EnclosingErrorConstructor;
+
+        if (propagate.TryGetResidualMethod is { } tryGetResidualMethod)
+        {
+            if (ctor.Parameters.Length != 1)
+                return null;
+
+            var residualLocalType = tryGetResidualMethod.Parameters[0].GetByRefElementType();
+            var residualLocal = CreateTempLocal("propagateResidual", residualLocalType, isMutable: true);
+            var residualAccess = new BoundLocalAccess(residualLocal);
+            var residualReceiver = tryGetResidualMethod.IsExtensionMethod ? null : operandAccess;
+            var residualExtensionReceiver = tryGetResidualMethod.IsExtensionMethod ? operandAccess : null;
+            var tryGetResidualInvocation = new BoundInvocationExpression(
+                tryGetResidualMethod,
+                new BoundExpression[] { new BoundAddressOfExpression(residualAccess) },
+                residualReceiver,
+                residualExtensionReceiver,
+                requiresReceiverAddress: operandType.IsValueType);
+
+            BoundExpression residual = ApplyErrorConversion(
+                residualAccess,
+                ctor.Parameters[0].Type,
+                propagate.ErrorConversion,
+                compilation);
+            var returnExpression = CreatePropagateErrorExpression(propagate, new[] { residual }, compilation);
+            var invalidContractCarrier = new BoundThrowStatement(
+                new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)));
+
+            return new BoundBlockStatement(new BoundStatement[]
+            {
+                new BoundLocalDeclarationStatement(new[]
+                {
+                    new BoundVariableDeclarator(residualLocal, null)
+                }),
+                new BoundIfStatement(
+                    tryGetResidualInvocation,
+                    new BoundBlockStatement(new BoundStatement[] { new BoundReturnStatement(returnExpression) }),
+                    new BoundBlockStatement(new BoundStatement[] { invalidContractCarrier }))
+            });
+        }
 
         if (ctor.Parameters.Length == 0)
         {

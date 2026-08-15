@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Tests;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -11,6 +12,52 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PropagationExpressionTests : DiagnosticTestBase
 {
+    [Fact]
+    public void PropagationContract_CustomCarrier_BindsOutputType()
+    {
+        var code = """
+import System.*
+
+record struct IntAttempt(Value: int, Error: string?, IsSuccess: bool)
+    : System.IPropagatable<IntAttempt, int, string> {
+    static func Success(value: int) -> IntAttempt => IntAttempt(value, null, true)
+    static func Failure(error: string) -> IntAttempt => IntAttempt(default, error, false)
+
+    func TryGetOutput(out output: int) -> bool {
+        output = Value
+        return IsSuccess
+    }
+
+    func TryGetResidual(out residual: string) -> bool {
+        residual = ""
+        if Error is string error {
+            residual = error
+        }
+        return !IsSuccess
+    }
+
+    static func FromResidual(residual: string) -> IntAttempt => Failure(residual)
+}
+
+func source() -> IntAttempt => IntAttempt.Success(42)
+
+func test() -> IntAttempt {
+    let value = source()?
+    return IntAttempt.Success(value + 1)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Test.State.AdditionalReferences = [TestMetadataReferences.RavenCore];
+        var result = verifier.GetResult();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var propagation = tree.GetRoot().DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+
+        Assert.Equal("int", model.GetTypeInfo(propagation).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        verifier.Verify();
+    }
+
     [Fact]
     public void OptionPropagation_InOptionReturningFunction_Binds()
     {

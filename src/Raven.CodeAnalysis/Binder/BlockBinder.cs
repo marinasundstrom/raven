@@ -4549,7 +4549,7 @@ partial class BlockBinder : Binder
                 TryGetEnclosingCarrierReturnType(out var enclosingReturnType) &&
                 enclosingReturnType is not null &&
                 TryGetPropagationInfo(enclosingReturnType, out var enclosingInfo) &&
-                operandInfo.Kind == enclosingInfo.Kind)
+                PropagationKindsAreCompatible(operandInfo, enclosingInfo))
             {
                 return BindPropagateExpressionCore(propagated, tryExpression.QuestionToken, tryExpression);
             }
@@ -4700,7 +4700,7 @@ partial class BlockBinder : Binder
         }
 
         if (!TryGetPropagationInfo(enclosingReturnType, out var enclosingInfo) ||
-            enclosingInfo.Kind != operandInfo.Kind)
+            !PropagationKindsAreCompatible(operandInfo, enclosingInfo))
         {
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
@@ -4725,8 +4725,10 @@ partial class BlockBinder : Binder
             okValueProperty = okCaseNamed.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
         }
 
-        var enclosingErrorConstructor = enclosingInfo.ErrorCase.Constructors.FirstOrDefault(ctor =>
-            ctor.Parameters.Length == enclosingInfo.ErrorCase.ConstructorParameters.Length);
+        var enclosingErrorCase = enclosingInfo.ErrorCase;
+        var enclosingErrorConstructor = enclosingInfo.ResidualFactoryMethod
+            ?? enclosingErrorCase?.Constructors.FirstOrDefault(ctor =>
+                ctor.Parameters.Length == enclosingErrorCase.ConstructorParameters.Length);
         if (enclosingErrorConstructor is null)
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
 
@@ -4768,7 +4770,9 @@ partial class BlockBinder : Binder
             errorCaseType: operandInfo.ErrorCase,
             okValueProperty: okValueProperty,
             unwrapErrorMethod: null,
-            errorConversion: errorConversion);
+            errorConversion: errorConversion,
+            tryGetOutputMethod: operandInfo.TryGetOutputMethod,
+            tryGetResidualMethod: operandInfo.TryGetResidualMethod);
     }
 
     private bool TryGetEnclosingCarrierReturnType(out INamedTypeSymbol? enclosingReturnType)
@@ -4811,6 +4815,7 @@ partial class BlockBinder : Binder
 
     private enum PropagationKind
     {
+        Contract,
         Result,
         Option
     }
@@ -4818,19 +4823,85 @@ partial class BlockBinder : Binder
     private sealed record PropagationInfo(
         PropagationKind Kind,
         INamedTypeSymbol UnionType,
-        IUnionSymbol Union,
-        IUnionCaseTypeSymbol OkCase,
-        IUnionCaseTypeSymbol ErrorCase,
+        IUnionSymbol? Union,
+        IUnionCaseTypeSymbol? OkCase,
+        IUnionCaseTypeSymbol? ErrorCase,
         ITypeSymbol OkPayloadType,
         ITypeSymbol? ErrorPayloadType,
-        ITypeSymbol OkCaseType,
+        ITypeSymbol? OkCaseType,
         string OkCaseName,
         string ErrorCaseName,
-        bool ErrorCaseHasPayload);
+        bool ErrorCaseHasPayload,
+        IMethodSymbol? TryGetOutputMethod = null,
+        IMethodSymbol? TryGetResidualMethod = null,
+        IMethodSymbol? ResidualFactoryMethod = null,
+        bool UsesContract = false);
+
+    private static bool PropagationKindsAreCompatible(PropagationInfo operand, PropagationInfo enclosing)
+        => operand.Kind == enclosing.Kind || (operand.UsesContract && enclosing.UsesContract);
 
     private static bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
     {
         info = null!;
+
+        var propagationInterface = typeSymbol.AllInterfaces.FirstOrDefault(@interface =>
+            @interface.ContainingNamespace?.ToDisplayString() == "System" &&
+            @interface.MetadataName == "IPropagatable`3" &&
+            @interface.TypeArguments.Length == 3 &&
+            SymbolEqualityComparer.Default.Equals(@interface.TypeArguments[0], typeSymbol));
+
+        if (propagationInterface is not null)
+        {
+            var outputType = propagationInterface.TypeArguments[1];
+            var residualType = propagationInterface.TypeArguments[2];
+            var tryGetOutputMethod = typeSymbol.GetMembers("TryGetOutput").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                !method.IsStatic &&
+                method.Parameters.Length == 1 &&
+                method.Parameters[0].RefKind == RefKind.Out &&
+                method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), outputType));
+            var tryGetResidualMethod = typeSymbol.GetMembers("TryGetResidual").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                !method.IsStatic &&
+                method.Parameters.Length == 1 &&
+                method.Parameters[0].RefKind == RefKind.Out &&
+                method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), residualType));
+            var fromResidualMethod = typeSymbol.GetMembers("FromResidual").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                method.IsStatic &&
+                method.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, residualType) &&
+                SymbolEqualityComparer.Default.Equals(method.ReturnType, typeSymbol));
+
+            if (tryGetOutputMethod is not null && tryGetResidualMethod is not null && fromResidualMethod is not null)
+            {
+                var kind = typeSymbol.Name switch
+                {
+                    "Result" => PropagationKind.Result,
+                    "Option" => PropagationKind.Option,
+                    _ => PropagationKind.Contract,
+                };
+
+                info = new PropagationInfo(
+                    kind,
+                    typeSymbol,
+                    Union: null,
+                    OkCase: null,
+                    ErrorCase: null,
+                    outputType,
+                    residualType,
+                    OkCaseType: null,
+                    OkCaseName: "Output",
+                    ErrorCaseName: "Residual",
+                    ErrorCaseHasPayload: true,
+                    tryGetOutputMethod,
+                    tryGetResidualMethod,
+                    fromResidualMethod,
+                    UsesContract: true);
+
+                return true;
+            }
+        }
+
         if (!UnionFacts.UsesCarrierRepresentation(typeSymbol))
             return false;
 

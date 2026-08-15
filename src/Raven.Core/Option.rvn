@@ -44,12 +44,31 @@ import System.Text.Json.Serialization.*
 ///
 /// @typeparam T The type of the optional value.
 [JsonConverter(typeof(OptionJsonConverterFactory))]
-public union Option<T> {
+public union Option<T>: IPropagatable<Option<T>, T, ()> {
     /// Represents an available value.
     case Some(T)
 
     /// Represents the absence of a value.
     case None
+
+    /// Attempts to extract the successful output used by the propagation protocol.
+    func TryGetOutput(out output: T) -> bool {
+        output = default
+        if self is Some(val value) {
+            output = value
+            return true
+        }
+        return false
+    }
+
+    /// Reports absence as the unit residual used by the propagation protocol.
+    func TryGetResidual(out residual: ()) -> bool {
+        residual = ()
+        self is None
+    }
+
+    /// Constructs an empty option from a propagated residual.
+    static func FromResidual(residual: ()) -> Option<T> => None
 
     /// Gets a value indicating whether this option is `Some`.
     val HasSome: bool => self is Some(val v)

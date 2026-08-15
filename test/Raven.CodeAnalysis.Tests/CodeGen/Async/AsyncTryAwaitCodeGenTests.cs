@@ -485,7 +485,7 @@ Console.WriteLine(result)
 """;
 
         var output = CompileAndRun(code);
-        Assert.Equal(new[] { "Option<Int32>.Some(84)" }, output);
+        Assert.Equal(new[] { "Option.Some(84)" }, output);
     }
 
     [Fact]

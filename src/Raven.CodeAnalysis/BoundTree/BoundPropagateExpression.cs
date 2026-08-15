@@ -44,7 +44,9 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
         IPropertySymbol? okValueProperty,
         IMethodSymbol? unwrapErrorMethod,
         Conversion errorConversion,
-        BoundExpressionReason reason = BoundExpressionReason.None)
+        BoundExpressionReason reason = BoundExpressionReason.None,
+        IMethodSymbol? tryGetOutputMethod = null,
+        IMethodSymbol? tryGetResidualMethod = null)
         : base(okType, operand.Symbol, reason)
     {
         Operand = operand;
@@ -60,6 +62,8 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
         OkValueProperty = okValueProperty;
         UnwrapErrorMethod = unwrapErrorMethod;
         ErrorConversion = errorConversion;
+        TryGetOutputMethod = tryGetOutputMethod;
+        TryGetResidualMethod = tryGetResidualMethod;
     }
 
     /// <summary>
@@ -125,6 +129,16 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     /// The extension/instance method used to extract the error payload (e.g. `UnwrapError()`) if known.
     /// </summary>
     public IMethodSymbol? UnwrapErrorMethod { get; }
+
+    /// <summary>
+    /// The protocol method used to extract the continuing output for a custom carrier.
+    /// </summary>
+    public IMethodSymbol? TryGetOutputMethod { get; }
+
+    /// <summary>
+    /// The protocol method used to extract the early-return residual for a custom carrier.
+    /// </summary>
+    public IMethodSymbol? TryGetResidualMethod { get; }
 
     /// <summary>
     /// The classified conversion from the operand's error payload type to the enclosing function's error type.

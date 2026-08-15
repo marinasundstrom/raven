@@ -115,8 +115,8 @@ func firstEven(values: int[]) -> Option<int> {
   immediately returns `Error(error)` from the enclosing context.
 * For `Option<T>`, `Some(value)` yields `value` and `None` immediately returns
   `None` from the enclosing context.
-* `expr?` is valid only when the enclosing function or lambda returns a
-  compatible `Result<_, _>` or `Option<_>`.
+* `expr?` is valid only when both the operand and the enclosing function or
+  lambda return type implement compatible `IPropagatable` contracts.
 * The operand is evaluated exactly once; the compiler may introduce temporaries
   to preserve that rule.
 * `expr?` performs propagation only when `?` is not followed by a trailer. In
@@ -125,6 +125,34 @@ func firstEven(values: int[]) -> Option<int> {
 
 If propagation relies on a user-defined implicit conversion on the error
 channel, the compiler reports informational diagnostic `RAV1506`.
+
+#### Custom propagation carriers
+
+Propagation is defined by the Raven.Core interface
+`IPropagatable<TSelf, TOutput, TResidual>`, not by a required union shape or
+type name:
+
+```raven
+public interface IPropagatable<TSelf, TOutput, TResidual> {
+    func TryGetOutput(out output: TOutput) -> bool
+    func TryGetResidual(out residual: TResidual) -> bool
+    static func FromResidual(residual: TResidual) -> TSelf
+}
+```
+
+`TryGetOutput` returns `true` and assigns the value produced by `expr?` when
+evaluation can continue. When it returns `false`, the compiler calls
+`TryGetResidual`; a conforming implementation must then return `true` and
+assign the residual. The residual is implicitly converted to the enclosing
+carrier's residual type and passed to that carrier's `FromResidual` method for
+the early return. The operand is evaluated exactly once.
+
+`TSelf` makes the static reconstruction member usable without associated types,
+which Raven does not currently expose in interface declarations. It must be the
+concrete implementing carrier. Different carrier types may interoperate when
+their residual types are implicitly convertible. `Result<T, E>` implements the
+contract with output `T` and residual `E`; `Option<T>` implements it with output
+`T` and the unit residual `()`.
 
 ### Conditional member access (`?.`)
 

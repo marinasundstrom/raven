@@ -23,7 +23,7 @@ class Program {
         let xs: Item[] = [Item("A")]
         let names = Collect(xs)?
         Console.WriteLine(names.Length)
-        return Ok
+        return .Ok
     }
 
     static func Collect(items: Item[]) -> Result<string[], string> {

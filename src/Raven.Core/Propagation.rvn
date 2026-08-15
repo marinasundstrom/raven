@@ -1,0 +1,21 @@
+namespace System
+
+/// Defines the protocol used by Raven's postfix propagation operator (`?`).
+///
+/// A propagatable type exposes its successful output and residual channels
+/// without requiring the compiler to know its concrete representation. The
+/// enclosing return type uses `FromResidual` to reconstruct an early return.
+///
+/// @typeparam TSelf The concrete carrier type.
+/// @typeparam TOutput The value produced when propagation continues.
+/// @typeparam TResidual The value carried when propagation returns early.
+public interface IPropagatable<TSelf, TOutput, TResidual> {
+    /// Attempts to extract the value on the continuing path.
+    func TryGetOutput(out output: TOutput) -> bool
+
+    /// Attempts to extract the value on the early-return path.
+    func TryGetResidual(out residual: TResidual) -> bool
+
+    /// Constructs this carrier from a residual propagated by another carrier.
+    static func FromResidual(residual: TResidual) -> TSelf
+}

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 ## Unreleased
 
+- Postfix `?` propagation is now extensible through Raven.Core's
+  `IPropagatable<TSelf, TOutput, TResidual>` contract. Custom classes, structs,
+  records, and unions can define output extraction, residual extraction, and
+  enclosing-carrier reconstruction; `Result` and `Option` implement the same
+  protocol.
 - Union symbols now expose their complete alternative-type set as `Variants`.
   The former `CaseTypes` API has been removed so `case` consistently names the
   body-form declaration syntax, while variants may be declared by either
