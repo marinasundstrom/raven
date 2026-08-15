@@ -58,9 +58,10 @@ func ConnectAndGet(ssid: string, password: string, requestUri: string) -> Networ
     Debug.WriteLine("Wi-Fi ready. Sending GET " + requestUri)
 
     try {
-        use client = HttpClient()
-        client.Timeout = TimeSpan.FromSeconds(30)
-        client.SslVerification = SslVerification.NoVerification
+        use client = HttpClient {
+            Timeout = TimeSpan.FromSeconds(30)
+            SslVerification = SslVerification.NoVerification
+        }
         Debug.WriteLine("WARNING: TLS certificate verification is disabled for this sample.")
 
         use response = client.Get(requestUri)
