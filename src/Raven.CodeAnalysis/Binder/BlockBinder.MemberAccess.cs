@@ -930,7 +930,7 @@ partial class BlockBinder
                 var union = (targetType as INamedTypeSymbol)?.TryGetUnion()
                     ?? (targetType as INamedTypeSymbol)?.TryGetUnionCase()?.Union;
 
-                if (union is not null && union.CaseTypes.Any(@case => @case.Name == caseName))
+                if (union is not null && union.Variants.Any(@case => @case.Name == caseName))
                     return type;
             }
 
@@ -2743,7 +2743,7 @@ partial class BlockBinder
         var union = carrier.TryGetUnion();
         if (union is not null)
         {
-            var caseSymbol = union.CaseTypes.FirstOrDefault(@case => @case.Name == name);
+            var caseSymbol = union.Variants.FirstOrDefault(@case => @case.Name == name);
             if (caseSymbol is INamedTypeSymbol namedCase)
                 return namedCase;
         }

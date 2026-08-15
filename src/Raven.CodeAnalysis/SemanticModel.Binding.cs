@@ -2410,13 +2410,13 @@ public partial class SemanticModel
                     if (!leftHasTypeArguments &&
                         containingType is IUnionSymbol unionSymbol)
                     {
-                        var caseTypes = unionSymbol.CaseTypes
+                        var variants = unionSymbol.Variants
                             .Where(type => string.Equals(type.Name, memberName, StringComparison.Ordinal))
                             .Cast<ISymbol>()
                             .ToArray();
 
-                        if (caseTypes.Length > 0)
-                            return caseTypes;
+                        if (variants.Length > 0)
+                            return variants;
                     }
 
                     var members = containingType.GetMembers(memberName)
@@ -4631,7 +4631,7 @@ public partial class SemanticModel
             }
 
             unionSymbol.SetCases(caseSymbols);
-            unionSymbol.SetCaseTypes(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
+            unionSymbol.SetVariants(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
             unionSymbol.SetMemberTypes(memberTypes);
             unionSymbol.SetContentMayBeNull(boundMemberTypes.Any(static member => UnionContentNullability.IsNullableContentType(member.ArtifactType)));
             unionSymbol.SetPayloadFields(payloadFields);
@@ -5034,7 +5034,7 @@ public partial class SemanticModel
         }
 
         unionSymbol.SetCases(caseSymbols);
-        unionSymbol.SetCaseTypes(caseSymbols.Cast<ITypeSymbol>());
+        unionSymbol.SetVariants(caseSymbols.Cast<ITypeSymbol>());
         unionSymbol.SetMemberTypes(memberTypes);
         unionSymbol.SetPayloadFields(payloadFields);
 

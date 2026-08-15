@@ -78,7 +78,7 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
     private const string RavenUnionCaseAttributeMetadataName = "Raven.Runtime.CompilerServices.RavenUnionCaseAttribute";
 
     private ImmutableArray<IUnionCaseTypeSymbol>? _cases;
-    private ImmutableArray<ITypeSymbol>? _caseTypes;
+    private ImmutableArray<ITypeSymbol>? _variants;
     private ImmutableArray<ITypeSymbol>? _memberTypes;
     private bool? _contentMayBeNull;
     private IFieldSymbol? _discriminatorField;
@@ -95,18 +95,18 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
     {
     }
 
-    public ImmutableArray<ITypeSymbol> CaseTypes
+    public ImmutableArray<ITypeSymbol> Variants
     {
         get
         {
-            if (_caseTypes is not null)
-                return _caseTypes.Value;
+            if (_variants is not null)
+                return _variants.Value;
 
             var declaredCases = DeclaredCaseTypes;
-            _caseTypes = declaredCases.IsDefaultOrEmpty
+            _variants = declaredCases.IsDefaultOrEmpty
                 ? MemberTypes
                 : declaredCases.Cast<ITypeSymbol>().ToImmutableArray();
-            return _caseTypes.Value;
+            return _variants.Value;
         }
     }
 
@@ -411,7 +411,7 @@ internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbo
             if (_ordinal is not null)
                 return _ordinal.Value;
 
-            var cases = Union.CaseTypes;
+            var cases = Union.Variants;
             var index = cases.IndexOf(this, SymbolEqualityComparer.Default);
             _ordinal = index >= 0 ? index : 0;
             return _ordinal.Value;

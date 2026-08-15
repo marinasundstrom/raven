@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
 {
-    private ImmutableArray<ITypeSymbol> _caseTypes = ImmutableArray<ITypeSymbol>.Empty;
+    private ImmutableArray<ITypeSymbol> _variants = ImmutableArray<ITypeSymbol>.Empty;
     private ImmutableArray<IUnionCaseTypeSymbol> _declaredCases = ImmutableArray<IUnionCaseTypeSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _memberTypes = ImmutableArray<ITypeSymbol>.Empty;
     private bool _contentMayBeNull;
@@ -25,7 +25,7 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
     {
     }
 
-    public ImmutableArray<ITypeSymbol> CaseTypes => _caseTypes;
+    public ImmutableArray<ITypeSymbol> Variants => _variants;
 
     public ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes => _declaredCases;
 
@@ -54,9 +54,9 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
         _declaredCases = cases.ToImmutableArray();
     }
 
-    internal void SetCaseTypes(IEnumerable<ITypeSymbol> caseTypes)
+    internal void SetVariants(IEnumerable<ITypeSymbol> variants)
     {
-        _caseTypes = caseTypes.ToImmutableArray();
+        _variants = variants.ToImmutableArray();
     }
 
     internal void SetMemberTypes(IEnumerable<ITypeSymbol> memberTypes)

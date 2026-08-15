@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 ## Unreleased
 
+- Union symbols now expose their complete alternative-type set as `Variants`.
+  The former `CaseTypes` API has been removed so `case` consistently names the
+  body-form declaration syntax, while variants may be declared by either
+  parenthesized types or `case` declarations.
 - Raven SDK builds now recompile when the selected compiler toolchain path
   changes, even when a newly installed SDK's files have older timestamps than
   existing project output. This prevents stale union assemblies from retaining

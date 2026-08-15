@@ -730,8 +730,16 @@ public interface ITupleTypeSymbol : INamedTypeSymbol
 
 public interface IUnionSymbol : INamedTypeSymbol
 {
-    ImmutableArray<ITypeSymbol> CaseTypes { get; }
+    /// <summary>
+    /// Gets the types of all variants declared by the union, whether they come
+    /// from parenthesized types or <c>case</c> declarations.
+    /// </summary>
+    ImmutableArray<ITypeSymbol> Variants { get; }
 
+    /// <summary>
+    /// Gets the generated variant types introduced specifically by
+    /// <c>case</c> declarations.
+    /// </summary>
     ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes { get; }
 
     ImmutableArray<ITypeSymbol> MemberTypes { get; }

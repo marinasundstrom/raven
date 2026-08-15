@@ -175,7 +175,7 @@ Sealed hierarchies remain the separate feature for inheritance-oriented modeling
 
 Primary impact is **binding + code generation**:
 
-* Case resolution from the union case set
+* Case resolution from the union's case-declared variants
 * Case → union conversion completion
 * Carrier-only propagation (`?`) and conditional access (`?.`)
 * Simpler member binding: `Result.Ok` becomes a case lookup, not nested-type resolution

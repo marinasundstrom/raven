@@ -1482,7 +1482,7 @@ internal sealed class HoverHandler : IHoverHandler
     private static bool ContainsUnionCaseNamed(ITypeSymbol type, string caseName)
     {
         var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
-        return union?.CaseTypes.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;
+        return union?.Variants.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;
     }
 
     private static bool IsTargetTypedConstructorBinding(ExpressionSyntax expression)

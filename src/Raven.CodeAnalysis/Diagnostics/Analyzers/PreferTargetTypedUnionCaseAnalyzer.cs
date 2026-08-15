@@ -96,7 +96,7 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
             _ => access.MemberAccess.Name.ToString()
         };
 
-        if (!union.CaseTypes.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
+        if (!union.Variants.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
             return false;
 
         var typeText = qualifiedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);

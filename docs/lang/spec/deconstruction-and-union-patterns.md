@@ -71,7 +71,7 @@ For a case carrying a single `unit` payload, a bare `Case` pattern is sugar for
 `Case(())`.
 
 Parenthesized unions do not synthesize case names. They are matched using the
-ordinary pattern for one of their declared member types:
+ordinary pattern for one of their declared variant types:
 
 ```raven
 union Payment(Cash | Card)
@@ -84,7 +84,7 @@ let description = match payment {
 
 The carrier and its contained value remain distinct pattern targets. Matching
 the carrier type itself, such as `payment is Payment`, tests the union instance.
-A member-type property pattern such as
+A variant-type property pattern such as
 `payment is Card { Reference: let reference } let card` first extracts the
 active `Card` through the carrier and then applies the recursive property
 pattern; the whole-pattern designation receives the extracted `Card` value.

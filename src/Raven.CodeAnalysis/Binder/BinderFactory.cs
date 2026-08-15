@@ -418,13 +418,13 @@ class BinderFactory
                     if (!leftHasTypeArguments &&
                         containingType is IUnionSymbol unionSymbol)
                     {
-                        var caseTypes = unionSymbol.CaseTypes
+                        var variants = unionSymbol.Variants
                             .Where(type => string.Equals(type.Name, memberName, StringComparison.Ordinal))
                             .Cast<ISymbol>()
                             .ToArray();
 
-                        if (caseTypes.Length > 0)
-                            return caseTypes;
+                        if (variants.Length > 0)
+                            return variants;
                     }
 
                     var members = containingType.GetMembers(memberName)

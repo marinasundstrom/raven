@@ -789,7 +789,7 @@ internal static partial class SymbolResolver
 
         if (targetType is IUnionSymbol union && targetType.IsUnion)
         {
-            var unionCase = union.CaseTypes.FirstOrDefault(c => string.Equals(c.Name, invokedName, StringComparison.Ordinal));
+            var unionCase = union.Variants.FirstOrDefault(c => string.Equals(c.Name, invokedName, StringComparison.Ordinal));
             if (unionCase is not null)
             {
                 symbol = unionCase;
@@ -949,7 +949,7 @@ internal static partial class SymbolResolver
     private static bool ContainsUnionCaseNamed(ITypeSymbol type, string caseName)
     {
         var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
-        return union?.CaseTypes.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;
+        return union?.Variants.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;
     }
 
     private static bool IsTargetTypedConstructorBinding(ExpressionSyntax expression)

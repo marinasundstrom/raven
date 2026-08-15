@@ -152,6 +152,10 @@ The leading `.` in the pattern is the target-member pattern syntax. When used in
 Surface discriminated unions through the symbol model so semantic consumers can
 reason about unions declared in source or supplied via metadata:
 
+* `IUnionSymbol.Variants` reports the complete set of alternative types. A
+  variant is declared either by a parenthesized type in a union declaration or
+  by a body-form `case` declaration. `DeclaredCaseTypes` is the narrower set of
+  generated variant types introduced specifically by `case` declarations.
 * `IsDiscriminatedUnion` returns `true` for the union struct itself and for any
   constructed versions of it. When importing existing metadata, recognise the
   synthesized `[DiscriminatedUnion]` attribute as the signal.

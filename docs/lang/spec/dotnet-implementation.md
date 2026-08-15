@@ -116,16 +116,16 @@ a set of get-only properties for those payloads, and a `Deconstruct(out ...)`
 method that mirrors the payload order. The union carrier exposes overloaded
 `TryGetValue(out CaseType value)` helpers to safely extract a case instance. For
 parenthesized unions such as
-`union Either<T1, T2>(T1 | T2)`, the carrier is declared over existing member
-types instead of synthesized case types, so the carrier constructor and
-`TryGetValue` overloads operate directly on those member types.
+`union Either<T1, T2>(T1 | T2)`, the variants are declared by existing types
+instead of `case` declarations, so the carrier constructor and `TryGetValue`
+overloads operate directly on those variant types.
 
 Raven follows the C# union ABI for metadata recognition: a union carrier is a
 class or struct with `System.Runtime.CompilerServices.UnionAttribute`, a public
 `Value` property of `object` or `object?`, and at least one public
-one-parameter constructor. Those constructors define the case set. Public
+one-parameter constructor. Those constructors define the variant set. Public
 `TryGetValue(out T)` methods are an access pattern and do not introduce
-additional cases when constructors are present. Nullable active contents are
+additional variants when constructors are present. Nullable active contents are
 derived from nullable constructor parameter types, not from `Value` being
 `object?`.
 
@@ -144,8 +144,8 @@ emit a synthetic null constructor:
 union JsonValue(string? | double | bool | JsonObject | JsonValue[])
 ```
 
-Raven pattern matching still treats nullable member contents as the non-null
-listed member cases plus a distinct `null` branch.
+Raven pattern matching still treats nullable variant contents as the non-null
+listed variants plus a distinct `null` branch.
 
 Producing and consuming a body-declared union from C# uses its nested case
 types. For example:
@@ -177,7 +177,7 @@ are deferred until the C# generic-constructor-inference direction is settled.
 The case-to-carrier assignment remains a C# union conversion backed by the
 carrier's public one-parameter constructor.
 
-For a parenthesized union, extraction is performed directly on the member type:
+For a parenthesized union, extraction is performed directly on the variant type:
 
 ```csharp
 // Raven

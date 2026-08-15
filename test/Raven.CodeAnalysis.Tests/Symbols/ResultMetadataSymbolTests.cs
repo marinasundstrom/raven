@@ -12,7 +12,7 @@ namespace Raven.CodeAnalysis.Tests;
 public class ResultMetadataSymbolTests
 {
     [Fact]
-    public void ResultFromMetadata_ExposesCaseTypesAndTryGetParameters()
+    public void ResultFromMetadata_ExposesVariantsAndTryGetParameters()
     {
         var (reference, path) = CreateRavenCoreResultReference();
         try
@@ -27,8 +27,8 @@ public class ResultMetadataSymbolTests
                 .OfType<IUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Error"));
 
             var tryGetMethods = resultDefinition.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
@@ -48,7 +48,7 @@ public class ResultMetadataSymbolTests
     }
 
     [Fact]
-    public void ConstructedResultFromMetadata_SubstitutesCaseTypesAndTryGetParameters()
+    public void ConstructedResultFromMetadata_SubstitutesVariantsAndTryGetParameters()
     {
         var (reference, path) = CreateRavenCoreResultReference();
         try
@@ -67,8 +67,8 @@ public class ResultMetadataSymbolTests
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
             var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Error"));
 
             var tryGetMethods = constructedResult.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
@@ -88,7 +88,7 @@ public class ResultMetadataSymbolTests
     }
 
     [Fact]
-    public void ResultFromMetadata_Constructors_UseCaseTypes()
+    public void ResultFromMetadata_Constructors_UseVariants()
     {
         var (reference, path) = CreateRavenCoreResultReference();
         try
@@ -103,8 +103,8 @@ public class ResultMetadataSymbolTests
                 .OfType<IUnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.CaseTypes.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Error"));
 
             var constructors = resultDefinition.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -122,7 +122,7 @@ public class ResultMetadataSymbolTests
     }
 
     [Fact]
-    public void ConstructedResultFromMetadata_Constructors_UseCaseTypes()
+    public void ConstructedResultFromMetadata_Constructors_UseVariants()
     {
         var (reference, path) = CreateRavenCoreResultReference();
         try
@@ -141,8 +141,8 @@ public class ResultMetadataSymbolTests
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
             var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.CaseTypes.Single(c => c.Name == "Error"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Error"));
 
             var constructors = constructedResult.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -186,8 +186,8 @@ public union Choice(string | int)
 
             Assert.Contains(choice.MemberTypes, member => AreEquivalentTypes(member, stringType));
             Assert.Contains(choice.MemberTypes, member => AreEquivalentTypes(member, intType));
-            Assert.Contains(choice.CaseTypes, member => AreEquivalentTypes(member, stringType));
-            Assert.Contains(choice.CaseTypes, member => AreEquivalentTypes(member, intType));
+            Assert.Contains(choice.Variants, member => AreEquivalentTypes(member, stringType));
+            Assert.Contains(choice.Variants, member => AreEquivalentTypes(member, intType));
         }
         finally
         {
@@ -220,7 +220,7 @@ public union Option {
                 .Single();
 
             Assert.Equal(["None", "Some"], option.DeclaredCaseTypes.Select(c => c.Name).ToArray());
-            Assert.Equal(["None", "Some"], option.CaseTypes.Select(c => c.Name).ToArray());
+            Assert.Equal(["None", "Some"], option.Variants.Select(c => c.Name).ToArray());
             Assert.All(option.DeclaredCaseTypes, caseType => Assert.Same(option, caseType.Union));
         }
         finally

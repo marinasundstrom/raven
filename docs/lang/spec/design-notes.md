@@ -6,15 +6,16 @@ the main specification files.
 ## Unions and carrier types
 
 Raven uses the term *carrier* for the declared union type that stores one of a
-fixed set of cases. The carrier model is intentional:
+fixed set of variants. The carrier model is intentional:
 
-* Case values are distinct values that convert to the carrier when required.
-* Case types are not an inheritance hierarchy under the carrier type.
+* Variant values are distinct values that convert to the carrier when required.
+* Variant types, including types synthesized by `case` declarations, are not an
+  inheritance hierarchy under the carrier type.
 * Extraction is described in the spec in terms of pattern matching,
   `TryGetValue(out CaseType)`, and explicit casts for assertion-style code.
 
 Interop shape and metadata details may evolve over time. Those choices do not
-change the normative language rules for case construction, pattern matching, or
+change the normative language rules for variant construction, pattern matching, or
 carrier conversion.
 
 ## Carrier operators

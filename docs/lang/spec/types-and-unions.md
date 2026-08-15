@@ -157,12 +157,14 @@ func Increment(value: int?) -> int {
 
 ### Unions
 
-Use a union to model a fixed set of cases, especially when each case can carry
-different data.
+Use a union to model a fixed set of variants, especially when each variant can
+carry different data.
 
-Unions define nominal carrier types with a fixed set of cases. A union value is
-always stored as the declared carrier type, and case values convert to that
-carrier implicitly when required.
+Unions define nominal carrier types with a fixed set of variants. Variants are
+declared in one of two syntactic forms: as types in the parenthesized form, or
+by `case` declarations in the body form. A union value is always stored as the
+declared carrier type, and variant values convert to that carrier implicitly
+when required.
 
 Plain `union` declarations synthesize struct carriers by default. Use
 `union class` when a reference carrier is intended, such as for APIs that must
@@ -189,17 +191,17 @@ The interface belongs to the union carrier. Generated case types do not each
 declare the interface independently. The carrier must implement every required
 interface member in the same way as an ordinary class or struct.
 
-| Form | Syntax | Cases | Typical pattern form |
-| --- | --- | --- | --- |
-| Parenthesized | `union Payment(Cash \| Card)` | existing member types | `Cash(...)`, `Card(...)` |
-| Body form | `union LookupResult { case Found(id: int) case Missing }` | synthesized case types | `Found(...)`, `Missing` |
+| Form | Syntax | Variant declarations | Resulting variants | Typical pattern form |
+| --- | --- | --- | --- | --- |
+| Parenthesized | `union Payment(Cash \| Card)` | parenthesized types | existing types (`Cash`, `Card`) | `Cash(...)`, `Card(...)` |
+| Body form | `union LookupResult { case Found(id: int) case Missing }` | `case` declarations | synthesized case types (`Found`, `Missing`) | `Found(...)`, `Missing` |
 
 #### Parenthesized unions
 
 ##### Concept
 
-The parenthesized form declares a carrier over existing nominal or primitive
-types. Raven does not synthesize additional case types for this form.
+The parenthesized form declares variants by listing existing nominal or
+primitive types. Raven does not synthesize additional types for these variants.
 
 ##### Example
 
@@ -216,13 +218,13 @@ let paidByCard: Payment = Card("4242")
 
 ##### Rules
 
-* Each listed member type is part of the carrier's closed case set.
-* `null` is not a member type. Use nullable member annotations such as `T?` when
-  a parenthesized union member may actively carry null.
-* Pattern matching uses ordinary patterns over those member types. Nullable
-  member patterns do not cover the `null` branch for exhaustiveness; include a
+* Each listed type declares one variant in the carrier's closed variant set.
+* `null` cannot declare a variant. Use nullable annotations such as `T?` when
+  a parenthesized type variant may actively carry null.
+* Pattern matching uses ordinary patterns over those variant types. Nullable
+  variant patterns do not cover the `null` branch for exhaustiveness; include a
   `null` arm when the union contents may be null.
-* Construction occurs by constructing a listed member type and then converting it
+* Construction occurs by constructing a listed variant type and then converting it
   to the carrier when needed.
 
 #### Body-form unions
@@ -231,9 +233,9 @@ let paidByCard: Payment = Card("4242")
 
 The body form declares a carrier with an ordinary member body. That member body
 may contain `case` declarations alongside other members such as methods and
-properties. Each `case` declaration synthesizes a named case type.
-This form is also known as a tagged union because each value belongs to one
-named case in the union's closed case set.
+properties. Each `case` declaration declares one variant and synthesizes its
+named case type. This form is also known as a tagged union because each value
+belongs to one named variant in the union's closed variant set.
 
 ##### Example
 
@@ -334,11 +336,11 @@ let left = (int)outcome
   from the case construction surface.
 * Every union carrier also exposes `HasValue: bool`, which follows the
   C# union access pattern and reports whether `Value` is not `null`.
-* Public one-parameter constructors define the C#-compatible case set.
+* Public one-parameter constructors define the C#-compatible variant set.
   `TryGetValue(out CaseType)` exposes carrier inspection for each case type but
-  does not add extra cases when constructors already define the case set.
-* An explicit cast from the carrier to a member or case type succeeds only when
-  the carrier currently holds that case; otherwise it throws
+  does not add extra variants when constructors already define that set.
+* An explicit cast from the carrier to a variant type succeeds only when the
+  carrier currently holds that variant; otherwise it throws
   `InvalidCastException`.
 * Pattern matching is preferred to explicit casts for ordinary extraction.
 
@@ -349,7 +351,7 @@ In pattern position:
 * `Union.Case(...)` is available for explicit qualification.
 * `.Case(...)` remains available as target-typed shorthand when the scrutinee
   already determines the union.
-* Parenthesized unions use ordinary patterns over their declared member types.
+* Parenthesized unions use ordinary patterns over their declared variant types.
 
 The generated prelude imports the standard `Result` and `Option` case types
 into scope. In ordinary Raven files, prefer the unqualified forms `Ok`,
@@ -401,8 +403,8 @@ Union invariants:
 * `union struct` reserves its default state as an uninitialized carrier. For
   `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
   until a union constructor populates the carrier.
-* The default `union struct` carrier state is not a formal union case. Pattern
-  exhaustiveness checks the declared case set only. Lowering and emit must still
+* The default `union struct` carrier state is not a formal union variant. Pattern
+  exhaustiveness checks the declared variant set only. Lowering and emit must still
   preserve a defensive runtime fallback for source-exhaustive matches so
   metadata consumers or forced default carriers cannot fall through silently.
 * Nullable union carriers (`U?`) add the nullable wrapper's `null` value to the
@@ -416,8 +418,8 @@ Union invariants:
   that may still contain the inactive/default carrier unless narrowed by local
   flow. Passing or returning one of those values requires an active-state proof
   at the boundary rather than an extra source match arm.
-* Local values initialized from a union case or assigned an active union value
-  are known active. Matching such a local requires only the declared case set;
+* Local values initialized from a union variant or assigned an active union value
+  are known active. Matching such a local requires only the declared variant set;
   a catch-all arm after all cases is redundant.
 * Passing a `union struct` value to a `union struct` parameter requires the
   argument to be known active at the call site. A value that flow analysis knows
@@ -429,7 +431,7 @@ Union invariants:
   knows may still be the inactive/default carrier is rejected before it leaves
   the declaring member.
 * `union class` does not have that extra carrier state; a class carrier exists
-  only after construction through one of its union cases or constructors.
+  only after construction through one of its variants or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is
   not a valid pseudo-case for `Value`.
 * `HasValue` follows the public C# union access pattern and is equivalent to

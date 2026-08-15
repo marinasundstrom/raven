@@ -1185,7 +1185,7 @@ public static class CompletionProvider
                 if (model.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard)
                     staticMembers = staticMembers.Concat(FrameworkProjectionCatalog.GetStandardMethods(model.Compilation, namedType));
                 return namedType is IUnionSymbol union
-                    ? staticMembers.Concat(union.CaseTypes.Where(IsAccessible))
+                    ? staticMembers.Concat(union.Variants.Where(IsAccessible))
                     : staticMembers;
             }
 

@@ -138,7 +138,7 @@ async func Compute() -> ValueTask {
             var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
                 resultDefinition.Construct(intType, exceptionType));
             var resultUnion = Assert.IsAssignableFrom<IUnionSymbol>(constructedResult.TryGetUnion());
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultUnion.CaseTypes.Single(c => c.Name == "Ok"));
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultUnion.Variants.Single(c => c.Name == "Ok"));
             var tryGetOkSymbol = Assert.Single(
                 constructedResult
                     .GetMembers("TryGetValue")

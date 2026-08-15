@@ -276,7 +276,7 @@ internal static class TypeSymbolNormalization
         if (containingUnion is not IUnionSymbol discriminatedUnionSymbol)
             return false;
 
-        if (!discriminatedUnionSymbol.CaseTypes.Any(@case => string.Equals(@case.Name, namedMember.Name, System.StringComparison.Ordinal)))
+        if (!discriminatedUnionSymbol.Variants.Any(@case => string.Equals(@case.Name, namedMember.Name, System.StringComparison.Ordinal)))
             return false;
 
         union = containingType;

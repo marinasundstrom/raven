@@ -200,7 +200,7 @@ internal static class UnionSymbolExtensions
             return true;
         }
 
-        caseType = unionSymbol.CaseTypes
+        caseType = unionSymbol.Variants
             .OfType<IUnionCaseTypeSymbol>()
             .FirstOrDefault(@case => string.Equals(@case.Name, caseName, System.StringComparison.Ordinal))!;
         return caseType is not null;

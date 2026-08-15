@@ -22,7 +22,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
-    private ImmutableArray<ITypeSymbol>? _caseTypes;
+    private ImmutableArray<ITypeSymbol>? _variants;
     private ImmutableArray<IUnionCaseTypeSymbol>? _declaredCases;
     private ImmutableArray<ITypeSymbol>? _memberTypes;
     private ImmutableArray<IParameterSymbol>? _constructorParameters;
@@ -1042,26 +1042,26 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
  _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces);
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
        _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces);
-    public ImmutableArray<ITypeSymbol> CaseTypes
+    public ImmutableArray<ITypeSymbol> Variants
     {
         get
         {
             if (!TryGetUnionDefinition(out var unionDefinition))
                 return ImmutableArray<ITypeSymbol>.Empty;
 
-            if (!ShouldCacheMutableSourceUnionState() && _caseTypes is not null)
-                return _caseTypes.Value;
+            if (!ShouldCacheMutableSourceUnionState() && _variants is not null)
+                return _variants.Value;
 
-            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.CaseTypes.Length);
-            foreach (var caseType in unionDefinition.CaseTypes)
-                builder.Add(Substitute(caseType));
+            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.Variants.Length);
+            foreach (var variant in unionDefinition.Variants)
+                builder.Add(Substitute(variant));
 
-            var substitutedCases = builder.MoveToImmutable();
+            var substitutedVariants = builder.MoveToImmutable();
             if (ShouldCacheMutableSourceUnionState())
-                return substitutedCases;
+                return substitutedVariants;
 
-            _caseTypes = substitutedCases;
-            return _caseTypes.Value;
+            _variants = substitutedVariants;
+            return _variants.Value;
         }
     }
 

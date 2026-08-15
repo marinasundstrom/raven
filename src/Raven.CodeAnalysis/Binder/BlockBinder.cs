@@ -18025,7 +18025,7 @@ partial class BlockBinder : Binder
             if (union is null)
                 continue;
 
-            foreach (var c in union.CaseTypes)
+            foreach (var c in union.Variants)
             {
                 if (ReferenceEquals(c.OriginalDefinition, key))
                     return namedType;
@@ -18043,7 +18043,7 @@ partial class BlockBinder : Binder
                 var union = importedScope.TryGetUnion();
                 if (union is not null)
                 {
-                    foreach (var c in union.CaseTypes)
+                    foreach (var c in union.Variants)
                     {
                         if (ReferenceEquals(c.OriginalDefinition, key))
                             return importedScope;
@@ -18056,7 +18056,7 @@ partial class BlockBinder : Binder
                 var union = importedType.TryGetUnion();
                 if (union is not null)
                 {
-                    foreach (var c in union.CaseTypes)
+                    foreach (var c in union.Variants)
                     {
                         if (ReferenceEquals(c.OriginalDefinition, key))
                             return importedType;
@@ -18075,7 +18075,7 @@ partial class BlockBinder : Binder
                     if (union is null)
                         continue;
 
-                    foreach (var c in union.CaseTypes)
+                    foreach (var c in union.Variants)
                     {
                         if (ReferenceEquals(c.OriginalDefinition, key))
                             return aliasNamedType;

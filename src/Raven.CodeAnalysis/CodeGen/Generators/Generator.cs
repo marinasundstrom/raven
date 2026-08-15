@@ -533,18 +533,18 @@ internal abstract class Generator
 
     private bool EmitObjectToDiscriminatedUnionConversion(INamedTypeSymbol destinationNamedUnion, IUnionSymbol destinationUnion)
     {
-        var caseConversions = new List<(ITypeSymbol CaseType, Conversion Conversion)>(destinationUnion.CaseTypes.Length);
-        foreach (var caseSymbol in destinationUnion.CaseTypes)
+        var variantConversions = new List<(ITypeSymbol VariantType, Conversion Conversion)>(destinationUnion.Variants.Length);
+        foreach (var variant in destinationUnion.Variants)
         {
-            var caseType = (ITypeSymbol)caseSymbol;
-            var conversion = Compilation.ClassifyConversion(caseType, destinationNamedUnion);
+            var variantType = (ITypeSymbol)variant;
+            var conversion = Compilation.ClassifyConversion(variantType, destinationNamedUnion);
             if (!conversion.Exists || !conversion.IsImplicit)
                 continue;
 
-            caseConversions.Add((caseType, conversion));
+            variantConversions.Add((variantType, conversion));
         }
 
-        if (caseConversions.Count == 0)
+        if (variantConversions.Count == 0)
             return false;
 
         var destinationClrType = ResolveClrType(destinationNamedUnion);
@@ -574,25 +574,25 @@ internal abstract class Generator
         ILGenerator.Emit(OpCodes.Br, endLabel);
         ILGenerator.MarkLabel(afterDestinationLabel);
 
-        foreach (var (caseType, conversion) in caseConversions)
+        foreach (var (variantType, conversion) in variantConversions)
         {
-            var caseClrType = ResolveClrType(caseType);
-            var nextCaseLabel = ILGenerator.DefineLabel();
+            var variantClrType = ResolveClrType(variantType);
+            var nextVariantLabel = ILGenerator.DefineLabel();
 
             ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, nextVariantLabel);
             ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
             ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
-            ILGenerator.Emit(OpCodes.Ldtoken, caseClrType);
+            ILGenerator.Emit(OpCodes.Ldtoken, variantClrType);
             ILGenerator.Emit(OpCodes.Call, typeFromHandle);
             ILGenerator.Emit(OpCodes.Call, typeEquality);
-            ILGenerator.Emit(OpCodes.Brfalse, nextCaseLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, nextVariantLabel);
 
             ILGenerator.Emit(OpCodes.Ldloc, boxedSourceLocal);
-            ILGenerator.Emit(caseClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, caseClrType);
-            EmitConversion(caseType, destinationNamedUnion, conversion);
+            ILGenerator.Emit(variantClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass, variantClrType);
+            EmitConversion(variantType, destinationNamedUnion, conversion);
             ILGenerator.Emit(OpCodes.Br, endLabel);
-            ILGenerator.MarkLabel(nextCaseLabel);
+            ILGenerator.MarkLabel(nextVariantLabel);
         }
 
         ILGenerator.Emit(OpCodes.Br, failedLabel);
