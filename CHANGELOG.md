@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 ## Unreleased
 
+- Raven SDK builds now recompile when the selected compiler toolchain path
+  changes, even when a newly installed SDK's files have older timestamps than
+  existing project output. This prevents stale union assemblies from retaining
+  .NET 11 `System.Runtime` contracts after a project is retargeted to .NET 10.
 - Compiler diagnostics emitted during `dotnet build` and `dotnet run` now stay
   on a single MSBuild-compatible line, so the .NET CLI forwards the actual Raven
   errors and warnings instead of showing only the final `RAVENBUILD` failure.

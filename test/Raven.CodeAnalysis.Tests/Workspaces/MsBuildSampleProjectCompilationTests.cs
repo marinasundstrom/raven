@@ -401,6 +401,87 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         }
     }
 
+    [Fact]
+    public void RavenSdk_RecompilesDeclaredUnionWhenSwitchingFromNet11ToNet10()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net11.0");
+        EnsureRavenCoreBuilt(repoRoot, "net11.0");
+        EnsureRavenCoreBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            void WriteProject(string targetFramework) => File.WriteAllText(projectPath, $$"""
+                    <Project Sdk="Microsoft.NET.Sdk">
+                      <PropertyGroup>
+                        <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                        <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                        <TargetFramework>{{targetFramework}}</TargetFramework>
+                        <OutputType>Exe</OutputType>
+                      </PropertyGroup>
+                    </Project>
+                    """);
+
+            WriteProject("net11.0");
+            File.WriteAllText(Path.Combine(projectRoot, "App.rvn"), """
+                import System.Console.*
+
+                union Outcome {
+                    case Success(value: int)
+                    case Failure(message: string)
+                }
+
+                func Main() {
+                    let outcome: Outcome = Outcome.Success(value: 42)
+                    WriteLine(outcome)
+                }
+                """);
+
+            var net11Result = RunProcess(
+                "dotnet",
+                $"run --project \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(net11Result.StdOut);
+            output.WriteLine(net11Result.StdErr);
+            Assert.True(
+                net11Result.ExitCode == 0,
+                $"The initial .NET 11 union project failed.\nstdout:\n{net11Result.StdOut}\nstderr:\n{net11Result.StdErr}");
+
+            WriteProject("net10.0");
+            var net10BuildResult = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(net10BuildResult.StdOut);
+            output.WriteLine(net10BuildResult.StdErr);
+            Assert.True(
+                net10BuildResult.ExitCode == 0,
+                $"The .NET 11 Raven SDK failed to compile the union project after retargeting it to .NET 10.\nstdout:\n{net10BuildResult.StdOut}\nstderr:\n{net10BuildResult.StdErr}");
+            Assert.Contains("Raven CoreCompile:", net10BuildResult.StdOut, StringComparison.Ordinal);
+
+            var net10Result = RunProcess(
+                "dotnet",
+                $"run --project \"{projectPath}\" --no-build --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(net10Result.StdOut);
+            output.WriteLine(net10Result.StdErr);
+
+            Assert.True(
+                net10Result.ExitCode == 0,
+                $"The .NET 11 Raven SDK failed to run the union project after retargeting it to .NET 10.\nstdout:\n{net10Result.StdOut}\nstderr:\n{net10Result.StdErr}");
+            Assert.Contains("42", net10Result.StdOut, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
     [Theory]
     [InlineData("build")]
     [InlineData("run")]
@@ -507,6 +588,62 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 rebuild.ExitCode == 0,
                 $"Compiler-triggered rebuild failed.\nstdout:\n{rebuild.StdOut}\nstderr:\n{rebuild.StdErr}");
+            Assert.Contains("Raven CoreCompile:", rebuild.StdOut, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
+    public void RavenProject_RebuildsWhenCompilerToolchainPathChanges()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var builtCompilerPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var firstCompilerDirectory = Path.Combine(projectRoot, "compiler-a");
+            var secondCompilerDirectory = Path.Combine(projectRoot, "compiler-b");
+            CopyDirectory(Path.GetDirectoryName(builtCompilerPath)!, firstCompilerDirectory);
+            CopyDirectory(Path.GetDirectoryName(builtCompilerPath)!, secondCompilerDirectory);
+            var firstCompilerPath = Path.Combine(firstCompilerDirectory, Path.GetFileName(builtCompilerPath));
+            var secondCompilerPath = Path.Combine(secondCompilerDirectory, Path.GetFileName(builtCompilerPath));
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var projectPath = Path.Combine(projectRoot, "Library.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(projectRoot, "Library.rvn"), "public class Library { }");
+
+            var firstBuild = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0 --property:RavenCompilerHost=\"{firstCompilerPath}\"",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(firstBuild.StdOut);
+            output.WriteLine(firstBuild.StdErr);
+            Assert.True(
+                firstBuild.ExitCode == 0,
+                $"Initial dotnet build failed.\nstdout:\n{firstBuild.StdOut}\nstderr:\n{firstBuild.StdErr}");
+
+            var rebuild = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --no-restore --property WarningLevel=0 --property:RavenCompilerHost=\"{secondCompilerPath}\"",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(rebuild.StdOut);
+            output.WriteLine(rebuild.StdErr);
+            Assert.True(
+                rebuild.ExitCode == 0,
+                $"Compiler-path rebuild failed.\nstdout:\n{rebuild.StdOut}\nstderr:\n{rebuild.StdErr}");
             Assert.Contains("Raven CoreCompile:", rebuild.StdOut, StringComparison.Ordinal);
         }
         finally

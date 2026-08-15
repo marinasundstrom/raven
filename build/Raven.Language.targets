@@ -89,7 +89,8 @@
   <PropertyGroup>
     <_RavenCompilerDependencyFile>$(IntermediateOutputPath)$(TargetName).ravendeps</_RavenCompilerDependencyFile>
     <_RavenExternalConstantsStateFile>$(IntermediateOutputPath)$(TargetName).ravenconstants</_RavenExternalConstantsStateFile>
-    <CoreCompileDependsOn>_WriteRavenExternalConstantsState;_ReadRavenCompilerDependencies;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+    <_RavenCompilerStateFile>$(IntermediateOutputPath)$(TargetName).ravencompiler</_RavenCompilerStateFile>
+    <CoreCompileDependsOn>_WriteRavenCompilerState;_WriteRavenExternalConstantsState;_ReadRavenCompilerDependencies;$(CoreCompileDependsOn)</CoreCompileDependsOn>
   </PropertyGroup>
 
   <Target Name="CreateManifestResourceNames" />
@@ -99,6 +100,15 @@
     <WriteLinesToFile
       File="$(_RavenExternalConstantsStateFile)"
       Lines="$(RavenExternalConstantOverrides);@(RavenConstant->'%(Identity)=%(Value)')"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <Target Name="_WriteRavenCompilerState">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile
+      File="$(_RavenCompilerStateFile)"
+      Lines="$(RavenCompilerHost);$(RavenCoreReferencePath);@(_RavenCompilerToolchainInput->'%(FullPath)')"
       Overwrite="true"
       WriteOnlyWhenDifferent="true" />
   </Target>
@@ -114,7 +124,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);$(RavenCompilerHost);@(_RavenCompilerToolchainInput);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator);$(_RavenExternalConstantsStateFile)"
+    Inputs="$(MSBuildProjectFullPath);$(RavenCompilerHost);@(_RavenCompilerToolchainInput);@(Compile);@(_RavenCompilerDependency);@(ReferencePath);@(ProjectReference);@(Analyzer);@(SourceGenerator);$(_RavenCompilerStateFile);$(_RavenExternalConstantsStateFile)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>
@@ -326,7 +336,7 @@
       <_RavenCleanXmlDocumentationFile Condition="'$(DocumentationFile)' != ''">$(DocumentationFile)</_RavenCleanXmlDocumentationFile>
       <_RavenCleanXmlDocumentationFile Condition="'$(_RavenCleanXmlDocumentationFile)' == ''">$(IntermediateOutputPath)$(TargetName).xml</_RavenCleanXmlDocumentationFile>
     </PropertyGroup>
-    <Delete Files="$(_RavenCompilerDependencyFile);$(_RavenExternalConstantsStateFile);$(IntermediateOutputPath).raven-runtime-dependencies;$(_RavenCleanXmlDocumentationFile)" />
+    <Delete Files="$(_RavenCompilerDependencyFile);$(_RavenCompilerStateFile);$(_RavenExternalConstantsStateFile);$(IntermediateOutputPath).raven-runtime-dependencies;$(_RavenCleanXmlDocumentationFile)" />
     <RemoveDir Directories="$(IntermediateOutputPath)raven/generated;$(IntermediateOutputPath)$(TargetName).docs;$(OutDir)$(TargetName).docs" />
   </Target>
 
