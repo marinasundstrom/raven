@@ -174,11 +174,11 @@ Entry points that return `Task<int>` produce a bridge that awaits the async body
 and returns the awaited integer as the process exit code. Entry points that
 return `Result<int, E>` or `Task<Result<int, E>>` use `Ok(value)` as the process
 exit code. Entry points that return `Result<(), E>` or `Task<Result<(), E>>`
-produce no output on `Ok`, while `Error` payload data is printed to standard
-error.
+map `Ok` to exit code `0`. For every supported `Result` entry point, `Error`
+payload data is printed to standard error and maps to exit code `1`.
 The bridge also leaves console writes intact so the awaited value can be
 observed by both the caller and the host operating system.
-【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L405-L476】
+【F:test/Raven.CodeAnalysis.Tests/Semantics/Diagnostics/EntryPointDiagnosticsTests.cs†L15-L87】【F:test/Raven.CodeAnalysis.Tests/CodeGen/Async/AsyncEntryPointBridgeTests.cs†L94-L342】
 
 Library and script output kinds ignore the entry point search; they never report
 missing or ambiguous entry-point diagnostics.

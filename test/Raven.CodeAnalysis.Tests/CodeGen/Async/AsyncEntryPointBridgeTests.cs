@@ -94,10 +94,7 @@ async func Main(args: string[]) -> Task<int> {
     public void ProgramMain_ReturningResult_ErrorCaseIsStringifiedAndReturnsFailureExitCode()
     {
         var code = """
-public union Result<T, E> {
-    case Ok(value: T)
-    case Error(error: E)
-}
+import System.*
 
 class Program {
     static func Main() -> Result<int, string> {
@@ -107,7 +104,7 @@ class Program {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
         var compilation = Compilation.Create(
             "result-bridge-program",
             [syntaxTree],
@@ -141,15 +138,11 @@ class Program {
     }
 
     [Fact]
-    public void ProgramMain_ReturningTaskOfResult_ErrorCasePayloadIsPrinted()
+    public void ProgramMain_ReturningTaskOfResult_MapsOkAndErrorToExitCodes()
     {
         var code = """
 import System.Threading.Tasks.*
-
-public union Result<T, E> {
-    case Ok(value: T)
-    case Error(data: E)
-}
+import System.*
 
 class Program {
     static async func Main(args: string[]) -> Task<Result<int, string>> {
@@ -164,7 +157,7 @@ class Program {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
         var compilation = Compilation.Create(
             "async-result-bridge-program",
             [syntaxTree],
@@ -185,8 +178,12 @@ class Program {
         Console.SetError(errorWriter);
         try
         {
-            var exitCode = entryPoint!.Invoke(null, new object?[] { Array.Empty<string>() });
-            Assert.Equal(1, Assert.IsType<int>(exitCode));
+            var successExitCode = entryPoint!.Invoke(null, new object?[] { new[] { "first", "second" } });
+            Assert.Equal(2, Assert.IsType<int>(successExitCode));
+            Assert.Equal(string.Empty, errorWriter.ToString());
+
+            var errorExitCode = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+            Assert.Equal(1, Assert.IsType<int>(errorExitCode));
             Assert.Contains("boom", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
@@ -196,15 +193,11 @@ class Program {
     }
 
     [Fact]
-    public void ProgramMain_TaskResultOfUnit_WithArgsAndAwait_EmitsAndRuns()
+    public void ProgramMain_ReturningTaskOfResultOfUnit_MapsOkAndErrorToExitCodes()
     {
         var code = """
 import System.Threading.Tasks.*
-
-public union Result<T, E> {
-    case Ok(value: T)
-    case Error(error: E)
-}
+import System.*
 
 class Program {
     static async func Main(args: string[]) -> Task<Result<(), string>> {
@@ -221,7 +214,7 @@ class Program {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
         var compilation = Compilation.Create(
             "async-result-unit-bridge-program",
             [syntaxTree],
@@ -237,28 +230,44 @@ class Program {
         var entryPoint = assembly.EntryPoint;
         Assert.NotNull(entryPoint);
 
-        var invokeResult = entryPoint!.Invoke(null, new object?[] { new[] { "ok" } });
-        Assert.Null(invokeResult);
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+        Console.SetError(errorWriter);
+        try
+        {
+            var successExitCode = entryPoint!.Invoke(null, new object?[] { new[] { "ok" } });
+            Assert.Equal(0, Assert.IsType<int>(successExitCode));
+            Assert.Equal(string.Empty, errorWriter.ToString());
+
+            var errorExitCode = entryPoint.Invoke(null, new object?[] { new[] { string.Empty } });
+            Assert.Equal(1, Assert.IsType<int>(errorExitCode));
+            Assert.Contains("empty", errorWriter.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
     }
 
     [Fact]
-    public void ProgramMain_ReturningResultOfUnit_OkCaseDoesNotPrint()
+    public void ProgramMain_ReturningResultOfUnit_MapsOkAndErrorToExitCodes()
     {
         var code = """
-public union Result<T, E> {
-    case Ok(value: T)
-    case Error(error: E)
-}
+import System.*
 
 class Program {
     static func Main(args: string[]) -> Result<(), string> {
-        .Ok
+        if args.Length == 0 {
+            return .Error("missing")
+        }
+
+        return .Ok
     }
 }
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
         var compilation = Compilation.Create(
             "result-unit-ok-bridge-program",
             [syntaxTree],
@@ -279,12 +288,13 @@ class Program {
         Console.SetError(errorWriter);
         try
         {
-            var invokeResult = entryPoint!.GetParameters().Length == 0
-                ? entryPoint.Invoke(null, null)
-                : entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
-
-            Assert.Null(invokeResult);
+            var successExitCode = entryPoint!.Invoke(null, new object?[] { new[] { "ok" } });
+            Assert.Equal(0, Assert.IsType<int>(successExitCode));
             Assert.Equal(string.Empty, errorWriter.ToString());
+
+            var errorExitCode = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+            Assert.Equal(1, Assert.IsType<int>(errorExitCode));
+            Assert.Contains("missing", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
         {
@@ -296,10 +306,7 @@ class Program {
     public void ProgramMain_ReturningResultOfInt_OkCaseBecomesExitCode()
     {
         var code = """
-public union Result<T, E> {
-    case Ok(value: T)
-    case Error(error: E)
-}
+import System.*
 
 class Program {
     static func Main(args: string[]) -> Result<int, string> {
@@ -309,7 +316,7 @@ class Program {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
         var compilation = Compilation.Create(
             "result-int-ok-bridge-program",
             [syntaxTree],

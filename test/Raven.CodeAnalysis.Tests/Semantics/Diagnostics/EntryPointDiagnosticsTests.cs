@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -12,6 +13,77 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class EntryPointDiagnosticsTests
 {
+    public static IEnumerable<object[]> LegalMainSignatures()
+    {
+        var returnShapes = new (string Modifier, string ReturnType, string Body, SpecialType BridgeReturnType)[]
+        {
+            (string.Empty, "unit", "return;", SpecialType.System_Unit),
+            (string.Empty, "int", "return 0", SpecialType.System_Int32),
+            (string.Empty, "Task", "return Task.CompletedTask", SpecialType.System_Unit),
+            (string.Empty, "Task<int>", "return Task.FromResult(0)", SpecialType.System_Int32),
+            (string.Empty, "Result<int, string>", "return .Ok(0)", SpecialType.System_Int32),
+            (string.Empty, "Result<(), string>", "return .Ok", SpecialType.System_Int32),
+            ("async ", "Task<Result<int, string>>", "await Task.Yield()\nreturn .Ok(0)", SpecialType.System_Int32),
+            ("async ", "Task<Result<(), string>>", "await Task.Yield()\nreturn .Ok", SpecialType.System_Int32),
+        };
+
+        foreach (var returnShape in returnShapes)
+        {
+            yield return
+            [
+                returnShape.Modifier,
+                returnShape.ReturnType,
+                returnShape.Body,
+                string.Empty,
+                returnShape.BridgeReturnType,
+            ];
+            yield return
+            [
+                returnShape.Modifier,
+                returnShape.ReturnType,
+                returnShape.Body,
+                "args: string[]",
+                returnShape.BridgeReturnType,
+            ];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(LegalMainSignatures))]
+    public void ConsoleApp_AllLegalMainReturnAndParameterShapes_AreAccepted(
+        string modifier,
+        string returnType,
+        string body,
+        string parameters,
+        SpecialType bridgeReturnType)
+    {
+        var code = $$"""
+import System.Threading.Tasks.*
+import System.*
+
+class Program {
+    static {{modifier}}func Main({{parameters}}) -> {{returnType}} {
+        {{body}}
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "legal-entry-point",
+            [tree],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.EntryPointHasInvalidSignature ||
+            diagnostic.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
+
+        var entryPoint = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetEntryPoint());
+        Assert.Equal(bridgeReturnType, entryPoint.ReturnType.SpecialType);
+    }
+
     [Fact]
     public void SynthesizedEntryPointArguments_UseCompilationStringArrayType()
     {

@@ -1608,17 +1608,21 @@ internal class MethodBodyGenerator
         resultLocal.SetLocalSymInfo("entryResult");
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 
-        var resultUnion = resultType.TryGetUnion();
-        var okCase = resultUnion?.CaseTypes.FirstOrDefault(c => c.Name == "Ok") as INamedTypeSymbol;
-        var errorCase = resultUnion?.CaseTypes.FirstOrDefault(c => c.Name == "Error") as INamedTypeSymbol;
+        resultType.TryFindUnionCaseType("Ok", out var okCase);
+        resultType.TryFindUnionCaseType("Error", out var errorCase);
 
         var okMethod = FindTryGetValueMethod(resultType, okCase);
         var errorMethod = FindTryGetValueMethod(resultType, errorCase);
 
         var doneLabel = ILGenerator.DefineLabel();
         var isIntBridge = bridgeMethod.ReturnType.SpecialType == SpecialType.System_Int32;
+        var usesOkPayloadAsExitCode = EntryPointSignature.TryGetResultPayloadTypes(
+            resultType,
+            out var okPayloadType,
+            out _,
+            out _) && okPayloadType.SpecialType == SpecialType.System_Int32;
 
-        if (isIntBridge && okMethod is not null)
+        if (usesOkPayloadAsExitCode && okMethod is not null)
         {
             var okMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(okMethod);
             var okCaseRuntimeType = TryGetOutLocalElementType(okMethodInfo, resultClrType) ?? typeof(object);

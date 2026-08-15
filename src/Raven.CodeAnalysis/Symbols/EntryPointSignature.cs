@@ -155,11 +155,9 @@ internal static class EntryPointSignature
 
     public static ITypeSymbol ResolveBridgeReturnType(Compilation compilation, ITypeSymbol returnType)
     {
-        if (TryGetResultPayloadTypes(returnType, out var okType, out _, out _))
+        if (TryGetResultPayloadTypes(returnType, out _, out _, out _))
         {
-            return okType.SpecialType == SpecialType.System_Int32
-                ? compilation.GetSpecialType(SpecialType.System_Int32)
-                : compilation.GetSpecialType(SpecialType.System_Unit);
+            return compilation.GetSpecialType(SpecialType.System_Int32);
         }
 
         if (returnType.SpecialType == SpecialType.System_Int32)

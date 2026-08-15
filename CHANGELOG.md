@@ -7,6 +7,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 - Compiler diagnostics emitted during `dotnet build` and `dotnet run` now stay
   on a single MSBuild-compatible line, so the .NET CLI forwards the actual Raven
   errors and warnings instead of showing only the final `RAVENBUILD` failure.
+- Result-returning application entry points now resolve constructed `Ok` and
+  `Error` cases consistently for source and referenced `Raven.Core.Result`
+  carriers. `Error` writes its payload to standard error and returns exit code
+  `1`; `Result<(), E>.Ok` returns exit code `0`.
 
 ## 0.1.0-preview.9 - 2026-08-14
 

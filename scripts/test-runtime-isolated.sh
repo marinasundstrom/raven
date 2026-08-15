@@ -40,7 +40,6 @@ build_additional_isolated_filter() {
 build_stale_runtime_exclusion_filter() {
   local filter=""
   local names=(
-    "AsyncEntryPointBridgeTests"
     "AsyncPropagateCodeGenTests"
     "AsyncTryAwaitCodeGenTests"
     "ByRefCodeGenTests"
