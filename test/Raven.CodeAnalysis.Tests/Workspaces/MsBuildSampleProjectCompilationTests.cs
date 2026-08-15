@@ -401,6 +401,62 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         }
     }
 
+    [Theory]
+    [InlineData("build")]
+    [InlineData("run")]
+    public void RavenProject_CompilerDiagnosticsAreForwardedByDotnetCommand(string command)
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot);
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                func Main() {
+                    missingSymbol
+                }
+                """);
+
+            var projectArgument = command == "run"
+                ? $"--project \"{projectPath}\""
+                : $"\"{projectPath}\"";
+            var result = RunProcess(
+                "dotnet",
+                $"{command} {projectArgument} --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.NotEqual(0, result.ExitCode);
+            Assert.Contains(
+                "main.rvn(2,5): error RAV0103: 'missingSymbol' is not in scope.",
+                result.StdOut,
+                StringComparison.Ordinal);
+            Assert.Contains("error RAVENBUILD:", result.StdOut, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
     [Fact]
     public void RavenProject_RebuildsWhenCompilerToolchainDependencyChanges()
     {

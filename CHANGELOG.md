@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
 
 ## Unreleased
 
+- Compiler diagnostics emitted during `dotnet build` and `dotnet run` now stay
+  on a single MSBuild-compatible line, so the .NET CLI forwards the actual Raven
+  errors and warnings instead of showing only the final `RAVENBUILD` failure.
+
 ## 0.1.0-preview.9 - 2026-08-14
 
 - Added a guarded release procedure that derives one monotonically increasing

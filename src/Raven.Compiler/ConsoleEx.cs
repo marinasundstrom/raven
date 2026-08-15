@@ -155,7 +155,20 @@ static class ConsoleEx
                 _ => ConsoleColor.Black
             };
 
-            AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{diagnostic.Severity.ToString().ToLower()} {descriptor.Id}[/]: {Markup.Escape(diagnostic.GetMessage())}");
+            var severity = diagnostic.Severity.ToString().ToLowerInvariant();
+            var message = diagnostic.GetMessage();
+
+            if (Console.IsOutputRedirected)
+            {
+                // Spectre wraps redirected output to its fallback console width. Keep
+                // MSBuild-compatible diagnostics on one physical line so Exec can
+                // recognize and forward them to dotnet build/run.
+                Console.WriteLine($"{fileDirectory}{fileName}{fileLocation}: {severity} {descriptor.Id}: {message}");
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{severity} {descriptor.Id}[/]: {Markup.Escape(message)}");
+            }
 
             if (includeSuggestions &&
                 SuggestionsDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
