@@ -20,17 +20,18 @@ public sealed class RuntimeSymbolResolverTests
         const string source = """
 import System.Threading.Tasks.*
 
-func Wrap<T>(value: T) -> Task<T> {
-    return Task.FromResult(value)
+class C {
+    static func Wrap<T>(value: T) -> Task<T> {
+        return Task.FromResult(value)
+    }
 }
 """;
 
         var calls = CaptureMethodCalls(
             source,
-            static generator => generator.MethodSymbol.Name == "Wrap" && generator.MethodSymbol.IsGenericMethod,
-            OutputKind.ConsoleApplication);
+            static generator => generator.MethodSymbol.Name == "Wrap" && generator.MethodSymbol.IsGenericMethod);
 
-        var fromResult = calls.First(static call => call.Name == "FromResult");
+        var fromResult = Assert.Single(calls.Where(static call => call.Name == "FromResult"));
         var genericParameter = GetCarrierGenericArguments(fromResult).First(static arg => arg.IsGenericParameter);
 
         Assert.True(genericParameter.IsGenericMethodParameter);
@@ -55,9 +56,7 @@ async func Compute<T>(value: T) -> Task<T> {
             source,
             static generator =>
                 generator.MethodSymbol.Name == "Compute" &&
-                generator.MethodSymbol.IsGenericMethod &&
-                generator.MethodSymbol.ContainingType?.Name == "Program",
-            OutputKind.ConsoleApplication);
+                generator.MethodSymbol.IsGenericMethod);
 
         var carrierCall = calls.First(static call =>
             call.Name == "FromResult" ||
@@ -87,8 +86,7 @@ async func Compute() -> ValueTask<int> {
             static generator =>
                 generator.MethodSymbol.Name == "MoveNext" &&
                 generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
-                stateMachine.AsyncMethod.Name == "Compute",
-            OutputKind.ConsoleApplication);
+                stateMachine.AsyncMethod.Name == "Compute");
 
         Assert.Contains(
             calls,
@@ -111,8 +109,7 @@ async func Compute() -> ValueTask {
             static generator =>
                 generator.MethodSymbol.Name == "MoveNext" &&
                 generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
-                stateMachine.AsyncMethod.Name == "Compute",
-            OutputKind.ConsoleApplication);
+                stateMachine.AsyncMethod.Name == "Compute");
 
         Assert.Contains(
             calls,
@@ -122,7 +119,7 @@ async func Compute() -> ValueTask {
     [Fact]
     public void ResultTryGetValueCall_UsesClosedCaseOutType()
     {
-        var (resultReference, path) = CreateRavenCoreResultReference();
+        var (resultReference, path) = CreateResultReference();
         try
         {
             var compilation = Compilation.Create(
@@ -192,8 +189,7 @@ async func Compute() -> Task<Dictionary<string, int>> {
             static generator =>
                 generator.MethodSymbol.Name == "MoveNext" &&
                 generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
-                stateMachine.AsyncMethod.Name == "Compute",
-            OutputKind.DynamicallyLinkedLibrary);
+                stateMachine.AsyncMethod.Name == "Compute");
 
         var awaitUnsafeOnCompleted = calls.First(static call =>
             string.Equals(call.Name, "AwaitUnsafeOnCompleted", StringComparison.Ordinal));
@@ -222,10 +218,7 @@ func Test(element: JsonElement, writer: Utf8JsonWriter, options: JsonSerializerO
 
         var calls = CaptureMethodCalls(
             source,
-            static generator =>
-                generator.MethodSymbol.Name == "Test" &&
-                generator.MethodSymbol.ContainingType?.Name == "Program",
-            OutputKind.DynamicallyLinkedLibrary);
+            static generator => generator.MethodSymbol.Name == "Test");
 
         var deserializeCall = Assert.Single(calls.Where(static call =>
             call.DeclaringType == typeof(JsonSerializer) &&
@@ -253,10 +246,7 @@ func Test(root: JsonElement, options: JsonSerializerOptions) -> int {
 
         var calls = CaptureMethodCalls(
             source,
-            static generator =>
-                generator.MethodSymbol.Name == "Test" &&
-                generator.MethodSymbol.ContainingType?.Name == "Program",
-            OutputKind.DynamicallyLinkedLibrary);
+            static generator => generator.MethodSymbol.Name == "Test");
 
         var deserializeCall = Assert.Single(calls.Where(static call =>
             call.DeclaringType == typeof(JsonSerializer) &&
@@ -282,10 +272,7 @@ func Test(window: Window, options: JsonSerializerOptions) -> string {
 
         var calls = CaptureMethodCalls(
             source,
-            static generator =>
-                generator.MethodSymbol.Name == "Test" &&
-                generator.MethodSymbol.ContainingType?.Name == "Program",
-            OutputKind.DynamicallyLinkedLibrary);
+            static generator => generator.MethodSymbol.Name == "Test");
 
         var serializeCall = Assert.Single(calls.Where(static call =>
             call.DeclaringType == typeof(JsonSerializer) &&
@@ -300,15 +287,18 @@ func Test(window: Window, options: JsonSerializerOptions) -> string {
 
     private static MethodInfo[] CaptureMethodCalls(
         string source,
-        Func<MethodGenerator, bool> predicate,
-        OutputKind outputKind)
+        Func<MethodGenerator, bool> predicate)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("runtime_resolver", new CompilationOptions(outputKind))
+        var compilation = Compilation.Create(
+                "runtime_resolver",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default);
 
         _ = compilation.GetSpecialType(SpecialType.System_Object);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var recorder = new RecordingILBuilderFactory(ReflectionEmitILBuilderFactory.Instance, predicate);
         var codeGenerator = new CodeGenerator(compilation)
@@ -319,7 +309,11 @@ func Test(window: Window, options: JsonSerializerOptions) -> string {
         using var peStream = new MemoryStream();
         codeGenerator.Emit(peStream, pdbStream: null);
 
-        return recorder.CapturedInstructions!
+        Assert.True(
+            recorder.CapturedInstructions is not null,
+            $"No generated method matched the recording predicate. Seen methods: {string.Join(", ", recorder.SeenMethods.Select(static method => method.ToDisplayString()))}");
+
+        return recorder.CapturedInstructions
             .Select(instruction => instruction.Operand.Value as MethodInfo)
             .Where(static method => method is not null)
             .ToArray()!;
@@ -336,15 +330,20 @@ func Test(window: Window, options: JsonSerializerOptions) -> string {
         return Array.Empty<Type>();
     }
 
-    private static (MetadataReference Reference, string Path) CreateRavenCoreResultReference()
+    private static (MetadataReference Reference, string Path) CreateResultReference()
     {
-        var coreDirectory = Path.GetFullPath(Path.Combine(
-            "..", "..", "..", "..", "..", "src", "Raven.Core"));
-        var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Option.rvn")));
-        var resultTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Result.rvn")));
+        var resultTree = SyntaxTree.ParseText(
+            """
+namespace System
+
+public union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+""");
         var compilation = Compilation.Create(
-            "raven-core-result-runtime-resolver-fixture",
-            [optionTree, resultTree],
+            "result-runtime-resolver-fixture",
+            [resultTree],
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
@@ -352,7 +351,7 @@ func Test(window: Window, options: JsonSerializerOptions) -> string {
         var emitResult = compilation.Emit(stream);
         Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
 
-        var path = Path.Combine(Path.GetTempPath(), $"raven-core-result-runtime-resolver-{Guid.NewGuid():N}.dll");
+        var path = Path.Combine(Path.GetTempPath(), $"result-runtime-resolver-{Guid.NewGuid():N}.dll");
         File.WriteAllBytes(path, stream.ToArray());
         return (MetadataReference.CreateFromFile(path), path);
     }
