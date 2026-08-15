@@ -851,11 +851,13 @@ public partial class Compilation
         IReadOnlyList<SyntaxTree> syntaxTrees,
         ScriptCompilationInfo scriptCompilationInfo)
     {
-        if (syntaxTrees.Count != 1)
-            throw new ArgumentException("A script compilation must contain exactly one syntax tree.", nameof(syntaxTrees));
-
-        if (syntaxTrees[0].Options.Kind is not (SourceCodeKind.Script or SourceCodeKind.Interactive))
-            throw new ArgumentException("A script compilation requires a script or interactive syntax tree.", nameof(syntaxTrees));
+        if (syntaxTrees.Count(static tree =>
+                tree.Options.Kind is SourceCodeKind.Script or SourceCodeKind.Interactive) != 1)
+        {
+            throw new ArgumentException(
+                "A script compilation must contain exactly one script or interactive syntax tree.",
+                nameof(syntaxTrees));
+        }
 
         if (scriptCompilationInfo.PreviousScriptCompilation is { IsSubmission: false })
             throw new ArgumentException("The previous compilation must be a script submission.", nameof(scriptCompilationInfo));

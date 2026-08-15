@@ -32,6 +32,16 @@ public sealed class ScriptExecutionTests
     }
 
     [Fact]
+    public async Task RunAsync_UsesDefaultPreludeForLinqCollectionExpression()
+    {
+        using var state = await RavenScript.RunAsync(
+            "[1, 2, 3].Where(x => x > 1).Count()");
+
+        Assert.True(state.HasReturnValue);
+        Assert.Equal(2, state.ReturnValue);
+    }
+
+    [Fact]
     public async Task ContinueWithAsync_ReturnsValueFromPreviousFunction()
     {
         using var first = await RavenScript.RunAsync(

@@ -144,6 +144,11 @@ the load context is not a security boundary and unload remains cooperative.
 The host mechanism stays internal so it can evolve without leaking runtime
 loader details into compiler APIs.
 
+Each submission also includes the standard generated Raven prelude as a
+separate syntax tree. This gives scripts and the REPL the same common namespace,
+LINQ extension, `Result`, and `Option` imports as a regular Raven project while
+preserving source locations in the user's submission.
+
 For a submission ending in a value-producing expression, `TopLevelBinder`
 routes that expression to a compiler-owned `SubmissionResultSymbol`.
 `SubmissionCodeGenerator` stores the typed value in the active execution

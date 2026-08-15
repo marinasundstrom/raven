@@ -56,6 +56,9 @@ public sealed class Script
             Code,
             new ParseOptions { Kind = SourceCodeKind.Script },
             path: $"<submission-{Guid.NewGuid():N}>");
+        var preludeTree = SyntaxTree.ParseText(
+            RavenPrelude.CreateDefaultSourceText(),
+            path: "Raven.Script.Prelude.g.rvn");
 
         return Compilation.CreateScriptCompilation(
             $"Raven.Script.{Guid.NewGuid():N}",
@@ -63,6 +66,7 @@ public sealed class Script
             Options.MetadataReferences.ToArray(),
             new CompilationOptions(OutputKind.ConsoleApplication),
             previousCompilation,
-            previousReference);
+            previousReference)
+            .AddSyntaxTrees(preludeTree);
     }
 }
