@@ -36,6 +36,7 @@ build_heavy_exclusion_filter() {
     "MsBuildSampleProjectCompilationTests"
     "ProjectDocumentationEmissionTests"
     "ProjectFileTargetFrameworkAttributeTests"
+    "RavenCliFileRunTests"
     "RavenProjectOutputDeterminismTests"
     "StaticFactoryMethod_UsesCanonicalSourceMethodForEmission"
     "OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter"

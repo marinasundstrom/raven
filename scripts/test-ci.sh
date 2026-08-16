@@ -62,6 +62,16 @@ dotnet pack "$REPO_ROOT/sdk/Raven.Sdk/Raven.Sdk.csproj" \
   /property:InformationalVersion="$SDK_VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false
 
+# File-run coverage launches nested rvn/rvnc processes. Run it in a fresh test
+# host before the larger baseline so accumulated process state cannot starve it.
+dotnet test "$REPO_ROOT/test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj" \
+  --no-build \
+  -m:1 \
+  /property:WarningLevel=0 \
+  --blame-hang-timeout 180s \
+  --blame-hang-dump-type none \
+  --filter 'FullyQualifiedName~RavenCliFileRunTests'
+
 "$REPO_ROOT/scripts/test-baseline.sh"
 "$REPO_ROOT/scripts/test-runtime-isolated.sh"
 
