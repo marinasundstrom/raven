@@ -402,6 +402,17 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
     public async Task Handle_PublishedNullableGuidanceDiagnosticPreservesCodeFixArgumentsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
+        File.WriteAllText(Path.Combine(_tempRoot, "CodeActions.rvnproj"), """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RavenEnabledAnalyzers>NonNullDeclarationsAnalyzer</RavenEnabledAnalyzers>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="main.rvn" />
+  </ItemGroup>
+</Project>
+""");
         var filePath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(filePath);
         const string code = """
@@ -414,6 +425,7 @@ func Test() {
     }
 }
 """;
+        File.WriteAllText(filePath, code);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -427,7 +439,8 @@ func Test() {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = await store.UpsertDocumentAsync(uri, code);
+        var document = await store.UpsertDocumentAsync(uri, code);
+        document.Project.CompilationOptions!.EnabledAnalyzers.ShouldContain("NonNullDeclarationsAnalyzer");
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         var diagnostic = diagnostics.Single(candidate =>
             candidate.Code?.String == NonNullDeclarationsAnalyzer.DiagnosticId &&
@@ -454,7 +467,7 @@ func Test() {
             .Select(action => action.CodeAction!.Title)
             .ToArray();
         titles.ShouldContain("Use 'Option<string>'");
-        titles.ShouldContain("Rewrite nullable flow to Option pattern matching");
+        titles.ShouldContain("Rewrite nullable handling to Option pattern matching");
     }
 
     [Fact]

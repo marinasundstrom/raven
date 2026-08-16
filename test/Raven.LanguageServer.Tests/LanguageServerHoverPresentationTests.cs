@@ -1053,7 +1053,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union struct Option<string>: IUnion");
+        signature.ShouldBe("union struct Option<string>: IPropagatable<Option<string>, string, unit>, IRavenStructuredDisplay, IUnion");
     }
 
     [Fact]
@@ -1097,7 +1097,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union struct Union<Left, Right>: IUnion");
+        signature.ShouldBe("union struct Union<Left, Right>: IRavenStructuredDisplay, IUnion");
     }
 
     [Fact]
@@ -3690,7 +3690,8 @@ class C {
             Directory.CreateDirectory(tempRoot);
 
             var projectPath = Path.Combine(tempRoot, "PatternHover.rvnproj");
-            File.WriteAllText(projectPath, """
+            var ravenCorePath = GetRavenCoreReferencePath();
+            File.WriteAllText(projectPath, $"""
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -3699,6 +3700,9 @@ class C {
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.rvn" />
+    <Reference Include="Raven.Core">
+      <HintPath>{ravenCorePath}</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>
 """);
