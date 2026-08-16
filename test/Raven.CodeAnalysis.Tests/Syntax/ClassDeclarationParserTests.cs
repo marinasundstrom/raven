@@ -235,6 +235,24 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void MethodDeclaration_WithDiscardParameters_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            class Handler {
+                public func Handle(_: int, _: string) { }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.All(
+            method.ParameterList.Parameters,
+            parameter => Assert.Equal(SyntaxKind.UnderscoreToken, parameter.Identifier.Kind));
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ExtensionMethod_WithFuncKeyword_ParsesWithoutSyntaxErrors()
     {
         var source = """
@@ -248,6 +266,22 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
 
         Assert.Equal(SyntaxKind.FuncKeyword, method.FuncKeyword.Kind);
         Assert.Equal("AddOne", method.Identifier.ValueText);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ExtensionMethod_WithDiscardParameter_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            extension NumberOps for int {
+                public func Observe(_: string) { }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.UnderscoreToken, Assert.Single(method.ParameterList.Parameters).Identifier.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
 

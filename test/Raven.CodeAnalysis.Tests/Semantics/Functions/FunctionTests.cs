@@ -12,6 +12,26 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class FunctionTests : CompilationTestBase
 {
     [Fact]
+    public void Function_WithDiscardParameters_BindsParameterSlots()
+    {
+        var source = """
+func ignore(_: int, _: string) { }
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(2, symbol.Parameters.Length);
+        Assert.All(symbol.Parameters, parameter => Assert.Equal("_", parameter.Name));
+        Assert.All(
+            function.ParameterList.Parameters,
+            parameter => Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter)));
+    }
+
+    [Fact]
     public void Function_WithoutReturnType_DefaultsToVoid()
     {
         var source = """

@@ -1164,7 +1164,7 @@ partial class BlockBinder : Binder
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
                 {
-                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                    if (param.Name != "_" && param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
                 }
             }
@@ -16471,7 +16471,7 @@ partial class BlockBinder : Binder
             if (allowLocalsAndParams && current is MethodBinder methodBinder)
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
-                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                    if (param.Name != "_" && param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
             }
 
@@ -16630,7 +16630,7 @@ partial class BlockBinder : Binder
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
                 {
-                    if (seen.Add(param.Name))
+                    if (param.Name != "_" && seen.Add(param.Name))
                         yield return param;
                 }
             }

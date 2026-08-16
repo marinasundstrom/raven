@@ -72,9 +72,17 @@ the compiler reports an attribute-target diagnostic.
 
 ### Parameters
 
-Function, method, and accessor parameters use the `name: Type` syntax. Parameter
-names are required and participate in overload resolution alongside their types
-and any `ref`/`out` modifiers.
+Function and method parameters normally use the `name: Type` syntax. When an
+implementation intentionally does not use a parameter, its name may be replaced
+with the discard `_`, as in `func Handle(_: Request)`. A discarded parameter
+still occupies its declared argument position and participates in the callable
+signature, but it does not introduce a name in the function body and does not
+produce an unused-parameter diagnostic. This is useful for overrides and
+interface implementations that must preserve a contract's parameter list.
+
+Other function-like declarations, including constructors and accessors, require
+named parameters. Parameter types and any `ref`/`out` modifiers participate in
+overload resolution.
 
 `val`/`var` binding keywords are **not valid** on ordinary function, method,
 operator, indexer, or accessor parameters. The only parameter context where

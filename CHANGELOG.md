@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Named `func` declarations now accept `_` discard parameters. Discarded
+  parameters preserve their argument slots and types without introducing a
+  usable body name or producing the unused-parameter diagnostic, which allows
+  overrides and interface implementations to explicitly ignore contract
+  parameters.
+
 ## 0.1.0-preview.10 - 2026-08-16
 
 - Concurrent pattern-loop diagnostics and semantic queries no longer

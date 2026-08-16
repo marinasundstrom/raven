@@ -38,6 +38,19 @@ class C {
     }
 
     [Fact]
+    public void DiscardedMethodParameter_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(_: int) -> unit {
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
     public void ParameterReadByMacroContributionExpression_DoesNotReportDiagnostic()
     {
         const string code = """

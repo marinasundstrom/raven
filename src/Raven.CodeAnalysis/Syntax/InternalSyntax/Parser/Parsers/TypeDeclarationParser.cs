@@ -920,7 +920,7 @@ internal class TypeDeclarationParser : SyntaxParser
             typeParameterList = ParseTypeParameterList();
         }
 
-        var parameterList = ParseParameterList();
+        var parameterList = ParseParameterList(allowDiscardParameters: true);
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
@@ -1225,7 +1225,8 @@ internal class TypeDeclarationParser : SyntaxParser
     public ParameterListSyntax ParseParameterList(
         SyntaxToken? openParenToken = null,
         bool allowAccessModifiers = false,
-        bool allowUnnamedTypes = false)
+        bool allowUnnamedTypes = false,
+        bool allowDiscardParameters = false)
     {
         var openParenTokenValue = openParenToken ?? ReadToken();
 
@@ -1307,7 +1308,12 @@ internal class TypeDeclarationParser : SyntaxParser
                 var hasExplicitName = CanTokenBeIdentifier(PeekToken()) &&
                     PeekToken(1).IsKind(SyntaxKind.ColonToken);
 
-                if (allowUnnamedTypes && !hasExplicitName)
+                if (allowDiscardParameters && PeekToken().IsKind(SyntaxKind.UnderscoreToken))
+                {
+                    name = ReadToken();
+                    typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+                }
+                else if (allowUnnamedTypes && !hasExplicitName)
                 {
                     name = MissingToken(SyntaxKind.IdentifierToken);
                     var type = new NameSyntaxParser(this).ParseTypeName();

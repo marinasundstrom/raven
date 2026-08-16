@@ -142,7 +142,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         SyntaxToken identifier,
         TypeParameterListSyntax? typeParameterList)
     {
-        var parameterList = new StatementSyntaxParser(this).ParseParameterList();
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(allowDiscardParameters: true);
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
