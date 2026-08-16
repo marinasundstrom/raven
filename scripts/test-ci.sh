@@ -72,7 +72,9 @@ dotnet test "$REPO_ROOT/test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.c
   --filter 'FullyQualifiedName~RavenCliFileRunTests'
 
 "$REPO_ROOT/scripts/test-baseline.sh"
+dotnet build-server shutdown
 "$REPO_ROOT/scripts/test-runtime-isolated.sh"
+dotnet build-server shutdown
 
 language_server_projects=(
   "$REPO_ROOT/test/Raven.LanguageServer.Tests/Raven.LanguageServer.Tests.csproj"
