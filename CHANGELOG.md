@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## 0.1.0-preview.10 - 2026-08-16
 
+- Concurrent pattern-loop diagnostics and semantic queries no longer
+  recursively hash binder-owned local symbols.
 - Lock statements now preserve the runtime scope for
   `System.Threading.Monitor`, preventing .NET 11 executables from looking for
   the non-forwarded type in `System.Runtime`.

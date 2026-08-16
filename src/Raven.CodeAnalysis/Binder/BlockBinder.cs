@@ -1575,7 +1575,7 @@ partial class BlockBinder : Binder
         private readonly record struct DeclaredLocalEntry(ILocalSymbol Local, LexicalScopeKey Scope);
 
         private readonly List<ILocalSymbol> _declaredLocals = new();
-        private readonly Dictionary<ILocalSymbol, LexicalScopeKey> _scopesByLocal = new(SymbolEqualityComparer.Default);
+        private readonly Dictionary<ILocalSymbol, LexicalScopeKey> _scopesByLocal = new(SymbolReferenceComparer<ILocalSymbol>.Instance);
         private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
         private readonly Dictionary<string, List<DeclaredLocalEntry>> _declaredLocalsByName = new(StringComparer.Ordinal);
 
@@ -1654,13 +1654,15 @@ partial class BlockBinder : Binder
             ILocalSymbol expectedLocal,
             SyntaxReferenceKey expectedKey)
         {
-            if (ReferenceEquals(local, expectedLocal) ||
-                SymbolEqualityComparer.Default.Equals(local, expectedLocal))
+            if (ReferenceEquals(local, expectedLocal))
             {
                 return true;
             }
 
-            return TryGetSyntaxReferenceKey(local, out var key) && key.Equals(expectedKey);
+            if (TryGetSyntaxReferenceKey(local, out var key) && key.Equals(expectedKey))
+                return true;
+
+            return SymbolEqualityComparer.Default.Equals(local, expectedLocal);
         }
 
         public void ReplaceDeclaredLocal(ILocalSymbol oldLocal, ILocalSymbol newLocal, SyntaxNode declaringSyntax)
@@ -1709,7 +1711,19 @@ partial class BlockBinder : Binder
                 : null;
 
         public bool TryGetScope(ILocalSymbol local, out LexicalScopeKey scope)
-            => _scopesByLocal.TryGetValue(local, out scope);
+        {
+            if (_scopesByLocal.TryGetValue(local, out scope))
+                return true;
+
+            if (TryGetSyntaxReferenceKey(local, out var key) &&
+                _declaredLocalsBySyntax.TryGetValue(key, out var declaredLocal))
+            {
+                return _scopesByLocal.TryGetValue(declaredLocal, out scope);
+            }
+
+            scope = default;
+            return false;
+        }
 
         public bool TryGetDeclaredLocalInSameScope(string name, SyntaxNode declaringSyntax, out ILocalSymbol local)
         {
