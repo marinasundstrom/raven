@@ -811,7 +811,6 @@ partial class BlockBinder
         if (!isAwaitFor && forStmt.Expression is RangeExpressionSyntax rangeSyntax)
         {
             (collection, iteration) = loopBinder.BindForRangeIteration(forStmt, rangeSyntax);
-            CacheBoundNode(forStmt.Expression, collection);
         }
         else
         {
@@ -823,6 +822,8 @@ partial class BlockBinder
             if (forStmt.ByKeyword.Kind == SyntaxKind.ByKeyword)
                 _diagnostics.ReportRangeForLoopByClauseRequiresRange(forStmt.ByKeyword.GetLocation());
         }
+
+        CacheBoundNode(forStmt.Expression, collection);
 
         ILocalSymbol? local = null;
         BoundStatement body;
