@@ -48,7 +48,7 @@ class C {
 
         var carrierCheck = Assert.IsType<BoundIfStatement>(statements[3]);
         var tryGetValue = Assert.IsType<BoundInvocationExpression>(carrierCheck.Condition);
-        Assert.Equal("TryGetValue", tryGetValue.Method.Name);
+        Assert.Equal("TryGetOutput", tryGetValue.Method.Name);
         Assert.Empty(Assert.IsType<BoundBlockStatement>(carrierCheck.ThenNode).Statements);
         Assert.Contains(
             CollectReturnStatements(Assert.IsType<BoundBlockStatement>(carrierCheck.ElseNode!)),

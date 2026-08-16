@@ -121,7 +121,10 @@ func firstEven(values: int[]) -> Option<int> {
   to preserve that rule.
 * `expr?` performs propagation only when `?` is not followed by a trailer. In
   postfix position, `expr?.Member`, `expr?(...)`, and `expr?[...]` are parsed as
-  conditional-access forms instead.
+  conditional-access forms instead. For a custom `IPropagatable` carrier,
+  `expr?.Member` propagates the receiver and then accesses `Member` on its
+  output. (`Result` and `Option` retain the lifted mapping behavior described
+  below.)
 
 If propagation relies on a user-defined implicit conversion on the error
 channel, the compiler reports informational diagnostic `RAV1506`.

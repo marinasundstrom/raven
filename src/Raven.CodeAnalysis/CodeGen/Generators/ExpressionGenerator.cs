@@ -1685,6 +1685,31 @@ internal partial class ExpressionGenerator : Generator
             return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
         }
 
+        if (expr.TryGetOutputMethod is { } tryGetOutputSymbol)
+        {
+            var outputClrType = ResolveClrType(expr.OkType);
+            var outputLocal = ILGenerator.DeclareLocal(outputClrType);
+            var tryGetOutput = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetOutputSymbol));
+
+            if (operandClrType.IsValueType)
+                ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            else
+                ILGenerator.Emit(OpCodes.Ldloc, tmp);
+            ILGenerator.Emit(OpCodes.Ldloca_S, outputLocal);
+            ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetOutput);
+            ILGenerator.Emit(OpCodes.Brtrue, okLabel);
+
+            EmitContractPropagateErrorReturn(expr, operandClrType, tmp);
+
+            ILGenerator.MarkLabel(okLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, outputLocal);
+
+            if (!_preserveResult)
+                ILGenerator.Emit(OpCodes.Pop);
+
+            return;
+        }
+
         if (expr.OkCaseType is not null)
         {
             // --- Begin semantic-symbol-based method lookup for TryGetValue(out OkCaseType) ---
@@ -2026,6 +2051,44 @@ internal partial class ExpressionGenerator : Generator
         // Updated: Use symbol-based EmitPropagateErrorCaseConversion
         EmitPropagateErrorCaseConversion(expr.EnclosingResultType, enclosingErrorCtor.ContainingType);
         EmitPropagateReturn(enclosingResultClrType);
+    }
+
+    private void EmitContractPropagateErrorReturn(BoundPropagateExpression expr, Type operandClrType, IILocal tmp)
+    {
+        var tryGetResidualSymbol = expr.TryGetResidualMethod
+            ?? throw new InvalidOperationException("Missing TryGetResidual method for contract propagation.");
+        var residualType = tryGetResidualSymbol.Parameters[0].GetByRefElementType();
+        var residualLocal = ILGenerator.DeclareLocal(ResolveClrType(residualType));
+        var tryGetResidual = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetResidualSymbol));
+
+        if (operandClrType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+        else
+            ILGenerator.Emit(OpCodes.Ldloc, tmp);
+        ILGenerator.Emit(OpCodes.Ldloca_S, residualLocal);
+        ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetResidual);
+
+        var haveResidual = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Brtrue, haveResidual);
+        ILGenerator.Emit(OpCodes.Ldnull);
+        ILGenerator.Emit(OpCodes.Throw);
+        ILGenerator.MarkLabel(haveResidual);
+
+        var fromResidual = expr.EnclosingErrorConstructor;
+        if (!fromResidual.IsStatic || fromResidual.Parameters.Length != 1)
+            throw new InvalidOperationException("Contract propagation requires a static FromResidual method with one parameter.");
+
+        var targetResidualType = fromResidual.Parameters[0].Type;
+        ILGenerator.Emit(OpCodes.Ldloc, residualLocal);
+
+        var conversion = expr.ErrorConversion.Exists
+            ? expr.ErrorConversion
+            : Compilation.ClassifyConversion(residualType, targetResidualType);
+        if (conversion.Exists && !conversion.IsIdentity)
+            EmitConversion(residualType, targetResidualType, conversion);
+
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(fromResidual));
+        EmitPropagateReturn(ResolveClrType(expr.EnclosingResultType));
     }
 
     private void EmitPropagateErrorCaseConversion(ITypeSymbol enclosingResultType, ITypeSymbol errorCaseType)

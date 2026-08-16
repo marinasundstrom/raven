@@ -2451,8 +2451,69 @@ partial class BlockBinder
         if (TryGetResultType(receiverType, out var res, out var resPayload, out var resError))
             return BindCarrierConditionalAccess(syntax, receiver, BoundCarrierKind.Result, res, resPayload, errorType: resError);
 
+        if (receiverType is INamedTypeSymbol namedReceiver &&
+            TryGetPropagationInfo(namedReceiver, out var propagationInfo) &&
+            propagationInfo.Kind == PropagationKind.Contract)
+        {
+            return BindContractPropagationConditionalAccess(syntax, receiver);
+        }
+
         // fallback: your existing nullable conditional access path
         return BindNullableConditionalAccessExpression(syntax, receiver);
+    }
+
+    private BoundExpression BindContractPropagationConditionalAccess(
+        ConditionalAccessExpressionSyntax syntax,
+        BoundExpression receiver)
+    {
+        var propagatedReceiver = BindPropagateExpressionCore(receiver, syntax.OperatorToken, syntax);
+        if (propagatedReceiver is BoundErrorExpression)
+            return propagatedReceiver;
+
+        var payloadType = propagatedReceiver.Type ?? Compilation.ErrorTypeSymbol;
+
+        return syntax.WhenNotNull switch
+        {
+            MemberBindingExpressionSyntax memberBinding =>
+                BindMemberAccessOnReceiver(
+                    propagatedReceiver,
+                    memberBinding.Name,
+                    preferMethods: false,
+                    allowEventAccess: true,
+                    suppressNullWarning: false,
+                    receiverTypeForLookup: payloadType,
+                    forceExtensionReceiver: true),
+
+            InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation =>
+                BindInvocationOnMethodGroup(
+                    (BoundMethodGroupExpression)BindMemberAccessOnReceiver(
+                        propagatedReceiver,
+                        memberBinding.Name,
+                        preferMethods: true,
+                        allowEventAccess: false,
+                        suppressNullWarning: false,
+                        receiverTypeForLookup: payloadType,
+                        forceExtensionReceiver: true),
+                    invocation),
+
+            ElementBindingExpressionSyntax elementBinding =>
+                BindElementAccessExpression(
+                    propagatedReceiver,
+                    elementBinding.ArgumentList,
+                    elementBinding,
+                    suppressNullWarning: false),
+
+            InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation =>
+                BindInvocationExpressionCore(
+                    propagatedReceiver,
+                    "Invoke",
+                    invocation.ArgumentList,
+                    syntax.Expression,
+                    invocation,
+                    suppressNullWarning: false),
+
+            _ => ErrorExpression(reason: BoundExpressionReason.NotFound)
+        };
     }
 
     private BoundExpression BindCarrierConditionalAccess(
