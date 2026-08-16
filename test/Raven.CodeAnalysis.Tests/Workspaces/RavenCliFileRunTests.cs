@@ -102,7 +102,7 @@ public sealed class RavenCliFileRunTests
             var projectPath = Path.Combine(repoRoot, "src", "Raven", "Raven.csproj");
             var result = RunProcess(
                 "dotnet",
-                ["build", projectPath, "--framework", targetFramework, "--property", "WarningLevel=0"],
+                ["build", projectPath, "--framework", targetFramework, "--disable-build-servers", "--property", "WarningLevel=0"],
                 repoRoot);
             Assert.True(
                 result.ExitCode == 0,
