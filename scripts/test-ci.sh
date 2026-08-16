@@ -15,6 +15,25 @@ fi
 # and its implicit package dependencies into the repository-local feed so a
 # clean CI runner resolves the same compiler that was just built instead of
 # depending on previously published or globally cached packages.
+dotnet pack "$REPO_ROOT/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" \
+  -c Debug \
+  --no-build \
+  -o "$REPO_ROOT/artifacts/packages" \
+  /property:WarningLevel=0 \
+  /property:Version="$SDK_VERSION" \
+  /property:PackageVersion="$SDK_VERSION" \
+  /property:InformationalVersion="$SDK_VERSION" \
+  /property:IncludeSourceRevisionInInformationalVersion=false
+
+dotnet pack "$REPO_ROOT/src/Raven.Analyzers/Raven.Analyzers.csproj" \
+  -c Debug \
+  -o "$REPO_ROOT/artifacts/packages" \
+  /property:WarningLevel=0 \
+  /property:Version="$SDK_VERSION" \
+  /property:PackageVersion="$SDK_VERSION" \
+  /property:InformationalVersion="$SDK_VERSION" \
+  /property:IncludeSourceRevisionInInformationalVersion=false
+
 dotnet build "$REPO_ROOT/src/Raven.Macros/Raven.Macros.rvnproj" \
   -c Debug \
   -f net11.0 \
