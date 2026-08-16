@@ -1,8 +1,10 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-14**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
+
+## 0.1.0-preview.10 - 2026-08-16
 
 - Postfix `?` propagation is now extensible through Raven.Core's
   `IPropagatable<TSelf, TOutput, TResidual>` contract. Custom classes, structs,

@@ -56,12 +56,12 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.9/install-raven.sh \
-  | sh -s -- 0.1.0-preview.9
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.10/install-raven.sh \
+  | sh -s -- 0.1.0-preview.10
 ```
 
 ```powershell
-$version = "0.1.0-preview.9"
+$version = "0.1.0-preview.10"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 ```
@@ -132,7 +132,7 @@ Raven uses one monotonically increasing prerelease counter:
 `0.1.0-preview.N`. Release preparation derives the next counter from
 `global.json`; for example, both `preview.8` and the historical `preview.8.1`
 advance to `preview.9`. Do not add another nested patch counter. An optional
-argument such as `scripts/prepare-release.sh 0.1.0-preview.9` asserts the
+argument such as `scripts/prepare-release.sh 0.1.0-preview.10` asserts the
 expected derived version but cannot override it. Moving to `1.0.0` or another
 release line is an explicit project decision and requires updating this policy.
 
@@ -403,7 +403,7 @@ scripts/package-vscode.sh 0.1.0
 Install the published preview directly from GitHub Releases:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.9/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.10/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 
