@@ -60,9 +60,14 @@ public sealed class RavenCliFileRunTests
             ["from-shebang"],
             repoRoot,
             configure: startInfo =>
-                startInfo.Environment["PATH"] = $"{developmentBin}{Path.PathSeparator}{Environment.GetEnvironmentVariable("PATH")}");
+            {
+                startInfo.Environment["PATH"] = $"{developmentBin}{Path.PathSeparator}{Environment.GetEnvironmentVariable("PATH")}";
+                startInfo.Environment["RAVEN_FRAMEWORK"] = TestTargetFramework.Default;
+            });
 
-        Assert.Equal(0, result.ExitCode);
+        Assert.True(
+            result.ExitCode == 0,
+            $"Expected shebang invocation to exit successfully.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
         Assert.Contains("Argument: from-shebang", result.StdOut);
     }
 
