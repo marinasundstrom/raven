@@ -51,7 +51,10 @@ build_heavy_exclusion_filter() {
 # Raven.CodeAnalysis runs repository source generators from its build targets.
 # Project-reference graphs can otherwise build those shared generator projects
 # concurrently and race while writing their intermediate assemblies.
-test_args=(-m:1 /property:WarningLevel=0 --blame-hang-timeout 60s --blame-hang-dump-type none)
+# Some workspace tests intentionally allow child compiler processes up to 120
+# seconds to finish. Keep the outer test-host watchdog longer than that timeout
+# so the test can terminate the process tree and report its captured output.
+test_args=(-m:1 /property:WarningLevel=0 --blame-hang-timeout 180s --blame-hang-dump-type none)
 
 run_code_analysis_tests_in_batches() {
   local class_batch=()
