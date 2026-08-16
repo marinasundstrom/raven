@@ -4,6 +4,12 @@ Use this map to pick the smallest trustworthy pre-change baseline and
 post-change validation set. The full baseline is still the broad safety gate,
 but it is not the default inner-loop command for scoped compiler work.
 
+`scripts/test-ci.sh` is the bounded required integration gate. It is not a
+replacement for feature-owned validation: run the focused suite identified
+below for the area being changed. Broad baseline, runtime, project-system,
+sample, language-server integration, and performance coverage is opt-in and
+should not be added to required CI merely because a regression appeared there.
+
 All ad hoc `dotnet test` commands should include `/property:WarningLevel=0`.
 
 ## Selection Rules

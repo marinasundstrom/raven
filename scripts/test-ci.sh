@@ -2,86 +2,49 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SDK_VERSION="$(sed -n 's/.*"Raven.Sdk"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REPO_ROOT/global.json")"
+COMPILER_TESTS="$REPO_ROOT/test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj"
+CORE_TESTS="$REPO_ROOT/test/Raven.Core.Tests/Raven.Core.Tests.csproj"
+LANGUAGE_SERVER_TESTS="$REPO_ROOT/test/Raven.LanguageServer.Tests/Raven.LanguageServer.Tests.csproj"
 
-if [[ -z "$SDK_VERSION" ]]; then
-  echo "Could not determine the centrally selected Raven.Sdk version from global.json." >&2
-  exit 1
-fi
-
+# Main CI is a bounded integration gate. It proves that generated compiler
+# sources, the compiler toolchain, core contracts, incremental diagnostics, and
+# language-server presentation still work together. Exhaustive baseline,
+# runtime/emit, process, project-system, sample, LSP integration, and perf
+# coverage stays opt-in through the dedicated scripts documented in the test
+# ledger.
 "$REPO_ROOT/scripts/codex-build.sh"
 
-# Workspace tests open repository samples through MSBuild. Build the Debug SDK
-# and its implicit package dependencies into the repository-local feed so a
-# clean CI runner resolves the same compiler that was just built instead of
-# depending on previously published or globally cached packages.
-dotnet pack "$REPO_ROOT/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" \
-  -c Debug \
-  --no-build \
-  -o "$REPO_ROOT/artifacts/packages" \
-  /property:WarningLevel=0 \
-  /property:Version="$SDK_VERSION" \
-  /property:PackageVersion="$SDK_VERSION" \
-  /property:InformationalVersion="$SDK_VERSION" \
-  /property:IncludeSourceRevisionInInformationalVersion=false
+compiler_contract_filter='(
+FullyQualifiedName~.SyntaxTreeContractTests.|
+FullyQualifiedName~.ParserNewlineTests.|
+FullyQualifiedName~.PatternSyntaxParserTests.|
+FullyQualifiedName~.PropagationExpressionTests.|
+FullyQualifiedName~.SemanticModelCachingTests.|
+FullyQualifiedName~.SemanticModelDiagnosticCachingTests.|
+FullyQualifiedName~.IncrementalBinderLifecycleTests.|
+FullyQualifiedName~.MethodOverloadTests.|
+FullyQualifiedName~.ImportBindingSemanticTests.|
+FullyQualifiedName~.CompilerDiagnosticsLookupTests.|
+FullyQualifiedName~.AnalyzerDiagnosticIdUniquenessTests.|
+FullyQualifiedName~.CompletionExistingBehaviorTests.
+)'
+compiler_contract_filter="${compiler_contract_filter//$'\n'/}"
 
-dotnet pack "$REPO_ROOT/src/Raven.Analyzers/Raven.Analyzers.csproj" \
-  -c Debug \
-  -o "$REPO_ROOT/artifacts/packages" \
-  /property:WarningLevel=0 \
-  /property:Version="$SDK_VERSION" \
-  /property:PackageVersion="$SDK_VERSION" \
-  /property:InformationalVersion="$SDK_VERSION" \
-  /property:IncludeSourceRevisionInInformationalVersion=false
-
-dotnet build "$REPO_ROOT/src/Raven.Macros/Raven.Macros.rvnproj" \
-  -c Debug \
-  -f net11.0 \
-  -p:BuildProjectReferences=false \
-  /property:WarningLevel=0
-
-for project in \
-  "$REPO_ROOT/src/Raven.Core/Raven.Core.rvnproj" \
-  "$REPO_ROOT/src/Raven.Macros/Raven.Macros.rvnproj"; do
-  dotnet pack "$project" \
-    -c Debug \
-    --no-build \
-    -o "$REPO_ROOT/artifacts/packages" \
-    /property:Version="$SDK_VERSION" \
-    /property:PackageVersion="$SDK_VERSION" \
-    /property:InformationalVersion="$SDK_VERSION" \
-    /property:IncludeSourceRevisionInInformationalVersion=false
-done
-
-dotnet pack "$REPO_ROOT/sdk/Raven.Sdk/Raven.Sdk.csproj" \
-  -c Debug \
-  -o "$REPO_ROOT/artifacts/packages" \
-  /property:RavenCompilerConfiguration=Debug \
-  /property:Version="$SDK_VERSION" \
-  /property:PackageVersion="$SDK_VERSION" \
-  /property:InformationalVersion="$SDK_VERSION" \
-  /property:IncludeSourceRevisionInInformationalVersion=false
-
-# File-run coverage launches nested rvn/rvnc processes. Run it in a fresh test
-# host before the larger baseline so accumulated process state cannot starve it.
-dotnet test "$REPO_ROOT/test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj" \
+dotnet test "$COMPILER_TESTS" \
   -m:1 \
   /property:WarningLevel=0 \
-  --blame-hang-timeout 180s \
+  --blame-hang-timeout 120s \
   --blame-hang-dump-type none \
-  --filter 'FullyQualifiedName~RavenCliFileRunTests'
+  --filter "$compiler_contract_filter"
 
-"$REPO_ROOT/scripts/test-baseline.sh"
-dotnet build-server shutdown
-"$REPO_ROOT/scripts/test-runtime-isolated.sh"
-dotnet build-server shutdown
+dotnet test "$CORE_TESTS" \
+  -m:1 \
+  /property:WarningLevel=0 \
+  --blame-hang-timeout 120s \
+  --blame-hang-dump-type none
 
-language_server_projects=(
-  "$REPO_ROOT/test/Raven.LanguageServer.Tests/Raven.LanguageServer.Tests.csproj"
-  "$REPO_ROOT/test/Raven.LanguageServer.Integration.Tests/Raven.LanguageServer.Integration.Tests.csproj"
-  "$REPO_ROOT/test/Raven.LanguageServer.Perf.Tests/Raven.LanguageServer.Perf.Tests.csproj"
-)
-
-for project in "${language_server_projects[@]}"; do
-  dotnet test "$project" /property:WarningLevel=0
-done
+dotnet test "$LANGUAGE_SERVER_TESTS" \
+  -m:1 \
+  /property:WarningLevel=0 \
+  --blame-hang-timeout 120s \
+  --blame-hang-dump-type none

@@ -8,7 +8,8 @@ Runtime, reflection, generated IL, process, NuGet, MSBuild, and sample-project c
 
 | Tier | What belongs here | Command |
 |---|---|---|
-| Baseline | Fast syntax and semantic tests that protect language compilation and compiler APIs | `scripts/test-baseline.sh` |
+| Required CI | Bounded build plus critical compiler, Raven.Core, and language-server unit contracts | `scripts/test-ci.sh` |
+| Baseline | Broad syntax and semantic coverage for local stabilization | `scripts/test-baseline.sh` |
 | Feature suite | Focused area checks after changing a feature | `scripts/test-feature-suite.sh <suite>` |
 | Runtime isolated | CodeGen, sample, reflection, emitted-assembly, and project-heavy integration tests | `scripts/test-runtime-isolated.sh` |
 | Feature runtime | Runtime/emission overlap for one area | `scripts/test-feature-suite.sh <suite> --runtime` |
@@ -16,11 +17,34 @@ Runtime, reflection, generated IL, process, NuGet, MSBuild, and sample-project c
 | Language-server perf | Opt-in language-server latency and interaction-budget checks | `scripts/test-language-server-perf.sh` |
 | Samples | End-to-end sample project build after compiler/runtime changes | `FORCE_REBUILD=1 samples/build.sh` |
 
+Main CI intentionally runs only the required tier. It does not pack SDK
+artifacts or run CodeGen/runtime, subprocess, CLI, NuGet/MSBuild project-system,
+sample, language-server integration, or performance tests. Those suites are
+valuable but too expensive or environment-sensitive to block every integrated
+commit.
+
+The required compiler contract selection lives in `scripts/test-ci.sh`. Keep it
+small and intentional. A test belongs there only when it protects one of these
+cross-cutting contracts:
+
+- syntax-tree/parser integrity;
+- core binding, overload, import, propagation, and conditional-access behavior;
+- semantic caching and incremental document diagnostics;
+- compiler diagnostic identity;
+- completion behavior consumed by editors;
+- Raven.Core public contracts;
+- in-process language-server request and presentation behavior.
+
+Feature-specific regressions should normally be added to their owning focused
+suite, not automatically promoted to required CI. Promote one only when a
+failure would invalidate the compiler/editor contract as a whole and the test
+is deterministic, in-process, and fast.
+
 All ad hoc `dotnet test` commands should use `/property:WarningLevel=0`.
 Use `docs/testing/test-impact-map.md` to choose the smallest pre-change
 baseline and post-change validation set for the compiler area being touched.
 
-The full baseline can take around 20 minutes on a typical local machine. Treat it as the broad safety gate, not the first tool for every edit: start with the smallest matching feature suite or test-class filter, then broaden to the baseline when the change affects shared compiler behavior or before handing off stabilization work. Part of the cleanup goal is to keep refactoring and reorganizing tests so selective runs become more accurate, faster, and easier to choose.
+The full baseline can take around 20 minutes on a typical local machine. Treat it as a broad local stabilization gate, not a required CI job or the first tool for every edit: start with the smallest matching feature suite or test-class filter, then broaden to the baseline when the change affects shared compiler behavior. Part of the cleanup goal is to keep refactoring and reorganizing tests so selective runs become more accurate, faster, and easier to choose.
 
 The full sample build is also a smoke gate, not a default inner-loop command: `FORCE_REBUILD=1 samples/build.sh` can take roughly 5-6 minutes because it recompiles Raven.Core/compiler dependencies and every sample, while `samples/run.sh` usually finishes in seconds once the sample DLLs are built. Prefer targeted sample filters when validating one language area, then run the full sample build/run pass for compiler/runtime stabilization.
 

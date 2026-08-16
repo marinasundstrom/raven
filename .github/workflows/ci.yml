@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  full-test-gate:
-    name: Full build and test gate
+  required-contract-gate:
+    name: Required compiler contract gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -19,5 +19,5 @@ jobs:
         with:
           dotnet-version: 11.0.x
           dotnet-quality: preview
-      - name: Build and test the integrated commit
+      - name: Build and run required contracts
         run: scripts/test-ci.sh
