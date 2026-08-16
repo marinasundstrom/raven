@@ -12,6 +12,10 @@ internal static class AssemblyReferenceNormalizer
     [
         "System.Collections"
     ];
+    private static readonly HashSet<string> KeepCoreLibTypeNames =
+    [
+        "System.Threading.Monitor"
+    ];
 
     internal static void NormalizeCoreLibReference(
         Stream peInput,
@@ -503,7 +507,11 @@ internal static class AssemblyReferenceNormalizer
 
     private static bool ShouldRewriteToSystemRuntime(TypeReference typeReference)
     {
-        var namespaceName = GetInnermostTypeNamespace(typeReference);
+        var innermost = GetInnermostTypeReference(typeReference);
+        if (KeepCoreLibTypeNames.Contains(innermost.FullName))
+            return false;
+
+        var namespaceName = innermost.Namespace ?? string.Empty;
 
         foreach (var prefix in KeepCoreLibNamespacePrefixes)
         {
@@ -513,9 +521,6 @@ internal static class AssemblyReferenceNormalizer
 
         return true;
     }
-
-    private static string GetInnermostTypeNamespace(TypeReference typeReference)
-        => GetInnermostTypeReference(typeReference).Namespace ?? string.Empty;
 
     private static TypeReference GetInnermostTypeReference(TypeReference typeReference)
     {
