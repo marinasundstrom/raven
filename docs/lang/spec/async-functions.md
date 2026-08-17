@@ -1,68 +1,198 @@
 # Async functions
 
-Async functions can wait for work to finish without blocking the current
-thread. Use them for operations such as network requests, file access, and
-timers.
+Async functions let a program wait for asynchronous work without blocking the
+current thread. They are commonly used for operations such as network requests,
+file access, database calls, and timers.
 
-The `async` modifier may appear on top-level functions, methods, and local
-functions. An async declaration opts the body into asynchronous control flow so
-`await` expressions can suspend and resume execution. When no return type is
-annotated, async declarations default to `System.Threading.Tasks.Task`
-(`unit`-returning async body). The compiler does not infer `Task<T>` from
-omitted return annotations.
+Declare an async function with the `async` modifier and use `await` to wait for
+an asynchronous operation:
 
-Async functions with an explicit return type must annotate one of the supported
-task shapes: `System.Threading.Tasks.Task` or `System.Threading.Tasks.Task<T>`.
-Annotating any other type produces a diagnostic, and the compiler continues
-analysis as though the return type were `Task`. This rule applies uniformly to
-methods, top-level functions, and local functions declared inside other
-bodies. Property and indexer accessors may also carry `async`; getters must
-expose a task-shaped return type to remain valid, while setters may await
-asynchronous work before storing values.
+```raven
+async func DownloadPage() {
+    use client = HttpClient()
 
-Diagnostic analyzers may still suggest adding an explicit return type annotation
-based on observed body shape; such suggestions are advisory and do not change
-the language binding rule above.
+    let response = await client.GetAsync("https://example.com")
+    let content = await response.Content.ReadAsStringAsync()
 
-Async declarations support both block bodies and expression bodies. Every
-`return` inside an async declaration completes the task produced by the method.
-For `async Task<T>` block bodies, a trailing expression statement is treated as
-an implicit return value and must convert to `T`.
-For `async Task` members each `return` statement must omit the expression;
-falling off the end of the body is equivalent to `return;`. For `async Task<T>`
-members, return expressions must convert to `T`.
+    Console.WriteLine(content)
+}
+```
 
-Returning an existing task instance such as `Task.CompletedTask` is not
-permitted inside an `async Task` body. Authors must `await` the task to observe
-its completion instead of returning it directly. Attempting to return an
-expression from an `async Task` member produces a diagnostic that mirrors the
-behavior of C# (error RAV2705). Exceptions that escape before the first `await`
-propagate directly to the caller. Once asynchronous execution begins, `await`
-unwrapped exceptions rethrow when the task is awaited, matching .NET's
-observable behaviour.
+While an awaited operation is incomplete, execution of the function may be
+suspended. It resumes when the operation completes.
+
+The `async` modifier can be used with top-level functions, methods, and local
+functions.
+
+## Returning values
+
+An async function that doesn't return a value should declare
+`System.Threading.Tasks.Task` as its return type:
+
+```raven
+async func Delay() -> Task {
+    await Task.Delay(1000)
+}
+```
+
+Use `Task<T>` when the function produces a value:
+
+```raven
+async func GetMessage() -> Task<string> {
+    await Task.Delay(100)
+
+    return "Hello"
+}
+```
+
+As with other Raven functions, the final expression of a block can provide its
+result:
+
+```raven
+async func GetMessage() -> Task<string> {
+    await Task.Delay(100)
+
+    "Hello"
+}
+```
+
+Async functions can also use expression bodies:
+
+```raven
+async func GetMessage() -> Task<string> =>
+    await GetMessageFromServer()
+```
+
+Raven does not infer `Task<T>` from the body of an async function. If an async
+function returns a value, its task return type must be declared explicitly.
+
+```raven
+async func GetMessage() -> Task<string> {
+    "Hello"
+}
+```
+
+For `Task<T>`, returned values must be convertible to `T`.
+
+A `Task` function does not return a value. Falling off the end of the function
+is equivalent to `return`:
+
+```raven
+async func Save() -> Task {
+    await SaveChanges()
+}
+```
+
+An existing task is not returned directly from an `async Task` function.
+Instead, await it:
+
+```raven
+async func Save() -> Task {
+    await SaveChanges()
+}
+```
 
 ## Await expressions
 
-The `await` keyword introduces a unary expression with the grammar `await`
-*expression*. Await expressions participate in the same precedence as other
-prefix unary operators. Because `await` is reserved, the identifier form must be
-escaped as `@await` when used outside this construct.
+Use `await` to suspend an async function until an asynchronous operation
+completes:
 
-`await` may only appear inside an async function or lambda. File-scope
-statements synthesize a synchronous `Program.Main` plus an async
-`Program.MainAsync`, so top-level awaits run inside the async method while the
-bridge awaits `MainAsync(args)` before returning to the host. The awaited
-expression must expose an instance method `GetAwaiter()` whose return type
-provides an accessible `IsCompleted: bool` property and a parameterless
-`GetResult()` method. If the awaiter's `GetResult` produces no value, the await
-expression's type is `unit`; otherwise it matches the `GetResult` return type.
+```raven
+async func LoadUser(id: int) -> Task<User> {
+    let response = await client.GetAsync($"/users/{id}")
+    let user = await response.Content.ReadFromJsonAsync<User>()
 
-Failing any of these requirements produces a compile-time diagnostic identifying
-the missing member. The compiler also reports an error when `await` appears
-outside an async context.
+    user
+}
+```
 
-Evaluation first computes the operand value and calls `GetAwaiter()` to obtain
-the awaiter. If `val IsCompleted` is `true`, `GetResult()` is invoked immediately
-and the await expression yields its value. Otherwise execution is suspended and
-later resumed when the awaiter signals completion; resumption continues after
-the `await` with the result of `GetResult()`.
+The type of an `await` expression is the result produced by the awaited
+operation. For example, awaiting `Task<string>` produces a `string`:
+
+```raven
+let text: string = await GetTextAsync()
+```
+
+Awaiting a `Task` that does not produce a value results in `unit`:
+
+```raven
+await Task.Delay(1000)
+```
+
+`await` can only be used in an async context.
+
+## Top-level await
+
+Top-level code can also use `await`:
+
+```raven
+import System.Net.Http.*
+
+use client = HttpClient()
+
+let response = await client.GetAsync("https://example.com")
+let content = await response.Content.ReadAsStringAsync()
+
+Console.WriteLine(content)
+```
+
+No explicit async entry-point function is required. Raven creates the necessary
+program entry point and waits for the top-level asynchronous code to complete.
+
+## Awaiting .NET types
+
+Raven supports the standard .NET awaitable pattern, so `await` is not limited
+to `Task` and `Task<T>`.
+
+An awaitable value must provide a `GetAwaiter()` method. Its awaiter must provide:
+
+* an `IsCompleted: bool` property
+* a parameterless `GetResult()` method
+
+Conceptually, an await expression:
+
+```raven
+let result = await operation
+```
+
+obtains the operation's awaiter. If the operation has already completed,
+`GetResult()` can be evaluated immediately. Otherwise, the async function is
+suspended and resumed when the operation completes.
+
+The result type of `await` is the return type of `GetResult()`. If `GetResult()`
+does not return a value, the expression has type `unit`.
+
+This allows Raven to interoperate with .NET APIs that implement the awaitable
+pattern without requiring their types to derive from or convert to `Task`.
+
+## Async declarations
+
+Explicit return types on async functions must use one of the supported task
+shapes:
+
+```raven
+Task
+Task<T>
+```
+
+Other return types are rejected.
+
+Async declarations may use either block bodies or expression bodies. Within an
+`async Task<T>` function, each explicit return expression must be convertible to
+`T`. Within an `async Task` function, `return` cannot carry an expression.
+
+The same rules apply to async methods, top-level functions, and local
+functions.
+
+Property and indexer accessors may also be async. Async getters must expose a
+task-shaped return type, while async setters may await asynchronous work before
+storing a value.
+
+## Exceptions
+
+Exceptions raised during asynchronous execution are propagated through the
+usual .NET async mechanism. Awaiting a failed operation rethrows its exception
+at the `await` expression.
+
+Exceptions that escape before asynchronous execution is suspended propagate
+directly to the caller.

@@ -1,506 +1,463 @@
 # Functions
 
-Raven uses a unified function model for callable declarations and callable
-values. A named `func` declaration can appear as a top-level function at
-namespace scope, as a member of a type where it is a method, or as a statement
-inside a block where it is a local function. Top-level functions are implicitly
-static; methods follow the usual member rules for instance and static receivers.
-Local functions are scoped to the containing body and may capture context from
-enclosing scopes.
+Functions define reusable operations. They can accept parameters, return values,
+and be declared at namespace scope, as members of types, or locally inside
+another function.
 
-Function expressions are the expression form of the same concept. They produce
-function values that can be assigned, passed, returned, or converted to
-compatible delegate types. Lambda syntax is the shorthand function-expression
-form and is described in the function-expression section below.
-
-The rules in this section cover shared callable syntax and behavior. See
-`Top-level functions and constants` for namespace placement and import rules,
-`Classes and members` for method-specific member rules, and `Function
-expressions` for the lambda and delegate-conversion form.
-
-### Function declarations
+Functions are also first-class values in Raven. They can be assigned to
+variables, passed to other functions, returned as values, and converted to
+compatible .NET delegate types.
 
 ```raven
-func Foo(a: int, b: int) -> int {
+func add(a: int, b: int) -> int {
+    a + b
+}
+
+let result = add(2, 3)
+```
+
+A named `func` declaration may be:
+
+* a **top-level function** at namespace scope
+* a **method** when declared as a member of a type
+* a **local function** when declared inside another body
+
+Top-level functions are implicitly static. Methods follow the usual instance and
+static member rules.
+
+See [Top-level code and entry points](top-level-code-and-entry-points.md) for
+namespace-level code and entry points, [Classes and members](classes-and-members.md)
+for method-specific member rules, and [Async functions](async-functions.md) for
+asynchronous functions.
+
+## Function bodies and return values
+
+Functions can use a block body:
+
+```raven
+func add(a: int, b: int) -> int {
     a + b
 }
 ```
 
-Arrow bodies are allowed:
+The final expression of the block provides the function's result. An explicit
+`return` can be used when returning earlier:
+
+```raven
+func absolute(value: int) -> int {
+    if value < 0 {
+        return -value
+    }
+
+    value
+}
+```
+
+Functions may also use an expression body with `=>`:
 
 ```raven
 func add(a: int, b: int) -> int => a + b
 ```
 
-Function declarations (including local `func` statements) may carry declaration
-attributes with the same bracket syntax as methods:
+The return type is written after `->`. Returned expressions must be convertible
+to the declared return type.
+
+## Parameters
+
+Parameters normally use the `name: Type` syntax:
 
 ```raven
-[Trace]
-func compute(x: int) -> int => x * 2
+func greet(name: string) {
+    Console.WriteLine("Hello, ${name}")
+}
 ```
 
-Return-targeted attribute lists are also supported on functions:
+When an implementation intentionally does not use a parameter, its name may be
+replaced with the discard `_`:
 
 ```raven
-[return: MaybeNull]
-func find(name: string) -> string { /* ... */ }
+func Handle(_: Request) {
+    Console.WriteLine("Request received")
+}
 ```
 
-Attribute target prefixes are validated by declaration context:
+The discarded parameter remains part of the function signature but does not
+introduce a name in the body.
 
-* `[assembly: ...]` is only valid as a compilation-unit attribute list (before
-  top-level functions and constants).
-* `[module: ...]` is only valid as a compilation-unit attribute list and applies
-  to module metadata.
-* `[type: ...]` is valid on type declarations and applies to the declared type
-  metadata target (`class`, `struct`, `interface`, `enum`, or `delegate`).
-* `[method: ...]` is valid on function and method declarations. On a class,
-  struct, or record declaration with a primary constructor, it applies to the
-  synthesized primary constructor.
-* `[return: ...]` is only valid on callable return positions (function/method
-  return metadata).
-* `[param: ...]` and `[parameter: ...]` are valid on parameter declarations.
-* `[property: ...]` is valid on property declarations.
-* `[field: ...]` is valid on field declarations. On a property or event
-  declaration with a synthesized backing field, it applies to that backing
-  field rather than to the property or event metadata.
-* `[event: ...]` is valid on event declarations.
+Parameter types and `ref`/`out` modifiers participate in overload resolution.
 
-If a target prefix is syntactically recognized but not valid in that position,
-the compiler reports an attribute-target diagnostic.
+`val` and `var` binding keywords are not used on ordinary function parameters.
+Primary-constructor parameter promotion is the exception, where `val` and `var`
+declare promoted members.
 
-### Parameters
+### Default arguments
 
-Function and method parameters normally use the `name: Type` syntax. When an
-implementation intentionally does not use a parameter, its name may be replaced
-with the discard `_`, as in `func Handle(_: Request)`. A discarded parameter
-still occupies its declared argument position and participates in the callable
-signature, but it does not introduce a name in the function body and does not
-produce an unused-parameter diagnostic. This is useful for overrides and
-interface implementations that must preserve a contract's parameter list.
-
-Other function-like declarations, including constructors and accessors, require
-named parameters. Parameter types and any `ref`/`out` modifiers participate in
-overload resolution.
-
-`val`/`var` binding keywords are **not valid** on ordinary function, method,
-operator, indexer, or accessor parameters. The only parameter context where
-`val`/`var` is valid is primary-constructor parameter promotion.
-
-Lambda parameter lists use the same parameter form and default-value rules.
-Parameters in function-like declarations may include attribute lists. This
-applies to functions, methods, constructors, delegates, accessors, and lambdas.
-
-Parameters may provide a default value using `= expression` after the type. A
-parameter with a default value is optional when invoking the function: callers
-can omit that argument and the compiler supplies the stored constant instead.
-Only trailing parameters may be optional; omitting an argument fixes the default
-for that position and all following parameters must also declare defaults.
+Parameters can provide default values:
 
 ```raven
 func greet(name: string, punctuation: string = "!") {
     Console.WriteLine("Hello, ${name}${punctuation}")
 }
 
-greet("Raven")          // prints "Hello, Raven!"
-greet("Raven", "!!!")    // caller-provided punctuation wins
+greet("Raven")
+greet("Raven", "!!!")
 ```
 
-Default expressions must be compile-time constants: literals (including `null`),
-parenthesized literals, and unary `+`/`-` applied to numeric literals. The value
-must convert to the parameter type using an implicit conversion. Nullable value
-types accept `null` defaults; other value types require a literal of the
-underlying type. Reference-type parameters accept `null` defaults.
+A parameter with a default value is optional at the call site. Optional
+parameters must appear after required parameters.
 
-When importing methods from other assemblies, Raven also recognizes optional
-parameters surfaced through metadata. Parameters marked optional with a stored
-default constant or with `System.Runtime.InteropServices.DefaultParameterValueAttribute`
-and `System.Runtime.InteropServices.OptionalAttribute` participate in overload
-resolution just like source-declared defaults. Omitted positional and named
-arguments are synthesized from those metadata-provided constants, after applying
-the same constant-conversion rules as source defaults. If only
-`System.Runtime.InteropServices.OptionalAttribute` is present, Raven will use the
-parameter type’s CLR default value when materializing an omitted argument,
-emitting `default(T)` for value types that lack a literal representation.
+Default expressions must be compile-time constants and must be implicitly
+convertible to the parameter type. This includes literals such as numbers,
+strings, and `null`, parenthesized literals, and unary `+` or `-` applied to
+numeric literals.
 
-Method overloads may also be influenced by
-`System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute`. When two
-or more applicable candidates belong to the same overload set, Raven keeps the
-highest-priority candidates before applying its normal overload-comparison
-rules. This matches the intended .NET/C# interop behavior for both Raven source
-methods and imported metadata methods.
+Raven also recognizes optional parameters from imported .NET methods. Metadata
+defaults, including those represented by
+`System.Runtime.InteropServices.DefaultParameterValueAttribute` and
+`System.Runtime.InteropServices.OptionalAttribute`, participate in calls in the
+same way as source-declared defaults. When an imported optional parameter has no
+stored literal default, Raven uses the parameter type's CLR default value.
 
-### Generic functions and methods
+## Generic functions
 
-Functions, methods, types, and local functions may declare one or more **type parameters**
-using a type parameter list written after the declaration name:
+Functions and methods can declare type parameters after their name:
 
 ```raven
-func identity<T>(value: T) -> T { value }
-class Box<T> { value: T }
+func identity<T>(value: T) -> T {
+    value
+}
+
+let number = identity(42)
+let text = identity("hello")
 ```
 
-Each type parameter introduces a distinct generic placeholder type. Type parameter names
-must be unique within the same type parameter list. A type parameter is in scope within:
-
-* the remainder of the type parameter list
-* parameter types
-* return types
-* constraint clauses
-* the declaration body
-
-Type parameter lists follow the same rule: commas may be written explicitly,
-but a newline is also a valid separator between adjacent type parameters.
-
-#### Variance
-
-Where permitted by the enclosing declaration, a type parameter may be annotated with
-variance:
-
-* `out T` — covariant
-* `in T` — contravariant
-
-Variance annotations affect assignability of constructed generic types and are validated
-by the compiler according to the rules of the enclosing declaration kind.
-
-#### Inline constraints
-
-A type parameter may declare **inline constraints** using a colon immediately following
-its name:
+Type arguments can usually be inferred from the arguments and expected result.
+They can also be supplied explicitly:
 
 ```raven
-func inner<T: struct>(value: T) -> T { value }
-func map<T: class, U>(value: T) -> U { /* ... */ }
+let text = identity<string>("hello")
 ```
 
-Inline constraints are syntactic sugar for an equivalent `where` clause on the same type
-parameter:
+Local functions may be generic as well.
+
+### Generic constraints
+
+Constraints restrict which types can be used for a type parameter. They can be
+written inline:
 
 ```raven
-func inner<T>(value: T) -> T where T: struct { value }
+func process<T: class>(value: T) {
+    // ...
+}
 ```
 
-The compiler normalizes inline constraints and `where` clauses into the same internal
-constraint representation.
+or with a `where` clause:
 
-#### Constraint source rule
+```raven
+func process<T>(value: T) where T: class {
+    // ...
+}
+```
 
-For a given type parameter, constraints must be specified using **exactly one** of:
+For a given type parameter, use either inline constraints or `where` clauses,
+not both.
 
-* inline constraints (`T: ...`)
-* one or more `where` clauses targeting that parameter
+Supported constraints include:
 
-Specifying constraints for the same type parameter using both forms is a compile-time
-error.
-
-#### Constraint forms
-
-Each constraint in a constraint list must be one of the following:
-
-* `class` — reference type constraint
-* `struct` — non-nullable value type constraint
-* `notnull` — non-null constraint
-* `unmanaged` — unmanaged value type constraint
+* `class` — a reference type
+* `struct` — a non-nullable value type
+* `notnull` — a non-null type
+* `unmanaged` — an unmanaged value type
 * a base class type
-* an interface type
-* `new()` — public parameterless constructor constraint
+* interface types
+* `new()` — a public parameterless constructor
 
-Constraints are **conjunctive**: all listed constraints must be satisfied.
+Multiple constraints are conjunctive: the type argument must satisfy all of
+them.
 
-The following restrictions apply:
+At most one `class` or `struct` constraint and one base-class constraint may be
+specified. Any number of interface constraints may be used, and `new()` may
+appear at most once. Duplicate constraints are not permitted.
 
-* At most one of `class` or `struct` may appear.
-* At most one base class constraint may appear.
-* Any number of interface constraints may appear.
-* `new()` may appear at most once.
-* Duplicate constraints are not permitted.
-
-Violating any of these rules produces a compile-time diagnostic.
-
-#### Constraint ordering
-
-When written, constraints should appear in the following order:
+When several constraints are written, their order is:
 
 1. `class` or `struct`
 2. base class
 3. interfaces
 4. `new()`
 
-The compiler may diagnose violations of this ordering for consistency.
+Where supported by the enclosing declaration, generic type parameters may also
+use `out` for covariance or `in` for contravariance.
 
-Functions—including methods declared inside types—may introduce type parameters
-by placing `<...>` after the function name. Each type parameter can be used in
-the parameter list, return type, and body just like any other type annotation.
+## Local functions
 
-```raven
-func identity<T>(value: T) -> T { value }
-
-let number = identity(42)         // inferred T = int
-let text = identity<string>("hi")
-```
-
-Call sites may omit explicit type arguments when inference can determine a
-unique solution from the arguments and expected return type. When inference
-fails—for example, because multiple type choices satisfy the call—the type
-arguments must be provided explicitly.
-
-Method declarations use the same syntax, and local functions follow the exact
-rules when they introduce type parameters inside another body:
+Functions can be declared inside other functions, methods, and block bodies:
 
 ```raven
-class Cache {
-    static store<T: class>(value: T) { /* ... */ }
-}
+func calculate(value: int) -> int {
+    func double(value: int) -> int => value * 2
 
-Cache.store(System.Text.StringBuilder())   // inference picks T = System.Text.StringBuilder
-Cache.store<string>(null)                  // explicit type argument when passing null
-```
-
-Type parameter constraints mirror those on generic types. After the colon, list
-`class`, `struct`, or specific base/interface types that each argument must
-implement. Constraints are conjunctive: every listed requirement must be
-satisfied. The `struct` constraint excludes nullable value types, while `class`
-admits reference types (including nullable references). Violating a constraint
-produces a diagnostic identifying the failing type argument and the unmet
-requirement.
-
-### Local functions
-
-Functions may be declared as statements inside other functions, methods, and
-block bodies. Such a function is scoped to its containing body and can capture
-local variables, parameters, and `self` from enclosing scopes. Local functions
-support the same generic syntax and constraints as top-level functions. Place
-an optional type parameter list after the function name and declare
-constraints using the `:` syntax when needed.
-When no instance receiver is available (for example inside `static` members or
-`static func` local functions), using `self` reports `RAV2801`.
-
-```raven
-func outer() {
-    func inner<T: struct>(value: T) -> T { value }
-
-    let y = inner(2)
-    let point = inner((x: 1, y: 2))
+    double(value) + 1
 }
 ```
 
-Bodies may likewise declare local helper `class`, `struct`, `record`, and
-`enum` types when the type should remain encapsulated to that body. Local type
-declarations participate in body-local name lookup for the entire containing
-body, but the declared type is not exposed as a surrounding namespace or outer
-type member in Raven source.
+A local function is visible within its containing body and can capture values
+from the enclosing scope:
 
-Async declarations and their task-return rules are documented in [Async
-functions](async-functions.md).
+```raven
+func createCounter(start: int) {
+    var current = start
 
-### Function expressions
+    func next() -> int {
+        current = current + 1
+        current
+    }
 
-Unnamed function expressions support explicit and shorthand forms:
-`func (x: int) => x + 1`, `func (x: int) { x + 1 }`,
-`async func (x: int) => x + 1`, `static func (x: int) => x + 1`,
-and `(x: int) => x + 1` (or `x => x + 1`). The shorthand form is valid
-anywhere the equivalent explicit function expression is valid.
+    // ...
+}
+```
 
-Function expressions start with either a parenthesized parameter list
-or a single identifier, optionally followed by a return-type arrow. Expression
-bodies use `=>`; `func`-introduced block bodies may omit `=>` and use
-`func (...) { ... }`. Function expressions may also use modifier forms
-`async func`, `static func`, and `static async func`. Function expressions may
-appear wherever a function value is expected.
+Local functions support the same generic syntax and constraints as other
+functions.
+
+Bodies may also contain local `class`, `struct`, `record`, and `enum`
+declarations when a helper type should remain local to that body.
+
+## Function expressions
+
+Functions do not need to have a declaration name. A function expression creates
+a function value that can be stored, passed, or returned:
+
+```raven
+let add = (a: int, b: int) => a + b
+```
+
+The explicit `func` form is also available:
 
 ```raven
 let addA = func (x: int) => x + 42
+
 let addB = func (x: int) {
     x + 42
 }
-let addC = x => x + 42
 ```
 
-Function expressions may optionally declare a local identifier:
-`func Fib(n: int) => Fib(n - 1)`. This identifier is visible only inside the
-function-expression body. It does not declare a surrounding local/member name;
-the emitted backing method name remains compiler-generated.
-
-#### Captured variables
-
-When a function expression or local function statement (`func`) references a
-local defined in an outer scope, the compiler lifts that symbol into shared
-closure storage so both scopes observe the same value. Each capturing lambda or
-local function materializes a synthesized closure class that stores the body as
-an instance method and exposes fields for every captured symbol. Reads and writes
-in any scope access those fields directly, so mutating a `var` binding after
-creating a lambda immediately affects all delegates that captured it. Capturing
-`self` produces a reference to the enclosing instance, and capturing parameters
-preserves the argument value from the invoking scope. Nested lambdas reuse the
-closure instances produced by their enclosing scopes so that captures shared
-across multiple lambda layers continue to reference the same storage locations.
-Non-capturing lambdas are emitted using the same closure-carrier convention
-(with zero capture fields) so lambda emission remains uniform across contexts.
-Synthesized lambda method names follow C#-style metadata naming (`<Method>b__...`).
-`static func` declarations do not capture enclosing state, and `self` is not
-available in static contexts (`RAV2801`). Static function expressions are also
-non-capturing; attempting to capture an outer local or parameter reports
-`RAV2204`.
-
-`base` is available only in instance members of classes with a base class. It
-produces a receiver typed as the direct base class. Invoking a member through
-`base` emits non-virtual dispatch to the selected base member, so an override on
-the current class is bypassed. `base` is not valid in interfaces, static
-members, or contexts without a class base receiver (`RAV2802`). Explicit
-interface implementation member access is a separate qualified-member form, for
-example `IBase.Member()`, and is not modeled as a `base` expression.
-
-Parenthesized function expressions may place attribute lists immediately before the
-parameter list as shorthand. Leading lists are applied contextually:
-non-targeted attributes are applied to the first parameter, while
-`[return: ...]` lists are applied to the function expression return type.
+The shorter lambda form is convenient when the surrounding context already
+makes it clear that a function value is expected:
 
 ```raven
-let parse = [FromBody](content: string) => content
+let add = x => x + 42
 ```
 
-Function-expression parameters may also declare default values using the same trailing
-optional-parameter rules as functions and methods.
+Function expressions may use `async`, `static`, or both:
 
 ```raven
-let format = (name: string, age: int = 1) => "$name:$age"
+let load = async func (url: string) =>
+    await client.GetStringAsync(url)
 ```
 
-Function-expression parameter types are optional when the expression is converted to a known
-delegate type. The compiler infers the parameter types (and any `ref`/`out`
-modifiers) from the delegate's `Invoke` signature and converts the body to the
-delegate's return type. If no delegate context is available, diagnostic
-`RAV2200` is reported and explicit parameter annotations are required.
-
-Parenthesized function-expression parameter lists also support destructuring
-patterns as parameter entries:
-
-* **positional deconstruction** (tuple/`Deconstruct` style), for example `((a, b))`
-* **sequence deconstruction** (collection style), for example `([head, ..tail])`
-
-This is primarily target-typed and inference-driven: the underlying parameter
-type still comes from the delegate context, and destructuring is then applied
-inside the lambda body.
+A function expression can optionally declare a local name for recursion:
 
 ```raven
-let pickSecond: ((int, string)) -> string = ((a, b)) => b
-let sumTail: (int[]) -> int = ([head, ..tail]) => head + tail[0]
+let fib = func Fib(n: int) =>
+    if n <= 1 then n else Fib(n - 1) + Fib(n - 2)
 ```
 
-Nested deconstruction is recursive in parameter patterns. Positional and
-sequence forms may be freely nested as long as each nested segment is
-compatible with its inferred input type:
+The name is visible only inside the function expression.
+
+### Target typing
+
+Function expressions are target-typed. When a compatible delegate type is known
+from the surrounding context, Raven can infer parameter types from the
+delegate's `Invoke` signature:
+
+```raven
+let write: (string) -> () = value => Console.WriteLine(value)
+```
+
+The same function expression can therefore be assigned to, passed to, or
+returned as any compatible delegate type.
+
+Compatibility is based on the delegate's parameter types, `ref`/`out`
+modifiers, and return type. Delegate types themselves are not implicitly
+convertible to one another merely because their signatures match; converting
+between distinct delegate types requires an explicit cast.
+
+### Destructuring parameters
+
+Function-expression parameters can destructure their input.
+
+Positional deconstruction can unpack tuples and other positional values:
+
+```raven
+let pickSecond: ((int, string)) -> string =
+    ((a, b)) => b
+```
+
+Sequence deconstruction can unpack collections:
+
+```raven
+let sumTail: (int[]) -> int =
+    ([head, ..tail]) => head + tail[0]
+```
+
+Patterns can be nested:
 
 ```raven
 let project: (((int, string), int[])) -> string =
-    (((id, name), [head, ..tail])) => "$id:$name:$head:${tail.Length}"
+    (((id, name), [head, ..tail])) =>
+        "$id:$name:$head:${tail.Length}"
 ```
 
-For sequence deconstruction in lambda parameter lists, `..name` and JavaScript-
-style `...name` are both accepted as rest syntax.
+Both `..name` and `...name` are accepted as rest syntax in sequence
+deconstruction.
 
-When a destructuring parameter omits per-element binding keywords, elements are
-bound as immutable (`val`) by default. Compatibility is still validated against
-the inferred parameter type; non-deconstructable inputs produce the same
-deconstruction diagnostics as other pattern-based bindings (for example
-`RAV0132`).
+When binding keywords are omitted in a destructuring function parameter,
+elements are bound as immutable values by default.
 
-Parameters themselves do not carry binding keywords in symbol display/tooling
-representations. Hover/signature text renders them as `name: type` (or
-`params name: elementType` for collector parameters). In primary-constructor
-contexts, `val`/`var` continues to mean promotion to a property rather than a
-mutable parameter binding.
+## Functions as values
 
-Function expressions are target-typed: the same function expression may be assigned to, passed
-to, or returned as any compatible delegate type. Compatibility is determined
-solely by the delegate's `Invoke` signature (parameter types, `ref`/`out`
-modifiers, and return type). Delegate types themselves are **not** implicitly
-convertible between one another even when their signatures match; preserving
-delegate identity requires an explicit cast when converting from one delegate
-type to another.
-
-### Function values and method references
-
-Functions and methods are first-class values. Referencing a function or method
-name without invoking it produces a delegate that can be stored, passed around,
-or invoked later. The compiler picks an appropriate delegate type using the
-same target-typing rules that guide overload resolution. In a binding such as
-`val` or `var`, the initializer (or an explicit type annotation) supplies that
-context so the delegate type—and corresponding overload—can be determined.
-When no delegate context is available, diagnostic `RAV2201` is reported and the
-method must either be invoked directly or annotated with a delegate type.
+Named functions and methods are first-class values. Referencing a function or
+method without invoking it produces a callable value:
 
 ```raven
 let writeLine: (string) -> () = Console.WriteLine
+
 writeLine("Hello from Raven!")
 ```
 
-If the referenced member has no overloads, the compiler may omit the
-annotation and still infer the delegate type from that unique signature.
-
-When the referenced method defines multiple overloads, Raven does **not** allow
-an unannotated binding to rely solely on type inference; such declarations are
-ambiguous and produce diagnostic `RAV2202`. To disambiguate, provide the
-delegate type explicitly or use another context with a well-defined target
-type.
+This makes functions easy to pass to other functions:
 
 ```raven
-let writeLine = Console.WriteLine             // error: overloaded method group
-let writeLine: (string) -> () = Console.WriteLine // ok
+func run(action: (string) -> ()) {
+    action("ready")
+}
+
+run(Console.WriteLine)
 ```
 
-Passing `Console.WriteLine` as an argument to a parameter of function type `(string) -> ()`
-(equivalent to `System.Action<string>`) likewise selects the `string` overload without requiring
-an explicit annotation at the call site. If no overload matches the target
-delegate's signature, diagnostic `RAV2203` is produced.
+The expected function type provides context for selecting a compatible method
+overload.
 
-When the selected method is compatible with the target delegate only through
-implicit parameter/return conversion (for example, delegate parameter
-`KeyValuePair<string, int>` forwarded to method parameter `object`), Raven
-synthesizes an internal compiler-generated bridge method and binds the delegate
-to that bridge. The bridge performs the required implicit conversions (including
-boxing for value types) before invoking the selected method.
+If a method has a unique signature, Raven can often infer the function type:
 
-If no compatible delegate type exists in the current context, the compiler
-generates one whose signature matches the referenced function or method. The
-generated delegate observes the same parameter list (including `ref`/`out`
-modifiers) and return type as the source symbol so the resulting value behaves
-identically to directly invoking that member. Subsequent uses of the same
-signature within the compilation reuse the synthesized delegate.
+```raven
+let increment = Counter.Increment
+```
 
-Instance method references capture their receiver automatically. Evaluating
-`self.Member` as a value stores the current instance alongside the referenced
-method so later invocations execute against the same object:
+For overloaded methods, an explicit function type or another target-typed
+context is needed to select the intended overload:
+
+```raven
+let writeLine: (string) -> () = Console.WriteLine
+```
+
+Instance method references capture their receiver:
 
 ```raven
 class Counter {
     value: int = 3
 
-    func Increment(delta: int) -> int { self.value + delta }
+    func Increment(delta: int) -> int {
+        self.value + delta
+    }
 
     func Run() -> int {
         let increment = self.Increment
-        increment(7) // returns 10
+        increment(7)
     }
 }
 ```
 
-Method references may be passed directly to parameters of delegate type. The
-overload chosen for the receiving method is the one whose delegate parameter
-matches the referenced method's signature:
+Here, `increment` continues to invoke `Increment` on the same `Counter`
+instance.
+
+## Captured values
+
+Local functions and function expressions can capture locals, parameters, and
+`self` from their enclosing scope. Captured mutable variables remain shared, so
+changes are visible to every function that captures the same variable.
 
 ```raven
-func Run(action: System.Action<string>) { action("ready") }
-func Run(value: string) { Console.WriteLine(value) }
+var count = 0
 
-Run(Console.WriteLine) // selects the Action<string> overload
+let next = () => {
+    count = count + 1
+    count
+}
 ```
 
-When a referenced method's signature requires a delegate that doesn't already
-exist—such as one with `ref`/`out` parameters—Raven synthesizes an internal
-delegate type and uses it as the expression's type. These delegates behave like
-framework-provided types and faithfully propagate modifiers:
+`static func` declarations and static function expressions do not capture
+enclosing state. `self` is likewise unavailable in static contexts.
+
+`base` is available in instance members of classes that have a base class.
+Calling a member through `base` dispatches directly to the selected base member
+rather than through an override on the current class.
+
+Raven implements captures using compiler-generated closure storage. Nested
+capturing functions share the relevant closure state so that all references to
+a captured variable observe the same value. Non-capturing function expressions
+use the same general callable representation without capture fields.
+
+## Attributes
+
+Functions and their parameters may carry .NET attributes:
+
+```raven
+[Trace]
+func compute(x: int) -> int => x * 2
+```
+
+Attributes can also target the return value:
+
+```raven
+[return: MaybeNull]
+func find(name: string) -> string {
+    // ...
+}
+```
+
+Parameter attributes use the same attribute syntax supported by other
+function-like declarations.
+
+Explicit attribute targets are validated according to where they appear:
+
+* `[assembly: ...]` and `[module: ...]` apply at compilation-unit scope.
+* `[type: ...]` applies to type declarations.
+* `[method: ...]` applies to functions and methods, and can target a synthesized
+  primary constructor where applicable.
+* `[return: ...]` applies to callable return metadata.
+* `[param: ...]` and `[parameter: ...]` apply to parameters.
+* `[property: ...]` applies to properties.
+* `[field: ...]` applies to fields or synthesized backing fields where
+  applicable.
+* `[event: ...]` applies to events.
+
+## .NET delegate interoperability
+
+Raven function values interoperate with .NET delegates. When a function
+expression is used where a delegate type is expected, its parameters and return
+value are checked against the delegate's `Invoke` signature.
+
+Method references use the same target-typing rules. For example:
+
+```raven
+func Run(action: System.Action<string>) {
+    action("ready")
+}
+
+Run(Console.WriteLine)
+```
+
+selects the `Console.WriteLine(string)` overload.
+
+When a referenced method requires implicit conversions to match the target
+delegate signature, Raven may synthesize an internal bridge that performs those
+conversions before invoking the method.
+
+If a function signature cannot be represented by an existing framework
+delegate—for example because it contains `ref` or `out` parameters—Raven can
+synthesize a compatible delegate type:
 
 ```raven
 class Accumulator {
@@ -512,11 +469,18 @@ class Accumulator {
 
     static func Execute(value: int) -> int {
         let callback = Accumulator.TryAccumulate
+
         var current = value
         var doubled = 0
 
         callback(&current, &doubled)
-        current + doubled // evaluates to 12 when value is 3
+
+        current + doubled
     }
 }
 ```
+
+Imported methods may also use
+`System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute`. When
+multiple applicable candidates belong to the same overload set, Raven keeps the
+highest-priority candidates before applying normal overload comparison.
