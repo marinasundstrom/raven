@@ -160,11 +160,13 @@ Each definition must implement exactly one category-specific macro interface;
 overridden by the implementation. Target applicability is declared only by
 `IAttachedDeclarationMacro`; `MacroFacts.GetTargets` normalizes invocable
 definitions to `MacroTarget.None` for common tooling.
-The function-oriented authoring model currently synthesizes local provider
-adapters and typed parameter objects from dedicated syntax. These are
-transitional contracts. The target model is the nominal definition type,
-designated `Expand` method, canonical parameter bindings, and erased executor
-defined in [Macro ABI](abi.md).
+The function-oriented authoring model now lowers local declarations directly
+to the erased executor defined in [Macro ABI](abi.md). Caller-supplied
+parameters remain flat and are bound by canonical invocation ordinal and name;
+injected contexts, token bodies, and attached targets come from the execution
+snapshot. Generated typed parameter objects are no longer part of this path.
+The category-specific interfaces remain as compatibility contracts for
+class-authored and compiler-provided macros during migration.
 
 The active set belongs to one immutable compilation snapshot. Editing local
 macro declarations, adding or removing a portable reference, or changing a

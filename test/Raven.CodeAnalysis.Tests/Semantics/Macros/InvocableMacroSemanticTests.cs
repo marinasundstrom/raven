@@ -67,6 +67,39 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void GenericMacro_CompilesThroughErasedLocalProviderAndExpands()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            macro ToExpression<T>(value: T) {
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42")
+            }
+
+            func Main() -> int => ToExpression<int>!(42)
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "GenericMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.All(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Error),
+            string.Join(Environment.NewLine, diagnostics));
+        var consumerTree = Assert.Single(compilation.SyntaxTrees);
+        var invocation = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
+
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
     public void ErasedExecutor_ReceivesGenericArgumentsAndFlatInvocationArguments()
     {
         var executor = new SnapshotExecutor();

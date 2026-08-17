@@ -42,7 +42,6 @@ internal static class MacroLowering
     {
         var suffix = declaration.Span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var providerName = $"__RavenMacro_{declaration.Identifier.ValueText}_{suffix}";
-        var parametersName = $"{providerName}_Parameters";
         var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroDeclarationSymbol;
         var isAttached = symbol?.ApplicationKind == MacroApplicationKind.Attached ||
             declaration.ParameterList.Parameters.Any(static parameter =>
@@ -52,6 +51,8 @@ internal static class MacroLowering
             .Select((syntax, index) => (
                 Syntax: syntax,
                 Role: symbol?.Parameters[index].MacroRole ?? MacroParameterRole.Value,
+                Parameter: symbol?.Parameters[index],
+                InvocationOrdinal: symbol?.ParameterBindings[index].InvocationArgumentOrdinal,
                 ContextKind: symbol is null
                     ? MacroContextKind.None
                     : MacroParameterRoleFacts.GetContextKind(symbol.Parameters[index].Type)))
@@ -89,36 +90,25 @@ internal static class MacroLowering
             .Select(static token => token.ValueText)
             .ToHashSet(StringComparer.Ordinal);
         var contextVariableName = AllocateGeneratedName(usedNames, "__macroContext");
+        var executionVariableName = AllocateGeneratedName(usedNames, "__macroExecution");
         var resultBuilderName = AllocateGeneratedName(usedNames, "__macroResultBuilder");
-        var interfaceName = hasTokenTreeBody
-            ? "Raven.CodeAnalysis.Macros.ITokenTreeMacro"
-            : isAttached
-            ? "Raven.CodeAnalysis.Macros.IAttachedDeclarationMacro"
-            : "Raven.CodeAnalysis.Macros.IInvocableMacro";
+        var interfaceName = "Raven.CodeAnalysis.Macros.IMacroExecutor";
         var contextName = hasTokenTreeBody
             ? "Raven.CodeAnalysis.Macros.TokenTreeMacroContext"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.AttachedMacroContext"
             : "Raven.CodeAnalysis.Macros.InvocableMacroContext";
-        var resultName = hasTokenTreeBody
+        var categoryResultName = hasTokenTreeBody
             ? "Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.MacroExpansionResult"
             : "Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult";
         var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildInvocable";
-
-        if (hasParameters)
-        {
-            interfaceName += $"<{parametersName}>";
-            contextName += $"<{parametersName}>";
-        }
+        var resultFactory = isAttached && !hasTokenTreeBody ? "Attached" : "Invocable";
         if (hasEditorMetadataContributions)
             interfaceName += ", Raven.CodeAnalysis.Macros.IMacroExpansionMetadataProvider";
 
         var builder = new StringBuilder();
-        if (hasParameters)
-            AppendParametersClass(builder, valueParameters, parametersName, isPublic);
-
         builder.AppendLine($"{(isPublic ? "public " : string.Empty)}class {providerName} : {interfaceName} {{");
         builder.AppendLine(
             $"    val Namespace: string => \"{EscapeString(GetDeclaredNamespace(declaration))}\"");
@@ -149,14 +139,30 @@ internal static class MacroLowering
         }
 
         builder.AppendLine(
-            $"    func Expand({contextVariableName}: {contextName}) -> {resultName} {{");
+            $"    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.{(isAttached ? "Attached" : "Invocable")}");
+        if (hasTokenTreeBody)
+            builder.AppendLine("    val HasTokenBody: bool => true");
+        if (hasParameters)
+            builder.AppendLine("    val AcceptsArguments: bool => true");
+
+        builder.AppendLine(
+            $"    func Expand({executionVariableName}: Raven.CodeAnalysis.Macros.MacroExecutionContext) -> Raven.CodeAnalysis.Macros.MacroExecutionResult {{");
+        builder.AppendLine(
+            $"        let {contextVariableName} = {executionVariableName}.GetContext<{contextName}>()");
         builder.AppendLine(
             $"        let {resultBuilderName} = Raven.CodeAnalysis.Macros.MacroExpansionResultBuilder()");
 
         foreach (var parameter in valueParameters)
         {
+            var parameterType = GetParameterType(parameter);
+            var argumentAccessor = parameter.Syntax.DefaultValue is null
+                ? "GetArgument"
+                : "GetArgumentOrDefault";
+            var defaultArgument = parameter.Syntax.DefaultValue is null
+                ? string.Empty
+                : $", {parameter.Syntax.DefaultValue.Value}";
             builder.AppendLine(
-                $"        let {parameter.Syntax.Identifier.ValueText} = {contextVariableName}.Parameters.{parameter.Syntax.Identifier.ValueText}");
+                $"        let {parameter.Syntax.Identifier.ValueText}: {parameterType} = {executionVariableName}.{argumentAccessor}<{parameterType}>({parameter.InvocationOrdinal ?? 0}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\"{defaultArgument})");
         }
 
         if (tokenStreamParameters.Length > 0)
@@ -184,7 +190,12 @@ internal static class MacroLowering
         if (!hasTokenTreeBody && parameters.FirstOrDefault(static parameter =>
                 parameter.Role == MacroParameterRole.AttachedTarget) is { Syntax: { } targetParameter })
         {
-            AppendTargetBinding(builder, targetParameter, resultName, contextVariableName);
+            AppendTargetBinding(
+                builder,
+                targetParameter,
+                categoryResultName,
+                resultFactory,
+                contextVariableName);
         }
 
         AppendLoweredBody(
@@ -192,57 +203,34 @@ internal static class MacroLowering
             source,
             declaration,
             resultBuilderName,
-            buildMethod);
+            buildMethod,
+            resultFactory);
         if (!EndsWithExpand(declaration))
-            builder.AppendLine($"        return {resultBuilderName}.{buildMethod}()");
+            builder.AppendLine(
+                $"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.{resultFactory}({resultBuilderName}.{buildMethod}())");
         builder.AppendLine("    }");
         builder.AppendLine("}");
         return builder.ToString();
     }
 
-    private static void AppendParametersClass(
-        StringBuilder builder,
-        IReadOnlyList<(ParameterSyntax Syntax, MacroParameterRole Role, MacroContextKind ContextKind)> parameters,
-        string parametersName,
-        bool isPublic)
-    {
-        builder.AppendLine($"{(isPublic ? "public " : string.Empty)}class {parametersName} {{");
-        foreach (var parameter in parameters)
-        {
-            builder.AppendLine(
-                $"    var {parameter.Syntax.Identifier.ValueText}: {GetParameterType(parameter)}");
-        }
-
-        builder.Append($"    init(");
-        builder.Append(string.Join(
-            ", ",
-            parameters.Select(parameter =>
-            {
-                var defaultValue = parameter.Syntax.DefaultValue is null
-                    ? string.Empty
-                    : $" = {parameter.Syntax.DefaultValue.Value}";
-                return $"{parameter.Syntax.Identifier.ValueText}: {GetParameterType(parameter)}{defaultValue}";
-            })));
-        builder.AppendLine(") {");
-        foreach (var parameter in parameters)
-        {
-            builder.AppendLine(
-                $"        self.{parameter.Syntax.Identifier.ValueText} = {parameter.Syntax.Identifier.ValueText}");
-        }
-        builder.AppendLine("    }");
-        builder.AppendLine("}");
-    }
-
     private static string GetParameterType(
-        (ParameterSyntax Syntax, MacroParameterRole Role, MacroContextKind ContextKind) parameter)
-        => MacroParameterRoleFacts.GetLoweredTypeName(
-            parameter.Syntax,
-            parameter.Role);
+        (
+            ParameterSyntax Syntax,
+            MacroParameterRole Role,
+            IParameterSymbol? Parameter,
+            int? InvocationOrdinal,
+            MacroContextKind ContextKind) parameter)
+        => parameter.Parameter?.Type.TypeKind == TypeKind.TypeParameter
+            ? "object"
+            : MacroParameterRoleFacts.GetLoweredTypeName(
+                parameter.Syntax,
+                parameter.Role);
 
     private static void AppendTargetBinding(
         StringBuilder builder,
         ParameterSyntax targetParameter,
         string resultName,
+        string resultFactory,
         string contextVariableName)
     {
         var targetName = targetParameter.Identifier.ValueText;
@@ -251,7 +239,8 @@ internal static class MacroLowering
 
         builder.AppendLine(
             $"        let {targetName}: {syntaxType} = {contextVariableName}.CurrentDeclaration else {{");
-        builder.AppendLine($"            return {resultName}.Empty");
+        builder.AppendLine(
+            $"            return Raven.CodeAnalysis.Macros.MacroExecutionResult.{resultFactory}({resultName}.Empty)");
         builder.AppendLine("        }");
     }
 
@@ -260,7 +249,8 @@ internal static class MacroLowering
         string source,
         MacroDeclarationSyntax declaration,
         string resultBuilderName,
-        string buildMethod)
+        string buildMethod,
+        string resultFactory)
     {
         if (declaration.Body is { } body)
         {
@@ -293,8 +283,8 @@ internal static class MacroLowering
                 if (instruction == "expand")
                 {
                     loweredContribution = contribution.IsExpression
-                        ? $"{{ {loweredContribution}; return {resultBuilderName}.{buildMethod}() }}"
-                        : $"{loweredContribution}\n{indentation}return {resultBuilderName}.{buildMethod}()";
+                        ? $"{{ {loweredContribution}; return Raven.CodeAnalysis.Macros.MacroExecutionResult.{resultFactory}({resultBuilderName}.{buildMethod}()) }}"
+                        : $"{loweredContribution}\n{indentation}return Raven.CodeAnalysis.Macros.MacroExecutionResult.{resultFactory}({resultBuilderName}.{buildMethod}())";
                 }
 
                 content.Insert(relativeStart, loweredContribution);

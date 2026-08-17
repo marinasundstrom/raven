@@ -281,7 +281,7 @@ internal static class MacroParameterBinder
         return true;
     }
 
-    private static bool TryConvertValue(MacroArgument argument, Type targetType, out object? converted)
+    internal static bool TryConvertValue(MacroArgument argument, Type targetType, out object? converted)
     {
         if (targetType.IsInstanceOfType(argument.Expression))
         {
