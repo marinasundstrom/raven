@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
 
@@ -7,16 +6,15 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclarationSymbol
 {
-    private ITypeSymbol _returnType;
-    private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
-    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private MacroTarget _targets;
     private string? _targetName;
     private IParameterSymbol? _targetParameter;
     private bool _isAttached;
     private MacroInvocationTargets _invocationTargets = MacroInvocationTargets.Expression;
+    private ImmutableArray<MacroParameterBinding> _parameterBindings = [];
 
     public SourceMacroSymbol(
+        Compilation compilation,
         string name,
         ITypeSymbol returnType,
         ISymbol containingSymbol,
@@ -34,7 +32,25 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
             declaringSyntaxReferences,
             declaredAccessibility)
     {
-        _returnType = returnType;
+        DefinitionType = new SynthesizedMacroDefinitionTypeSymbol(
+            compilation,
+            name,
+            containingNamespace,
+            locations,
+            declaringSyntaxReferences,
+            declaredAccessibility);
+        ExpandMethod = new SourceMethodSymbol(
+            "Expand",
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            DefinitionType,
+            DefinitionType,
+            containingNamespace,
+            locations,
+            declaringSyntaxReferences,
+            isStatic: false,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Public);
     }
 
     public override string MetadataName => Name;
@@ -64,16 +80,23 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
 
     public IParameterSymbol? TargetParameter => _targetParameter;
 
-    public ITypeSymbol ReturnType => _returnType;
+    public INamedTypeSymbol DefinitionType { get; }
 
-    public ImmutableArray<IParameterSymbol> Parameters =>
-        _parameters.Cast<IParameterSymbol>().ToImmutableArray();
+    internal SourceMethodSymbol SourceExpandMethod => (SourceMethodSymbol)ExpandMethod;
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
+    public IMethodSymbol ExpandMethod { get; }
+
+    public ITypeSymbol ReturnType => ExpandMethod.ReturnType;
+
+    public ImmutableArray<IParameterSymbol> Parameters => ExpandMethod.Parameters;
+
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => DefinitionType.TypeParameters;
+
+    public ImmutableArray<MacroParameterBinding> ParameterBindings => _parameterBindings;
 
     internal void SetReturnType(ITypeSymbol returnType)
     {
-        _returnType = returnType;
+        SourceExpandMethod.SetReturnType(returnType);
     }
 
     internal void SetInvocationTargets(MacroInvocationTargets invocationTargets)
@@ -83,12 +106,36 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
 
     internal void SetParameters(ImmutableArray<SourceParameterSymbol> parameters)
     {
-        _parameters = parameters;
+        SourceExpandMethod.SetParameters(parameters);
+
+        var bindings = ImmutableArray.CreateBuilder<MacroParameterBinding>(parameters.Length);
+        var invocationOrdinal = 0;
+        for (var declarationOrdinal = 0; declarationOrdinal < parameters.Length; declarationOrdinal++)
+        {
+            var parameter = parameters[declarationOrdinal];
+            var source = parameter.MacroRole switch
+            {
+                MacroParameterRole.SyntaxInput => MacroParameterSource.SyntaxInput,
+                MacroParameterRole.Context => MacroParameterSource.Context,
+                MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
+                MacroParameterRole.AttachedTarget => MacroParameterSource.AttachedTarget,
+                _ => MacroParameterSource.Value,
+            };
+            var acceptsInvocationArgument = source is
+                MacroParameterSource.Value or MacroParameterSource.SyntaxInput;
+            bindings.Add(new MacroParameterBinding(
+                parameter,
+                source,
+                declarationOrdinal,
+                acceptsInvocationArgument ? invocationOrdinal++ : null));
+        }
+
+        _parameterBindings = bindings.MoveToImmutable();
     }
 
     internal void SetTypeParameters(ImmutableArray<ITypeParameterSymbol> typeParameters)
     {
-        _typeParameters = typeParameters;
+        ((SourceNamedTypeSymbol)DefinitionType).SetTypeParameters(typeParameters);
     }
 
     internal void SetTarget(

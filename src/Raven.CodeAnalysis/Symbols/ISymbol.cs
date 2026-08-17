@@ -354,6 +354,17 @@ public interface IMacroDeclarationSymbol : IMacroSymbol
 {
 
     /// <summary>
+    /// Gets the canonical nominal type that owns this macro's generic
+    /// parameters and expansion entry point.
+    /// </summary>
+    INamedTypeSymbol DefinitionType { get; }
+
+    /// <summary>
+    /// Gets the macro's single designated expansion method.
+    /// </summary>
+    IMethodSymbol ExpandMethod { get; }
+
+    /// <summary>
     /// Gets the source name bound to the current attached target.
     /// </summary>
     string? TargetName { get; }
@@ -372,6 +383,11 @@ public interface IMacroDeclarationSymbol : IMacroSymbol
     /// Gets the macro declaration parameters.
     /// </summary>
     ImmutableArray<IParameterSymbol> Parameters { get; }
+
+    /// <summary>
+    /// Gets how the designated expansion method's parameters are supplied.
+    /// </summary>
+    ImmutableArray<MacroParameterBinding> ParameterBindings { get; }
 
     /// <summary>
     /// Gets the macro declaration type parameters.

@@ -172,21 +172,49 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.True(symbol.CanBeReferencedByName);
         Assert.False(symbol is IMethodSymbol);
 
+        Assert.Equal("IdentityMacro", symbol.DefinitionType.Name);
+        Assert.True(symbol.DefinitionType.IsImplicitlyDeclared);
+        Assert.DoesNotContain(
+            compilation.GlobalNamespace.GetMembers("IdentityMacro"),
+            candidate => ReferenceEquals(candidate, symbol.DefinitionType));
+        Assert.Equal("Expand", symbol.ExpandMethod.Name);
+        Assert.Same(symbol.DefinitionType, symbol.ExpandMethod.ContainingType);
+        Assert.Same(symbol.DefinitionType, symbol.ExpandMethod.ContainingSymbol);
+
         var typeParameter = Assert.Single(symbol.TypeParameters);
-        Assert.Equal(TypeParameterOwnerKind.Macro, typeParameter.OwnerKind);
-        Assert.Same(symbol, typeParameter.DeclaringMacroParameterOwner);
+        Assert.Same(typeParameter, Assert.Single(symbol.DefinitionType.TypeParameters));
+        Assert.Equal(TypeParameterOwnerKind.Type, typeParameter.OwnerKind);
+        Assert.Null(typeParameter.DeclaringMacroParameterOwner);
         Assert.Null(typeParameter.DeclaringMethodParameterOwner);
-        Assert.Null(typeParameter.DeclaringTypeParameterOwner);
+        Assert.Same(symbol.DefinitionType, typeParameter.DeclaringTypeParameterOwner);
         Assert.Equal(TypeParameterConstraintKind.TypeConstraint, typeParameter.ConstraintKind);
         Assert.Equal("IDisposable", Assert.Single(typeParameter.ConstraintTypes).Name);
         Assert.Equal("ExpressionSyntax", symbol.ReturnType.Name);
+        Assert.Same(symbol.ReturnType, symbol.ExpandMethod.ReturnType);
 
         var parameter = Assert.Single(symbol.Parameters);
+        Assert.Same(parameter, Assert.Single(symbol.ExpandMethod.Parameters));
         Assert.Equal("value", parameter.Name);
         Assert.Equal(MacroParameterRole.Value, parameter.MacroRole);
-        Assert.Same(symbol, parameter.ContainingSymbol);
+        Assert.Same(symbol.ExpandMethod, parameter.ContainingSymbol);
+        Assert.Same(symbol.DefinitionType, parameter.ContainingType);
         Assert.Same(typeParameter, parameter.Type);
         Assert.Same(parameter, model.GetDeclaredSymbol(declaration.ParameterList.Parameters.Single()));
+
+        var binding = Assert.Single(symbol.ParameterBindings);
+        Assert.Same(parameter, binding.Parameter);
+        Assert.Equal(MacroParameterSource.Value, binding.Source);
+        Assert.Equal(0, binding.DeclarationOrdinal);
+        Assert.Equal(0, binding.InvocationArgumentOrdinal);
+
+        var constructedType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            symbol.DefinitionType.Construct(
+                compilation.GetTypeByMetadataName("System.IDisposable")!));
+        var constructedExpand = Assert.Single(
+            constructedType.GetMembers("Expand").OfType<IMethodSymbol>());
+        Assert.Equal(
+            "IDisposable",
+            Assert.Single(constructedExpand.Parameters).Type.Name);
 
         Assert.Contains(
             compilation.GlobalNamespace.GetMembers("Identity"),
@@ -203,6 +231,56 @@ public sealed class MacroSymbolTests : CompilationTestBase
             SemanticClassification.Parameter,
             classifications.Tokens[declaration.ParameterList.Parameters.Single().Identifier]);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void MacroDeclaration_ExpandMethodKeepsMultipleAndInjectedParametersFlat()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            macro Query<T>(
+                dialect: string,
+                source: Raven.CodeAnalysis.Syntax.ExpressionSyntax,
+                body: Raven.CodeAnalysis.Macros.IMacroTokenStream,
+                context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext
+            ) -> Raven.CodeAnalysis.Syntax.ExpressionSyntax {
+                expand source
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(4, symbol.ExpandMethod.Parameters.Length);
+        Assert.Equal(
+            ["dialect", "source", "body", "context"],
+            symbol.ExpandMethod.Parameters.Select(static parameter => parameter.Name));
+        Assert.All(
+            symbol.ExpandMethod.Parameters,
+            parameter => Assert.Same(symbol.ExpandMethod, parameter.ContainingSymbol));
+
+        Assert.Collection(
+            symbol.ParameterBindings,
+            binding => AssertBinding(binding, MacroParameterSource.Value, 0, 0),
+            binding => AssertBinding(binding, MacroParameterSource.SyntaxInput, 1, 1),
+            binding => AssertBinding(binding, MacroParameterSource.TokenBody, 2, null),
+            binding => AssertBinding(binding, MacroParameterSource.Context, 3, null));
+        Assert.Empty(compilation.GetDiagnostics());
+
+        static void AssertBinding(
+            MacroParameterBinding binding,
+            MacroParameterSource source,
+            int declarationOrdinal,
+            int? invocationOrdinal)
+        {
+            Assert.Equal(source, binding.Source);
+            Assert.Equal(declarationOrdinal, binding.DeclarationOrdinal);
+            Assert.Equal(invocationOrdinal, binding.InvocationArgumentOrdinal);
+        }
     }
 
     [Fact]

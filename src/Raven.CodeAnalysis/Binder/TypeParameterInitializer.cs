@@ -210,8 +210,8 @@ internal static class TypeParameterInitializer
 
             builder.Add(new SourceTypeParameterSymbol(
                 identifier.ValueText,
-                macroSymbol,
-                containingType: null,
+                macroSymbol.DefinitionType,
+                macroSymbol.DefinitionType,
                 macroSymbol.ContainingNamespace,
                 [location],
                 [reference],

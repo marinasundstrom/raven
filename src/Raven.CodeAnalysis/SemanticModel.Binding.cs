@@ -285,6 +285,7 @@ public partial class SemanticModel
             ?? throw new InvalidOperationException("Macro declarations require a source namespace.");
         ITypeSymbol returnType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var symbol = new SourceMacroSymbol(
+            Compilation,
             declaration.Identifier.ValueText,
             returnType,
             sourceNamespace,
@@ -307,7 +308,7 @@ public partial class SemanticModel
                 this,
                 returnTypeSyntax.Type,
                 returnType,
-                containingType: null,
+                symbol.DefinitionType,
                 symbol.TypeParameters);
             symbol.SetReturnType(returnType);
         }
@@ -324,8 +325,8 @@ public partial class SemanticModel
             parameters.Add(MemberSignatureDeclarationPass.CreateSkeletonParameterSymbol(
                 this,
                 parameter,
-                symbol,
-                containingType: null,
+                symbol.SourceExpandMethod,
+                symbol.DefinitionType,
                 symbol.TypeParameters,
                 parameterType,
                 macroRole));
@@ -706,7 +707,7 @@ public partial class SemanticModel
                     this,
                     typeConstraint.Type,
                     Compilation.ErrorTypeSymbol,
-                    containingType: null,
+                    symbol.DefinitionType,
                     symbol.TypeParameters));
             }
 
