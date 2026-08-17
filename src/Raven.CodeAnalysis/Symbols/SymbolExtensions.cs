@@ -122,13 +122,6 @@ public static partial class SymbolExtensions
             return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner);
         }
 
-        if (leftDefinition.OwnerKind == TypeParameterOwnerKind.Macro)
-        {
-            return SymbolEqualityComparer.Default.Equals(
-                leftDefinition.DeclaringMacroParameterOwner,
-                rightDefinition.DeclaringMacroParameterOwner);
-        }
-
         var leftTypeOwner = (INamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner);
         var rightTypeOwner = (INamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner);
         return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner);
@@ -170,9 +163,6 @@ public static partial class SymbolExtensions
                                                       ?? definition.DeclaringMethodParameterOwner) is { } method
                         ? $"{(method.ContainingType?.OriginalDefinition as INamedTypeSymbol ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"}::{method.MetadataName}"
                         : "<method>",
-                    TypeParameterOwnerKind.Macro => definition.DeclaringMacroParameterOwner is { } macro
-                        ? $"{macro.ContainingNamespace?.ToDisplayString() ?? "<global>"}::{macro.Name}/{macro.Arity}"
-                        : "<macro>",
                     _ => "<unknown>"
                 };
                 return $"!{definition.OwnerKind}:{ownerIdentity}:{definition.Ordinal}:{definition.Name}";
@@ -611,11 +601,13 @@ public static partial class SymbolExtensions
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
                 !macroSymbol.TypeParameters.IsDefaultOrEmpty)
             {
+                var arguments = !macroSymbol.TypeArguments.IsDefaultOrEmpty &&
+                    macroSymbol.TypeArguments.Length == macroSymbol.TypeParameters.Length
+                        ? macroSymbol.TypeArguments.Select(argument => FormatType(argument, format))
+                        : macroSymbol.TypeParameters.Select(parameter =>
+                            EscapeIdentifierIfNeeded(parameter.Name, format));
                 result.Append('<');
-                result.Append(string.Join(
-                    ", ",
-                    macroSymbol.TypeParameters.Select(parameter =>
-                        EscapeIdentifierIfNeeded(parameter.Name, format))));
+                result.Append(string.Join(", ", arguments));
                 result.Append('>');
             }
 

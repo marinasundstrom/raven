@@ -105,11 +105,6 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 if (!EqualsCore(tpx.DeclaringMethodParameterOwner, tpy.DeclaringMethodParameterOwner, visited))
                     return false;
             }
-            else if (tpx.OwnerKind == TypeParameterOwnerKind.Macro)
-            {
-                if (!EqualsCore(tpx.DeclaringMacroParameterOwner, tpy.DeclaringMacroParameterOwner, visited))
-                    return false;
-            }
             else
             {
                 if (!EqualsCore(tpx.DeclaringTypeParameterOwner, tpy.DeclaringTypeParameterOwner, visited))
@@ -437,11 +432,6 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             {
                 if (tp.DeclaringMethodParameterOwner is { } methodOwner)
                     hash.Add(GetHashCodeCore(methodOwner, visited));
-            }
-            else if (tp.OwnerKind == TypeParameterOwnerKind.Macro)
-            {
-                if (tp.DeclaringMacroParameterOwner is { } macroOwner)
-                    hash.Add(GetHashCodeCore(macroOwner, visited));
             }
             else
             {

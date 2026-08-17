@@ -354,8 +354,11 @@ The semantic model represents that abstraction with
 function-shaped declaration is not a CLR method and must not enter ordinary
 method lookup, overload resolution, metadata emission, or runtime code
 generation. Its parameters and generic parameters retain their familiar
-signature meaning, but generic ownership is
-`TypeParameterOwnerKind.Macro`, not `Method`.
+signature meaning. Generic parameters are owned by the macro's hidden nominal
+definition type (`TypeParameterOwnerKind.Type`), while its parameters are owned
+by that type's designated `Expand` method. Constructing a generic macro
+therefore substitutes the complete `Expand` signature through the ordinary
+named-type construction model.
 
 Parameter binding follows the type-directed model familiar from ASP.NET Core
 minimal APIs. Ordinary parameter types have the `Value` role and bind from the

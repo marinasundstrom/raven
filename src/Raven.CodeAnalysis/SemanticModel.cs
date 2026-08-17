@@ -2005,6 +2005,19 @@ public partial class SemanticModel
             _ => null
         };
 
+    private IMacroDeclarationSymbol ConstructLocalMacroSymbol(
+        TypeSyntax name,
+        IMacroDeclarationSymbol macroSymbol)
+    {
+        if (!name.TryGetMacroTypeArgumentList(out var typeArgumentList))
+            return macroSymbol;
+
+        var typeArguments = ResolveAvailableTypeArguments(typeArgumentList);
+        return typeArguments.IsDefault || typeArguments.Length != macroSymbol.Arity
+            ? macroSymbol
+            : macroSymbol.Construct(typeArguments.ToArray());
+    }
+
     /// <summary>
     /// Gets symbol information about a syntax node
     /// </summary>
@@ -2029,7 +2042,16 @@ public partial class SemanticModel
             macroExpression.TryGetMacroName(out var macroName))
         {
             IMacroSymbol? macroSymbol = null;
-            if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+            if (Compilation.TryResolveLocalMacroDeclarationSymbol(
+                    macroExpression,
+                    macroName,
+                    macroExpression.Name.GetMacroArity(),
+                    out var localMacroSymbol,
+                    out _))
+            {
+                macroSymbol = ConstructLocalMacroSymbol(macroExpression.Name, localMacroSymbol);
+            }
+            else if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
                     Compilation,
                     macroExpression,
                     macroName,
@@ -2037,15 +2059,6 @@ public partial class SemanticModel
                     out _))
             {
                 macroSymbol = loadedMacroSymbol;
-            }
-            else if (
-                Compilation.TryResolveLocalMacroDeclarationSymbol(
-                    macroExpression,
-                    macroName,
-                    out var localMacroSymbol,
-                    out _))
-            {
-                macroSymbol = localMacroSymbol;
             }
 
             if (macroSymbol is not null)
@@ -2061,7 +2074,18 @@ public partial class SemanticModel
             macroAttribute.TryGetMacroName(out var attachedMacroName))
         {
             IMacroSymbol? attachedMacroSymbol = null;
-            if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
+            if (Compilation.TryResolveLocalMacroDeclarationSymbol(
+                    macroAttribute,
+                    attachedMacroName,
+                    macroAttribute.Name.GetMacroArity(),
+                    out var localAttachedMacroSymbol,
+                    out _))
+            {
+                attachedMacroSymbol = ConstructLocalMacroSymbol(
+                    macroAttribute.Name,
+                    localAttachedMacroSymbol);
+            }
+            else if (Compilation.GetMacroRegistry().TryResolveMacroSymbol(
                     Compilation,
                     macroAttribute,
                     attachedMacroName,
@@ -2069,14 +2093,6 @@ public partial class SemanticModel
                     out _))
             {
                 attachedMacroSymbol = loadedAttachedMacroSymbol;
-            }
-            else if (Compilation.TryResolveLocalMacroDeclarationSymbol(
-                macroAttribute,
-                attachedMacroName,
-                out var localAttachedMacroSymbol,
-                out _))
-            {
-                attachedMacroSymbol = localAttachedMacroSymbol;
             }
 
             if (attachedMacroSymbol?.MacroKind == MacroKind.AttachedDeclaration)

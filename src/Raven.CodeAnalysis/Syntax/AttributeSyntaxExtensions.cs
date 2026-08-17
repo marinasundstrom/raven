@@ -37,6 +37,30 @@ public static class AttributeSyntaxExtensions
             _ => name.ToString()
         };
 
+    internal static int GetMacroArity(this TypeSyntax name)
+        => name.TryGetMacroTypeArgumentList(out var typeArgumentList)
+            ? typeArgumentList.Arguments.Count
+            : 0;
+
+    internal static bool TryGetMacroTypeArgumentList(
+        this TypeSyntax name,
+        out TypeArgumentListSyntax typeArgumentList)
+    {
+        switch (name)
+        {
+            case GenericNameSyntax generic:
+                typeArgumentList = generic.TypeArgumentList;
+                return true;
+            case QualifiedNameSyntax qualified:
+                return qualified.Right.TryGetMacroTypeArgumentList(out typeArgumentList);
+            case AliasQualifiedNameSyntax aliasQualified:
+                return aliasQualified.Name.TryGetMacroTypeArgumentList(out typeArgumentList);
+            default:
+                typeArgumentList = null!;
+                return false;
+        }
+    }
+
     public static bool TryGetMacroName(this InvocableMacroExpressionSyntax macroExpression, out string macroName)
     {
         if (macroExpression is null)

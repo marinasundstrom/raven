@@ -109,6 +109,7 @@ public partial class Compilation
     internal bool TryResolveLocalMacroDeclarationSymbol(
         SyntaxNode context,
         string macroName,
+        int arity,
         out IMacroDeclarationSymbol symbol,
         out bool isAmbiguous)
     {
@@ -124,6 +125,9 @@ public partial class Compilation
                          .OfType<MacroDeclarationSyntax>())
             {
                 if (semanticModel.GetDeclaredSymbol(declaration) is not IMacroDeclarationSymbol candidate)
+                    continue;
+
+                if (candidate.Arity != arity)
                     continue;
 
                 var isMatch = MacroRegistry.IsQualifiedName(macroName)

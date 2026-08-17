@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Macros;
@@ -92,7 +93,25 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => DefinitionType.TypeParameters;
 
+    public ImmutableArray<ITypeSymbol> TypeArguments => DefinitionType.TypeArguments;
+
     public ImmutableArray<MacroParameterBinding> ParameterBindings => _parameterBindings;
+
+    public IMacroDeclarationSymbol OriginalDefinition => this;
+
+    public IMacroDeclarationSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        if (typeArguments.Length != DefinitionType.Arity)
+        {
+            throw new ArgumentException(
+                $"Macro '{Name}' expects {DefinitionType.Arity} type arguments but received {typeArguments.Length}.",
+                nameof(typeArguments));
+        }
+
+        return typeArguments.Length == 0
+            ? this
+            : new ConstructedMacroDeclarationSymbol(this, typeArguments.ToImmutableArray());
+    }
 
     internal void SetReturnType(ITypeSymbol returnType)
     {

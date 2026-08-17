@@ -95,6 +95,7 @@ internal static class MacroSemanticValidator
             if (compilation.TryResolveLocalMacroDeclarationSymbol(
                     attribute,
                     macroName,
+                    attribute.Name.GetMacroArity(),
                     out var localMacro,
                     out var localIsAmbiguous) &&
                 localMacro.MacroKind == MacroKind.AttachedDeclaration)
@@ -177,6 +178,7 @@ internal static class MacroSemanticValidator
             if (compilation.TryResolveLocalMacroDeclarationSymbol(
                     invocation.Syntax,
                     macroName,
+                    invocation.Name.GetMacroArity(),
                     out var localMacro,
                     out var localIsAmbiguous) &&
                 localMacro.MacroKind == MacroKind.Invocable)

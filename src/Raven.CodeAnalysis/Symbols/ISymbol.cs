@@ -395,6 +395,12 @@ public interface IMacroDeclarationSymbol : IMacroSymbol
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
 
     /// <summary>
+    /// Gets the constructed macro type arguments, or the definition's type
+    /// parameters when this is an unconstructed macro.
+    /// </summary>
+    ImmutableArray<ITypeSymbol> TypeArguments => DefinitionType.TypeArguments;
+
+    /// <summary>
     /// Gets the generic arity of the macro declaration.
     /// </summary>
     int Arity => TypeParameters.Length;
@@ -403,6 +409,17 @@ public interface IMacroDeclarationSymbol : IMacroSymbol
     /// Gets whether this macro declaration is generic.
     /// </summary>
     bool IsGenericMacro => Arity > 0;
+
+    /// <summary>
+    /// Gets the unconstructed macro declaration.
+    /// </summary>
+    IMacroDeclarationSymbol OriginalDefinition => this;
+
+    /// <summary>
+    /// Constructs this macro declaration with explicit symbolic type
+    /// arguments.
+    /// </summary>
+    IMacroDeclarationSymbol Construct(params ITypeSymbol[] typeArguments);
 }
 
 public enum MethodKind
@@ -683,8 +700,7 @@ public enum VarianceKind
 public enum TypeParameterOwnerKind
 {
     Type,
-    Method,
-    Macro
+    Method
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
@@ -787,8 +803,6 @@ public interface ITypeParameterSymbol : ITypeSymbol
     INamedTypeSymbol? DeclaringTypeParameterOwner { get; }
 
     IMethodSymbol? DeclaringMethodParameterOwner { get; }
-
-    IMacroDeclarationSymbol? DeclaringMacroParameterOwner { get; }
 
     TypeParameterConstraintKind ConstraintKind { get; }
 

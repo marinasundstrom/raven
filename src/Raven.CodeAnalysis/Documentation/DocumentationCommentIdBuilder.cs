@@ -338,7 +338,6 @@ internal static class DocumentationCommentIdBuilder
             {
                 TypeParameterOwnerKind.Type => "`" + typeParameter.Ordinal,
                 TypeParameterOwnerKind.Method => "``" + typeParameter.Ordinal,
-                TypeParameterOwnerKind.Macro => typeParameter.Name,
                 _ => typeParameter.Name,
             };
 

@@ -184,7 +184,6 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var typeParameter = Assert.Single(symbol.TypeParameters);
         Assert.Same(typeParameter, Assert.Single(symbol.DefinitionType.TypeParameters));
         Assert.Equal(TypeParameterOwnerKind.Type, typeParameter.OwnerKind);
-        Assert.Null(typeParameter.DeclaringMacroParameterOwner);
         Assert.Null(typeParameter.DeclaringMethodParameterOwner);
         Assert.Same(symbol.DefinitionType, typeParameter.DeclaringTypeParameterOwner);
         Assert.Equal(TypeParameterConstraintKind.TypeConstraint, typeParameter.ConstraintKind);
@@ -281,6 +280,42 @@ public sealed class MacroSymbolTests : CompilationTestBase
             Assert.Equal(declarationOrdinal, binding.DeclarationOrdinal);
             Assert.Equal(invocationOrdinal, binding.InvocationArgumentOrdinal);
         }
+    }
+
+    [Fact]
+    public void GenericMacroInvocation_ResolvesConstructedCanonicalSignature()
+    {
+        const string source = """
+            macro Identity<T>(value: T) -> Raven.CodeAnalysis.Syntax.ExpressionSyntax {
+                expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
+            }
+
+            func Main() -> int => Identity<int>!(1)
+            """;
+        var tree = SyntaxTree.ParseText(source, path: "main.rvn");
+        var compilation = Compilation.Create(
+                "GenericMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(tree);
+        tree = compilation.SyntaxTrees.Single();
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            compilation.GetSemanticModel(tree).GetSymbolInfo(invocation.Name).Symbol);
+
+        Assert.NotSame(symbol, symbol.OriginalDefinition);
+        Assert.Equal("Identity", symbol.Name);
+        Assert.Equal("Int32", Assert.Single(symbol.TypeArguments).Name);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(symbol.Parameters).Type.SpecialType);
+        Assert.Same(symbol.DefinitionType, symbol.ExpandMethod.ContainingType);
+        Assert.Same(symbol.ExpandMethod, Assert.Single(symbol.ParameterBindings).Parameter.ContainingSymbol);
+        Assert.Equal(
+            "Identity<int>(value: int) -> ExpressionSyntax",
+            symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
