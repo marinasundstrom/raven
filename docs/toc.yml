@@ -70,6 +70,8 @@
           href: overview.md
         - name: MVP roadmap
           href: roadmap.md
+    - name: Language reference
+      href: lang/spec/index.md
 - name: Playground
   href: https://marinasundstrom.github.io/raven/playground/
 - name: GitHub

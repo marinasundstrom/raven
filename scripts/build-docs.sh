@@ -6,6 +6,24 @@ site_output="$repository_root/_site"
 core_api_output="$site_output/libraries/raven-core"
 macros_api_output="$site_output/libraries/raven-macros"
 
+serve=false
+no_build=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --serve)
+            serve=true
+            ;;
+        --no-build)
+            no_build=true
+            ;;
+        *)
+            echo "Unknown argument: $arg" >&2
+            exit 1
+            ;;
+    esac
+done
+
 dotnet tool restore --tool-manifest "$repository_root/.config/dotnet-tools.json"
 
 # DocFX preserves files from previous builds. Always clear this generated,
@@ -15,14 +33,16 @@ if [[ -d "$site_output" ]]; then
     rm -rf -- "$site_output"
 fi
 
-# Build the compiler, Raven-authored libraries, and generated compiler sources
-# through the same bootstrap sequence used by local compiler development.
-BUILD_CONFIG=Debug "$repository_root/scripts/codex-build.sh"
+if [[ "$no_build" == false ]]; then
+    # Build the compiler, Raven-authored libraries, and generated compiler sources
+    # through the same bootstrap sequence used by local compiler development.
+    BUILD_CONFIG=Debug "$repository_root/scripts/codex-build.sh"
 
-dotnet build "$repository_root/src/RavenDoc/RavenDoc.csproj" \
-    --framework net10.0 \
-    --no-restore \
-    --property WarningLevel=0
+    dotnet build "$repository_root/src/RavenDoc/RavenDoc.csproj" \
+        --framework net10.0 \
+        --no-restore \
+        --property WarningLevel=0
+fi
 
 # RavenDoc sites remain independent static sites. They are written into the
 # shared Pages artifact before DocFX runs; DocFX preserves unrelated output.
@@ -58,6 +78,7 @@ required_library_pages=(
     "$macros_api_output/Raven/Macros/macro_EmbedFileContent.html"
     "$macros_api_output/Raven/Macros/macro_Sha256Digest.html"
 )
+
 for required_page in "${required_library_pages[@]}"; do
     if [[ ! -f "$required_page" ]]; then
         echo "RavenDoc did not generate required library page: $required_page" >&2
@@ -72,7 +93,7 @@ if ! grep -Fq \
     exit 1
 fi
 
-if [[ "${1:-}" == "--serve" ]]; then
+if [[ "$serve" == true ]]; then
     dotnet docfx build "$repository_root/docs/docfx.json" --warningsAsErrors --serve
 else
     dotnet docfx build "$repository_root/docs/docfx.json" --warningsAsErrors
