@@ -160,10 +160,11 @@ Each definition must implement exactly one category-specific macro interface;
 overridden by the implementation. Target applicability is declared only by
 `IAttachedDeclarationMacro`; `MacroFacts.GetTargets` normalizes invocable
 definitions to `MacroTarget.None` for common tooling.
-The function-oriented authoring model synthesizes local provider adapters and
-typed parameter objects from dedicated syntax while preserving the existing
-category-specific macro, context, diagnostic, token-stream, and
-expansion-result contracts.
+The function-oriented authoring model currently synthesizes local provider
+adapters and typed parameter objects from dedicated syntax. These are
+transitional contracts. The target model is the nominal definition type,
+designated `Expand` method, canonical parameter bindings, and erased executor
+defined in [Macro ABI](abi.md).
 
 The active set belongs to one immutable compilation snapshot. Editing local
 macro declarations, adding or removing a portable reference, or changing a
@@ -339,6 +340,23 @@ contracts:
 Generic invocation and executable namespace-member declarations remain later
 layers. Namespace-qualified lookup, imported short names, and a common symbol
 projection for class-authored providers also remain open tooling work.
+
+The next compatibility-breaking architecture slice is the stable macro ABI:
+
+* project every macro as a nominal definition type with one designated
+  `Expand` method;
+* make that type the owner of macro generic parameters and constraints;
+* attach caller-supplied and compiler-supplied binding sources to the method's
+  ordinary parameter symbols;
+* move equality, lookup, construction, and tooling to those canonical symbols;
+* dispatch compiled providers through one immutable, erased execution context;
+  and
+* remove generated parameter objects and category-specific provider bridges
+  after built-in and class-authored providers migrate.
+
+Typed expression facades, generic inference, and overloads are deliberately
+outside this slice. The ABI only preserves the symbolic type and syntax-input
+information they will require later.
 
 The current adapter lowering reparses generated Raven source inside the local
 macro partition. Compiler-generated locals are allocated against authored

@@ -105,6 +105,12 @@ invocation contexts, diagnostics, token streams, and expansion results so
 Raven-authored shorthand and ordinary .NET implementations remain one macro
 ecosystem, even if the adapter ABI changes.
 
+The target underlying contract is now specified by [Macro ABI](abi.md): one
+nominal macro definition type with one designated, free-form `Expand` method,
+plus an erased executor boundary for compiled providers. The category-specific
+interfaces and parameter-object adapters described below are current
+implementation context rather than compatibility requirements.
+
 ### Dynamic and strongly typed layers
 
 The current model deliberately permits both dynamic and strongly typed macro
@@ -116,12 +122,13 @@ and cancellation. It interprets those inputs itself. This is the unrestricted
 foundation and remains necessary for macros whose grammar or argument meaning
 cannot be expressed by a fixed signature.
 
-A strongly typed implementation builds on that same context. Its generic
-macro contract identifies a parameter-object type, the compiler binds constant
-positional and named arguments into that object, and the corresponding typed
-context exposes it through `Parameters`. The parameter object therefore acts
-as a signature and property bag; it does not define a separate expansion
-engine.
+A strongly typed implementation currently builds on that same context through
+a generated or author-provided parameter-object type. In the target ABI, the
+designated `Expand` method itself is the signature: it may declare multiple
+caller-supplied values or syntax inputs together with compiler-supplied context,
+token-body, and attached-target parameters. Canonical parameter bindings state
+which parameters consume invocation arguments. No parameter-object property is
+part of the stable contract.
 
 Future strongly typed inputs should extend this layering rather than create a
 parallel model. A normalized typed input frame can eventually contain:
@@ -240,32 +247,30 @@ classes or a macro-private DSL tree.
 Class-authored providers remain useful when incomplete input must publish
 tooling metadata independently from full expansion.
 
-Typed parameter lists may lower through the existing generic macro interfaces
-and compiler-owned parameter objects. Syntax-role parameters such as
-`ExpressionSyntax` and `IMacroTokenStream` retain their real types while using
-compiler-directed binding sources rather than constant-value conversion.
+Typed parameter lists currently lower through generic macro interfaces and
+compiler-owned parameter objects. The target [Macro ABI](abi.md) instead
+projects the declaration as one nominal definition type and one `Expand`
+method. Syntax-role parameters such as `ExpressionSyntax` and
+`IMacroTokenStream` retain their real types while using compiler-directed
+binding sources rather than constant-value conversion.
 Reached contribution statements populate the appropriate expansion result.
-The synthesized class therefore needs no redundant macro-category property:
-its implemented interface is the category. A
-definition implementing zero or multiple category interfaces is invalid.
-Compiler and tooling code use compiler-owned `MacroFacts`/registry metadata to
-query `MacroKind`; the implementation cannot override that discriminator.
+The definition therefore needs no redundant macro-category property or
+category interface: application kind and capabilities derive from canonical
+parameter bindings and return/application metadata.
 
-The object-oriented API exposes its normalized typed-value schema through
-`MacroFacts.GetParameters`. Tooling consumes `MacroParameterDescriptor`
-instances rather than repeating reflection over plugin classes. Constructor
-parameters describe ordered inputs; writable or init-style properties describe
-named inputs. This same schema drives named-argument completion and signature
-help and also shapes generated macro parameter objects without
-changing the expansion context contract.
+Tooling consumes the designated method's ordinary parameters together with
+their compiler-owned binding sources. Named-argument completion, signature
+help, binding, and execution therefore share parameter symbols and ordinals
+rather than reflecting over constructor parameters and writable properties.
 
 ### Generic macro declarations and semantic result types
 
 Generic macro parameters need a stronger model than preserving
-`GenericNameSyntax` at the invocation. They are compile-time symbolic types,
-not CLR generic parameters on the generated macro class. A consumer may pass a
-type declared in the same source compilation, which is unavailable when the
-macro provider assembly itself is compiled.
+`GenericNameSyntax` at the invocation. They are compile-time symbolic types
+owned by the ABI's nominal macro definition type. They are not required to
+become CLR generic arguments on the erased executor. A consumer may pass a type
+declared in the same source compilation, which is unavailable when the macro
+provider assembly itself is compiled.
 
 A bound macro type argument should therefore retain both its authored
 `TypeSyntax` and resolved `ITypeSymbol`, together with its location and
@@ -381,12 +386,12 @@ used by the current adapter. Invocable and token-tree macro classes do not
 implement a meaningless `Targets = None` member. Common tooling can query the
 normalized value through `MacroFacts.GetTargets`.
 
-This syntax must lower to the shared macro infrastructure. Initially, the
-compiler may synthesize a parameter-object class, a category-specific adapter,
-and an `Expand` method whose body comes from the declaration body. Those are
-implementation details rather than the semantic identity of the declaration.
-The semantic identity is a macro declaration signature plus its expansion entry
-point, so the adapter shape can evolve without changing the source model.
+This syntax must lower to the shared macro infrastructure. The current compiler
+synthesizes parameter-object and category-specific adapter plumbing. The target
+semantic identity is the ABI's nominal definition type plus its designated
+`Expand` method; lowering erases that signature into an immutable execution
+snapshot and one executor entry point. Transitional adapter shapes are not a
+compatibility contract.
 Source locations, diagnostics, cancellation, and generated-member navigation
 must map back to the authored macro declaration rather than exposing generated
 types.

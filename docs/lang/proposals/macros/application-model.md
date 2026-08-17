@@ -6,6 +6,11 @@ This proposal defines where macros can be applied, what a macro declaration
 must communicate, and how the compiler validates expansion. It does not change
 compiler behavior by itself.
 
+The stable method-shaped declaration model and erased provider dispatch
+boundary are defined separately in [Macro ABI](abi.md). This document owns the
+application positions and normalized semantic facts that the ABI carries; it
+does not preserve the current generated adapter or parameter-object layout.
+
 The central rule is that application position, input representation, output
 syntax, and optional capabilities are independent dimensions. Token bodies,
 editor metadata, and custom DSL structure are not separate macro kinds.
@@ -519,16 +524,15 @@ The type can be a concrete syntax type, a union of attachable syntax types, or
 but it must be produced from this type by one shared projection routine. Binding,
 completion, hover, diagnostics, and execution must consume that same projection.
 
-### Parameter descriptors
+### Parameter bindings
 
 Parameter roles describe who supplies a value. The parameter type describes
 what kind of value it is. This avoids adding one role for every syntax category
 or context class:
 
 ```csharp
-public enum MacroParameterRole
+public enum MacroParameterSource
 {
-    None,
     Value,
     SyntaxInput,
     Context,
@@ -542,24 +546,22 @@ For example, `ExpressionSyntax` and `TypeSyntax` parameters both have the
 recognized context types use the `Context` role rather than creating a new role
 for each context implementation.
 
-Every macro is normalized to immutable parameter descriptors:
+Every `Expand` parameter has one immutable binding:
 
 ```csharp
-public sealed class MacroParameterDescriptor
+public sealed class MacroParameterBinding
 {
     public IParameterSymbol Parameter { get; }
-    public MacroParameterRole Role { get; }
+    public MacroParameterSource Source { get; }
     public int DeclarationOrdinal { get; }
     public int? InvocationArgumentOrdinal { get; }
-    public bool HasDefaultValue { get; }
-    public object? DefaultValue { get; }
 }
 ```
 
 `InvocationArgumentOrdinal` exists only for caller-supplied value and syntax
 inputs. Compiler-supplied roles retain declaration order for diagnostics and
 display, but do not create holes in positional argument binding. Consequently,
-`AcceptsArguments` becomes a derived fact—whether any descriptor accepts a user
+`AcceptsArguments` becomes a derived fact—whether any binding accepts a user
 argument—not a capability separately declared by a provider interface.
 
 Explicit syntax wins over type recognition. `on` always produces
@@ -576,27 +578,31 @@ macro was authored with Raven syntax or a plugin class:
 ```csharp
 public interface IMacroSymbol : ISymbol
 {
+    INamedTypeSymbol DefinitionType { get; }
+    IMethodSymbol ExpandMethod { get; }
     MacroApplicationKind ApplicationKind { get; }
     MacroInvocationTargets InvocationTargets { get; }
-    ITypeSymbol? ReturnType { get; }
     IParameterSymbol? AttachmentTargetParameter { get; }
     ITypeSymbol? AttachmentTargetType { get; }
-    ImmutableArray<MacroParameterDescriptor> Parameters { get; }
+    ImmutableArray<MacroParameterBinding> ParameterBindings { get; }
 }
 ```
 
-For an attached macro, `InvocationTargets` is `None`, `ReturnType` is absent,
-and the attachment properties are present. For an invocable macro, the inverse
-holds. These are validated states rather than combinations consumers must guess
-how to interpret. Raven-authored and class-authored macros project into this
-same symbol shape before registration.
+For an attached macro, `InvocationTargets` is `None` and the attachment
+properties are present. For an invocable macro, the inverse holds. Return type,
+parameters, generic parameters, and constraints project from `DefinitionType`
+and `ExpandMethod`; the macro symbol does not own copies. These are validated
+states rather than combinations consumers must guess how to interpret.
+Raven-authored and class-authored macros project into this same symbol shape
+before registration.
 
 ### Execution inputs and context
 
 Argument binding produces one immutable `MacroInvocationInput` containing the
-normalized descriptor/value pairs plus the authored carrier and actual grammar
-position. The compiler then injects requested context, token body, and attached
-target values. Execution never rebinds invocation arguments independently.
+canonical parameter-binding/value pairs plus the authored carrier and actual
+grammar position. The compiler then injects requested context, token body, and
+attached target values. Execution never rebinds invocation arguments
+independently.
 
 The compiler may always maintain private execution state, but a macro context
 object is created and exposed only when a context parameter asks for it. Its
@@ -656,17 +662,17 @@ from syntax or provider runtime types.
 
 ### Lowering Raven-authored declarations
 
-`macro` declarations lower to private adapters after semantic normalization.
-The generated parameter object contains only caller-supplied parameters. The
-adapter receives compiler-supplied context, body, and attached-target values
-through the normalized execution input and passes them to the declaration body
-at their declared parameter positions.
+`macro` declarations project to the nominal definition type and designated
+`Expand` method specified by the [Macro ABI](abi.md). Compiler-supplied context,
+body, and attached-target values remain parameters of that canonical method but
+do not occupy invocation argument positions.
 
-This adapter is deliberately allowed to be more complex than the source form.
-Its shape is not a public language contract, and the implementation may replace
-the current category-specific interfaces. Source symbols, plugin symbols, and
-language services must depend on normalized metadata rather than inspecting the
-generated adapter.
+The current implementation lowers through private category-specific adapters
+and generated parameter objects. Those shapes are transitional and may be
+removed. The target execution boundary is the ABI's immutable invocation
+snapshot and erased executor; source symbols, plugin symbols, and language
+services depend on the canonical definition and method rather than generated
+adapter layout.
 
 ### Invalid states and recovery
 
@@ -691,33 +697,24 @@ symbol rather than triggering different recovery paths.
 
 ## Class-authored APIs
 
-The simple API remains typed:
+The current category-specific class APIs remain implementation context while
+the redesign is staged. The target class-authored .NET boundary is the erased
+executor from [Macro ABI](abi.md):
 
 ```csharp
-public interface ISyntaxMacro<TSyntax> where TSyntax : SyntaxNode
+public interface IMacroExecutor
 {
-    TSyntax Expand(SyntaxMacroContext context);
+    MacroExpansionResult Expand(MacroExecutionContext context);
 }
 ```
 
-The advanced API supports a precise position set or the explicit wildcard:
-
-```csharp
-public interface ISyntaxMacro
-{
-    MacroExpansionPositions SupportedPositions { get; }
-    SyntaxNode Expand(SyntaxMacroContext context);
-}
-```
-
-The final result carrier also retains diagnostics, dependencies, source maps,
-and list results. These interfaces illustrate typing, not final names.
-Raven-authored declarations lower to the same normalized metadata and adapter
-contract while retaining a much simpler source form.
-
-For a union declaration, `SupportedPositions` contains exactly the projected
-cases. For `-> SyntaxNode`, it contains `AllSingleNode`; it never silently
-includes attached or list-valued operations.
+The exported manifest associates an executor with the same canonical nominal
+definition and `Expand` signature seen by Raven binding and tooling. The
+execution context carries the constructed symbolic signature, bound arguments,
+injected inputs, actual position, and lazy compiler services. The normalized
+result retains diagnostics, dependencies, source maps, single-node results,
+and list results. The driver validates all returned syntax against the
+declaration metadata and actual carrier.
 
 ## Tooling
 
@@ -761,6 +758,9 @@ placement must not be distorted to solve quotation.
     parallel public target enum.
 15. All macro origins normalize to one symbol, descriptor, binding, registry,
     execution, and tooling model.
+16. The stable declaration ABI is one nominal definition type with one
+    designated `Expand` method; compiled execution uses the erased executor
+    boundary described in [Macro ABI](abi.md).
 
 ## Implementation sequence
 
