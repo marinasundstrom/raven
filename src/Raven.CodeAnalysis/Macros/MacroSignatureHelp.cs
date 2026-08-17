@@ -10,7 +10,7 @@ public sealed class MacroSignatureHelp
     internal MacroSignatureHelp(
         string name,
         MacroKind kind,
-        ImmutableArray<MacroParameterDescriptor> parameters,
+        ImmutableArray<MacroSignatureParameter> parameters,
         int activeParameter,
         bool hasTokenTreeBody)
     {
@@ -34,7 +34,7 @@ public sealed class MacroSignatureHelp
     /// <summary>
     /// Gets the compiler-normalized macro parameters.
     /// </summary>
-    public ImmutableArray<MacroParameterDescriptor> Parameters { get; }
+    public ImmutableArray<MacroSignatureParameter> Parameters { get; }
 
     /// <summary>
     /// Gets the zero-based active parameter index.

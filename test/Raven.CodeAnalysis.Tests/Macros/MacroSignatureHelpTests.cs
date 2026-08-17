@@ -8,6 +8,36 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 public sealed class MacroSignatureHelpTests
 {
     [Fact]
+    public void GetMacroSignatureHelp_GenericLocalMacro_UsesConstructedExpandSignature()
+    {
+        const string code = """
+macro Identity<T>(value: T) -> Raven.CodeAnalysis.Syntax.ExpressionSyntax {
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
+}
+
+func Main() -> int => Identity<int>!(1)
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "main.rvn");
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddSyntaxTreesWithLocalMacros(syntaxTree);
+        syntaxTree = compilation.SyntaxTrees.Single();
+
+        var signature = compilation.GetMacroSignatureHelp(
+            syntaxTree,
+            code.LastIndexOf("1", StringComparison.Ordinal));
+        var parameter = Assert.Single(signature!.Parameters);
+
+        Assert.Equal("Identity<int>", signature.Name);
+        Assert.Equal("value", parameter.Name);
+        Assert.Equal("int", parameter.TypeDisplayName);
+        Assert.Equal(MacroParameterSource.Value, parameter.Source);
+        Assert.Equal(0, parameter.Ordinal);
+    }
+
+    [Fact]
     public void GetMacroSignatureHelp_TypedTokenTreeMacro_ReturnsNormalizedParametersAndActiveName()
     {
         const string code = """

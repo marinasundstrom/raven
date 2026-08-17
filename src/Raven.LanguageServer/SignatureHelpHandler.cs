@@ -262,7 +262,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         return false;
     }
 
-    private static string FormatMacroParameter(MacroParameterDescriptor parameter)
+    private static string FormatMacroParameter(MacroSignatureParameter parameter)
     {
         var label = $"{parameter.Name}: {parameter.TypeDisplayName}";
         if (parameter.Kind == MacroParameterKind.Positional &&

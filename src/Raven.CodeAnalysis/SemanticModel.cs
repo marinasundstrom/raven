@@ -2005,7 +2005,7 @@ public partial class SemanticModel
             _ => null
         };
 
-    private IMacroDeclarationSymbol ConstructLocalMacroSymbol(
+    internal IMacroDeclarationSymbol ConstructLocalMacroSymbol(
         TypeSyntax name,
         IMacroDeclarationSymbol macroSymbol)
     {

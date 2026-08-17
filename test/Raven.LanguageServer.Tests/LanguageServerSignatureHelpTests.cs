@@ -55,6 +55,48 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
     }
 
     [Fact]
+    public async Task SignatureHelpHandler_GenericLocalMacro_ShowsConstructedTypeArgumentsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        const string code = """
+macro Identity<T>(value: T) -> Raven.CodeAnalysis.Syntax.ExpressionSyntax {
+    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("1")
+}
+
+func Main() -> int => Identity<int>!(1)
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "Program.rvn"));
+        await store.UpsertDocumentAsync(uri, code);
+
+        var sourceText = SourceText.From(code);
+        var offset = code.LastIndexOf("1", StringComparison.Ordinal);
+        var result = await handler.Handle(new SignatureHelpParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(
+                sourceText,
+                new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.Signatures.Single().Label.ShouldBe("Identity<int>!(value: int)");
+    }
+
+    [Fact]
     public async Task SignatureHelpHandler_FrameworkProjection_ShowsRavenOverloadsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
