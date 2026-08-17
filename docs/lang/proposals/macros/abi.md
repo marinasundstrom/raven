@@ -158,7 +158,7 @@ Compiled providers therefore use one erased dispatch contract:
 ```csharp
 public interface IMacroExecutor
 {
-    MacroExpansionResult Expand(MacroExecutionContext context);
+    MacroExecutionResult Expand(MacroExecutionContext context);
 }
 ```
 
@@ -176,7 +176,9 @@ lowering may erase semantic generic types and free-form parameters, but it must
 preserve their parameter identities and ordinals in the invocation snapshot.
 No generated typed parameter object is part of the stable ABI.
 
-The executor always returns the normalized compiler-owned expansion result.
+The executor always returns `MacroExecutionResult`, the compiler-owned union
+of attached and invocable expansion results. The dispatcher validates that the
+selected result matches the invocation application kind.
 The authored `ExpandMethod.ReturnType` remains the source-level contract used
 for macro application and validation; it is not required to be the physical
 CLR return type of the executor.

@@ -74,9 +74,21 @@ internal static class MacroExpansionService
                     targetDeclaration,
                     currentDeclaration,
                     cancellationToken);
-                var result = ExpandWithTypedParametersIfAvailable(loaded.Macro, context, diagnostics)
-                    ?? loaded.Macro.Expand(context)
-                    ?? MacroExpansionResult.Empty;
+                var result = loaded.Macro switch
+                {
+                    IMacroExecutor executor => executor.Expand(new MacroExecutionContext(
+                            executor,
+                            context,
+                            GetTypeArguments(semanticModel, attribute.Name),
+                            context.Arguments))
+                        .AttachedResult ?? throw new InvalidOperationException(
+                            $"Macro '{executor.Name}' returned an invocable result for an attached invocation."),
+                    IAttachedDeclarationMacro attached =>
+                        ExpandWithTypedParametersIfAvailable(attached, context, diagnostics)
+                        ?? attached.Expand(context)
+                        ?? MacroExpansionResult.Empty,
+                    _ => MacroExpansionResult.Empty,
+                };
                 result = AddReportedDiagnostics(result, context);
                 result = ContextualizeExpansionResult(targetDeclaration, result);
                 RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
@@ -151,16 +163,26 @@ internal static class MacroExpansionService
             InvocableMacroExpansionResult result;
             if (invocation.TokenTree is not null)
             {
-                var tokenTreeMacro = (ITokenTreeMacro)loaded.Macro;
                 var context = new TokenTreeMacroContext(
                     compilation,
                     semanticModel,
                     invocation,
-                    tokenTreeMacro,
+                    loaded.Macro,
                     cancellationToken);
-                result = ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
-                    ?? tokenTreeMacro.Expand(context)
-                    ?? InvocableMacroExpansionResult.Empty;
+                result = loaded.Macro switch
+                {
+                    IMacroExecutor executor => ExecuteInvocable(
+                        executor,
+                        context,
+                        context.Arguments,
+                        semanticModel,
+                        invocation.Name),
+                    ITokenTreeMacro tokenTreeMacro =>
+                        ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
+                        ?? tokenTreeMacro.Expand(context)
+                        ?? InvocableMacroExpansionResult.Empty,
+                    _ => InvocableMacroExpansionResult.Empty,
+                };
                 result = AddReportedDiagnostics(result, context);
                 result.FileDependencies = MergeFileDependencies(
                     result.FileDependencies,
@@ -168,15 +190,25 @@ internal static class MacroExpansionService
             }
             else
             {
-                var invocableMacro = (IInvocableMacro)loaded.Macro;
                 var context = new InvocableMacroContext(
                     compilation,
                     semanticModel,
                     invocation,
                     cancellationToken);
-                result = ExpandWithTypedParametersIfAvailable(invocableMacro, context, diagnostics)
-                    ?? invocableMacro.Expand(context)
-                    ?? InvocableMacroExpansionResult.Empty;
+                result = loaded.Macro switch
+                {
+                    IMacroExecutor executor => ExecuteInvocable(
+                        executor,
+                        context,
+                        context.Arguments,
+                        semanticModel,
+                        invocation.Name),
+                    IInvocableMacro invocableMacro =>
+                        ExpandWithTypedParametersIfAvailable(invocableMacro, context, diagnostics)
+                        ?? invocableMacro.Expand(context)
+                        ?? InvocableMacroExpansionResult.Empty,
+                    _ => InvocableMacroExpansionResult.Empty,
+                };
                 result = AddReportedDiagnostics(result, context);
                 result.FileDependencies = MergeFileDependencies(
                     result.FileDependencies,
@@ -207,6 +239,27 @@ internal static class MacroExpansionService
                 GetExpansionFailureMessage(failure)));
             return null;
         }
+    }
+
+    private static InvocableMacroExpansionResult ExecuteInvocable(
+        IMacroExecutor executor,
+        MacroContext context,
+        ImmutableArray<MacroArgument> arguments,
+        SemanticModel semanticModel,
+        TypeSyntax name)
+        => executor.Expand(new MacroExecutionContext(
+                executor,
+                context,
+                GetTypeArguments(semanticModel, name),
+                arguments))
+            .InvocableResult ?? throw new InvalidOperationException(
+                $"Macro '{executor.Name}' returned an attached result for an invocable invocation.");
+
+    private static ImmutableArray<ITypeSymbol> GetTypeArguments(
+        SemanticModel semanticModel,
+        TypeSyntax name)
+    {
+        return semanticModel.ResolveMacroTypeArguments(name);
     }
 
     private static Exception UnwrapExpansionFailure(Exception exception)

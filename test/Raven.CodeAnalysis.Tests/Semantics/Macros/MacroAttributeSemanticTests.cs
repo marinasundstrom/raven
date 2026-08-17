@@ -66,6 +66,24 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void ErasedExecutor_ReceivesAttachedContext()
+    {
+        var executor = new AttachedSnapshotExecutor();
+        var (compilation, tree) = CreateCompilation("""
+            #[ErasedAttached]
+            class Widget {}
+            """);
+        compilation = compilation.AddMacroReferences(new MacroReference(executor));
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(attribute);
+
+        Assert.NotNull(expansion);
+        var context = Assert.IsType<AttachedMacroContext>(executor.Context);
+        Assert.IsType<ClassDeclarationSyntax>(context.TargetDeclaration);
+    }
+
+    [Fact]
     public void TypeMacro_OnUnionCase_IsValidAndExpands()
     {
         CaseTrackingAttachedMacro.LastTargetCaseName = null;
@@ -485,6 +503,23 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         public MacroTarget Targets => MacroTarget.Type;
 
         public MacroExpansionResult Expand(AttachedMacroContext context) => MacroExpansionResult.Empty;
+    }
+
+    private sealed class AttachedSnapshotExecutor : IMacroExecutor
+    {
+        public string Name => "ErasedAttached";
+
+        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Attached;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroContext? Context { get; private set; }
+
+        public MacroExecutionResult Expand(MacroExecutionContext context)
+        {
+            Context = context.Context;
+            return MacroExecutionResult.Attached(MacroExpansionResult.Empty);
+        }
     }
 
     public sealed class CaseTrackingAttachedMacro : IAttachedDeclarationMacro

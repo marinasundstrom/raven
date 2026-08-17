@@ -28,7 +28,7 @@ public static class MacroFacts
             GetTargets(macro),
             parameters,
             acceptsDeclaredArguments || macro.AcceptsArguments,
-            macro is ITokenTreeMacro);
+            macro is ITokenTreeMacro || macro is IMacroExecutor { HasTokenBody: true });
     }
 
     public static bool AcceptsArguments(IMacroDefinition macro)
@@ -56,6 +56,12 @@ public static class MacroFacts
         out MacroApplicationKind applicationKind)
     {
         ArgumentNullException.ThrowIfNull(macro);
+
+        if (macro is IMacroExecutor executor)
+        {
+            applicationKind = executor.ApplicationKind;
+            return true;
+        }
 
         if (!TryGetKind(macro, out var kind))
         {
@@ -112,6 +118,14 @@ public static class MacroFacts
     {
         ArgumentNullException.ThrowIfNull(macro);
 
+        if (macro is IMacroExecutor executor)
+        {
+            kind = executor.ApplicationKind == MacroApplicationKind.Attached
+                ? MacroKind.AttachedDeclaration
+                : MacroKind.Invocable;
+            return true;
+        }
+
         var isAttached = macro is IAttachedDeclarationMacro;
         var isInvocable = macro is IInvocableMacro;
         var isTokenTree = macro is ITokenTreeMacro;
@@ -134,9 +148,13 @@ public static class MacroFacts
     public static MacroTarget GetTargets(IMacroDefinition macro)
     {
         ArgumentNullException.ThrowIfNull(macro);
-        return macro is IAttachedDeclarationMacro attached
-            ? attached.Targets
-            : MacroTarget.None;
+        return macro switch
+        {
+            IMacroExecutor executor when executor.ApplicationKind == MacroApplicationKind.Attached =>
+                executor.Targets,
+            IAttachedDeclarationMacro attached => attached.Targets,
+            _ => MacroTarget.None,
+        };
     }
 
     /// <summary>

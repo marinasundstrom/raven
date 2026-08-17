@@ -99,6 +99,51 @@ internal sealed class MacroRegistry
 
             switch (macro)
             {
+                case IMacroExecutor executor when
+                    executor.ApplicationKind == MacroApplicationKind.Attached:
+                    var executorAttachedName = GetCanonicalName(executor);
+                    if (attachedMacros.TryGetValue(executorAttachedName, out var existingExecutorAttached))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            s_duplicateMacroName,
+                            Location.None,
+                            executorAttachedName,
+                            existingExecutorAttached.Origin,
+                            origin));
+                        return;
+                    }
+
+                    attachedMacros.Add(
+                        executorAttachedName,
+                        new LoadedAttachedMacro(
+                            origin,
+                            descriptor,
+                            executorAttachedName,
+                            GetAliases(executor)));
+                    break;
+
+                case IMacroExecutor executor:
+                    var executorInvocableName = GetCanonicalName(executor);
+                    if (invocableMacros.TryGetValue(executorInvocableName, out var existingExecutorInvocable))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            s_duplicateMacroName,
+                            Location.None,
+                            executorInvocableName,
+                            existingExecutorInvocable.Origin,
+                            origin));
+                        return;
+                    }
+
+                    invocableMacros.Add(
+                        executorInvocableName,
+                        new LoadedInvocableMacro(
+                            origin,
+                            descriptor,
+                            executorInvocableName,
+                            GetAliases(executor)));
+                    break;
+
                 case IAttachedDeclarationMacro attached:
                     var attachedName = GetCanonicalName(attached);
                     if (attachedMacros.TryGetValue(attachedName, out var existingAttached))
@@ -453,8 +498,7 @@ internal readonly record struct LoadedAttachedMacro(
     string CanonicalName,
     ImmutableArray<string> Aliases)
 {
-    public IAttachedDeclarationMacro Macro =>
-        (IAttachedDeclarationMacro)Descriptor.Definition;
+    public IMacroDefinition Macro => Descriptor.Definition;
 }
 
 internal readonly record struct LoadedInvocableMacro(

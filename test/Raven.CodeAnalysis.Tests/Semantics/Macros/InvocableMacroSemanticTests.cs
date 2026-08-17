@@ -67,6 +67,27 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void ErasedExecutor_ReceivesGenericArgumentsAndFlatInvocationArguments()
+    {
+        var executor = new SnapshotExecutor();
+        var (compilation, tree) = CreateCompilation(
+            "func Main() -> int => erased<int>!(20, 22)");
+        compilation = compilation.AddMacroReferences(new MacroReference(executor));
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocableMacroExpressionSyntax>()
+            .Single();
+
+        var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(invocation);
+
+        Assert.Equal("42", expansion!.Expression!.ToString());
+        Assert.Equal("Int32", Assert.Single(executor.TypeArguments).Name);
+        Assert.Equal([0, 1], executor.Arguments.Select(static argument => argument.Ordinal));
+        Assert.All(executor.Arguments, static argument => Assert.True(argument.Argument.HasValue));
+        Assert.IsType<InvocableMacroContext>(executor.Context);
+    }
+
+    [Fact]
     public void NamespacedMacro_AliasIsImportedWithItsNamespace()
     {
         var macroTree = SyntaxTree.ParseText(
@@ -117,6 +138,31 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
             .Single();
         var expansion = compilation.GetSemanticModel(projectedConsumerTree).GetMacroExpansion(invocation);
         Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    private sealed class SnapshotExecutor : IMacroExecutor
+    {
+        public string Name => "erased";
+
+        public bool AcceptsArguments => true;
+
+        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Invocable;
+
+        public ImmutableArray<ITypeSymbol> TypeArguments { get; private set; } = [];
+
+        public ImmutableArray<MacroExecutionArgument> Arguments { get; private set; } = [];
+
+        public MacroContext? Context { get; private set; }
+
+        public MacroExecutionResult Expand(MacroExecutionContext context)
+        {
+            TypeArguments = context.TypeArguments;
+            Arguments = context.Arguments;
+            Context = context.Context;
+            return MacroExecutionResult.Invocable(
+                InvocableMacroExpansionResult.FromExpression(
+                    SyntaxFactory.ParseExpression("42")));
+        }
     }
 
     [Fact]

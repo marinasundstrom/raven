@@ -2009,14 +2009,19 @@ public partial class SemanticModel
         TypeSyntax name,
         IMacroDeclarationSymbol macroSymbol)
     {
-        if (!name.TryGetMacroTypeArgumentList(out var typeArgumentList))
+        var typeArguments = ResolveMacroTypeArguments(name);
+        if (typeArguments.IsDefaultOrEmpty)
             return macroSymbol;
 
-        var typeArguments = ResolveAvailableTypeArguments(typeArgumentList);
-        return typeArguments.IsDefault || typeArguments.Length != macroSymbol.Arity
+        return typeArguments.Length != macroSymbol.Arity
             ? macroSymbol
             : macroSymbol.Construct(typeArguments.ToArray());
     }
+
+    internal ImmutableArray<ITypeSymbol> ResolveMacroTypeArguments(TypeSyntax name)
+        => name.TryGetMacroTypeArgumentList(out var typeArgumentList)
+            ? ResolveAvailableTypeArguments(typeArgumentList)
+            : [];
 
     /// <summary>
     /// Gets symbol information about a syntax node

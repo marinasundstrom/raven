@@ -264,7 +264,8 @@ public sealed class MacroReference
             && type.GetConstructor(Type.EmptyTypes) is not null;
 
     private static bool HasExactlyOneMacroRole(Type type)
-        => (typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ? 1 : 0) +
+        => (typeof(IMacroExecutor).IsAssignableFrom(type) ? 1 : 0) +
+            (typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ? 1 : 0) +
             (typeof(IInvocableMacro).IsAssignableFrom(type) ? 1 : 0) +
             (typeof(ITokenTreeMacro).IsAssignableFrom(type) ? 1 : 0) == 1;
 

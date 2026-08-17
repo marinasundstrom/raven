@@ -111,7 +111,8 @@ internal static class MacroSemanticValidator
         }
 
         var actualTarget = GetTarget(targetDeclaration);
-        if (actualTarget == MacroTarget.None || (loaded.Macro.Targets & actualTarget) == 0)
+        if (actualTarget == MacroTarget.None ||
+            (loaded.Descriptor.AttachmentTargets & actualTarget) == 0)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroTargetNotSupported,
@@ -195,7 +196,7 @@ internal static class MacroSemanticValidator
 
         if (invocation.TokenTree is not null)
         {
-            if (loaded.Macro is not ITokenTreeMacro)
+            if (!loaded.Descriptor.HasTokenBody)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroInvocationFormNotSupported,
@@ -217,7 +218,7 @@ internal static class MacroSemanticValidator
             return true;
         }
 
-        if (loaded.Macro is not IInvocableMacro)
+        if (loaded.Descriptor.HasTokenBody)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroInvocationFormNotSupported,

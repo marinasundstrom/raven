@@ -58,7 +58,7 @@ public class TokenTreeMacroContext : MacroContext
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroExpressionSyntax syntax,
-        ITokenTreeMacro macro,
+        IMacroDefinition macro,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
@@ -77,7 +77,7 @@ public class TokenTreeMacroContext : MacroContext
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroInvocation invocation,
-        ITokenTreeMacro macro,
+        IMacroDefinition macro,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
