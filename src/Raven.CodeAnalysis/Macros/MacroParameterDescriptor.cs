@@ -32,7 +32,9 @@ public sealed class MacroParameterDescriptor
         MacroParameterRole role,
         int ordinal,
         bool isRequired,
-        object? defaultValue)
+        object? defaultValue,
+        string? typeDisplayName = null,
+        string? defaultValueDisplay = null)
     {
         Name = name;
         ParameterType = parameterType;
@@ -41,6 +43,8 @@ public sealed class MacroParameterDescriptor
         Ordinal = ordinal;
         IsRequired = isRequired;
         DefaultValue = defaultValue;
+        TypeDisplayName = typeDisplayName ?? MacroFacts.GetParameterTypeDisplay(parameterType);
+        DefaultValueDisplay = defaultValueDisplay;
     }
 
     /// <summary>
@@ -56,7 +60,7 @@ public sealed class MacroParameterDescriptor
     /// <summary>
     /// Gets the Raven-facing display name for <see cref="ParameterType"/>.
     /// </summary>
-    public string TypeDisplayName => MacroFacts.GetParameterTypeDisplay(ParameterType);
+    public string TypeDisplayName { get; }
 
     /// <summary>
     /// Gets whether the parameter is positional or named.
@@ -83,4 +87,6 @@ public sealed class MacroParameterDescriptor
     /// Gets the optional constructor default value when one is declared.
     /// </summary>
     public object? DefaultValue { get; }
+
+    public string? DefaultValueDisplay { get; }
 }

@@ -268,7 +268,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         if (parameter.Kind == MacroParameterKind.Positional &&
             !parameter.IsRequired)
         {
-            label += $" = {FormatMacroDefaultValue(parameter.DefaultValue)}";
+            label += $" = {parameter.DefaultValueDisplay ?? FormatMacroDefaultValue(parameter.DefaultValue)}";
         }
 
         return label;

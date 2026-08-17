@@ -188,6 +188,14 @@ Raven-authored declarations receive the method-shaped declaration experience
 and are lowered to the same execution boundary. Provider manifests associate
 the exported declaration metadata with its executor entry point.
 
+An emitted executor carries portable declaration metadata for its generic
+parameter names and complete ordered parameter list. Parameter metadata keeps
+the authored type display, erased runtime carrier type, binding source,
+declaration and invocation ordinals, requiredness, and default-value display.
+Referenced projects therefore retain the same signature-help projection as a
+same-compilation declaration without reintroducing generated parameter-object
+types.
+
 ## Tooling contract
 
 Binding, completion, signature help, hover, documentation, lookup, and

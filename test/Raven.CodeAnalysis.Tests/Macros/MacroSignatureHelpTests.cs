@@ -38,6 +38,30 @@ func Main() -> int => Identity<int>!(1)
     }
 
     [Fact]
+    public void GetMacroSignatureHelp_ExportedExecutor_SubstitutesGenericMetadata()
+    {
+        const string code = """
+import Raven.CodeAnalysis.Tests.Macros.*
+func Main() -> int => exportedIdentity<int>!(1)
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new ExportedIdentityExecutor()));
+
+        var signature = compilation.GetMacroSignatureHelp(
+            syntaxTree,
+            code.LastIndexOf("1", StringComparison.Ordinal));
+        var parameter = Assert.Single(signature!.Parameters);
+
+        Assert.Equal("exportedIdentity<int>", signature.Name);
+        Assert.Equal("int", parameter.TypeDisplayName);
+        Assert.Equal("value", parameter.Name);
+    }
+
+    [Fact]
     public void GetMacroSignatureHelp_TypedTokenTreeMacro_ReturnsNormalizedParametersAndActiveName()
     {
         const string code = """
@@ -158,6 +182,33 @@ class Host {
         public string Dialect { get; set; } = string.Empty;
 
         public bool Optimize { get; set; }
+    }
+
+    private sealed class ExportedIdentityExecutor : IMacroExecutor
+    {
+        public string Name => "exportedIdentity";
+
+        public bool AcceptsArguments => true;
+
+        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Invocable;
+
+        public System.Collections.Immutable.ImmutableArray<string> TypeParameters =>
+            MacroExecutorMetadata.CreateTypeParameters("T");
+
+        public System.Collections.Immutable.ImmutableArray<MacroExecutorParameter> Parameters =>
+            MacroExecutorMetadata.CreateParameters(
+                new MacroExecutorParameter(
+                    "value",
+                    typeof(object),
+                    "T",
+                    MacroParameterSource.Value,
+                    0,
+                    0,
+                    true,
+                    string.Empty));
+
+        public MacroExecutionResult Expand(MacroExecutionContext context)
+            => MacroExecutionResult.Invocable(InvocableMacroExpansionResult.Empty);
     }
 
     private sealed class TypedQueryMacro : ITokenTreeMacro<TypedQueryParameters>

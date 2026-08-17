@@ -5,6 +5,10 @@ namespace Raven.CodeAnalysis.Macros;
 /// </summary>
 public interface IMacroExecutor : IMacroDefinition
 {
+    System.Collections.Immutable.ImmutableArray<string> TypeParameters => [];
+
+    System.Collections.Immutable.ImmutableArray<MacroExecutorParameter> Parameters => [];
+
     MacroApplicationKind ApplicationKind { get; }
 
     bool HasTokenBody => false;

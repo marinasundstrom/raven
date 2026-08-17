@@ -186,6 +186,24 @@ public static class MacroFacts
     {
         ArgumentNullException.ThrowIfNull(macro);
 
+        if (macro is IMacroExecutor executor)
+        {
+            return executor.Parameters
+                .Where(static parameter => parameter.InvocationArgumentOrdinal is not null)
+                .OrderBy(static parameter => parameter.InvocationArgumentOrdinal)
+                .Select(static parameter => new MacroParameterDescriptor(
+                    parameter.Name,
+                    parameter.RuntimeType,
+                    MacroParameterKind.Positional,
+                    GetRole(parameter.Source),
+                    parameter.InvocationArgumentOrdinal!.Value,
+                    parameter.IsRequired,
+                    null,
+                    parameter.TypeDisplayName,
+                    parameter.DefaultValueDisplay))
+                .ToImmutableArray();
+        }
+
         var parametersType = GetParametersType(macro);
         if (parametersType is null || !parametersType.IsClass || parametersType.IsAbstract)
             return ImmutableArray<MacroParameterDescriptor>.Empty;
@@ -229,6 +247,16 @@ public static class MacroFacts
 
         return builder.ToImmutable();
     }
+
+    private static MacroParameterRole GetRole(MacroParameterSource source)
+        => source switch
+        {
+            MacroParameterSource.SyntaxInput => MacroParameterRole.SyntaxInput,
+            MacroParameterSource.Context => MacroParameterRole.Context,
+            MacroParameterSource.TokenBody => MacroParameterRole.TokenBody,
+            MacroParameterSource.AttachedTarget => MacroParameterRole.AttachedTarget,
+            _ => MacroParameterRole.Value,
+        };
 
     internal static string GetParameterTypeDisplay(Type type)
     {

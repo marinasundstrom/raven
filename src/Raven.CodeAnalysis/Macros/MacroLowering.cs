@@ -51,6 +51,8 @@ internal static class MacroLowering
             .Select((syntax, index) => (
                 Syntax: syntax,
                 Role: symbol?.Parameters[index].MacroRole ?? MacroParameterRole.Value,
+                Source: symbol?.ParameterBindings[index].Source ?? MacroParameterSource.Value,
+                DeclarationOrdinal: index,
                 Parameter: symbol?.Parameters[index],
                 InvocationOrdinal: symbol?.ParameterBindings[index].InvocationArgumentOrdinal,
                 ContextKind: symbol is null
@@ -114,6 +116,37 @@ internal static class MacroLowering
             $"    val Namespace: string => \"{EscapeString(GetDeclaredNamespace(declaration))}\"");
         builder.AppendLine(
             $"    val Name: string => \"{EscapeString(declaration.Identifier.ValueText)}\"");
+        if (declaration.TypeParameterList is { Parameters.Count: > 0 } typeParameterList)
+        {
+            builder.AppendLine(
+                "    val TypeParameters: System.Collections.Immutable.ImmutableArray<string> => Raven.CodeAnalysis.Macros.MacroExecutorMetadata.CreateTypeParameters(");
+            builder.AppendLine(string.Join(
+                ",\n",
+                typeParameterList.Parameters.Select(typeParameter =>
+                    $"        \"{EscapeString(typeParameter.Identifier.ValueText)}\"")));
+            builder.AppendLine("    )");
+        }
+        if (parameters.Length > 0)
+        {
+            builder.AppendLine(
+                "    val Parameters: System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroExecutorParameter> => Raven.CodeAnalysis.Macros.MacroExecutorMetadata.CreateParameters(");
+            for (var index = 0; index < parameters.Length; index++)
+            {
+                var parameter = parameters[index];
+                var parameterType = GetParameterType(parameter);
+                var typeDisplayName = parameter.Syntax.TypeAnnotation?.Type.ToString() ?? "object";
+                var invocationOrdinal = parameter.InvocationOrdinal is { } ordinal
+                    ? ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : "-1";
+                var isRequired = parameter.InvocationOrdinal is not null &&
+                    parameter.Syntax.DefaultValue is null;
+                var defaultValueDisplay = parameter.Syntax.DefaultValue?.Value.ToString() ?? string.Empty;
+                var separator = index + 1 == parameters.Length ? string.Empty : ",";
+                builder.AppendLine(
+                    $"        Raven.CodeAnalysis.Macros.MacroExecutorParameter(\"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", typeof({parameterType}), \"{EscapeString(typeDisplayName)}\", Raven.CodeAnalysis.Macros.MacroParameterSource.{parameter.Source}, {parameter.DeclarationOrdinal}, {invocationOrdinal}, {isRequired.ToString().ToLowerInvariant()}, \"{EscapeString(defaultValueDisplay)}\"){separator}");
+            }
+            builder.AppendLine("    )");
+        }
         if (symbol?.GetDocumentationComment() is { } documentation &&
             !string.IsNullOrWhiteSpace(documentation.Content))
         {
@@ -217,6 +250,8 @@ internal static class MacroLowering
         (
             ParameterSyntax Syntax,
             MacroParameterRole Role,
+            MacroParameterSource Source,
+            int DeclarationOrdinal,
             IParameterSymbol? Parameter,
             int? InvocationOrdinal,
             MacroContextKind ContextKind) parameter)

@@ -72,11 +72,14 @@ internal static class MacroSignatureHelpService
             return null;
         }
 
-        var parameters = descriptor.Parameters.Select(static parameter => CreateParameter(parameter))
+        var parameters = descriptor.Parameters.Select(parameter => CreateParameter(
+                parameter,
+                descriptor.Definition as IMacroExecutor,
+                nameSyntax))
             .ToImmutableArray();
         var activeParameter = GetActiveParameter(argumentList, parameters, position);
         return new MacroSignatureHelp(
-            name,
+            nameSyntax.ToString(),
             expectedKind,
             parameters,
             activeParameter,
@@ -135,16 +138,49 @@ internal static class MacroSignatureHelpService
             parameter.ExplicitDefaultValue);
     }
 
-    private static MacroSignatureParameter CreateParameter(MacroParameterDescriptor parameter)
+    private static MacroSignatureParameter CreateParameter(
+        MacroParameterDescriptor parameter,
+        IMacroExecutor? executor,
+        TypeSyntax nameSyntax)
         => new(
             parameter.Name,
-            parameter.TypeDisplayName,
+            GetConstructedTypeDisplay(parameter.TypeDisplayName, executor, nameSyntax),
             parameter.Kind,
             parameter.Role,
             GetSource(parameter.Role),
             parameter.Ordinal,
             parameter.IsRequired,
-            parameter.DefaultValue);
+            parameter.DefaultValue,
+            parameter.DefaultValueDisplay);
+
+    private static string GetConstructedTypeDisplay(
+        string typeDisplayName,
+        IMacroExecutor? executor,
+        TypeSyntax nameSyntax)
+    {
+        if (executor is null ||
+            executor.TypeParameters.IsDefaultOrEmpty ||
+            !nameSyntax.TryGetMacroTypeArgumentList(out var typeArgumentList) ||
+            typeArgumentList.Arguments.Count != executor.TypeParameters.Length)
+        {
+            return typeDisplayName;
+        }
+
+        for (var index = 0; index < executor.TypeParameters.Length; index++)
+        {
+            var parameterName = executor.TypeParameters[index];
+            var argumentDisplay = typeArgumentList.Arguments[index].Type.ToString();
+            if (string.Equals(typeDisplayName, parameterName, StringComparison.Ordinal))
+                return argumentDisplay;
+
+            typeDisplayName = typeDisplayName.Replace(
+                $"<{parameterName}>",
+                $"<{argumentDisplay}>",
+                StringComparison.Ordinal);
+        }
+
+        return typeDisplayName;
+    }
 
     private static MacroParameterSource GetSource(MacroParameterRole role)
         => role switch

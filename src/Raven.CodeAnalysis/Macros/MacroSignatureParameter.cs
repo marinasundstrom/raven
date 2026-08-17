@@ -13,7 +13,8 @@ public sealed class MacroSignatureParameter
         MacroParameterSource source,
         int ordinal,
         bool isRequired,
-        object? defaultValue)
+        object? defaultValue,
+        string? defaultValueDisplay = null)
     {
         Name = name;
         TypeDisplayName = typeDisplayName;
@@ -23,6 +24,7 @@ public sealed class MacroSignatureParameter
         Ordinal = ordinal;
         IsRequired = isRequired;
         DefaultValue = defaultValue;
+        DefaultValueDisplay = defaultValueDisplay;
     }
 
     public string Name { get; }
@@ -40,4 +42,6 @@ public sealed class MacroSignatureParameter
     public bool IsRequired { get; }
 
     public object? DefaultValue { get; }
+
+    public string? DefaultValueDisplay { get; }
 }
