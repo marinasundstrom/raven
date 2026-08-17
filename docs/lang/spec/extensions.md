@@ -157,7 +157,7 @@ static types within that namespace into scope. Importing a specific static type
 exposes only the extensions declared on that type. Metadata extensions contained
 in referenced assemblies, such as `System.Linq.Enumerable`, and Raven-authored
 extensions are surfaced uniformly by binding, so source and metadata callers see
-the same candidates.【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
+the same candidates.
 
 Extension classification is determined per member rather than per container.
 This matters for mixed extension containers and imported metadata. A single
@@ -173,9 +173,8 @@ fails to resolve to an instance member, Raven gathers the in-scope extension
 methods whose receiver parameter is compatible with `expr`. Eligible extensions
 join overload resolution alongside instance members; if both an instance member
 and an extension are applicable, the instance member wins. Once overload
-resolution selects an extension, the compiler rewrites the invocation to pass the
-receiver as the leading argument to the static method before lowering, so the
-generated IL matches the direct static-call form.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
+resolution selects an extension, the receiver is passed as the leading argument
+to its underlying static method.
 
 Because extension methods are ordinary `static` methods, accessibility rules and
 diagnostics mirror those for other members. Missing imports or inaccessible

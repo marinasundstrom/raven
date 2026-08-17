@@ -4,8 +4,8 @@
 Capture the design space for supporting static extension members comparable to C#, where static members declared in an `extension` container can be imported and invoked via the target type name (`Foo.Bar(...)`). This doc focuses on how Raven's existing extension infrastructure could evolve to support static methods, properties, and (eventually) operators without breaking current instance-style semantics.
 
 ## Current state and gaps
-- The language specification restricts extension containers to instance-style members: every member is given an implicit `self` parameter, and modifiers like `static` are rejected entirely.【F:docs/lang/spec/language-specification.md†L633-L709】
-- Extension lookup today triggers only after instance lookup fails for an expression receiver. The binder gathers extension methods/properties whose synthesized `self` parameter matches the receiver value, then lowers the invocation/property access into a static call that passes the receiver as the first argument.【F:docs/lang/spec/language-specification.md†L667-L709】
+- At the time of this investigation, the language specification restricted extension containers to instance-style members: every member had an implicit `self` parameter, and modifiers such as `static` were rejected.
+- Extension lookup triggered only after instance lookup failed for an expression receiver. The binder gathered extension methods and properties whose synthesized `self` parameter matched the receiver value, then lowered the access into a static call that passed the receiver first.
 - Metadata emission for extensions relies on ordinary static methods marked with `ExtensionAttribute`. Because the syntax does not allow `static` declarations, there is no representation for type-qualified extension calls (for example, `Foo.StaticHelper()` or `Foo.StaticProperty`).
 
 ## Design constraints

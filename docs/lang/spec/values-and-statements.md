@@ -1,111 +1,94 @@
-# Values and statements
+# Values, expressions, and statements
 
-Most Raven code is organized around expressions and the values they produce,
-including many control-flow forms. Raven nevertheless retains a syntactic and
-semantic distinction between expressions and statements.
+Raven is expression-oriented: most computations produce values, and constructs
+such as `if` and `match` can be used directly where a value is expected.
 
-An expression computes a value and may appear where a value is expected. A
-statement controls execution, introduces a declaration, or evaluates an
-expression without passing its value to a surrounding expression. Some
-constructs, such as `if` and `match`, have both expression and statement syntax
-forms. Their surface spelling may be similar, but the parser represents them as
-different syntax nodes according to their context.
+```raven
+let label = if score >= 50 then "pass" else "fail"
+```
 
-Calling Raven **expression-oriented** means that value-producing composition is
-available in more places than in a conventionally statement-oriented language.
-It does not mean that every construct is an expression or that the syntax tree
-erases the expression/statement boundary.
+Raven still distinguishes expressions from statements. An expression computes
+a value. A statement introduces a declaration, performs an action, or controls
+which code runs without passing a value to a surrounding expression.
 
-Raven has no `void` type. The absence of a meaningful value is represented by the
-`unit` type, which has exactly one value written `()`. The type itself may be
-spelled `unit` or `()`. Functions without an explicit return type implicitly
-return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes](dotnet-implementation.md#unit-type)). The `unit` type participates in generics and tuples like any other type.
+```raven
+let message = "ready"        // declaration statement
+Console.WriteLine(message)   // expression statement
 
-`unit` is also a source-level contract: it says that no value flows out of the
-computation. It is not only an emitted substitute for CLR `void`. Consequently,
-a non-`unit` expression in the tail position of a `unit` callable is diagnosed
-as an unused result. An intentional discard is written explicitly as
-`_ = expression`.
+let length = message.Length  // the initializer is an expression
+```
+
+Some constructs, including `if`, `match`, `try`, and `throw`, have both
+expression and statement forms. Their spelling can be similar, but their role is
+determined by context. Other constructs, such as `while`, `for`, and `loop`, are
+statements.
+
+See [Expressions and type inference](expressions-and-inference.md) for
+value-producing forms, [Statements](assignment-and-expression-statements.md)
+for assignment and effectful forms, and [Control flow](control-flow.md) for how
+context and newlines distinguish them.
+
+## The unit value
+
+Raven has no `void` type. A computation with no meaningful result produces the
+single `unit` value, written `()`:
+
+```raven
+func log(message: string) -> unit {
+    Console.WriteLine(message)
+}
+
+let completed: unit = ()
+```
+
+The type itself may be written `unit` or `()`. A function without an explicit
+return type returns `unit`.
+
+`unit` is a real value type. It can be used in generics, tuples, and unions, and
+maps to `System.Unit` when Raven code is represented on .NET. At CLR method
+boundaries it corresponds to a method that returns `void`; see [.NET
+implementation notes](dotnet-implementation.md#unit-type).
+
+The type is also a source-level promise that no meaningful value flows out of a
+computation. A non-`unit` expression in the final position of a `unit` function
+is diagnosed as an unused result. Discard it intentionally with `_ =
+expression`:
+
+```raven
+func save() {
+    _ = tryWriteFile()
+}
+```
 
 ## Null and absence
 
-Raven distinguishes nullable values from `unit`:
+`unit` does not represent a missing value. Raven distinguishes these concepts:
 
-* `T?` is the canonical way to represent nullable values.
-* `unit` (`()`) represents no meaningful result (`void`-like), not nullability.
+* `unit` or `()` means a computation has no meaningful result.
+* `T?` means a value of type `T` may be `null`.
+* `Option<T>` represents explicit domain-level presence or absence.
+* `Result<T, E>` represents success or an expected error.
 
-Carrier types such as `Option<T>` and `Result<T, E>` are described in the
-carrier sections of this specification rather than as part of nullability.
+See the [Type system](type-system.md#nullable-types) for nullable types and
+[Error propagation and carrier
+types](async-and-error-propagation.md#result-and-option-carrier-operators) for
+`Option` and `Result`.
 
-## Statements
+## Declarations and file-scope code
 
-Raven is primarily **expression-oriented**: most constructs yield values and can
-appear wherever an expression is expected. For details on statement forms,
-terminators, and control-flow constructs, see [Control flow](control-flow.md).
-Structured exception handling is covered in [Error handling](error-handling.md).
+Local values are introduced with `let`, `var`, `const`, or `use`. Their
+mutability, inference, deconstruction, and cleanup behavior is described under
+[Local declarations](local-declarations.md).
 
-### Variable bindings
-
-`let` introduces an immutable lexical binding, `var` introduces a mutable one, and `const`
-produces an immutable binding whose value is baked in at compile time. A binding may
-declare its type explicitly or rely on the compiler to infer it from the initializer
-expression.
-
-A lexical binding is a declaration statement, not an expression. Its
-initializer is an expression whose value is assigned to the newly introduced
-name. For example, in `let x = 2 + a`, `2 + a` is an expression, but the whole
-construct is a statement. Raven has no expression form of that construct that
-introduces `x` into the surrounding lexical scope:
+Executable statements can also appear directly in a source file, so a small
+program does not need an explicit `Main` function:
 
 ```raven
-let x = 2 + a
+import System.Console.*
 
-let answer = 42         // inferred int
-
-var name = "Alice"    // inferred string, mutable
-
-const greeting = "Hi"  // inferred string constant
-
-let count: long = 0     // explicit type
+let name = "Raven"
+WriteLine("Hello, $name!")
 ```
 
-Standard Raven style prefers `let` for immutable lexical bindings. `val`
-remains accepted for source compatibility and is the semantic display spelling
-for a read-only binding.
-
-If the type annotation is omitted, an initializer is required so the compiler can
-determine the variable's type. Const bindings always require an initializer, even when
-annotated, and the expression must be a .NET compile-time constant (numeric and
-character literals, `true`/`false`, strings, or `null`).
-
-Value-producing forms such as `if` and `match` can be expressions. They also
-have statement forms when used for control flow without passing a value to a
-surrounding expression. `while`, `for`, and `loop` are statements in the
-current language.
-
-Later declarations in the same scope may **shadow** earlier bindings. Each declaration
-introduces a new symbol; code that follows binds to the most recent declaration.
-Shadowing is permitted for both `let` and `var` bindings, but it produces the
-warning diagnostic `RAV0168` to help catch unintentional redeclarations. Parameters of
-the enclosing function count as previous declarations for this purpose, so a local that
-reuses a parameter name both shadows it and triggers the same warning.
-
-```raven
-let answer = 41
-let answer = answer + 1 // RAV0168 (warning)
-```
-
-### File-scope code
-
-File-scope code is supported—no `Main` function is required.
-
-```raven
-import System.*
-alias print = System.Console.WriteLine
-
-sayHello()
-
-func sayHello() {
-    print("Hello, World!")
-}
-```
+See [Top-level code and entry points](top-level-code-and-entry-points.md) for
+file-scope restrictions and executable entry-point selection.

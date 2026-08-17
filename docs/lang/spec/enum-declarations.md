@@ -59,9 +59,10 @@ enum Status : byte {
 
 If no underlying type is specified, the underlying type defaults to `int`.
 
-Only a single underlying type may be specified. The underlying type must be a
+Only a single underlying type may be specified; additional types report
+`RAV0410`. The underlying type must be a
 non-nullable integral primitive type (`byte`, `sbyte`, `short`, `ushort`, `int`,
-`uint`, `long`, `ulong`, or `char`). Specifying any other type is a compile-time error.
+`uint`, `long`, `ulong`, or `char`). Any other type reports `RAV0411`.
 
 ### Enum members
 
@@ -117,9 +118,9 @@ If an enum member does not specify a value, its value is implicitly defined as o
 greater than the previous member. The first member defaults to zero when no
 explicit initializer is present.
 
-Enum member initializers must be constant expressions. They may reference previously
-declared enum members. References to non-constant values are invalid, and values
-that cannot be represented in the underlying type are compile-time errors.
+Enum member initializers must be constant expressions and may reference
+previously declared members. A non-constant initializer reports `RAV0412`; a
+value that cannot be converted to the underlying type reports `RAV0413`.
 
 ### Conversions
 

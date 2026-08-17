@@ -44,9 +44,8 @@ left = left + right
 ### Constant binding (`const`)
 
 A `const` binding is immutable like `val` but additionally requires a compile-time
-constant initializer. The compiler embeds the resulting value directly into the
-generated IL so the symbol can be referenced from other assemblies without
-executing the initializer.
+constant initializer. The compiler stores the resulting value in metadata so it
+can be referenced from other assemblies without executing an initializer.
 
 ```raven
 const pi: double = 3.141592653589793
@@ -62,6 +61,21 @@ Const applies to local bindings, type fields, and top-level constant members.
 Member declarations treat `const` fields as implicitly `static`; the value is
 emitted as metadata so other assemblies can import it without running an
 initializer.
+
+### Shadowing
+
+A later declaration in the same scope may reuse, or shadow, an earlier local or
+parameter name. Following code refers to the newer declaration:
+
+```raven
+let answer = 41
+let answer = answer + 1 // RAV0168 (warning)
+```
+
+Each declaration introduces a distinct symbol. Shadowing is allowed for both
+immutable and mutable bindings, but warning `RAV0168` helps catch accidental
+redeclarations. Parameters of the enclosing function count as earlier
+declarations and produce the same warning when shadowed.
 
 Positional deconstruction lets you bind or assign multiple values at once. The outer
 `val`/`var` controls the default mutability for shorthand forms, while each element
@@ -290,7 +304,7 @@ the resource supports `IAsyncDisposable`; otherwise it falls back to
 `System.IDisposable.Dispose()`. The declared type and initializer type must
 therefore be convertible to at least one of those disposal shapes. If the
 conversion fails, Raven reports the same diagnostic used for other implicit
-conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
+conversions.
 
 Resources created with `use` behave like ordinary locals: they remain in scope for the enclosing block and participate in definite-assignment rules. When control leaves the block, the resource is **automatically disposed**. Disposal occurs in **reverse declaration order**, ensuring that later resources observe earlier ones still alive.
 
@@ -312,7 +326,8 @@ use obj = Foo { Value = 2 } in {
 }
 ```
 
-File-scope `use` declarations participate as well: they are disposed after the file’s top-level statements finish executing. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L222-L282】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L54-L87】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L114-L148】
+File-scope `use` declarations participate as well: they are disposed after the
+file's top-level statements finish executing.
 
 ```raven
 use stream = System.IO.File.OpenRead(path)

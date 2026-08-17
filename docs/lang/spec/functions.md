@@ -352,6 +352,14 @@ context is needed to select the intended overload:
 let writeLine: (string) -> () = Console.WriteLine
 ```
 
+### Method-reference diagnostics
+
+A method group cannot be used where no function or delegate type is available.
+For example, `let callback = Logger.Log` reports `RAV2201` when the declaration
+does not otherwise determine a callable signature. If more than one overload
+matches the target, Raven reports `RAV2202`; if no overload has the required
+signature, it reports `RAV2203`.
+
 Instance method references capture their receiver:
 
 ```raven

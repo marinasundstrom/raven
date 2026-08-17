@@ -425,4 +425,6 @@ they stop being the mandatory starting point.
 
 For more examples, continue with [Domain modeling in
 Raven](lang/domain-modeling.md) and the [language
-introduction](introduction.md).
+introduction](introduction.md). Use the [language
+reference](lang/spec/index.md) to look up precise syntax, type-system, and .NET
+interoperability rules.

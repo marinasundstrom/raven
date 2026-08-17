@@ -90,6 +90,7 @@ _layout: landing
 
 <section class="raven-reference-callout">
   <p><strong>Already learning Raven?</strong> Go directly to the
-  <a href="lang/features/index.md">language feature guides</a> or the
+  <a href="lang/features/index.md">language feature guides</a>, look up syntax
+  and precise rules in the <a href="lang/spec/index.md">language reference</a>, or open the
   <a href="compiler/index.md">tooling documentation</a>.</p>
 </section>

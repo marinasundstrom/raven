@@ -1,32 +1,58 @@
-# Raven type system
+# Type system
 
-Raven is statically typed, and every Raven type has a concrete CLR runtime
-representation. Types catch incompatible operations during compilation and make
-Raven code work directly with .NET libraries.
+Raven is statically typed. Every expression has a type, and incompatible
+operations are diagnosed before the program runs.
 
-Raven nevertheless has its own semantic type system. CLR identity and metadata
-define the interoperability boundary; they do not require Raven to expose the
-same source categories or analysis model as C#. Raven types may project a
-standard .NET representation while carrying Raven-native meaning in source,
-symbols, patterns, and diagnostics. Unified nullability is the clearest
-example: Raven treats nullable reference and value types as one semantic
-concept even though the CLR and metadata encode them differently.
+```raven
+let count = 3             // int
+let name: string = "Ada"
+let optional: string? = null
+```
 
-## Core rules
+Raven uses the .NET type system directly, so existing framework and library
+types can be used without wrappers. At the same time, Raven gives some CLR
+shapes a consistent source-language meaning. Nullable reference and value types,
+for example, are both written and analyzed as `T?` even though .NET represents
+them differently in metadata.
 
-* Type identity follows CLR type identity unless Raven defines a language-level
-  construct such as nullable annotations or function-type syntax.
-* Nullability is explicit for both reference and value types.
-* `T?` is the canonical nullable form.
-* `unit` (`()`) means "no meaningful result"; it is not a nullable-absence
-  construct.
-* Extension-member classification is per member, not per container. A mixed
-  extension container may therefore contain classic instance extension members
-  and static extension members side by side.
+## Type annotations
 
-## Primitive types
+Use type annotations where inference is insufficient or where a particular
+target type is required. Locals commonly infer their type from the initializer;
+function-expression parameters can infer from a delegate target; ordinary
+function and method parameters still declare their parameter types explicitly:
 
-| Raven keyword | .NET type | Notes |
+```raven
+let a = 2
+let b: int = 2
+
+func add(a: int, b: int) -> int { a + b }
+```
+
+## Type identity
+
+Type identity follows CLR identity unless Raven defines a source-level form such
+as nullable annotations, function types, or unions.
+
+A type alias is another name for an existing type, not a new type. It therefore
+participates in assignment, conversion, and overload resolution exactly as its
+target does:
+
+```raven
+alias UserId = int
+
+let id: UserId = 42
+let number: int = id
+```
+
+Aliases remain transparent inside tuples and unions, so two otherwise identical
+types do not become distinct merely because one spelling uses an alias.
+
+## Built-in types
+
+Raven provides keywords for the most common .NET types:
+
+| Raven keyword | .NET type | Meaning |
 | --- | --- | --- |
 | `sbyte` | `System.SByte` | 8-bit signed integer |
 | `byte` | `System.Byte` | 8-bit unsigned integer |
@@ -36,459 +62,360 @@ concept even though the CLR and metadata encode them differently.
 | `uint` | `System.UInt32` | 32-bit unsigned integer |
 | `long` | `System.Int64` | 64-bit signed integer |
 | `ulong` | `System.UInt64` | 64-bit unsigned integer |
-| `nint` | `System.IntPtr` | native-sized signed integer |
-| `nuint` | `System.UIntPtr` | native-sized unsigned integer |
+| `nint` | `System.IntPtr` | Native-sized signed integer |
+| `nuint` | `System.UIntPtr` | Native-sized unsigned integer |
 | `float` | `System.Single` | 32-bit floating point |
 | `double` | `System.Double` | 64-bit floating point |
 | `decimal` | `System.Decimal` | 128-bit decimal floating point |
-| `string` | `System.String` | UTF-16 sequence of characters |
-| `object` | `System.Object` | base type of all .NET reference types |
-| `bool` | `System.Boolean` | logical true/false |
+| `bool` | `System.Boolean` | `true` or `false` |
 | `char` | `System.Char` | UTF-16 code unit |
-| `unit` | `System.Unit` | single value `()` representing "no result" |
-| `null` | *(null literal)* | inhabits any nullable reference type |
+| `string` | `System.String` | UTF-16 text |
+| `object` | `System.Object` | Base type of .NET reference types |
+| `unit` | `System.Unit` | The single no-result value `()` |
 
-The table lists the built-in keywords that map directly to CLR types. Additional
-CLI types can be referenced using their fully qualified names or through
-aliases. Raven emits a `System.Unit` struct in the generated assembly so the
-`unit` type has a concrete runtime representation and can flow through generics
-or tuples. The `null` entry represents the literal value rather than a standalone
-type; it may inhabit any nullable reference type and the nullable forms of value
-types.
+Other .NET types can be referenced by qualified name, imported name, or alias.
 
-The primitive set defines the building blocks for all other types. `unit` is
-singleton-valued and participates in equality, generics, tuples, and unions like
-any other value type. The `null` literal is not a separate general type; it flows
-only to nullable locations and never satisfies non-nullable parameters or
-bindings. Parenthesized union declarations use nullable member annotations, such
-as `union Value(string?)`, when a listed member may actively carry null.
+`unit` is a value type and can flow through generics, tuples, and unions. It is
+described in [Values, expressions, and
+statements](values-and-statements.md#the-unit-value).
 
-## Literal expressions
+`null` is a literal, not a standalone type. It can flow only to nullable
+locations and never satisfies a non-nullable binding or parameter.
 
-Numeric, string, character, and boolean literals are expressions whose types
-follow normal Raven/.NET typing rules (`1` is `int`, `"hi"` is `string`,
-`true` is `bool`, and so on). Raven no longer supports literal values in type
-position.
+## Literal types
 
-Numeric primitive keywords map directly to CLR numeric types, including `sbyte`,
-`byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`,
-`float`, `double`, and `decimal`.
-
-When a literal is assigned to a target whose type is inferred, the inferred type
-is its standard primitive type.
+Literals use their ordinary primitive types. For example, `1` is an `int`,
+`"hello"` is a `string`, and `true` is a `bool`:
 
 ```raven
 let one = 1
-let two: int = one
-let d: double = one
-let inferred = 1
+let text = "hello"
+let enabled = true
+
+let widened: double = one
 ```
 
-## Composite and derived types
+When no target type changes the result, an inferred binding uses the literal's
+standard primitive type. Literal values are not supported in type position.
 
-### Arrays
+See [Expressions and type inference](expressions-and-inference.md) for numeric
+suffixes, target typing, and branch inference.
 
-Arrays use CLR array runtime shapes, including fixed-length metadata when the
-type is written with an explicit length.
+## Arrays
 
-#### Concept
-
-* `T[]` is an open array type.
-* `T[N]` is a single-dimensional fixed-length array type.
-* Array element types preserve nullability and generic arguments.
-* Multidimensional arrays follow CLR semantics when the grammar permits forms
-  such as `T[,]`.
-
-#### Example
+`T[]` is a one-dimensional array whose length is not part of its source type.
+`T[N]` carries a fixed length:
 
 ```raven
 let open: int[] = [1, 2, 3]
 let fixed: int[3] = [1, 2, 3]
 ```
 
-#### Rules
+Array element types retain their generic arguments and nullability. Raven also
+uses CLR multidimensional array shapes such as `T[,]` where that syntax is
+accepted.
 
-* `T[N]` implicitly converts to `T[]`.
-* `T[]` does not implicitly convert to `T[N]`.
-* `T[N]` converts to `T[M]` only when `N` and `M` are the same length.
-* Fixed-length inference is conservative and applies only when the element count
-  is directly available from the collection expression.
+A fixed-length `T[N]` implicitly converts to `T[]`. The reverse conversion is
+not implicit. `T[N]` converts to another fixed-length `T[M]` only when `N` and
+`M` are equal.
 
-### Spans and memory
+Fixed-length inference is conservative. Raven infers or validates a length only
+when the collection expression makes its element count directly available.
+See [Collection expressions](collection-expressions.md#array-targets).
 
-`System.Span<T>` and `System.ReadOnlySpan<T>` are supported for
-allocation-sensitive and interop code. Their conversions, overload behavior,
-and stack-backed storage rules are documented separately under
-[Spans and stack allocation](spans-and-memory.md).
+Like CLR arrays, a one-dimensional `T[]` implements `IEnumerable<T>`,
+`ICollection<T>`, `IList<T>`, and their read-only counterparts. These
+relationships participate in normal interface conversions. Multidimensional
+arrays provide the non-generic `System.Collections.IEnumerable` relationship
+instead.
 
-### Tuples
+## Tuple types
 
-`(T1, T2, ...)` map to `System.ValueTuple<T1, T2, ...>`.
+Tuple types describe a small group of values without requiring a named type.
 
-### Standard unions
-
-`T1 | T2` maps to `System.Union<T1, T2>` in `Raven.Core`. The syntax supports
-two through five alternatives and is temporary until .NET provides standard
-union types.
-
-### Function types
-
-Function types are delegate-like type literals written with arrow syntax.
-
-#### Concept
-
-Write parameter types, then `->`, then the return type. A single parameter may
-omit parentheses; zero parameters use `()`.
+Tuple types use parentheses with comma-separated element types and map to
+`System.ValueTuple`:
 
 ```raven
-let logger: string -> unit
-let reducer: (int, int) -> int
-let factory: () -> Task<string>
+let pair: (int, string) = (42, "answer")
 ```
 
-In a function parameter:
+Elements may optionally be named with a `name: Type` pair. Names exist only for
+developer clarity and do not participate in type identity or assignment:
 
 ```raven
-func do(op: (int, int) -> int) -> int {
-  return op(2, 3)
-}
+let tuple2: (id: int, name: string) = (no: 42, identifier: "Bar")
 ```
 
-#### Rules
+When a tuple expression is assigned to an explicitly annotated tuple type, each
+element is validated against the corresponding element type. Named tuple
+expressions expose both their source names and the positional `ItemN` members:
 
-* Function type syntax is arrow-only and does not use the `func` keyword.
-* Nested arrows associate to the right: `int -> string -> bool` means
-  `int -> (string -> bool)`.
-* Function types may appear anywhere a normal type annotation is allowed.
-* The compiler binds a function type to an existing compatible delegate when one
-  exists, including `Func<>`, `Action<>`, and user-defined delegates.
-* If no compatible delegate exists, the compiler synthesizes one with the same
-  signature.
+```raven
+let tuple = (a: 42, b: 2)
+Console.WriteLine(tuple.a)
+Console.WriteLine(tuple.Item1)
+```
 
-### Nullable values
+Tuple types may nest or participate in other type constructs such as unions or
+nullability.
 
-Appending `?` creates a nullable type. Raven does not treat reference types as
-nullable by default.
+## Function types
 
-#### Concept
+Function types describe callable delegates so they can be stored, passed as
+arguments, or returned from other functions. Their syntax mirrors a lambda
+signature: a comma-separated parameter list followed by `->` and the return
+type.
 
-* `T?` accepts both `T` and `null`.
-* Plain `T` rejects `null`.
-* Nullable value types are emitted as `System.Nullable<T>`.
-* Nullable reference types use nullable-reference metadata while keeping the
-  same runtime representation as `T`.
+```raven
+let applyTwice: ((int -> int), int) -> int
+let thunk: () -> unit
+let comparer: (string, string) -> bool
+```
 
-#### Example
+In declaration-oriented lists, a newline may separate entries where an explicit
+separator would otherwise appear. Omitting the separator between entries on the
+same line is an error.
+
+Single-parameter functions may omit the surrounding parentheses:
+
+```raven
+let increment: int -> int
+```
+
+The return portion may itself be any Raven type. Nested arrows associate to the
+right, so `int -> string -> bool` is parsed as `int -> (string -> bool)`.
+
+Function annotations are sugar over delegates. When the parameter and return
+types match an existing declaration (including the built-in `Func`/`Action`
+families), the compiler binds to that delegate. Otherwise it synthesizes an
+internal delegate with the appropriate signature so interop with .NET remains
+transparent. Parameter modifiers and names are not permitted inside a function
+type; specify only the types that flow into and out of the delegate. A `unit`
+return represents an action with no meaningful result.
+
+Function-expression syntax, including explicit `func` expressions, lambda
+shorthand, modifiers, and named recursive forms, is described under [Function
+expressions](functions.md#function-expressions).
+
+When a function expression is target-typed by a delegate requirement (for
+example, assignment to `Action<int>` or passing to a delegate-typed parameter),
+Raven projects the function value to a compatible delegate. Built-in
+`Func`/`Action` delegate shapes are displayed as function signatures in Raven
+type displays, while custom delegate types remain visibly named delegates.
+
+Union syntax and declarations are covered separately under [Unions](unions.md).
+Function expressions and delegate selection are covered under
+[Functions](functions.md), and span lifetime rules under [Spans and stack
+allocation](spans-and-memory.md).
+
+## Nullable types
+
+Nullability is explicit and uniform. Append `?` when a reference or value type
+may contain `null`:
 
 ```raven
 let name: string? = null
 let count: int? = 1
 ```
 
-#### Rules
+Plain `T` rejects `null`; `T?` accepts `T` or `null`. Nullable and non-nullable
+forms are distinct during type checking and overload resolution.
 
-* Nullable and non-nullable forms are distinct for type identity and overload
-  resolution.
-* `T?` is the canonical nullable form in Raven.
-* The semantic model represents `T?` uniformly for reference and value types:
-  `TypeInfo.Type` reports the expression's static type. Raven does not publish
-  a separate flow-sensitive nullability result.
-* Whether the underlying `T` is a reference type or value type affects the .NET
-  ABI representation, not Raven nullability analysis or its public semantic
-  shape.
-* Explicit `System.Nullable<T>` syntax remains an interop escape hatch for
-  accessing the CLR wrapper and its members. It is not the canonical Raven
-  representation of `T?`.
-* Postfix `expr!` treats the operand as non-null for the annotated expression
-  and reports warning `RAV0403` on the full `<expr>!` expression.
+For a value type, .NET represents `T?` as `System.Nullable<T>`. For a reference
+type, the runtime representation remains `T` and nullable-reference metadata
+records the annotation. This ABI difference does not change Raven's
+source-level rules. The expression's static type remains `T?`; Raven does not
+silently replace it with a separate flow-sensitive type after a null check.
 
-#### Explicit nullable handling and compatibility checks
+Explicit `System.Nullable<T>` remains available when interop code needs the CLR
+wrapper and its members. It is not the canonical Raven spelling of `T?`.
 
-Raven presents an explicit successful binding with typed `if let` first, or a
-direct type pattern when that syntax better fits the surrounding code. Those
-forms name a new non-null value explicitly.
+### Handling a nullable value
+
+A successful typed binding creates a new non-null value:
 
 ```raven
-func Inspect(x: string?) -> unit {
-    if let str: string = x {
-        let len = str.Length
+func inspect(value: string?) {
+    if let text: string = value {
+        Console.WriteLine(text.Length)
     }
 
-    if x is string str {
-        let len = str.Length
+    if value is string text {
+        Console.WriteLine(text.Length)
     }
-
-    if x is not null { }
 }
 ```
 
-The typed `if let` and type-pattern forms introduce a new `str: string` binding
-only when the value matches. A direct `is null`, `is not null`, `== null`, or
-`!= null` condition does not change the static type of the checked storage.
-Dereferencing `x` inside such a branch remains an error when `x` is `string?`.
-Reference and value nullable types follow the same source-level rule.
+A direct `is null`, `is not null`, `== null`, or `!= null` check does not change
+the static type of the checked storage. Dereferencing the original `value`
+inside such a branch remains an error when it has type `string?`. Reference and
+value types follow the same rule.
 
-`is null` and `is not null` are ordinary valid Raven syntax. `== null` and
-`!= null` are also valid, but may invoke user-defined equality.
+Prefer `is null` and `is not null` for identity tests. `== null` and `!= null`
+are valid but may invoke user-defined equality. An analyzer warns about that
+difference for non-pointer values:
 
-Raven includes an analyzer that recommends replacing `== null`/`!= null` with
-`is null`/`is not null` for strict checks. Pointer-like comparisons are exempt.
-The recommendation avoids user-defined equality; it is not a preference over
-typed bindings, matches, or `Option<T>`.
+> This comparison may call a custom equality operator. Use `is null` or `is not
+> null` to test null identity.
 
-Warning message:
+### Nullable suppression
 
-> ⚠️ This comparison may call a custom equality operator. Use `is null` or
-> `is not null` to test null identity.
-
-### Generics
-
-Types and functions declare type parameters by appending `<...>` to their
-identifier. Each parameter represents a placeholder that is substituted with a
-concrete type when the generic is used. The type parameters introduced on a
-declaration are in scope for all of its members and may appear anywhere a type
-annotation is allowed.
+Postfix `!` treats one nullable expression as non-null:
 
 ```raven
-class Box<T>
-{
+let name = service.TryGetName()! // string? becomes string
+let value = optionalNumber!      // int? becomes int
+```
+
+For a nullable reference, suppression changes the static type without inserting
+a runtime null check. For a nullable value type, it unwraps the value. The
+effect applies only to the annotated expression and reports warning `RAV0403`
+on that full expression.
+
+Raven recommends `Option<T>` when absence is an intentional part of a domain
+API. Nullable types remain useful for .NET interoperability and gradual
+adoption. See [Nullability and absence](../nullability.md).
+
+## Generics
+
+Generic types and functions declare placeholders inside `<...>`:
+
+```raven
+class Box<T> {
     val Value: T { get; }
 
-    init(value: T) { Value = value }
+    init(value: T) {
+        Value = value
+    }
 }
+
+func identity<T>(value: T) -> T => value
+
+let box = Box<string>("hello")
+let number = identity(42) // T is inferred as int
 ```
 
-Supplying type arguments between `<` and `>` constructs the desired
-instantiation. Raven flows those type arguments through the declaration and
-emits regular CLR generic instantiations, so generic Raven code interops with
-existing .NET libraries.
+Type parameters are in scope throughout their declaration. Constructed generic
+types use ordinary CLR generic instantiations and interoperate directly with
+.NET libraries.
+
+A call can provide type arguments explicitly or let Raven infer them from
+arguments and the expected result. If those inputs do not produce one
+consistent choice, the type arguments must be written.
+
+### Constraints
+
+Constraints restrict acceptable type arguments. They can follow a type
+parameter after `:` or appear in a `where` clause:
 
 ```raven
-let box = Box<string>("hi")
-let copy = box.Value
-```
-
-Generic methods use the same syntax. Call sites may provide explicit type
-arguments or rely on inference. The compiler infers a type argument when all
-arguments (including the expected return type) lead to a single consistent
-choice; otherwise, type arguments must be written explicitly.
-
-```raven
-func identity<T>(value: T) -> T { value }
-
-let inferred = identity(42)      // infers T = int
-let explicit = identity<double>(42)
-```
-
-Type parameters optionally declare constraints after a colon. The keywords
-`class` and `struct` require reference types or non-nullable value types
-respectively. The `class` constraint admits nullable references, while `struct`
-excludes `Nullable<T>`. Additional constraints must be nominal types (classes
-or interfaces) implemented by the argument. Constraints are comma-separated,
-conjunctive, and may appear in any order.
-
-```raven
-class Repository<TContext: class, IDisposable>
-{
-    init(context: TContext) { /* ... */ }
+class Repository<TContext: class, IDisposable> {
+    init(context: TContext) {
+        // ...
+    }
 }
-```
 
-Constraints also enable static abstract interface member calls on type
-parameters. For example, parsing helpers can constrain `T` to `IParsable<T>` and
-invoke `T.Parse(...)` directly:
-
-```raven
-import System.*
-
-func Parse<T>(text: string) -> T
+func parse<T>(text: string) -> T
     where T: IParsable<T>
     => T.Parse(text, null)
 ```
 
-#### Variance
+`class` requires a reference type and admits nullable references. `struct`
+requires a non-nullable value type and excludes `Nullable<T>`. Nominal class
+and interface constraints require the argument to inherit or implement those
+types. Several constraints are conjunctive.
 
-Interface declarations may annotate their type parameters with variance
-modifiers. The keyword `out` marks a parameter as **covariant**, allowing
-`Producer<Derived>` to be assigned where `Producer<Base>` is expected. The
-keyword `in` marks a parameter as **contravariant**, accepting
-`Consumer<Base>` wherever `Consumer<Derived>` is required. Omitting a modifier
-keeps the parameter **invariant**, so constructed types such as `Box<string>`
-and `Box<object>` remain distinct even when their arguments are related by
-inheritance.
+Constraints also make static abstract interface members available through a
+type parameter, as in the `IParsable<T>` example.
+
+Constraint satisfaction is transitive: substituting one constrained type
+parameter for another carries its constraint set. A violation identifies the
+type argument and unmet constraint.
+
+Function-specific constraint forms and ordering are described under [Generic
+functions](functions.md#generic-functions).
+
+### Variance
+
+An interface or delegate type parameter may be covariant with `out`,
+contravariant with `in`, or invariant when no modifier is written:
 
 ```raven
-interface Mapper<in TSource, out TResult>
-{
-    Map(source: TSource) -> TResult
+interface Mapper<in TSource, out TResult> {
+    func Map(source: TSource) -> TResult
 }
 ```
 
-Variance annotations apply uniformly to source and metadata symbols. Imported
-.NET interfaces and delegates continue to surface the CLR's
-`GenericParameterAttributes` flags, and Raven-generated symbols report their
-`VarianceKind` according to the declared modifiers. These annotations influence
-interface implementation checks and conversions so that, for example,
-`IEnumerable<string>` is recognised as an implementation of
-`IEnumerable<object>`, while `IComparer<object>` satisfies a requirement for
-`IComparer<string>`.
+Covariance allows `Producer<Derived>` where `Producer<Base>` is expected.
+Contravariance allows `Consumer<Base>` where `Consumer<Derived>` is expected.
+Invariant constructed types remain unrelated even when their arguments inherit
+from one another.
 
-#### Array interfaces
-
-Array types surface through `System.Array` but Raven augments the metadata so
-that single-dimensional arrays expose the same constructed generic interfaces as
-in C#. When an `T[]` symbol is created, the compiler resolves the generic
-definitions for `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, and their
-read-only counterparts and constructs them using the array's element type. The
-resulting interfaces are cached on the `ArrayTypeSymbol`, ensuring they appear
-in both `Interfaces` and `AllInterfaces` just like metadata arrays.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ArrayTypeSymbol.cs†L70-L135】
-
-This constructed form lets ordinary interface conversions succeed. Semantic
-queries treat `int[]` as implementing `IEnumerable<int>` while still rejecting
-incompatible instantiations such as `IEnumerable<string>`, and multi-dimensional
-arrays fall back to the non-generic `System.Collections.IEnumerable`
-relationship. The behaviour is validated by the existing semantic interface
-tests, which check that `SemanticFacts.ImplementsInterface` recognises an array
-as satisfying the generic interface contracts for its element type.【F:test/Raven.CodeAnalysis.Tests/Symbols/SemanticFactsTests.cs†L96-L135】
-
-Constraint satisfaction is transitive: substituting a constrained type
-parameter for another parameter carries its constraint set. Nullable value
-types (`T?`) do not satisfy the `struct` constraint. Violations produce
-diagnostics identifying the failing argument and unmet constraint.
-
-## Type identity and aliases
-
-Type aliases provide alternate names for existing types without changing their
-identity. The alias participates in overload resolution and conversions exactly
-as the underlying type would. Literal types behave similarly: they carry an
-underlying primitive and compare equal to that primitive for assignability
-checks once a conversion is required. When a union or tuple contains aliases or
-literal branches, Raven normalises them during binding so type identity remains
-consistent across compilation units.
+The rules apply equally to Raven declarations and imported .NET metadata. For
+example, `IEnumerable<string>` converts to `IEnumerable<object>`, while
+`IComparer<object>` can be used where `IComparer<string>` is required.
 
 ## Target typing and inference
 
-Many constructs rely on the surrounding context to determine their type. See the
-[language specification](expressions-and-inference.md#type-inference) for the
-complete inference rules. From a type-system perspective, the important effects
-are:
+Target typing lets surrounding code determine a type. It is used by literals,
+collection expressions, leading-dot construction, function expressions, method
+references, and control-flow expressions.
 
-- Inferred unions are normalised using the same process described above, so the
-  resulting symbol set is stable across recompilations.
-- Literal expressions widen to their underlying primitive when no contextual
-  type is available but preserve their literal identity inside unions or when
-  explicitly annotated.
-- Control-flow constructs (such as `if` expressions) contribute their branch
-  types to inference, which may introduce unions automatically.
+Inferred unions are normalized so their branch set remains stable across
+compilations. Literal expressions use their primitive type without a target,
+while control-flow branches contribute their types and may infer a union.
 
-## Delegate inference and method references
-
-Referencing a method as a value produces a delegate type. The inferred type is
-driven entirely by the surrounding context: a `let` binding without an
-annotation, an assignment, or a method argument supplies the delegate signature
-used to select a unique overload. When no compatible delegate type exists,
-Raven synthesizes one whose parameters (including `ref`/`out` modifiers) and
-return type match the method being referenced. Subsequent method references with
-the same signature reuse the synthesized delegate.
-
-Method groups cannot flow into typeless contexts. Writing `let callback =
-Logger.Log` produces diagnostic `RAV2201` because no delegate target is
-available. Likewise, when multiple overloads remain compatible with the target
-delegate (for example, `Action<int>` matching methods that accept `int` or
-`long`), diagnostic `RAV2202` is reported and an explicit annotation is required
-to disambiguate the binding. If none of the overloads satisfy the delegate's
-signature, diagnostic `RAV2203` is emitted.
-
-Instance method references capture the receiver automatically, so evaluating
-`self.Increment` stores the current instance along with the method. Invoking the
-delegate later observes the same receiver state that existed when the method was
-captured. Synthesized delegates participate in metadata emission just like
-framework `Func<>`/`Action<>` types, allowing reflection or interop scenarios to
-discover the generated `MulticastDelegate` definitions at runtime.
-
-Function expressions are implicitly convertible to any compatible delegate type
-provided by their target-typed context (assignment, return, or argument
-position). Compatibility checks use the delegate's `Invoke` signature. Delegate
-types themselves remain distinct; Raven does not perform implicit conversions
-between delegate types that merely share the same signature, so converting
-between delegate types requires an explicit cast.
-
-`func` expressions also support generic signatures and optional local names:
-`func<T>(...) where ... { ... }` and `func Fib(...) { ... }`. Generic and named
-function expressions are bound as function values first, while projection to a
-delegate happens when they flow into parameter or property signatures that
-require a delegate type.
-
-For named function expressions, the optional identifier (for example `Fib`) is
-scoped to the function-expression body only. It is intended for self-reference
-and is not introduced into the enclosing scope.
-
-In Raven-facing type displays, built-in `System.Func`/`System.Action` delegate
-shapes are projected as arrow function signatures. User-defined delegates keep
-their declared delegate names in displays.
-
-## Interoperability
-
-Because Raven reuses .NET types, existing libraries can be consumed seamlessly:
-
-```raven
-let ids: Guid[] = [Guid.NewGuid()]
-Console.WriteLine(ids[0])
-```
+See [Expressions and type inference](expressions-and-inference.md) for the full
+set of inference rules.
 
 ## Conversions
 
-Values may convert to other types according to .NET rules. Implicit conversions
-include identity, `null` to any nullable type, lifting
-value types to their nullable counterpart, widening numeric conversions,
-reference conversions to base types or interfaces, boxing of value types, and
-conversions to a matching branch of a union. Narrowing or otherwise unsafe
-conversions require an explicit cast.
+An implicit conversion is allowed when it cannot lose the intended value under
+Raven and .NET rules. Common implicit conversions include:
 
-Reference conversions include the variance rules encoded on generic interfaces
-and delegates. If a referenced interface marks a type parameter as covariant,
-`T<Derived>` converts implicitly to `T<Base>`; contravariant parameters invert
-the check so `T<Base>` converts to `T<Derived>`. Raven applies these rules when
-importing .NET metadata and when compiling Raven source that declares `in` or
-`out` variance modifiers, matching the behaviour of the CLR and C#.
+* identity conversion
+* `null` to a nullable type
+* `T` to `T?`
+* widening numeric conversions
+* a reference to a base class or implemented interface
+* boxing a value type
+* conversion to a compatible union branch
+* variant conversions on covariant or contravariant generic types
 
-When converting **from** a union, each branch must be convertible to the target
-type. When converting **to** a union, the source must convert to at least one
-branch. These rules also drive overload resolution and assignment diagnostics in
-the core compiler.
+When converting to a union, the source must convert to at least one branch. When
+converting from a union, every possible branch must convert to the destination.
+These rules also participate in assignment and overload selection.
 
 ### Explicit casts
 
-Raven uses C#-style cast syntax for conversions that are not implicit, such as downcasting or numeric narrowing:
+Use a cast when a conversion can fail or lose information:
 
 ```raven
-let d = (double)1
-let n = (int)3.14
-let s = obj as string
+let widened = (double)1
+let narrowed = (int)3.14
+let text = value as string
 ```
 
-`(T)expr` performs a runtime-checked cast and throws an `InvalidCastException` if `expr` cannot convert to `T`.
-`expr as T` attempts the conversion and yields `null` (or a nullable value type) when it fails.
+`(T)expression` performs the requested conversion and throws
+`InvalidCastException` when a runtime reference conversion fails. `expression
+as T` attempts a reference or nullable conversion and produces `null` when it
+fails.
 
 ## Overload resolution
 
-When multiple function overloads are available, Raven selects the candidate whose
-parameters require the best implicit conversions. Identity matches are preferred
-over numeric widening, which outrank reference or boxing conversions.
-User-defined conversions are considered last. If no candidate is strictly better,
-the call is reported as ambiguous.
+When several callable candidates are applicable, Raven compares the implicit
+conversions required for their parameters. Identity conversions are preferred
+over numeric widening, followed by reference and boxing conversions.
+User-defined conversions are considered last. If no applicable candidate is
+strictly better, the call is ambiguous.
 
-If multiple applicable candidates come from the same overload set and one or
-more are annotated with
+When candidates in the same overload set use
 `System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute`, Raven
-first keeps the candidates with the highest declared priority and only then
-applies the normal conversion/specificity comparison. This applies to both
-source-declared methods and methods imported from referenced .NET assemblies.
+first keeps only candidates with the highest priority, then performs the normal
+conversion and specificity comparison. This applies to Raven declarations and
+imported .NET methods.
 
-```raven
-let parsed = int.Parse("42")
-// Result<int, FormatException | OverflowException>
-```
-
-Overload ranking follows the normal conversion ladder for the argument and
-parameter types in each candidate signature.
+Calls, named arguments, optional arguments, and collector parameters are covered
+under [Calls](invocations.md). Method-reference overload selection is described
+under [Functions as values](functions.md#functions-as-values).

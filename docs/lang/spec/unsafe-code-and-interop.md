@@ -210,8 +210,7 @@ storage and can both read and write through that reference. To mark a
 parameter that must be assigned by the callee before returning, place
 `out` before the parameter name. `ref` and `out` parameters are writable
 aliases; `in` parameters are read-only. At call sites, pass the argument with
-the address operator `&`. (Exact rules are contextual; the binder enforces that
-the target is assignable.)
+the address operator `&`. The argument must refer to assignable storage.
 
 By-reference locals and fields never use the `out` modifier—`out` is
 only meaningful at the call boundary to signal definite assignment

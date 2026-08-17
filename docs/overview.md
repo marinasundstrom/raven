@@ -27,6 +27,8 @@ works today and identify areas whose design is still changing.
   common language rules by topic.
 - The [language feature guides](lang/features/index.md) explain everyday Raven
   constructs through focused examples.
+- The [language reference](lang/spec/index.md) documents each feature in depth,
+  including syntax, detailed behavior, and interoperability rules.
 - The [tooling documentation](compiler/index.md) covers projects, compiler
   commands, diagnostics, analyzers, distribution, and editor support.
 

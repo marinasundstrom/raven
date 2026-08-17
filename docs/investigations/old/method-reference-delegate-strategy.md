@@ -2,7 +2,7 @@
 
 ## Background
 
-- The language specification treats functions and methods as first-class values: referencing a method without invoking it must yield a delegate, overloads require explicit disambiguation, and the compiler synthesizes a delegate when no existing type matches the signature.【F:docs/lang/spec/language-specification.md†L767-L800】
+- The language specification treats functions and methods as first-class values: referencing a method without invoking it must yield a delegate, overloads require explicit disambiguation, and the compiler synthesizes a delegate when no existing type matches the signature.
 - The binder currently fails to treat method symbols as expressions. `BindIdentifierName` only returns namespaces, types, locals, parameters, fields, or properties; any other symbol (including methods) becomes a bound error.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1683-L1702】
 - Member access binding reuses `BoundMemberAccessExpression`, but the resulting node reports a method's *return type* as its expression type, so `Console.WriteLine` is seen as producing `void` rather than a callable value.【F:src/Raven.CodeAnalysis/BoundTree/BoundMemberAccessExpression.cs†L3-L25】
 - Invocation binding assumes either a single resolved method symbol or a callable receiver and does not understand a method-group expression that must be converted to a delegate first.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1811-L2080】
@@ -31,7 +31,7 @@
    - Conversion sites (locals, returns, assignments, arguments, and collection initializers) now treat method groups as convertible even though their natural type is `Error`, letting delegate-typed contexts drive overload selection while preserving ambiguity for later diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L120-L3058】
 
 4. ✅ **Report overload ambiguity and missing-target diagnostics.** *(Completed)*
-   - The binder now emits `RAV2201` when a method group appears without any delegate-typed context, and surfaces `RAV2202`/`RAV2203` when overload resolution cannot choose a unique target for a delegate conversion.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L132-L176】【F:docs/lang/spec/language-specification.md†L781-L796】
+   - The binder now emits `RAV2201` when a method group appears without any delegate-typed context, and surfaces `RAV2202`/`RAV2203` when overload resolution cannot choose a unique target for a delegate conversion.
    - Conversion sites pass syntax locations into `ApplyConversion`, allowing delegate creation to report precise diagnostics for ambiguous or incompatible method groups.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L154-L3120】
 
 5. ✅ **Synthesize delegates when no suitable type exists.** *(Completed)*

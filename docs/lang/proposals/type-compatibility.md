@@ -6,7 +6,7 @@ This document outlines type compatibility and conversion rules in Raven.
 
 ## Object compatibility
 
-Reference types inherit from `System.Object`. Value types such as primitives and [unit](../spec/language-specification.md#unit-type) are structs; they do not derive from `object` but can be boxed when a reference is required.
+Reference types inherit from `System.Object`. Value types such as primitives and [unit](../spec/type-system.md#unit) are structs; they do not derive from `object` but can be boxed when a reference is required.
 
 ```raven
 let o: object = ()      // box the unit value
@@ -120,7 +120,7 @@ foo(1.0)  // chooses foo(double)
 
 ## Type literals
 
-Type literals are types (`LiteralTypeSymbol`) that represent a constant value and carry an underlying primitive type. See [target typing](../spec/language-specification.md#target-typing) for how literals interact with context.
+Type literals are types (`LiteralTypeSymbol`) that represent a constant value and carry an underlying primitive type. See [target typing](../spec/expressions-and-inference.md#target-typing) for how literals interact with context.
 
 Examples:
 
@@ -168,7 +168,7 @@ Even though unusual, a variable can have a literal type.
 
 #### Implicit type
 
-When a declaration relies on inference, the literal's underlying type becomes the variable's type. See [type inference](../spec/language-specification.md#type-inference) for details.
+When a declaration relies on inference, the literal's underlying type becomes the variable's type. See [type inference](../spec/expressions-and-inference.md#type-inference) for details.
 
 ```raven
 let a = true      // a : bool

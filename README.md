@@ -51,7 +51,7 @@ or browse the Markdown sources under [`docs/`](docs/).
   behavior, dependencies, and object-oriented models.
 - [Nullability and Absence](docs/lang/nullability.md) - unified nullable types,
   explicit pattern binding, and `Option<T>` guidance.
-- [Language Specification](docs/lang/spec/language-specification.md) - current
+- [Language reference](docs/lang/spec/index.md) - current language specification and feature reference
   normative language docs and grammar links.
 - [Compiler Docs](docs/compiler/index.md) - architecture, APIs, diagnostics,
   language server, and development notes.

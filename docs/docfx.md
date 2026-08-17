@@ -50,11 +50,10 @@ Keep the global header deliberately compact. Detailed documentation hierarchy
 belongs in the Docs menu and section sidebars, while the root page serves as a
 dedicated introduction to Raven.
 
-## Guides and internal specifications
+## Guides and the language reference
 
 User-facing guides and the language specification serve different reading
-goals. The specification is maintained in source control for language and
-compiler development; it is not published as part of the documentation site.
+goals. Both are published, but they should not duplicate one another.
 
 Guides teach a concept or help complete a task. They should lead with
 motivation and recognizable application code, explain the useful default, call
@@ -67,9 +66,12 @@ why a feature exists, show its useful default with compact code, describe the
 choice it communicates, and link to a practical next step. They should not
 attempt to reproduce grammar productions, binding rules, or every edge case.
 
-The files under `docs/lang/spec/` remain available to contributors. Public
-pages must not link learners into that directory or depend on it for essential
-explanations.
+The files under `docs/lang/spec/` form the public language reference as well as
+the compiler team's working specification. Reference articles should still be
+readable by language users: lead with the feature and representative examples,
+then introduce precise rules and edge cases as needed. Guides may link to the
+relevant reference article when readers need the complete behavior, but should
+remain understandable on their own.
 
 Workload guides live under `docs/workloads/`. They explain general ways to
 build, run, publish, or deploy an application. A workload page can use several

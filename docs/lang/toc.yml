@@ -17,6 +17,8 @@
       href: features/async.md
     - name: Macros
       href: features/macros.md
+- name: Language reference
+  href: spec/index.md
 - name: Meaning of Raven features
   href: feature-meaning.md
 - name: Domain modeling

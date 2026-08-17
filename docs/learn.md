@@ -16,7 +16,8 @@ toolchain only when you are ready to execute code.
 Afterward, the [language feature guides](lang/features/index.md) provide short,
 focused explanations, while the [domain-modeling guide](lang/domain-modeling.md)
 shows how to choose among functions, records, unions, classes, and interfaces
-in larger programs.
+in larger programs. Use the [language reference](lang/spec/index.md) when you
+want a complete account of a feature or need to check a precise rule.
 
 ## Guides for your background
 

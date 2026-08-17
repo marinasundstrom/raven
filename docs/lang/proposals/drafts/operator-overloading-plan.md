@@ -61,6 +61,6 @@
    * Update semantic model query paths (symbol lookup, `GetDeclaredSymbol`, `GetSymbolInfo`) so operator declarations and usages surface meaningful symbols/tooling experiences.
 
 8. ⏳ **Documentation and tests**
-   * Update `docs/lang/spec/language-specification.md` and related grammar sections to describe operator declaration/overload rules once implementation details settle.
+   * Update the relevant articles under `docs/lang/spec/` and the grammar sections to describe operator declaration/overload rules once implementation details settle.
    * Add compiler unit tests covering parsing, binding (valid/invalid signatures), overload resolution precedence, extension operator visibility, nullable/literal interactions, and codegen IL verification.
    * Include end-to-end samples demonstrating declaration and consumption of operators in classes and extensions.

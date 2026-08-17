@@ -14,9 +14,6 @@ about without unpacking the value step by step.
   * The same bracketed shape is also used for collection deconstruction
     assignments and declarations (`[let a, let b] = values`), which support
     arrays, `string`, and indexable collection types.
-  * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
-    (with `SequencePatternElementSyntax`), distinct from parenthesized positional
-    patterns (`PositionalPatternSyntax`).
   * A plain element pattern consumes exactly one element.
   * A fixed-size segment pattern `..N pattern` consumes exactly `N` elements as a
     subsequence.

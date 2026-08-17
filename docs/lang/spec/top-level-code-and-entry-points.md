@@ -168,7 +168,7 @@ signature omits a return value; the helper awaits the async body, discards the
 awaited `Unit` value, and only returns after the async work (such as console writes)
 completes. Exceptions thrown from the async body bubble through the same
 `GetResult()` call so the process exits with the same failure semantics as a
-purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】【F:test/Raven.CodeAnalysis.Tests/CodeGen/CodeGeneratorTests.cs†L88-L144】
+purely synchronous entry point.
 
 Entry points that return `Task<int>` produce a bridge that awaits the async body
 and returns the awaited integer as the process exit code. Entry points that
@@ -178,7 +178,6 @@ map `Ok` to exit code `0`. For every supported `Result` entry point, `Error`
 payload data is printed to standard error and maps to exit code `1`.
 The bridge also leaves console writes intact so the awaited value can be
 observed by both the caller and the host operating system.
-【F:test/Raven.CodeAnalysis.Tests/Semantics/Diagnostics/EntryPointDiagnosticsTests.cs†L15-L87】【F:test/Raven.CodeAnalysis.Tests/CodeGen/Async/AsyncEntryPointBridgeTests.cs†L94-L342】
 
 Library and script output kinds ignore the entry point search; they never report
 missing or ambiguous entry-point diagnostics.

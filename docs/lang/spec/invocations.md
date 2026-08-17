@@ -9,23 +9,28 @@ Foo(1, 2)
 Console.WriteLine("Test")
 ```
 
-The `()` call operator invokes a function-valued expression. If the target
-expression's type defines an invocation operator via a `self` method, that
-member is invoked instead. Invocation operators can be declared on classes or
-interfaces. Class declarations may mark them `virtual` or `abstract` to support
-overrides.
+The expression before `()` is the call target. It may be a named function, a
+method, a function-valued expression, a type being constructed, or a value whose
+type defines an invocation operator.
+
+## Optional arguments
 
 When the target has optional parameters, omitted trailing arguments are filled
 using the defaults declared on the parameter list. Supplied arguments are
 matched positionally before defaults are considered.
 
-Parameters may be declared as collectors using a trailing `...` after the
+## Collector parameters
+
+Parameters may collect a variable number of arguments using a trailing `...`
+after the
 parameter type. A collector parameter must be the final parameter. The
 convenience form `items: T ...` binds as `IList<T>`; use explicit `params`
 syntax, such as `params items: int[]`, to control the collection type.
 
 At call sites, extra positional arguments are packed into the collector.
 `...expr` expands an existing sequence into it.
+
+## Named arguments
 
 Arguments may be named with `name: expression`. Named arguments may appear in
 any order, but positional arguments after a named argument must correspond to
@@ -51,6 +56,8 @@ let values = [4, 5]
 let expanded = sum(...values)
 ```
 
+## Function-valued arguments
+
 Function values are passed using ordinary function-expression syntax:
 
 ```raven
@@ -60,3 +67,14 @@ func use(action: () -> int) -> int {
 
 let result = use(() => 42)
 ```
+
+## Callable objects
+
+If the target value's type defines an invocation operator through a `self`
+method, `value(...)` invokes that member. Invocation operators can be declared
+on classes or interfaces. A class may make one `virtual` or `abstract` so a
+derived class can override the call behavior.
+
+See [Parameters, overloading, and
+operators](parameters-overloading-and-operators.md#invocation-operator) for
+declaration syntax and overload rules.

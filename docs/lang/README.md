@@ -9,6 +9,7 @@ context, and compiler-internal detail stays out of the learning path.
 
 * [Introduction](../introduction.md)
 * [Language features](features/index.md)
+* [Language reference](spec/index.md)
 * [Raven for absolute beginners](../raven-for-absolute-beginners.md)
 * [Raven for C# developers](../raven-for-csharp-developers.md)
 * [Authoring Raven macros](../macro-authoring.md)
@@ -46,7 +47,8 @@ func ParsePort(text: string) -> Result<int, string> {
 ```
 
 Use the introduction for a guided overview, the feature guides for focused
-concepts, and the application guides for complete project shapes.
+concepts, the [language reference](spec/index.md) for detailed rules, and the
+application guides for complete project shapes.
 
 Language proposals and compiler development notes are maintained separately in
 the source repository. They are useful to contributors, but do not define the

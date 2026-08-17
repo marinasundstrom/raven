@@ -32,8 +32,7 @@ class Worker : IDisposable, ILogger {
 ```
 
 Implementations are matched by name, parameter count, and `ref`/`out`
-modifiers. Each successfully matched member is emitted as a final override so
-the CLR records the implementation in the type's interface map. See
+modifiers. See
 [Interfaces](interfaces.md) for interface declaration rules and inheritance.
 
 For struct-like declarations (`struct` and `record struct`), the base list is interface-only; the runtime base remains `System.ValueType`.
@@ -58,7 +57,7 @@ constructors continue to behave as user-defined factories without chaining.
 
 Only single inheritance is supported.
 
-### Sealed hierarchies and `permits`
+## Sealed hierarchies and `permits`
 
 A class, record class, or interface declared with the `sealed` modifier creates a **sealed hierarchy**. For classes and
 record classes, the `sealed` modifier implies `abstract`: a sealed type cannot be instantiated directly. Its set of direct
@@ -138,7 +137,7 @@ func Broken(expr: Expr) { ... }                // Error: missing type arguments
 
 Sealed-hierarchy constituents are still ordinary Raven types, so they use the same generic parameter and `where`
 constraint rules as any other type declaration. Member methods over sealed hierarchies likewise honor their own declared
-constraints during body binding. This allows constrained generic evaluators to stay fully native to Raven and .NET-style
+constraints during type checking. This allows constrained generic evaluators to stay fully native to Raven and .NET-style
 generic interfaces:
 
 ```raven
@@ -226,13 +225,11 @@ let result = match expr {
 }
 ```
 
-**IL emission.** Sealed hierarchy base types are emitted as `abstract` (not IL
-`sealed`) so that the CLR allows subclassing by the permitted types. A
-`[ClosedHierarchy]` attribute is emitted on the base type carrying the
-permitted `Type[]` array for runtime reflection.
+The [.NET implementation notes](dotnet-implementation.md#sealed-hierarchies)
+describe the metadata representation used for sealed hierarchies.
 
 For guidance on choosing sealed hierarchies versus discriminated unions, see
-[Closed-shape types](types-and-unions.md#closed-shape-types).
+[Choosing a closed-shape type](unions.md#choosing-a-closed-shape-type).
 
 ## Partial types and members
 

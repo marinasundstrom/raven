@@ -5,7 +5,7 @@
   items:
     - name: Lexical structure
       href: lexical-structure.md
-    - name: Values and statements
+    - name: Values, expressions, and statements
       href: values-and-statements.md
     - name: Namespaces, imports, and aliases
       href: namespaces-and-imports.md
@@ -18,8 +18,8 @@
   items:
     - name: Type system
       href: type-system.md
-    - name: Types and unions
-      href: types-and-unions.md
+    - name: Unions
+      href: unions.md
     - name: Enum declarations
       href: enum-declarations.md
     - name: Delegate declarations
@@ -29,24 +29,18 @@
   items:
     - name: Expressions and type inference
       href: expressions-and-inference.md
-    - name: Fundamental expressions
+    - name: Literals and fundamental expressions
       href: fundamental-expressions.md
     - name: Collection expressions
       href: collection-expressions.md
-    - name: Tuple expressions
-      href: tuple-expressions.md
     - name: Calls
       href: invocations.md
     - name: Pipe expressions
       href: pipe-expressions.md
-    - name: Object creation
+    - name: Object creation and copying
       href: object-creation.md
-    - name: Object initialization and copying
-      href: object-initialization-and-copying.md
-    - name: Index, range, and bitwise operators
-      href: operators-and-object-creation.md
-    - name: Operator precedence and expression disambiguation
-      href: object-oriented-types.md
+    - name: Operators
+      href: operators.md
 
 - name: Declarations and members
   items:
@@ -71,51 +65,31 @@
     - name: Extension members
       href: extensions.md
 
-- name: Systems programming and .NET interoperability
-  items:
-    - name: Systems programming and memory efficiency
-      href: systems-programming.md
-    - name: Spans and stack allocation
-      href: spans-and-memory.md
-    - name: Ref structs and ref safety
-      href: ref-structs-and-ref-safety.md
-    - name: Unsafe code and interoperability
-      href: unsafe-code-and-interop.md
-
-- name: Metaprogramming
-  items:
-    - name: Macros
-      href: macros.md
-
 - name: Pattern matching
   items:
     - name: Pattern matching overview
       href: pattern-matching.md
-    - name: Dictionary patterns and exhaustiveness
-      href: dictionary-patterns-and-exhaustiveness.md
     - name: Match forms
       href: match-forms.md
-    - name: Pattern forms and contexts
-      href: pattern-contexts.md
     - name: Fundamental patterns
       href: fundamental-patterns.md
     - name: Sequence and property patterns
       href: sequence-and-property-patterns.md
     - name: Deconstruction, member, and union patterns
       href: deconstruction-and-union-patterns.md
+    - name: Dictionary patterns
+      href: dictionary-patterns.md
+    - name: Match exhaustiveness
+      href: match-exhaustiveness.md
 
 - name: Control flow
   items:
     - name: Control flow overview
       href: control-flow.md
-    - name: Control-flow expressions and statements
-      href: control-flow-expressions.md
-    - name: Lock statements
-      href: lock-statements.md
-    - name: Assignment and expression statements
+    - name: Statements
       href: assignment-and-expression-statements.md
-    - name: Match statements
-      href: match-statements.md
+    - name: Conditionals and loops
+      href: control-flow-expressions.md
     - name: Return and yield
       href: returns-and-yield.md
     - name: Jumps and labels
@@ -123,14 +97,28 @@
 
 - name: Error handling
   items:
-    - name: Error handling
+    - name: Exceptions and structured handling
       href: error-handling.md
     - name: Error propagation and carrier types
       href: async-and-error-propagation.md
 
+- name: Metaprogramming
+  items:
+    - name: Macros
+      href: macros.md
+
+- name: Systems programming
+  items:
+    - name: Systems programming and memory efficiency
+      href: systems-programming.md
+    - name: Spans and stack allocation
+      href: spans-and-memory.md
+    - name: Ref structs and ref safety
+      href: ref-structs-and-ref-safety.md
+    - name: Unsafe code
+      href: unsafe-code-and-interop.md
+
 - name: .NET interoperability
   items:
-    - name: Unsafe code and interoperability
-      href: unsafe-code-and-interop.md
     - name: .NET implementation notes
       href: dotnet-implementation.md

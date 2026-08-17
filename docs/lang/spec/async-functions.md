@@ -173,6 +173,8 @@ shapes:
 ```raven
 Task
 Task<T>
+ValueTask
+ValueTask<T>
 ```
 
 Other return types are rejected.
@@ -196,3 +198,15 @@ at the `await` expression.
 
 Exceptions that escape before asynchronous execution is suspended propagate
 directly to the caller.
+
+## Detailed rules and diagnostics
+
+* `await` outside an async context reports `RAV2700`.
+* Awaiting a value that does not follow the awaitable pattern reports
+  `RAV2701`. An awaiter without `IsCompleted: bool` reports `RAV2702`, and one
+  without a parameterless `GetResult()` reports `RAV2703`.
+* An unsupported async return type reports `RAV2704`.
+* Returning a value from an async function whose return type is `Task` or
+  `ValueTask` reports `RAV2705`.
+* An async body with no `await` reports warning `RAV2706` because it runs
+  synchronously.

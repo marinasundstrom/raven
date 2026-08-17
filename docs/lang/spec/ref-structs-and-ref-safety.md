@@ -15,21 +15,13 @@ ref struct Buffer<T> {
 ```
 
 The modifier is valid only on `struct` declarations and must appear consistently
-on every declaration of a partial struct. A source-declared ref struct is
-classified as ref-like by the semantic model, so the same storage, capture,
-generic-argument, async, and iterator restrictions that apply to consumed .NET
-ref-like types also apply to it.
-
-The emitted type carries
-`System.Runtime.CompilerServices.IsByRefLikeAttribute`, including when the ref
-struct itself is generic, so other .NET compilers and reflection classify it
-the same way.
+on every declaration of a partial struct. Source-declared ref structs follow
+the same storage, capture, generic-argument, async, and iterator restrictions as
+ref-like types imported from .NET.
 
 `readonly ref struct` additionally prevents mutable instance storage. Instance
 fields must use `readonly`, and property storage must use `val` rather than
-`var`. The emitted type carries both `IsByRefLikeAttribute` and
-`IsReadOnlyAttribute`; `INamedTypeSymbol.IsReadOnly` exposes the same fact for
-source and metadata types. Partial declarations must agree on both modifiers.
+`var`. Partial declarations must agree on both modifiers.
 
 ## Managed-reference fields
 
@@ -43,10 +35,8 @@ ref struct IntReference {
 
 Ref fields are instance-only and cannot be declared in ordinary structs or
 classes. Their referent cannot itself be ref-like or a type parameter that
-allows ref structs. `IFieldSymbol.RefKind` reports `Ref` for source and consumed
-metadata fields, and their CLR signatures use the standard `BYREF` element
-type. Dereferencing a managed ref field does not require unsafe mode; raw
-pointer dereferences still do.
+allows ref structs. Dereferencing a managed ref field does not require unsafe
+mode; raw pointer dereferences still do.
 
 ## Scoped parameters and locals
 
@@ -60,11 +50,6 @@ func Mutate(scoped ref value: int) {}
 scoped let buffer: System.Span<int> = stackalloc int[4]
 scoped let reference = &value
 ```
-
-`scoped value: Span<int>` and a scoped ref-like local are classified as
-`ScopedValue`. `scoped ref value: int` and a scoped managed-reference local are
-classified as `ScopedRef`. The compiler symbol API exposes this through
-`IParameterSymbol.ScopedKind` and `ILocalSymbol.ScopedKind`.
 
 By-value `scoped` parameters and locals must be ref-like. `scoped ref`,
 `scoped in`, and `scoped out` parameters may refer to ordinary value types.
@@ -110,11 +95,11 @@ Generic declarations opt into ref-like type arguments with the
 func Accept<T>() where T: allows ref struct {}
 ```
 
-The semantic model exposes this as
-`TypeParameterConstraintKind.AllowByRefLike`, and emission sets the standard
-CLI `AllowByRefLike` (`0x20`) generic-parameter flag. Without the
-anti-constraint, a ref-like type such as `Span<T>` is rejected as a type
-argument.
+Without the anti-constraint, a ref-like type such as `Span<T>` is rejected as a
+type argument.
+
+The [.NET implementation notes](dotnet-implementation.md#ref-like-metadata)
+describe the attributes and generic flags used for cross-language interop.
 
 Within the generic declaration, the constrained type parameter is treated as
 potentially ref-like: it cannot be captured, stored in heap fields or arrays,

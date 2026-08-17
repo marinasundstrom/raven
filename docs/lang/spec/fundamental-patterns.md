@@ -3,6 +3,8 @@
 Fundamental patterns check a value's type or contents. A successful pattern can
 also give the matched value a name for use in that branch.
 
+## Type and binding patterns
+
 * `Type` — **type pattern**. Succeeds when the scrutinee can be treated as `Type`.
   If the pattern introduces no designation, it behaves like a type test.
 
@@ -87,10 +89,9 @@ also give the matched value a name for use in that branch.
   `value == .Member` is equivalent to `value == EnumType.Member` when `value`
   has the enum/member-bearing type.
 
-> 🧭 **Disambiguation:** A bare identifier in pattern position is context-sensitive. If the
-> name resolves to a value symbol, it forms a value pattern. Otherwise, it is
-> interpreted as a type name and participates in a type or declaration pattern.
-> This disambiguation is performed by the binder, not the grammar.
+A bare identifier in pattern position is context-sensitive. If it names an
+in-scope value, it is a value pattern. Otherwise Raven interprets it as a type
+name for a type or declaration pattern.
 
 ## Comparison patterns
 
@@ -128,7 +129,8 @@ Both bounds are optional:
 * `..<hi` — matches values less than `hi`.
 * `lo..` — matches values greater than or equal to `lo`.
 
-Bounds are written as expressions, but the binder may restrict them to constant‑like values depending on context.
+Bounds are written as expressions, but Raven may require constant-like values
+in contexts where the range must be known during compilation.
 
 ```raven
 let value = 42
@@ -175,9 +177,6 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   This is equivalent to introducing a binding and adding a `when` guard that
   compares the bound value, but `== expr` keeps the constraint local to the
   pattern and avoids an additional arm condition.
-
-  In compiler APIs, `== expr` is represented as `ComparisonPatternSyntax`
-  (distinct from `ConstantPatternSyntax`) so tools can preserve user intent.
 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.

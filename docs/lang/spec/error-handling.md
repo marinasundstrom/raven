@@ -1,16 +1,8 @@
-# Error handling
+# Exceptions and structured handling
 
-Raven models exceptions as a last-resort control transfer for unexpected
-conditions. The language offers both statement-based structured exception
-handling and expression forms that surface errors as values.
-
-## Explicit error values
-
-Expected failures should normally be modeled as a specific error type and
-returned through `Result<T, E>`. When `E` implements Raven.Core's `IError`, the
-result can gain operation context with `WithContext(message)`. This wraps the
-main error in `ContextError<E>` and preserves it as `Cause`; it does not throw or
-erase the original error value.
+Raven uses exceptions for unexpected failures and `Result<T, E>` or
+`Option<T>` for failures and missing values that are part of an operation's
+ordinary outcome.
 
 ```raven
 func load(input: string) -> Result<Model, ContextError<ParseError>> {
@@ -18,77 +10,45 @@ func load(input: string) -> Result<Model, ContextError<ParseError>> {
 }
 ```
 
-Use `MapError` when a boundary should translate one typed error model into
-another. Use `WithContext` when the error identity is still correct but the
-caller needs to know what operation was underway. See the
-[Raven Core Library](../../compiler/raven-core-library.md#ierror) for the full
-contract and the [Raven Macro Library](../../compiler/raven-macros-library.md)
-for deriving `IError` on unions.
+When an error value already describes the failure correctly, `WithContext`
+adds the operation that was in progress and preserves the original error as
+its cause. Use `MapError` when a boundary needs to translate one error model
+into another. See [Error propagation and carrier
+types](async-and-error-propagation.md) for `Result`, `Option`, `?`, `?.`, and
+exception-capturing `try` expressions.
 
-## `throw` statements and expressions
+## Throwing an exception
 
-`throw` aborts the current evaluation path by propagating an exception value.
-The operand must have a type derived from `System.Exception`; otherwise the
-compiler reports `RAV1020`.
-
-### Concept
-
-Raven supports both statement-form `throw expr` and expression-form `throw expr`.
-Both forms have the same runtime behavior: they unwind the current scope and
-propagate the exception outward.
-
-### Example
+`throw expression` stops the current path and propagates an exception outward.
+The operand must derive from `System.Exception`; an incompatible operand reports
+`RAV1020`.
 
 ```raven
-func parseInt(text: string) -> Result<int, ParseError> {
-    if text.isEmpty {
-        return Error(ParseError.Empty)
-    }
-
-    try {
-        return Ok(Convert.ToInt32(text))
-    } catch System.FormatException ex {
-        return Error(ParseError.Invalid(ex.Message))
-    }
-}
-
-func readConfig(path: string) {
-    use stream = File.OpenRead(path)
-    if stream is null {
-        throw System.IO.FileNotFoundException(path)
-    }
-    // ...
-}
-
 func requireName(name: string?) -> string {
     return name ?? throw ArgumentException("Missing name")
 }
 ```
 
-### Rules
+Raven supports `throw` both as a statement and as an abrupt expression. The
+expression form can appear in an `if` or `match` branch, a null-coalescing
+operand, or another value position. It does not contribute a type because that
+path never completes normally.
 
-* Statement-form `throw` is valid only in statement context.
-* Expression-form `throw` is valid anywhere an executable expression is valid
-  and contributes no value to a type join because its path never completes.
-* Within an expression block, a leading `throw` item is projected as an
-  expression statement containing `ThrowExpressionSyntax`.
-* Using statement-form `throw` in an inline expression context produces
-  `RAV1907`.
-* `use` declarations in the current scope are disposed before the exception
-  escapes.
-* Prefer carrier-based error modeling such as `Result<T, E>` for expected
-  failures; reserve `throw` for exceptional conditions.
+### Throw rules
 
-## `try` statements
+* Statement-form `throw` is valid only in a statement context. Using it directly
+  in an inline expression context reports `RAV1907`; use the expression form
+  there.
+* A `use` declaration in a scope is disposed before an exception leaves that
+  scope.
+* Reserve exceptions for exceptional conditions. Prefer a specific error type
+  in `Result<T, E>` when callers are expected to handle the failure routinely.
 
-Statement-form `try` provides structured exception handling around a block.
+## Handling exceptions with `try`
 
-### Concept
-
-A `try` statement wraps a block and must include at least one `catch` clause or
-a `finally` clause.
-
-### Example
+A `try` statement protects a block and handles exceptions with one or more
+`catch` clauses. An optional `finally` clause runs whenever control leaves the
+statement.
 
 ```raven
 try {
@@ -100,7 +60,7 @@ try {
 }
 ```
 
-Parenthesized forms reuse the same pattern surface, and `when` guards may follow the pattern:
+A catch clause may use an exception type pattern and an optional `when` guard:
 
 ```raven
 try {
@@ -110,89 +70,26 @@ try {
 }
 ```
 
-### Rules
+Catch clauses are considered in source order. The first matching type pattern
+whose guard succeeds handles the exception. A bare `catch` is equivalent to
+`catch (System.Exception)`.
 
-* Omitting both `catch` and `finally` produces `RAV1015`.
-* Each `catch` may provide an exception pattern. The supported runtime form today
-  is an exception type pattern such as `catch FormatException ex`.
-* Parenthesized catch patterns are also accepted for grouping and future
-  compatibility, for example `catch (FormatException ex)`.
-* `catch` guards follow the catch pattern, for example
-  `catch Exception ex when ex.StatusCode == 2` or
-  `catch (Exception ex) when ex.StatusCode == 2`.
-* The declared catch type must be `System.Exception` or a derived type;
-  otherwise the compiler reports `RAV1016`.
-* A bare `catch` is equivalent to `catch (System.Exception)`.
-* `catch` reuses Raven pattern syntax, but richer non-type primary catch
-  patterns are still diagnosed until full catch-pattern semantics are expanded.
-* Catch clauses run in source order.
-* `finally` executes whether the `try` block, a `catch` clause, or an early
-  control transfer completes the statement.
+### Try-statement rules
 
-## `try` expressions
+* A `try` statement must contain at least one `catch` or a `finally`; omitting
+  both reports `RAV1015`.
+* A catch type must be `System.Exception` or a derived type. An incompatible
+  type reports `RAV1016`.
+* Parentheses may group the catch pattern.
+* The supported runtime pattern is currently an exception type pattern such as
+  `catch FormatException ex`. Richer non-type primary patterns are diagnosed
+  until full catch-pattern semantics are available.
+* `finally` runs whether the `try` block or a `catch` completes normally or
+  leaves through an early control transfer.
 
-`try expr` captures exceptions as a `Result<T, Exception>` value. `try? expr`
-captures and immediately propagates failures through the enclosing carrier
-context.
+## Capturing exceptions as values
 
-These forms are Raven's boundary between exception-based APIs and value-based
-error handling. They let code call an API that throws without forcing the rest
-of the operation to use exception control flow.
-
-### Purpose of `try`
-
-Use `try expr` when the caller needs the exception as data and will decide how
-to handle both outcomes. The resulting `Result` can be matched, transformed,
-stored, or returned like any other value.
-
-### Purpose of `try?`
-
-Use `try? expr` when the current operation also returns a compatible carrier
-and cannot continue after the call fails. It adapts the throwing API and
-propagates the captured exception in one expression, while the success path
-continues with the unwrapped value.
-
-### Concept
-
-`try expr` evaluates `expr` exactly once. Success produces `Ok(value)` or
-`Ok(())`; failure produces `Error(exception)`.
-
-`try? expr` is shorthand for `(try expr)?`.
-
-### Example
-
-```raven
-func describeNumber(text: string) -> string {
-    return try Convert.ToInt32(text) match {
-        Ok(let value) => "Parsed: $value"
-        Error(FormatException ex) => "Invalid format: ${ex.Message}"
-        Error(_) => "Unexpected failure"
-    }
-}
-
-func parseRequiredInt(text: string) -> Result<int, Exception> {
-    let value = try? Convert.ToInt32(text)
-    return Ok(value)
-}
-```
-
-These examples deliberately use the throwing .NET API `Convert.ToInt32` to
-demonstrate exception capture. With standard framework projections enabled,
-`int.Parse(string)` already returns
-`Result<int, FormatException | OverflowException>` and
-does not need `try`. Setting `RavenFrameworkProjections` to `None` restores the
-ordinary throwing CLR `int.Parse` member.
-
-### Rules
-
-* `try expr` has type `Result<T, Exception>`, where `T` is the operand type or
-  `unit`.
-* `try expr` does not accept `catch` or `finally`.
-* `try? expr` is valid only in an enclosing `Result<_, _>` or `Option<_>`
-  return context.
-* Directly nested `try` expressions are invalid.
-* Postfix `match` remains valid after `try expr`, making `try expr match { ... }`
-  the concise form for handling success and error cases inline.
-* A trailing `match` after `try?` is invalid.
-* A bare `Ok` pattern matches `Ok(())` when the success payload is `unit`;
-  `.Ok` remains available as the target-typed shorthand.
+Use `try expression` to capture a throwing API as `Result<T, Exception>`, or
+`try? expression` to capture and immediately propagate the failure through an
+enclosing carrier. The complete rules and diagnostics are in [Error propagation
+and carrier types](async-and-error-propagation.md#try-expressions).

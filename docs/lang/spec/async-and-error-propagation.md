@@ -20,8 +20,6 @@ that failure immediately.
 | `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Error(exception)` |
 | `try? expr` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
 
-### Concept
-
 `try expr` evaluates `expr` exactly once and converts the outcome to
 `Result<T, Exception>`, where `T` is the operand type. If the operand has type
 `unit`, the success case is `Ok(())`.
@@ -29,7 +27,7 @@ that failure immediately.
 `try? expr` is shorthand for `(try expr)?`. It is valid only when the enclosing
 function or lambda returns a compatible `Result<_, _>` or `Option<_>`.
 
-### Example
+### Examples
 
 ```raven
 import System.*
@@ -61,9 +59,10 @@ func saveText(path: string, text: string) -> string {
 standard framework projection for `int.Parse(string)` already returns
 `Result<int, FormatException | OverflowException>`;
 `try` is still the general mechanism for capturing exceptions from APIs without
-such a projection.
+such a projection. Setting `RavenFrameworkProjections` to `None` restores the
+ordinary throwing CLR `int.Parse` member.
 
-### Rules
+### Detailed rules
 
 * The operand may be any expression that is valid in the current context.
 * `try expr` does not accept `catch` or `finally` clauses; use statement-form
@@ -89,12 +88,10 @@ case.
 
 ### Propagation (`?`)
 
-#### Concept
-
 The postfix `?` operator unwraps a carrier value and propagates the non-success
 case to the nearest enclosing carrier-returning function or lambda.
 
-#### Example
+#### Examples
 
 ```raven
 func loadAndParse(path: string) -> Result<int, Exception> {
@@ -109,7 +106,7 @@ func firstEven(values: int[]) -> Option<int> {
 }
 ```
 
-#### Rules
+#### Detailed rules
 
 * For `Result<T, E>`, `Ok(value)` yields `value` and `Error(error)`
   immediately returns `Error(error)` from the enclosing context.
@@ -129,7 +126,7 @@ func firstEven(values: int[]) -> Option<int> {
 If propagation relies on a user-defined implicit conversion on the error
 channel, the compiler reports informational diagnostic `RAV1506`.
 
-#### Custom propagation carriers
+#### Custom carriers
 
 Propagation is defined by the Raven.Core interface
 `IPropagatable<TSelf, TOutput, TResidual>`, not by a required union shape or
@@ -159,12 +156,10 @@ contract with output `T` and residual `E`; `Option<T>` implements it with output
 
 ### Conditional member access (`?.`)
 
-#### Concept
-
 Carrier conditional access maps a member access over the success case of a
 carrier without unwrapping the carrier itself.
 
-#### Example
+#### Examples
 
 ```raven
 record class User(Name: string, Item: Option<Item>)
@@ -194,7 +189,7 @@ func selectedItemName() -> Result<string, LookupError> {
 }
 ```
 
-#### Rules
+#### Detailed rules
 
 * For `Result<T, E>`, `expr?.Member` evaluates `Member` only when `expr` is
   `Ok(payload)` and returns `Result<U, E>`.

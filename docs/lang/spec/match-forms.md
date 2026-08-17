@@ -22,12 +22,7 @@ keyword-first match expression form is used only when the parser is already
 expecting an expression, such as after `=`, `return`, an argument separator, or
 another expression-only position.
 
-The parser represents these as distinct syntax nodes: keyword-first expression
-form produces `MatchExpressionSyntax`, postfix expression form produces
-`PostfixMatchExpressionSyntax`, and statement form produces
-`MatchStatementSyntax`.
-
-Both forms use the same pattern binder and diagnostics, including exhaustiveness
+Both forms use the same pattern rules and diagnostics, including exhaustiveness
 checking and unreachable-arm detection.
 
 In expression form, the `match` result is the selected arm expression value. In
@@ -35,6 +30,9 @@ statement form, the selected arm expression is evaluated and its resulting value
 is discarded.
 When statement-form `match` is the final statement in a value-returning body,
 its selected arm value contributes an implicit tail return.
+
+When a statement-form `match` computes arm values outside that implicit-return
+position, the compiler reports warning `RAV2107`.
 
 Likewise, statement-form `if` with an `else` branch contributes an implicit tail
 return when it is the final statement in a value-returning body.
@@ -45,6 +43,12 @@ valid. `return` exits the enclosing function/method and `throw` raises an
 exception. In expression form, direct arm expressions may use `return` and
 `throw` expressions, but statement `return`/`throw` inside block-expression arms
 remains disallowed and reports `RAV1900`/`RAV1907`.
+
+An exhaustive statement-form match whose arms all leave the current
+control-flow region has no reachable endpoint. This includes arms that `return`
+or `throw`, either directly or as the final operation of an arm block. A match
+with missing coverage, a guard that can fail, or any arm that completes normally
+still has a reachable endpoint.
 
 Arm bodies accept any expression, including block expressions:
 

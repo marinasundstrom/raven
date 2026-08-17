@@ -1,19 +1,20 @@
 # Lexical structure
 
-Lexical rules define how source text is divided into names, keywords, literals,
-comments, and punctuation.
+Lexical structure is the set of rules Raven uses to turn source text into names,
+keywords, literals, comments, and punctuation. These are the rules behind such
+everyday questions as which characters a name may contain, how to escape a
+keyword, and where a compiler directive can appear.
 
-The primary file extension for source code files is `.rvn`. The legacy `.rav`
+## Source files
+
+Raven source normally uses the `.rvn` file extension. The legacy `.rav`
 extension remains recognized.
 
-## Grammar
+Source text may use Unicode in identifiers and comments. An executable
+file-based application can also begin with a Unix shebang, described under
+[Comments and shebangs](#comments-and-shebangs).
 
-An accompanying [EBNF grammar](grammar.ebnf) describes the structural
-syntax of Raven. **It is non-normative**: it does not encode contextual rules,
-disambiguation, or the full parsing process; those details are specified
-throughout this language specification.
-
-### Identifiers
+## Identifiers
 
 Identifiers name values, members, and types. They may begin with `_`, `$`, or
 any Unicode character classified as a letter (including letter numbers such as
@@ -28,11 +29,16 @@ name three different symbols. Keyword recognition is likewise based on the
 keyword's exact spelling, so the type name `Open` is distinct from the lowercase
 contextual keyword `open`.
 
-### Keyword summary
+```raven
+let $ffiResult = call()
+let value_1 = value0
+let 数据 = call()
+let сумма = total1 + total2
+```
 
-The lexer defines the complete keyword set in
-[`Tokens.xml`](https://github.com/marinasundstrom/raven/blob/main/src/Raven.CodeAnalysis/Syntax/Tokens.xml), which
-classifies each keyword as either reserved or contextual.
+## Keywords
+
+Raven classifies keywords as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
@@ -45,18 +51,22 @@ identifiers except in the syntactic positions that demand their special meaning�
 when declaring partial types or partial members; see [Partial types and
 members](inheritance-and-partial-types.md#partial-types-and-members).
 
-To use a reserved keyword as an identifier, prefix it with `@`. The lexer produces an identifier token whose `Text` still
-includes the `@` escape, while the token's `ValueText` omits it. All bound symbols expose the unescaped name, mirroring C#'s
-behaviour and ensuring metadata and semantic lookups use the identifier's logical name instead of its escaped form.
+To use a reserved keyword as an identifier, prefix it with `@`:
 
 ```raven
 class @int {}
 
 static func @match(@return: int) -> int {
-    let @and = @return;
-    return @and;
+    let @and = @return
+    return @and
 }
 ```
+
+The `@` is part of the source spelling but not the logical name. For example,
+the symbol declared as `@match` is named `match` in metadata and semantic
+lookups. This follows the same convention as C# escaped identifiers.
+
+## Discards
 
 The single-character `_` token is reserved for discards. When a pattern,
 deconstruction, or other declaration spells its designation as `_` (optionally
@@ -66,20 +76,17 @@ underscores, and `$` is available for interop- or DSL-oriented naming schemes.
 Because `_` never produces a value, using it as an expression—for example
 in `_ + 2`—is rejected as an error.
 
-Function expressions may also spell a parameter as `_`. The discard parameter
-still consumes the corresponding
-delegate parameter slot for arity and type inference, but it does not introduce
-a name that can be referenced in the function body and it is excluded from
-unused-parameter diagnostics.
+Function expressions may also spell a parameter as `_`. The parameter still
+consumes the corresponding delegate slot for arity and type inference, but it
+does not introduce a name that can be referenced in the function body and it is
+excluded from unused-parameter diagnostics.
 
 ```raven
-let $ffiResult = call()
-let value_1 = value0
-let 数据 = call()
-let сумма = total1 + total2
+let writeValue: (int, string) -> () = (_, value) =>
+    Console.WriteLine(value)
 ```
 
-### Comments
+## Comments and shebangs
 
 Comments provide source-level annotations that the compiler ignores during
 semantic analysis. They may appear anywhere whitespace is permitted, including
@@ -128,9 +135,9 @@ let greeting = "hello"  // 😀 emoji and other symbols are fine
 */
 ```
 
-#### Diagnostic suppression comments
+## Diagnostic suppression
 
-Raven supports C#-style warning pragmas as directive trivia to suppress diagnostics in source:
+Raven supports warning pragmas that suppress diagnostics in source:
 
 * `#pragma warning disable RAV0103`
 * `#pragma warning disable RAV9019 RAV9012`
@@ -141,7 +148,7 @@ Raven supports C#-style warning pragmas as directive trivia to suppress diagnost
 * `#pragma warning restore` (restores all diagnostics)
 * `// pragma warning disable ...` and `// pragma warning restore ...` are also accepted.
 
-Rules:
+The directives follow these rules:
 
 * Directives are evaluated in source order.
 * A `disable` directive affects diagnostics on that line and subsequent lines.
@@ -149,7 +156,7 @@ Rules:
 * `disable-next-line` suppresses the specified diagnostic IDs (or all IDs) for only the following source line.
 * These directives are trivia-only; they do not introduce syntax tokens.
 
-#### Conditional compilation directives
+## Conditional compilation
 
 Raven supports compiler-integrated conditional compilation:
 
@@ -180,14 +187,12 @@ Project builds populate that set from the evaluated MSBuild
 `--define` or `-define`; values may be repeated or separated with commas or
 semicolons.
 
-Conditional directives are structured syntax trivia rather than a separate
-text-rewriting pass. Source in an inactive branch is preserved exactly as
-disabled-text trivia and is not parsed or bound. Consequently, inactive source
-may contain otherwise invalid Raven syntax without producing ordinary parser or
-semantic diagnostics. The compiler still diagnoses malformed conditions,
-misordered directives, and unterminated conditional groups.
+Source in an inactive conditional branch is preserved but not parsed or type
+checked. It may therefore contain otherwise invalid Raven syntax without
+producing ordinary syntax or semantic diagnostics. Malformed conditions,
+misordered directives, and unterminated conditional groups are still errors.
 
-### Documentation comments
+## Documentation comments
 
 Documentation comments describe publicly consumable APIs and attach to the
 next declaration when only whitespace and newlines appear in between. Placing a
@@ -221,15 +226,8 @@ reported as documentation warnings. Markdown content should follow CommonMark
 conventions, including balanced fenced code blocks. These diagnostics are
 suppressed when documentation mode is disabled.
 
-## Syntax node model
+## Grammar
 
-The syntax node model defines the **logical structure** of Raven programs.
-It is specified in
-[`Model.xml`](https://github.com/marinasundstrom/raven/blob/main/src/Raven.CodeAnalysis/Syntax/Model.xml) and
-drives code generation of the immutable syntax tree API.
-
-The model describes the set of node kinds and their children.
-The **parser** applies the grammar and contextual rules to construct these nodes.
-
-In short: the model defines the shape; the parser defines the rules,
-as outlined in this specification.
+The accompanying [EBNF grammar](grammar.ebnf) describes Raven's structural
+syntax. It is non-normative: contextual rules, disambiguation, and parts of the
+parsing process are described in the relevant feature articles instead.

@@ -7,7 +7,7 @@ This note records the gaps that currently block label and `goto` statements and 
 * The syntax model has no representation for labels or goto statements, so `LanguageParser` cannot recognize constructs such as `start:` or `goto start`. Attempting to bind such syntax today would fall into the default case of `BlockBinder.BindStatement`, which throws for unsupported statement kinds.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L385-L408】
 * Control-flow analysis explicitly stubs out label resolution and goto tracking. `ControlFlowWalker.VisitGotoStatement` and `VisitLabeledStatement` are commented out, and `SemanticModel` only exposes placeholders for resolving labels and checking external gotos.【F:src/Raven.CodeAnalysis/SemanticModel.ControlFlowAnalysis.cs†L83-L141】【F:src/Raven.CodeAnalysis/SemanticModel.ControlFlowAnalysis.cs†L151-L169】
 * No bound nodes, symbols, or code-generation paths exist for labels. The symbol layer currently lacks a `Label` kind, and the statement emitter only understands structured control flow.【F:src/Raven.CodeAnalysis/Symbols/ISymbol.cs†L10-L56】【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L18-L216】
-* The language specification and diagnostics catalogue do not mention labels or goto, so user-facing behavior is undefined.【F:docs/lang/spec/language-specification.md†L130-L209】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L1-L1】
+* At the time of this investigation, the language reference and diagnostics catalogue did not mention labels or `goto`, so user-facing behavior was undefined.
 
 ## Step-by-step implementation plan
 
@@ -16,7 +16,7 @@ This note records the gaps that currently block label and `goto` statements and 
 1. Introduce a `GotoKeyword` (and any contextual keywords needed) in `Tokens.xml`, then regenerate syntax facts so the lexer classifies `goto` as a keyword.【F:src/Raven.CodeAnalysis/Syntax/Tokens.xml†L1-L104】
 2. Augment `Model.xml` with `LabeledStatementSyntax` and `GotoStatementSyntax` nodes. Each should expose the tokens (`Identifier`, `ColonToken`, `GotoKeyword`, `Target`, terminators) necessary for syntax tree construction.
 3. Regenerate syntax node types with `tools/NodeGenerator` so strongly-typed syntax nodes become available.
-4. Update `LanguageParser` to detect `identifier:` patterns when parsing statements (without stealing labels from expressions) and to parse `goto` statements, respecting Raven's newline/semicolon termination rules described in the spec.【F:docs/lang/spec/language-specification.md†L130-L209】
+4. Update `LanguageParser` to detect `identifier:` patterns when parsing statements (without stealing labels from expressions) and to parse `goto` statements, respecting Raven's newline/semicolon termination rules.
 5. Expand `SyntaxFactory` helpers and syntax tests to account for the new statement forms.
 
 ### 2. Introduce label symbols and bound nodes
@@ -52,7 +52,7 @@ This note records the gaps that currently block label and `goto` statements and 
 
 ### 7. Documentation and diagnostics
 
-1. Extend the language specification and grammar to describe label declarations and goto statements, including their allowed locations and restrictions.【F:docs/lang/spec/language-specification.md†L130-L209】
+1. Extend the language specification and grammar to describe label declarations and `goto` statements, including their allowed locations and restrictions.
 2. Document the new diagnostics (undefined label, duplicate label, invalid goto) in `docs/compiler/diagnostics.md` once descriptor IDs are reserved.
 3. Add release notes or design write-ups if the feature needs broader visibility.
 

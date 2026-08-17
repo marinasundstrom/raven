@@ -1,10 +1,16 @@
 # Expressions and type inference
 
-Raven can often work out a type from the value being used or from the place
-where the value is expected. This keeps declarations and expressions short
-when the type is already clear from the surrounding code.
+Raven can determine a type from an expression itself, from the place where its
+value is used, or from both directions at once. This keeps code concise when the
+type is already clear while preserving static type checking.
 
-### Target typing
+```raven
+let count = 42                 // inferred from the initializer
+let status: Status = .Ready    // inferred from the target
+let point: Point = .(2, -1)    // constructs the target type
+```
+
+## Target typing
 
 Many expressions rely on the type expected by their context, called the **target type**.
 For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type `Grades` to resolve the member.
@@ -14,7 +20,7 @@ member name means "construct the target type", so `let p: Point = .(2, -1)`
 binds as `Point(2, -1)`. The same form works in other target-typed contexts
 such as constructor arguments and collection elements.
 
-#### Discriminated union case sugar for `unit`
+### Unit-valued union cases
 
 When a discriminated union case carries exactly one payload of type `unit`, Raven permits the case to be written *without* an argument list in expression position. In such contexts, a bare case name is sugar for supplying the sole `unit` value `()`.
 
@@ -32,7 +38,7 @@ This mirrors the pattern-matching rule where a bare case such as `Ok` matches
 `Ok(())` when the payload is `unit`, with `.Ok` remaining available as the
 target-typed shorthand.
 
-### Type inference
+## Type inference
 
 When an expression or declaration omits an explicit type, Raven infers one from
 the expression. If multiple different types can flow to a location—through
@@ -44,27 +50,21 @@ let pet = if flag { Dog() } else { Cat() }
 // pet has an inferred compatible type
 ```
 
-Literal expressions infer the underlying primitive type when used to initialize
-`val` or `var` bindings. Literal types are subset types of their underlying
-primitive, so a literal like `1` can be used wherever an `int` is expected.
-When inference gathers multiple results—such as the branches of an `if`
-expression—it keeps literal precision only when required by explicit
-annotations; otherwise literals widen to their underlying primitive types.
-To retain a literal's singleton type for a single value, an explicit annotation
-is required.
+Literal expressions infer their ordinary primitive type when used to initialize
+`let` or `var` bindings. A literal such as `1` can also undergo an implicit
+constant conversion when a compatible target type requires it.
 
 ```raven
 var i = 0       // i : int
 let j = 0       // j : int
-var k: 1 = 1    // k : 1
 ```
 
 Control-flow expressions participate in the same inference. An `if` expression
-whose branches produce different types infers the nearest compatible type for
-those results. Literal branches remain precise only when explicitly annotated.
-By default, literal branches widen to their underlying primitive types:
+whose branches produce different types finds the nearest compatible type for
+those results. Literal branches use or widen from their primitive types as
+needed.
 
-#### Branch type inference
+### Branch type inference
 
 ```raven
 let x: int = 3
@@ -83,7 +83,7 @@ Numeric literals choose an underlying primitive type according to their form
 and optional suffix. The default rules are designed to be predictable while
 still allowing safe narrowing through implicit *constant* conversions.
 
-#### Integer literals
+### Integer literals
 
 * **Unsuffixed integer literals** default to `int`.
   * If the value does not fit in `int`, the literal is typed as `long`.
@@ -112,7 +112,7 @@ let bits = 0b1010_0101 // binary int literal
 let mask = 0xFF  // hexadecimal int literal
 ```
 
-#### Floating-point literals
+### Floating-point literals
 
 * **Unsuffixed floating-point literals** (those containing a decimal point or
   exponent) default to `double`.
@@ -141,7 +141,9 @@ underlying type when selecting among method overloads. For example,
 `Console.WriteLine(1)` binds to `Console.WriteLine(int)` if such an overload
 exists, and `Console.WriteLine("test")` chooses `Console.WriteLine(string)`.
 
-Functions and methods without an annotated return type default to `unit`; the
+## Function-expression inference
+
+Named functions and methods without an annotated return type default to `unit`; the
 declaration return type is not inferred from body expressions.
 
 Lambdas without an annotated return type infer their result by collecting:
@@ -184,12 +186,13 @@ annotation or target type may still specify a concrete `Task` shape, in which ca
 function-expression body must evaluate to the awaited result type rather than the task itself.
 Annotating an async function expression with a non-`Task` return type is an error.
 
-### Additional type inference rules (normative)
+## Additional inference rules
 
 The following clarifications extend the type inference model:
 
 * **Contextual inference**: Raven computes a contextual type based on both expression shape and target type. Inference is bidirectional.
-* **Literal arithmetic**: Non-constant operations widen literals to their base type unless constant-folded.
+* **Literal arithmetic**: Non-constant operations use the literals' primitive
+  types unless constant-folded.
 * **Generic inference**: Type argument inference requires a single consistent set of type arguments that satisfies all constraints.
 * **Nullability**: `T?` remains the static type of nullable storage. Safe navigation and explicit patterns produce separate result types or bindings; direct null checks do not refine storage.
 * **Pattern binding**: See [Pattern matching](pattern-matching.md) for how `is`, `if let`, and `match` introduce values whose types are established by a successful pattern.

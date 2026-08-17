@@ -1,6 +1,6 @@
 # .NET Implementation Notes
 
-This document outlines how Raven constructs map to the .NET runtime and metadata. For language semantics, see [language-specification.md](language-specification.md).
+This document explains how Raven constructs map to the .NET runtime and metadata. For source-language semantics, start with the [language reference](index.md).
 
 ## Unit type
 When interacting with .NET, methods that return `void` are projected as returning `unit`, and Raven's `unit` emits as `void` unless the value is observed. After any call that returns metadata `void`, the compiler loads `Unit.Value` so the invocation still produces a `unit` result. In an expression statement that value is discarded, enabling nested `unit`-returning calls such as `Console.WriteLine(Console.WriteLine("foo"))`. The `unit` type is a value type (`struct`) and participates in generics, tuples, and unions like any other type.
@@ -56,15 +56,10 @@ identifies static extension members that participate in `Type.Member` lookup
 without being treated as classic extension methods. This keeps mixed extension
 containers compatible with .NET/C# lookup expectations.
 
-In both cases the emitted metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
-member-style invocation, Raven merges instance methods with any imported
-extensions that can accept the receiver, then rewrites the call to pass the
-receiver as the leading static argument during lowering and IL emission.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】 The same rewrite applies to extension-property access: getters become static calls that receive the target as their first argument, and setters pass both the target and assigned value to the synthesized method.
-
-The CLI ships with regression coverage that compiles and runs extension-heavy
-programs, including LINQ-style pipelines that rely on lambda arguments, to
-ensure the metadata load context path continues to resolve delegate
-constructors and emit correct IL.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L140】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L563-L703】
+In both cases the emitted metadata matches C#'s expectations. A member-style
+extension call passes its receiver as the leading argument to the underlying
+static method. Extension-property getters receive the target as their first
+argument, while setters receive both the target and assigned value.
 
 ## Properties and fields
 
@@ -81,6 +76,21 @@ storage/layout-sensitive scenarios (for example interop with
 `StructLayout(LayoutKind.Sequential|Explicit)` and `FieldOffset`).
 `readonly field` emits an `initonly` field. Dedicated `const` declarations emit
 metadata literal fields (`static`/`literal`).
+
+### Private storage properties
+
+Raven may represent a private storage property as a field only when doing so
+preserves its observable behavior:
+
+```raven
+private val count: int
+private var score: int
+```
+
+The declaration remains a property in Raven's semantic model and tooling. For a
+property that requires no accessor logic, reads and writes may become direct
+field access and accessor methods may be omitted from metadata. Computed
+properties are never represented this way.
 
 ## Lifecycle declarations
 
@@ -228,6 +238,13 @@ class union value exists only after construction or conversion through one of
 its union cases or constructors, subject to normal nullable-reference rules for
 the carrier reference itself.
 
+## Sealed hierarchies
+
+A Raven sealed-hierarchy root is emitted as an abstract CLR type rather than an
+IL-sealed type, allowing its permitted cases to inherit from it. The root also
+receives a `ClosedHierarchy` attribute containing the permitted `Type[]` set so
+reflection can recover the closed family.
+
 ## Generic variance
 
 The Raven compiler surfaces the CLR's variance metadata directly. When importing
@@ -243,3 +260,13 @@ Source interface declarations may annotate their type parameters with `out` or
 `in`. Raven maps those modifiers onto the same metadata flags when emitting
 symbols, so variant source interfaces interoperate with metadata-defined
 counterparts without requiring any special handling.
+
+## Ref-like metadata
+
+A `ref struct` carries `System.Runtime.CompilerServices.IsByRefLikeAttribute`.
+A `readonly ref struct` also carries `IsReadOnlyAttribute`. Managed-reference
+fields use the CLR `BYREF` signature form.
+
+The `allows ref struct` anti-constraint sets the standard CLI
+`AllowByRefLike` (`0x20`) generic-parameter flag. Scoped parameters imported
+from .NET honor `ScopedRefAttribute`, matching Raven's `scoped` lifetime rules.

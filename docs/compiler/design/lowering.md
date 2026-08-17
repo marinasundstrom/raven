@@ -54,7 +54,7 @@ Even without an IR in place today, several implemented features assume that a lo
 
 ### Pattern-based control flow
 
-`match` expressions and `is` patterns both require the scrutinee to be evaluated once, then compared against each arm in order. The [language specification](../../lang/spec/language-specification.md#pattern-matching) also permits guards that observe pattern-bound variables before falling through to later arms. A lowering pass can model this by:
+`match` expressions and `is` patterns both require the scrutinee to be evaluated once, then compared against each arm in order. The [pattern-matching reference](../../lang/spec/pattern-matching.md) also permits guards that observe pattern-bound variables before falling through to later arms. A lowering pass can model this by:
 
 * Capturing the scrutinee in a temporary so subsequent checks reuse the cached value.
 * Rewriting each arm into cascaded `if`/`else` statements (or a switch) that preserves the source ordering and fall-through semantics.

@@ -1,112 +1,86 @@
 # Jumps and labels
 
-Jumps leave or continue a loop before it would normally finish. Labels can name
-an outer loop, and `goto` is available for the uncommon cases where a direct
-jump makes the control flow clearer.
+Use `break` and `continue` to control loops. Labels can identify an enclosing
+loop or provide a target for `goto`.
 
-`break` exits the innermost enclosing loop statement immediately. Execution
-resumes at the statement following that loop. `break label` exits the enclosing
-loop statement marked with `label`.
+## `break` and `continue`
 
-```raven
-var i = 0
-while true {
-    if i == 10 {
-        break
-    }
-
-    i += 1
-}
-```
-
-A `break` statement must appear within a `loop`, `while`, or `for` *statement*.
-Placing `break` in any expression context, including the bodies of `if`, `while`,
-or `for` expressions, produces diagnostic `RAV1902`. Using `break` outside a
-loop reports diagnostic `RAV2600`. A labeled `break` must name an enclosing
-labeled loop. Labels on ordinary statements remain `goto` targets and produce
-diagnostic `RAV2606` when used as a `break` target.
-
-## `continue` statements
-
-`continue` skips the remainder of the current loop iteration and jumps to the
-loop's re-check point. `continue label` skips to the next iteration of the
-enclosing loop statement marked with `label`.
+`break` exits the innermost `loop`, `while`, or `for`. `continue` skips the
+remainder of the current iteration and starts the next one.
 
 ```raven
 for value in values {
-    if value.isOdd {
+    if shouldStop(value) {
+        break
+    }
+
+    if shouldSkip(value) {
         continue
     }
 
-    print(value)
+    consume(value)
 }
 ```
 
-`continue` follows the same placement rules as `break`: it may only appear inside
-`loop`, `while`, or `for` statements. Using it from an expression context results
-in diagnostic `RAV1903`, and placing it outside a loop reports diagnostic
-`RAV2601`. A labeled `continue` must name an enclosing labeled loop. Labels on
-ordinary statements remain `goto` targets and produce diagnostic `RAV2606` when
-used as a `continue` target.
+Both transfers are valid as statements and as abrupt expressions. Expression
+forms are useful in an inline `if` or `match` branch and do not contribute a
+type because execution does not continue through that path.
 
 ```raven
 outer: loop {
-    inner: loop {
-        if shouldStop {
-            break outer
+    for value in values {
+        match classify(value) {
+            .Stop => break outer
+            .Skip => continue
+            .Use => consume(value)
         }
-
-        continue inner
     }
 }
 ```
 
-## Labeled statements
+### Loop-transfer rules
 
-A **labeled statement** prefixes another statement with an identifier followed by
-a colon:
+* `break` and `continue` must occur inside a loop; otherwise Raven reports
+  `RAV2600` and `RAV2601`, respectively.
+* Statement-form transfers cannot be placed directly in expression contexts;
+  doing so reports `RAV1902` for `break` or `RAV1903` for `continue`. Use their
+  expression forms in those positions.
+* A labeled transfer must name an enclosing labeled loop. Targeting an ordinary
+  statement label reports `RAV2606`.
 
-```raven
-start:
-print("running")
-```
+## Labels
 
-Labels introduce symbolic targets that `goto` statements can reference. A label
-applies to the next statement in the source. When a newline immediately follows
-the colon, the compiler synthesizes an empty statement so the label remains a
-valid target even without an explicit body. Multiple labels may precede the same
-statement.
-
-Label names are scoped to the containing function body. Declaring the same label
-more than once in the same body is an error (`RAV2500`). Labels participate in
-semantic lookup just like other declarations, so tools can navigate to them.
-
-Like all statements, a label may only appear where the grammar permits
-statements. Attempting to nest a labeled statement inside an expression body (for
-example, inside the branches of an `if` expression) reports diagnostic `RAV1905`.
-
-## `goto` statements
-
-The `goto` statement jumps to a labeled statement within the same function-like
-body:
+A label is an identifier followed by `:` before a statement. Multiple labels
+may refer to the same statement, and a label followed immediately by a newline
+is still a valid target.
 
 ```raven
 start:
-print("loop")
-goto start
+performWork()
 ```
 
-Evaluation of a `goto` statement ends the current statement immediately and
-transfers control to the target label. Targets may appear before or after the
-`goto`; backward jumps form loops while forward jumps skip ahead in the block.
-Jumping to a nonexistent label produces diagnostic `RAV2501`.
+Label names belong to their containing function, lambda, or accessor. A name
+may be declared only once in that body; duplicates report `RAV2500`. Escaped
+identifiers use their logical name for lookup, so `@loop:` and `goto @loop`
+refer to the same label. A label is statement syntax; placing one directly in
+an expression context reports `RAV1905`.
 
-Gotos cannot escape the body they are declared in. A `goto` inside a function,
-lambda, or accessor may only refer to labels declared in that same body. The
-compiler ensures any scopes exited by the jump are correctly unwound before
-branching.
+## `goto`
 
-`goto` statements follow the same placement rules as other control-flow
-statements: they are only legal in statement contexts. Embedding a `goto` inside
-an expression context (such as the body of an `if` expression) produces
-diagnostic `RAV1904`.
+`goto name` transfers execution to a label in the same function-like body. The
+target may appear before or after the jump.
+
+```raven
+func retryingWork() {
+start:
+    let succeeded = tryOnce()
+    if not succeeded {
+        goto start
+    }
+}
+```
+
+A jump cannot cross into another function, lambda, or accessor. Any scopes it
+leaves are unwound before execution continues at the target. An unknown target
+reports `RAV2501`; a missing or invalid label name reports `RAV2502`. `goto` is
+a statement and using it directly in an expression context reports `RAV1904`.

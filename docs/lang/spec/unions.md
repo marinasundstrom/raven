@@ -1,47 +1,11 @@
-# Types and unions
+# Unions
 
-Types describe the values a program can work with and the operations available
-on them. Unions are useful when a value can be one of a known set of
-alternatives.
+Unions are one of Raven's central data-modeling features. They describe values
+that can take one of several known forms, with each form able to carry its own
+data. Their closed set of alternatives works directly with pattern matching and
+exhaustiveness checking.
 
-### Type annotations
-
-Use type annotations where inference is insufficient or where a particular
-target type is required. Locals commonly infer their type from the initializer;
-function-expression parameters can infer from a delegate target; ordinary
-function and method parameters still declare their parameter types explicitly:
-
-```raven
-let a = 2
-let b: int = 2
-
-func add(a: int, b: int) -> int { a + b }
-```
-
-### Tuple types
-
-Tuple types describe a small group of values without requiring a named type.
-
-Tuple types use parentheses with comma-separated element types and map to
-`System.ValueTuple`:
-
-```raven
-let pair: (int, string) = (42, "answer")
-```
-
-Elements may optionally be named with a `name: Type` pair. Names exist only for
-developer clarity and do not participate in type identity or assignment:
-
-```raven
-let tuple2: (id: int, name: string) = (no: 42, identifier: "Bar")
-```
-
-When a tuple expression is assigned to an explicitly annotated tuple type, each
-element is validated against the corresponding element type. Elements are
-accessed positionally (e.g. `Item1`, `Item2`). Tuple types may nest or
-participate in other type constructs such as unions or nullability.
-
-### Standard union types
+## Standard union types
 
 Standard union types combine existing types when a value may have one of
 several forms.
@@ -51,111 +15,7 @@ spelling supports three, four, and five alternatives. These standard unions are
 provided by `Raven.Core` as a temporary bridge until .NET adopts a standard
 union type.
 
-### Function types
-
-Function types describe a callable value so it can be stored, passed as an
-argument, or returned from another function.
-
-Function types describe callable delegates directly in a type annotation. The
-syntax mirrors a lambda signature: a comma-separated
-parameter list enclosed in parentheses followed by `->` and the return type.
-
-```raven
-let applyTwice: ((int -> int), int) -> int
-let thunk: () -> unit
-let comparer: (string, string) -> bool
-```
-
-In declaration-oriented lists, a newline may stand in for the expected explicit
-separator token. The syntax tree keeps the separated-list shape and stores
-`SyntaxKind.None` for those newline-delimited separator slots. If the separator
-is omitted on the same line, recovery instead uses a missing separator token of
-the expected kind and reports a diagnostic.
-
-Single-parameter functions may omit the surrounding parentheses:
-
-```raven
-let increment: int -> int
-```
-
-The return portion may itself be any Raven type. Nested arrows associate to the right, so `int -> string -> bool` is
-parsed as `int -> (string -> bool)`.
-
-Function annotations are sugar over delegates. When the parameter and return
-types match an existing declaration (including the built-in `Func`/`Action`
-families), the compiler binds to that delegate. Otherwise it synthesizes an
-internal delegate with the appropriate signature so interop with .NET remains
-transparent. Parameter modifiers and names are not permitted inside a function
-type; specify only the types that flow into and out of the delegate. A `unit`
-return represents an action with no meaningful result.
-
-Function-expression syntax, including explicit `func` expressions, lambda
-shorthand, modifiers, and named recursive function expressions, is described in
-`Function expressions`.
-
-When a function expression is target-typed by a delegate requirement (for
-example, assignment to `Action<int>` or passing to a delegate-typed parameter),
-Raven projects the function value to a compatible delegate. Built-in
-`Func`/`Action` delegate shapes are displayed as function signatures in Raven
-type displays, while custom delegate types remain visibly named delegates.
-
-### Nullability and `null`
-
-Nullability makes the possibility of `null` visible in a type so callers know
-when a value may be absent.
-
-Nullability is **explicit** in Raven. Reference types are non-nullable by
-default, and `null` can only flow through nullable annotations (`T?`). The same
-rules apply uniformly to reference and value types; the distinction only
-affects runtime representation, not the surface type rules.
-
-The declared type remains `T?` through control flow. A successful typed pattern
-binding introduces a separate non-null value; a direct null check does not
-change the checked storage's type.
-
-Raven recommends `Option<T>` when absence is an intentional part of a domain
-API. Nullable types remain available for .NET interoperability and gradual
-adoption. See [Nullability and absence](../nullability.md) for the user-facing
-policy and preferred pattern forms.
-
-`null` is not a general type annotation spelling and is not a union member type.
-Use nullable annotations such as `T?` to mark nullable active union contents.
-
-#### Nullable suppression (`!`)
-
-`!` treats the operand as non-null for a single expression. Use it only when
-the programmer has stronger knowledge than the exposed type.
-
-##### Concept
-
-* For nullable references, `expr!` changes the static type from `T?` to `T`
-  without inserting a runtime null check.
-* For nullable value types, `expr!` unwraps `T?` to `T`.
-
-##### Example
-
-```raven
-func ReadName(service: ExternalService) -> int {
-    let name = service.TryGetName()!
-    return name.Length
-}
-```
-
-```raven
-func Increment(value: int?) -> int {
-    let required = value!
-    return required + 1
-}
-```
-
-##### Rules
-
-* `!` affects only the annotated expression.
-* `!` does not relax nullability rules for surrounding expressions.
-* Using `!` reports warning `RAV0403` on the full `<expr>!` nullable
-  suppression expression.
-
-### Unions
+## Union declarations
 
 Use a union to model a fixed set of variants, especially when each variant can
 carry different data.
@@ -196,14 +56,10 @@ interface member in the same way as an ordinary class or struct.
 | Parenthesized | `union Payment(Cash \| Card)` | parenthesized types | existing types (`Cash`, `Card`) | `Cash(...)`, `Card(...)` |
 | Body form | `union LookupResult { case Found(id: int) case Missing }` | `case` declarations | synthesized case types (`Found`, `Missing`) | `Found(...)`, `Missing` |
 
-#### Parenthesized unions
-
-##### Concept
+### Parenthesized unions
 
 The parenthesized form declares variants by listing existing nominal or
 primitive types. Raven does not synthesize additional types for these variants.
-
-##### Example
 
 ```raven
 record Cash(amount: decimal)
@@ -216,8 +72,6 @@ let paidInCash: Payment = Cash(12.50m)
 let paidByCard: Payment = Card("4242")
 ```
 
-##### Rules
-
 * Each listed type declares one variant in the carrier's closed variant set.
 * `null` cannot declare a variant. Use nullable annotations such as `T?` when
   a parenthesized type variant may actively carry null.
@@ -227,17 +81,13 @@ let paidByCard: Payment = Card("4242")
 * Construction occurs by constructing a listed variant type and then converting it
   to the carrier when needed.
 
-#### Body-form unions
-
-##### Concept
+### Body-form unions
 
 The body form declares a carrier with an ordinary member body. That member body
 may contain `case` declarations alongside other members such as methods and
 properties. Each `case` declaration declares one variant and synthesizes its
 named case type. This form is also known as a tagged union because each value
 belongs to one named variant in the union's closed variant set.
-
-##### Example
 
 ```raven
 union LookupResult {
@@ -255,8 +105,6 @@ union LookupResult {
 let found: LookupResult = Found(42)
 let missing: LookupResult = Missing
 ```
-
-##### Rules
 
 * Each `case` declaration declares one synthesized case type.
 * A case payload uses either positional types (`case Pair(int, string)`) or
@@ -304,14 +152,10 @@ let missing: LookupResult = Missing
 Line-continuation details for leading-dot case forms are defined in
 [Control flow: Line continuations](control-flow.md#line-continuations).
 
-#### Case construction and extraction
-
-##### Concept
+### Constructing and extracting cases
 
 Case construction creates a case value first. Conversion to the carrier happens
 when the surrounding context requires the union type.
-
-##### Example
 
 ```raven
 let ok: Result<int, string> = Ok(99)
@@ -320,8 +164,6 @@ let err = Result<int, string>.Error("boom")
 let outcome: Either<int, string> = 42
 let left = (int)outcome
 ```
-
-##### Rules
 
 * `Case(...)` constructs the case value directly.
 * `Union.Case(...)` resolves the case through the union surface and constructs
@@ -359,7 +201,7 @@ into scope. In ordinary Raven files, prefer the unqualified forms `Ok`,
 `.Case` when target-typed member binding is useful. Projects that disable the
 prelude must import the cases or use one of those qualified forms.
 
-### Canonical case-construction forms
+### Case-construction forms
 
 Raven supports the following equivalent case-construction forms:
 
@@ -404,9 +246,9 @@ Union invariants:
   `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
   until a union constructor populates the carrier.
 * The default `union struct` carrier state is not a formal union variant. Pattern
-  exhaustiveness checks the declared variant set only. Lowering and emit must still
-  preserve a defensive runtime fallback for source-exhaustive matches so
-  metadata consumers or forced default carriers cannot fall through silently.
+  exhaustiveness checks the declared variant set only. A source-exhaustive
+  match retains a defensive runtime fallback so values forced into the default
+  state through metadata or interop cannot fall through silently.
 * Nullable union carriers (`U?`) add the nullable wrapper's `null` value to the
   source match domain. A match over `U?` must cover the declared union cases and
   `null`, or use a catch-all. This nullable `null` value is separate from the
@@ -469,7 +311,7 @@ Pattern matching exhaustively checks every case; see
 [Pattern matching](pattern-matching.md) for case-pattern forms (unqualified
 `Case`, `Union.Case`, and `.Case`) inside `match` expressions.
 
-### Closed-shape types
+## Choosing a closed-shape type
 
 Closed-shape types let the compiler know every possible alternative, which
 makes exhaustive matching possible.
@@ -490,7 +332,7 @@ a known closed shape at compile time. The key difference is modeling style:
 | `enum` | Named constants over a single integral value domain, numeric interop, flags-style values, or compact status codes with no case payloads. |
 | sealed-hierarchy GDT | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, ordinary named case types, and class or interface hierarchy semantics. |
 
-#### Choosing between them
+### Choosing between them
 
 Choose **unions** when:
 

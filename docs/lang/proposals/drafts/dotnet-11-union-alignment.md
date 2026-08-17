@@ -624,7 +624,7 @@ Likely implementation touchpoints:
 * `src/Raven.CodeAnalysis/Symbols/SymbolExtensions.cs` for display of standard
   union syntax instead of implementation bridge names.
 * `docs/lang/spec/dotnet-implementation.md` and
-  `docs/lang/spec/language-specification.md` for interop and source semantics.
+  `docs/lang/spec/index.md` for interop and source semantics.
 
 ## Testing plan
 

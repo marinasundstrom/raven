@@ -3,7 +3,7 @@
 Raven uses a property-first model. `val` and `var` define the public mutability
 contract, while storage is an implementation detail.
 
-### Property kinds
+## Property kinds
 
 * `val`: publicly read-only after initialization.
 * `var`: publicly mutable after initialization.
@@ -11,10 +11,11 @@ contract, while storage is an implementation detail.
   intended surface.
 
 `val` may declare `set`/`init` accessors. A `set` accessor on `val` must
-be less accessible than the getter. `init` remains compatible with public
-object-initializer assignment.
+be less accessible than the getter; otherwise Raven reports `RAV0910`. A `var`
+without any writable shape reports `RAV0911`. `init` remains compatible with
+public object-initializer assignment.
 
-### Storage (auto) properties
+## Storage properties
 
 Storage properties are declarations without computed implementation:
 
@@ -32,7 +33,7 @@ class Foo {
 }
 ```
 
-Without an initializer, a type annotation is required.
+Without an initializer, a type annotation is required (`RAV0918`).
 
 The compiler synthesizes backing storage. You can still provide accessors to
 refine behavior:
@@ -52,12 +53,15 @@ Accessor defaults:
 | `val`    | public | none   |
 | `var`    | public | public |
 
-When a storage property declares an accessor list that omits `get`, the compiler still synthesizes the getter to preserve the `val`/`var` contract. For example, `val Status: OrderStatus { private set; }` emits a public getter and a private setter.
-For `var`, writable access is part of the public contract: explicit `set`/`init` accessors must match the property's accessibility.
+When a storage property declares an accessor list that omits `get`, Raven still
+provides the getter required by the `val` or `var` contract. For example,
+`val Status: OrderStatus { private set; }` has a public getter and a private
+setter. For `var`, writable access is part of the public contract: explicit
+`set` and `init` accessors must match the property's accessibility.
 Explicit accessor lists are required when the property surface differs from the
 default `val`/`var` contract.
 
-### Computed properties
+## Computed properties
 
 Computed properties provide implementation directly and do not use synthesized
 storage unless explicitly needed:
@@ -66,7 +70,7 @@ storage unless explicitly needed:
 val FullName: string => first + " " + last
 ```
 
-### `init` accessor and initialization phase
+## The `init` accessor
 
 `init` permits assignment only during initialization and preserves `val`
 semantics:
@@ -78,10 +82,11 @@ val Name: string { init; }
 Initialization includes inline initializers, constructors (`init(...)`),
 initializer blocks, and object initializers.
 
-### `field` and indexers
+## `field` and indexers
 
 Inside storage-property accessors, `field` references the synthesized backing
-field.
+field. Using `field` outside an accessor reports `RAV0912`; using it in a
+property without backing storage reports `RAV0913`.
 
 Indexers are a property form using `self[...]` and follow the same `val`/`var`,
 `get`/`set`/`init`, and accessibility rules:
@@ -92,27 +97,6 @@ var self[index: int]: string {
     set { items[index] = value }
 }
 ```
-
-### Private storage property lowering
-
-Private storage properties may be lowered to field-only emission when observable
-semantics are preserved.
-
-```raven
-private val count: int
-private var score: int
-```
-
-This lowering affects emitted representation only. In semantic analysis and the
-symbol model, the member remains a property and continues to participate in
-property diagnostics/tooling.
-
-Lowering is valid for private storage properties that do not require accessor
-logic. Computed properties are not lowered this way.
-
-When applied, reads/writes may lower to direct field access and accessor methods
-may be omitted from emitted metadata. Source-level behavior remains
-property-centric.
 
 ## Events
 
@@ -129,7 +113,7 @@ class Button {
 }
 ```
 
-### Event accessors
+### Custom event accessors
 
 Custom events supply `add` and `remove` accessors, which receive the implicit
 `value` parameter of the handler type:

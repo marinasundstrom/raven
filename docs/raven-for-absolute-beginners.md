@@ -553,3 +553,5 @@ Continue with:
 - [Language Introduction](introduction.md) for a broader tour.
 - [Domain Modeling](lang/domain-modeling.md) for choosing among data and
   behavior shapes.
+- [Language Reference](lang/spec/index.md) when you want to look up a feature
+  in detail.

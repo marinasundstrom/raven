@@ -4,7 +4,7 @@ Namespaces organize types and functions and prevent names from colliding.
 Imports make those names shorter to use, while aliases provide a different
 local name when that improves clarity or resolves a conflict.
 
-Each file may define a namespace:
+Use a file-scoped namespace when all declarations in a file belong together:
 
 ```raven
 namespace Foo
@@ -12,18 +12,25 @@ namespace Foo
 // Members here
 ```
 
-### Import directive
+The namespace name may contain several dot-separated parts, such as
+`Acme.Payments.Models`.
+
+## Imports
+
+An `import` makes the members of a namespace available without repeating the
+qualified namespace name:
 
 ```raven
 namespace Foo
 
 import System.*
-// or import System.Collections.*
+import System.Collections.*
 
 // Members here
 ```
 
-The wildcard may also be applied to a type name to bring its static members
+Imports make existing names available; they do not create a new name. The
+wildcard may also be applied to a type name to bring its static members
 and nested types into scope:
 
 ```raven
@@ -53,9 +60,10 @@ odds.Add(3)
 let filtered = odds.Where(value => value % 2 == 1)
 ```
 
-The compiler treats `Where` as an instance-style invocation even though it is
-declared as a static C# extension method, inserting the receiver as the first
-argument when emitting IL.
+Raven exposes `Where` as an instance-style call even though .NET declares it as
+a static extension method. The receiver becomes the method's first argument.
+
+### Import order and scope
 
 Import directives appear at the beginning of a compilation unit or namespace and
 simply make existing namespaces or types available. They do not introduce new
@@ -74,7 +82,9 @@ compilation-unit imports. For clarity, style guidance recommends placing imports
 and aliases after the file-scoped namespace declaration, but imports before the
 file-scoped namespace declaration are also part of the file's namespace context.
 
-Project builds also include a generated prelude source file. The prelude uses a
+### Project-wide imports
+
+Project builds include a generated prelude source file. The prelude uses a
 top-level `global` block. Global blocks are top-level constructs whose supported
 `import` entries are processed early during binding as compilation-wide imports:
 
@@ -125,7 +135,7 @@ alias item generates a project-wide alias from the generated prelude file.
 Repeating an import that is already supplied globally is redundant and may be
 reported as a hidden diagnostic with an editor fix to remove the local import.
 
-### Alias directive
+## Aliases
 
 The `alias` directive assigns an alternative name to a fully qualified
 **namespace**, type, static member, or to type expressions such as tuples.
@@ -159,7 +169,7 @@ appear at the top of a file or inside a namespace but must follow all import
 directives and precede any declarations or statements. An alias directive that
 appears after a member declaration produces diagnostic `RAV1006`.
 
-### Scoped namespaces
+## Block-scoped namespaces
 
 You may define multiple namespaces (including nested) in one file using
 block scopes:

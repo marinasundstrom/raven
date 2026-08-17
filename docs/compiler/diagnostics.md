@@ -1,7 +1,7 @@
 # Compiler diagnostics
 
-This page is the source-of-truth catalog for Raven compiler diagnostics.
-It is synchronized with `src/Raven.CodeAnalysis/DiagnosticDescriptors.xml` and links to runnable samples where relevant.
+This page is the source-of-truth catalog for Raven compiler diagnostics and
+links to runnable samples where relevant.
 
 For configurable guidance reported by the analyzers bundled with Raven, see
 [Built-in analyzers](analyzers/built-in.md). Compiler diagnostics define
@@ -122,14 +122,6 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0404` | Error | Conditional access requires nullable receiver | Conditional access requires a nullable receiver; '{receiverType}' is not nullable | — |
 | `RAV0405` | Error | Struct union argument may be default | Struct union argument for parameter '{parameterName}' of type '{unionType}' may be the inactive default state | — |
 | `RAV0406` | Error | Struct union return value may be default | Struct union return value of type '{unionType}' may be the inactive default state | — |
-
-Behavior note: `RAV0405` and `RAV0406` protect struct-union call and return
-boundaries. A struct-union value must be known active before it is passed to a
-struct-union parameter or returned from a member. Values that may still be the
-zero-initialized carrier state, such as `default(U)` or a parameter forwarded
-unchanged, are rejected at the boundary. Omitting an optional struct-union
-argument whose default is the carrier default is treated the same way at the
-call site.
 | `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0411` | Error | Enum underlying type must be integral | Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0412` | Error | Enum member value must be constant | Enum member '{name}' must be initialized with a constant expression | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
@@ -203,7 +195,6 @@ call site.
 | `RAV1506` | Info | Result propagation applies implicit error conversion | Result propagation converts errors from '{fromType}' to '{toType}' via implicit conversion '{conversion}'. | — |
 | `RAV1525` | Error | Invalid expression term | Invalid expression term '{tokenText}' | — |
 | `RAV1602` | Error | Property not found in property pattern | Property '{name}' does not exist on type '{type}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
-Behavior note: Raven also uses `RAV1602` for named deconstruction elements such as `Person(Name: let name, Age: 42)` and `let (Name: name, Age: age) = person` when a supplied name does not match any supported `Deconstruct` parameter/member on the target type.
 | `RAV1603` | Error | Property pattern type mismatch | Type '{inputType}' cannot be matched against property pattern type '{patternType}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
 | `RAV1604` | Error | Property pattern requires a type | Property pattern requires an explicit type here because it cannot be inferred from the input | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
 | `RAV1605` | Error | Relational pattern not supported for type | Relational pattern operator '{operatorToken}' is not supported for type '{typeName}' | `samples/patterns/property-pattern-basic.rav`, `samples/patterns/record-pattern-basic.rav`, `samples/tuples/tuple-pattern-match-basic.rav` |
@@ -260,35 +251,6 @@ Behavior note: Raven also uses `RAV1602` for named deconstruction elements such 
 | `RAV2110` | Warning | Match arm pattern does not fully cover subtype/case | Pattern for '{typeName}' does not cover all values. Add broader sub-patterns or a catch-all arm. | `samples/oop/sealed-record-hierarchy-json-basic.rav`, `samples/unions/union-basic.rav` |
 | `RAV2111` | Error | Union member name is reserved | Union '{unionName}' reserves the member name '{memberName}' for synthesized members. | — |
 | `RAV2112` | Error | Union special member not supported | Union '{unionName}' does not support authored member '{memberName}'. | — |
-
-Behavior note: for struct unions, `RAV2100` considers the declared semantic
-case set. The inactive/default carrier state is not a formal source case and is
-handled by boundary diagnostics such as `RAV0405` and `RAV0406`, plus defensive
-lowering/runtime fallback. For nullable union carriers (`U?`), `RAV2100`
-requires the declared union cases plus `null`; that `null` is the nullable
-wrapper state, not a union pseudo-case. `RAV2103` reports a catch-all only when
-flow proves there is no remaining declared case, nullable wrapper `null`, or
-inactive/default state to match.
-
-The `RAV2100` quick fix adds every missing arm for the selected match in one
-action. It chooses an intentionally editable pattern from the scrutinee:
-
-- sealed class hierarchies use typed bindings, such as
-  `IdentifierNameSyntax identifierName`;
-- sealed record hierarchies use positional bindings, such as
-  `Case(let no)`;
-- ad-hoc unions use typed bindings, such as `int v`;
-- case-declared unions use target-typed case patterns, such as
-  `.Success(let value)`;
-- enums use target-typed constants, such as `.None`;
-- finite literal cases retain their literal pattern, such as `false` or
-  `null`.
-
-When only one case is absent, the action names that arm. When several are
-absent, VS Code offers one `Add all missing match arms` action instead of one
-menu item per case. This is local to the selected match; document- or
-project-wide “fix all” remains a separate code-fix capability.
-
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |
@@ -318,3 +280,47 @@ project-wide “fix all” remains a separate code-fix capability.
 | `RAV4001` | Warning | Documentation comment is not valid XML | Documentation comment is not well-formed XML: {message} | `samples/runtime/documentation-comment-basic.rav` |
 | `RAV4002` | Warning | Documentation comment is not valid Markdown | Documentation comment is not well-formed Markdown: {message} | `samples/runtime/documentation-comment-basic.rav` |
 | `RAV4003` | Warning | Documentation comment indentation is inconsistent | Documentation comment lines must have consistent indentation | `samples/runtime/documentation-comment-basic.rav` |
+## Behavior notes
+
+### Struct-union boundaries
+
+`RAV0405` and `RAV0406` protect struct-union call and return boundaries. A
+struct-union value must be known active before it is passed to a struct-union
+parameter or returned from a member. Values that may still be the
+zero-initialized carrier state, such as `default(U)` or a parameter forwarded
+unchanged, are rejected at the boundary. Omitting an optional struct-union
+argument whose default is the carrier default is treated the same way at the
+call site.
+
+### Named deconstruction
+
+Raven also uses `RAV1602` for named deconstruction elements such as
+`Person(Name: let name, Age: 42)` and `let (Name: name, Age: age) = person`
+when a supplied name does not match a supported `Deconstruct` parameter or
+member on the target type.
+
+### Match exhaustiveness
+
+For struct unions, `RAV2100` considers the declared semantic case set. The
+inactive default carrier state is not a formal source case; boundary diagnostics
+such as `RAV0405` and `RAV0406` prevent it from crossing ordinary call and return
+boundaries, and runtime matching retains a defensive fallback.
+
+For a nullable union carrier `U?`, `RAV2100` requires the declared union cases
+plus `null`. That `null` is the nullable wrapper state, not a union pseudo-case.
+`RAV2103` reports a catch-all only when no declared case, nullable wrapper
+`null`, or possible inactive default state remains.
+
+The `RAV2100` quick fix adds every missing arm for the selected match in one
+action. It chooses an editable pattern suited to the scrutinee:
+
+* sealed class hierarchies use typed bindings, such as `Identifier identifier`
+* sealed record hierarchies use positional bindings, such as `Case(let no)`
+* standard unions use typed bindings, such as `int value`
+* case-declared unions use target-typed cases, such as `.Success(let value)`
+* enums use target-typed constants, such as `.None`
+* finite literal cases retain their literal, such as `false` or `null`
+
+When one case is absent, the action names that arm. When several are absent,
+VS Code offers one **Add all missing match arms** action. The fix applies only
+to the selected match; document- or project-wide fix-all behavior is separate.

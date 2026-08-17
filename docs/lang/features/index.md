@@ -29,5 +29,7 @@ write.
   transformations and when to choose them.
 
 These guides intentionally describe the useful center of each feature rather
-than every compiler rule or edge case. Complete applications are available in
-the [workload guides](../../workloads/index.md).
+than every compiler rule or edge case. Follow a topic into the [language
+reference](../spec/index.md) when you need its complete syntax and behavior.
+Complete applications are available in the [workload
+guides](../../workloads/index.md).

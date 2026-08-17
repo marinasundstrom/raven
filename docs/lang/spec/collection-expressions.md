@@ -1,177 +1,224 @@
 # Collection expressions
 
-Collection expressions provide a short way to create arrays, lists,
-dictionaries, and other collections. They can also include values from another
-collection or produce values with a comprehension.
+Collection expressions create arrays, lists, dictionaries, spans, and other
+collection types with a compact bracket syntax.
 
-Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
-trailing comma) to build list-like collection types. Adjacent elements may also be
-separated by a newline, in which case the syntax tree records `SyntaxKind.None` in the
-separator slot. Raven also supports an explicit array form `[|element0, element1, ...|]`
-with the same separator rules. Elements are evaluated from left to right.
-In addition to ordinary expressions, an element may be written as
-`...expression`—called a *spread*. Spreads enumerate the runtime value and insert each
-item into the resulting collection in order. The spread source must be convertible to
-`System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
-otherwise diagnostic `RAV2022` is reported. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3670】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L260-L266】
+```raven
+let numbers = [1, 2, 3]
+let names: List<string> = ["Ada", "Lin", "Grace"]
+let scores = ["Ada": 10, "Lin": 12]
+```
 
-Within a collection expression, a bare range element such as `1..3` or `1..<4` also
-expands inline as a sequence of values rather than contributing a single `Range`
-instance. This form follows the same iteration semantics as a comprehension sourced
-from that range, so `..` is inclusive and `..<` excludes the upper bound.
+Elements are evaluated from left to right. A trailing comma is allowed, and
+elements can be separated by commas, semicolons, or newlines:
 
-Collection expressions also support a list-comprehension form:
+```raven
+let colors = [
+    "red"
+    "green"
+    "blue"
+]
+```
 
-* `[for item in source => selector]`
-* `[for item in source if condition => selector]`
-* `[for let (a, b) in source => selector]` and other pattern targets follow the same
-  matching/binding rules as `for` statements.
+## Immutable, mutable, and array forms
 
-Collection expressions also support dictionary-shaped elements:
+When no surrounding type determines the collection kind, Raven uses the
+literal's opening syntax to choose a default:
 
-* `key: value` inserts one entry,
-* `...expr` spreads entries from another dictionary-compatible source,
-* `...key: value` inserts one entry in spread position, and
-* `for item in source => key: value` / `for item in source if condition => key: value`
-  build entries through a dictionary comprehension.
-  Comprehension targets may also be patterns, including deconstruction patterns.
+| Form | Default type |
+| --- | --- |
+| `[a, b]` | `ImmutableList<T>` |
+| `![a, b]` | `List<T>` |
+| `[|a, b|]` | CLR array `T[N]` or `T[]` |
 
-When a collection expression contains any dictionary-shaped element, the entire
-literal is treated as dictionary-shaped. Positional elements, range elements,
-and value-producing collection comprehensions cannot be mixed into that same literal.
+```raven
+let immutable = [1, 2, 3]       // ImmutableList<int>
+let mutable = ![1, 2, 3]        // List<int>
+let array = [|1, 2, 3|]         // int[3]
+```
 
-The `source` position also accepts range expressions. These follow the same range
-iteration semantics as `for ... in start..end` loops.
+The same defaults apply when elements use newline or semicolon separators. The
+`!` marker makes mutable collection creation intentional; an explicit target
+type can choose a different mutable or immutable collection without it:
 
-Comprehensions are lowered by the compiler into collection-building loops, so they
-follow the same target-typing and conversion rules as other collection elements.
-Pattern-targeted comprehensions also inherit `for`-statement matching semantics:
-non-matching elements are skipped, an optional `if` filter runs after the pattern
-match succeeds, and outer `let` / `val` / `var` binding keywords supply the binding
-mode for otherwise bare pattern captures.
+```raven
+let queue: Queue<int> = [1, 2, 3]
+let list: List<int> = [1, 2, 3]
+```
 
-Collection expressions are target-typed:
+## Spreading existing collections
 
-When a collection expression is passed to an overloaded generic method, its
-element types participate in type argument inference before an overload supplies
-the final collection target. For example, `Task.WhenAll([Task.FromResult(1)])`
-infers the generic result type as `int` instead of first widening the element to
-the non-generic `Task` type.
+Prefix an element with `...` to enumerate another collection and insert all of
+its values at that position:
 
-* **Array targets** — When the expected type is a one-dimensional array `T[]`, the expression allocates a
-  new array of that element type. Each item is implicitly converted to `T` before storage,
-  and spreads must enumerate values assignable to `T`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3672-L3738】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L950-L1016】
-  When the expected type is a fixed-length array `T[N]`, Raven also validates the statically
-  known element count when it can prove one. Plain elements contribute `1`, and spreading a
-  fixed-length array `T[M]` contributes `M`. If the proven total does not match `N`, binding
-  reports a size-mismatch diagnostic instead of deferring the error to runtime.
-  Multidimensional array types such as `T[,]` are not target-typed by collection/array literal
-  syntax; they must be created through runtime APIs or other existing values and then used
-  through normal indexing/assignment syntax.
-* **Collection targets** — When the expected type is a non-array type with an accessible
-  parameterless constructor and an instance `Add` method, the compiler constructs the
-  target and calls `Add` for every element. The `Add` parameter determines the element
-  conversions, and spread entries must supply compatible values. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3738-L3776】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1016-L1096】
-  Dictionary-shaped collection expressions use the same builder model, but require an
-  accessible instance `Add(key, value)` method instead. Each key expression is converted
-  to the first parameter type and each value expression is converted to the second.
-  Dictionary spreads require a source compatible with `IEnumerable<KeyValuePair<TKey, TValue>>`
-  after key/value conversion.
-* **No target type** — Without an expected type, Raven infers a best common element type by
-  merging all element contributions (spreads use their enumerated element type). The resulting
-  collection kind then defaults from the literal modifiers:
-  * bare collection expressions produce `ImmutableList<T>`;
-  * `![...]` collection expressions produce `List<T>`;
-  * `[| ... |]` array expressions produce CLR arrays.
-  Spreads and range elements contribute element types only; they do not change the default
-  collection kind. If no compatible common element type can be inferred without falling back to
-  `object`, `System.ValueType`, or interfaces, inference fails with a type-mismatch diagnostic
-  and an explicit target type is required.
-    【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
-  Dictionary-entry collection expressions instead infer key and value types separately. Bare
-  literals default to `ImmutableDictionary<TKey, TValue>`, while `![...]` dictionary-entry
-  literals default to `Dictionary<TKey, TValue>`.
+```raven
+let middle = [2, 3, 4]
+let combined = [1, ...middle, 5]
+let array = [|0, ...middle, 6|]
+```
 
-Collection expressions also carry optional literal syntax:
+The spread source must implement `System.Collections.IEnumerable`, either
+directly or through a generic interface such as `IEnumerable<T>`. Its elements
+must be convertible to the destination element type. A source that is not
+enumerable reports `RAV2022`.
 
-* bare literals are immutable-by-default;
-* `![...]` requests a mutable default for targetless inference;
-* `[| ... |]` requests explicit CLR-array fallback instead of list-family fallback;
-* explicit target typing may still override mutability and collection kind.
+A bare range element expands in the same way:
 
-The intent of this design is to make local collection literals default toward immutable
-data-processing code. Mutable collection creation remains available, but it must be made
-intentional either through the `!` marker or through an explicit mutable target type.
+```raven
+let inclusive = [1..3]       // 1, 2, 3
+let halfOpen = [1..<4]       // 1, 2, 3
+let surrounded = [0, 1..3, 4]
+```
 
-When no explicit target type is present, bare collection expressions fall back to
-`ImmutableList<T>`, `![...]` expressions fall back to `List<T>`, and `[| ... |]`
-expressions fall back to CLR arrays.
-If code wants another concrete collection type such as `Queue<T>` or `Stack<T>`, it must
-provide an explicit target type so Raven can bind the literal through the normal array or
-collection-builder rules. The choice between explicit commas and implicit newline separators
-does not affect the inferred collection kind.
+Here `..` includes the upper bound and `..<` excludes it. The range contributes
+its values rather than a single `System.Range` object.
 
-The current targetless default matrix is therefore:
+## Collection comprehensions
 
-* `[a, b]` -> `ImmutableList<T>`
-* `[
-      a
-      b
-  ]` -> `ImmutableList<T>`
-* `![a, b]` -> `List<T>`
-* `![
-      a
-      b
-  ]` -> `List<T>`
-* `[|a, b|]` -> `T[N]` / `T[]`
-* `let span: System.Span<T> = [a, b]` -> array-backed `Span<T>`
-* `let span: System.ReadOnlySpan<T> = [a, b]` -> array-backed `ReadOnlySpan<T>`
+A comprehension produces one collection element for each value from a source:
 
-An empty collection expression `[]` must be used in a context that supplies a target type;
-otherwise its type cannot be inferred. When a target type is available, the compiler
-produces an empty instance of that type (an empty array, an initialized collection, or a
-default empty span). Span-targeted collection expressions support ordinary elements and
-spread elements; their array-backed storage keeps the resulting span valid for its normal
-scope.
-【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3651】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1170-L1192】
+```raven
+let squares = [for n in numbers => n * n]
+let evenSquares = [for n in numbers if n % 2 == 0 => n * n]
+let rangeSquares = [for n in 1..10 => n * n]
+```
+
+The optional `if` filters values before the selector runs. The source may be a
+range or any value accepted by `for`.
+
+The iteration target can be a pattern:
+
+```raven
+let entries = [(1, "Ada"), (2, "Bob")]
+let selected = [for let (2, name) in entries => name]
+```
+
+Pattern targets follow the same rules as pattern-targeted `for` statements.
+Elements that do not match are skipped. The filter runs only after the pattern
+has matched, and the outer `let`, `val`, or `var` supplies the binding mode for
+otherwise bare captures.
+
+Comprehensions are implemented as collection-building loops and use the same
+target typing and element conversions as ordinary collection elements.
+
+## Dictionary expressions
+
+Write `key: value` to create a dictionary entry:
+
+```raven
+let byName = ["Ada": 10, "Lin": 12]
+let mutableByName = !["Ada": 10, "Lin": 12]
+```
+
+Without a target type, the bare form produces
+`ImmutableDictionary<TKey, TValue>` and the `!` form produces
+`Dictionary<TKey, TValue>`.
+
+Dictionary expressions support spreads and comprehensions:
+
+```raven
+let more = ["Grace": 14]
+let merged = [..."Ada": 10, ...more, "Lin": 12]
+
+let lengths = [for key in [|"a", "bb"|] => key: key.Length]
+let doubled = [for let (key, value) in [("a", 1), ("b", 2)] =>
+    key: value * 2]
+```
+
+`...key: value` inserts one entry in spread position. A dictionary spread must
+provide values compatible with
+`IEnumerable<KeyValuePair<TKey, TValue>>` after key and value conversions.
+
+If any element has dictionary shape, the whole expression is dictionary-shaped.
+It cannot mix dictionary entries with positional elements, range elements, or a
+comprehension that produces only values.
+
+## Target typing
+
+The surrounding context can determine both the collection type and its element
+type:
 
 ```raven
 let numbers: int[] = [1, 2, 3]
-let combined = [0, ...numbers, 4]
-let squares = [for n in numbers => n * n]
-let evenSquares = [for n in numbers if n % 2 == 0 => n * n]
-let evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
-let selectedNames = [for let (2, name) in [(1, "Ada"), (2, "Bob")] => name]
-
-let names: List<string> = ["a", "b"]
-let inferred = [1, 2.0]      // inferred as ImmutableList<double>
-let inferredList = [1; 2; 3] // inferred as ImmutableList<int>
-let mutableList = ![1, 2, 3] // inferred as List<int>
-let mutableListAlt = ![1; 2; 3]  // inferred as List<int>
-let inferredArray = [|1, 2, 3|] // inferred as int[3]
-let expandedArray = [|...inferredArray, 4|] // inferred as int[4]
-
-let byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
-let mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
-let merged = [..."a": 1, ...mutableByName, "c": 3]
-let lengths = [for key in [|"a", "bb"|] => key: key.Length]
-let doubled = [for let (key, value) in [("a", 1), ("b", 2)] => key: value * 2]
-let readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
-
-let baseList: ImmutableList<int> = [2; 3; 4]
-let preserved = [7, ...baseList, 5] // inferred as ImmutableList<int>
-
-let a: ImmutableList<int> = [1]
-let b: List<int> = [2]
-let defaulted = [...a, ...b] // inferred as ImmutableList<int>
-
-let forced: List<int> = [...a, ...b]
-let forcedObject: object[] = [1, true]
+let names: List<string> = ["Ada", "Lin"]
+let lookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
+let span: System.Span<int> = [1, 2, 3]
+let readOnly: System.ReadOnlySpan<int> = [1, 2, 3]
 ```
 
-### Element access
+### Array targets
+
+For a target `T[]`, Raven allocates a one-dimensional array and converts every
+element to `T`. A spread must enumerate values convertible to `T`.
+
+For a fixed-length target `T[N]`, Raven checks the element count whenever it can
+prove it statically. Ordinary elements contribute one item, and a spread from a
+fixed-length `T[M]` contributes `M`. A proven mismatch is a compile-time error.
+
+Multidimensional arrays such as `T[,]` are not created by collection-expression
+syntax. Create them through a runtime API or another existing value, then use
+normal indexing and assignment.
+
+Span targets use array-backed storage, so the resulting `Span<T>` or
+`ReadOnlySpan<T>` remains valid for its normal scope. Both ordinary and spread
+elements are supported.
+
+### Collection targets
+
+A non-array target must have an accessible parameterless constructor and an
+instance `Add` method. Raven constructs the target and calls `Add` for each
+element. The method's parameter type determines element conversions.
+
+A dictionary target uses the same builder model but requires an accessible
+`Add(key, value)` method. Keys and values are converted to its two parameter
+types.
+
+### Inference without a target
+
+Without an expected type, Raven finds the best common element type. Spreads and
+ranges contribute their element types. Numeric conversions can produce a common
+type:
 
 ```raven
-let list = [1, 42, 3]
-let a = list[1]
+let values = [1, 2.0] // ImmutableList<double>
 ```
+
+Inference does not fall back to `object`, `System.ValueType`, or an interface
+merely to make unrelated elements fit. Supply an explicit target when that
+heterogeneous shape is intentional:
+
+```raven
+let values: object[] = [1, true]
+```
+
+Dictionary expressions infer key and value types separately.
+
+Collection element types also participate in generic method inference before
+overload resolution supplies a final collection target. For example,
+`Task.WhenAll([Task.FromResult(1)])` infers the result type `int` instead of
+first widening the element to the non-generic `Task` type.
+
+An empty collection expression has no element type to infer and therefore
+requires a target:
+
+```raven
+let names: string[] = []
+let queue: Queue<int> = []
+let span: System.Span<byte> = []
+```
+
+With a target, Raven creates the corresponding empty array, initialized
+collection, or empty span.
+
+## Element access
+
+Use brackets after a collection value to read an element through its array or
+indexer behavior:
+
+```raven
+let values = [1, 42, 3]
+let answer = values[1]
+```
+
+Index and range access are described under [Index, range, and bitwise
+operators](operators.md).

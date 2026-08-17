@@ -1,8 +1,13 @@
 # Macros
 
-For a progressive implementation guide, see
-[Authoring Raven macros](../../macro-authoring.md). This page is the reference
-for current syntax and compiler contracts.
+Macros extend Raven at compile time. They can transform a declaration, replace
+an invocation with an expression or statement, or interpret a brace-delimited
+domain-specific language (DSL).
+
+For a guided implementation, see [Authoring Raven
+macros](../../macro-authoring.md). This page is the precise reference for macro
+syntax, declarations, arguments, expansion, activation, tooling, and compiler
+contracts.
 
 > [!NOTE]
 > **Status: work in progress.** This page documents the macro behavior currently
@@ -10,43 +15,60 @@ for current syntax and compiler contracts.
 > syntax, the authoring and activation model, compiler APIs, and tooling
 > integration may change as the design develops.
 
-## Overview
+## Choose a macro form
 
-Raven supports attached declaration macros and invocable macros. A macro is a compiler-driven expansion that produces ordinary Raven syntax before normal semantic analysis continues.
+| Form | Syntax | Use it to |
+| --- | --- | --- |
+| Attached macro | `#[Name]` before a declaration | Transform or augment that declaration. |
+| Invocable macro | `name!(arguments)` | Produce syntax at an expression, statement, namespace-member, or type-member position. |
+| Token-tree macro | `name!(arguments) { raw body }` | Parse a custom DSL, optionally with embedded Raven fragments. |
 
-Use a macro when code needs to generate or transform Raven declarations or
-expressions—something an ordinary function cannot do. A macro expands to normal
-Raven syntax before the compiler analyzes the program.
+All three forms expand to ordinary Raven syntax before the generated syntax is
+type checked. Use a function when runtime behavior is sufficient; use a macro
+when the program's syntax or declarations must change during compilation.
+
+```raven
+#[Observable]
+var Title: string
+
+let answer = answer!()
+
+let names = query! {
+    from user in users
+    where user.IsActive
+    select user.Name
+}
+```
+
+## Macros, attributes, and generators
 
 Macros are distinct from .NET attributes:
 
 * `[Serializable]` is an attribute.
 * `#[Observable]` is a macro.
 
-Macros are compiler plugins. Macro resolution and expansion are owned by
-`Compilation` and occur during binding; creating a `Workspace` is not required.
-Analyzers and generators are instead workspace plugins whose discovery and
-orchestration belong to a workspace or build host. A project system may resolve
-a macro asset, but it passes that asset to the compiler and does not own the
-macro's semantic execution.
+A macro is local and explicit: it expands the authored site where it appears. A
+source generator runs across a project and contributes separate generated
+files or partial declarations. Use a macro for opt-in syntax transformation and
+a generator for compilation-wide derived code.
 
-This boundary is behavioral, not merely packaging. A macro is applied at an
-explicit authored syntax site and produces syntax for that site's grammar
-position, with source and tooling mappings back to the invocation or attached
-declaration. A source generator performs a project-wide pass and contributes
-separate generated syntax trees; it neither replaces an inline invocation nor
-owns a macro token body. Use a macro for local opt-in syntax transformation and
-a source generator for compilation-wide derived files.
-Generators may also augment an authored partial declaration with a generated
-partial implementation. That is still normal cross-file declaration merging,
-not macro replacement of the authored declaration.
+Macros can publish classifications and embedded-Raven fragment spans for editor
+features. Tools do not infer a macro's private DSL structure from its raw body
+or expansion when the macro does not publish that metadata.
 
-A macro may optionally supply compiler-owned editor metadata consisting of
-classified body-relative tokens and spans for embedded Raven fragments. This
-metadata does not add the macro's private parser representation to Raven's
-syntax tree or bound tree. If a macro supplies no metadata, tools must not infer
-structure from raw tokens or expansion output. Compiling and expanding a macro
-must not require a workspace or any analyzer to be loaded.
+## Reading this reference
+
+* [Attached macros](#attached-macros) and [invocable and token-tree
+  macros](#invocable-and-token-tree-macros) explain call-site syntax.
+* [Declaring macros in Raven](#declaring-macros-in-raven) describes compact
+  source declarations and contribution statements.
+* [Macro arguments and diagnostics](#macro-arguments-and-diagnostics) and the
+  [expansion model](#expansion-model) define how a macro receives input and how
+  multiple expansions compose.
+* [Project references](#project-references) and [local macros in the same
+  project](#local-macros-in-the-same-project) cover activation.
+
+## Macro discovery and tooling contracts
 
 Macros are resolved from compiler-plugin assemblies. Their meaning is defined
 by the referenced macro implementation, not by the parser. A reusable Raven
@@ -112,7 +134,7 @@ name or an attached macro name, together with its macro-specific applicability
 details. The invocation body and attached target retain their own semantic
 hover behavior.
 
-## Attached macro syntax
+## Attached macros
 
 An attached macro uses a `#` directly followed by an attribute list:
 
@@ -122,6 +144,9 @@ var Title: string
 ```
 
 The `#` token is part of the macro syntax. It is not optional.
+The macro may replace the declaration or introduce ordinary Raven members such
+as backing storage and accessor bodies, according to its declared target and
+expansion result.
 
 ### Disambiguation with directives
 
@@ -138,7 +163,7 @@ var Title: string
 
 `#pragma` and other directive forms remain directives. They do not parse as macros.
 
-## Invocable macro syntax
+## Invocable and token-tree macros
 
 An invocable macro uses `name!(...)` in expression position:
 
@@ -428,7 +453,7 @@ raw text and token-stream APIs. A non-generic token-tree macro rejects supplied
 arguments. A token-tree macro must be invoked with braces; an argument-based
 macro must be invoked with parentheses.
 
-### Macro declarations
+## Declaring macros in Raven
 
 Raven recognizes the concise macro declaration syntax at
 compilation-unit and namespace-member scope:
@@ -614,7 +639,7 @@ remain later layers.
 Existing class-authored dynamic and strongly typed macros remain supported and
 expose the underlying provider API directly.
 
-### Expression quotes
+## Quoting Raven expressions
 
 `quote! { expression }` is a token-tree macro provided by the standard
 `Raven.Macros` compiler-plugin assembly. Its `quote` alias enters scope through
@@ -651,7 +676,7 @@ can be traversed and rewritten into a new immutable tree using
 `Raven.CodeAnalysis`; it is not semantically bound until inserted into a
 compilation.
 
-### Runtime expression compilation
+## Compiling expressions at runtime
 
 `compile<TDelegate>! { expression }` constructs an `ExpressionSyntax` using
 the same quotation and `#(expression)` hole rules as `quote!`, compiles that
@@ -696,7 +721,7 @@ macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
 tree is derived from that body and remains scoped to the macro invocation.
 Macro-local token kinds do not alter ordinary Raven lexing or `SyntaxKind`.
 
-### Compile-time file and digest utilities
+## Compile-time file and digest utilities
 
 `embedFileContent!("relative/path.txt")` reads UTF-8 text during compilation
 and expands to a string literal. Relative paths are resolved from the invoking
@@ -713,7 +738,7 @@ Both aliases require `import Raven.Macros.*`. Their canonical names,
 `Raven.Macros.EmbedFileContent!` and `Raven.Macros.Sha256Digest!`, remain
 available without the wildcard import.
 
-### Token streams
+## Token-tree streams
 
 `TokenTreeMacroContext.CreateTokenStream()` returns the stream selected for the
 resolved macro. Streams implement `IMacroTokenStream` and emit `SyntaxToken`
@@ -789,7 +814,7 @@ Example:
 public var Title: string
 ```
 
-## Arguments
+## Macro arguments and diagnostics
 
 Attached macros may take arguments.
 
@@ -997,6 +1022,8 @@ dependency and must be available in the Playground. `#quote` is the first such
 macro; future defaults such as `#embedFile` may be compiler intrinsics or
 SDK-bundled plugins without exposing that distinction at the invocation site.
 
+## Local macros in the same project
+
 The compiler API supports an explicit same-project macro source partition.
 Trees supplied through `Compilation.AddMacroSyntaxTrees` are compiled as an
 in-memory library and activated before consumer binding. Their diagnostics are
@@ -1102,15 +1129,9 @@ therefore invalidate expansions that depend on the local registry. Every
 snapshot still owns a fresh macro semantic compilation, and reused partition
 diagnostics are associated with the current projected syntax trees.
 
-Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
+## Macro validation diagnostics
 
-## Example
-
-```raven
-class MyViewModel: ObservableBase {
-    #[Observable]
-    var Title: string
-}
-```
-
-In this example, `#[Observable]` is an attached property macro. The macro may replace the property declaration with ordinary Raven members such as backing storage and accessor bodies.
+Macro-reported validation failures currently surface through shared diagnostic
+`RAVM021`, with the macro name and custom message embedded in the diagnostic
+text. The location may point either at the macro site or at a specific
+argument.

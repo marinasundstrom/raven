@@ -81,4 +81,4 @@ programming for an entire application.
 - [Choose your learning path](learn.md)
 - [Read the full language introduction](introduction.md)
 - [Model domains with functions, records, unions, and classes](lang/domain-modeling.md)
-- [Look up precise language rules](lang/README.md)
+- [Look up precise language rules](lang/spec/index.md)

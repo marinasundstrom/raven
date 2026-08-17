@@ -1,7 +1,9 @@
-# Fundamental expressions
+# Literals and fundamental expressions
 
-These expressions cover common tasks such as converting a value, referring to
-a type or name, providing a fallback, and building a string.
+This article covers casts, compile-time type and name queries, default values,
+and Raven's string literal forms.
+
+## Cast expressions
 
 Explicit casts request a conversion to a specific type and use C# syntax.
 
@@ -140,7 +142,8 @@ emoji.
 
 ### Multiline string literals
 
-A multiline string literal is written using triple double quotes `"""` and spans zero or more lines.
+A multiline string literal is written with triple double quotes and can span
+any number of lines:
 
 ```raven
 let text = """
@@ -149,13 +152,20 @@ let text = """
 """
 ```
 
-Multiline literals are **raw** with respect to escape processing: their contents are taken exactly as written between the delimiters and are **not subject to escape‑sequence decoding**. Unlike earlier revisions, multiline literals **may contain interpolation** using the same forms as ordinary strings (`$identifier` and `${ Expression }`). The parser preserves the raw text and source spans, while the binder interprets interpolation segments and produces the final value.
+Multiline literals are raw: their contents are taken as written and escape
+sequences are not decoded. A sequence such as `\n` therefore remains a
+backslash followed by `n`.
 
-Indentation trimming rules are applied to both plain and interpolated multiline strings. For interpolated forms the trimming is performed during binding so that interpolation segments remain span‑correct in the syntax tree while the resulting value matches the behavior of non‑interpolated multiline literals.
+Multiline literals can interpolate values using the same `$identifier` and
+`${expression}` forms as ordinary strings.
 
-The lexer produces a token of kind **`MultilineStringLiteralToken`** whose value text contains the literal characters between the delimiters after applying indentation trimming rules. No escape processing is performed, so sequences such as `\n` and `\t` represent backslash characters followed by letters rather than control characters.
+Indentation trimming applies equally to plain and interpolated multiline
+strings, so indentation used to align the source does not become accidental
+leading whitespace in the value.
 
-The delimiters must appear on their own lines or immediately adjacent to content; the closing `"""` terminates the literal at the first matching sequence. If the end of file is reached before a closing delimiter, the lexer reports an unterminated-string diagnostic and produces a `MultilineStringLiteralToken` containing the available content.
+The delimiters may appear on their own lines or immediately next to content.
+The first matching closing delimiter ends the literal. Reaching the end of the
+file first produces an unterminated-string diagnostic.
 
 Trivia and comments may appear adjacent to the delimiters but are not part of the literal value.
 
@@ -206,25 +216,8 @@ let ascii = "Hello"ascii
 The suffix must appear immediately after the closing delimiter with no
 intervening whitespace.
 
-Syntax:
-
-```
-encoded_string_literal
-    : string_literal encoding_suffix
-    ;
-
-encoding_suffix
-    : u8
-    | ascii
-    ;
-```
-
-Semantics:
-
-1. Parse the literal normally, including escape decoding.
-2. Produce the resulting sequence of Unicode scalar values.
-3. Encode that sequence with the specified encoding.
-4. Return the encoded bytes as `byte[]`.
+Raven first evaluates the literal text, including ordinary escape decoding, and
+then encodes its Unicode scalar values. The result has type `byte[]`.
 
 Encoded string literals are constant expressions when the underlying string
 literal is constant.
@@ -262,5 +255,3 @@ behavior deterministic and compile-time-friendly. When text must be computed at
 runtime, construct the string first and encode it explicitly through runtime
 APIs such as `System.Text.Encoding.UTF8.GetBytes(...)` or
 `System.Text.Encoding.ASCII.GetBytes(...)`.
-
-Additional encodings may be introduced by adding new suffixes.

@@ -3,7 +3,7 @@
 > ⚠️ 🧩 This proposal has been partly implemented
 
 This proposal now documents the remaining design space around collection expressions. The
-implemented syntax is specified in [`../spec/language-specification.md`](../spec/language-specification.md)
+implemented syntax is specified in the [collection-expression reference](../spec/collection-expressions.md)
 and [`../spec/grammar.ebnf`](../spec/grammar.ebnf). Any new changes should extend that
 shipped surface rather than reintroduce the older draft syntax that previously appeared here.
 

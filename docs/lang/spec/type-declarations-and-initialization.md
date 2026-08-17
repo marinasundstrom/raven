@@ -9,8 +9,9 @@ indexers, fields, and const members. The model is property-first: `val`/`var`
 declarations in type bodies define properties by default. Explicit `field` and
 `const` declarations provide explicit storage forms when needed.
 
-Modifiers are C#-like but validated by the binder (e.g., `abstract` members
-require an `abstract` type; `override` requires a virtual base member).
+Modifiers follow the .NET object model. For example, an `abstract` member
+requires an abstract containing type, and `override` requires a matching
+virtual base member.
 
 ```raven
 class Counter(name: string) {
@@ -31,7 +32,7 @@ class Counter(name: string) {
 }
 ```
 
-**Rules**
+## Member rules
 
 * `val`/`var` type members declare properties.
 * `field` declarations are explicit storage members.
@@ -39,12 +40,13 @@ class Counter(name: string) {
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
-* Members that intentionally hide inherited members should use the `new` modifier; otherwise the compiler emits a warning.
+* Members that intentionally hide inherited members should use the `new`
+  modifier; otherwise the compiler reports `RAV0331`.
 * A member name cannot match its immediate containing type name.
 
 Delegate types are documented in [Delegate declarations](delegate-declarations.md).
 
-### Static classes
+## Static classes
 
 Classes marked `static` are utility containers. They are implicitly `abstract`
 and `sealed`, and all members must be `static`. Instance fields, methods,
@@ -53,17 +55,16 @@ are not permitted inside a static class.
 
 Use `final` alongside `override` to seal an override and prevent further
 overrides in derived types (`final override` in Raven, equivalent to C#'s
-`sealed override`). The compiler reports an error if `final` is applied without
-`override`.
+`sealed override`). Applying `final` without `override` reports `RAV0309`.
 
-### Ref structs
+## Ref structs
 
 Ref structs are available for specialized stack-only and interop abstractions.
 Their declarations, managed-reference fields, lifetime rules, and generic
 anti-constraints are documented under
 [Ref structs and ref safety](ref-structs-and-ref-safety.md).
 
-### Field declarations (low-level storage)
+## Fields and constants
 
 Fields are explicit CLR storage members. Use them when source code needs direct
 control over storage/layout (for example interop with `StructLayout` and
@@ -87,7 +88,7 @@ class MathConstants {
 They remain compile-time constants and are emitted as metadata constants
 (implicitly static), similar to other .NET languages.
 
-### External constants
+## External constants
 
 An `extern const` declares a typed constant whose value may be supplied by the
 build host:
@@ -98,18 +99,18 @@ extern const DeviceName: string = "RavenDevice"
 extern const DeviceId: string
 ```
 
-The declaration must include an explicit type. An initializer is a source
-default and may be overridden externally. A declaration without an initializer
-is required and produces an error unless the build supplies a value. Supplied
-text is converted using invariant formatting and validated against the declared
-Raven type; it is never parsed as Raven source code. When a build-supplied value
-successfully overrides a source initializer, the compiler reports an
-informational diagnostic naming the declaration. The diagnostic deliberately
-omits both values so build secrets are not copied into logs.
+The declaration must include an explicit type; omitting it reports `RAV0178`.
+An initializer is a source default and may be overridden externally. A
+declaration without an initializer is required, and reports `RAV0176` unless
+the build supplies a value. Supplied text is converted using invariant
+formatting and validated against the declared Raven type; a failed conversion
+reports `RAV0177`. It is never parsed as Raven source code. When a build value
+overrides a source initializer, informational diagnostic `RAV0179` names the
+declaration but deliberately omits both values so build secrets are not copied
+into logs.
 
-After binding, an external constant is indistinguishable from an ordinary
-constant to the rest of the program: constant folding, symbol APIs, metadata,
-and emission observe the selected typed value. Provider precedence is:
+Once its value is selected, an external constant behaves like an ordinary
+typed constant throughout the program. Provider precedence is:
 
 1. command-line value;
 2. evaluated `.rvnproj` value;
@@ -118,7 +119,7 @@ and emission observe the selected typed value. Provider precedence is:
 See [Raven compiler](../../compiler/raven-compiler.md) and
 [Project system](../../compiler/project-system.md) for provider syntax.
 
-### Generic types
+## Generic types
 
 Classes and structs optionally declare type parameters immediately after the
 type name. The parameters become part of the type's identity and are available
@@ -152,8 +153,8 @@ class Repository<TContext: class, IDisposable> {
 ```
 
 The compiler enforces the constraint set whenever the generic type is
-constructed. Passing an argument that does not satisfy one of the constraints
-reports an error and identifies the unmet requirement.
+constructed. An argument that violates a constraint reports `RAV0320` and
+identifies the unmet requirement.
 
 Generic type arguments may be inferred from constructor arguments when the type
 name is invoked without an explicit `<...>` list. This includes function
@@ -177,7 +178,7 @@ non-generic constructor is selected first. If the non-generic constructor is not
 applicable, Raven may infer and select a same-named generic type. Multiple
 successful generic candidates are ambiguous.
 
-#### Accessibility
+## Accessibility
 
 Types and members accept the standard access modifiers. Applying more than
 one keyword produces the expected CLR combinations:
@@ -187,7 +188,6 @@ one keyword produces the expected CLR combinations:
 | `public`                   | Visible from any assembly. |
 | `internal`                 | Visible only within the current assembly. |
 | `protected`                | Visible to the declaring type and to derived types. |
-| `private`                  | Visible only inside the declaring type. |
 | `fileprivate`             | Visible only from the current source file. |
 | `protected internal`       | Visible to derived types or any code in the same assembly. |
 | `private protected`        | Visible to derived types declared in the same assembly. |
@@ -227,7 +227,7 @@ suppress that diagnostic and enforce their convention with an analyzer.
 
 `fileprivate` is a source-level restriction for type-like declarations. The compiler enforces same-file visibility during binding, and mangles the emitted metadata name for the generated type so file-local helpers do not publish a stable CLR-facing type name.
 
-### Initialization model
+## Initialization model
 
 Raven supports type-header parameters plus `init` blocks as its object
 initialization model:
@@ -287,7 +287,8 @@ For `class` / `struct`, parameter promotion is explicit:
 * promoted parameters may specify an access modifier (`public`, `internal`, `protected`, `private`) before `val`/`var` to control synthesized property accessibility (default is `public`).
 * no binding keyword: captured in synthesized private instance storage for member access, but not promoted to a public property.
 * constructor calls must use invocation syntax (`Foo()`); a standalone type name (`Foo`) is not a value expression.
-* semantic model note: unqualified identifier access to captured/promoted primary-constructor members resolves to the originating parameter symbol.
+* within members, an unqualified reference to a captured or promoted parameter
+  refers to that primary-constructor value.
 
 ```raven
 class Person(val name: string, var age: int) {
@@ -299,7 +300,7 @@ let person = Person("Ada", 42)
 let years = person.GetAge()
 ```
 
-### `init(...)` declarations
+## Secondary constructors
 
 `init(...)` member declarations are constructor-shape declarations.
 
@@ -314,7 +315,7 @@ class Widget {
 }
 ```
 
-### Record declarations
+## Records
 
 Records provide value semantics and support three declaration forms:
 
