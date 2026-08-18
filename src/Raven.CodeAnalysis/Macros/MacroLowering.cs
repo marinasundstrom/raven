@@ -111,42 +111,32 @@ internal static class MacroLowering
             interfaceName += ", Raven.CodeAnalysis.Macros.IMacroExpansionMetadataProvider";
 
         var builder = new StringBuilder();
+        if (declaration.TypeParameterList is { Parameters.Count: > 0 } typeParameterList)
+        {
+            for (var index = 0; index < typeParameterList.Parameters.Count; index++)
+            {
+                builder.AppendLine(
+                    $"[Raven.CodeAnalysis.Macros.MacroExecutorTypeParameter(\"{EscapeString(typeParameterList.Parameters[index].Identifier.ValueText)}\", {index})]");
+            }
+        }
+        foreach (var parameter in parameters)
+        {
+            var parameterType = GetParameterType(parameter);
+            var typeDisplayName = parameter.Syntax.TypeAnnotation?.Type.ToString() ?? "object";
+            var invocationOrdinal = parameter.InvocationOrdinal is { } ordinal
+                ? ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : "-1";
+            var isRequired = parameter.InvocationOrdinal is not null &&
+                parameter.Syntax.DefaultValue is null;
+            var defaultValueDisplay = parameter.Syntax.DefaultValue?.Value.ToString() ?? string.Empty;
+            builder.AppendLine(
+                $"[Raven.CodeAnalysis.Macros.MacroExecutorParameter(\"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", typeof({parameterType}), \"{EscapeString(typeDisplayName)}\", Raven.CodeAnalysis.Macros.MacroParameterSource.{parameter.Source}, {parameter.DeclarationOrdinal}, {invocationOrdinal}, {isRequired.ToString().ToLowerInvariant()}, \"{EscapeString(defaultValueDisplay)}\")]");
+        }
         builder.AppendLine($"{(isPublic ? "public " : string.Empty)}class {providerName} : {interfaceName} {{");
         builder.AppendLine(
             $"    val Namespace: string => \"{EscapeString(GetDeclaredNamespace(declaration))}\"");
         builder.AppendLine(
             $"    val Name: string => \"{EscapeString(declaration.Identifier.ValueText)}\"");
-        if (declaration.TypeParameterList is { Parameters.Count: > 0 } typeParameterList)
-        {
-            builder.AppendLine(
-                "    val TypeParameters: System.Collections.Immutable.ImmutableArray<string> => Raven.CodeAnalysis.Macros.MacroExecutorMetadata.CreateTypeParameters(");
-            builder.AppendLine(string.Join(
-                ",\n",
-                typeParameterList.Parameters.Select(typeParameter =>
-                    $"        \"{EscapeString(typeParameter.Identifier.ValueText)}\"")));
-            builder.AppendLine("    )");
-        }
-        if (parameters.Length > 0)
-        {
-            builder.AppendLine(
-                "    val Parameters: System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroExecutorParameter> => Raven.CodeAnalysis.Macros.MacroExecutorMetadata.CreateParameters(");
-            for (var index = 0; index < parameters.Length; index++)
-            {
-                var parameter = parameters[index];
-                var parameterType = GetParameterType(parameter);
-                var typeDisplayName = parameter.Syntax.TypeAnnotation?.Type.ToString() ?? "object";
-                var invocationOrdinal = parameter.InvocationOrdinal is { } ordinal
-                    ? ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    : "-1";
-                var isRequired = parameter.InvocationOrdinal is not null &&
-                    parameter.Syntax.DefaultValue is null;
-                var defaultValueDisplay = parameter.Syntax.DefaultValue?.Value.ToString() ?? string.Empty;
-                var separator = index + 1 == parameters.Length ? string.Empty : ",";
-                builder.AppendLine(
-                    $"        Raven.CodeAnalysis.Macros.MacroExecutorParameter(\"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", typeof({parameterType}), \"{EscapeString(typeDisplayName)}\", Raven.CodeAnalysis.Macros.MacroParameterSource.{parameter.Source}, {parameter.DeclarationOrdinal}, {invocationOrdinal}, {isRequired.ToString().ToLowerInvariant()}, \"{EscapeString(defaultValueDisplay)}\"){separator}");
-            }
-            builder.AppendLine("    )");
-        }
         if (symbol?.GetDocumentationComment() is { } documentation &&
             !string.IsNullOrWhiteSpace(documentation.Content))
         {

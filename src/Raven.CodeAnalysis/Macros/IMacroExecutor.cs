@@ -5,9 +5,11 @@ namespace Raven.CodeAnalysis.Macros;
 /// </summary>
 public interface IMacroExecutor : IMacroDefinition
 {
-    System.Collections.Immutable.ImmutableArray<string> TypeParameters => [];
+    System.Collections.Immutable.ImmutableArray<string> TypeParameters =>
+        MacroExecutorMetadata.GetTypeParameters(GetType());
 
-    System.Collections.Immutable.ImmutableArray<MacroExecutorParameter> Parameters => [];
+    System.Collections.Immutable.ImmutableArray<MacroExecutorParameter> Parameters =>
+        MacroExecutorMetadata.GetParameters(GetType());
 
     MacroApplicationKind ApplicationKind { get; }
 
