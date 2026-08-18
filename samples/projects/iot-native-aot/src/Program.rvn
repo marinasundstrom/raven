@@ -1,0 +1,23 @@
+import System.Device.Gpio.*
+
+const Pin: int = 21;
+const Alert: string = "ALERT 🚨";
+const Ready: string = "READY ✅";
+
+use controller = GpioController()
+
+#pragma warning disable-next-line RAV9033
+controller.OpenPin(Pin, PinMode.InputPullUp)
+
+Console.WriteLine(
+    "Initial status (${DateTime.Now}): ${(if controller.Read(Pin) == PinValue.High {  Alert } else {  Ready })}")
+
+controller.RegisterCallbackForPinValueChangedEvent(
+    Pin,
+    PinEventTypes.Falling | PinEventTypes.Rising,
+    func (_, args) {
+        Console.WriteLine(
+                "(${DateTime.Now}) ${(if args.ChangeType == PinEventTypes.Rising { Alert } else { Ready })}")
+    });
+
+await Task.Delay(Timeout.Infinite);
