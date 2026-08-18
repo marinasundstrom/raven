@@ -355,10 +355,12 @@ the right location, then pass it to `ReportDiagnostic`. Prefer diagnostics over
 throwing for expected invalid input; an exception means the macro itself
 failed.
 
-Class-authored providers use the same context APIs. Their `Expand` method
-returns `InvocableMacroExpansionResult`, which can carry syntax and
-diagnostics together. Use that lower-level form only when the compact
-declaration cannot project a required capability.
+Class-authored providers can implement the erased `IMacroExecutor` ABI. Its
+`Expand` method receives one `MacroExecutionContext` and returns a
+`MacroExecutionResult`, carrying syntax and diagnostics across every
+application kind. The older category-specific provider interfaces remain as
+compatibility adapters. Use the lower-level class-authored form only when the
+compact declaration cannot project a required capability.
 
 For compact declarations, return a syntax list when an invocation produces
 declarations:

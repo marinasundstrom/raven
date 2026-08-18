@@ -4,6 +4,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Macros now have one stable method-shaped declaration ABI: a hidden nominal
+  definition type owns generic parameters, its designated `Expand` method owns
+  any number of caller-supplied or compiler-injected parameters, and binding,
+  execution, signature help, hover, and referenced-project metadata consume
+  that same canonical signature. Compiled providers use the erased
+  `IMacroExecutor` boundary, while the existing `macro` authoring syntax is
+  unchanged.
+- Raven project compilation avoids a redundant SDK evaluation when the target
+  framework and configuration are already supplied, skips local macro
+  activation assemblies for pure macro libraries, avoids duplicate framework
+  references, and reuses documentation symbol collection. In the standard
+  macro library workload, a measured net11 compiler invocation fell from about
+  140 seconds to 11 seconds.
 - Named `func` declarations now accept `_` discard parameters. Discarded
   parameters preserve their argument slots and types without introducing a
   usable body name or producing the unused-parameter diagnostic, which allows

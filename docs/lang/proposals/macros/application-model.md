@@ -704,7 +704,7 @@ executor from [Macro ABI](abi.md):
 ```csharp
 public interface IMacroExecutor
 {
-    MacroExpansionResult Expand(MacroExecutionContext context);
+    MacroExecutionResult Expand(MacroExecutionContext context);
 }
 ```
 

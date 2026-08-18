@@ -1,6 +1,6 @@
 # Macro ABI
 
-Status: **proposed redesign**
+Status: **implemented MVP**
 
 This document defines the stable underlying model for Raven macros. The
 authored `macro` syntax remains the primary source experience. The redesign is
@@ -216,8 +216,8 @@ different ordinal during execution.
 
 ## Future-compatible requirements
 
-The initial redesign need not implement typed syntax facades, generic
-inference, or macro overloads. The ABI must leave room for them.
+The MVP does not yet implement typed syntax facades, generic inference, or
+macro overloads. The ABI leaves room for them.
 
 In particular, a future macro-only `ExpressionSyntax<T>` parameter remains a
 `SyntaxInput` whose semantic constraint refers to a definition-type parameter.
