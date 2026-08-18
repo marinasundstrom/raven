@@ -31,7 +31,7 @@ internal static class MacroTokenInfoService
                 name,
                 out var loaded,
                 out _) ||
-            loaded.Macro is not ITokenTreeMacro tokenTreeMacro)
+            !MacroFacts.GetDescriptor(loaded.Macro).HasTokenBody)
         {
             return ImmutableArray<MacroTokenInfo>.Empty;
         }
@@ -42,7 +42,7 @@ internal static class MacroTokenInfoService
                 semanticModel.Compilation,
                 semanticModel,
                 expression,
-                tokenTreeMacro,
+                loaded.Macro,
                 cancellationToken);
             if (loaded.Macro is IMacroExpansionMetadataProvider)
             {

@@ -3191,25 +3191,26 @@ public static class CompletionProvider
                 continue;
             }
 
+            var descriptor = MacroFacts.GetDescriptor(macro);
             var insertionText = context.PreserveInvocationSuffix
                 ? name
-                : macro switch
+                : descriptor switch
                 {
-                    ITokenTreeMacro when MacroFacts.AcceptsArguments(macro) => name + "() { }",
-                    ITokenTreeMacro => name + " { }",
-                    _ when context.WrapAttachedAttribute && MacroFacts.AcceptsArguments(macro) => $"[{name}()]",
+                    { HasTokenBody: true, AcceptsArguments: true } => name + "() { }",
+                    { HasTokenBody: true } => name + " { }",
+                    { AcceptsArguments: true } when context.WrapAttachedAttribute => $"[{name}()]",
                     _ when context.WrapAttachedAttribute => $"[{name}]",
                     _ when context.Kind == MacroKind.Invocable => name + "()",
                     _ => name
                 };
             var cursorOffset = context.PreserveInvocationSuffix
                 ? null
-                : macro switch
+                : descriptor switch
                 {
-                    ITokenTreeMacro when MacroFacts.AcceptsArguments(macro) => name.Length + 1,
-                    ITokenTreeMacro => insertionText.Length - 1,
-                    _ when context.WrapAttachedAttribute && MacroFacts.AcceptsArguments(macro) => name.Length + 2,
-                    _ when context.Kind == MacroKind.Invocable && MacroFacts.AcceptsArguments(macro) => insertionText.Length - 1,
+                    { HasTokenBody: true, AcceptsArguments: true } => name.Length + 1,
+                    { HasTokenBody: true } => insertionText.Length - 1,
+                    { AcceptsArguments: true } when context.WrapAttachedAttribute => name.Length + 2,
+                    { AcceptsArguments: true } when context.Kind == MacroKind.Invocable => insertionText.Length - 1,
                     _ => (int?)null
                 };
 
@@ -3241,11 +3242,12 @@ public static class CompletionProvider
         var targetsDisplay = targets == MacroTarget.None
             ? null
             : $"targets: {FormatMacroTargets(targets)}";
-        var argumentsDisplay = macro switch
+        var descriptor = MacroFacts.GetDescriptor(macro);
+        var argumentsDisplay = descriptor switch
         {
-            ITokenTreeMacro when MacroFacts.AcceptsArguments(macro) => "accepts arguments and a token-tree body",
-            ITokenTreeMacro => "accepts a token-tree body",
-            _ when MacroFacts.AcceptsArguments(macro) => "accepts arguments",
+            { HasTokenBody: true, AcceptsArguments: true } => "accepts arguments and a token-tree body",
+            { HasTokenBody: true } => "accepts a token-tree body",
+            { AcceptsArguments: true } => "accepts arguments",
             _ => "no arguments"
         };
 
