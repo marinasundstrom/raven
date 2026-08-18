@@ -114,6 +114,16 @@ public partial class Compilation
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
     }
 
+    private void PrepareLocalMacroSignatures()
+    {
+        EnsureMacroSignatureCompilation();
+        if (_macroSignatureCompilation is null)
+            return;
+
+        _macroPartitionDiagnostics = RewriteLocalMacroDependencyCycles(
+            _macroSignatureCompilation.GetDiagnostics());
+    }
+
     private bool RequiresLocalMacroActivation()
     {
         if (_macroSyntaxTrees.Length == 0)

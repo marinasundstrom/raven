@@ -984,7 +984,7 @@ public partial class Compilation
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
         var requiresLocalMacroActivation = RequiresLocalMacroActivation();
         if (!requiresLocalMacroActivation)
-            EnsureMacroSignatureCompilation();
+            PrepareLocalMacroSignatures();
         var localMacroReference = requiresLocalMacroActivation
             ? CompileLocalMacroPartition()
             : null;
