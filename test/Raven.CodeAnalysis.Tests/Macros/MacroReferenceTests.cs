@@ -170,6 +170,7 @@ public sealed class MacroReferenceTests
     [Fact]
     public void MacroLibrary_EmitsReusableCompilerPluginFromSingleSourceTree()
     {
+        var instrumentation = new PerformanceInstrumentation();
         var macroTree = SyntaxTree.ParseText(
             """
             import Raven.CodeAnalysis.Macros.*
@@ -193,7 +194,8 @@ public sealed class MacroReferenceTests
             path: "Answer.rvn");
         var macroCompilation = Compilation.Create(
                 "Example.Macros",
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                    .WithPerformanceInstrumentation(instrumentation))
             .AddReferences(TestMetadataReferences.Default)
             .AddSyntaxTreesWithLocalMacros(macroTree);
 
@@ -202,6 +204,7 @@ public sealed class MacroReferenceTests
         Assert.True(
             emitResult.Success,
             string.Join(System.Environment.NewLine, emitResult.Diagnostics));
+        Assert.Equal(0, instrumentation.Macros.LocalPartitionCompilations);
 
         var macroReference = MacroReference.CreateFromImage(
             image.ToArray(),

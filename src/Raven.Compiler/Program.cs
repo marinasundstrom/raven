@@ -1105,7 +1105,7 @@ if (projectFileInput is not null)
             .Select(MetadataReference.CreateFromFile)
             .ToArray();
         foreach (var reference in frameworkReferences)
-            project = project.AddMetadataReference(reference);
+            project = AddMetadataReferenceIfMissing(project, reference.FilePath);
     }
 }
 else
@@ -1146,7 +1146,7 @@ else
 
         foreach (var reference in frameworkReferences)
         {
-            project = project.AddMetadataReference(reference);
+            project = AddMetadataReferenceIfMissing(project, reference.FilePath);
         }
     }
 }

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Security;
 using System.Text;
 using System.Text.Json;
@@ -12,6 +14,7 @@ internal static class ExternalDocumentationEmitter
 {
     private const string InvariantLocale = "invariant";
     private const string SymbolsPath = "symbols";
+    private static readonly ConditionalWeakTable<Compilation, DocumentationEntryCache> s_entryCache = new();
 
     public static string WriteDocumentation(
         Compilation compilation,
@@ -27,7 +30,7 @@ internal static class ExternalDocumentationEmitter
     public static string WriteMarkdownDocumentation(Compilation compilation, string outputPath)
     {
         var docsRoot = NormalizeMarkdownOutputPath(outputPath);
-        var entries = Collect(compilation).ToList();
+        var entries = GetEntries(compilation, includeMarkdown: true);
 
         if (Directory.Exists(docsRoot))
             Directory.Delete(docsRoot, recursive: true);
@@ -72,7 +75,7 @@ internal static class ExternalDocumentationEmitter
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
-        var entries = Collect(compilation, includeMarkdownWhenEmittingXml)
+        var entries = GetEntries(compilation, includeMarkdownWhenEmittingXml)
             .OrderBy(static entry => entry.MemberId, StringComparer.Ordinal)
             .ToList();
 
@@ -123,6 +126,12 @@ internal static class ExternalDocumentationEmitter
                 }
             }
         }
+    }
+
+    private static ImmutableArray<DocumentationEntry> GetEntries(Compilation compilation, bool includeMarkdown)
+    {
+        var cache = s_entryCache.GetValue(compilation, static compilation => new DocumentationEntryCache(compilation));
+        return includeMarkdown ? cache.WithMarkdown.Value : cache.WithoutMarkdown.Value;
     }
 
     private static bool TryCreateEntry(
@@ -363,4 +372,21 @@ internal static class ExternalDocumentationEmitter
     }
 
     private sealed record DocumentationEntry(string MemberId, DocumentationComment Comment);
+
+    private sealed class DocumentationEntryCache
+    {
+        public DocumentationEntryCache(Compilation compilation)
+        {
+            WithMarkdown = new Lazy<ImmutableArray<DocumentationEntry>>(
+                () => Collect(compilation, includeMarkdown: true).ToImmutableArray(),
+                LazyThreadSafetyMode.ExecutionAndPublication);
+            WithoutMarkdown = new Lazy<ImmutableArray<DocumentationEntry>>(
+                () => Collect(compilation, includeMarkdown: false).ToImmutableArray(),
+                LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        public Lazy<ImmutableArray<DocumentationEntry>> WithMarkdown { get; }
+
+        public Lazy<ImmutableArray<DocumentationEntry>> WithoutMarkdown { get; }
+    }
 }

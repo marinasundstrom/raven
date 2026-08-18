@@ -22,13 +22,24 @@ internal static class MsBuildProjectEvaluator
         string? requestedTargetFramework = null,
         string? requestedConfiguration = null)
     {
-        var initialEvaluation = LoadProject(projectFilePath, globalProperties: null);
-        var configuration = string.IsNullOrWhiteSpace(requestedConfiguration)
-            ? GetNormalizedConfiguration(initialEvaluation, conventions)
-            : conventions.NormalizeConfiguration(requestedConfiguration);
-        var targetFramework = string.IsNullOrWhiteSpace(requestedTargetFramework)
-            ? GetEffectiveTargetFramework(initialEvaluation)
-            : requestedTargetFramework;
+        string configuration;
+        string targetFramework;
+        if (!string.IsNullOrWhiteSpace(requestedConfiguration) &&
+            !string.IsNullOrWhiteSpace(requestedTargetFramework))
+        {
+            configuration = conventions.NormalizeConfiguration(requestedConfiguration);
+            targetFramework = requestedTargetFramework;
+        }
+        else
+        {
+            var initialEvaluation = LoadProject(projectFilePath, globalProperties: null);
+            configuration = string.IsNullOrWhiteSpace(requestedConfiguration)
+                ? GetNormalizedConfiguration(initialEvaluation, conventions)
+                : conventions.NormalizeConfiguration(requestedConfiguration);
+            targetFramework = string.IsNullOrWhiteSpace(requestedTargetFramework)
+                ? GetEffectiveTargetFramework(initialEvaluation)
+                : requestedTargetFramework;
+        }
 
         var globalProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {

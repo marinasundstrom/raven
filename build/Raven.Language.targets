@@ -140,7 +140,9 @@
 
     <ItemGroup>
       <_RavenCoreReference Include="@(ReferencePath)" Condition="Exists('%(FullPath)') and '%(Filename)' == 'Raven.Core'" />
-      <_RavenReferencePath Include="@(ReferencePath)" Condition="Exists('%(FullPath)') and '%(Filename)' != 'Raven.Core'" />
+      <_RavenReferencePath
+        Include="@(ReferencePath)"
+        Condition="Exists('%(FullPath)') and '%(Filename)' != 'Raven.Core' and ('%(ReferencePath.FrameworkReferenceName)' == '' or '$(RavenUseHostFrameworkReferences)' == 'false')" />
     </ItemGroup>
 
     <PropertyGroup>

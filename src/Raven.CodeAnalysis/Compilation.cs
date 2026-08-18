@@ -982,7 +982,12 @@ public partial class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, [], assemblyDeclaringSyntaxReferences);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
-        var localMacroReference = CompileLocalMacroPartition();
+        var requiresLocalMacroActivation = RequiresLocalMacroActivation();
+        if (!requiresLocalMacroActivation)
+            EnsureMacroSignatureCompilation();
+        var localMacroReference = requiresLocalMacroActivation
+            ? CompileLocalMacroPartition()
+            : null;
         _activeMacroReferences = GetActiveMacroReferences(localMacroReference);
         _macroRegistry = MacroRegistry.Create(_activeMacroReferences);
         foreach (var macroNamespace in _macroRegistry.Namespaces)

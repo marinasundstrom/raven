@@ -32,13 +32,7 @@ public partial class Compilation
             return null;
 
         var references = EnsureMacroContractsReference(_references);
-        _macroSignatureCompilation = new Compilation(
-            $"{AssemblyName}.MacroSignatures",
-            _macroSyntaxTrees,
-            [],
-            references,
-            _macroReferences,
-            Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        EnsureMacroSignatureCompilation(references);
 
         if (_localMacroPartitionArtifact is { } reusedArtifact)
         {
@@ -104,6 +98,39 @@ public partial class Compilation
             _macroPartitionDiagnostics,
             loweredMacroTrees);
         return reference;
+    }
+
+    private void EnsureMacroSignatureCompilation(MetadataReference[]? references = null)
+    {
+        if (_macroSignatureCompilation is not null || _macroSyntaxTrees.Length == 0)
+            return;
+
+        _macroSignatureCompilation = new Compilation(
+            $"{AssemblyName}.MacroSignatures",
+            _macroSyntaxTrees,
+            [],
+            references ?? EnsureMacroContractsReference(_references),
+            _macroReferences,
+            Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+    }
+
+    private bool RequiresLocalMacroActivation()
+    {
+        if (_macroSyntaxTrees.Length == 0)
+            return false;
+
+        foreach (var tree in _syntaxTrees)
+        {
+            var root = tree.GetRoot();
+            if (root.DescendantNodes().Any(static node =>
+                    node is InvocableMacroExpressionSyntax or InvocableMacroMemberDeclarationSyntax ||
+                    node is AttributeSyntax { HashToken.Kind: not SyntaxKind.None }))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal bool TryResolveLocalMacroDeclarationSymbol(
