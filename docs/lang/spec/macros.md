@@ -1,6 +1,6 @@
 # Macros
 
-Macros extend Raven at compile time. They can transform a declaration, replace
+Macros are procedural compile-time extensions. They can transform a declaration, replace
 an invocation with an expression or statement, or interpret a brace-delimited
 domain-specific language (DSL).
 
@@ -19,9 +19,9 @@ contracts.
 
 | Form | Syntax | Use it to |
 | --- | --- | --- |
-| Attached macro | `#[Name]` before a declaration | Transform or augment that declaration. |
-| Invocable macro | `name!(arguments)` | Produce syntax at an expression, statement, namespace-member, or type-member position. |
-| Token-tree macro | `name!(arguments) { raw body }` | Parse a custom DSL, optionally with embedded Raven fragments. |
+| Attached procedural macro | `#[Name]` before a declaration | Transform or augment that declaration from an attribute-like position. |
+| Freestanding procedural macro | `name!(arguments)` | Produce syntax independently at an allowed expression, statement, namespace-member, or type-member position. |
+| Freestanding macro with token body | `name!(arguments) { raw body }` | Parse a custom DSL, optionally with embedded Raven fragments. |
 
 All three forms expand to ordinary Raven syntax before the generated syntax is
 type checked. Use a function when runtime behavior is sufficient; use a macro
@@ -58,8 +58,8 @@ or expansion when the macro does not publish that metadata.
 
 ## Reading this reference
 
-* [Attached macros](#attached-macros) and [invocable and token-tree
-  macros](#invocable-and-token-tree-macros) explain call-site syntax.
+* [Attached macros](#attached-macros) and [freestanding and token-tree
+  macros](#freestanding-and-token-tree-macros) explain call-site syntax.
 * [Declaring macros in Raven](#declaring-macros-in-raven) describes compact
   source declarations and contribution statements.
 * [Macro arguments and diagnostics](#macro-arguments-and-diagnostics) and the
@@ -114,12 +114,12 @@ single category-specific interface implemented by the definition:
 * `ITokenTreeMacro` implies `Invocable`
 
 Target applicability belongs to `IAttachedDeclarationMacro`. Attached
-definitions expose `Targets`; invocable and token-tree definitions do not
+definitions expose `Targets`; freestanding and token-tree definitions do not
 declare a redundant `MacroTarget.None` property. Code that handles the common
 `IMacroDefinition` surface can use `MacroFacts.GetTargets`, which returns
 `MacroTarget.None` for non-attached definitions.
 
-Invocable applicability is expressed separately through
+Freestanding applicability is expressed separately through
 `IMacroDefinition.InvocationTargets`. Class-authored providers default to
 expression position for compatibility and may opt into statement, namespace-
 member, or type-member positions. Compact declarations derive the same value
@@ -129,7 +129,7 @@ Macro symbols participate in ordinary documentation APIs. Documentation
 comments attached to compact macro declarations are projected onto their
 generated definitions. Class-authored definitions can supply the optional
 `IMacroDefinition.Documentation` and `DocumentationFormat` properties directly.
-Language services display this documentation when hovering an invocable macro
+Language services display this documentation when hovering a freestanding macro
 name or an attached macro name, together with its macro-specific applicability
 details. The invocation body and attached target retain their own semantic
 hover behavior.
@@ -163,9 +163,9 @@ var Title: string
 
 `#pragma` and other directive forms remain directives. They do not parse as macros.
 
-## Invocable and token-tree macros
+## Freestanding and token-tree macros
 
-An invocable macro uses `name!(...)` in expression position:
+A freestanding macro uses `name!(...)` in expression position:
 
 ```raven
 func Main() -> int => answer!()
@@ -257,7 +257,7 @@ fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
 ```
 
 The generated adapter stores reached fragments in execution order on the
-invocable expansion result. `fragment` is invalid on argument-style and
+freestanding expansion result. `fragment` is invalid on argument-style and
 attached macro declarations. A direct `IMacroFragmentProvider` takes precedence
 when present, allowing editor-region discovery to remain independent of full
 macro expansion.
@@ -370,7 +370,7 @@ Standalone `ParseMemberDeclaration` returns null unless its input contains
 exactly one declaration. Macro-context parsing is preferred for authored body
 fragments because it preserves their source coordinates and diagnostics.
 
-The normalized invocable result carries either zero or one `SyntaxNode`, or
+The normalized freestanding result carries either zero or one `SyntaxNode`, or
 an immutable list of `MemberDeclarationSyntax` nodes. `Members` and
 `HasMemberExpansion` expose the list-valued form, while
 `FromMembers(...)` accepts a `SyntaxList<TMember>` or immutable member array.
@@ -441,7 +441,7 @@ member, the parser uses `InvocableMacroMemberDeclarationSyntax`.
 An invocation may supply an argument list, a brace-delimited token-tree body,
 or both. There must be no line break between the macro name and `!`, or between
 `!` (or its argument list) and the opening brace; this lookahead keeps ordinary
-postfix `!` expressions unambiguous. An invocable macro is a
+postfix `!` expressions unambiguous. A freestanding macro is a
 parsed expression invocation that expands an owned region of syntax; it is not
 a preprocessor directive. Directive-looking syntax remains appropriate for
 lexical compilation controls such as `#if`, while `name! { ... }` preserves the
@@ -487,7 +487,7 @@ parameters, and constraints. A macro declaration is not an `IMethodSymbol`: it i
 compile-time language structure rather than a CLR method. Its body is therefore
 not emitted into the consumer program as an ordinary runtime function body.
 
-For an invocable macro, the syntax return annotation selects its permitted
+For a freestanding macro, the syntax return annotation selects its permitted
 grammar position. An omitted annotation retains the compact expression-macro
 default, `ExpressionSyntax` selects expression position, `StatementSyntax`
 selects statement position, `ExpressionSyntax | StatementSyntax` selects both,
@@ -513,7 +513,7 @@ declaration to `property`. Its type is an ordinary Raven.CodeAnalysis syntax
 type and determines the accepted target; there is no separate target-name
 vocabulary. The current provider adapter projects declaration syntax into its
 coarser `MacroTarget` category where required. A declaration without an `on`
-parameter is an argument-style invocable macro. Token-stream and
+parameter is an argument-style freestanding macro. Token-stream and
 syntax-projection inputs use the same parameter syntax:
 
 ```raven
@@ -560,7 +560,7 @@ uses it to forward its Raven-authored declarations to the transitional
 An argument-style macro may instead declare an `InvocableMacroContext`
 parameter. It has the compiler-supplied `InvocableContext` role and exposes
 the invocation, arguments, semantic model, diagnostics, and other
-invocable-expansion services without changing the call site into a
+freestanding-expansion services without changing the call site into a
 token-tree macro. It therefore does not require a `{ ... }` body. For example,
 a macro declared with an ordinary `path: string` parameter plus a
 `InvocableMacroContext` parameter is invoked as `Macro!("path")`; only the
@@ -590,7 +590,7 @@ expression position such as a `match` arm:
 * `introduce member-or-members` appends introduced members to an attached
   macro.
 
-For example, an invocable macro can select its expansion without wrapping each
+For example, a freestanding macro can select its expansion without wrapping each
 arm in a statement block:
 
 ```raven
@@ -830,7 +830,7 @@ The compiler parses and preserves these arguments generically. Their interpretat
 
 For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`.
 
-For invocable macros, the equivalent APIs are `InvocableMacroContext.ArgumentList` and `InvocableMacroContext.Arguments`.
+For freestanding macros, the equivalent APIs are `InvocableMacroContext.ArgumentList` and `InvocableMacroContext.Arguments`.
 
 Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
 
@@ -951,7 +951,7 @@ The current attached-macro system supports these generic result shapes:
 
 Expansion must remain generic. The compiler does not hardcode macro-specific behaviors such as property notification or equality semantics.
 
-Invocable macros return a generic expansion result shape:
+Freestanding macros return a generic expansion result shape:
 
 * compiler-owned macro expansion diagnostics with custom messages and precise locations
 * raw compiler diagnostics for advanced scenarios

@@ -1,7 +1,7 @@
 # Authoring Raven macros
 
-Raven macros are compile-time programs that validate input and produce ordinary
-Raven syntax. Start with `macro`. Move to provider interfaces only when a
+Raven macros are procedural macros: compile-time programs that validate input
+and produce ordinary Raven syntax. Start with `macro`. Move to provider interfaces only when a
 macro needs capabilities the compact declaration syntax does not yet project.
 
 > [!NOTE]
@@ -17,9 +17,9 @@ the usual way.
 
 Keep four rules in mind:
 
-1. Invoke an invocable macro with `Name!(...)`, `Name! { ... }`, or both.
+1. Invoke a freestanding macro with `Name!(...)`, `Name! { ... }`, or both.
    `#` is reserved for directives and attached macro attributes.
-2. Use `expand` once the invocable result is ready. It sets the expansion and
+2. Use `expand` once the freestanding result is ready. It sets the expansion and
    returns from that execution path.
 3. Report expected input failures as diagnostics. Do not throw for malformed
    user input.
@@ -52,10 +52,17 @@ authors do not need to begin there.
 The compact and class-authored forms are two projections of one model. They use
 the same invocation syntax, registry, contexts, diagnostics, and results.
 
+Procedural macros have two application positions. A **freestanding** macro
+appears independently at any grammar position allowed by its declared syntax
+result and is usually written with the function-like `Name!(...)` form. An
+**attached** macro appears in an attribute-like position on an existing
+declaration. Raw token bodies and injected contexts add capabilities to either
+authoring model; they do not define additional macro kinds.
+
 ## Macros and source generators solve different problems
 
 Use a macro when the programmer should opt into a transformation at a specific
-source location. An invocable macro replaces `Name!(...)` or `Name! { ... }`;
+source location. A freestanding macro replaces `Name!(...)` or `Name! { ... }`;
 an attached macro transforms the declaration carrying it. The compiler retains
 that relationship for diagnostics, source mapping, hover, navigation, and
 debugging. A macro can inspect its explicit inputs, but it should not behave
@@ -612,7 +619,7 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | reached `fragment` | ordinary Raven fragment metadata |
 | reached `token` | token kind and classification metadata |
 
-The two invocable contexts expose a normalized carrier surface:
+The two freestanding contexts expose a normalized carrier surface:
 `Syntax` is the authored `SyntaxNode`, while `Name`, `ExclamationToken`,
 `ArgumentList`, and `TokenTree` provide the shared `Name!` parts. This keeps a
 macro independent of whether the parser used an expression carrier or a
@@ -778,7 +785,7 @@ The repository examples progress from compact syntax to full DSL handling:
   tooling, and debugger source provenance;
 * `samples/projects/macro-token-stream` — a custom lexer-backed stream;
 * `samples/projects/macro-reactive` — attached replacement and introduction;
-* `samples/projects/macro-invocable` — LINQ-like query parsing, three
+* `samples/projects/macro-freestanding` — LINQ-like query parsing, three
   embedded Raven expression regions, caller-scope completion, and an
   introduced sequence-element range variable;
 * `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven

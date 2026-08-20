@@ -23,8 +23,8 @@ layer.
 The implementation must preserve working expression and attached behavior while
 it changes the internal projection. The gate is complete only when:
 
-* application kind is independent from invocable grammar targets;
-* invocable targets are projected from the macro return type;
+* application kind is independent from freestanding grammar targets;
+* freestanding targets are projected from the macro return type;
 * attached targets are projected from exactly one typed `on` parameter;
 * parameter descriptors distinguish caller-supplied and compiler-supplied values
   without category-specific role proliferation;
@@ -91,7 +91,7 @@ and execution must never depend on an analyzer being loaded.
 Implemented before the token-tree work:
 
 * attached declaration macros using `#[Name]`
-* argument-based invocable macros using `name!(...)`
+* argument-based freestanding macros using `name!(...)`
 * .NET and Raven-authored macro plugins activated through compiler-owned
   `MacroReference` instances
 * typed parameter objects for argument-based macros
@@ -197,7 +197,7 @@ The representative integration paths exercise the direct-macro model:
 | Origin | Registration | Representative coverage |
 | --- | --- | --- |
 | Same Raven compilation | automatic direct-class discovery in the compile-time partition | `RavenProject_BuildsSameProjectMacroWithoutMacroProjectItem`, single-file workspace tests, and Playground local-macro samples |
-| Referenced Raven project | `[assembly: RavenCompilerPlugin(typeof(MacroType))]` | direct attached-macro project-reference test and the invocable sample project |
+| Referenced Raven project | `[assembly: RavenCompilerPlugin(typeof(MacroType))]` | direct attached-macro project-reference test and the freestanding sample project |
 | Referenced C# project | `[assembly: RavenCompilerPlugin(typeof(MacroType))]` | direct token-tree project-reference test and the attached-macro sample project |
 | Direct DLL or metadata image | assembly manifest | macro-reference tests for file, image, multiple exports, invalid exports, and bare-marker fallback |
 | NuGet package | assembly manifest on selected compile/runtime assets | package tests for direct, split reference/runtime, adjacent helper, and transitive runtime dependencies |
@@ -408,7 +408,7 @@ Status: **implemented and validated**
 Macro names are discoverable from the first `#`, including incomplete syntax:
 
 * [x] trigger language-server completion on `#` and `[`
-* [x] offer only invocable and token-tree macros in expression positions
+* [x] offer only freestanding and token-tree macros in expression positions
 * [x] offer only attached macros in declaration attribute positions
 * [x] insert `#[Macro]` when completion starts from a bare declaration `#`
 * [x] retain partial-name, invocation-shape, and typed-parameter completion
@@ -536,7 +536,7 @@ The first slice is intentionally expression-only. It must:
 * allow selected body-relative spans to be delegated back to Raven's expression
   parser
 * report macro diagnostics at authored body-relative spans
-* lower expansion results through the existing invocable-expression binding
+* lower expansion results through the existing freestanding-expression binding
   and emit path
 * preserve existing `name!(...)` behavior
 
@@ -888,7 +888,7 @@ contract.
 
 ## API ergonomics: expansion-result factories
 
-The invocable macro MVP now provides
+The freestanding macro MVP now provides
 `InvocableMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
 `FromDiagnostics`. These cover plain expression success, success with
 forwarded parser diagnostics, macro-authored diagnostic-only results, and
@@ -936,7 +936,7 @@ the macro author's actual failure, not `TargetInvocationException`'s generic
 wrapper message.
 
 The expansion service now unwraps reflection invocation failures for both
-attached and invocable typed macros and reports the underlying message
+attached and freestanding typed macros and reports the underlying message
 through `RAVM020` at the authored macro name. Expected input validation remains
 on the source-located `MacroExpansionDiagnostic` path; this diagnostic is for
 unexpected macro implementation failures.
@@ -949,8 +949,8 @@ expanded-source inspection before retained DSL structure.
 
 Validation record for this slice:
 
-* focused typed attached and invocable failure tests: 2 passed
-* focused attached and invocable semantic suites: 43 passed
+* focused typed attached and freestanding failure tests: 2 passed
+* focused attached and freestanding semantic suites: 43 passed
 * `scripts/test-feature-suite.sh macros`: 54 passed
 
 ## Authoring hardening: cancellable expansion
@@ -972,8 +972,8 @@ The expansion service now:
 
 Validation record for this slice:
 
-* focused direct and typed attached/invocable cancellation tests: 4 passed
-* focused attached and invocable semantic suites: 47 passed
+* focused direct and typed attached/freestanding cancellation tests: 4 passed
+* focused attached and freestanding semantic suites: 47 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
 
 ## SDK integration: provider-declared compiler plugins
@@ -1004,8 +1004,8 @@ The MVP recognizes the assembly marker syntactically in evaluated
 Raven and C# project sources, builds the provider through the appropriate
 language build path, and adds its output as a `MacroReference` rather than a
 runtime `ProjectReference`. Unmarked project references retain their ordinary
-behavior. The representative `macro-invocable` and `macro-add-equatable`
-samples cover Raven-authored invocable and attached providers respectively.
+behavior. The representative `macro-freestanding` and `macro-add-equatable`
+samples cover Raven-authored freestanding and attached providers respectively.
 The compiler continues to support .NET-authored providers through the same
 object-oriented contracts, but runnable language samples use Raven.
 
@@ -1058,7 +1058,7 @@ boilerplate only by lowering to or interoperating with these same contracts.
 It may also synthesize the assembly export registration currently expressed
 through `RavenCompilerPlugin`.
 
-The function-like declaration uses parameter roles, an invocable return-type
+The function-like declaration uses parameter roles, a freestanding return-type
 target or an attached `on` parameter, and body contributions to describe the
 macro:
 
@@ -1088,7 +1088,7 @@ provider assembly synthesizes provider manifest metadata.
 
 The model separates user inputs, compiler-supplied roles, invocation targets,
 and `expand`/`replace`/`introduce` behavior. `expand` is the semantic return for
-an invocable expansion path; attached `replace` and `introduce` statements
+a freestanding expansion path; attached `replace` and `introduce` statements
 accumulate result state until body fall-through. Diagnostics accumulate through
 the context API rather than another language statement. It
 must cover attached, argument-style, and token-tree macros without
@@ -1115,7 +1115,7 @@ constraint validation before expansion, and remain distinct from CLR generic
 parameters on the provider implementation. A macro declaration may eventually
 declare a call-site semantic result type, while its implementation supplies
 syntax that the compiler binds and verifies against that result. Generic
-inference and overload resolution remain later layers. For invocable macros,
+inference and overload resolution remain later layers. For freestanding macros,
 the return type declares grammar targets rather than a separate call-site
 semantic result type; the expanded ordinary syntax is subsequently bound and
 type-checked normally.
@@ -1126,8 +1126,8 @@ Validation record for this slice:
   activation tests: 14 passed
 * complete MSBuild project-system service suite: 14 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
-* compiler-driver `macro-invocable` project validation: passed
-* `macro-invocable` runtime output: `42`, `False`, `correct`, `70`,
+* compiler-driver `macro-freestanding` project validation: passed
+* `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
   `answer + 1`
 * dedicated `macro-quote` runtime output: `42`
 
@@ -1148,8 +1148,8 @@ Explicit entry-point manifest validation:
 
 * focused macro-reference tests: 10 passed
 * `scripts/test-feature-suite.sh macros`: 58 passed
-* compiler-driver `macro-invocable` project validation: passed
-* `macro-invocable` runtime output: `42`, `False`, `correct`, `70`,
+* compiler-driver `macro-freestanding` project validation: passed
+* `macro-freestanding` runtime output: `42`, `False`, `correct`, `70`,
   `answer + 1`
 
 ## Historical slice: default environment and in-memory activation
@@ -1537,7 +1537,7 @@ one `SyntaxNode` and validates expression versus statement placement before
 binding. A bare raw-body `Name! { ... }` invocation selects statement placement;
 parentheses retain expression placement. A union annotation supplies an exact
 closed position set, while `-> SyntaxNode` explicitly opts into all single-node
-invocable positions. Neither form includes attached or list-valued
+freestanding positions. Neither form includes attached or list-valued
 contributions. Member expansion uses `SyntaxList<TMember>` for a list-valued
 namespace- or type-member result and normalizes it to an immutable member
 array. Compact declarations project that return type to namespace-member and
@@ -1550,7 +1550,7 @@ carriers remain post-MVP work.
 Here “untyped” means category-erased to the `SyntaxNode` base type, not dynamic
 or text-based expansion.
 
-For an invocable macro, the return type is normative target metadata: it
+For a freestanding macro, the return type is normative target metadata: it
 decides where resolution and completion offer that macro before expansion runs.
 
 The accepted attached syntax moves `on` into the parameter list:

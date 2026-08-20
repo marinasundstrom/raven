@@ -48,7 +48,7 @@ internal static class MethodMacroFacts
             method.GetParameters().Any(static parameter =>
                 typeof(AttachedMacroContext).IsAssignableFrom(parameter.ParameterType))
             ? MacroApplicationKind.Attached
-            : MacroApplicationKind.Invocable;
+            : MacroApplicationKind.Freestanding;
 
     public static ImmutableArray<MacroExecutorParameter> GetParameters(MethodInfo method)
     {

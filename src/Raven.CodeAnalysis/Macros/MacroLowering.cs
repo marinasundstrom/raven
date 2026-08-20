@@ -136,7 +136,7 @@ internal static class MacroLowering
             builder.AppendLine($"    val Namespace: string => \"{EscapeString(namespaceName)}\"");
         if (!HasDeclaredMember(declaration, nameof(IMacroDefinition.Name)))
             builder.AppendLine($"    val Name: string => \"{EscapeString(declaredName)}\"");
-        builder.AppendLine("    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.Invocable");
+        builder.AppendLine("    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.Freestanding");
         if (parameterMetadata.Any(static parameter => parameter.InvocationOrdinal >= 0))
             builder.AppendLine("    val AcceptsArguments: bool => true");
         if (parameterMetadata.Any(static parameter => parameter.Source == MacroParameterSource.TokenBody))
@@ -368,7 +368,7 @@ internal static class MacroLowering
         }
 
         builder.AppendLine(
-            $"    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.{(isAttached ? "Attached" : "Invocable")}");
+            $"    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.{(isAttached ? "Attached" : "Freestanding")}");
         if (hasTokenTreeBody)
             builder.AppendLine("    val HasTokenBody: bool => true");
         if (hasParameters)

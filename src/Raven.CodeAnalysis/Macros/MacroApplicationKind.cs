@@ -6,12 +6,14 @@ namespace Raven.CodeAnalysis.Macros;
 public enum MacroApplicationKind
 {
     /// <summary>
-    /// The macro is invoked from a compiler-owned grammar carrier.
+    /// The procedural macro appears independently at one of its permitted
+    /// grammar positions.
     /// </summary>
-    Invocable = 0,
+    Freestanding = 0,
 
     /// <summary>
-    /// The macro is attached to an existing syntax declaration.
+    /// The procedural macro is attached to an existing syntax declaration in
+    /// an attribute-like position.
     /// </summary>
     Attached = 1,
 }

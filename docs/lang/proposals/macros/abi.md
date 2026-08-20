@@ -2,10 +2,21 @@
 
 Status: **implemented MVP**
 
-This document defines the stable underlying model for Raven macros. The
-authored `macro` syntax remains the primary source experience. The redesign is
+This document defines the stable underlying model for Raven procedural macros.
+The authored `macro` syntax remains the primary source experience. The redesign is
 allowed to break the current category-specific provider interfaces, generated
 parameter objects, and adapter layout.
+
+Every procedural macro has one application kind:
+
+* **Freestanding** macros appear independently wherever their declared grammar
+  positions allow. Their usual `Name!(...)` spelling is function-like, but
+  “freestanding” describes that syntax rather than their ABI category.
+* **Attached** macros occupy an attribute-like position on an existing
+  declaration.
+
+Token bodies and injected contexts are parameter capabilities, not additional
+application kinds.
 
 The ABI has two layers:
 
@@ -182,7 +193,7 @@ parameter identities and ordinals in the invocation snapshot. No generated
 typed parameter object is part of the stable ABI.
 
 The executor always returns `MacroExecutionResult`, the compiler-owned union
-of attached and invocable expansion results. The dispatcher validates that the
+of attached and freestanding expansion results. The dispatcher validates that the
 selected result matches the invocation application kind.
 The authored `ExpandMethod.ReturnType` remains the source-level contract used
 for macro application and validation; it is not required to be the physical

@@ -54,7 +54,7 @@ public sealed class MacroReferenceTests
         var tree = SyntaxTree.ParseText("""
             class AnswerMacro : IMacroExecutor {
                 val Name: string => "answer"
-                val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Invocable
+                val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Freestanding
 
                 func Expand(context: MacroExecutionContext) -> MacroExecutionResult
                     => MacroExecutionResult.Invocable(InvocableMacroExpansionResult.Empty)
@@ -126,7 +126,7 @@ public sealed class MacroReferenceTests
         Assert.Same(macro, loaded.Macro);
         Assert.NotSame(macro, loaded.Executor);
         Assert.True(loaded.Executor.HasTokenBody);
-        Assert.Equal(MacroApplicationKind.Invocable, loaded.Executor.ApplicationKind);
+        Assert.Equal(MacroApplicationKind.Freestanding, loaded.Executor.ApplicationKind);
     }
 
     [Fact]
@@ -768,13 +768,13 @@ public sealed class MacroReferenceTests
     {
         var macro = new TestTokenTreeMacro();
 
-        Assert.Equal(MacroApplicationKind.Invocable, MacroFacts.GetApplicationKind(macro));
+        Assert.Equal(MacroApplicationKind.Freestanding, MacroFacts.GetApplicationKind(macro));
         Assert.Equal(MacroInvocationTargets.Expression, MacroFacts.GetInvocationTargets(macro));
         Assert.Equal(MacroTarget.None, MacroFacts.GetTargets(macro));
 
         var descriptor = MacroFacts.GetDescriptor(macro);
         Assert.Same(macro, descriptor.Definition);
-        Assert.Equal(MacroApplicationKind.Invocable, descriptor.ApplicationKind);
+        Assert.Equal(MacroApplicationKind.Freestanding, descriptor.ApplicationKind);
         Assert.Equal(MacroInvocationTargets.Expression, descriptor.InvocationTargets);
         Assert.Equal(MacroTarget.None, descriptor.AttachmentTargets);
         Assert.False(descriptor.AcceptsArguments);

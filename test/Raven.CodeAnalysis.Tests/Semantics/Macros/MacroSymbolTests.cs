@@ -161,7 +161,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(SymbolKind.Macro, symbol.Kind);
-        Assert.Equal(MacroApplicationKind.Invocable, symbol.ApplicationKind);
+        Assert.Equal(MacroApplicationKind.Freestanding, symbol.ApplicationKind);
         Assert.Equal(MacroInvocationTargets.Expression, symbol.InvocationTargets);
         Assert.Equal(MacroKind.Invocable, symbol.MacroKind);
         Assert.Equal(MacroTarget.None, symbol.Targets);

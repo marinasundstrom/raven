@@ -190,7 +190,7 @@ class Host {
 
         public bool AcceptsArguments => true;
 
-        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Invocable;
+        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Freestanding;
 
         public System.Collections.Immutable.ImmutableArray<string> TypeParameters =>
             MacroExecutorMetadata.CreateTypeParameters("T");

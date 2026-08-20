@@ -81,7 +81,7 @@ public static class MacroFacts
 
         applicationKind = kind == MacroKind.AttachedDeclaration
             ? MacroApplicationKind.Attached
-            : MacroApplicationKind.Invocable;
+            : MacroApplicationKind.Freestanding;
         return true;
     }
 
@@ -92,7 +92,7 @@ public static class MacroFacts
     {
         ArgumentNullException.ThrowIfNull(macro);
 
-        return GetApplicationKind(macro) == MacroApplicationKind.Invocable
+        return GetApplicationKind(macro) == MacroApplicationKind.Freestanding
             ? macro.InvocationTargets
             : MacroInvocationTargets.None;
     }

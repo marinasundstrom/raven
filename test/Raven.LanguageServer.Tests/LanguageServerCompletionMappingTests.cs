@@ -235,7 +235,7 @@ public class LanguageServerCompletionMappingTests
 
         public MacroKind MacroKind => MacroKind.Invocable;
 
-        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Invocable;
+        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Freestanding;
 
         public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.Expression;
 

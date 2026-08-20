@@ -3234,7 +3234,7 @@ public static class CompletionProvider
         var kindDisplay = descriptor.ApplicationKind switch
         {
             MacroApplicationKind.Attached => "attached declaration macro",
-            MacroApplicationKind.Invocable => "invocable macro",
+            MacroApplicationKind.Freestanding => "freestanding procedural macro",
             _ => "macro"
         };
         var targets = descriptor.AttachmentTargets;

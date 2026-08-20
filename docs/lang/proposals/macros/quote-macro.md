@@ -332,7 +332,7 @@ but it should be convenience rather than a second syntax type system.
 Implementation should wait for these general macro capabilities:
 
 1. **Delimited token-tree input**
-   Invocable macros must capture a block without requiring the block to
+   Freestanding macros must capture a block without requiring the block to
    parse first as an ordinary Raven argument expression.
 
 2. **Category-directed fragment parsers**
@@ -340,7 +340,7 @@ Implementation should wait for these general macro capabilities:
    declaration, and compilation-unit parsing with authored source locations.
 
 3. **Expansion substitution**
-   Invocable expansion results must replace invocations during normal
+   Freestanding expansion results must replace invocations during normal
    binding and code generation, not only appear in inspection APIs.
 
 4. **Source mapping**
@@ -399,8 +399,8 @@ source-mapping policy. Those concerns remain deferred.
 
 ## Implementation sequence
 
-1. Complete general token-tree capture for invocable macros.
-2. Integrate invocable macro substitution into binding and code generation.
+1. Complete general token-tree capture for freestanding macros.
+2. Integrate freestanding macro substitution into binding and code generation.
 3. Add fragment-parser and source-mapping services to macro infrastructure.
 4. Add compiler-provided intrinsic macro registration.
 5. Implement `#quote` for one unambiguous category, preferably expressions.

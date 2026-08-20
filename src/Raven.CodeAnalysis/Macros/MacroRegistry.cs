@@ -127,7 +127,7 @@ internal sealed class MacroRegistry
                             aliases));
                     break;
 
-                case MacroApplicationKind.Invocable:
+                case MacroApplicationKind.Freestanding:
                     if (invocableMacros.TryGetValue(canonicalName, out var existingInvocable))
                     {
                         diagnostics.Add(Diagnostic.Create(

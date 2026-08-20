@@ -179,7 +179,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
 
         public bool AcceptsArguments => true;
 
-        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Invocable;
+        public MacroApplicationKind ApplicationKind => MacroApplicationKind.Freestanding;
 
         public ImmutableArray<ITypeSymbol> TypeArguments { get; private set; } = [];
 

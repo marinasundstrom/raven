@@ -11,14 +11,19 @@ boundary are defined separately in [Macro ABI](abi.md). This document owns the
 application positions and normalized semantic facts that the ABI carries; it
 does not preserve the current generated adapter or parameter-object layout.
 
+Raven macros are procedural macros with one of two application kinds:
+**Freestanding**, meaning the macro appears independently at any declared
+grammar position, or **Attached**, meaning it occupies an attribute-like
+position on an existing declaration.
+
 The central rule is that application position, input representation, output
 syntax, and optional capabilities are independent dimensions. Token bodies,
 editor metadata, and custom DSL structure are not separate macro kinds.
 
-For an invocable macro, the declared **return type decides its
+For a freestanding macro, the declared **return type decides its
 invocation target**. It is not an ordinary runtime return-type annotation:
-`ExpressionSyntax` makes the macro invocable in expression targets,
-`StatementSyntax` makes it invocable in statement targets, and a union declares
+`ExpressionSyntax` makes the macro freestanding in expression targets,
+`StatementSyntax` makes it freestanding in statement targets, and a union declares
 several targets. `expand` must then produce syntax valid for the actual target.
 
 ## Goals
@@ -34,7 +39,7 @@ several targets. `expand` must then produce syntax valid for the actual target.
 
 | Dimension | Examples |
 | --- | --- |
-| Application | invocable; attached to a declaration |
+| Application | freestanding; attached to a declaration |
 | Input | constants; syntax nodes; token body; compiler context |
 | Return type / invocation target | expression; statement; member; type; pattern |
 | Cardinality | one node; a list in a list-valued grammar position |
@@ -44,7 +49,7 @@ several targets. `expand` must then produce syntax valid for the actual target.
 The normalized contract records these separately. A macro does not become a
 new kind merely because it uses a token body or supplies hover metadata.
 
-## Invocable positions
+## Freestanding positions
 
 ### Expression
 
@@ -60,7 +65,7 @@ let rows = Sql! { select * from users }
 ```
 
 The proposed default for an omitted return type is `ExpressionSyntax`, making
-the macro invocable only in expression targets.
+the macro freestanding only in expression targets.
 
 ### Statement
 
@@ -98,7 +103,7 @@ it against the actual invocation carrier before insertion.
 ### Flexible single-node output
 
 `SyntaxNode` is the explicit wildcard for a macro that intentionally supports
-every single-node invocable position known to the compiler:
+every single-node freestanding position known to the compiler:
 
 ```raven
 macro Forward(context: TokenTreeMacroContext) -> SyntaxNode {
@@ -130,7 +135,7 @@ The return-type-to-target projection is therefore:
 | omitted | expression |
 | `ExpressionSyntax` | expression |
 | `ExpressionSyntax \| StatementSyntax` | expression and statement |
-| `SyntaxNode` | every supported single-node invocable position |
+| `SyntaxNode` | every supported single-node freestanding position |
 
 ### Member
 
@@ -209,7 +214,7 @@ macro Component(on target: ClassDeclarationSyntax) {
 ```
 
 The modifier identifies the parameter role; its name has no semantic meaning.
-Its type decides where the macro can be attached, just as an invocable macro's
+Its type decides where the macro can be attached, just as a freestanding macro's
 return type decides where it can be invoked:
 
 ```raven
@@ -227,8 +232,8 @@ syntax node. It remains distinct from an ordinary invocation parameter
 
 Attached macros operate on an existing declaration. Their contributions are
 replacement, introduced members, introduced peers, diagnostics, and editor
-metadata. They have no invocable return target. Combining an `on` parameter
-with an invocable syntax return type is invalid.
+metadata. They have no freestanding return target. Combining an `on` parameter
+with a freestanding syntax return type is invalid.
 
 Potential targets include type, method/function, property, field, event,
 constructor, accessor, and parameter. File, namespace, module, and assembly
@@ -381,7 +386,7 @@ disagree with execution.
 * An attached macro has exactly one `on` parameter.
 * Its type is an attachable syntax type, a union of those types, or
   `SyntaxNode`.
-* An invocable macro has no `on` parameter.
+* A freestanding macro has no `on` parameter.
 * At most one parameter supplies each compiler context/body role unless a
   future API explicitly defines otherwise.
 * No context role is required merely because a declaration is a macro.
@@ -405,7 +410,7 @@ class Customer { }
 
 ## Actual invocation position
 
-Every invocable context exposes the compiler-determined position:
+Every freestanding context exposes the compiler-determined position:
 
 ```raven
 context.Position
@@ -460,7 +465,7 @@ The driver follows one category-safe path:
 A union-typed multi-position macro remains category-typed at the source level
 even if the normalized ABI transports its result as `SyntaxNode`. A declaration
 written directly as `-> SyntaxNode` is category-untyped by design. Its supported
-set remains inspectable as “all single-node invocable positions,” and every
+set remains inspectable as “all single-node freestanding positions,” and every
 result is validated against the actual carrier.
 
 ## Normalized compiler model
@@ -478,12 +483,12 @@ application-only distinction:
 ```csharp
 public enum MacroApplicationKind
 {
-    Invocable,
+    Freestanding,
     Attached,
 }
 ```
 
-An invocable macro's grammar positions are separate metadata. They are projected
+A freestanding macro's grammar positions are separate metadata. They are projected
 from the declared return type and represented internally as flags so lookup does
 not repeatedly inspect type syntax:
 
@@ -589,7 +594,7 @@ public interface IMacroSymbol : ISymbol
 ```
 
 For an attached macro, `InvocationTargets` is `None` and the attachment
-properties are present. For an invocable macro, the inverse holds. Return type,
+properties are present. For a freestanding macro, the inverse holds. Return type,
 parameters, generic parameters, and constraints project from `DefinitionType`
 and `ExpandMethod`; the macro symbol does not own copies. These are validated
 states rather than combinations consumers must guess how to interpret.
@@ -613,7 +618,7 @@ pipelines for macros with and without an explicit context.
 ### Expansion and contribution results
 
 The expression-specific `InvocableMacroExpansionResult.Expression` is not
-the normalized result boundary. The MVP invocable expansion carries one
+the normalized result boundary. The MVP freestanding expansion carries one
 category-erased node:
 
 ```csharp
@@ -639,8 +644,8 @@ available even when the list has no elements.
 
 Attached execution produces a contribution result containing replacements,
 introduced members or peers, diagnostics, provenance, and editor metadata. It
-does not fake those contributions as an invocable syntax return. `expand` is
-therefore terminal only for invocable macros; `replace` and `introduce`
+does not fake those contributions as a freestanding syntax return. `expand` is
+therefore terminal only for freestanding macros; `replace` and `introduce`
 accumulate attached contributions until body completion.
 
 ### Registry and lookup
@@ -681,9 +686,9 @@ descriptor when possible. It must not throw for incomplete types, missing
 parameters, duplicate compiler roles, or contradictory application metadata.
 In particular:
 
-* an attached macro has exactly one `AttachedTarget` parameter and no invocable
+* an attached macro has exactly one `AttachedTarget` parameter and no freestanding
   return target;
-* an invocable macro has no `AttachedTarget` parameter and at least one projected
+* a freestanding macro has no `AttachedTarget` parameter and at least one projected
   invocation target;
 * at most one parameter supplies each compiler-owned context or body role;
 * unsupported syntax categories and open-ended unions are diagnosed;
@@ -738,10 +743,10 @@ placement must not be distorted to solve quotation.
 
 ## Proposed decisions
 
-1. An invocable macro's return type declares its allowed invocation targets.
+1. A freestanding macro's return type declares its allowed invocation targets.
 2. An omitted annotation defaults to `ExpressionSyntax`.
 3. A union annotation is the canonical precise multi-position declaration.
-4. `SyntaxNode` explicitly means all single-node invocable positions and is
+4. `SyntaxNode` explicitly means all single-node freestanding positions and is
    the advanced wildcard, not a synonym for attached or list-valued expansion.
 5. Actual position is compiler-owned context, not a macro argument.
 6. Single-position APIs are typed; the advanced ABI carries `SyntaxNode` and

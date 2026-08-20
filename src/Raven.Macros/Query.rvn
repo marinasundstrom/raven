@@ -28,7 +28,7 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
 
     val Name: string => "query"
 
-    val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Invocable
+    val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Freestanding
 
     val HasTokenBody: bool => true
 
