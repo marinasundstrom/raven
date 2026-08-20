@@ -1,6 +1,7 @@
 # Macro application model
 
-Status: **MVP and member-list extension implemented**
+Status: **MVP, member-list, and declaration-carrier slices implemented;
+sequence input remains proposed**
 
 This proposal defines where macros can be applied, what a macro declaration
 must communicate, and how the compiler validates expansion. It does not change
@@ -284,9 +285,9 @@ List-valued member output is a distinct cardinality contract. It is not
 included by `SyntaxNode`, cannot be mixed into a single-node return union, and
 does not imply attached replacement or introduction.
 
-### Declaration-form carrier (design direction)
+### Declaration-form carrier
 
-Raven should evolve freestanding macros with a declaration-oriented invocation
+Raven extends freestanding macros with a declaration-oriented invocation
 carrier for constructs that introduce declarations. This is an invocation form,
 not a third application kind:
 

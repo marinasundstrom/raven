@@ -22,11 +22,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
   parameter symbols that preserve navigation back to the header. Compiler and
   language-server queries now carry those fragments through nested macros for
   completion, hover, go-to-definition, and semantic coloring. Resolved macro
-  aliases such as `component!` and `markup!` are classified as contextual
-  keywords, while canonical macro names retain the distinct macro
-  classification. The browser Playground now requests the same compiler-owned
-  semantic classifications and overlays them in Monaco, so visible aliases
-  receive the same keyword color there as in language-server clients.
+  aliases such as `component!` and `markup!` are contextually presented as
+  contextual keywords after macro resolution, while canonical macro names
+  retain the distinct macro classification. The browser Playground now
+  requests the same compiler-owned semantic classifications and overlays them
+  in Monaco, so visible aliases receive the same keyword color there as in
+  language-server clients.
 - Lambda diagnostics now reject missing expression bodies, report incompatible
   explicit and tail returns at the returned expression, and publish actionable
   source ranges through the language server.

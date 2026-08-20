@@ -1,1163 +1,420 @@
 # Macros
 
-Macros are procedural compile-time extensions. They can transform a declaration, replace
-an invocation with an expression or statement, or interpret a brace-delimited
-domain-specific language (DSL).
+Status: **Experimental**
 
-For a guided implementation, see [Authoring Raven
-macros](../../macro-authoring.md). This page is the precise reference for macro
-syntax, declarations, arguments, expansion, activation, tooling, and compiler
-contracts.
+This chapter specifies Raven's implemented macro application and declaration
+model. Future forms are labeled explicitly and are not accepted source syntax.
+The [authoring guide](../../macro-authoring.md) documents compiler APIs and
+progressive implementation techniques.
 
-> [!NOTE]
-> **Status: work in progress.** This page documents the macro behavior currently
-> implemented by the compiler, not a stable compatibility contract. Macro
-> syntax, the authoring and activation model, compiler APIs, and tooling
-> integration may change as the design develops.
+## 1. Definition
 
-> [!NOTE]
-> **Declaration-carrier semantic MVP implemented:** Raven parses
-> declaration-oriented carriers such as
-> `public component! Header(title: string) { ... }` into a dedicated
-> `FreestandingMacroDeclarationSyntax`, preserving modifiers, the declared
-> name, declaration parameters, and lossless body. A designated `Expand`
-> parameter of that syntax type selects the declaration carrier; an independent
-> `IMacroTokenStream` parameter receives the body. Resolution, execution,
-> output-category validation, declaration discovery, and expanded-document
-> replacement use the ordinary Freestanding descriptor pipeline. More granular
-> typed projections and declaration-body language-service support remain work.
-> See [Declaration-form
-> carrier](../proposals/macros/application-model.md#declaration-form-carrier-design-direction).
+A macro is an explicitly invoked compile-time program that consumes declared
+inputs and produces ordinary Raven syntax or declaration contributions.
+Expansion is procedural and syntax-based, not textual substitution.
 
-> [!NOTE]
-> Freestanding macros may eventually select a sequence envelope
-> `Name![a, b, c]` or the parameter/region family `Name!(a, b)`,
-> `Name! { ... }`, and `Name!(a, b) { ... }`. Parentheses pass a fixed
-> parameter list, square brackets supply a variable number of homogeneous
-> values or captured expressions, and braces bound content for macro-owned
-> processing. `(...)` and `{...}` compose in function- and declaration-shaped
-> forms such as `Query!(dialect) { ... }` and
-> `component! Foo(x: int) { ... }`. The design does not permanently forbid
-> `Name![...] { ... }`, but assigns it no meaning without a comparably clear use
-> case. Each envelope projects its inputs into the same descriptor and
-> canonical `Expand` signature; it does not define a delimiter-specific
-> execution ABI. See [Freestanding invocation
-> envelopes](../proposals/macros/application-model.md#freestanding-invocation-envelopes).
+The source file is parsed before macro resolution. The compiler then resolves
+the macro, binds its inputs, executes it in the compile-time partition,
+validates its output against the authored grammar position, and binds the
+resulting Raven syntax normally.
 
-## Choose a macro form
+Four dimensions are independent:
 
-| Form | Syntax | Use it to |
-| --- | --- | --- |
-| Attached procedural macro | `#[Name]` before a declaration | Transform or augment that declaration from an attribute-like position. |
-| Freestanding procedural macro | `name!(arguments)` | Produce syntax independently at an allowed expression, statement, namespace-member, or type-member position. |
-| Freestanding macro with token body | `name!(arguments) { raw body }` | Parse a custom DSL, optionally with embedded Raven fragments. |
-| Declaration-shaped freestanding macro | `name! Decl(parameters) { body }` | Introduce declarations from a structured declaration header and macro-owned body. |
+| Dimension | Examples |
+| --- | --- |
+| Application kind | freestanding; attached |
+| Input | typed values; syntax nodes; token body; declaration carrier; context |
+| Invocation target | expression; statement; member list |
+| Optional capabilities | tokens; fragments; symbols; source origins |
 
-All forms expand to ordinary Raven syntax before the generated syntax is
-type checked. Use a function when runtime behavior is sufficient; use a macro
-when the program's syntax or declarations must change during compilation.
+A token body, declaration carrier, custom lexer, or editor provider does not
+create another macro application kind.
+
+## 2. Application kinds
+
+### 2.1 Freestanding macros
+
+A freestanding macro occupies an independent source location. Its invocation
+uses a macro name followed by `!` and one of the supported carriers:
+
+```raven
+Name!(arguments)
+
+Name! {
+    body
+}
+
+Name!(arguments) {
+    body
+}
+
+Name! Decl(parameters) {
+    body
+}
+```
+
+The first three forms are invocation carriers. The last is a
+declaration-shaped carrier.
+
+There must be no line break between the name and `!`, or between `!` (or its
+argument list) and an opening body brace. This keeps the form distinct from an
+ordinary postfix `!` expression.
+
+### 2.2 Attached macros
+
+An attached macro occupies an attribute-like position directly before a
+declaration:
 
 ```raven
 #[Observable]
-var Title: string
-
-let answer = answer!()
-
-let names = query! {
-    from user in users
-    where user.IsActive
-    select user.Name
-}
+public var Name: string
 ```
 
-## Macros, attributes, and generators
-
-Macros are distinct from .NET attributes:
-
-* `[Serializable]` is an attribute.
-* `#[Observable]` is a macro.
-
-A macro is local and explicit: it expands the authored site where it appears. A
-source generator runs across a project and contributes separate generated
-files or partial declarations. Use a macro for opt-in syntax transformation and
-a generator for compilation-wide derived code.
-
-Macros can publish classifications and embedded-Raven fragment spans for editor
-features. Tools do not infer a macro's private DSL structure from its raw body
-or expansion when the macro does not publish that metadata.
-
-## Reading this reference
-
-* [Attached macros](#attached-macros) and [freestanding and token-tree
-  macros](#freestanding-and-token-tree-macros) explain call-site syntax.
-* [Declaring macros in Raven](#declaring-macros-in-raven) describes compact
-  source declarations and contribution statements.
-* [Macro arguments and diagnostics](#macro-arguments-and-diagnostics) and the
-  [expansion model](#expansion-model) define how a macro receives input and how
-  multiple expansions compose.
-* [Project references](#project-references) and [local macros in the same
-  project](#local-macros-in-the-same-project) cover activation.
-
-## Macro discovery and tooling contracts
-
-Macros are resolved from compiler-plugin assemblies. Their meaning is defined
-by the referenced macro implementation, not by the parser. A reusable Raven
-macro project marks its assembly with `RavenCompilerPlugin`. Class-authored
-providers should name each exported definition explicitly:
+It may take positional or named arguments:
 
 ```raven
-[assembly: RavenCompilerPlugin(typeof(QueryMacro))]
+#[Observable("NameChanged")]
+#[Observable(Name: "NameChanged", Notify: true)]
 ```
 
-The same attribute and contracts can be used from a C# compiler-plugin
-project. A project containing compact declarations uses the bare marker; it
-exports compiler-generated provider adapters for its `public` declarations and
-may share a source file with those declarations:
+Attached macro attributes follow declaration-attribute placement rules. No
+blank line may separate the macro attribute from its declaration. Ordinary and
+macro attribute lists may be mixed in the same declaration prelude.
+
+Exactly one macro declaration parameter marked with contextual `on` selects
+attached application and its accepted declaration syntax:
 
 ```raven
-[assembly: RavenCompilerPlugin]
-
-public macro Answer() {
-    expand Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42")
-}
-```
-
-Apply an explicit marker once for each class-authored definition intentionally
-exported from the assembly. The declared type must be a non-abstract macro
-implementation in the marked assembly with a public parameterless constructor.
-A single bare
-`[assembly: RavenCompilerPlugin]` marker authorizes fallback discovery of
-concrete `IMacroDefinition` implementations, including adapters generated from
-compact declarations.
-Explicit and bare markers cannot be mixed. The marker is an inter-assembly
-export boundary, not part of declaring a same-project macro. Consumers use a
-normal project reference.
-Non-public compact declarations remain usable inside their own project and are
-not discovered from a referenced bare-marker plugin assembly.
-
-`MacroKind` is compiler-owned classification metadata. Concrete macro classes
-do not implement a `Kind` property. The compiler classifies the canonical
-`Expand` method from its injected parameters and result type. An attached
-target parameter implies `Attached`; otherwise the definition is
-`Freestanding`. Token-tree input is a freestanding input shape, not a distinct
-macro category.
-
-Target applicability is derived from the attached target parameter's syntax
-type. Code that handles the common `IMacroDefinition` surface can use
-`MacroFacts.GetTargets`, which returns `MacroTarget.None` for freestanding
-definitions.
-
-Freestanding applicability is expressed separately through
-`IMacroDefinition.InvocationTargets`. Class-authored providers default to
-expression position for compatibility and may opt into statement, namespace-
-member, or type-member positions. Compact declarations derive the same value
-from their return annotation, and their generated adapters preserve it.
-
-Macro symbols participate in ordinary documentation APIs. Documentation
-comments attached to compact macro declarations are projected onto their
-generated definitions. Class-authored definitions can supply the optional
-`IMacroDefinition.Documentation` and `DocumentationFormat` properties directly.
-Language services display this documentation when hovering a freestanding macro
-name or an attached macro name, together with its macro-specific applicability
-details. The invocation body and attached target retain their own semantic
-hover behavior.
-
-## Attached macros
-
-An attached macro uses a `#` directly followed by an attribute list:
-
-```raven
-#[Observable]
-var Title: string
-```
-
-The `#` token is part of the macro syntax. It is not optional.
-The macro may replace the declaration or introduce ordinary Raven members such
-as backing storage and accessor bodies, according to its declared target and
-expansion result.
-
-### Disambiguation with directives
-
-`#` starts a macro attribute only when it is immediately followed by `[`.
-
-Examples:
-
-```raven
-#[Observable]
-var Title: string
-
-#pragma warning disable RAV0103
-```
-
-`#pragma` and other directive forms remain directives. They do not parse as macros.
-
-## Freestanding and token-tree macros
-
-A freestanding macro uses `name!(...)` in expression position:
-
-```raven
-func Main() -> int => answer!()
-```
-
-The expression expands to an ordinary Raven expression before normal expression binding continues.
-
-A token-tree macro uses a raw brace-delimited body:
-
-```raven
-func Main() -> string => query! {
-    from user in users
-    where user.IsActive
-    select user.Name
-}
-```
-
-The compiler recognizes and balances the invocation envelope, but does not run
-the body through ordinary Raven tokenization. The body is preserved as authored
-so a macro can implement a custom DSL lexer/parser without producing unrelated
-Raven lexer diagnostics.
-
-`TokenTreeMacroContext` exposes the raw body text, its authored
-`BodySpan`, body-relative diagnostic helpers, and Raven expression, statement,
-type, pattern, or compilation-unit parsing for the complete body or a selected
-body-relative span. This supports both complete custom parsing and hybrid DSLs
-with embedded Raven fragments.
-
-`ParseExpression()` and `ParseExpression(span)` return recovered Raven syntax
-directly. The corresponding `ParseExpressionResult` overloads return a
-`MacroSyntaxParseResult<ExpressionSyntax>` containing that syntax, immutable
-native parser diagnostics, and `HasErrors`. These diagnostics retain locations
-in the authored invocation tree and may be forwarded through
-`FreestandingMacroExpansionResult.Diagnostics`.
-
-`ParseStatement()` and `ParseStatement(span)` provide the equivalent
-syntax-only API for one complete Raven statement. Their
-`ParseStatementResult` counterparts return
-`MacroSyntaxParseResult<StatementSyntax>` with native diagnostics mapped to the
-authored body.
-
-Executable syntax returned by the expression and statement fragment parsers
-retains its authored source origin. When that syntax participates in an
-expansion, portable-PDB sequence points map back to the selected span in the
-invocation rather than to generated expansion text.
-
-A macro that constructs Raven syntax can associate it with one authored span
-using `TokenTreeMacroContext.WithOrigin(syntax, bodyRelativeSpan)`. A macro that
-parses a complete generated expression from text can instead provide immutable
-`MacroExpansionSourceMap` values through `WithOrigins`; each value maps one
-expanded-syntax span to one equal-length body-relative span. Unmapped generated
-expansion plumbing is hidden from debugger stepping.
-
-`ParseType`, `ParsePattern`, and `ParseCompilationUnit` follow the same concise
-syntax-only shape. Their corresponding `ParseTypeResult`,
-`ParsePatternResult`, and `ParseCompilationUnitResult` overloads retain native
-parser diagnostics and authored locations. All fragment helpers reject
-trailing input outside the selected fragment.
-
-`ParseMemberDeclaration` and `ParseMemberDeclarationResult` require exactly one
-top-level Raven declaration. Imports, aliases, compilation attributes, global
-statements, empty input, and multiple declarations do not satisfy that
-contract. The diagnostic-bearing form reports `RAVM022` at the responsible
-authored input and returns recovered member syntax so a macro can continue
-analysis without silently treating the input as valid.
-
-An optional `IMacroFragmentProvider` surfaces which body-relative spans contain
-ordinary Raven syntax without exposing a macro's private DSL tree. Providers
-create expression, statement, type, pattern, or member-declaration regions
-through `TokenTreeMacroContext.CreateFragmentRegion`. Each result retains both
-the supplied body-relative span and its compiler-mapped absolute span in the
-authored Raven source. Zero-width regions represent expected syntax in
-incomplete input. `SemanticModel.GetMacroFragmentRegions` and the corresponding
-`Compilation` API resolve this capability.
-
-An expression region may additionally carry a compiler symbol as its
-contextual target type. Macro authors create this form with
-`CreateExpressionFragmentRegion(bodyRelativeSpan, targetType)`. The resulting
-`MacroFragmentRegion.TargetType` is used when the compiler binds that authored
-fragment for semantic tooling, enabling ordinary target-typed behavior such as
-lambda parameter inference. Target types are not valid for non-expression
-regions and do not expose the macro's private DSL representation.
-
-A token-tree `macro` may publish the same metadata with a reached
-`fragment` contribution whose expression has type `MacroFragmentRegion`:
-
-```raven
-fragment context.CreateFragmentRegion(MacroFragmentKind.Expression, span)
-```
-
-The generated adapter stores reached fragments in execution order on the
-freestanding expansion result. `fragment` is invalid on argument-style and
-attached macro declarations. A direct `IMacroFragmentProvider` takes precedence
-when present, allowing editor-region discovery to remain independent of full
-macro expansion.
-
-A fragment region may also carry immutable `MacroFragmentLocal` values for
-names introduced by the DSL rather than the caller. A token-tree context can
-create the initial supported shape with
-`CreateSequenceElementLocal(name, sourceExpressionSpan)`. The compiler binds
-the source expression in the invocation's caller scope and infers the local's
-type from an array, string, `IEnumerable<T>`, or `IAsyncEnumerable<T>`. Passing
-that local to `CreateFragmentRegion` limits its visibility to that region. A
-macro that already owns an `ITypeSymbol`, such as a schema-backed DSL, can use
-`CreateFragmentLocal(name, type)` directly.
-Fragment locals participate in ordinary completion and shadow caller names;
-they do not introduce runtime storage or expose the macro's lowered syntax.
-The overloads
-`CreateSequenceElementLocal(name, sourceExpressionSpan, declarationSpan)` and
-`CreateFragmentLocal(name, type, declarationSpan)` additionally associate a
-body-relative DSL declaration span with the local. The resulting
-`BodyRelativeDeclarationSpan` and authored `DeclarationSpan` are optional and
-provide an ordinary source location for navigation without exposing DSL
-structure.
-
-`SemanticModel.GetMacroFragmentSemanticInfo` and its `Compilation` counterpart
-resolve the ordinary Raven symbol and type at an authored position in an
-expression or statement fragment. Resolution uses the invocation's lexical
-scope plus the fragment's immutable locals. The result contains symbol info,
-type info, and the authored token span; it does not expose the macro's private
-DSL structure. Language servers can therefore reuse normal Raven hover
-presentation for any DSL that reports the same fragment metadata.
-Go-to-definition uses the resolved symbol and authored token span through the
-same compiler result. Caller symbols navigate normally; fragment locals with a
-declaration span navigate to that authored DSL token.
-If a fragment contains a nested token-tree macro with fragment metadata,
-semantic lookup recursively resolves the most specific nested region. The
-nested region inherits the lexical bindings visible at its invocation,
-including comprehension and pattern locals, while macro-name resolution uses
-the authored outer invocation's namespace and imports. Recursion is bounded;
-failure to resolve a nested region falls back without exposing expansion
-implementation symbols.
-
-Fragment, token-stream, classification, and token-symbol contributions are
-optional tooling capabilities. Failure in one of these providers produces no
-metadata for that capability rather than invalidating unrelated semantic
-queries. Cancellation requested through the macro context is propagated.
-Malformed user input should be represented by recovered syntax, incomplete
-regions, and diagnostics rather than provider exceptions.
-
-`SemanticModel.GetMacroTokens` and the corresponding `Compilation` API expose
-the standard or custom stream selected for a token-tree invocation. Each
-`MacroTokenInfo` retains its provider-owned `RawKind`, text, body-relative span,
-absolute authored span, stable kind name, and optional presentation
-classification and ordinary Raven `Symbol`. Standard Raven kinds receive their `SyntaxKind` name, while
-`IMacroTokenKindProvider` can name custom raw kinds. Macro keyword overlays are
-classified automatically; `IMacroTokenClassifier` can supply
-additional identifier, literal, operator, punctuation, or comment categories.
-`IMacroTokenSymbolProvider` may resolve individual outer-DSL tokens to symbols
-from the consumer compilation. Provider failures degrade that token's symbol
-to `null` without discarding its remaining metadata. Language services reuse
-normal Raven hover and definition presentation for non-null targets.
-This models an authored-span-to-symbol association, with the token span as the
-current unit. An explicit token association takes precedence over a broader
-embedded-fragment association at the same position.
-The provider may interpret the token span using its private DSL parser before
-resolving a contextual symbol, such as a component attribute property or a
-schema column. This does not project the private DSL structure into Raven's
-syntax or bound trees.
-These categories do not modify Raven's ordinary `SyntaxKind` or lexer.
-Failures and invalid values from the optional kind-name or classification
-capabilities are normalized per token, preserving the remaining snapshot and
-compiler-owned keyword classification.
-
-A token-tree `macro` can instead contribute a complete token metadata
-snapshot as it consumes its `IMacroTokenStream`:
-
-```raven
-token context.CreateTokenInfo(
-    token,
-    "ComponentName",
-    MacroTokenClassification.Identifier,
-    componentType)
-```
-
-Reached `token` contributions are retained in authored source order. They are
-used only for generated adapters marked by the compiler; ordinary token-tree
-macros are not expanded merely to answer a token tooling query. `token` is
-invalid on argument-style and attached macro declarations.
-Token and fragment-region results are cached by the invocation's owning
-semantic model and recomputed for a new compilation snapshot.
-The language server maps available macro classifications to protocol semantic
-tokens when it can acquire the document's existing semantic model without
-waiting. Otherwise it retains ordinary syntax-only highlighting.
-`SemanticModel.GetMacroInputSnapshot` and its `Compilation` counterpart group
-the same cached tokens and fragment regions into one compiler-owned view.
-`FindFragmentRegion(position)` selects the narrowest matching region, including
-a zero-width expected slot at its exact position.
-The snapshot is immutable for its owning compilation and invocation. Its
-`BodySpan`, token `Span` values, and fragment `Span` values use absolute
-authored-source coordinates; `BodyRelativeSpan` values start at the first
-character inside the invocation braces. Results are source ordered. A new
-compilation snapshot recomputes provider results, while repeated queries on the
-same semantic model reuse the cached snapshot. Queries honor cancellation;
-optional tooling-provider failures degrade to empty or compiler-default
-metadata rather than failing unrelated semantic requests.
-
-The same parser categories are available for generated or standalone text
-through `SyntaxFactory.ParseExpression`, `ParseStatement`, `ParseType`,
-`ParsePattern`, `ParseCompilationUnit`, and `ParseMemberDeclaration`.
-Standalone `ParseMemberDeclaration` returns null unless its input contains
-exactly one declaration. Macro-context parsing is preferred for authored body
-fragments because it preserves their source coordinates and diagnostics.
-
-The normalized freestanding result carries either zero or one `SyntaxNode`, or
-an immutable list of `MemberDeclarationSyntax` nodes. `Members` and
-`HasMemberExpansion` expose the list-valued form, while
-`FromMembers(...)` accepts a `SyntaxList<TMember>` or immutable member array.
-An explicitly empty list means that the invocation is removed. Single-node and
-list-valued results are mutually exclusive.
-`Expression` and `Statement` are typed projections, and
-`FromExpression(...)`, `FromStatement(...)`, and `FromNode(...)` construct the
-common result. A bare raw-body invocation used as the whole statement requires
-statement syntax; parentheses explicitly retain expression placement. Call-style
-macros continue to follow ordinary expression-statement rules. A category mismatch
-reports `RAVM022` and discards the invalid node rather than casting it into the
-requested position. Expression factories may also forward native parser diagnostics.
-In a type body, `SemanticModel.GetMacroExpansion` accepts the
-`FreestandingMacroMemberDeclarationSyntax` carrier. `GetExpandedRoot()` replaces
-that carrier with the returned members in source order. A single
-`MemberDeclarationSyntax` returned through `FromNode(...)` is also accepted;
-an explicit empty member list removes the carrier, while no expansion or an
-invalid output category preserves it for recovery.
-At file and namespace scope the parser retains the ordinary global-statement
-envelope because the authored `Name! { ... }` form is syntactically ambiguous.
-Semantic expansion accepts declaration members there when the result selects a
-member or member list, and otherwise retains statement behavior. Generated
-namespace/file members participate in declaration lookup, binding, expanded
-documents, and emission; they are not preview-only syntax.
-For compact declarations, `SyntaxList<TMember>` is the list-valued return
-contract when `TMember` is `MemberDeclarationSyntax` or a subtype. It projects
-to namespace-member and type-member targets. `expand` copies the list into the
-normalized result without changing its order.
-`FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
-native-parser, or combined diagnostic results without requiring property
-initializers. `Empty` represents an explicit no-change result. Mutable
-properties remain available for compatibility.
-
-Attached declaration results use the corresponding
-`MacroExpansionResult.FromReplacement(...)`, `FromIntroducedMembers(...)`,
-`FromPeerDeclarations(...)`, `FromDiagnostic(...)`, and
-`FromDiagnostics(...)` factories. Replacement overloads may include introduced
-members and peer declarations. `MacroExpansionResult.Empty` represents no
-declaration change.
-
-Token-tree expression macros implement `IMacroDefinition` and declare a
-canonical `Expand` method with an `IMacroTokenStream` or
-`TokenTreeMacroContext` parameter. Ordinary value parameters on that method
-form the typed argument list before the body:
-
-```raven
-let result = query!(Dialect: "sql") {
-    from user in users
-    select user.Name
-}
-```
-
-Token-tree macros use the same `Name!` invocation spelling:
-
-```raven
-let result = query!(Dialect: "sql") {
-    from user in users
-    select user.Name
-}
-```
-
-The syntax tree represents expression, statement, file-scope, and namespace-scope
-invocations with the concrete `FreestandingMacroExpressionSyntax` node. File and namespace scope deliberately
-retain the existing global-statement envelope: the macro's resolved output
-target, rather than parser lookahead, decides whether expansion supplies a
-statement or declarations. Inside a type body, where a statement is not a valid
-member, the parser uses `FreestandingMacroMemberDeclarationSyntax`.
-
-An invocation may supply an argument list, a brace-delimited token-tree body,
-or both. There must be no line break between the macro name and `!`, or between
-`!` (or its argument list) and the opening brace; this lookahead keeps ordinary
-postfix `!` expressions unambiguous. A freestanding macro is a
-parsed expression invocation that expands an owned region of syntax; it is not
-a preprocessor directive. Directive-looking syntax remains appropriate for
-lexical compilation controls such as `#if`, while `name! { ... }` preserves the
-ordinary flow of expression code.
-
-The compiler binds the parenthesized arguments into `context.Parameters` while
-leaving the brace-delimited body unrestricted and available through the same
-raw text and token-stream APIs. A non-generic token-tree macro rejects supplied
-arguments. A token-tree macro must be invoked with braces; an argument-based
-macro must be invoked with parentheses.
-
-## Declaring macros in Raven
-
-Raven recognizes the concise macro declaration syntax at
-compilation-unit and namespace-member scope:
-
-```raven
-macro Compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
-    where TDelegate: Delegate
-{
-    // Expansion implementation
-}
-```
-
-`macro` is contextual. At compilation-unit or namespace-member declaration
-boundaries it introduces a macro when followed by the declaration name. It
-remains an ordinary identifier in expression and local-binding contexts. The
-syntax tree represents the construct with a dedicated
-`MacroDeclarationSyntax`, retaining
-attributes, modifiers, generic parameters, ordinary parameters, a return
-clause, constraints, and either a block or expression body.
-
-A macro declaration necessarily places its compile-time partition in
-the `Raven.CodeAnalysis` programming model. The compiler supplies that assembly
-reference when it builds local macros; source signatures and semantic tooling
-therefore expose actual compiler API types rather than language-only facades.
-
-This establishes syntax, the semantic declaration signature, and executable
-lowering for same-compilation argument-style and attached macro declarations.
-`SemanticModel.GetDeclaredSymbol` returns an `IMacroDeclarationSymbol` with
-`SymbolKind.Macro`, its declared syntax result type and invocation targets, parameters, generic
-parameters, and constraints. A macro declaration is not an `IMethodSymbol`: it is
-compile-time language structure rather than a CLR method. Its body is therefore
-not emitted into the consumer program as an ordinary runtime function body.
-
-For a freestanding macro, the syntax return annotation selects its permitted
-grammar position. An omitted annotation retains the compact expression-macro
-default, `ExpressionSyntax` selects expression position, `StatementSyntax`
-selects statement position, `ExpressionSyntax | StatementSyntax` selects both,
-and category-untyped `SyntaxNode` selects every supported single-node position.
-Other semantic value types are not macro return categories. The compiler binds
-the expanded ordinary syntax afterward and determines its semantic value type
-in the invocation context.
-
-Exactly one ordinary parameter marked with contextual `on` makes the macro
-attached and declares its allowed syntax target:
-
-```raven
-macro Observe(enabled: bool, on property: PropertyDeclarationSyntax) {
+macro Observable(
+    enabled: bool = true,
+    on property: PropertyDeclarationSyntax
+) {
     if enabled {
         replace Rewrite(property)
+        introduce CreateBackingField(property)
     }
-    introduce CreateBackingField(property)
 }
 ```
 
-The `on property: PropertyDeclarationSyntax` parameter binds the current
-declaration to `property`. Its type is an ordinary Raven.CodeAnalysis syntax
-type and determines the accepted target; there is no separate target-name
-vocabulary. The current provider adapter projects declaration syntax into its
-coarser `MacroTarget` category where required. A declaration without an `on`
-parameter is an argument-style freestanding macro. Token-stream and
-syntax-projection inputs use the same parameter syntax:
+The `on` parameter is compiler-supplied. It is not written in the attached
+macro's argument list.
+
+## 3. Declaring macros
+
+Compact macro declarations are allowed at compilation-unit and namespace
+member scope:
+
+```raven
+macro Double(value: int) -> ExpressionSyntax {
+    expand ParseExpression((value * 2).ToString())
+}
+```
+
+`macro` is contextual. At a declaration boundary it introduces a macro when
+followed by its declaration name; it remains an ordinary identifier in other
+contexts.
+
+A declaration may contain attributes, modifiers, generic parameters, ordinary
+parameters, constraints, a syntax return annotation, and a block or expression
+body. A compact macro is compiled into Raven's compile-time partition and is
+not emitted as an ordinary runtime function. Semantic APIs expose it as an
+`IMacroDeclarationSymbol`, not as an `IMethodSymbol`.
+
+Macro declarations are synchronous. `async` and `await` are not supported in a
+macro declaration.
+
+An ordinary class implementing `IMacroDefinition` may declare the same
+method-shaped contract through its designated `Expand` method. Compact and
+class-authored definitions normalize to the same symbol, descriptor, registry,
+binding, execution, and tooling model. The lower-level provider and executor
+interfaces are documented in the [authoring guide](../../macro-authoring.md).
+
+## 4. Input binding and carriers
+
+### 4.1 Parenthesized arguments
+
+Ordinary value parameters and syntax parameters bind from `(...)` in
+declaration order. Positional and named arguments, optional defaults, and the
+compiler's supported constant conversions apply.
 
 ```raven
 macro AddOffset(offset: int, value: ExpressionSyntax) {
     expand ParseExpression(value.ToString() + " + " + offset.ToString())
 }
+
+let result = AddOffset!(2, value)
 ```
 
-`ExpressionSyntax` is the real Raven.CodeAnalysis syntax type. It remains a
-caller-supplied argument, but the macro binder projects the authored argument
-node instead of requiring a constant value. Syntax projections can be freely
-combined with ordinary typed parameters and participate in the same positional
-and named argument ordering. They cannot declare default values.
+For an ordinary value parameter, the compiler supplies a representable
+compile-time constant. It does not execute an arbitrary caller expression.
+For a syntax parameter such as `ExpressionSyntax`, the compiler supplies the
+authored syntax node instead of its runtime value. Syntax parameters cannot
+declare defaults.
 
-Raw token-stream input is expressed in the same way:
+Injected context parameters do not appear at the invocation site.
+`FreestandingMacroContext` supplies argument-style services,
+`TokenTreeMacroContext` supplies token-body services, and
+`AttachedMacroContext` supplies attached-declaration services.
+
+### 4.2 Brace-delimited bodies
+
+One `IMacroTokenStream` parameter requests a required, lossless `{...}` body:
 
 ```raven
 macro Query(dialect: string, body: IMacroTokenStream) {
-    let token = body.ReadToken()
-    expand BuildQuery(dialect, token)
+    expand LowerQuery(dialect, body)
+}
+
+let rows = Query!("sql") {
+    from user in users
+    select user.Name
 }
 ```
 
-`IMacroTokenStream` is the real Raven.CodeAnalysis macro stream interface. In a
-macro declaration signature it denotes the single raw `{ ... }` invocation body;
-it is not an argument supplied inside the invocation's argument list. Other
-parameters remain typed caller-supplied
-values, so the example is invoked as `Query!("sql") { ... }`. A macro declaration
-may declare at most one `IMacroTokenStream` parameter. It cannot have a default value
-or be combined with an attached `on` target. `IParameterSymbol.MacroRole`
-distinguishes caller-supplied `Value` parameters, caller-supplied
-`ExpressionSyntax` projections, and the compiler-supplied `IMacroTokenStream`
-parameter for semantic tooling. Runtime macro parameter descriptors expose the
-same role through `MacroParameterDescriptor.Role`.
+The body parameter is compiler-supplied and is not included in `(...)`. A macro
+declaration may have at most one `IMacroTokenStream` parameter. It cannot have
+a default value or be combined with an attached `on` parameter.
 
-An advanced token-tree macro may instead declare a
-`TokenTreeMacroContext` parameter. That parameter has the compiler-supplied
-`Context` role and receives the complete provider context rather than a
-caller-supplied argument. It is intended for macro libraries that need the
-low-level diagnostic, token-tree, and expansion APIs; `Raven.Macros` currently
-uses it to forward its Raven-authored declarations to the transitional
-`StandardMacroExpansions` implementations.
+The body is the source of truth. The macro may read Raven-backed tokens,
+provide a custom token stream, parse ordinary Raven fragments, or apply a
+private grammar. These interpretations remain scoped to the invocation and do
+not add global Raven token or syntax kinds.
 
-An argument-style macro may instead declare an `FreestandingMacroContext`
-parameter. It has the compiler-supplied `FreestandingContext` role and exposes
-the invocation, arguments, semantic model, diagnostics, and other
-freestanding-expansion services without changing the call site into a
-token-tree macro. It therefore does not require a `{ ... }` body. For example,
-a macro declared with an ordinary `path: string` parameter plus a
-`FreestandingMacroContext` parameter is invoked as `Macro!("path")`; only the
-ordinary value parameter is supplied by the caller.
+`TokenTreeMacroContext` alone requests services; it does not imply a body. The
+presence of `IMacroTokenStream` is what requires `{...}`.
 
-`FreestandingMacroContext` and `TokenTreeMacroContext` normalize every supported
-`Name!` carrier. `Syntax` is the authored carrier as a `SyntaxNode`; `Name`,
-`ExclamationToken`, `ArgumentList`, and `TokenTree` expose the common invocation
-parts directly. The same context API therefore applies when an invocation is
-parsed in expression or type-member position. A macro author only needs to
-inspect the concrete `Syntax` kind when behavior genuinely depends on the
-grammar position.
+### 4.3 Declaration-shaped carriers
 
-An attached macro may similarly declare an `AttachedMacroContext` parameter.
-The compiler supplies it rather than exposing it at the invocation site. It
-provides the attribute syntax, original and current declarations, semantic
-model, arguments, and diagnostic APIs.
-
-Macro bodies are ordinary synchronous Raven blocks augmented by three
-contextual contribution constructs. Each has both statement and expression
-form, so a contribution can stand alone in a block or appear directly in an
-expression position such as a `match` arm:
-
-* `expand expansion` supplies the final expansion and returns from the current
-  macro execution path;
-* `replace declaration` sets the replacement of an attached macro; and
-* `introduce member-or-members` appends introduced members to an attached
-  macro.
-
-For example, a freestanding macro can select its expansion without wrapping each
-arm in a statement block:
+A declaration-shaped carrier is a freestanding macro invocation at a
+declaration boundary:
 
 ```raven
-macro Choose(first: bool) {
-    match first {
-        true => expand ParseExpression("1")
-        false => expand ParseExpression("2")
-    }
+public component! Greeting(Name: string = "") {
+    markup! { <h1>Hello {Name}</h1> }
 }
 ```
 
-`replace` and `introduce` update the invocation's accumulated result and
-execution continues. Repeated `introduce` statements append in execution order,
-and a later `replace` supersedes an earlier replacement. Reaching the end of the
-body returns the accumulated result. In expression position, `replace` and
-`introduce` have type `unit`. `expand` is different: it adds its final
-expansion value and immediately returns the accumulated result from that
-execution path, and is therefore abrupt for control-flow analysis. It can be
-used in ordinary conditionals and expression branches as the macro equivalent
-of a return. Attached macros may use `expand`
-when returning a complete `MacroExpansionResult` from a lower-level API.
-
-Macro contexts accumulate zero or more diagnostics through the ordinary
-`ReportDiagnostic` and `ReportDiagnostics` methods. Reported diagnostics are
-included whether the macro exits through `expand` or reaches the end of its
-body. No diagnostic-specific language statement is defined.
-
-The compiler currently lowers an executable, non-generic compilation-unit
-declaration into an isolated provider adapter and, when needed, a parameter
-object implementing the existing typed macro contracts. `expand`, `replace`,
-and `introduce` lower to operations on a compiler-provided result builder,
-whose final value becomes `FreestandingMacroExpansionResult` or
-`MacroExpansionResult`. An `expand` operation is followed by the corresponding
-generated return. These synthesized types are implementation details and
-are not the semantic identity exposed to tools.
-
-Macro declarations are synchronous. The `async` modifier and `await` expressions
-are not supported in a macro declaration. This describes the source expansion
-contract; a compiler host or provider implementation may still use
-asynchronous APIs internally without exposing asynchronous expansion semantics
-to Raven code.
-
-Generic macro invocation, executable namespace-member declarations,
-namespace-qualified macro lookup, imported short names, and naming conventions
-remain later layers.
-Existing class-authored dynamic and strongly typed macros remain supported and
-expose the underlying provider API directly.
-
-## Quoting Raven expressions
-
-`quote! { expression }` is a token-tree macro provided by the standard
-`Raven.Macros` compiler-plugin assembly. Its `quote` alias enters scope through
-`import Raven.Macros.*`; the canonical `Raven.Macros.Quote!` name is available
-without that wildcard import. It captures one
-complete Raven expression as syntax data and expands to ordinary, fully
-qualified `SyntaxFactory` construction code. Tokens and trivia are preserved.
-Parser diagnostics, trailing input, and incomplete recovery are rejected at
-locations within the authored body.
-
-Within an expression quote, `#(expression)` inserts the resulting
-`ExpressionSyntax` into the quoted structure. The `#` and `(` are adjacent,
-the hole contains exactly one complete ordinary Raven expression, and multiple
-holes are permitted. Hole expressions are validated by Raven's parser at their
-authored locations and type-checked through the ordinary generated expansion.
-No splice-specific token kind is introduced.
-
-The result is a runtime `ExpressionSyntax` value from
-`Raven.CodeAnalysis`. The Raven compiler and SDK project integration resolve
-that assembly through the macro library's ordinary dependency closure. Runtime
-dependencies are copied when the emitted application actually references them.
-Hosts that use the `Compilation` API directly must provide the macro and
-metadata references themselves.
-Statement, member, declaration, token, identifier, list, and repetition
-quote/splice forms are not part of the current language.
-
-`quote!` is syntax quotation, analogous in shape to the
-compiler-integrated
-operation quotation that converts a target-typed lambda to
-`Expression<TDelegate>`. The representations are different: expression trees
-contain standardized .NET operations and no source syntax, while `quote!`
-produces Raven syntax with its tokens and trivia. The resulting syntax object
-can be traversed and rewritten into a new immutable tree using
-`Raven.CodeAnalysis`; it is not semantically bound until inserted into a
-compilation.
-
-## Compiling expressions at runtime
-
-`compile<TDelegate>! { expression }` constructs an `ExpressionSyntax` using
-the same quotation and `#(expression)` hole rules as `quote!`, compiles that
-syntax at runtime, and returns `TDelegate`:
+The carrier preserves its modifiers, macro name, declared identifier,
+declaration parameter list, and body as structured syntax. A parameter of type
+`FreestandingMacroDeclarationSyntax` requests the complete carrier. A separate
+`IMacroTokenStream` parameter requests its body:
 
 ```raven
-let increment = compile<System.Func<int, int>>! {
-    value => #(SyntaxFactory.IdentifierName("value")) + 1
+macro FunctionComponent(
+    declaration: FreestandingMacroDeclarationSyntax,
+    body: IMacroTokenStream,
+    context: TokenTreeMacroContext
+) -> MemberDeclarationSyntax {
+    expand LowerComponent(declaration, body, context)
 }
 ```
 
-Exactly one explicit type argument is required, and it must resolve to a
-delegate type. The quoted expression must evaluate to that delegate type.
-The explicit type is part of the ordinary generated generic call, so normal
-Raven binding validates it; the current macro model does not separately model
-strongly typed generic macro parameters.
-
-The quote phase parses the authored body during macro expansion and rejects a
-structurally invalid or incomplete Raven expression. At runtime, after hole
-values have produced the final syntax tree, the compile phase parses the
-generated wrapper, binds names and types, and emits it. No delegate is returned
-unless both the structural and semantic checks succeed.
-
-Runtime compilation references the platform assemblies, assemblies already
-loaded by the process, and any additional metadata references passed to
-`RavenCompiler.Compile`. Compilation errors throw
-`RavenCompilationException`, whose `Diagnostics` property contains the Raven
-diagnostics. Each successful compilation loads a generated assembly into the
-default assembly load context. Callers should therefore cache delegates for
-repeated use and must treat syntax derived from untrusted input as executable
-code.
-
-The macro expands into an ordinary call to
-`Raven.CodeAnalysis.RavenCompiler.Compile<TDelegate>`. SDK builds resolve and
-copy the macro library's compatible `Raven.CodeAnalysis` dependency and its
-runtime closure when the emitted program references them. Direct `Compilation`
-API hosts must provide the assembly references and arrange runtime deployment
-themselves.
-
-The raw body is the source of truth. Any standard Raven token stream,
-macro-local keyword overlay, custom lexer token stream, or custom DSL syntax
-tree is derived from that body and remains scoped to the macro invocation.
-Macro-local token kinds do not alter ordinary Raven lexing or `SyntaxKind`.
-
-## Compile-time file and digest utilities
-
-`embedFileContent!("relative/path.txt")` reads UTF-8 text during compilation
-and expands to a string literal. Relative paths are resolved from the invoking
-source file. The compiler records the file as an input so semantic caches,
-incremental project builds, and language-server snapshots refresh when it is
-changed, deleted, or recreated.
-
-`sha256Digest!(literal)` computes a SHA-256 digest during compilation and
-expands to a lowercase hexadecimal string literal. Strings and characters use
-UTF-8; Boolean and numeric literals use culture-invariant text; `null` hashes
-the empty byte sequence. Non-literal expressions are rejected.
-
-Both aliases require `import Raven.Macros.*`. Their canonical names,
-`Raven.Macros.EmbedFileContent!` and `Raven.Macros.Sha256Digest!`, remain
-available without the wildcard import.
-
-## Token-tree streams
-
-`TokenTreeMacroContext.CreateTokenStream()` returns the stream selected for the
-resolved macro. Streams implement `IMacroTokenStream` and emit `SyntaxToken`
-values with body-relative positions.
-
-By default, Raven uses its normal lexer over the macro body. A macro can
-implement `IMacroKeywordProvider` to reclassify selected identifier text with a
-provider-owned `RawKind` and keyword or reserved-word metadata. The token keeps
-its ordinary Raven `IdentifierToken` kind, so the overlay does not change
-normal Raven grammar or lexing.
-
-A macro with a genuinely different lexical grammar can implement
-`IMacroTokenStreamProvider`. The compiler discovers that capability with the
-macro definition and uses the returned custom stream instead of the default
-Raven-backed stream. Fully custom tokens may use `SyntaxKind.None` plus their
-provider-owned raw kind.
-
-Equal raw-kind integers from different macro providers do not imply equal token
-kinds. The provider owns their meaning.
-
-The minimal direct-lowering pattern does not require a custom syntax tree. For
-example, a macro can mark `unless` as a body-scoped keyword, consume it from the
-standard stream, parse the remaining body-relative span as a Raven expression,
-and return an ordinary logical-negation expression:
-
-```raven
-let shouldRetry = guard! {
-    unless retryCount < 3
-}
-```
-
-This pattern is the starting point for DSLs with multiple clauses and embedded
-Raven fragments. Retained DSL structure is optional and can be added later when
-editor tooling or more involved lowering requires it.
-
-A macro may identify several fragment spans from the same stream. For example,
-the sample `choose!` macro treats `test`, `then`, and `otherwise` as
-macro-reserved clause words, parses the text between them as three Raven
-expressions, and lowers them directly to an ordinary `if` expression. Clause
-words are not added to Raven's global keyword set.
-
-The initial LINQ-like sample supports:
-
-```raven
-let result = query! {
-    from item in source
-    where item.IsActive
-    select item.Name
-}
-```
-
-It lowers directly to `source.Where(item => item.IsActive).Select(item =>
-item.Name)`. The `where` clause is optional. The authored range variable is
-used as the generated lambda parameter; the macro does not introduce hidden
-temporary names. This sample shape is not part of Raven's ordinary grammar and
-does not add `from` or `select` to the global keyword set.
-
-## Placement rules
-
-Macro attributes follow the same placement rules as declaration attributes:
-
-* A macro attribute may appear only directly before a declaration.
-* No blank line may separate the macro attribute from the declaration it applies to.
-* Multiple attribute lists may appear before the same declaration.
-* Normal attributes and macro attributes may be mixed in the declaration prelude.
-* Union case declarations are type declarations for attached macro target validation, so macros that target `MacroTarget.Type` may be applied to `case` declarations.
-
-Example:
-
-```raven
-[Obsolete]
-#[Observable]
-public var Title: string
-```
-
-## Macro arguments and diagnostics
-
-Attached macros may take arguments.
-
-Both positional and named arguments are supported:
-
-```raven
-#[Observable]
-#[Observable("TitleChanged")]
-#[Observable(Name: "TitleChanged", Notify: true)]
-```
-
-The compiler parses and preserves these arguments generically. Their interpretation is defined by the macro implementation.
-
-For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`.
-
-For freestanding macros, the equivalent APIs are `FreestandingMacroContext.ArgumentList` and `FreestandingMacroContext.Arguments`.
-
-Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
-
-For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `FreestandingMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
-
-This raw-argument model remains available through injected contexts. The
-canonical `Expand` method parameters define the invocation signature used for
-validation, completion, and signature help.
-
-Example direction:
-
-```raven
-class ObservableMacro: IMacroDefinition {
-    func Expand(
-        name: string?,
-        notify: bool = true,
-        property: PropertyDeclarationSyntax,
-        context: AttachedMacroContext
-    ) -> MacroExpansionResult {
-        ...
-    }
-}
-```
-
-The current method-parameter binding supports positional and named arguments,
-optional defaults, constant conversion into common CLR primitive/reference
-types, and typed arguments combined with an unrestricted token-tree body.
-
-Typed value parameters are limited to values representable by the compiler's
-constant model and conversions explicitly supported by the macro binder. The
-compiler does not execute caller expressions to obtain argument values and
-does not inject arbitrary runtime objects into a macro. Arguments outside this
-boundary are rejected with a diagnostic. Syntax-node and token-stream inputs
-remain explicit, type-directed projections so the macro contract makes access
-to authored code visible.
-
-`MacroFacts.GetParameters(...)` exposes the compiler-normalized parameter
-schema. Each `MacroParameterDescriptor` identifies the CLR type, ordinal,
-required state, and optional method default.
-`SemanticModel.GetMacroSignatureHelp(...)` resolves that
-schema at an attached, argument-style, or token-tree invocation and identifies
-the active parameter for compiler hosts and editor tooling.
-
-Completion uses that schema inside attached, argument-style, and token-tree
-macro argument lists. It offers unused parameters with their Raven-facing type
-and inserts the named-argument form, such as `Optimize: `.
-
-String-valued parameters may later preserve
-`System.Diagnostics.CodeAnalysis.StringSyntaxAttribute` as optional tooling
-metadata, matching ordinary Raven parameters. That attribute is not the
-representation for a token-tree body. A body has tokens and authored source
-spans rather than a string value, and future highlighting/completion support
-will use a general compiler-owned syntax-content descriptor. For example,
-`quote! { let x = "test" }` can identify its body as Raven syntax, while a DSL
-macro can identify a standard or custom syntax without changing Raven's normal
-lexer.
-
-The target experience is that macro arguments bind like attribute arguments:
-
-* completion for named arguments
-* signature help for supported shapes
-* diagnostics for unknown names, missing required arguments, and invalid constant conversions
-* typed parameter access in the macro implementation
-
-Example macro-side validation:
-
-```raven
-return MacroExpansionResult {
-    MacroDiagnostics =
-    [
-        context.CreateArgumentDiagnostic(
-            context.Arguments[0],
-            "name cannot be empty",
-            code: "VAL001")
-    ]
-}
-```
-
-## Expansion model
-
-Macro expansion is not a preprocessor step. The source file is parsed normally first. After parsing, the compiler resolves macros from referenced macro assemblies and requests expansions using structured Raven syntax.
-
-### Ordering and composition
-
-When multiple attached macros apply to the same declaration, Raven runs them as a source-ordered pipeline over one declaration.
-
-This has two consequences:
-
-* Macros on the same declaration are visited in source order.
-* `AttachedMacroContext.TargetDeclaration` always refers to the original authored declaration.
-* `AttachedMacroContext.CurrentDeclaration` refers to the declaration shape immediately before the current macro runs.
-
-When Raven integrates the results for one declaration, it uses this order:
-
-1. introduced members from all attached macros, preserving macro source order
-2. the effective declaration itself, where the last macro that returns `ReplacementDeclaration` wins
-3. peer declarations from all attached macros, preserving macro source order
-
-If a macro returns `ReplacementDeclaration`, that replacement becomes the `CurrentDeclaration` seen by later attached macros on the same declaration. If a macro only introduces members or peer declarations, `CurrentDeclaration` does not change.
-
-For an attached type macro, the effective replacement declaration also supplies
-the base class and interface list used when Raven binds the type shape. This
-includes a union carrier's interface list. Introduced union members bind as
-ordinary carrier members, so a single expansion can add both an interface
-contract and its implementation.
-
-For parent/child relationships, parent-declaration macros still see the original parsed shape of the parent declaration. A macro attached to a type should not assume that attached macros on its members have already rewritten the type syntax visible through `AttachedMacroContext.TargetDeclaration` or `AttachedMacroContext.CurrentDeclaration`.
-
-The current attached-macro system supports these generic result shapes:
-
-* compiler-owned macro expansion diagnostics with custom messages and precise locations
-* raw compiler diagnostics for advanced scenarios
-* introduced members
-* replacement of the annotated declaration
-
-Expansion must remain generic. The compiler does not hardcode macro-specific behaviors such as property notification or equality semantics.
-
-Freestanding macros return a generic expansion result shape:
-
-* compiler-owned macro expansion diagnostics with custom messages and precise locations
-* raw compiler diagnostics for advanced scenarios
-* replacement expression
-
-## Author guidelines
-
-When designing attached macros:
-
-* Prefer one replacement-owning macro per declaration. If multiple macros replace the same declaration, the last replacement wins.
-* Use `TargetDeclaration` when you need the original authored syntax, and use `CurrentDeclaration` only when you intentionally want same-target pipeline behavior.
-* Use introduced members for additive behavior and keep cross-macro coordination explicit rather than inferred from transformed syntax.
-* When a parent declaration and its members both use macros, keep the parent macro resilient to the original member syntax shape.
-* If two macros need to cooperate, define that cooperation through explicit arguments, naming conventions, or generated marker members instead of depending on expansion order side effects.
-
-## Project references
-
-A reusable Raven macro project marks its output as a compiler plugin:
-
-```raven
-import Raven.CodeAnalysis.Macros.*
-
-[assembly: RavenCompilerPlugin(typeof(QueryMacro))]
-
-class QueryMacro: IMacroDefinition {
-    // ...
-}
-```
-
-The consumer uses an ordinary project reference:
-
-```xml
-<ItemGroup>
-  <ProjectReference Include="../macros/ObservableMacros.rvnproj" />
-</ItemGroup>
-```
-
-The workspace recognizes the assembly-targeted marker in referenced Raven and
-C# projects, builds the provider through the compiler-plugin path, and passes
-the resulting macro reference to `Compilation`. The marked provider is not
-added as a runtime project reference. A bare marker authorizes fallback
-discovery of direct macro definitions.
-
-Raven does not scan unmarked runtime references for plugins, and consumer
-source needs no macro import directive. The former consumer-authored
-`RavenMacro` project item is not supported; reusable providers use ordinary
-marked project, assembly, or package references. During compilation setup,
-portable references—including direct DLL and resolved package references—are
-inspected for the assembly marker through metadata only. Marked references are
-activated and join the same macro registry as explicitly supplied and
-same-project macros. Unmarked assemblies are not loaded for macro execution or
-searched for implementation types.
-
-The active macro set belongs to an immutable compilation snapshot. A new
-snapshot recomputes activation when local macro source or the reference set
-changes. Existing portable-reference fingerprints prevent a changed assembly
-at the same path from reusing stale metadata state. For a package with separate
-assets, the `ref/<tfm>` assembly remains a consumer metadata reference while a
-marked `lib/<tfm>` implementation is activated as a macro reference. The macro
-load context resolves helper assemblies placed beside that implementation and
-uses runtime assets from the selected NuGet target graph to resolve
-dependencies supplied by transitive packages. These private dependency probes
-are not consumer metadata references.
-
-The selected Raven compiler and SDK may also register a version-matched default
-macro set automatically. Default macros require no source import or explicit
-dependency and must be available in the Playground. `#quote` is the first such
-macro; future defaults such as `#embedFile` may be compiler intrinsics or
-SDK-bundled plugins without exposing that distinction at the invocation site.
-
-## Local macros in the same project
-
-The compiler API supports an explicit same-project macro source partition.
-Trees supplied through `Compilation.AddMacroSyntaxTrees` are compiled as an
-in-memory library and activated before consumer binding. Their diagnostics are
-reported by the consumer compilation, their macros participate in completion,
-and their implementation declarations are excluded from runtime emit.
-
-The dedicated-file MVP classifies this partition automatically from direct
-macro declarations:
-
-```raven
-import Raven.CodeAnalysis.Macros.*
-
-class QueryMacro: IMacroDefinition {
-    // ...
-}
-```
-
-`Compilation.AddSyntaxTreesWithLocalMacros`, Workspace compilation, and the SDK
-recognize the macro interface in the declaration's base list and move the
-declaration into the compile-time partition. A file containing only direct
-macro declarations is therefore classified as a dedicated macro file. The SDK
-form needs neither a `RavenMacro` item nor an explicit project reference to the
-compiler contracts.
-
-The object-oriented macro contracts are the authoritative MVP authoring and
-execution model. Raven may later add dedicated declaration syntax that removes
-macro class boilerplate and hides compile-time partition markers such
-as `[LocalMacro]`, but that syntax is intentionally deferred until the
-infrastructure and common macro cases are stable. Any such syntax must lower to
-or interoperate with the same `IMacroDefinition`, context, token-stream,
-diagnostic, and expansion-result
-contracts; it must not create a parallel macro execution model.
-
-After activation, local and referenced implementations are equivalent entries
-in the macro registry. A future macro-specific symbol may expose this common
-semantic identity, but macro execution does not currently require a dedicated
-symbol kind.
-
-Direct macro definitions are the only activation unit. They are first-class
-manifest exports and are discovered automatically inside the local compile-time
-partition. The category-specific macro interfaces and expansion contracts are
-the authoritative implementation surface for the MVP.
-
-The automatic rule is intentionally syntax-only and declaration-granular.
-Supporting types can be moved with `[LocalMacro]`. The partition remains
-acyclic: macro source can reference metadata
-and other macro plugins but cannot bind against consumer source declarations.
-If a reference in local macro code resolves only to a declaration in the
-consumer partition, the compiler reports `RAVM003` at that reference. The
-dependency must move into the local macro partition or a referenced assembly.
-
-A mixed source file uses `[LocalMacro]` instead:
-
-```raven
-import Raven.CodeAnalysis.Macros.*
-
-[LocalMacro]
-class AnswerMacro: IMacroDefinition {
-    // ...
-}
-
-let answer = answer! { }
-```
-
-`[LocalMacro]` classifies only the marked top-level type and everything nested
-within it as compile-time-only. Every separate top-level macro definition or
-support type needed by the local macro must be marked.
-The compiler creates same-length macro and consumer projections, retaining line
-breaks and replacing declarations from the opposite partition with whitespace.
-This preserves authored offsets for diagnostics while keeping macro
-implementation types out of runtime emit.
-
-Compiler hosts may use `Compilation.GetSemanticModel(tree, position)`, and
-Workspace callers may use `Document.GetSemanticModelAsync(position)`, to select
-the semantic projection that owns an authored position. A position inside a
-declaration marked `[LocalMacro]` returns the macro-partition semantic model;
-other positions return the consumer model. Nodes for semantic queries must come
-from the returned model's `SyntaxTree`. The projections preserve authored
-positions, so the same position can be used to find the corresponding node.
-Language-server hover, completion, definition, references, and rename use this
-position-aware view inside local macro declarations. Their semantic answers
-come from the macro partition rather than the masked consumer projection.
-Reference locations and rename edits remain expressed against the authored
-document because both projections preserve its positions.
-
-When a Workspace analyzer host is present, document analysis traverses both
-compiler-owned projections of a mixed local-macro document. Analyzer callbacks
-receive the semantic model for the projection being traversed, so ordinary
-Raven code in `[LocalMacro]` declarations participates in syntax, symbol, and
-operation analysis alongside consumer code. This does not make analyzers part
-of macro compilation or activation.
-
-The browser Playground supports this form in its single user buffer. Analyzer
-participation inside retained structured DSL regions is not yet complete; the
-current implementation does not infer Raven fragments from raw macro tokens or
-expansion output.
-
-Across incremental compilations, an unchanged local macro partition may reuse
-its emitted in-memory plugin artifact. Changes limited to consumer source do not
-recompile that artifact. Changes to macro source, compilation or parse options,
-metadata references, macro references, or assembly identity invalidate it and
-therefore invalidate expansions that depend on the local registry. Every
-snapshot still owns a fresh macro semantic compilation, and reused partition
-diagnostics are associated with the current projected syntax trees.
-
-## Macro validation diagnostics
-
-Macro-reported validation failures currently surface through shared diagnostic
-`RAVM021`, with the macro name and custom message embedded in the diagnostic
-text. The location may point either at the macro site or at a specific
-argument.
+In `component! Greeting(Name: string)`, the parentheses contain parameters of
+the declaration being introduced. They are not caller arguments to
+`FunctionComponent`.
+
+Declaration-shaped carriers are parsed at compilation-unit, namespace, and
+type-member boundaries. Resolution must select a macro descriptor that accepts
+the declaration carrier. Its result must be valid in the containing
+declaration list.
+
+### 4.4 Future sequence carrier
+
+`Name![item1, item2]` is reserved design direction and is not implemented.
+Its intended reading is a variable number of homogeneous items that the macro
+processes to produce a result. The application-model proposal associates it
+with a compiler-owned `MacroList<T>` input: ordinary `T` would request value
+conversion for each item, while a syntax type would preserve each authored
+item node.
+
+This form is not an alternate spelling for one collection argument.
+`Collect!([1, 2, 3])` passes one ordinary collection expression through a
+parenthesized parameter. A future `Collect![1, 2, 3]` would bind three
+independent macro items.
+
+No meaning is currently assigned to `Name![...] { ... }` or to a form combining
+all three envelopes. The grammar and execution model should remain open to
+such combinations if a concrete use case gives them a clear reading.
+
+## 5. Invocation targets and output
+
+For a freestanding macro, the syntax return annotation declares its permitted
+grammar target. It does not declare the runtime value type of an expanded
+expression.
+
+| Annotation | Target |
+| --- | --- |
+| omitted | expression |
+| `ExpressionSyntax` | expression |
+| `StatementSyntax` | statement |
+| `ExpressionSyntax | StatementSyntax` | expression or statement |
+| `SyntaxNode` | every supported single-node target |
+| `MemberDeclarationSyntax` or subtype | one compatible declaration member |
+| `SyntaxList<TMember>` | zero or more compatible declaration members |
+
+A bare raw-body invocation used as the whole statement selects statement
+placement. Parentheses explicitly retain expression placement. Call-style
+macros follow ordinary expression-statement rules.
+
+At file and namespace scope, an invocation-shaped `Name! { ... }` is initially
+retained in a global-statement envelope because its output cannot be known
+before semantic resolution. A declaration result supplies file or namespace
+members; a statement result retains statement behavior. In a type body the
+parser uses a member carrier directly.
+
+The compiler validates the complete result atomically against the actual
+target. A category mismatch reports `RAVM022` and does not insert the invalid
+node. A list result preserves source order. An explicitly empty member list
+removes the carrier.
+
+Generated declarations participate in ordinary declaration lookup, binding,
+expanded documents, and emission.
+
+## 6. Contributions and diagnostics
+
+Macro bodies use contextual contribution constructs:
+
+- `expand value` supplies a freestanding expansion and immediately returns
+  from the current execution path;
+- `replace declaration` sets the replacement for an attached declaration and
+  permits execution to continue;
+- `introduce memberOrMembers` appends attached members in execution order;
+- `fragment region` contributes an ordinary Raven fragment for editor tooling;
+- `token info` contributes classified or symbol-bearing DSL token metadata.
+
+These constructs also have expression forms where their control-flow behavior
+permits it. `replace` and `introduce` accumulate until the body ends. A later
+`replace` supersedes an earlier replacement.
+
+Expected invalid input must be reported as diagnostics. Context APIs accumulate
+diagnostics independently of the expansion, so diagnostics survive both
+`expand` and normal body fall-through. Parser recovery, incomplete regions,
+and diagnostics are preferred to throwing. An exception represents a macro or
+provider defect and must not destabilize unrelated semantic queries.
+
+## 7. Resolution, names, and aliases
+
+A macro has a case-sensitive canonical name and may declare a case-sensitive
+alias with `MacroAlias`. Macro lookup uses the invocation's namespace and
+imports. A canonical fully qualified name remains available independently of a
+wildcard-imported alias.
+
+Aliases do not become lexical keywords. They resolve contextually through the
+macro registry and can be shadowed by an ordinary local name. After successful
+resolution, IDEs present the alias token with the contextual-keyword semantic
+classification. Canonical macro names retain the macro classification. This
+presentation rule applies equally to invocation and declaration-shaped forms
+and is shared by language-server clients and the Playground.
+
+Completion, signature help, hover, navigation, diagnostics, and expansion must
+consume the same compiler-owned descriptor and resolution result. Language
+services must not maintain an independent macro registry.
+
+## 8. Expansion and composition
+
+Macro expansion is part of semantic compilation, not a lexical preprocessor
+pass. Expansion results retain authored-source relationships for diagnostics,
+semantic services, expanded views, and executable source origins.
+
+An expansion may contain another macro invocation. Nested invocations resolve
+using the namespace and imports at their authored outer source location. When
+they appear inside an ordinary Raven fragment reported by an outer macro, they
+inherit the lexical bindings visible at that position. Recursive fragment
+lookup selects the most specific nested region and is bounded for recovery.
+
+When several attached macros apply to one declaration, Raven runs them in
+source order. Each macro receives the original target and the current
+replacement shape. Introduced members from all macros precede the effective
+declaration, the last replacement wins, and peer declarations follow it;
+contribution order is otherwise preserved.
+
+Parent declaration macros see the parent's parsed member shape rather than
+assuming that child declarations have already been rewritten. Macro
+cooperation should therefore use explicit contracts instead of relying on
+incidental traversal order.
+
+## 9. Token DSLs and embedded Raven
+
+The default macro token stream uses Raven's lexer while retaining body-relative
+and absolute authored spans. A macro may overlay body-scoped keywords without
+changing the underlying Raven token kind. A macro with a different lexical
+grammar may provide a custom stream with provider-owned raw kinds.
+
+A macro can identify expression, statement, type, pattern, member, compilation
+unit, or block fragments inside its private DSL. Fragment metadata exposes the
+category, authored span, optional expected type, and optional introduced locals
+without exposing the DSL's private parse tree.
+
+Declaration-shaped macros may project typed header parameters into a reported
+block fragment. A nested macro within that block then observes those parameters
+through normal semantic lookup. Token-symbol associations similarly let a DSL
+token, such as a component tag or attribute, reuse ordinary Raven hover and
+go-to-definition presentation.
+
+Token, fragment, classification, and symbol contributions are optional
+capabilities. Failure in one capability degrades that metadata request without
+invalidating unrelated binding or semantic queries. Providers must honor
+cancellation.
+
+## 10. Local and packaged macros
+
+A macro declared in the same project belongs to a compiler-owned local macro
+partition. Its implementation is compiled and activated before consumer
+binding, excluded from runtime emit, and included in diagnostics and language
+services. Supporting types may be marked with `LocalMacro` when a source file
+contains both compile-time and runtime declarations.
+
+A reusable macro project marks its output with `RavenCompilerPlugin`. Consumers
+use an ordinary project, assembly, or package reference. The marked provider is
+activated as a compiler plugin rather than treated as an application runtime
+reference. Raven does not scan unmarked runtime references for macro types.
+
+Macro source may depend on metadata and other macro plugins, but the local
+compile-time partition cannot depend on consumer declarations. This keeps the
+partition dependency graph acyclic.
+
+The active macro registry belongs to an immutable compilation snapshot. A
+change to macro source, macro references, relevant compiler options, or
+dependencies produces a new registry and invalidates dependent expansions.
+
+## 11. Standard macros
+
+The `Raven.Macros` library currently includes:
+
+- `quote! { expression }`, which captures one Raven expression as immutable
+  syntax and supports `#(expression)` syntax holes;
+- `compile<TDelegate>! { expression }`, which quotes and compiles a delegate at
+  runtime;
+- `embedFileContent!(path)`, which embeds UTF-8 file content and records the
+  file as an incremental compilation input;
+- `sha256Digest!(literal)`, which computes a compile-time SHA-256 digest.
+
+Their lowercase aliases enter scope through `import Raven.Macros.*`. Canonical
+names such as `Raven.Macros.Quote!` remain available without the wildcard
+import. These macros use the same declaration, registry, resolution,
+diagnostic, and expansion model as other macro libraries.
+
+Expression quotation currently accepts exactly one expression. Statement,
+member, declaration, token, identifier, list, and repetition quote forms are
+not implemented.
+
+## 12. Current boundaries
+
+The implemented model supports typed constant and syntax inputs, token bodies,
+declaration-shaped carriers, expression and statement targets, single and
+list-valued declaration expansion, attached declaration transforms, nested
+expansion, source-located diagnostics, and span-based editor integration.
+
+The following remain future design work:
+
+- the `[...]` sequence carrier and `MacroList<T>`;
+- type and pattern invocation targets;
+- typed syntax facades that preserve both semantic type information and
+  authored syntax;
+- broader custom scope models beyond the current fragment locals and
+  declaration parameters;
+- a general public structured-DSL tree contract.
+
+These boundaries do not prevent a macro from maintaining a private parser or
+syntax tree. They describe what the Raven compiler currently recognizes and
+shares across macro, semantic, and language-service boundaries.

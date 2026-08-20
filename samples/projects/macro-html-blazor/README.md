@@ -27,10 +27,10 @@ component! Greeting(Name: string = "") {
 }
 ```
 
-`FunctionComponent` is the declaration macro's canonical name; `component` is
-its declaration-facing alias. This keeps it distinct from the existing
-attached `Component` macro. The `component!` body is ordinary Raven code rather
-than an HTML-only region;
+`FunctionComponent` is the function-style declaration macro's canonical name;
+`component` is its declaration-facing alias. This keeps it distinct from the
+existing attached `Component` macro. The `component!` body is ordinary Raven
+code rather than an HTML-only region;
 `markup!` is a nested macro invocation that produces the final render fragment.
 The component macro turns the declared name and typed parameters into a normal
 Blazor `ComponentBase` class and a `Render()` method. The final expression in
@@ -46,13 +46,13 @@ the declaration-shaped carrier into ordinary Raven declarations. Its generated
 macro pass expands into a Blazor `RenderFragment`. This is the same composition
 model advanced DSLs can use to delegate nested regions to focused macros.
 
-At the macro-authoring level, it shows that a library can define its own token-based
-view or template DSL, lower that DSL to an existing framework, and participate
-in Raven's diagnostics and editor tooling. `Markup!` is a provisional working
-name for an ordinary sample macro, not privileged compiler syntax. The DSL is
-broader than HTML: it composes components, embedded Raven expressions, control
-flow, callbacks, and framework services into Blazor render trees. Its final
-name and surface can be chosen if the experiment becomes a separate library.
+At the macro-authoring level, it shows that a library can define its own
+token-based markup DSL, lower that DSL to an existing framework, and
+participate in Raven's diagnostics and editor tooling. `Markup!` is an ordinary
+sample macro, not privileged compiler syntax. The broader name reflects that
+the DSL composes components, embedded Raven expressions, control flow,
+callbacks, and framework services into Blazor render trees rather than merely
+parsing HTML.
 
 Because a token-tree macro invocation is an expression, these templates can be
 written inline in an ordinary `.rvn` code file. They are not restricted to a

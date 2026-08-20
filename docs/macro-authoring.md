@@ -26,6 +26,14 @@ Keep four rules in mind:
 4. Expose spans and ordinary Raven fragments to editor tooling; keep the DSL's
    private parse tree private.
 
+The delimiters are part of the contract, not interchangeable decoration.
+`(...)` passes a fixed parameter list. `{...}` supplies a bounded content
+region. The declaration carrier `Name! Decl(...) { ... }` combines a structured
+declaration header with such a region. The proposed `Name![...]` family would
+instead supply a variable number of homogeneous values or syntax nodes through
+`MacroList<T>`; it is not implemented yet, and combinations with `{...}` remain
+open design space.
+
 Sections 1–4 form the shortest path from a small macro to a real DSL. Continue
 with only the capability the DSL needs:
 
@@ -45,12 +53,19 @@ authors do not need to begin there.
 | Typed compile-time values | ordinary `macro` parameters |
 | An authored Raven expression | an `ExpressionSyntax` parameter |
 | An unrestricted brace body | one `IMacroTokenStream` parameter |
+| A declaration name, parameters, and body | `FreestandingMacroDeclarationSyntax` plus `IMacroTokenStream` |
 | Body text, parsing, diagnostics, or file APIs | a `TokenTreeMacroContext` parameter |
 | Replace or introduce declarations | one typed `on target: ...` parameter |
 | Custom tokenization or fragment metadata | a class-authored provider interface |
 
 The compact and class-authored forms are two projections of one model. They use
 the same invocation syntax, registry, contexts, diagnostics, and results.
+
+This is also a complexity ladder. Typed-value and syntax-input macros are often
+small. A full token DSL can require a grammar, recovery, diagnostics, source
+mapping, highlighting, completion, hover, and navigation. Add those
+responsibilities only when the DSL needs them; Raven provides integration
+points, but the macro library remains responsible for its private language.
 
 Procedural macros have two application positions. A **freestanding** macro
 appears independently at any grammar position allowed by its declared syntax
@@ -190,6 +205,12 @@ The declaration carrier preserves modifiers, the macro name, declared name,
 parameter list, and body. This allows aliases such as `component` to read like
 declaration keywords in `public component! Greeting(...) { ... }`, while the
 body remains lossless input owned by the macro.
+
+An alias does not become a lexical Raven keyword. It is resolved through the
+macro registry using normal namespace and import rules. Once resolved, IDEs
+contextually present the alias as a contextual keyword; the canonical macro
+name retains the macro classification. The language server and Playground use
+the same compiler-owned classification.
 
 The standard stream uses Raven's lexer. A mostly Raven-shaped DSL should start
 there and add body-scoped keyword overlays. Implement a custom token stream
@@ -827,8 +848,9 @@ The repository examples progress from compact syntax to full DSL handling:
 * `samples/projects/macro-freestanding` — LINQ-like query parsing, three
   embedded Raven expression regions, caller-scope completion, and an
   introduced sequence-element range variable;
-* `samples/projects/macro-html-blazor` — private HTML parsing, embedded Raven
-  fragments, fragment metadata, component macros, and Blazor lowering.
+* `samples/projects/macro-html-blazor` — the Blazor Component Macros showcase,
+  with a private markup grammar, embedded Raven fragments, declaration-shaped
+  function components, nested macro expansion, and Blazor lowering.
 
 The sections above describe the supported macro forms and their current
 restrictions. Use the working samples as the compatibility baseline.
@@ -852,6 +874,7 @@ introduced sequence-element local into selected fragments. Broader custom
 scope shapes remain future work and should be driven by a concrete DSL use
 case.
 
-Expression and raw-body statement placement are implemented for the current
-macro MVP. Member, type, pattern, list-valued, and typed syntax-wrapper
-positions are not currently supported.
+Expression and raw-body statement placement, single-member and member-list
+expansion, and declaration-shaped carriers are implemented. Type and pattern
+invocation targets, the `[...]`/`MacroList<T>` input family, and typed syntax
+wrappers remain future work.
