@@ -170,7 +170,16 @@ internal sealed class WorkspaceManager
                     pair.Value.IsProjectDocument));
             }
 
+            var reloadSnapshot = CaptureReloadSnapshot();
             InitializeCore(_workspaceRoots);
+
+            if (ReloadDroppedExistingProject(reloadSnapshot.Solution))
+            {
+                RestoreReloadSnapshot(reloadSnapshot);
+                _logger.LogWarning(
+                    "Workspace reload could not replace every existing project. Preserving the last successful workspace until a later file change retries the reload.");
+                return Task.FromResult<IReadOnlyList<DocumentUri>>(openDocuments.Select(static document => document.Uri).ToArray());
+            }
 
 #pragma warning disable VSTHRD103 // Keep reload state restoration synchronous while the workspace lock is held.
             foreach (var openDocument in openDocuments)
@@ -179,6 +188,56 @@ internal sealed class WorkspaceManager
 
             return Task.FromResult<IReadOnlyList<DocumentUri>>(openDocuments.Select(static document => document.Uri).ToArray());
         }
+    }
+
+    private WorkspaceReloadSnapshot CaptureReloadSnapshot()
+        => new(
+            _workspace.CurrentSolution,
+            _projectsByRoot.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase),
+            _fileApplicationProjectsByRoot.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase),
+            _semanticDiagnosticsBlockedRoots.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase),
+            _editorConfigDiagnosticOptionsByProject.ToImmutableDictionary(),
+            _documents.ToImmutableDictionary(),
+            _fallbackProjectId);
+
+    private bool ReloadDroppedExistingProject(Solution previousSolution)
+    {
+        var currentProjectPaths = _workspace.CurrentSolution.Projects
+            .Select(static project => project.FilePath)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(NormalizePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return previousSolution.Projects.Any(project =>
+            !string.IsNullOrWhiteSpace(project.FilePath) &&
+            File.Exists(project.FilePath) &&
+            !currentProjectPaths.Contains(NormalizePath(project.FilePath)));
+    }
+
+    private void RestoreReloadSnapshot(WorkspaceReloadSnapshot snapshot)
+    {
+        _workspace.OpenSolution(snapshot.Solution);
+
+        _projectsByRoot.Clear();
+        foreach (var pair in snapshot.ProjectsByRoot)
+            _projectsByRoot.Add(pair.Key, pair.Value);
+
+        _fileApplicationProjectsByRoot.Clear();
+        foreach (var pair in snapshot.FileApplicationProjectsByRoot)
+            _fileApplicationProjectsByRoot.Add(pair.Key, pair.Value);
+
+        _semanticDiagnosticsBlockedRoots.Clear();
+        _semanticDiagnosticsBlockedRoots.UnionWith(snapshot.SemanticDiagnosticsBlockedRoots);
+
+        _editorConfigDiagnosticOptionsByProject.Clear();
+        foreach (var pair in snapshot.EditorConfigDiagnosticOptionsByProject)
+            _editorConfigDiagnosticOptionsByProject.Add(pair.Key, pair.Value);
+
+        _documents.Clear();
+        foreach (var pair in snapshot.Documents)
+            _documents.TryAdd(pair.Key, pair.Value);
+
+        _fallbackProjectId = snapshot.FallbackProjectId;
     }
 
     private bool ShouldReloadForWatchedFileChange(FileEvent change)
@@ -2361,5 +2420,13 @@ internal sealed class WorkspaceManager
         bool AddedDocument);
 
     private readonly record struct ReloadDocumentState(DocumentUri Uri, string Text, bool IsProjectDocument);
+    private sealed record WorkspaceReloadSnapshot(
+        Solution Solution,
+        ImmutableDictionary<string, ProjectId> ProjectsByRoot,
+        ImmutableDictionary<string, ProjectId> FileApplicationProjectsByRoot,
+        ImmutableHashSet<string> SemanticDiagnosticsBlockedRoots,
+        ImmutableDictionary<ProjectId, ImmutableDictionary<string, ReportDiagnostic>> EditorConfigDiagnosticOptionsByProject,
+        ImmutableDictionary<DocumentUri, OwnedDocument> Documents,
+        ProjectId? FallbackProjectId);
     private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType);
 }

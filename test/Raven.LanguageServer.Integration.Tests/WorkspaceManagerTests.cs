@@ -956,6 +956,67 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public async Task ReloadForWatchedFiles_TransientProjectOpenFailure_PreservesLastSuccessfulWorkspaceAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(sourcePath, "func Main() -> int => 42");
+
+        var projectSystem = new FailOnceOnReloadProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(sourcePath));
+
+        var firstRefresh = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(projectPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(2);
+        firstRefresh.ShouldContain(uri);
+        manager.TryGetDocument(uri, out var preservedDocument).ShouldBeTrue();
+        preservedDocument!.Project.FilePath.ShouldBe(projectPath);
+        workspace.GetCompilation(preservedDocument.Project.Id)
+            .GetDiagnostics()
+            .ShouldNotContain(diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error);
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(projectPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(3);
+        manager.TryGetDocument(uri, out var recoveredDocument).ShouldBeTrue();
+        recoveredDocument!.Project.FilePath.ShouldBe(projectPath);
+    }
+
+    [Fact]
     public async Task ReloadForWatchedFiles_ProjectPackageReferenceChangeRefreshesMetadataReferencesAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1298,6 +1359,7 @@ func Created() -> int => 2
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.rvn" />
@@ -2186,6 +2248,36 @@ class AnswerMacro: IMacroDefinition {
         public ProjectId OpenProject(Workspace workspace, string projectFilePath)
         {
             OpenAttempts++;
+            return _inner.OpenProject(workspace, projectFilePath);
+        }
+
+        public int OpenAttempts { get; private set; }
+
+        public void SaveProject(Project project, string filePath)
+            => _inner.SaveProject(project, filePath);
+    }
+
+    private sealed class FailOnceOnReloadProjectSystemService : IProjectSystemService
+    {
+        private readonly IProjectSystemService _inner;
+
+        public FailOnceOnReloadProjectSystemService(IProjectSystemService inner)
+        {
+            _inner = inner;
+        }
+
+        public bool CanOpenProject(string projectFilePath)
+            => _inner.CanOpenProject(projectFilePath);
+
+        public IReadOnlyList<string> GetProjectReferencePaths(string projectFilePath)
+            => _inner.GetProjectReferencePaths(projectFilePath);
+
+        public ProjectId OpenProject(Workspace workspace, string projectFilePath)
+        {
+            OpenAttempts++;
+            if (OpenAttempts == 2)
+                throw new InvalidOperationException("Synthetic transient project reload failure.");
+
             return _inner.OpenProject(workspace, projectFilePath);
         }
 

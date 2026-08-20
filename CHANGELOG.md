@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Language-server project reloads now preserve the last successfully loaded
+  solution when a transient project edit or restore failure prevents the
+  replacement project from opening, and retry on the next relevant file event.
 - Enum-member signatures and hover text now show the member's underlying
   constant value, while enum-valued parameter defaults retain target-typed
   displays such as `= .Rising`.
