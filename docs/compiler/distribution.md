@@ -266,6 +266,8 @@ it does not prove that the next stage is ready.
    released or unreleased status, and commit against the source actually built.
    When `main` contains post-release work, an unreleased next-preview footer is
    expected even though installation links still target the latest release.
+   The workflow must fetch release tags for that inference; a shallow checkout
+   can incorrectly label the already published preview as unreleased.
 
 ## NuGet packages
 

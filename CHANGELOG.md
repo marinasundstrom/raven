@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
   documented post-publication checklist also separates immutable release
   publication, package propagation, installation verification, and the
   `main`-only GitHub Pages deployment.
+- The website workflow now fetches release tags before deriving provenance, so
+  a post-release `main` deployment advances to the next unreleased preview line
+  instead of labeling the already published version as unreleased.
 
 ## 0.1.0-preview.11 - 2026-08-20
 

@@ -184,3 +184,6 @@ configured version already has a release tag on an earlier commit, the script
 advances to the next preview number. `RAVEN_SITE_VERSION` can explicitly select
 the unreleased version when it cannot be inferred. A local artifact also says
 `uncommitted changes` when tracked files differ from its source commit.
+The publishing workflow checks out full Git history, including tags; without
+the tags, a post-release `main` build cannot distinguish the published version
+from its next unreleased preview line.
