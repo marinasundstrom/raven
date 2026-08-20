@@ -220,6 +220,13 @@ The caller-facing signature is a projection, not a second symbol:
 This ensures a parameter cannot occupy one ordinal in semantic tooling and a
 different ordinal during execution.
 
+Descriptors belong to an immutable compilation snapshot. When a source-authored
+definition changes its generic parameters or designated `Expand` signature,
+the compiler rebuilds that definition's descriptor and invalidates dependent
+macro binding and expansion results. Tooling for unchanged consumer documents
+must resolve against the replacement descriptor in the new snapshot rather
+than retaining or reconstructing the old signature.
+
 ## Future-compatible requirements
 
 The MVP does not yet implement typed syntax facades, generic inference, or

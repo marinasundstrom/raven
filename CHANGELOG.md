@@ -16,7 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
   an ordinary `IMacroDefinition` class whose unconstrained designated `Expand`
   method supplies the canonical signature; Raven lowers generic and
   non-generic definition classes to direct erased entry points without
-  reflective expansion.
+  reflective expansion. Source edits to a definition's generic or `Expand`
+  signature rebuild its registered descriptor so unchanged consumer documents
+  immediately receive updated binding and editor information.
 - Raven project compilation avoids a redundant SDK evaluation when the target
   framework and configuration are already supplied, skips local macro
   activation assemblies for pure macro libraries, avoids duplicate framework

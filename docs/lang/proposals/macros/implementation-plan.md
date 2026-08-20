@@ -156,10 +156,12 @@ Direct macro definitions are the primary activation unit. Same-compilation
 definitions are discovered in the local compile-time partition, while
 referenced definitions must be exported by their assembly manifest.
 Each definition must implement exactly one category-specific macro interface;
-`MacroKind` is derived by compiler-owned `MacroFacts` and cannot be supplied or
-overridden by the implementation. Target applicability is declared only by
-`IAttachedDeclarationMacro`; `MacroFacts.GetTargets` normalizes invocable
-definitions to `MacroTarget.None` for common tooling.
+ordinary definition classes instead implement the `IMacroDefinition` marker
+and expose exactly one designated `Expand` method. The method's parameter
+sources determine application kind and applicability. Compiler-owned
+registration normalizes both forms into one immutable descriptor; legacy
+category-specific interfaces remain compatibility inputs rather than the
+canonical model.
 The function-oriented authoring model now lowers local declarations directly
 to the erased executor defined in [Macro ABI](abi.md). Caller-supplied
 parameters remain flat and are bound by canonical invocation ordinal and name;
@@ -173,6 +175,13 @@ macro declarations, adding or removing a portable reference, or changing a
 referenced assembly fingerprint creates a new activation set and registry.
 Unchanged local partitions and metadata-load state remain eligible for the
 existing incremental reuse paths.
+
+Changing a local definition's generic parameters or designated `Expand`
+signature invalidates its local macro partition and registered descriptor.
+The replacement descriptor is then observed by every dependent invocation,
+including invocation syntax in otherwise unchanged documents. Diagnostics,
+signature help, hover, completion, and expansion must therefore agree on the
+new signature within the next compilation snapshot.
 
 `MacroReference.Macros` exposes that activation result as a cached
 `ImmutableArray<IMacroDefinition>`. Repeated compiler and tooling queries see
