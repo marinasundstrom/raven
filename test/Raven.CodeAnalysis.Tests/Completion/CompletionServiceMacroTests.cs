@@ -471,6 +471,30 @@ class MacroHost {
     }
 
     [Fact]
+    public void GetCompletions_UsesDescriptorCapturedDuringMacroRegistration()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let value = capt!()
+    }
+}
+""";
+
+        var macro = new DescriptorSnapshotMacro();
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(macro));
+
+        var position = code.IndexOf('!', code.IndexOf("capt!", StringComparison.Ordinal));
+        var items = new CompletionService().GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "captured");
+        Assert.Equal(1, macro.AcceptsArgumentsReadCount);
+    }
+
+    [Fact]
     public void GetCompletions_InInvocableMacroName_UsesTokenTreeInsertion()
     {
         const string code = """
@@ -723,6 +747,27 @@ class MacroHost {
         public string Name => "subscribe";
 
         public bool AcceptsArguments => true;
+
+        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
+            => InvocableMacroExpansionResult.Empty;
+    }
+
+    private sealed class DescriptorSnapshotMacro : IInvocableMacro
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "captured";
+
+        public int AcceptsArgumentsReadCount { get; private set; }
+
+        public bool AcceptsArguments
+        {
+            get
+            {
+                AcceptsArgumentsReadCount++;
+                return true;
+            }
+        }
 
         public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
             => InvocableMacroExpansionResult.Empty;

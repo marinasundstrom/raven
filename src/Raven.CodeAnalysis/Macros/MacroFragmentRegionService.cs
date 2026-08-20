@@ -30,7 +30,7 @@ internal static class MacroFragmentRegionService
                 name,
                 out var loaded,
                 out _) ||
-            !MacroFacts.GetDescriptor(loaded.Macro).HasTokenBody)
+            !loaded.Descriptor.HasTokenBody)
         {
             return ImmutableArray<MacroFragmentRegion>.Empty;
         }

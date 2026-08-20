@@ -3070,7 +3070,7 @@ public static class CompletionProvider
             yield break;
         }
 
-        IMacroDefinition? macro = argumentList.Parent switch
+        MacroDefinitionDescriptor? descriptor = argumentList.Parent switch
         {
             AttributeSyntax attribute when
                 attribute.TryGetMacroName(out var name) &&
@@ -3080,7 +3080,7 @@ public static class CompletionProvider
                     name,
                     out var loaded,
                     out _) =>
-                loaded.Macro,
+                loaded.Descriptor,
             InvocableMacroExpressionSyntax expression when
                 expression.TryGetMacroName(out var name) &&
                 compilation.GetMacroRegistry().TryResolveInvocableMacro(
@@ -3089,10 +3089,10 @@ public static class CompletionProvider
                     name,
                     out var loaded,
                     out _) =>
-                loaded.Macro,
+                loaded.Descriptor,
             _ => null
         };
-        if (macro is null)
+        if (descriptor is null)
             yield break;
 
         var replacementSpan = new TextSpan(position, 0);
@@ -3129,7 +3129,7 @@ public static class CompletionProvider
         if (currentNamedArgument is not null)
             usedNames.Remove(currentNamedArgument);
 
-        foreach (var parameter in MacroFacts.GetDescriptor(macro).Parameters)
+        foreach (var parameter in descriptor.Parameters)
         {
             if (parameter.Kind != MacroParameterKind.Named ||
                 usedNames.Contains(parameter.Name) ||
@@ -3176,7 +3176,7 @@ public static class CompletionProvider
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var (name, macro) in EnumerateMacros(compilation, contextNode, context.Kind))
+        foreach (var (name, descriptor) in EnumerateMacros(compilation, contextNode, context.Kind))
         {
             if (!seen.Add(name) || !MacroNameMatchesPrefix(name, context.Prefix))
                 continue;
@@ -3191,7 +3191,6 @@ public static class CompletionProvider
                 continue;
             }
 
-            var descriptor = MacroFacts.GetDescriptor(macro);
             var insertionText = context.PreserveInvocationSuffix
                 ? name
                 : descriptor switch
@@ -3219,30 +3218,29 @@ public static class CompletionProvider
                 InsertionText: insertionText,
                 ReplacementSpan: context.ReplacementSpan,
                 CursorOffset: cursorOffset,
-                Description: CreateMacroDescription(macro),
+                Description: CreateMacroDescription(descriptor),
                 Symbol: macroSymbol);
         }
     }
 
-    private static IEnumerable<(string Name, IMacroDefinition Macro)> EnumerateMacros(
+    private static IEnumerable<(string Name, MacroDefinitionDescriptor Descriptor)> EnumerateMacros(
         Compilation compilation,
         SyntaxNode context,
         MacroKind kind)
         => compilation.GetMacroRegistry().GetVisibleMacros(compilation, context, kind);
 
-    private static string CreateMacroDescription(IMacroDefinition macro)
+    private static string CreateMacroDescription(MacroDefinitionDescriptor descriptor)
     {
-        var kindDisplay = MacroFacts.GetKind(macro) switch
+        var kindDisplay = descriptor.ApplicationKind switch
         {
-            MacroKind.AttachedDeclaration => "attached declaration macro",
-            MacroKind.Invocable => "invocable macro",
+            MacroApplicationKind.Attached => "attached declaration macro",
+            MacroApplicationKind.Invocable => "invocable macro",
             _ => "macro"
         };
-        var targets = MacroFacts.GetTargets(macro);
+        var targets = descriptor.AttachmentTargets;
         var targetsDisplay = targets == MacroTarget.None
             ? null
             : $"targets: {FormatMacroTargets(targets)}";
-        var descriptor = MacroFacts.GetDescriptor(macro);
         var argumentsDisplay = descriptor switch
         {
             { HasTokenBody: true, AcceptsArguments: true } => "accepts arguments and a token-tree body",

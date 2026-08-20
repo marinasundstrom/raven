@@ -251,7 +251,7 @@ internal sealed class MacroRegistry
         return true;
     }
 
-    public IEnumerable<(string Name, IMacroDefinition Macro)> GetVisibleMacros(
+    public IEnumerable<(string Name, MacroDefinitionDescriptor Descriptor)> GetVisibleMacros(
         Compilation compilation,
         SyntaxNode context,
         MacroKind kind)
@@ -262,14 +262,14 @@ internal sealed class MacroRegistry
                 compilation,
                 context,
                 _attachedMacros.Values,
-                static loaded => loaded.Macro,
+                static loaded => loaded.Descriptor,
                 static loaded => loaded.CanonicalName,
                 static loaded => loaded.Aliases),
             MacroKind.Invocable => GetVisibleMacros(
                 compilation,
                 context,
                 _invocableMacros.Values,
-                static loaded => loaded.Macro,
+                static loaded => loaded.Descriptor,
                 static loaded => loaded.CanonicalName,
                 static loaded => loaded.Aliases),
             _ => []
@@ -323,11 +323,11 @@ internal sealed class MacroRegistry
         return matches.Length == 1;
     }
 
-    private static IEnumerable<(string Name, IMacroDefinition Macro)> GetVisibleMacros<TMacro>(
+    private static IEnumerable<(string Name, MacroDefinitionDescriptor Descriptor)> GetVisibleMacros<TMacro>(
         Compilation compilation,
         SyntaxNode context,
         IEnumerable<TMacro> macros,
-        Func<TMacro, IMacroDefinition> getMacro,
+        Func<TMacro, MacroDefinitionDescriptor> getDescriptor,
         Func<TMacro, string> getCanonicalName,
         Func<TMacro, ImmutableArray<string>> getAliases)
     {
@@ -337,9 +337,9 @@ internal sealed class MacroRegistry
             if (!IsNamespaceInScope(compilation, context, GetNamespace(canonicalName)))
                 continue;
 
-            yield return (GetSimpleName(canonicalName), getMacro(loaded));
+            yield return (GetSimpleName(canonicalName), getDescriptor(loaded));
             foreach (var alias in getAliases(loaded))
-                yield return (alias, getMacro(loaded));
+                yield return (alias, getDescriptor(loaded));
         }
     }
 

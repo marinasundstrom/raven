@@ -31,7 +31,7 @@ internal static class MacroTokenInfoService
                 name,
                 out var loaded,
                 out _) ||
-            !MacroFacts.GetDescriptor(loaded.Macro).HasTokenBody)
+            !loaded.Descriptor.HasTokenBody)
         {
             return ImmutableArray<MacroTokenInfo>.Empty;
         }
