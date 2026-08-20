@@ -9,6 +9,48 @@ namespace Raven.CodeAnalysis.Tests;
 public class EnumCodeGenTests
 {
     [Fact]
+    public void SourceEnumConstantPattern_OnPropertyResult_MatchesQualifiedMember()
+    {
+        const string code = """
+enum PinEventTypes {
+    Falling
+    Rising
+}
+
+record Args(val ChangeType: PinEventTypes)
+
+class Program {
+    public static func Run() -> bool {
+        let args = Args(PinEventTypes.Rising)
+
+        if args.ChangeType is PinEventTypes.Rising {
+            return true
+        }
+
+        return false
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("source_enum_property_constant_pattern", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var type = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var run = type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+        var value = (bool)run.Invoke(null, Array.Empty<object>())!;
+
+        Assert.True(value);
+    }
+
+    [Fact]
     public void MetadataEnumConstantPatterns_MatchExactValue()
     {
         const string code = """
