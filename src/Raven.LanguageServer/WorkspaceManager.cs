@@ -598,7 +598,13 @@ internal sealed class WorkspaceManager
 
     internal static bool IsRelevantWatchedFileChangePath(string path)
     {
-        if (string.IsNullOrWhiteSpace(path) || IsWatchedFilePathExcluded(path))
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        if (IsProjectAssetsFilePath(path))
+            return true;
+
+        if (IsWatchedFilePathExcluded(path))
             return false;
 
         var extension = Path.GetExtension(path);
@@ -607,6 +613,13 @@ internal sealed class WorkspaceManager
                string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
                RavenFileExtensions.HasRavenExtension(path);
     }
+
+    private static bool IsProjectAssetsFilePath(string path)
+        => string.Equals(
+            Path.GetFileName(path),
+            "project.assets.json",
+            StringComparison.OrdinalIgnoreCase) &&
+           EnumeratePathSegments(path).Contains("obj", StringComparer.OrdinalIgnoreCase);
 
     private ImmutableDictionary<string, ReportDiagnostic> GetTrackedEditorConfigDiagnosticOptions(Project project)
     {

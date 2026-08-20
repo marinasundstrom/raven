@@ -288,6 +288,14 @@ func Main() {
     }
 
     [Fact]
+    public void ShouldReloadForWatchedFileChanges_ReloadsForNuGetAssetsFile()
+    {
+        var assetsPath = Path.Combine(_tempRoot, "obj", "project.assets.json");
+
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([assetsPath]).ShouldBeTrue();
+    }
+
+    [Fact]
     public void ShouldReloadForWatchedFileChanges_ReloadsForSourceAndProjectFiles()
     {
         var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
@@ -945,6 +953,70 @@ func Main() -> unit { }
         ]);
 
         projectSystem.OpenAttempts.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_ProjectPackageReferenceChangeRefreshesMetadataReferencesAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(sourcePath, "func Main() -> unit { }");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(sourcePath));
+        manager.TryGetDocument(uri, out var initialDocument).ShouldBeTrue();
+        initialDocument!.Project.MetadataReferences.Any(IsNewtonsoftJsonReference).ShouldBeFalse();
+
+        File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+</Project>
+""");
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(projectPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        manager.TryGetDocument(uri, out var refreshedDocument).ShouldBeTrue();
+        refreshedDocument!.Project.MetadataReferences.Any(IsNewtonsoftJsonReference).ShouldBeTrue();
+
+        static bool IsNewtonsoftJsonReference(MetadataReference reference)
+            => reference is PortableExecutableReference portableReference &&
+               string.Equals(
+                   Path.GetFileName(portableReference.FilePath),
+                   "Newtonsoft.Json.dll",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

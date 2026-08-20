@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- The language server now reloads projects when an external `dotnet restore` or
+  `dotnet build` updates `obj/project.assets.json`, allowing newly added package
+  references to recover after a failed or racing editor-side project reload.
 - Editing an unused import now invalidates the stale grey diagnostic on that
   import line only, while unused-import diagnostics on untouched lines remain
   visible until refreshed analyzer results arrive.
