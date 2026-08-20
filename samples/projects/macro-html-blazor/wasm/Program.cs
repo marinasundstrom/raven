@@ -1,4 +1,4 @@
-using HtmlBlazorShowcase.Wasm;
+using ComponentMacrosShowcase.Wasm;
 
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;

@@ -31,15 +31,15 @@ _layout: landing
       <div class="raven-code-learn"><span>.NET nanoFramework, sensor states, and GPIO</span><a href="showcases/embedded-iot.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-code-slide" id="raven-sample-components" role="tabpanel" aria-labelledby="raven-sample-components-tab" hidden>
-      <div class="raven-code-titlebar"><span>HTML components · Counter.rvn · experimental</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
-      <pre><code class="lang-raven">#[Component]&#10;public class Counter {&#10;&#32;&#32;&#32;&#32;var count = 0&#10;&#10;&#32;&#32;&#32;&#32;func increment() {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;count = count + 1&#10;&#32;&#32;&#32;&#32;}&#10;&#10;&#32;&#32;&#32;&#32;func Render() -&gt; RenderFragment =&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Html! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;button onClick={increment}&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Count: {count}&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/button&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;}</code></pre>
-      <div class="raven-code-learn"><span>Compile-time macros, components, and embedded HTML</span><a href="showcases/html-components.md">Learn more <span aria-hidden="true">→</span></a></div>
+      <div class="raven-code-titlebar"><span>Blazor component macros · Greeting.rvn · experimental</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
+      <pre><code class="lang-raven">component! Greeting(Name: string = &quot;&quot;) {&#10;&#32;&#32;&#32;&#32;markup! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;section class=&quot;greeting&quot;&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;h1&gt;Hello {Name}&lt;/h1&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/section&gt;&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+      <div class="raven-code-learn"><span>Composable macros expressed through ordinary Blazor</span><a href="showcases/html-components.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">
       <button id="raven-sample-modeling-tab" type="button" role="tab" aria-controls="raven-sample-modeling" aria-selected="true">Modeling</button>
       <button id="raven-workload-web-tab" type="button" role="tab" aria-controls="raven-workload-web" aria-selected="false" tabindex="-1">Web API</button>
       <button id="raven-workload-embedded-tab" type="button" role="tab" aria-controls="raven-workload-embedded" aria-selected="false" tabindex="-1">Embedded IoT</button>
-      <button id="raven-sample-components-tab" type="button" role="tab" aria-controls="raven-sample-components" aria-selected="false" tabindex="-1">HTML macro</button>
+      <button id="raven-sample-components-tab" type="button" role="tab" aria-controls="raven-sample-components" aria-selected="false" tabindex="-1">Component macros</button>
     </div>
   </div>
 </section>

@@ -43,6 +43,12 @@ public sealed class MacroExecutionContext
             : throw new InvalidOperationException(
                 $"Macro '{Executor.Name}' cannot use the attached declaration as {typeof(TSyntax).Name}.");
 
+    public TSyntax GetDeclarationInput<TSyntax>() where TSyntax : SyntaxNode
+        => Context.InvocationSyntax is TSyntax declaration
+            ? declaration
+            : throw new InvalidOperationException(
+                $"Macro '{Executor.Name}' cannot use this invocation as {typeof(TSyntax).Name}.");
+
     public T GetArgument<T>(int ordinal, string name)
     {
         var argument = FindArgument(ordinal, name) ?? throw new InvalidOperationException(

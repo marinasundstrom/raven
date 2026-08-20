@@ -27,7 +27,7 @@ public class TodoList {
     }
 
     func Render() -> RenderFragment {
-        return Html! {
+        return Markup! {
             <section class="todo-board">
                 <header class="todo-heading">
                     <div>
@@ -40,7 +40,7 @@ public class TodoList {
                 </header>
                 <ul class="todo-list">
                     {[for todo in todos if showCompleted || !todo.IsCompleted =>
-                        Html! {
+                        Markup! {
                             <TodoItem
                                 key={todo.Id}
                                 Id={todo.Id}

@@ -322,6 +322,34 @@ public partial class Compilation
         foreach (var member in containerNode.ChildNodes())
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (member is FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax)
+            {
+                var directExpansion = member switch
+                {
+                    FreestandingMacroMemberDeclarationSyntax directInvocation =>
+                        semanticModel.GetMacroExpansion(directInvocation, cancellationToken),
+                    FreestandingMacroDeclarationSyntax declaration =>
+                        semanticModel.GetMacroExpansion(declaration, cancellationToken),
+                    _ => null
+                };
+                if (directExpansion?.HasMemberExpansion == true)
+                {
+                    foreach (var expandedMember in directExpansion.Members)
+                        yield return expandedMember;
+
+                    continue;
+                }
+
+                if (directExpansion?.Node is MemberDeclarationSyntax directExpandedDeclaration)
+                {
+                    yield return directExpandedDeclaration;
+                    continue;
+                }
+
+                yield return member;
+                continue;
+            }
+
             if (member is not GlobalStatementSyntax
                 {
                     Statement: ExpressionStatementSyntax

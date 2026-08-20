@@ -120,6 +120,8 @@ internal static class MethodMacroFacts
             return MacroParameterSource.Context;
         if (typeof(IMacroTokenStream).IsAssignableFrom(parameterType))
             return MacroParameterSource.TokenBody;
+        if (typeof(FreestandingMacroDeclarationSyntax).IsAssignableFrom(parameterType))
+            return MacroParameterSource.DeclarationInput;
         if (applicationKind == MacroApplicationKind.Attached &&
             typeof(SyntaxNode).IsAssignableFrom(parameterType))
         {

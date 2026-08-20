@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-project="$repository_root/samples/projects/macro-html-blazor/wasm/HtmlBlazorShowcase.Wasm.csproj"
+project="$repository_root/samples/projects/macro-html-blazor/wasm/ComponentMacrosShowcase.Wasm.csproj"
 site_dir="$repository_root/_site/experiments/html-macro"
 publish_dir="$(mktemp -d "${TMPDIR:-/tmp}/raven-html-macro-site.XXXXXX")"
 
@@ -32,9 +32,9 @@ cp "$repository_root/scripts/site-config/html-macro-appsettings.json" "$site_dir
 
 test -f "$site_dir/index.html"
 test -d "$site_dir/_framework"
-test -s "$site_dir/_content/HtmlBlazorSample/app.css"
+test -s "$site_dir/_content/ComponentMacros/app.css"
 grep -Fq '"RavenSiteRootHref": "../../"' "$site_dir/appsettings.json"
 grep -Fq '<script type="importmap">' "$site_dir/index.html"
 find "$site_dir/_framework" -maxdepth 1 -name 'Raven.Core.*.wasm' -print -quit | grep -q .
 find "$site_dir/_framework" -maxdepth 1 -name 'ExistingBlazorComponents.*.wasm' -print -quit | grep -q .
-find "$site_dir/_framework" -maxdepth 1 -name 'HtmlBlazorMacros.*.wasm' -print -quit | grep -q .
+find "$site_dir/_framework" -maxdepth 1 -name 'ComponentMacros.Macros.*.wasm' -print -quit | grep -q .

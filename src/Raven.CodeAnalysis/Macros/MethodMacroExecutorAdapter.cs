@@ -47,6 +47,7 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
                 MacroParameterSource.Context => GetContext(context.Context, parameter.RuntimeType),
                 MacroParameterSource.TokenBody => GetTokenBody(context.Context),
                 MacroParameterSource.AttachedTarget => GetAttachedTarget(context.Context, parameter.RuntimeType),
+                MacroParameterSource.DeclarationInput => GetDeclarationInput(context, parameter.RuntimeType),
                 _ => GetArgument(context, parameter),
             };
         }
@@ -112,6 +113,12 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
             ? attachedContext.TargetDeclaration
             : throw new InvalidOperationException(
                 $"The attached declaration cannot be supplied as {parameterType.Name}.");
+
+    private static object GetDeclarationInput(MacroExecutionContext context, Type parameterType)
+        => parameterType.IsInstanceOfType(context.Context.InvocationSyntax)
+            ? context.Context.InvocationSyntax
+            : throw new InvalidOperationException(
+                $"The freestanding invocation cannot be supplied as {parameterType.Name}.");
 
     private MacroExecutionResult NormalizeResult(object? result)
     {

@@ -1,37 +1,36 @@
-# Build HTML components with a macro
+# Build Blazor components with composable macros
 
-This experimental sample shows a Raven macro turning an HTML-shaped template
-into an ordinary Blazor component. The template stays beside the component's
-state and behavior in one `.rvn` file.
+This experimental sample is a DSL built by macros on top of Blazor. It offers
+another way to express ordinary Blazor components while retaining Blazor's
+component model, renderer, events, CSS isolation, hosting, and .NET interop.
 
 ```raven
-#[Component]
-public class Counter {
-    var count = 0
+component! Greeting(Name: string = "") {
+    let x = 42
 
-    func increment() {
-        count = count + 1
+    markup! {
+        <section class="greeting">
+            <h1>Hello {Name}</h1>
+        </section>
     }
-
-    func Render() -> RenderFragment =>
-        Html! {
-            <button onClick={increment}>
-                Count: {count}
-            </button>
-        }
 }
 ```
 
 ## What the sample shows
 
-- `Html!` is an ordinary token-tree macro supplied by the sample library, not
-  HTML syntax built into the Raven compiler.
+- `component!` is a declaration-shaped macro that generates an ordinary Blazor
+  `ComponentBase` class from its name, typed parameters, and Raven body.
+- `markup!` is an ordinary token-tree macro supplied by the sample library, not
+  markup syntax built into the Raven compiler.
+- The sample deliberately nests `markup!` inside input interpreted by
+  `component!`, verifying that one macro can preserve and compose another macro
+  invocation in its expansion.
 - The macro reads the embedded template at compile time and expands it into a
   normal Blazor `RenderFragment`.
-- Raven expressions such as `increment` and `count` remain visible inside the
+- Raven expressions such as `Name` remain visible inside the
   template and participate in compiler and editor tooling.
-- `#[Component]` is an attached macro that connects the authored class to
-  Blazor's existing `ComponentBase` model.
+- The earlier `#[Component]` class form remains available beside the compact
+  function-component form.
 - The result still uses ordinary Blazor components, parameters, callbacks,
   rendering, CSS isolation, and .NET interop.
 
@@ -42,7 +41,7 @@ privileged part of Raven.
 ## How macros fit
 
 A Raven macro is a compile-time transformation that is explicitly invoked in
-source. Here, `Html!` owns the HTML-shaped input and produces Raven syntax that
+source. Here, `markup!` owns the HTML-shaped input and produces Raven syntax that
 continues through normal binding and compilation. The application does not
 parse templates or generate render trees at runtime.
 

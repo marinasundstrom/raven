@@ -91,6 +91,7 @@ internal static class MacroLowering
                             MacroParameterRole.SyntaxInput => MacroParameterSource.SyntaxInput,
                             MacroParameterRole.Context => MacroParameterSource.Context,
                             MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
+                            MacroParameterRole.DeclarationInput => MacroParameterSource.DeclarationInput,
                             _ => MacroParameterSource.Value,
                         };
                 return (
@@ -169,6 +170,7 @@ internal static class MacroLowering
                 MacroParameterSource.Context => $"{executionName}.GetContext<{runtimeType}>()",
                 MacroParameterSource.TokenBody => $"{executionName}.GetContext<Raven.CodeAnalysis.Macros.TokenTreeMacroContext>().CreateTokenStream()",
                 MacroParameterSource.AttachedTarget => $"{executionName}.GetAttachedTarget<{runtimeType}>()",
+                MacroParameterSource.DeclarationInput => $"{executionName}.GetDeclarationInput<{runtimeType}>()",
                 _ when parameter.Syntax.DefaultValue is { } defaultValue =>
                     $"{executionName}.GetArgumentOrDefault<{runtimeType}>({parameter.InvocationOrdinal}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", {defaultValue.Value})",
                 _ => $"{executionName}.GetArgument<{runtimeType}>({parameter.InvocationOrdinal}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\")",
@@ -303,12 +305,17 @@ internal static class MacroLowering
             .Where(static parameter =>
                 parameter.ContextKind == MacroContextKind.Attached)
             .ToArray();
+        var declarationInputParameters = parameters
+            .Where(static parameter =>
+                parameter.Role == MacroParameterRole.DeclarationInput)
+            .ToArray();
         var valueParameters = parameters
             .Where(static parameter =>
                 parameter.Role is not (
                     MacroParameterRole.TokenBody or
                     MacroParameterRole.Context or
-                    MacroParameterRole.AttachedTarget))
+                    MacroParameterRole.AttachedTarget or
+                    MacroParameterRole.DeclarationInput))
             .ToArray();
         var hasTokenTreeBody = tokenStreamParameters.Length > 0 || contextParameters.Length > 0;
         var hasEditorMetadataContributions = declaration.DescendantNodes()
@@ -436,6 +443,11 @@ internal static class MacroLowering
         {
             builder.AppendLine(
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.AttachedMacroContext = {contextVariableName}");
+        }
+        foreach (var declarationInputParameter in declarationInputParameters)
+        {
+            builder.AppendLine(
+                $"        let {declarationInputParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax = {executionVariableName}.GetDeclarationInput<Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax>()");
         }
 
         if (!hasTokenTreeBody && parameters.FirstOrDefault(static parameter =>

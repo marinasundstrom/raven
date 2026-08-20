@@ -12,17 +12,17 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../app/HtmlBlazorSample.rvnproj" ReferenceOutputAssembly="false" />
-    <Reference Include="HtmlBlazorSample"
-               HintPath="../app/bin/$(Configuration)/net10.0/HtmlBlazorSample.dll"
+    <ProjectReference Include="../app/ComponentMacros.rvnproj" ReferenceOutputAssembly="false" />
+    <Reference Include="ComponentMacros"
+               HintPath="../app/bin/$(Configuration)/net10.0/ComponentMacros.dll"
                Private="true"
                ExternallyResolved="true" />
     <Reference Include="ExistingBlazorComponents"
                HintPath="../app/bin/$(Configuration)/net10.0/ExistingBlazorComponents.dll"
                Private="true"
                ExternallyResolved="true" />
-    <Reference Include="HtmlBlazorMacros"
-               HintPath="../app/bin/$(Configuration)/net10.0/HtmlBlazorMacros.dll"
+    <Reference Include="ComponentMacros.Macros"
+               HintPath="../app/bin/$(Configuration)/net10.0/ComponentMacros.Macros.dll"
                Private="true"
                ExternallyResolved="true" />
     <Reference Include="Raven.Core"

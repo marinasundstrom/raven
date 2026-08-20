@@ -11,16 +11,16 @@
         </a>
         <div class="nav-meta">
             <span class="status-dot"></span>
-            Component template experiment
+            Blazor Component Macros
         </div>
     </nav>
 
     <section class="hero">
-        <div class="eyebrow"><span>Experimental</span> Macro-powered component templates → native Blazor</div>
+        <div class="eyebrow"><span>Experimental</span> A macro-authored DSL → native Blazor</div>
         <h1>Components that read like the <em>web.</em></h1>
         <p class="hero-copy">
-            Raven macros turn familiar inline templates into interactive Blazor components—with parameters,
-            state, nested components, list comprehensions, pattern matching, and event callbacks intact.
+            Component and markup macros provide another way to express interactive Blazor components—with
+            parameters, state, nested components, list comprehensions, pattern matching, and event callbacks intact.
         </p>
         <div class="hero-actions">
             <a class="primary-action" href="#playground">Try the components <span>↓</span></a>
@@ -61,7 +61,7 @@
     }
 
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
-        <span class="syntax-macro">Html!</span> {
+        <span class="syntax-macro">Markup!</span> {
             &lt;<span class="syntax-tag">button</span> <span class="syntax-property">class</span>=<span class="syntax-string">"counter-button"</span> <span class="syntax-property">onClick</span>={<span class="syntax-function">increment</span>}&gt;
                 Count: {count}
             &lt;/<span class="syntax-tag">button</span>&gt;
@@ -108,13 +108,23 @@
             <article class="code-card light-code">
                 <div class="card-bar">
                     <div class="traffic-lights"><i></i><i></i><i></i></div>
-                    <span>Gallery.rvn</span>
+                    <span>Greeting.rvn + Gallery.rvn</span>
                     <span class="language-pill">RAVEN</span>
                 </div>
-                <pre><code class="raven-source"><span class="syntax-attribute">#[Component]</span>
+                <pre><code class="raven-source"><span class="syntax-macro">component!</span> <span class="syntax-type">Greeting</span>(Name: <span class="syntax-type">string</span> = <span class="syntax-string">""</span>) {
+    <span class="syntax-keyword">let</span> x = <span class="syntax-number">42</span>
+
+    <span class="syntax-macro">markup!</span> {
+        &lt;<span class="syntax-tag">section</span> <span class="syntax-property">class</span>=<span class="syntax-string">"greeting"</span>&gt;
+            &lt;<span class="syntax-tag">h1</span>&gt;Hello {Name}&lt;/<span class="syntax-tag">h1</span>&gt;
+        &lt;/<span class="syntax-tag">section</span>&gt;
+    }
+}
+
+<span class="syntax-attribute">#[Component]</span>
 <span class="syntax-keyword">class</span> <span class="syntax-type">Gallery</span> {
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
-        <span class="syntax-macro">Html!</span> {
+        <span class="syntax-macro">Markup!</span> {
             &lt;<span class="syntax-tag">div</span> <span class="syntax-property">class</span>=<span class="syntax-string">"composition"</span>&gt;
                 &lt;<span class="syntax-type">Greeting</span> <span class="syntax-property">Name</span>=<span class="syntax-string">"Raven"</span> /&gt;
                 &lt;<span class="syntax-type">Counter</span> <span class="syntax-property">InitialCount</span>={<span class="syntax-number">3</span>} /&gt;
@@ -147,11 +157,11 @@
     <span class="syntax-keyword">var</span> showCompleted = <span class="syntax-keyword">false</span>
 
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> {
-        <span class="syntax-keyword">return</span> <span class="syntax-macro">Html!</span> {
+        <span class="syntax-keyword">return</span> <span class="syntax-macro">Markup!</span> {
             &lt;<span class="syntax-tag">ul</span> <span class="syntax-property">class</span>=<span class="syntax-string">"todo-list"</span>&gt;
                 {[<span class="syntax-keyword">for</span> todo <span class="syntax-keyword">in</span> todos
                     <span class="syntax-keyword">if</span> showCompleted || !todo.IsCompleted =&gt;
-                    <span class="syntax-macro">Html!</span> {
+                    <span class="syntax-macro">Markup!</span> {
                         &lt;<span class="syntax-type">TodoItem</span>
                             <span class="syntax-property">key</span>={todo.Id}
                             <span class="syntax-property">Title</span>={todo.Title}
@@ -221,7 +231,7 @@
 <span class="syntax-attribute">#[Component]</span>
 <span class="syntax-keyword">class</span> <span class="syntax-type">BlazorInteropShowcase</span> {
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
-        <span class="syntax-macro">Html!</span> {
+        <span class="syntax-macro">Markup!</span> {
             &lt;<span class="syntax-type">StatusBadge</span>
                 <span class="syntax-property">Label</span>=<span class="syntax-string">"Blazor component, Raven template"</span> /&gt;
         }
@@ -265,7 +275,7 @@
     <span class="syntax-keyword">var</span> stage: <span class="syntax-type">BuildStage</span> = .Designing(<span class="syntax-string">"macro DSLs"</span>)
 
     <span class="syntax-keyword">func</span> <span class="syntax-function">Render</span>() -&gt; <span class="syntax-type">RenderFragment</span> =&gt;
-        <span class="syntax-macro">Html!</span> {
+        <span class="syntax-macro">Markup!</span> {
             &lt;<span class="syntax-tag">strong</span>&gt;{<span class="syntax-keyword">match</span> stage {
                 .Designing(<span class="syntax-keyword">let</span> feature) =&gt; <span class="syntax-string">"Designing $feature"</span>
                 .Compiling(<span class="syntax-keyword">let</span> target) =&gt; <span class="syntax-string">"Compiling $target"</span>
@@ -278,7 +288,7 @@
     </section>
 
     <section class="proof-strip" aria-label="Component template capabilities">
-        <div><strong>Html!</strong><span>Inline component templates</span></div>
+        <div><strong>Markup!</strong><span>Inline component templates</span></div>
         <div><strong>#[Component]</strong><span>Components without boilerplate</span></div>
         <div><strong>[for … if]</strong><span>Filtered lists</span></div>
         <div><strong>match value</strong><span>Every state handled</span></div>

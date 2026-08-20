@@ -32,7 +32,11 @@ public static class MacroFacts
             hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
                 .Any(static parameter =>
                     parameter.Source == MacroParameterSource.TokenBody ||
-                    typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType)));
+                    typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType)),
+            macro is IMacroExecutor executor && executor.Parameters.Any(static parameter =>
+                parameter.Source == MacroParameterSource.DeclarationInput) ||
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand).Any(static parameter =>
+                parameter.Source == MacroParameterSource.DeclarationInput));
     }
 
     public static bool AcceptsArguments(IMacroDefinition macro)
@@ -230,6 +234,7 @@ public static class MacroFacts
             MacroParameterSource.Context => MacroParameterRole.Context,
             MacroParameterSource.TokenBody => MacroParameterRole.TokenBody,
             MacroParameterSource.AttachedTarget => MacroParameterRole.AttachedTarget,
+            MacroParameterSource.DeclarationInput => MacroParameterRole.DeclarationInput,
             _ => MacroParameterRole.Value,
         };
 

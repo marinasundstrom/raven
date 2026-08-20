@@ -1253,9 +1253,9 @@ public partial class SemanticModel
         ImmutableArray<EffectiveMemberDeclaration>.Builder builder,
         MemberDeclarationSyntax member)
     {
-        if (member is FreestandingMacroMemberDeclarationSyntax invocation)
+        if (member is FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax)
         {
-            var expansion = GetMacroExpansion(invocation);
+            var expansion = GetFreestandingMacroExpansion(member, CancellationToken.None);
             if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))
             {
                 builder.Add(new EffectiveMemberDeclaration(member));
@@ -1268,7 +1268,7 @@ public partial class SemanticModel
                     ? ImmutableArray.Create(expandedMember)
                     : ImmutableArray<MemberDeclarationSyntax>.Empty;
             if (expandedMembers.Length > 0)
-                RegisterMacroReplacementSyntaxTrees(invocation, expandedMembers);
+                RegisterMacroReplacementSyntaxTrees(member, expandedMembers);
 
             var containingType = (TypeDeclarationSyntax)member.Parent!;
             foreach (var generatedMember in expandedMembers)

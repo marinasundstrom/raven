@@ -1,19 +1,19 @@
 <Project Sdk="Raven.Sdk;Microsoft.NET.Sdk.StaticWebAssets">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>HtmlBlazorSample</AssemblyName>
+    <AssemblyName>ComponentMacros</AssemblyName>
     <OutputType>Exe</OutputType>
     <ScopedCssEnabled>true</ScopedCssEnabled>
     <CustomAfterStaticWebAssetsSdkTargets>$(MSBuildProjectDirectory)/Raven.BlazorCssIsolation.StaticWebAssets.targets</CustomAfterStaticWebAssetsSdkTargets>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../macros/HtmlBlazorMacros.rvnproj" />
+    <ProjectReference Include="../macros/ComponentMacros.Macros.rvnproj" />
     <ProjectReference Include="../blazor/ExistingBlazorComponents.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Components" Version="10.0.0" />
     <RavenComponentCss
       Include="src/Components/Counter.rvn.css"
       ComponentSource="$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/src/Components/Counter.rvn'))"
-      CssScope="b-htmlblazorsample-counter" />
+      CssScope="b-componentmacros-counter" />
   </ItemGroup>
   <Import Project="Raven.BlazorCssIsolation.targets" />
 </Project>

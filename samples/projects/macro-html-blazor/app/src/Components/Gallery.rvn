@@ -3,7 +3,7 @@ import Microsoft.AspNetCore.Components.*
 #[Component]
 public class Gallery {
     func Render() -> RenderFragment =>
-        Html! {
+        Markup! {
             <div class="composition">
                 <Greeting Name="Raven" />
                 <Counter InitialCount={3} />

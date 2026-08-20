@@ -725,6 +725,35 @@ public sealed class MacroSymbolTests : CompilationTestBase
     }
 
     [Fact]
+    public void DeclarationMacro_ExposesCarrierAndBodyParameterRoles()
+    {
+        var (baseCompilation, tree) = CreateCompilation("""
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            macro Component(
+                declaration: FreestandingMacroDeclarationSyntax,
+                body: IMacroTokenStream
+            ) -> MemberDeclarationSyntax {
+                expand declaration
+            }
+            """);
+        var compilation = baseCompilation.AddReferences(
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location));
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MacroDeclarationSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(MacroParameterRole.DeclarationInput, symbol.Parameters[0].MacroRole);
+        Assert.Equal(MacroParameterRole.TokenBody, symbol.Parameters[1].MacroRole);
+        Assert.Null(symbol.ParameterBindings[0].InvocationArgumentOrdinal);
+        Assert.Null(symbol.ParameterBindings[1].InvocationArgumentOrdinal);
+    }
+
+    [Fact]
     public void ExpressionMacro_ExposesSyntaxProjectionRole()
     {
         var (baseCompilation, tree) = CreateCompilation("""

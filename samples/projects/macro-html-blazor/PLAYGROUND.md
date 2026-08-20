@@ -5,19 +5,23 @@
 This sample is the prototype for a possible standalone Raven UI project. It is
 the place to evolve the authoring surface, macro diagnostics, generated Blazor
 shape, and interactive examples. Playground integration is a consumer of that
-work, not a second implementation of the HTML DSL.
+work, not a second implementation of the markup DSL.
 
 **Distribution is the gate for Playground work.** Do not add this prototype to
 `Raven.Playground`, reference the sample projects from it, or copy the macros
-into the Playground. Integration begins only after the component and HTML
+into the Playground. Integration begins only after the component and markup
 macros are available as a separately consumable library/package with a stable
 public contract and an ordinary downstream reference story.
 
-The likely future extraction has three layers:
+The likely future extraction has two layers:
 
-1. a Raven HTML macro package containing the HTML parser and lowering;
-2. a Raven Blazor component macro package containing `#[Component]`; and
-3. hosts such as the showcase and Playground that reference those packages.
+1. `Raven.Blazor.Macros`, containing the declaration-shaped component macro,
+   the markup parser and lowering, and their small Blazor runtime adapter; and
+2. hosts such as the showcase and Playground that reference that package.
+
+The two macros belong together initially because their public story is one
+composable Blazor authoring DSL. The parser can be extracted later if another
+backend needs the same markup grammar without Blazor lowering.
 
 Keeping those boundaries visible in the sample lets the experiment become a
 separate repository or package without first untangling Playground UI code.

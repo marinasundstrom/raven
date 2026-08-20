@@ -139,9 +139,14 @@ public partial class SemanticModel
             }
         }
 
-        if (member is FreestandingMacroMemberDeclarationSyntax invocation)
+        if (member is FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax)
         {
-            var expansion = semanticModel.GetMacroExpansion(invocation, cancellationToken);
+            var expansion = member switch
+            {
+                FreestandingMacroMemberDeclarationSyntax invocation => semanticModel.GetMacroExpansion(invocation, cancellationToken),
+                FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroExpansion(declaration, cancellationToken),
+                _ => null
+            };
             if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))
             {
                 yield return member;

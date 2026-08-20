@@ -138,6 +138,7 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
                 MacroParameterRole.Context => MacroParameterSource.Context,
                 MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
                 MacroParameterRole.AttachedTarget => MacroParameterSource.AttachedTarget,
+                MacroParameterRole.DeclarationInput => MacroParameterSource.DeclarationInput,
                 _ => MacroParameterSource.Value,
             };
             var acceptsInvocationArgument = source is

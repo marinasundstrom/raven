@@ -3,7 +3,7 @@ import System.Collections.Generic.*
 import Microsoft.AspNetCore.Components.*
 import Microsoft.AspNetCore.Components.Rendering.*
 
-namespace HtmlBlazorMacros
+namespace ComponentMacros.Macros
 
 public static class HtmlContent {
     static func Add(

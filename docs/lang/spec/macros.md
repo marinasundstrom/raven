@@ -16,13 +16,16 @@ contracts.
 > integration may change as the design develops.
 
 > [!NOTE]
-> **Parser foundation implemented; semantics remain design work:** Raven parses
+> **Declaration-carrier semantic MVP implemented:** Raven parses
 > declaration-oriented carriers such as
 > `public component! Header(title: string) { ... }` into a dedicated
 > `FreestandingMacroDeclarationSyntax`, preserving modifiers, the declared
-> name, declaration parameters, and lossless body. It remains a Freestanding
-> procedural macro and is intended to use the same canonical `Expand` signature
-> and descriptor, but semantic resolution and expansion are not implemented.
+> name, declaration parameters, and lossless body. A designated `Expand`
+> parameter of that syntax type selects the declaration carrier; an independent
+> `IMacroTokenStream` parameter receives the body. Resolution, execution,
+> output-category validation, declaration discovery, and expanded-document
+> replacement use the ordinary Freestanding descriptor pipeline. More granular
+> typed projections and declaration-body language-service support remain work.
 > See [Declaration-form
 > carrier](../proposals/macros/application-model.md#declaration-form-carrier-design-direction).
 
@@ -48,8 +51,9 @@ contracts.
 | Attached procedural macro | `#[Name]` before a declaration | Transform or augment that declaration from an attribute-like position. |
 | Freestanding procedural macro | `name!(arguments)` | Produce syntax independently at an allowed expression, statement, namespace-member, or type-member position. |
 | Freestanding macro with token body | `name!(arguments) { raw body }` | Parse a custom DSL, optionally with embedded Raven fragments. |
+| Declaration-shaped freestanding macro | `name! Decl(parameters) { body }` | Introduce declarations from a structured declaration header and macro-owned body. |
 
-All three forms expand to ordinary Raven syntax before the generated syntax is
+All forms expand to ordinary Raven syntax before the generated syntax is
 type checked. Use a function when runtime behavior is sufficient; use a macro
 when the program's syntax or declarations must change during compilation.
 

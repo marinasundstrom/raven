@@ -16,7 +16,7 @@ public class MatchShowcase {
         }
 
     func Render() -> RenderFragment =>
-        Html! {
+        Markup! {
             <section class="match-board">
                 <header class="match-heading">
                     <span class="match-kicker">Expression-oriented UI</span>

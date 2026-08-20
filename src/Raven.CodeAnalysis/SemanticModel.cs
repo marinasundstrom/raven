@@ -9999,6 +9999,11 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
         => GetFreestandingMacroExpansion(member, cancellationToken);
 
+    public FreestandingMacroExpansionResult? GetMacroExpansion(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetFreestandingMacroExpansion(declaration, cancellationToken);
+
     private FreestandingMacroExpansionResult? GetFreestandingMacroExpansion(
         SyntaxNode invocation,
         CancellationToken cancellationToken)
@@ -10030,6 +10035,12 @@ public partial class SemanticModel
                 Compilation,
                 this,
                 member,
+                _declarationDiagnostics,
+                cancellationToken),
+            FreestandingMacroDeclarationSyntax declaration => MacroExpansionService.ExpandFreestandingMacro(
+                Compilation,
+                this,
+                declaration,
                 _declarationDiagnostics,
                 cancellationToken),
             _ => null

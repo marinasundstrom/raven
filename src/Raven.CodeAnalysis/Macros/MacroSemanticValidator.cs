@@ -156,6 +156,17 @@ internal static class MacroSemanticValidator
             diagnostics,
             out loaded);
 
+    public static bool TryResolveFreestandingMacro(
+        Compilation compilation,
+        FreestandingMacroDeclarationSyntax declaration,
+        DiagnosticBag? diagnostics,
+        out LoadedFreestandingMacro loaded)
+        => TryResolveFreestandingMacro(
+            compilation,
+            FreestandingMacroInvocation.Create(declaration),
+            diagnostics,
+            out loaded);
+
     internal static bool TryResolveFreestandingMacro(
         Compilation compilation,
         FreestandingMacroInvocation invocation,
@@ -194,6 +205,19 @@ internal static class MacroSemanticValidator
             return false;
         }
 
+        var isDeclarationInvocation = invocation.Syntax is FreestandingMacroDeclarationSyntax;
+        if (isDeclarationInvocation != loaded.Descriptor.HasDeclarationInput)
+        {
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroInvocationFormNotSupported,
+                invocation.Name.GetLocation(),
+                macroName,
+                isDeclarationInvocation
+                    ? "does not accept declaration-shaped input"
+                    : "requires declaration-shaped input"));
+            return false;
+        }
+
         if (invocation.TokenTree is not null)
         {
             if (!loaded.Descriptor.HasTokenBody)
@@ -206,7 +230,7 @@ internal static class MacroSemanticValidator
                 return false;
             }
 
-            if (invocation.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
+            if (invocation.ArgumentList is { Arguments.Count: > 0 } && !loaded.Descriptor.AcceptsArguments)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroArgumentsNotSupported,
@@ -228,7 +252,7 @@ internal static class MacroSemanticValidator
             return false;
         }
 
-        if (invocation.ArgumentList.Arguments.Count > 0 && !loaded.Descriptor.AcceptsArguments)
+        if (invocation.ArgumentList is { Arguments.Count: > 0 } && !loaded.Descriptor.AcceptsArguments)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroArgumentsNotSupported,

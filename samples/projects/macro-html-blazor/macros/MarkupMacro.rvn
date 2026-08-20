@@ -8,10 +8,12 @@ import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.CodeAnalysis.Text.*
 
-[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
+[assembly: RavenCompilerPlugin(typeof(MarkupMacro))]
 
-class HtmlMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
-    val Name: string => "Html"
+[MacroAlias("Html")]
+class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
+    val Name: string => "Markup"
+    val Alias: string? => "markup"
 
     func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
         if token.Kind != SyntaxKind.IdentifierToken {
@@ -456,7 +458,7 @@ class HtmlDslParser {
     private func AppendContent(expression: string) {
         let sequence = _sequence
         _sequence = _sequence + 1
-        _ = _builder.Append("HtmlBlazorMacros.HtmlContent.Add(${_builderName}, ${sequence}, (${expression}));")
+        _ = _builder.Append("ComponentMacros.Macros.HtmlContent.Add(${_builderName}, ${sequence}, (${expression}));")
     }
 
     private func AppendOpenComponent(name: string) {

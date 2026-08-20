@@ -187,6 +187,7 @@ internal static class MacroSignatureHelpService
             MacroParameterRole.Context => MacroParameterSource.Context,
             MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
             MacroParameterRole.AttachedTarget => MacroParameterSource.AttachedTarget,
+            MacroParameterRole.DeclarationInput => MacroParameterSource.DeclarationInput,
             _ => MacroParameterSource.Value,
         };
 

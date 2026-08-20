@@ -14,7 +14,8 @@ public sealed class MacroDefinitionDescriptor
         MacroTarget attachmentTargets,
         ImmutableArray<MacroParameterDescriptor> parameters,
         bool acceptsArguments,
-        bool hasTokenBody)
+        bool hasTokenBody,
+        bool hasDeclarationInput)
     {
         Definition = definition;
         ApplicationKind = applicationKind;
@@ -23,6 +24,7 @@ public sealed class MacroDefinitionDescriptor
         Parameters = parameters;
         AcceptsArguments = acceptsArguments;
         HasTokenBody = hasTokenBody;
+        HasDeclarationInput = hasDeclarationInput;
     }
 
     public IMacroDefinition Definition { get; }
@@ -38,4 +40,5 @@ public sealed class MacroDefinitionDescriptor
     public ImmutableArray<MacroParameterDescriptor> Parameters { get; }
     public bool AcceptsArguments { get; }
     public bool HasTokenBody { get; }
+    public bool HasDeclarationInput { get; }
 }

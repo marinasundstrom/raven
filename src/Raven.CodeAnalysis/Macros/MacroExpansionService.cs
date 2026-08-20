@@ -149,6 +149,19 @@ internal static class MacroExpansionService
             diagnostics,
             cancellationToken);
 
+    public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroDeclarationSyntax declaration,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken = default)
+        => ExpandFreestandingMacro(
+            compilation,
+            semanticModel,
+            FreestandingMacroInvocation.Create(declaration),
+            diagnostics,
+            cancellationToken);
+
     private static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
         SemanticModel semanticModel,
@@ -578,7 +591,7 @@ internal static class MacroExpansionService
         FreestandingMacroExpansionResult result,
         DiagnosticBag diagnostics)
     {
-        if (invocation.Syntax is FreestandingMacroMemberDeclarationSyntax)
+        if (invocation.Syntax is FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax)
         {
             if (result.HasMemberExpansion || result.Node is null or MemberDeclarationSyntax)
                 return result;
@@ -685,6 +698,7 @@ internal static class MacroExpansionService
         => invocation.Syntax switch
         {
             FreestandingMacroMemberDeclarationSyntax member => member.Parent,
+            FreestandingMacroDeclarationSyntax declaration => declaration.Parent,
             FreestandingMacroExpressionSyntax expression => GetNamespaceMemberCarrier(expression)?.Parent,
             _ => null
         };

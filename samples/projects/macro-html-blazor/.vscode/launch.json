@@ -5,8 +5,8 @@
       "name": "Raven: Debug Blazor template showcase",
       "type": "raven",
       "request": "launch",
-      "target": "${workspaceFolder}/app/HtmlBlazorSample.rvnproj",
-      "startupProject": "${workspaceFolder}/host/HtmlBlazorShowcase.csproj",
+      "target": "${workspaceFolder}/app/ComponentMacros.rvnproj",
+      "startupProject": "${workspaceFolder}/host/ComponentMacrosShowcase.csproj",
       "launchProfile": "http"
     }
   ]

@@ -7,8 +7,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 - The parser now represents declaration-shaped freestanding macro carriers such
   as `component! Foo(x: int) { ... }` with a dedicated syntax node, preserving
   modifiers, the declared name, declaration parameters, and the lossless body
-  at compilation-unit, namespace, and type-member scope. Semantic macro
-  resolution and expansion for this carrier remain future work.
+  at compilation-unit, namespace, and type-member scope. A macro parameter of
+  type `FreestandingMacroDeclarationSyntax` selects this carrier, while an
+  independent `IMacroTokenStream` parameter projects its body. Declaration
+  carriers now participate in descriptor resolution, expansion-category
+  validation, namespace/type declaration discovery, expanded documents, and
+  source-authored macro lowering. The HTML/Blazor showcase uses the
+  `component` alias of `FunctionComponent` to compose an ordinary Raven body
+  with a nested `markup!` macro. The showcase names the provider `MarkupMacro`,
+  retains `Html!` as a compatibility alias, and presents the sample as a
+  macro-authored DSL over ordinary Blazor infrastructure.
 - Lambda diagnostics now reject missing expression bodies, report incompatible
   explicit and tail returns at the returned expression, and publish actionable
   source ranges through the language server.

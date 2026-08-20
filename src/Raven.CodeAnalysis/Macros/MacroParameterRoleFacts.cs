@@ -12,6 +12,14 @@ internal static class MacroParameterRoleFacts
         if (GetContextKind(parameterType) != MacroContextKind.None)
             return MacroParameterRole.Context;
 
+        if (IsNamedType(
+            parameterType,
+            "Raven.CodeAnalysis.Syntax",
+            nameof(FreestandingMacroDeclarationSyntax)))
+        {
+            return MacroParameterRole.DeclarationInput;
+        }
+
         if (IsOrDerivesFrom(
             parameterType,
             "Raven.CodeAnalysis.Syntax",
@@ -42,6 +50,9 @@ internal static class MacroParameterRoleFacts
         if (GetContextKind(parameterType) != MacroContextKind.None)
             return MacroParameterRole.Context;
 
+        if (typeof(FreestandingMacroDeclarationSyntax).IsAssignableFrom(parameterType))
+            return MacroParameterRole.DeclarationInput;
+
         if (typeof(ExpressionSyntax).IsAssignableFrom(parameterType))
             return MacroParameterRole.SyntaxInput;
 
@@ -61,6 +72,9 @@ internal static class MacroParameterRoleFacts
         {
             nameof(ExpressionSyntax) or "Raven.CodeAnalysis.Syntax.ExpressionSyntax" =>
                 "Raven.CodeAnalysis.Syntax.ExpressionSyntax",
+            nameof(FreestandingMacroDeclarationSyntax) or
+                "Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax" =>
+                "Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax",
             nameof(IMacroTokenStream) or "Raven.CodeAnalysis.Macros.IMacroTokenStream" =>
                 "Raven.CodeAnalysis.Macros.IMacroTokenStream",
             nameof(TokenTreeMacroContext) or "Raven.CodeAnalysis.Macros.TokenTreeMacroContext" =>
@@ -92,6 +106,8 @@ internal static class MacroParameterRoleFacts
                 parameter.TypeAnnotation?.Type.ToString() ??
                 "Raven.CodeAnalysis.Syntax.ExpressionSyntax",
             MacroParameterRole.TokenBody => "Raven.CodeAnalysis.Macros.IMacroTokenStream",
+            MacroParameterRole.DeclarationInput =>
+                "Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax",
             MacroParameterRole.Context =>
                 parameter.TypeAnnotation?.Type.ToString() ??
                 "Raven.CodeAnalysis.Macros.MacroContext",

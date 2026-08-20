@@ -1,14 +1,9 @@
-import Microsoft.AspNetCore.Components.*
+component! Greeting(Name: string = "") {
+    let x = 42
 
-#[Component]
-public class Greeting {
-    #[Parameter]
-    var Name: string = ""
-
-    func Render() -> RenderFragment =>
-        Html! {
-            <section class="greeting">
-                <h1>Hello {Name}</h1>
-            </section>
-        }
+    markup! {
+        <section class="greeting">
+            <h1>Hello {Name}</h1>
+        </section>
+    }
 }

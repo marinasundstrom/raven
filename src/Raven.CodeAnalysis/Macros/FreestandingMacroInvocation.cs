@@ -6,7 +6,7 @@ internal readonly record struct FreestandingMacroInvocation(
     SyntaxNode Syntax,
     NameSyntax Name,
     SyntaxToken ExclamationToken,
-    ArgumentListSyntax ArgumentList,
+    ArgumentListSyntax? ArgumentList,
     MacroTokenTreeSyntax? TokenTree)
 {
     public static FreestandingMacroInvocation Create(FreestandingMacroExpressionSyntax syntax)
@@ -21,6 +21,12 @@ internal readonly record struct FreestandingMacroInvocation(
         return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.ArgumentList, syntax.TokenTree);
     }
 
+    public static FreestandingMacroInvocation Create(FreestandingMacroDeclarationSyntax syntax)
+    {
+        ArgumentNullException.ThrowIfNull(syntax);
+        return new(syntax, syntax.Name, syntax.ExclamationToken, null, syntax.TokenTree);
+    }
+
     public static bool TryCreate(SyntaxNode syntax, out FreestandingMacroInvocation invocation)
     {
         switch (syntax)
@@ -30,6 +36,9 @@ internal readonly record struct FreestandingMacroInvocation(
                 return true;
             case FreestandingMacroMemberDeclarationSyntax member:
                 invocation = Create(member);
+                return true;
+            case FreestandingMacroDeclarationSyntax declaration:
+                invocation = Create(declaration);
                 return true;
             default:
                 invocation = default;
@@ -42,6 +51,7 @@ internal readonly record struct FreestandingMacroInvocation(
         {
             FreestandingMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName),
             FreestandingMacroMemberDeclarationSyntax member => member.TryGetMacroName(out macroName),
+            FreestandingMacroDeclarationSyntax declaration => declaration.TryGetMacroName(out macroName),
             _ => Fail(out macroName)
         };
 

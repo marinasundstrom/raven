@@ -11,6 +11,7 @@ public enum MacroParameterSource
     Context,
     TokenBody,
     AttachedTarget,
+    DeclarationInput,
 }
 
 /// <summary>

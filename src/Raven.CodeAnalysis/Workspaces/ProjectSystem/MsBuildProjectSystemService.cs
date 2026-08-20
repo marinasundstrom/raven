@@ -539,7 +539,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         {
             var tree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult();
             if (tree?.GetRoot().DescendantNodes().Any(static node =>
-                    node is FreestandingMacroExpressionSyntax or FreestandingMacroMemberDeclarationSyntax ||
+                    node is FreestandingMacroExpressionSyntax or FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax ||
                     node is AttributeSyntax { HashToken.Kind: not SyntaxKind.None }) == true)
             {
                 return true;

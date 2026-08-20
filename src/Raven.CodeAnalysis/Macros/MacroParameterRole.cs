@@ -39,4 +39,10 @@ public enum MacroParameterRole
     /// applied.
     /// </summary>
     AttachedTarget = 5,
+
+    /// <summary>
+    /// The compiler supplies the complete source-backed declaration-shaped
+    /// freestanding macro carrier.
+    /// </summary>
+    DeclarationInput = 6,
 }

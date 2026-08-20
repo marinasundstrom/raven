@@ -14,7 +14,7 @@ func Main() {
     Require(counter is ComponentBase, "#[Component] must derive Counter from ComponentBase.")
     Require(counterFrames.Count == 6, "Counter must emit element, scoped CSS, event, and content frames.")
     Require(counterFrames.Array[0].ElementName == "button", "Counter root must be a button.")
-    Require(counterFrames.Array[1].AttributeName == "b-htmlblazorsample-counter", "Counter must emit its build-provided CSS scope.")
+    Require(counterFrames.Array[1].AttributeName == "b-componentmacros-counter", "Counter must emit its build-provided CSS scope.")
     Require(counterFrames.Array[2].AttributeName == "class", "Counter must emit its authored CSS class.")
     Require(counterFrames.Array[2].AttributeValue.ToString() == "counter-button", "Counter CSS class must be preserved.")
     Require(counterFrames.Array[3].AttributeName == "onclick", "onClick must become Blazor's onclick event.")
@@ -74,7 +74,7 @@ func Main() {
         if frame.AttributeName == "Toggled" {
             Require(
                 frame.AttributeValue.GetType() == typeof(EventCallback<int>),
-                "Toggled must contain an EventCallback<int> created by the HTML macro.")
+                "Toggled must contain an EventCallback<int> created by the markup macro.")
             todoCallbackCount = todoCallbackCount + 1
         }
         if frame.ComponentType == typeof(TodoItem) {
@@ -152,7 +152,7 @@ func Main() {
 
     Require(
         foundStatusBadge && foundStatusBadgeLabel && foundStatusBadgeDetail,
-        "An imported existing Blazor component and its parameters must resolve inside Html! markup.")
+        "An imported existing Blazor component and its parameters must resolve inside Markup!.")
 
     WriteLine("Counter frames: ${counterFrames.Count}; count after click: ${updatedCounterFrames.Array[5].TextContent}")
     WriteLine("Greeting frames: ${greetingFrames.Count}; text: ${greetingFrames.Array[3].TextContent}${greetingFrames.Array[4].TextContent}")

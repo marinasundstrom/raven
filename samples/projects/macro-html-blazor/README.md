@@ -1,18 +1,54 @@
-# HTML-to-Blazor macro prototype
+# Blazor Component Macros
 
 For a progression from a minimal `macro` to the provider and tooling
 contracts used here, see the repository's
 [macro authoring guide](../../../docs/macro-authoring.md).
 
-This isolated experiment tests whether Raven's existing raw token-tree macros
-are a practical foundation for embedded DSLs. It does not add HTML syntax to
-the compiler or promote these macros into `Raven.Macros`.
+This isolated experiment shows a DSL built by macros on top of Blazor. It is
+another way to express ordinary Blazor components, not a competing UI runtime:
+the macros remove authoring boilerplate and lower back to Blazor's existing
+component, parameter, rendering, event, CSS, hosting, and interop infrastructure.
+It does not add markup syntax to the compiler or promote these macros into
+`Raven.Macros`.
 
-The sample is therefore two demonstrations at once. At the application level,
-it shows a compact, React-like way to author Blazor components in Raven. At the
-macro-authoring level, it shows that a library can define its own token-based
+The sample is therefore three demonstrations at once. At the application level,
+it shows a compact, React-like way to author Blazor components in Raven. The
+`Greeting` example now uses the declaration-shaped, function-style form:
+
+```raven
+component! Greeting(Name: string = "") {
+    let x = 42
+
+    markup! {
+        <section class="greeting">
+            <h1>Hello {Name}</h1>
+        </section>
+    }
+}
+```
+
+`FunctionComponent` is the declaration macro's canonical name; `component` is
+its declaration-facing alias. This keeps it distinct from the existing
+attached `Component` macro. The `component!` body is ordinary Raven code rather
+than an HTML-only region;
+`markup!` is a nested macro invocation that produces the final render fragment.
+The component macro turns the declared name and typed parameters into a normal
+Blazor `ComponentBase` class and a `Render()` method. The final expression in
+the function-style body is promoted to the render result, so setup statements
+can precede the nested markup invocation. Existing class-based
+`#[Component]` examples remain alongside it while the declaration form is
+experimental.
+
+At the macro-composition level, it verifies a macro invocation nested inside
+the token-tree input interpreted by another macro. `component!` first expands
+the declaration-shaped carrier into ordinary Raven declarations. Its generated
+`Render()` body retains the authored `markup!` invocation, which a subsequent
+macro pass expands into a Blazor `RenderFragment`. This is the same composition
+model advanced DSLs can use to delegate nested regions to focused macros.
+
+At the macro-authoring level, it shows that a library can define its own token-based
 view or template DSL, lower that DSL to an existing framework, and participate
-in Raven's diagnostics and editor tooling. `Html!` is a provisional working
+in Raven's diagnostics and editor tooling. `Markup!` is a provisional working
 name for an ordinary sample macro, not privileged compiler syntax. The DSL is
 broader than HTML: it composes components, embedded Raven expressions, control
 flow, callbacks, and framework services into Blazor render trees. Its final
@@ -24,11 +60,13 @@ separate template-file format. This is especially useful with Blazor: the macro
 provides the concise embedded syntax, while the generated code still uses
 Blazor's normal component, parameter, event, rendering, CSS, and interop models.
 
-The Raven-authored `Html!` macro parses a deliberately small HTML-shaped DSL
+The Raven-authored `Markup!` macro parses a deliberately small HTML-shaped DSL
 and lowers it directly to a Blazor `RenderFragment` implemented with
 `RenderTreeBuilder`. The Raven-authored `#[Component]` attached macro derives a
 class from `ComponentBase` and introduces `BuildRenderTree` by forwarding to
-the authored `Render()` method. `#[Parameter]` performs a one-to-one expansion
+the authored `Render()` method. The declaration-shaped `component!` macro
+generates the equivalent class from its declaration header and Raven body.
+`#[Parameter]` performs a one-to-one expansion
 to Blazor's ordinary `Microsoft.AspNetCore.Components.ParameterAttribute`.
 Unit-returning functions omit `-> unit`; Raven infers `unit` when no meaningful
 return value is produced.
@@ -51,7 +89,7 @@ Supported by the prototype:
   with the terminal type name and parameters retaining ordinary symbol tooling;
 - Raven component CSS isolation through explicit `RavenComponentCss` project
   items, Blazor's existing Static Web Assets pipeline, and build-provided scope
-  attributes emitted by `Html!`;
+  attributes emitted by `Markup!`;
 - event attributes such as `onClick={increment}`;
 - self-closing component tags with Blazor parameters;
 - component `EventCallback` and `EventCallback<T>` parameters accepting callback
@@ -75,6 +113,24 @@ Not supported by the macro:
 
 `#[Parameter]` is convenience rather than a new parameter model. Components
 can use Blazor's ordinary `[Parameter]` attribute directly when preferred.
+
+## Packaging direction
+
+The component and markup implementations already live together in the separate
+`ComponentMacros.Macros` class-library project and are consumed by the showcase
+application through a project reference. The project carries the provisional
+package identity `Raven.Blazor.Macros`, making the reusable boundary explicit
+without publishing an unstable package yet. The intended next step is to move
+that project out of the individual sample and validate it as an ordinary
+downstream package reference.
+Because the current HTML-shaped DSL lowers directly to `RenderFragment` and
+understands Blazor components, events, parameters, and keys, a package identity
+such as `Raven.Blazor.Macros` is more accurate than a backend-neutral HTML name.
+
+`Markup` is the canonical macro name and `markup` is its function-style alias.
+The former `Html!` spelling remains a compatibility alias while the surface is
+experimental. A future non-Blazor backend could share a separately extracted
+markup parser without conflating that parser with the Blazor-specific lowering.
 
 ## Sample layout
 
@@ -110,7 +166,7 @@ project's existing `src/**/*.rvn` compile glob.
 Build and run:
 
 ```bash
-dotnet run --project app/HtmlBlazorSample.rvnproj --property WarningLevel=0
+dotnet run --project app/ComponentMacros.rvnproj --property WarningLevel=0
 ```
 
 The executable invokes each generated fragment against a `RenderTreeBuilder`
@@ -122,7 +178,7 @@ The match scenario uses the canonical prefix form over a closed union,
 destructures each case payload directly into rendered text, advances the
 component state, and verifies that the expression is re-evaluated.
 The interop scenario imports a conventional Razor component from a referenced
-.NET project, instantiates it in `Html!`, and verifies the resulting native
+.NET project, instantiates it in `Markup!`, and verifies the resulting native
 Blazor component frame. `StatusBadge.razor.css` is processed by Blazor's normal
 CSS-isolation pipeline; the host links its generated `.styles.css` bundle just
 as an ordinary Blazor application does.
@@ -130,7 +186,7 @@ as an ordinary Blazor application does.
 `Counter.rvn.css` demonstrates the Raven side of the same pipeline. The project
 declares one stable scope through `RavenComponentCss`; the sample target
 registers the stylesheet with Microsoft's `ScopedCssInput` processing and
-projects that identical value as a source-file macro option. `Html!` adds the
+projects that identical value as a source-file macro option. `Markup!` adds the
 scope attribute to ordinary element frames, while the Static Web Assets SDK
 rewrites, bundles, fingerprints, and publishes the CSS. No CSS parser or
 bundler is implemented by Raven or the macro.
@@ -139,31 +195,31 @@ Control flow remains Raven code rather than becoming extra HTML-macro syntax:
 
 ```raven
 {if showDetails {
-    Html! { <p>{details}</p> }
+    Markup! { <p>{details}</p> }
 } else {
-    Html! { <p>No details</p> }
+    Markup! { <p>No details</p> }
 }}
 
 {[for todo in todos if showCompleted || !todo.IsCompleted =>
-    Html! { <TodoItem key={todo.Id} Title={todo.Title} /> }]}
+    Markup! { <TodoItem key={todo.Id} Title={todo.Title} /> }]}
 
 {match phase { 0 => "Design" 1 => "Compile" _ => "Ship" }}
 ```
 
-The small `HtmlContent` adapter is sample runtime support: it funnels scalar
+The small `HtmlContent` adapter is Blazor-specific runtime support: it funnels scalar
 values, fragments, and fragment sequences into `RenderTreeBuilder`. It does
 not introduce a parallel component or state model.
 
 Run the styled interactive browser demo:
 
 ```bash
-dotnet run --project host/HtmlBlazorShowcase.csproj
+dotnet run --project host/ComponentMacrosShowcase.csproj
 ```
 
 The same showcase can run entirely in WebAssembly:
 
 ```bash
-dotnet run --project wasm/HtmlBlazorShowcase.Wasm.csproj
+dotnet run --project wasm/ComponentMacrosShowcase.Wasm.csproj
 ```
 
 The Server and WebAssembly hosts share the same `Home.razor`, stylesheet, and
@@ -176,9 +232,9 @@ Raven.
 
 To debug the templates, open this sample directory in VS Code and press F5.
 The checked-in `.vscode/launch.json` builds the C# Blazor host as the startup
-project, loads `HtmlBlazorSample.pdb`, and opens the `http` launch profile.
+project, loads `ComponentMacros.pdb`, and opens the `http` launch profile.
 Breakpoints bind inside ordinary Raven component methods, callbacks, inline
-lambdas, and executable Raven expressions embedded in `Html!`; generated
+lambdas, and executable Raven expressions embedded in `Markup!`; generated
 `RenderTreeBuilder` plumbing is skipped while stepping.
 
 The host is deliberately thin C#/Razor infrastructure. Its live Counter,
@@ -203,10 +259,10 @@ the same Static Web Assets machinery for Raven's `Counter`. The sample targets
 are intentionally local until this integration can be distributed as a
 library. A later JavaScript interop example should likewise use Blazor's
 existing `IJSRuntime` and module model rather than introduce a mechanism owned
-by the HTML macro.
+by the markup macro.
 
 Debugger sequence-point parity is compiler-owned rather than implemented by
-the HTML macro. Ordinary and top-level functions, match expressions, user
+the markup macro. Ordinary and top-level functions, match expressions, user
 locals, async methods, iterators, and mapped macro fragments now retain
 non-overlapping spans on the correct emitted methods. Future debugger work can
 therefore focus on advanced inspection and stepping behavior rather than
@@ -214,16 +270,16 @@ template-specific source mapping.
 
 ## Editor-readiness fixture
 
-`Html!` keeps every embedded Raven expression as a body-relative `TextSpan`
+`Markup!` keeps every embedded Raven expression as a body-relative `TextSpan`
 and delegates that span to `TokenTreeMacroContext.ParseExpressionResult`.
 Malformed Raven therefore reports a native parser diagnostic at the authored
-expression inside the HTML body. The HTML parser owns only the surrounding DSL
+expression inside the HTML body. The markup parser owns only the surrounding DSL
 grammar.
 
 The macro also implements `IMacroFragmentProvider` and reports those same spans
 as `MacroFragmentKind.Expression`. `SemanticModel.GetMacroFragmentRegions`
 therefore exposes body-relative and absolute authored spans without exposing
-the HTML parser's representation. Zero additional HTML nodes enter Raven's
+the markup parser's representation. Zero additional HTML nodes enter Raven's
 syntax or bound trees.
 
 `IMacroTokenClassifier` supplies lightweight presentation categories over the
@@ -246,20 +302,20 @@ into Raven's syntax tree.
 The macro invocation hint remains available on the `Html` name. Inside its
 braces, hover is reserved for explicit DSL token-symbol associations and
 reported Raven fragments; unrelated HTML text does not fall back to the macro
-invocation hint. Nested `Html!` invocations inside comprehensions use the same
+invocation hint. Nested `Markup!` invocations inside comprehensions use the same
 compiler-owned lookup path.
 
 This is the compiler-side routing primitive for future macro-aware editor
 services. Semantic highlighting consumes the compiler snapshot today.
 Ordinary Raven completion, hover, and definition now route through reported
 fragment spans, and component tags and attributes can publish ordinary symbol
-targets. The HTML parser's own tree, if it grows one, remains private to the
+targets. The markup parser's own tree, if it grows one, remains private to the
 macro.
 
 The sample now exercises the DSL-tooling MVP: immutable combined input
 snapshots, token kinds and classifications, embedded expression spans,
 deterministic cursor routing, failure isolation, and semantic highlighting.
-Compiler acceptance coverage builds this checked-in `HtmlMacro.rvn` into an
+Compiler acceptance coverage builds this checked-in `MarkupMacro.rvn` into an
 in-memory plugin and verifies those contracts plus authored-source diagnostics,
 preventing the sample and tooling API from drifting independently.
 For component parameters whose resolved property type is Blazor's

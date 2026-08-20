@@ -170,6 +170,44 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void DeclarationShapedMacro_ReceivesDeclarationAndTokenBody()
+    {
+        var macro = new DeclarationClassMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            component! Greeting() { 42 }
+
+            func Read() -> int => Greeting.Value()
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        var descriptor = MacroFacts.GetDescriptor(macro);
+        Assert.True(descriptor.HasDeclarationInput);
+        Assert.True(descriptor.HasTokenBody);
+        Assert.False(descriptor.AcceptsArguments);
+        Assert.True(MethodMacroFacts.TryGetExpandMethod(typeof(DeclarationClassMacro), out var expandMethod));
+        Assert.Equal(
+            [MacroParameterSource.DeclarationInput, MacroParameterSource.TokenBody],
+            MethodMacroFacts.GetParameters(expandMethod)
+                .Select(static parameter => parameter.Source));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var expanded = semanticModel.GetExpandedRoot().ToFullString();
+        var errors = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+        Assert.True(errors.Length == 0, string.Join(System.Environment.NewLine, errors.Select(static diagnostic => diagnostic.ToString())));
+        Assert.Contains("class Greeting", expanded, System.StringComparison.Ordinal);
+        Assert.Contains("=> 42", expanded, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MacroReference_FromRavenMethodShapedClass_UsesOrdinaryExpandMethod()
     {
         var macroImage = EmitMacroAssembly("""
@@ -206,6 +244,46 @@ public sealed class MacroReferenceTests
             "let answer = 42",
             consumerCompilation.GetSemanticModel(consumerTree).GetExpandedRoot().ToFullString(),
             System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MacroReference_FromCompactDeclaration_ExpandsDeclarationCarrier()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            [assembly: RavenCompilerPlugin]
+
+            [MacroAlias("component")]
+            public macro FunctionComponent(
+                declaration: FreestandingMacroDeclarationSyntax,
+                body: IMacroTokenStream
+            ) -> MemberDeclarationSyntax {
+                let value = body.ReadToken().Text
+                let source = "class " + declaration.Identifier.ValueText +
+                    " { static func Value() -> int => " + value + " }"
+                expand SyntaxFactory.ParseSyntaxTree(source).GetRoot().Members[0]
+            }
+            """);
+        var reference = MacroReference.CreateFromImage(macroImage);
+        var consumerTree = SyntaxTree.ParseText("""
+            component! Greeting() { 42 }
+
+            func Read() -> int => Greeting.Value()
+            """);
+        var consumerCompilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(consumerTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(reference);
+
+        var expanded = consumerCompilation.GetSemanticModel(consumerTree).GetExpandedRoot().ToFullString();
+        Assert.Contains("class Greeting", expanded, System.StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            consumerCompilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -839,6 +917,24 @@ public sealed class MacroReferenceTests
             ObservedCount = count;
             ReceivedContext = context is not null;
             return value;
+        }
+    }
+
+    public sealed class DeclarationClassMacro : IMacroDefinition
+    {
+        public string Name => "FunctionComponent";
+        public string? Alias => "component";
+
+        public MemberDeclarationSyntax Expand(
+            FreestandingMacroDeclarationSyntax declaration,
+            IMacroTokenStream body)
+        {
+            var value = body.ReadToken().Text;
+            return SyntaxFactory.ParseSyntaxTree($$"""
+                class {{declaration.Identifier.ValueText}} {
+                    static func Value() -> int => {{value}}
+                }
+                """).GetRoot().Members.Single();
         }
     }
 

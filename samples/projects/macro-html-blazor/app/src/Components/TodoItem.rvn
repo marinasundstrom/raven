@@ -18,7 +18,7 @@ public class TodoItem {
     func toggle() -> Task => Toggled.InvokeAsync(Id)
 
     func Render() -> RenderFragment =>
-        Html! {
+        Markup! {
             <li class={if IsCompleted { "todo-item is-complete" } else { "todo-item" }}>
                 <label>
                     <input type="checkbox" checked={IsCompleted} onChange={toggle} />

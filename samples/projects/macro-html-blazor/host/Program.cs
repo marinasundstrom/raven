@@ -1,4 +1,4 @@
-using HtmlBlazorShowcase.Components;
+using ComponentMacrosShowcase.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 

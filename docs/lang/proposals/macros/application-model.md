@@ -356,9 +356,13 @@ allowing plugins to replace Raven's grammar. A body may still host a macro-owned
 DSL through the existing token, fragment, completion, hover, and navigation
 capabilities.
 
-The precise surface grammar and typed carrier facades remain future work. They
-must extend the current freestanding descriptor and expansion pipeline rather
-than create a parallel discovery, ABI, or execution path.
+The first implemented projection exposes the complete carrier as
+`FreestandingMacroDeclarationSyntax`. A separate `IMacroTokenStream` parameter
+projects its body, so a macro may consume both the structured declaration and
+the raw region without rescanning the header. More granular typed carrier
+facades remain future work. They must extend the current freestanding
+descriptor and expansion pipeline rather than create a parallel discovery,
+ABI, or execution path.
 
 ### Freestanding invocation envelopes
 

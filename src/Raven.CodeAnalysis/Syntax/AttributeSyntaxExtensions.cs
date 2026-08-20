@@ -78,4 +78,13 @@ public static class AttributeSyntaxExtensions
         macroName = GetNormalizedName(macroInvocation.Name);
         return !string.IsNullOrWhiteSpace(macroName);
     }
+
+    public static bool TryGetMacroName(this FreestandingMacroDeclarationSyntax macroDeclaration, out string macroName)
+    {
+        if (macroDeclaration is null)
+            throw new ArgumentNullException(nameof(macroDeclaration));
+
+        macroName = GetNormalizedName(macroDeclaration.Name);
+        return !string.IsNullOrWhiteSpace(macroName);
+    }
 }

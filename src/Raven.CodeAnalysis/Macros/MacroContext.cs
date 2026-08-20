@@ -151,6 +151,8 @@ public abstract class MacroContext
     internal ImmutableArray<Diagnostic> GetReportedDiagnostics()
         => _diagnostics.ToImmutable();
 
+    internal SyntaxNode InvocationSyntax => _invocationSyntax;
+
     internal ImmutableArray<MacroExpansionDiagnostic> GetReportedMacroDiagnostics()
         => _macroDiagnostics.ToImmutable();
 

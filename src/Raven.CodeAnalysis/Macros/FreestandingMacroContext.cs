@@ -29,6 +29,15 @@ public class FreestandingMacroContext : MacroContext
     {
     }
 
+    public FreestandingMacroContext(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        FreestandingMacroDeclarationSyntax syntax,
+        CancellationToken cancellationToken = default)
+        : this(compilation, semanticModel, FreestandingMacroInvocation.Create(syntax), cancellationToken)
+    {
+    }
+
     internal FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
@@ -58,7 +67,7 @@ public class FreestandingMacroContext : MacroContext
 
     public SyntaxToken ExclamationToken { get; }
 
-    public ArgumentListSyntax ArgumentList { get; }
+    public ArgumentListSyntax? ArgumentList { get; }
 
     public MacroTokenTreeSyntax? TokenTree { get; }
 
@@ -94,8 +103,11 @@ public class FreestandingMacroContext : MacroContext
     internal void AddFileDependencies(IEnumerable<MacroFileDependency> dependencies)
         => _fileDependencies.AddRange(dependencies);
 
-    private static ImmutableArray<MacroArgument> CreateArguments(ArgumentListSyntax argumentList, SemanticModel semanticModel)
+    private static ImmutableArray<MacroArgument> CreateArguments(ArgumentListSyntax? argumentList, SemanticModel semanticModel)
     {
+        if (argumentList is null)
+            return ImmutableArray<MacroArgument>.Empty;
+
         var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
         foreach (var argument in argumentList.Arguments)
             builder.Add(new MacroArgument(argument, semanticModel));

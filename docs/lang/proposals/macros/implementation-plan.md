@@ -1563,7 +1563,7 @@ added without another ABI redesign.
 
 ### Active slice: declaration-shaped freestanding carriers
 
-Status: **parser foundation implemented**
+Status: **semantic MVP implemented**
 
 Declaration-shaped carriers let a macro occupy an ordinary declaration boundary
 while preserving Raven-owned structure:
@@ -1579,14 +1579,16 @@ component! Foo(x: int) {
   parameters, and a lossless body at compilation-unit, namespace, and
   type-member scope;
 * [x] cover successful parsing and unterminated-body recovery;
-* [ ] add normalized binding sources for declared name, declaration parameters,
-  modifiers, and body region;
-* [ ] resolve compatible Freestanding macro descriptors at declaration
+* [x] add a normalized declaration-input source for the complete structured
+  carrier, independently composable with the token-body source;
+* [x] resolve compatible Freestanding macro descriptors at declaration
   positions and validate their output category atomically;
-* [ ] integrate expansion into declaration binding and incremental snapshots;
+* [x] integrate expansion into namespace/type declaration binding and expanded
+  document snapshots;
 * [ ] add completion, hover, navigation, semantic-token, and expanded-view
   support; and
-* [ ] validate a representative component or actor DSL end to end.
+* [x] validate a function-style Blazor component that composes ordinary Raven
+  statements with a nested HTML-shaped macro.
 
 ### Expansion driver and isolation
 

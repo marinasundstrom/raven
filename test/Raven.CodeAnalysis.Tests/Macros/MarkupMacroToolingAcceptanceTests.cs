@@ -10,17 +10,46 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.Macros;
 
-public sealed class HtmlMacroToolingAcceptanceTests
+public sealed class MarkupMacroToolingAcceptanceTests
 {
     [Fact]
-    public void CheckedInHtmlMacro_RoutesExpressionCompletionThroughReportedFragments()
+    public void CheckedInFunctionComponent_ComposesOrdinaryRavenWithMarkupMacro()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInBlazorMacroReference();
+        const string source = """
+            component! Greeting(Name: string = "") {
+                let x = 42
+
+                markup! {
+                    <section class="greeting">
+                        <h1>Hello {Name}</h1>
+                    </section>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "function-component.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference)
+            .AddReferences(CreateAspNetCoreComponentsReference());
+        var expanded = compilation.GetSemanticModel(syntaxTree).GetExpandedRoot().ToFullString();
+
+        Assert.Contains("class Greeting", expanded, StringComparison.Ordinal);
+        Assert.Contains("let x = 42", expanded, StringComparison.Ordinal);
+        Assert.Contains("BuildRenderTree", expanded, StringComparison.Ordinal);
+        Assert.DoesNotContain("markup!", expanded, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void CheckedInMarkupMacro_RoutesExpressionCompletionThroughReportedFragments()
+    {
+        var macroReference = CreateCheckedInMarkupMacroReference();
         const string source = """
             class Greeting {
                 val message: string = "Hello"
 
-                func Render() => Html! {
+                func Render() => Markup! {
                     <h1>{message.}</h1>
                 }
             }
@@ -47,11 +76,11 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_ProvidesCompleteToolingSnapshotAndAuthoredDiagnostics()
+    public void CheckedInMarkupMacro_ProvidesCompleteToolingSnapshotAndAuthoredDiagnostics()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         const string validSource = """
-            let view = Html! {
+            let view = Markup! {
                 <button onClick={increment} title="Counter">
                     Count: {count}
                 </button>
@@ -93,7 +122,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         Assert.Equal("count", validSource.Substring(countRegion.Span.Start, countRegion.Span.Length));
 
         const string invalidSource = """
-            let view = Html! {
+            let view = Markup! {
                 <h1>Broken</h2>
             }
             """;
@@ -119,16 +148,16 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_ProjectsComponentTagSymbol()
+    public void CheckedInMarkupMacro_ProjectsComponentTagSymbol()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         const string source = """
             class Greeting {
                 var Name: string = ""
             }
 
             class Gallery {
-                func Render() => Html! {
+                func Render() => Markup! {
                     <Greeting Name="Raven" />
                 }
             }
@@ -158,9 +187,9 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_SupportsQualifiedComponentNames()
+    public void CheckedInMarkupMacro_SupportsQualifiedComponentNames()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         const string source = """
             namespace sample.Components {
                 class StatusBadge {
@@ -169,7 +198,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
             }
 
             class Dashboard {
-                func Render() => Html! {
+                func Render() => Markup! {
                     <sample.Components.StatusBadge Label="Ready" />
                 }
             }
@@ -200,7 +229,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         Assert.Same(component, property.ContainingType);
 
         const string invalidSource = """
-            let view = Html! {
+            let view = Markup! {
                 <sample..Components.StatusBadge />
             }
             """;
@@ -218,9 +247,9 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_AppliesBuildProvidedCssScopeToElements()
+    public void CheckedInMarkupMacro_AppliesBuildProvidedCssScopeToElements()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         var sourcePath = Path.GetFullPath("scoped-component.rvn");
         var featureKey = $"html.blazor.css-scope:{sourcePath}";
         var parseOptions = new ParseOptions
@@ -232,7 +261,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         };
         const string source = """
             class ScopedComponent {
-                func Render() => Html! {
+                func Render() => Markup! {
                     <section><span>Scoped</span></section>
                 }
             }
@@ -251,15 +280,15 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_MapsEmbeddedExpressionToAuthoredSourceOrigin()
+    public void CheckedInMarkupMacro_MapsEmbeddedExpressionToAuthoredSourceOrigin()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         var sourcePath = Path.GetFullPath("html-debug-origin.rvn");
         const string source = """
             class DebugView {
                 val count: int = 41
 
-                func Render() => Html! {
+                func Render() => Markup! {
                     <p>{count + 1}</p>
                 }
             }
@@ -286,9 +315,9 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_LowersComponentEventCallbacksFromReferencesAndInlineLambdas()
+    public void CheckedInMarkupMacro_LowersComponentEventCallbacksFromReferencesAndInlineLambdas()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         const string source = """
             import Microsoft.AspNetCore.Components.*
 
@@ -301,7 +330,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
             class CallbackHost {
                 func callback() { }
 
-                func Render() => Html! {
+                func Render() => Markup! {
                     <CallbackComponent
                         Referenced={callback}
                         Inline={() => callback()}
@@ -352,9 +381,9 @@ public sealed class HtmlMacroToolingAcceptanceTests
     }
 
     [Fact]
-    public void CheckedInHtmlMacro_ResolvesSymbolsInNestedComprehensionTemplate()
+    public void CheckedInMarkupMacro_ResolvesSymbolsInNestedComprehensionTemplate()
     {
-        var macroReference = CreateCheckedInHtmlMacroReference();
+        var macroReference = CreateCheckedInMarkupMacroReference();
         const string source = """
             class Todo {
                 val Title: string => "Build Raven"
@@ -367,10 +396,10 @@ public sealed class HtmlMacroToolingAcceptanceTests
             class TodoList {
                 val todos = [Todo()]
 
-                func Render() => Html! {
+                func Render() => Markup! {
                     <ul>
                         {[for todo in todos if todo.Title.Length > 0 =>
-                            Html! {
+                            Markup! {
                                 <TodoItem Title={todo.Title} />
                             }]}
                     </ul>
@@ -427,7 +456,7 @@ public sealed class HtmlMacroToolingAcceptanceTests
         SyntaxTree tree,
         MacroReference macroReference)
         => Compilation.Create(
-                $"HtmlMacroConsumer_{Guid.NewGuid():N}",
+                $"MarkupMacroConsumer_{Guid.NewGuid():N}",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(tree)
             .AddReferences(TestMetadataReferences.Default)
@@ -457,25 +486,33 @@ public sealed class HtmlMacroToolingAcceptanceTests
         return count;
     }
 
-    private static MacroReference CreateCheckedInHtmlMacroReference()
+    private static MacroReference CreateCheckedInMarkupMacroReference()
+        => CreateCheckedInMacroReference("MarkupMacro.rvn");
+
+    private static MacroReference CreateCheckedInBlazorMacroReference()
+        => CreateCheckedInMacroReference("MarkupMacro.rvn", "ComponentDeclarationMacro.rvn");
+
+    private static MacroReference CreateCheckedInMacroReference(params string[] fileNames)
     {
         var repositoryRoot = Path.GetFullPath(
             Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var sourcePath = Path.Combine(
-            repositoryRoot,
-            "samples",
-            "projects",
-            "macro-html-blazor",
-            "macros",
-            "HtmlMacro.rvn");
-        var source = File.ReadAllText(sourcePath);
-        var macroTree = SyntaxTree.ParseText(source, path: sourcePath);
+        var macroTrees = fileNames.Select(fileName =>
+        {
+            var sourcePath = Path.Combine(
+                repositoryRoot,
+                "samples",
+                "projects",
+                "macro-html-blazor",
+                "macros",
+                fileName);
+            return SyntaxTree.ParseText(File.ReadAllText(sourcePath), path: sourcePath);
+        });
         var codeAnalysisReference = MetadataReference.CreateFromFile(
             typeof(IMacroDefinition).Assembly.Location);
         var macroCompilation = Compilation.Create(
-                $"CheckedInHtmlMacro_{Guid.NewGuid():N}",
+                $"CheckedInMarkupMacro_{Guid.NewGuid():N}",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(macroTree)
+            .AddSyntaxTrees(macroTrees.ToArray())
             .AddReferences([
                 .. TestMetadataReferences.DefaultWithRavenMacros,
                 codeAnalysisReference,
@@ -491,6 +528,6 @@ public sealed class HtmlMacroToolingAcceptanceTests
 
         return MacroReference.CreateFromImage(
             image.ToArray(),
-            display: "checked-in HTML macro sample");
+            display: "checked-in Blazor markup macro sample");
     }
 }
