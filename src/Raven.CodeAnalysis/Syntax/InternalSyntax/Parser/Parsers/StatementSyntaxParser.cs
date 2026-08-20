@@ -452,7 +452,11 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
-        var thenStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
+        var thenKeyword = Token(SyntaxKind.None);
+        if (ConsumeToken(SyntaxKind.ThenKeyword, out var thenToken))
+            thenKeyword = thenToken;
+
+        var thenStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: thenKeyword.Kind == SyntaxKind.None);
 
         SyntaxToken? elseKeyword = null;
         StatementSyntax? elseStatement = null;
@@ -463,7 +467,9 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             elseKeyword = elseTok;
 
-            elseStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true, allowAdjacentIfStatement: true);
+            elseStatement = ParseEmbeddedStatement(
+                requireNewLineForNonBlockBody: thenKeyword.Kind == SyntaxKind.None,
+                allowAdjacentIfStatement: true);
 
             elseClause = ElseClause(elseKeyword, elseStatement);
         }
@@ -471,7 +477,7 @@ internal class StatementSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
-        return IfStatement(ifKeyword, condition!, thenStatement!, elseClause, terminatorToken);
+        return IfStatement(ifKeyword, condition!, thenKeyword, thenStatement!, elseClause, terminatorToken);
     }
 
     private IfPatternStatementSyntax ParseIfPatternStatementSyntax(SyntaxToken ifKeyword)
@@ -483,12 +489,18 @@ internal class StatementSyntaxParser : SyntaxParser
             allowWholePatternDesignation: true).ParsePattern();
         var operatorToken = ExpectToken(SyntaxKind.EqualsToken);
         var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
-        var thenStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
+        var thenKeyword = Token(SyntaxKind.None);
+        if (ConsumeToken(SyntaxKind.ThenKeyword, out var thenToken))
+            thenKeyword = thenToken;
+
+        var thenStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: thenKeyword.Kind == SyntaxKind.None);
 
         ElseClauseSyntax? elseClause = null;
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseKeyword))
         {
-            var elseStatement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true, allowAdjacentIfStatement: true);
+            var elseStatement = ParseEmbeddedStatement(
+                requireNewLineForNonBlockBody: thenKeyword.Kind == SyntaxKind.None,
+                allowAdjacentIfStatement: true);
             elseClause = ElseClause(elseKeyword, elseStatement);
         }
 
@@ -501,6 +513,7 @@ internal class StatementSyntaxParser : SyntaxParser
             pattern,
             operatorToken,
             expression!,
+            thenKeyword,
             thenStatement!,
             elseClause,
             terminatorToken);

@@ -15,10 +15,15 @@ let value = if flag { 1 } else { 2 }
 if flag {
     Log("side effect")
 }
+
+if flag then Log("side effect")
 ```
 
 The first `if` produces the value assigned to `value`. The second is used only
-for its effect.
+for its effect. `then` is generally used with expression-form `if`. A
+statement-form `if` normally uses blocks, though Raven also provides unbraced
+single-statement bodies. For symmetry, statement-form `if` accepts `then` as
+well; when present, an unbraced body may begin on the same line.
 
 Expression contexts include assignment right-hand sides, call arguments,
 `match` scrutinees and arms, `if` expression branches, and the final position of

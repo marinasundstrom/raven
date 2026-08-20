@@ -3151,6 +3151,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                ));
         }
 
+        var thenKeyword = Token(SyntaxKind.None);
+        if (ConsumeToken(SyntaxKind.ThenKeyword, out var thenToken))
+            thenKeyword = thenToken;
+
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
         if (expression!.IsMissing)
@@ -3171,7 +3175,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             elseClause = ParseElseExpressionClauseSyntax();
         }
 
-        return IfExpression(ifKeyword, condition!, expression!, elseClause);
+        return IfExpression(ifKeyword, condition!, thenKeyword, expression!, elseClause);
     }
 
     private IfPatternExpressionSyntax ParseIfPatternExpressionSyntax(SyntaxToken ifKeyword)
@@ -3185,6 +3189,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         var value = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
         var afterValue = GetEndOfLastToken();
+        var thenKeyword = Token(SyntaxKind.None);
+        if (ConsumeToken(SyntaxKind.ThenKeyword, out var thenToken))
+            thenKeyword = thenToken;
+
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
         if (expression!.IsMissing)
         {
@@ -3205,6 +3213,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             pattern,
             operatorToken,
             value!,
+            thenKeyword,
             expression!,
             elseClause);
     }

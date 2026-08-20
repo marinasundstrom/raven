@@ -19,7 +19,7 @@ An `if` expression evaluates one branch and produces that branch's value.
 Branches may be blocks or single expressions:
 
 ```raven
-let label = if score >= 50 "pass" else "fail"
+let label = if score >= 50 then "pass" else "fail"
 
 let adjusted = if score > limit {
     limit
@@ -27,6 +27,28 @@ let adjusted = if score > limit {
     score
 }
 ```
+
+`then` is an optional contextual keyword that explicitly separates the
+condition from the successful branch. It is primarily intended for
+value-producing conditionals with expression branches, especially when the
+header and branch begin on the same line, but it may also precede a line-broken
+branch or a block:
+
+```raven
+let label = if score >= 50 then
+    "pass"
+else
+    "fail"
+
+let clamped = if score > limit then {
+    limit
+} else {
+    score
+}
+```
+
+Because `then` is contextual rather than reserved, it remains available as an
+identifier outside this position.
 
 When the result is used, an `else` branch is required and the branch values
 must have a compatible type. An `if` used only for its effects may omit `else`.

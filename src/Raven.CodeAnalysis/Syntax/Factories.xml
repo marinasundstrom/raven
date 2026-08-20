@@ -38,8 +38,17 @@
       <Parameter Slot="Condition" />
       <Parameter Slot="ThenStatement" />
       <Default Slot="IfKeyword" Token="IfKeyword" />
+      <Default Slot="ThenKeyword" Token="None" />
       <Default Slot="ElseClause" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="IfKeyword" />
+      <Parameter Slot="Condition" />
+      <Parameter Slot="ThenKeyword" />
+      <Parameter Slot="ThenStatement" />
+      <Parameter Slot="ElseClause" />
+      <Parameter Slot="TerminatorToken" />
     </Overload>
   </Factory>
 
@@ -51,8 +60,77 @@
       <Parameter Slot="ThenStatement" />
       <Default Slot="IfKeyword" Token="IfKeyword" />
       <Default Slot="OperatorToken" Token="EqualsToken" />
+      <Default Slot="ThenKeyword" Token="None" />
       <Default Slot="ElseClause" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="IfKeyword" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Pattern" />
+      <Parameter Slot="OperatorToken" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="ThenKeyword" />
+      <Parameter Slot="ThenStatement" />
+      <Parameter Slot="ElseClause" />
+      <Parameter Slot="TerminatorToken" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="IfExpression">
+    <Overload>
+      <Parameter Slot="Condition" />
+      <Parameter Slot="Expression" />
+      <Default Slot="IfKeyword" Token="IfKeyword" />
+      <Default Slot="ThenKeyword" Token="None" />
+      <Default Slot="ElseClause" Null="true" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="IfKeyword" />
+      <Parameter Slot="Condition" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="ElseClause" />
+      <Default Slot="ThenKeyword" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="IfKeyword" />
+      <Parameter Slot="Condition" />
+      <Parameter Slot="ThenKeyword" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="ElseClause" />
+    </Overload>
+  </Factory>
+
+  <Factory Node="IfPatternExpression">
+    <Overload>
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Pattern" />
+      <Parameter Slot="Value" />
+      <Parameter Slot="Expression" />
+      <Default Slot="IfKeyword" Token="IfKeyword" />
+      <Default Slot="OperatorToken" Token="EqualsToken" />
+      <Default Slot="ThenKeyword" Token="None" />
+      <Default Slot="ElseClause" Null="true" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="IfKeyword" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Pattern" />
+      <Parameter Slot="OperatorToken" />
+      <Parameter Slot="Value" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="ElseClause" />
+      <Default Slot="ThenKeyword" Token="None" />
+    </Overload>
+    <Overload>
+      <Parameter Slot="IfKeyword" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Pattern" />
+      <Parameter Slot="OperatorToken" />
+      <Parameter Slot="Value" />
+      <Parameter Slot="ThenKeyword" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="ElseClause" />
     </Overload>
   </Factory>
 

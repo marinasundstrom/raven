@@ -4,6 +4,7 @@ public class SyntaxFactsTests
 {
     [Theory]
     [InlineData("unit", SyntaxKind.UnitKeyword)]
+    [InlineData("then", SyntaxKind.ThenKeyword)]
     [InlineData("and", SyntaxKind.AndToken)]
     [InlineData("goto", SyntaxKind.GotoKeyword)]
     [InlineData("break", SyntaxKind.BreakKeyword)]
@@ -57,6 +58,7 @@ public class SyntaxFactsTests
     public void IsReservedWordKind_OnlyForReserved()
     {
         SyntaxFacts.IsReservedWordKind(SyntaxKind.UnitKeyword).ShouldBeFalse();
+        SyntaxFacts.IsReservedWordKind(SyntaxKind.ThenKeyword).ShouldBeFalse();
         SyntaxFacts.IsReservedWordKind(SyntaxKind.AndToken).ShouldBeTrue();
         SyntaxFacts.IsReservedWordKind(SyntaxKind.GotoKeyword).ShouldBeTrue();
         SyntaxFacts.IsReservedWordKind(SyntaxKind.BreakKeyword).ShouldBeTrue();

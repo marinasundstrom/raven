@@ -49,6 +49,7 @@
   <TokenKind Name="BaseKeyword" Text="base" IsReservedWord="true" />
   <TokenKind Name="SelfKeyword" Text="self" IsReservedWord="true" />
   <TokenKind Name="IfKeyword" Text="if" IsReservedWord="true" />
+  <TokenKind Name="ThenKeyword" Text="then" IsReservedWord="false" />
   <TokenKind Name="ElseKeyword" Text="else" IsReservedWord="true" />
   <TokenKind Name="TryKeyword" Text="try" IsReservedWord="true" />
   <TokenKind Name="CatchKeyword" Text="catch" IsReservedWord="true" />

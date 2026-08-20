@@ -194,6 +194,61 @@ else
         verifier.Verify();
     }
 
+    [Theory]
+    [InlineData("let value = if true then 42 else 0")]
+    [InlineData("""
+let value = if true then
+    42
+else
+    0
+""")]
+    [InlineData("""
+let value = if true then {
+    42
+} else {
+    0
+}
+""")]
+    public void IfExpression_WithThen_AllowsExpressionOrBlockBranches(string code)
+    {
+        var tree = SyntaxTree.ParseText(code);
+        var ifExpression = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().Single();
+
+        ifExpression.ThenKeyword.Kind.ShouldBe(SyntaxKind.ThenKeyword);
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void IfPatternExpression_WithThen_BindsPatternAndResult()
+    {
+        const string code = """
+union Maybe {
+    case Some(value: int)
+    case None
+}
+
+let option: Maybe = .Some(42)
+let value = if let .Some(x) = option then x else 0
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var ifExpression = tree.GetRoot().DescendantNodes().OfType<IfPatternExpressionSyntax>().Single();
+
+        ifExpression.ThenKeyword.Kind.ShouldBe(SyntaxKind.ThenKeyword);
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void Then_RemainsAvailableAsAnIdentifier()
+    {
+        const string code = """
+let then = 42
+let value = then
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
     [Fact]
     public void IfExpressionWithoutTargetType_IncompatibleBranches_ReportsDiagnostic()
     {

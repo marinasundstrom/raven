@@ -335,6 +335,7 @@
   <Node Name="IfStatement" Inherits="Statement">
     <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
     <Slot Name="Condition" Type="Expression" />
+    <Slot Name="ThenKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="ThenStatement" Type="Statement" />
     <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
@@ -345,6 +346,7 @@
     <Slot Name="Pattern" Type="Pattern" />
     <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
     <Slot Name="Expression" Type="Expression" />
+    <Slot Name="ThenKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="ThenStatement" Type="Statement" />
     <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
@@ -770,6 +772,7 @@
   <Node Name="IfExpression" Inherits="Expression">
     <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword" />
     <Slot Name="Condition" Type="Expression" />
+    <Slot Name="ThenKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ElseClause" Type="ElseExpressionClause" IsNullable="true" />
   </Node>
@@ -779,6 +782,7 @@
     <Slot Name="Pattern" Type="Pattern" />
     <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
     <Slot Name="Value" Type="Expression" />
+    <Slot Name="ThenKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ElseClause" Type="ElseExpressionClause" IsNullable="true" />
   </Node>

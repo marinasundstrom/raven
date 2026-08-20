@@ -87,6 +87,36 @@ if x return 0
     }
 
     [Fact]
+    public void IfStatement_WithThen_AllowsBodyOnSameLine()
+    {
+        const string testCode = "if true then return else return";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifStatement = Assert.IsType<IfStatementSyntax>(statement);
+
+        ifStatement.ThenKeyword.Kind.ShouldBe(SyntaxKind.ThenKeyword);
+        ifStatement.ElseClause.ShouldNotBeNull();
+        Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithThen_AllowsBodyOnFollowingLine()
+    {
+        const string testCode = """
+if let Some(value) = option then
+    return
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifStatement = Assert.IsType<IfPatternStatementSyntax>(statement);
+
+        ifStatement.ThenKeyword.Kind.ShouldBe(SyntaxKind.ThenKeyword);
+        Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.EmbeddedStatementMustBeginOnNextLine);
+    }
+
+    [Fact]
     public void IfStatement_ElseIfOnSameLine_DoesNotReportNewlineDiagnostic()
     {
         const string testCode = """

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- Statement- and expression-form `if`, including pattern conditionals, now
+  accept an optional contextual `then` keyword. It clearly separates the
+  condition from an unbraced branch and permits statement bodies on the same
+  line without reserving `then` as an identifier elsewhere. The keyword is
+  primarily intended for expression-form conditionals; statement support keeps
+  the syntax symmetric.
 - `Option<T>` parameters may now use `.None` as their default argument. Raven
   emits a dedicated parameter-metadata marker and reconstructs the active
   `None` case for omitted arguments, including calls across assembly references,

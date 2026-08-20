@@ -46,6 +46,7 @@ public class LexerTests
 
     [Theory]
     [InlineData("unit", SyntaxKind.UnitKeyword)]
+    [InlineData("then", SyntaxKind.ThenKeyword)]
     [InlineData("bool", SyntaxKind.BoolKeyword)]
     [InlineData("char", SyntaxKind.CharKeyword)]
     [InlineData("sbyte", SyntaxKind.SByteKeyword)]
