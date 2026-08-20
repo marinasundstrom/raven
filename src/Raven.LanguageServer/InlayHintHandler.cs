@@ -165,7 +165,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
-            var isFullDocumentRequest = IsFullDocumentRequest(sourceText, requestSpan, request.Range);
             var isBroadDocumentRequest = IsBroadFullDocumentInlayRequest(sourceText, requestSpan, request.Range);
 
             if (isBroadDocumentRequest &&
@@ -177,7 +176,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 return new InlayHintContainer(broadCachedHints);
             }
 
-            if (isFullDocumentRequest &&
+            if (isBroadDocumentRequest &&
                 _documents.HasRecentDocumentChange(
                     request.TextDocument.Uri,
                     TimeSpan.FromMilliseconds(RecentEditFullDocumentInlayDelayMilliseconds)))

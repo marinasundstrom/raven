@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Small-document inlay hints now recompute immediately after committed edits,
+  preventing stale inferred labels from lingering while typing.
 - Bare locals, parameters, properties, and non-constant fields are no longer
   accepted as implicit runtime value patterns; use `== value` for an explicit
   comparison or a binding keyword to capture the matched value.

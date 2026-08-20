@@ -544,6 +544,64 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_SmallDocumentAfterCommittedTypeChange_RecomputesHintImmediatelyAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string initialCode = """
+func Main() -> unit {
+    let value = 1
+}
+""";
+        const string updatedCode = """
+func Main() -> unit {
+    let value = "changed"
+}
+""";
+
+        await store.UpsertDocumentAsync(uri, initialCode);
+        var initialSourceText = SourceText.From(initialCode);
+        var initialResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(initialSourceText)
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(
+            initialSourceText,
+            initialResult.ToArray(),
+            initialCode.IndexOf("value =", StringComparison.Ordinal) + "value".Length,
+            ": int");
+
+        await store.UpsertDocumentAsync(uri, updatedCode);
+        var updatedSourceText = SourceText.From(updatedCode);
+        var updatedResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(updatedSourceText)
+        }, CancellationToken.None);
+        var updatedHints = updatedResult.ToArray();
+        var insertion = updatedCode.IndexOf("value =", StringComparison.Ordinal) + "value".Length;
+
+        AssertHasHintAtInsertion(updatedSourceText, updatedHints, insertion, ": string");
+        updatedHints.ShouldNotContain(hint => hint.Position == PositionHelper.ToRange(updatedSourceText, new TextSpan(insertion, 0)).Start && hint.Label.String == ": int");
+    }
+
+    [Fact]
     public async Task Handle_InvocationArguments_ProvidesSourceApplicableParameterNameHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

@@ -59,8 +59,9 @@ the inferred type and parameter-name answers, while the LSP layer owns request
 scheduling and display stability. After an edit, the client debounces broad
 inlay requests and the server may answer from cached or available presentation
 state for unchanged ranges until the next successful semantic inlay query
-replaces it. Cached hints may be translated across edits that do not intersect
-the hint range; edits inside a hint's source range drop that hint instead of
+replaces it. Small-document requests recompute immediately after committed
+edits. Cached hints may be translated across edits that do not intersect the
+hint range; edits inside a hint's source range drop that hint instead of
 presenting stale text.
 
 ## Diagnostics publication
