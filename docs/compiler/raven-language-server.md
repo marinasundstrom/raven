@@ -12,6 +12,7 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
 - **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.
 - **Inlay hints:** The server provides inferred type annotation hints and invocation parameter-name hints. Both kinds include source edits where the hint can be applied directly.
+- **Document outline:** Namespace-scoped functions, types, constants, and `let`/`var` declarations appear as peer members in the editor outline.
 - **Framework references:** Loads reference assemblies from the latest installed .NET targeting pack so compilations can bind to standard library types without additional setup.
 
 ## Project layout

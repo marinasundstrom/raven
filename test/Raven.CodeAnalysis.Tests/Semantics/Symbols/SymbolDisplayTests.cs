@@ -32,6 +32,20 @@ class C {
     }
 
     [Fact]
+    public void ExternConstField_ToDisplayString_IncludesExternModifier()
+    {
+        const string source = "extern const LedPin: int = 25";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+
+        field.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("extern const field LedPin: int = 25");
+    }
+
+    [Fact]
     public void Property_ToDisplayString_IncludesAccessorAccessibility()
     {
         const string source = """

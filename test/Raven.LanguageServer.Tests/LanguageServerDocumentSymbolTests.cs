@@ -59,7 +59,7 @@ record PingResult(val Message: string)
     }
 
     [Fact]
-    public void Outline_IncludesSyntheticTopLevelCodeSymbol_ForExecutableGlobalStatements()
+    public void Outline_IncludesVariablesAndSyntheticTopLevelCodeForExecutableGlobalStatements()
     {
         const string code = """
 let port = 8080
@@ -68,10 +68,11 @@ print(port)
 
         var symbols = GetDocumentSymbols(code);
 
-        symbols.Count.ShouldBe(1);
-        symbols[0].Name.ShouldBe("<top-level code>");
-        symbols[0].Kind.ShouldBe(SymbolKind.Function);
-        symbols[0].Children.ShouldBeNull();
+        symbols.Count.ShouldBe(2);
+        symbols.Single(symbol => symbol.Name == "port").Kind.ShouldBe(SymbolKind.Variable);
+        var topLevelCode = symbols.Single(symbol => symbol.Name == "<top-level code>");
+        topLevelCode.Kind.ShouldBe(SymbolKind.Function);
+        topLevelCode.Children.ShouldBeNull();
     }
 
     [Fact]
@@ -194,6 +195,32 @@ namespace Tools {
         var preserve = quote.Children.Single();
         preserve.Name.ShouldBe("Preserve");
         preserve.Kind.ShouldBe(SymbolKind.Function);
+    }
+
+    [Fact]
+    public void Outline_IncludesNamespaceScopedConstantsAndVariables()
+    {
+        const string code = """
+namespace Hardware {
+    extern const LedPin: int = 25
+    const DefaultPin: int = 5
+    let currentPin = 7
+    var mutablePin = 8
+
+    func Read() -> int => currentPin
+}
+""";
+
+        var hardware = GetDocumentSymbols(code).ShouldHaveSingleItem();
+        hardware.Children.ShouldNotBeNull();
+        var children = hardware.Children.ToArray();
+
+        children.Single(symbol => symbol.Name == "LedPin").Kind.ShouldBe(SymbolKind.Constant);
+        children.Single(symbol => symbol.Name == "DefaultPin").Kind.ShouldBe(SymbolKind.Constant);
+        children.Single(symbol => symbol.Name == "currentPin").Kind.ShouldBe(SymbolKind.Variable);
+        children.Single(symbol => symbol.Name == "mutablePin").Kind.ShouldBe(SymbolKind.Variable);
+        children.Single(symbol => symbol.Name == "Read").Kind.ShouldBe(SymbolKind.Function);
+        children.ShouldNotContain(symbol => symbol.Name == "<top-level code>");
     }
 
     private static IReadOnlyList<DocumentSymbol> GetDocumentSymbols(string code)

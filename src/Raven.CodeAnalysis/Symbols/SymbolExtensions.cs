@@ -1787,6 +1787,9 @@ public static partial class SymbolExtensions
                 break;
 
             case IFieldSymbol field:
+                if (IsFieldDeclaredExtern(field))
+                    parts.Add("extern");
+
                 if (field.IsConst)
                 {
                     parts.Add("const");
@@ -1909,6 +1912,14 @@ public static partial class SymbolExtensions
 
         return string.Join(" ", parts);
     }
+
+    private static bool IsFieldDeclaredExtern(IFieldSymbol field)
+        => field.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .Any(static syntax => syntax.AncestorsAndSelf()
+                .OfType<ConstDeclarationSyntax>()
+                .Any(static declaration => declaration.Modifiers.Any(
+                    static modifier => modifier.Kind == SyntaxKind.ExternKeyword)));
 
     private static string? GetTypeDeclarationModifierPrefix(INamedTypeSymbol typeSymbol)
     {

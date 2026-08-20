@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Extern constants now retain `extern` in symbol signatures and hover text, and
+  namespace-scoped constants and `let`/`var` declarations now appear alongside
+  other members in the editor outline.
 - Macro terminology now follows procedural-macro conventions: application kind
   is `Freestanding` or `Attached`. Freestanding macros use function-like syntax
   at any grammar position permitted by their declared result; attached macros

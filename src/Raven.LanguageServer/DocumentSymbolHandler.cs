@@ -182,6 +182,35 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
         foreach (var member in members)
         {
+            if (member is ConstDeclarationSyntax constDeclaration)
+            {
+                foreach (var variableSymbol in CreateVariableSymbols(
+                    constDeclaration.Declaration,
+                    SymbolKind.Constant,
+                    text))
+                {
+                    yield return variableSymbol;
+                }
+
+                continue;
+            }
+
+            if (member is GlobalStatementSyntax
+                {
+                    Statement: LocalDeclarationStatementSyntax localDeclaration
+                })
+            {
+                foreach (var variableSymbol in CreateVariableSymbols(
+                    localDeclaration.Declaration,
+                    SymbolKind.Variable,
+                    text))
+                {
+                    yield return variableSymbol;
+                }
+
+                continue;
+            }
+
             if (member is GlobalStatementSyntax globalStatement &&
                 globalStatement.Statement is not FunctionStatementSyntax)
             {
@@ -196,6 +225,25 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
         if (topLevelStatements is { Count: > 0 })
             yield return CreateTopLevelCodeSymbol(topLevelStatements, text);
+    }
+
+    private static IEnumerable<DocumentSymbol> CreateVariableSymbols(
+        VariableDeclarationSyntax declaration,
+        SymbolKind kind,
+        SourceText text)
+    {
+        foreach (var declarator in declaration.Declarators)
+        {
+            if (declarator.Identifier.IsMissing)
+                continue;
+
+            yield return CreateSymbol(
+                declarator.Identifier.Text,
+                kind,
+                declarator.Span,
+                declarator.Identifier.Span,
+                text);
+        }
     }
 
     private static bool TryCreateSymbol(MemberDeclarationSyntax member, SourceText text, out DocumentSymbol symbol)
