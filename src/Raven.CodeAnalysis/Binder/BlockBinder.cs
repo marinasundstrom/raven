@@ -15278,6 +15278,7 @@ partial class BlockBinder : Binder
                     }
 
                     RegisterComprehensionLocal(identifierName.Identifier.ValueText, iterationLocal, currentDepth, shadowedLocals);
+                    OnComprehensionTargetBound(identifierName, iterationLocal);
                     break;
 
                 case DiscardPatternSyntax:
@@ -15467,6 +15468,10 @@ partial class BlockBinder : Binder
 
             shadowedLocals[name] = _locals.TryGetValue(name, out var existing) ? existing : null;
         }
+    }
+
+    protected virtual void OnComprehensionTargetBound(IdentifierNameSyntax syntax, ILocalSymbol local)
+    {
     }
 
     private static BoundExpression RewriteDictionaryComprehensionIterationAccess(

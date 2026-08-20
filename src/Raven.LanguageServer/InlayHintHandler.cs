@@ -269,6 +269,17 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             localTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
             stageStopwatch.Restart();
+            AddMacroFragmentTypeHints(
+                hints,
+                semanticModel,
+                root,
+                sourceText,
+                requestSpan,
+                collectionBudget,
+                effectiveCancellationToken);
+            localTypeHintsMs += stageStopwatch.Elapsed.TotalMilliseconds;
+            effectiveCancellationToken.ThrowIfCancellationRequested();
+            stageStopwatch.Restart();
             AddCarrierFailureHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: true, collectionBudget);
             carrierFailureHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
@@ -509,6 +520,42 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 root,
                 declarator,
                 includeTooltip: budget.ShouldIncludeTooltip()));
+        }
+    }
+
+    internal static void AddMacroFragmentTypeHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        InlayHintCollectionBudget budget,
+        CancellationToken cancellationToken)
+    {
+        foreach (var invocation in DescendantNodesInSpan<FreestandingMacroExpressionSyntax>(root, requestSpan))
+        {
+            if (budget.ShouldStop())
+                return;
+
+            foreach (var annotation in semanticModel.GetMacroFragmentInferredTypeAnnotations(invocation, cancellationToken))
+            {
+                var insertionPosition = annotation.Span.End;
+                if (!ContainsPosition(requestSpan, insertionPosition) ||
+                    !TryFormatType(annotation.Type, out var typeDisplay))
+                {
+                    continue;
+                }
+
+                hints.Add(CreateTypeHint(
+                    sourceText,
+                    insertionPosition,
+                    $": {typeDisplay}",
+                    annotation.Type,
+                    semanticModel,
+                    root,
+                    invocation,
+                    includeTooltip: budget.ShouldIncludeTooltip()));
+            }
         }
     }
 
@@ -2041,7 +2088,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     internal static string CreateRequestTrackerKey(InlayHintParams request)
         => $"{request.TextDocument.Uri}|{request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character}";
 
-    private readonly struct InlayHintCollectionBudget
+    internal readonly struct InlayHintCollectionBudget
     {
         private const double MinTooltipBudgetMilliseconds = 50;
         private const double MinAdditionalCategoryBudgetMilliseconds = 350;

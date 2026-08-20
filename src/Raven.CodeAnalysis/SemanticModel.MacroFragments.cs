@@ -46,6 +46,59 @@ public partial class SemanticModel
     }
 
     /// <summary>
+    /// Gets inferred type annotations for authored Raven declarations inside fragments reported by a token-tree macro.
+    /// </summary>
+    public ImmutableArray<MacroFragmentInferredTypeAnnotation> GetMacroFragmentInferredTypeAnnotations(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (expression.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
+        var annotations = ImmutableArray.CreateBuilder<MacroFragmentInferredTypeAnnotation>();
+        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
+        var parentBinder = GetBinder(expression);
+        var visibleSymbols = MacroFragmentBinder.CreateVisibleSymbols(
+            GetVisibleValueSymbols(expression, allowBindingFallback: true));
+
+        foreach (var region in GetMacroInputSnapshot(expression, cancellationToken).FragmentRegions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            SyntaxNode? fragment = region.Kind switch
+            {
+                MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
+                MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+                _ => null
+            };
+            if (fragment is null)
+                continue;
+
+            var binder = new MacroFragmentBinder(parentBinder, region.Locals, visibleSymbols, SyntaxTree);
+            switch (fragment)
+            {
+                case ExpressionSyntax fragmentExpression when region.TargetType is { } targetType:
+                    binder.BindExpressionWithTargetTypeForSemanticQuery(fragmentExpression, targetType);
+                    break;
+                case ExpressionSyntax fragmentExpression:
+                    binder.BindExpression(fragmentExpression);
+                    break;
+                case StatementSyntax fragmentStatement:
+                    binder.BindStatement(fragmentStatement);
+                    break;
+            }
+
+            annotations.AddRange(binder.GetInferredTypeAnnotations());
+        }
+
+        return annotations.ToImmutable();
+    }
+
+    /// <summary>
     /// Classifies the ordinary Raven syntax contained in all fragment regions
     /// reported by a token-tree macro.
     /// </summary>

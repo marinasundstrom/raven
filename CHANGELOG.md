@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Inferred type inlays now include collection-comprehension targets authored in
+  Raven macro fragments reported through the current fragment-provider API.
 - Extern constants now retain `extern` in symbol signatures and hover text, and
   namespace-scoped constants and `let`/`var` declarations now appear alongside
   other members in the editor outline.

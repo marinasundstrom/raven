@@ -145,6 +145,43 @@ public sealed class MacroFragmentSemanticInfoTests
     }
 
     [Fact]
+    public void GetMacroFragmentInferredTypeAnnotations_ReportsCollectionComprehensionTarget()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            class Customer {
+                val Name: string => "Ada"
+            }
+
+            func Main() {
+                let customers = [Customer()]
+                let values = fragmentHover! {
+                    [for customer in customers => customer.Name]
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroFragmentComprehensionInlays",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var annotation = Assert.Single(
+            compilation.GetSemanticModel(syntaxTree)
+                .GetMacroFragmentInferredTypeAnnotations(expression));
+
+        Assert.Equal("customer", code.Substring(annotation.Span.Start, annotation.Span.Length));
+        Assert.Equal("Customer", annotation.Type.Name);
+    }
+
+    [Fact]
     public void GetMacroFragmentSemanticInfo_ResolvesNestedMacroFragmentSymbols()
     {
         const string code = """

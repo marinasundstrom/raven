@@ -11,6 +11,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
 {
     private readonly ImmutableArray<MacroFragmentVisibleSymbol> _fragmentSymbols;
     private readonly Dictionary<(int Start, int Length), ImmutableArray<MacroFragmentVisibleSymbol>> _nestedMacroVisibleSymbols = new();
+    private readonly List<MacroFragmentInferredTypeAnnotation> _inferredTypeAnnotations = new();
 
     public MacroFragmentBinder(
         Binder parent,
@@ -104,6 +105,15 @@ internal sealed class MacroFragmentBinder : BlockBinder
         FreestandingMacroExpressionSyntax syntax,
         out ImmutableArray<MacroFragmentVisibleSymbol> visibleSymbols)
         => _nestedMacroVisibleSymbols.TryGetValue((syntax.Span.Start, syntax.Span.Length), out visibleSymbols);
+
+    protected override void OnComprehensionTargetBound(IdentifierNameSyntax syntax, ILocalSymbol local)
+    {
+        if (local.Type.TypeKind != TypeKind.Error)
+            _inferredTypeAnnotations.Add(new MacroFragmentInferredTypeAnnotation(syntax.Identifier.Span, local.Type));
+    }
+
+    internal ImmutableArray<MacroFragmentInferredTypeAnnotation> GetInferredTypeAnnotations()
+        => _inferredTypeAnnotations.ToImmutableArray();
 
     internal static ImmutableArray<MacroFragmentVisibleSymbol> CreateVisibleSymbols(IEnumerable<ISymbol> symbols)
         => symbols.Select(static symbol => new MacroFragmentVisibleSymbol(symbol.Name, symbol)).ToImmutableArray();
