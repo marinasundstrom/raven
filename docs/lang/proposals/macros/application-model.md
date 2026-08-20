@@ -179,6 +179,55 @@ List-valued member output is a distinct cardinality contract. It is not
 included by `SyntaxNode`, cannot be mixed into a single-node return union, and
 does not imply attached replacement or introduction.
 
+### Declaration-form carrier (design direction)
+
+Raven should evolve freestanding macros with a declaration-oriented invocation
+carrier for constructs that introduce declarations. This is an invocation form,
+not a third application kind:
+
+```raven
+public component! Header {
+}
+
+Actor! OrderProcessor(mailbox: .bounded(100)) {
+    receive order: SubmitOrder {
+        process(order)
+    }
+}
+```
+
+The `!` preserves an explicit macro boundary while Raven retains ownership of
+the surrounding structural grammar. Modifiers occupy ordinary modifier
+positions, the name occupies a declaration-name position, arguments use Raven
+argument syntax, and the optional body is a structured macro input. The macro
+must not recover those parts by scanning preceding raw tokens.
+
+The compiler should expose the carrier as structured inputs associated with the
+same canonical `Expand` method and descriptor used by every other freestanding
+macro. Conceptually the descriptor records the authored modifiers, optional
+declaration name, presence and contents of an argument list, body, and actual
+grammar position. Compact `macro` syntax may provide concise parameter forms
+for those roles; an ordinary `IMacroDefinition` class must be able to express
+the equivalent signature close to the ABI.
+
+Placement follows the existing output-compatibility rule. A declaration-form
+macro may appear only where its declared result is structurally compatible
+with the expected syntax category. A macro returning
+`ClassDeclarationSyntax`, for example, is valid in a compatible member list but
+not in a function body that expects a statement. A list-valued result may
+introduce multiple declarations only where the carrier occupies a compatible
+declaration list. The compiler validates the complete result atomically.
+
+This direction permits framework forms such as `component!`, `Actor!`,
+`service!`, or `workflow!` without promoting their names to Raven keywords or
+allowing plugins to replace Raven's grammar. A body may still host a macro-owned
+DSL through the existing token, fragment, completion, hover, and navigation
+capabilities.
+
+The precise surface grammar and typed carrier facades remain future work. They
+must extend the current freestanding descriptor and expansion pipeline rather
+than create a parallel discovery, ABI, or execution path.
+
 ### Type
 
 A type macro occupies a type slot and produces one `TypeSyntax`:
