@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- Inferred local type inlays now work inside Raven macro fragments, including
+  declaration-shaped block fragments such as `component! Greeting(...)` where
+  `let x = 42` is presented as `let x: int = 42`.
 - Unary `+`, `-`, and `~` now apply .NET-style integral promotion to `sbyte`,
   `byte`, `short`, `ushort`, and `char` operands, producing an `int` result.
 - The release procedure and installation-workflow dispatch form now state that

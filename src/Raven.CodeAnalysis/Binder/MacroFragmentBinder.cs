@@ -148,6 +148,18 @@ internal sealed class MacroFragmentBinder : BlockBinder
             _inferredTypeAnnotations.Add(new MacroFragmentInferredTypeAnnotation(syntax.Identifier.Span, local.Type));
     }
 
+    protected override void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
+    {
+        base.OnLocalDeclared(local, declaringSyntax);
+
+        if (declaringSyntax is VariableDeclaratorSyntax { TypeAnnotation: null } declarator &&
+            local.Type.TypeKind != TypeKind.Error &&
+            !_inferredTypeAnnotations.Any(annotation => annotation.Span == declarator.Identifier.Span))
+        {
+            _inferredTypeAnnotations.Add(new MacroFragmentInferredTypeAnnotation(declarator.Identifier.Span, local.Type));
+        }
+    }
+
     internal ImmutableArray<MacroFragmentInferredTypeAnnotation> GetInferredTypeAnnotations()
         => _inferredTypeAnnotations.ToImmutableArray();
 

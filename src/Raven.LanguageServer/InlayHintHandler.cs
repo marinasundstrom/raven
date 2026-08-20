@@ -531,12 +531,26 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         InlayHintCollectionBudget budget,
         CancellationToken cancellationToken)
     {
-        foreach (var invocation in DescendantNodesInSpan<FreestandingMacroExpressionSyntax>(root, requestSpan))
+        var invocations = DescendantNodesInSpan<FreestandingMacroExpressionSyntax>(root, requestSpan)
+            .Cast<SyntaxNode>()
+            .Concat(DescendantNodesInSpan<FreestandingMacroDeclarationSyntax>(root, requestSpan))
+            .OrderBy(static invocation => invocation.Span.Start);
+
+        foreach (var invocation in invocations)
         {
             if (budget.ShouldStop())
                 return;
 
-            foreach (var annotation in semanticModel.GetMacroFragmentInferredTypeAnnotations(invocation, cancellationToken))
+            var annotations = invocation switch
+            {
+                FreestandingMacroExpressionSyntax expression =>
+                    semanticModel.GetMacroFragmentInferredTypeAnnotations(expression, cancellationToken),
+                FreestandingMacroDeclarationSyntax declaration =>
+                    semanticModel.GetMacroFragmentInferredTypeAnnotations(declaration, cancellationToken),
+                _ => []
+            };
+
+            foreach (var annotation in annotations)
             {
                 var insertionPosition = annotation.Span.End;
                 if (!ContainsPosition(requestSpan, insertionPosition) ||

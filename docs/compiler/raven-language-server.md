@@ -47,7 +47,7 @@ rather than reverting to directory-wide implicit inclusion.
 
 Raven currently emits two inlay hint categories:
 
-- **Inferred type annotations:** locals, functions, and pattern declarations with omitted type annotations surface inferred `: T` and `-> T` hints. Applicable Raven fragments reported by token-tree macros participate as well, including collection-comprehension targets. Assignment patterns that deconstruct into existing variables do not receive declaration hints. Applying the hint inserts the annotation into source.
+- **Inferred type annotations:** locals, functions, and pattern declarations with omitted type annotations surface inferred `: T` and `-> T` hints. Applicable Raven fragments reported by token-tree macros participate as well, including inferred locals in declaration-shaped block fragments and collection-comprehension targets. For example, `let x = 42` inside a `component!` body displays as `let x: int = 42`. Assignment patterns that deconstruct into existing variables do not receive declaration hints. Applying the hint inserts the annotation into source.
 - **Names:** positional invocation arguments surface their resolved parameter name before the argument. For example, `StackPanel(8.0)` displays as `StackPanel(spacing: 8.0)` when `8.0` binds to the `spacing` parameter. Positional and nominal deconstruction patterns also surface inferred element names, so `let (left, top) = point` can display as `let (x: left, y: top) = point` when the source tuple or `Deconstruct` shape provides `x` and `y`. Arguments or elements that already use named syntax do not receive duplicate hints. Applying the hint inserts the `name: ` prefix into source.
 
 The VS Code extension exposes a master setting plus per-category settings:

@@ -63,6 +63,55 @@ public sealed class LanguageServerMacroInlayHintTests
         hint.Position.ShouldBe(PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0)).Start);
     }
 
+    [Fact]
+    public void AddMacroFragmentTypeHints_ReportsInferredLocalInDeclarationBlock()
+    {
+        const string code = """
+            import Raven.LanguageServer.Tests.*
+
+            component! Greeting(Name: string) {
+                let x = 42
+            }
+            """;
+        var trustedPlatformAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(MetadataReference.CreateFromFile)
+            .Cast<MetadataReference>()
+            .ToArray();
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroDeclarationFragmentInlayHints",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(trustedPlatformAssemblies)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new DeclarationFragmentMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText();
+        var declaration = root.DescendantNodes().OfType<FreestandingMacroDeclarationSyntax>().Single();
+        semanticModel.GetMacroFragmentInferredTypeAnnotations(declaration).ShouldHaveSingleItem();
+        var hints = new List<InlayHint>();
+        var budget = new InlayHintHandler.InlayHintCollectionBudget(
+            Stopwatch.StartNew(),
+            CancellationToken.None,
+            double.PositiveInfinity,
+            includeTooltips: false);
+
+        InlayHintHandler.AddMacroFragmentTypeHints(
+            hints,
+            semanticModel,
+            root,
+            sourceText,
+            root.FullSpan,
+            budget,
+            CancellationToken.None);
+
+        var hint = Assert.Single(hints);
+        hint.Label.String.ShouldBe(": int");
+        var insertionPosition = code.IndexOf("x = 42", StringComparison.Ordinal) + "x".Length;
+        hint.Position.ShouldBe(PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0)).Start);
+    }
+
     private sealed class FragmentInlayMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "fragmentInlay";

@@ -182,6 +182,36 @@ public sealed class MacroFragmentSemanticInfoTests
     }
 
     [Fact]
+    public void GetMacroFragmentInferredTypeAnnotations_ReportsInferredLocalInDeclarationBlock()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            component! Greeting(Name: string) {
+                let x = 42
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroDeclarationFragmentLocalInlays",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new ComponentFragmentMacro()));
+        var declaration = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroDeclarationSyntax>()
+            .Single();
+
+        var annotation = Assert.Single(
+            compilation.GetSemanticModel(syntaxTree)
+                .GetMacroFragmentInferredTypeAnnotations(declaration));
+
+        Assert.Equal("x", code.Substring(annotation.Span.Start, annotation.Span.Length));
+        Assert.Equal(SpecialType.System_Int32, annotation.Type.SpecialType);
+    }
+
+    [Fact]
     public void GetMacroFragmentSemanticInfo_ResolvesNestedMacroFragmentSymbols()
     {
         const string code = """
@@ -337,5 +367,28 @@ public sealed class MacroFragmentSemanticInfoTests
                     actionType)
             ];
         }
+    }
+
+    private sealed class ComponentFragmentMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Name => "FunctionComponent";
+
+        public string? Alias => "component";
+
+        public MacroInvocationTargets InvocationTargets =>
+            MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(0, context.BodySpan.Length))
+            ];
+
+        public MemberDeclarationSyntax Expand(
+            FreestandingMacroDeclarationSyntax declaration,
+            TokenTreeMacroContext context)
+            => SyntaxFactory.ParseMemberDeclaration($"class {declaration.Identifier.ValueText} {{ }}")!;
     }
 }

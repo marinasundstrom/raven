@@ -164,7 +164,9 @@ identifier contributes no synthetic outline name.
 An expansion may contain another macro invocation. This lets a larger DSL
 delegate a nested region to a focused macro, as `component!` delegates markup
 to `markup!`. Embedded Raven fragments can retain normal completion, hover,
-navigation, and semantic coloring in the caller's scope.
+navigation, semantic coloring, and applicable inlay hints in the caller's
+scope. For example, an inferred `let x = 42` declaration in a component block
+can be presented as `let x: int = 42` without changing the authored source.
 
 ## Choose the right extension mechanism
 
