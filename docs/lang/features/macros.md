@@ -152,6 +152,13 @@ such as `public component! Greeting(...)`. Canonical macro names retain the
 distinct macro classification. The language server and Playground use the same
 compiler-owned semantic classification.
 
+An identifier-bearing declaration form also contributes one editor-outline
+entry for its authored identifier. For example, `component! Greeting(...)`
+appears as `Greeting`, with `component!` retained as its detail. The outline
+describes the authored declaration carrier rather than duplicating members from
+its generated implementation. A member-position macro invocation without an
+identifier contributes no synthetic outline name.
+
 ## Macros compose
 
 An expansion may contain another macro invocation. This lets a larger DSL

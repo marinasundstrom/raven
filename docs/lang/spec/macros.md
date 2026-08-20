@@ -310,6 +310,12 @@ Completion, signature help, hover, navigation, diagnostics, and expansion must
 consume the same compiler-owned descriptor and resolution result. Language
 services must not maintain an independent macro registry.
 
+An identifier-bearing declaration-shaped carrier contributes one document
+outline entry whose name and selection range come from its authored identifier.
+The macro invocation spelling may be presented as entry detail. Generated
+members are not duplicated beneath that authored entry, and a member-position
+macro invocation without an identifier does not contribute an outline entry.
+
 ## 8. Expansion and composition
 
 Macro expansion is part of semantic compilation, not a lexical preprocessor

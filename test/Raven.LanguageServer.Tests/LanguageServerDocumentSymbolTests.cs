@@ -41,6 +41,10 @@ let app = builder.Build()
 app.MapGet("/", func () => "Hello")
 
 record PingResult(val Message: string)
+
+component! Greeting(Name: string) {
+    markup! { <h1>Hello {Name}</h1> }
+}
 """);
 
             var result = await handler.Handle(
@@ -50,6 +54,11 @@ record PingResult(val Message: string)
             var symbols = result!.ToArray();
             symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldContain("<top-level code>");
             symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldContain("PingResult");
+            var greeting = symbols
+                .Select(static symbol => symbol.DocumentSymbol!)
+                .Single(symbol => symbol.Name == "Greeting");
+            greeting.Kind.ShouldBe(SymbolKind.Object);
+            greeting.Detail.ShouldBe("component!");
         }
         finally
         {
@@ -195,6 +204,49 @@ namespace Tools {
         var preserve = quote.Children.Single();
         preserve.Name.ShouldBe("Preserve");
         preserve.Kind.ShouldBe(SymbolKind.Function);
+    }
+
+    [Fact]
+    public void Outline_IncludesIdentifierBearingDeclarationMacroCarriers()
+    {
+        const string code = """
+component! Greeting(Name: string) {
+    markup! { <h1>Hello {Name}</h1> }
+}
+
+namespace Actors {
+    public actor! ShoppingCart(Id: string) {
+        receive AddItem
+    }
+}
+
+class Dashboard {
+    component! Header(Title: string) {
+        markup! { <h1>{Title}</h1> }
+    }
+
+    GenerateMembers!() { Id, Title }
+}
+""";
+
+        var symbols = GetDocumentSymbols(code);
+
+        var greeting = symbols.Single(symbol => symbol.Name == "Greeting");
+        greeting.Kind.ShouldBe(SymbolKind.Object);
+        greeting.Detail.ShouldBe("component!");
+
+        var actors = symbols.Single(symbol => symbol.Name == "Actors");
+        var shoppingCart = actors.Children.ShouldHaveSingleItem();
+        shoppingCart.Name.ShouldBe("ShoppingCart");
+        shoppingCart.Kind.ShouldBe(SymbolKind.Object);
+        shoppingCart.Detail.ShouldBe("actor!");
+
+        var dashboard = symbols.Single(symbol => symbol.Name == "Dashboard");
+        dashboard.Children.ShouldNotBeNull();
+        var header = dashboard.Children.ShouldHaveSingleItem();
+        header.Name.ShouldBe("Header");
+        header.Kind.ShouldBe(SymbolKind.Object);
+        header.Detail.ShouldBe("component!");
     }
 
     [Fact]

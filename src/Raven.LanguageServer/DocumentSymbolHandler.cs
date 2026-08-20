@@ -274,6 +274,10 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     text,
                     BuildNestedFunctionSymbols(GetCallableBodyRoots(macroDeclaration), text).ToArray());
                 return true;
+            case FreestandingMacroDeclarationSyntax macroDeclaration
+                when !macroDeclaration.Identifier.IsMissing:
+                symbol = CreateMacroDeclarationSymbol(macroDeclaration, text);
+                return true;
             case ClassDeclarationSyntax classDeclaration:
                 symbol = CreateTypeSymbol(classDeclaration, SymbolKind.Class, text);
                 return true;
@@ -577,6 +581,21 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             Range = range,
             SelectionRange = selectionRange,
             Children = children.Length > 0 ? new Container<DocumentSymbol>(children) : null
+        };
+    }
+
+    private static DocumentSymbol CreateMacroDeclarationSymbol(
+        FreestandingMacroDeclarationSyntax declaration,
+        SourceText text)
+    {
+        declaration.TryGetMacroName(out var macroName);
+        return new DocumentSymbol
+        {
+            Name = declaration.Identifier.ValueText,
+            Detail = string.IsNullOrWhiteSpace(macroName) ? null : $"{macroName}!",
+            Kind = SymbolKind.Object,
+            Range = PositionHelper.ToRange(text, declaration.Span),
+            SelectionRange = PositionHelper.ToRange(text, declaration.Identifier.Span)
         };
     }
 }
