@@ -10,7 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
   execution, signature help, hover, and referenced-project metadata consume
   that same canonical signature. Compiled providers use the erased
   `IMacroExecutor` boundary, while the existing `macro` authoring syntax is
-  unchanged.
+  unchanged. Legacy category-specific providers are normalized to an executor
+  at registration, so compiler expansion now has one dispatch path; the
+  standard `query!` provider uses that boundary directly.
 - Raven project compilation avoids a redundant SDK evaluation when the target
   framework and configuration are already supplied, skips local macro
   activation assemblies for pure macro libraries, avoids duplicate framework

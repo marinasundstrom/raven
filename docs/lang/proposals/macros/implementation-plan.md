@@ -345,16 +345,26 @@ projection for class-authored providers also remain open tooling work.
 
 The next compatibility-breaking architecture slice is the stable macro ABI:
 
-* project every macro as a nominal definition type with one designated
+* [x] project every macro as a nominal definition type with one designated
   `Expand` method;
-* make that type the owner of macro generic parameters and constraints;
-* attach caller-supplied and compiler-supplied binding sources to the method's
+* [x] make that type the owner of macro generic parameters and constraints;
+* [x] attach caller-supplied and compiler-supplied binding sources to the method's
   ordinary parameter symbols;
-* move equality, lookup, construction, and tooling to those canonical symbols;
-* dispatch compiled providers through one immutable, erased execution context;
-  and
-* remove generated parameter objects and category-specific provider bridges
+* [x] move equality, lookup, construction, and tooling to those canonical symbols;
+* [x] dispatch compiled providers through one immutable, erased execution context;
+* [x] normalize compatibility providers to an executor at the registry boundary,
+  leaving one compiler dispatch path;
+* [x] migrate the standard `query!` provider to `IMacroExecutor`; and
+* [ ] remove generated parameter objects and category-specific provider APIs
   after built-in and class-authored providers migrate.
+
+Repository samples that compile macro providers against the latest published
+`Raven.CodeAnalysis` package cannot migrate to `IMacroExecutor` until that
+package contains the new contracts. Keep those providers on the compatibility
+interfaces until the next package is published, then migrate the samples before
+removing the compatibility surface. This is a distribution gate, not a second
+compiler execution model: the registry adapts those providers once and core
+expansion always invokes an `IMacroExecutor`.
 
 Typed expression facades, generic inference, and overloads are deliberately
 outside this slice. The ABI only preserves the symbolic type and syntax-input

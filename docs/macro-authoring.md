@@ -362,6 +362,12 @@ application kind. The older category-specific provider interfaces remain as
 compatibility adapters. Use the lower-level class-authored form only when the
 compact declaration cannot project a required capability.
 
+The compiler normalizes compatibility providers to `IMacroExecutor` when a
+macro reference is registered. Symbol and optional editor-capability discovery
+still use the authored provider, while expansion has one erased dispatch path.
+New provider packages should implement `IMacroExecutor`; the category-specific
+interfaces remain only for packages built against an older Raven compiler API.
+
 For compact declarations, return a syntax list when an invocation produces
 declarations:
 
