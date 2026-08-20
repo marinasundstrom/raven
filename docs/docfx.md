@@ -168,3 +168,19 @@ DocFX navigation links to these library references, and the RavenDoc headers
 link back to the language documentation and related references. The shared
 Raven theme keeps the sites visually related without coupling their page
 models.
+
+After all of these surfaces have been assembled, the workflow runs
+`scripts/add-site-provenance.mjs`. It writes one `site-build.json` manifest at
+the artifact root and injects the matching `site-build.js` into every generated
+HTML page. The script adds the Raven version and a link to the exact source
+commit to each surface's footer, including footers rendered after startup by a
+Blazor WebAssembly application.
+
+An exact `v<version>` tag on the built commit is presented as a released build.
+An untagged commit is labeled **unreleased** and uses the selected next preview
+line. Local commit-qualified SDK versions such as
+`0.1.0-preview.11-local.<sha>` are displayed as `0.1.0-preview.11`; when the
+configured version already has a release tag on an earlier commit, the script
+advances to the next preview number. `RAVEN_SITE_VERSION` can explicitly select
+the unreleased version when it cannot be inferred. A local artifact also says
+`uncommitted changes` when tracked files differ from its source commit.

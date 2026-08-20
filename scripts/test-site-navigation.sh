@@ -37,4 +37,13 @@ assert_contains "$site_root/playground/appsettings.json" '"RavenSiteRootHref": "
 assert_contains "$repository_root/samples/projects/macro-html-blazor/wasm/wwwroot/appsettings.json" '"RavenSiteRootHref": "./"'
 assert_contains "$site_root/experiments/html-macro/appsettings.json" '"RavenSiteRootHref": "../../"'
 
+# Every independently rendered surface receives the same generated provenance
+# script from the combined Pages artifact.
+assert_contains "$site_root/index.html" 'data-raven-site-provenance src="./site-build.js"'
+assert_contains "$site_root/playground/index.html" 'data-raven-site-provenance src="../site-build.js"'
+assert_contains "$site_root/experiments/html-macro/index.html" 'data-raven-site-provenance src="../../site-build.js"'
+assert_contains "$site_root/libraries/raven-core/index.html" 'data-raven-site-provenance src="../../site-build.js"'
+assert_contains "$site_root/site-build.json" "\"commit\": \"$(git -C "$repository_root" rev-parse HEAD)\""
+assert_contains "$site_root/site-build.js" 'dataset.ravenBuild = ""'
+
 echo "Combined and standalone site-root navigation checks passed."

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Published documentation, Playground, RavenDoc references, and experimental
+  component-macro sites now show one shared version and source commit in their
+  footers. Untagged builds are identified as unreleased, while an exact release
+  tag marks the matching immutable build as released.
 - The parser now represents declaration-shaped freestanding macro carriers such
   as `component! Foo(x: int) { ... }` with a dedicated syntax node, preserving
   modifiers, the declared name, declaration parameters, and the lossless body

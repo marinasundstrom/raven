@@ -10,6 +10,7 @@ on:
       - "scripts/build-docs.sh"
       - "scripts/build-playground-site.sh"
       - "scripts/build-html-macro-site.sh"
+      - "scripts/add-site-provenance.mjs"
       - "scripts/test-site-navigation.sh"
       - "scripts/add-production-analytics.sh"
       - "scripts/test-raven-highlighting-sync.mjs"
@@ -70,6 +71,9 @@ jobs:
 
       - name: Add experimental component-template showcase
         run: scripts/build-html-macro-site.sh
+
+      - name: Add build provenance
+        run: node scripts/add-site-provenance.mjs _site
 
       - name: Check site-root navigation
         run: scripts/test-site-navigation.sh
