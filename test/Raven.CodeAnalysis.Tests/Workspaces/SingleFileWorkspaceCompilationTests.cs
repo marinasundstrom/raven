@@ -326,8 +326,8 @@ public sealed class SingleFileWorkspaceCompilationTests
                     val Name: string => "localAnswer"
                     val Kind: MacroKind => MacroKind.Invocable
 
-                    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
-                        InvocableMacroExpansionResult {
+                    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                        FreestandingMacroExpansionResult {
                             Expression = quote! { 42 }
                         }
                     }
@@ -398,8 +398,8 @@ public sealed class SingleFileWorkspaceCompilationTests
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
-                    InvocableMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
                         Expression = quote! { {{answer}} }
                     }
                 }

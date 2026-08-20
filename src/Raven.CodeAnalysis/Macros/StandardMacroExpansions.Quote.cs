@@ -24,20 +24,20 @@ public static partial class StandardMacroExpansions
     /// <summary>
     /// Expands a Raven expression quote.
     /// </summary>
-    public static InvocableMacroExpansionResult ExpandQuote(TokenTreeMacroContext context)
+    public static FreestandingMacroExpansionResult ExpandQuote(TokenTreeMacroContext context)
     {
         var splicePreparation = PrepareExpressionSplices(context);
         if (!splicePreparation.Diagnostics.IsEmpty ||
             !splicePreparation.MacroDiagnostics.IsEmpty)
         {
-            return InvocableMacroExpansionResult.FromDiagnostics(
+            return FreestandingMacroExpansionResult.FromDiagnostics(
                 splicePreparation.Diagnostics,
                 splicePreparation.MacroDiagnostics);
         }
 
         var fragment = context.ParseExpressionResult(splicePreparation.BodyText);
         if (!fragment.Diagnostics.IsEmpty)
-            return InvocableMacroExpansionResult.FromDiagnostics(fragment.Diagnostics);
+            return FreestandingMacroExpansionResult.FromDiagnostics(fragment.Diagnostics);
 
         var missingTokens = fragment.Syntax
             .DescendantTokens()
@@ -51,7 +51,7 @@ public static partial class StandardMacroExpansions
                     missingTokens[0].SpanStart - context.BodySpan.Start,
                     0,
                     context.BodySpan.Length);
-            return InvocableMacroExpansionResult.FromDiagnostic(
+            return FreestandingMacroExpansionResult.FromDiagnostic(
                 context.CreateBodyDiagnostic(
                     new TextSpan(bodyPosition, 0),
                     "Quoted expression is incomplete.",
@@ -114,7 +114,7 @@ public static partial class StandardMacroExpansions
                 code: QuoteExpansionFailedCode);
         }
 
-        return InvocableMacroExpansionResult.FromExpression(expansionExpression);
+        return FreestandingMacroExpansionResult.FromExpression(expansionExpression);
     }
 
     private static ExpressionSyntax RedistributePlaceholderTrivia(
@@ -299,11 +299,11 @@ public static partial class StandardMacroExpansions
         }
     }
 
-    private static InvocableMacroExpansionResult Error(
+    private static FreestandingMacroExpansionResult Error(
         TokenTreeMacroContext context,
         string message,
         string code)
-        => InvocableMacroExpansionResult.FromDiagnostic(
+        => FreestandingMacroExpansionResult.FromDiagnostic(
             context.CreateDiagnostic(message, code: code));
 
     private sealed record SplicePreparation(

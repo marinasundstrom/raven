@@ -265,8 +265,8 @@ class MacroHost {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
-                    InvocableMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -690,8 +690,8 @@ class MacroHost {
 
         public string Name => "fragment";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -708,8 +708,8 @@ class MacroHost {
 
         public string Name => "emptyFragment";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -728,8 +728,8 @@ class MacroHost {
 
         public string Name => "categorized";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -748,8 +748,8 @@ class MacroHost {
 
         public bool AcceptsArguments => true;
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     private sealed class DescriptorSnapshotMacro : IInvocableMacro
@@ -769,8 +769,8 @@ class MacroHost {
             }
         }
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     private sealed class QueryMacro : ITokenTreeMacro
@@ -779,8 +779,8 @@ class MacroHost {
 
         public string Name => "query";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     private sealed class TypedQueryParameters
@@ -796,8 +796,8 @@ class MacroHost {
 
         public string Name => "typedQuery";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     private sealed class TypedObservableParameters
@@ -828,7 +828,7 @@ class MacroHost {
 
         public string Name => "typedCall";
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext<TypedCallParameters> context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<TypedCallParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 }

@@ -13,12 +13,12 @@ class AddMacro : IInvocableMacro {
     val Name: string => "add"
     val AcceptsArguments: bool => true
 
-    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
         if context.Arguments.Length != 2 {
-            return InvocableMacroExpansionResult.Empty
+            return FreestandingMacroExpansionResult.Empty
         }
 
-        InvocableMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             Expression = quote! {
                 #(context.Arguments[0].Expression) + #(context.Arguments[1].Expression)
             }
@@ -34,7 +34,7 @@ class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider {
     val Keywords: ImmutableArray<MacroKeyword>
         => [MacroKeyword("unless", UnlessKeywordRawKind)]
 
-    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
@@ -53,7 +53,7 @@ class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider {
         let expressionSpan = TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length)
         let condition = context.ParseExpression(expressionSpan)
 
-        InvocableMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             Expression = PrefixOperatorExpression(
                 SyntaxKind.LogicalNotExpression,
                 ExclamationToken,
@@ -65,8 +65,8 @@ class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider {
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string
-    ) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult {
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             MacroDiagnostics = [
                 context.CreateBodyDiagnostic(span, message, code: "GUARD001")
             ]
@@ -88,7 +88,7 @@ class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider {
             MacroKeyword("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ]
 
-    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
@@ -133,7 +133,7 @@ class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider {
         let whenFalse = context.ParseExpression(
             TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length))
 
-        InvocableMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             Expression = IfExpression(
                 IfKeyword,
                 condition,
@@ -146,8 +146,8 @@ class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider {
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string
-    ) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult {
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             MacroDiagnostics = [
                 context.CreateBodyDiagnostic(span, message, code: "CHOOSE001")
             ]

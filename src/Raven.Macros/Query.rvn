@@ -132,7 +132,7 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
             context.GetContext<TokenTreeMacroContext>()))
     }
 
-    func ExpandQuery(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+    func ExpandQuery(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
@@ -220,7 +220,7 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
             "Select",
             CreateLambda(rangeVariable.ValueText, selectorResult.Syntax))
 
-        InvocableMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             Expression = query
             Diagnostics = diagnostics
         }
@@ -260,8 +260,8 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
         context: TokenTreeMacroContext,
         span: TextSpan,
         message: string
-    ) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult {
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             MacroDiagnostics = [
                 context.CreateBodyDiagnostic(span, message, code: "QUERY001")
             ]

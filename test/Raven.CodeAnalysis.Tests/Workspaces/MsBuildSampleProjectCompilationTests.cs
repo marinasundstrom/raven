@@ -1259,8 +1259,8 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 class LocalAnswerMacro : ITokenTreeMacro {
                     val Name: string => "localAnswer"
 
-                    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
-                        InvocableMacroExpansionResult {
+                    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                        FreestandingMacroExpansionResult {
                             Expression = quote!{ 42 }
                         }
                     }

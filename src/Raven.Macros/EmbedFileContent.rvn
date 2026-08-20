@@ -22,7 +22,7 @@ namespace Raven.Macros
 [Raven.CodeAnalysis.Macros.MacroAlias("embedFileContent")]
 public macro EmbedFileContent(
     path: string,
-    context: Raven.CodeAnalysis.Macros.InvocableMacroContext
+    context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
 ) {
     expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandEmbedFileContent(context, path)
 }

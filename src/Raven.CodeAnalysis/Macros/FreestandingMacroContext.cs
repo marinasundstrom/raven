@@ -6,12 +6,12 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class InvocableMacroContext : MacroContext
+public class FreestandingMacroContext : MacroContext
 {
     private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
         ImmutableArray.CreateBuilder<MacroFileDependency>();
 
-    public InvocableMacroContext(
+    public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroExpressionSyntax syntax,
@@ -20,7 +20,7 @@ public class InvocableMacroContext : MacroContext
     {
     }
 
-    public InvocableMacroContext(
+    public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroMemberDeclarationSyntax syntax,
@@ -29,7 +29,7 @@ public class InvocableMacroContext : MacroContext
     {
     }
 
-    internal InvocableMacroContext(
+    internal FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroInvocation invocation,
@@ -104,10 +104,10 @@ public class InvocableMacroContext : MacroContext
     }
 }
 
-public sealed class InvocableMacroContext<TParameters> : InvocableMacroContext
+public sealed class FreestandingMacroContext<TParameters> : FreestandingMacroContext
     where TParameters : class
 {
-    public InvocableMacroContext(
+    public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroExpressionSyntax syntax,
@@ -118,7 +118,7 @@ public sealed class InvocableMacroContext<TParameters> : InvocableMacroContext
         Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
     }
 
-    public InvocableMacroContext(
+    public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroMemberDeclarationSyntax syntax,
@@ -129,7 +129,7 @@ public sealed class InvocableMacroContext<TParameters> : InvocableMacroContext
         Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
     }
 
-    internal InvocableMacroContext(
+    internal FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
         InvocableMacroInvocation invocation,

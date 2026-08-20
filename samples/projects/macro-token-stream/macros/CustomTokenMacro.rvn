@@ -18,17 +18,17 @@ class CustomTokenMacro : ITokenTreeMacro<CustomTokenParameters>, IMacroTokenStre
         CustomTokenStream(context, AnswerTokenRawKind)
     }
 
-    func Expand(context: TokenTreeMacroContext<CustomTokenParameters>) -> InvocableMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext<CustomTokenParameters>) -> FreestandingMacroExpansionResult {
         let stream = context.CreateTokenStream()
         let token = stream.ReadToken()
         if token.RawKind != AnswerTokenRawKind
             || token.Text != "⟨answer⟩"
             || !stream.IsEndOfFile {
-            return InvocableMacroExpansionResult.FromDiagnostic(
+            return FreestandingMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic("Expected the custom token '⟨answer⟩'."))
         }
 
-        InvocableMacroExpansionResult.FromExpression(
+        FreestandingMacroExpansionResult.FromExpression(
             ParseExpression(context.Parameters.Value.ToString()))
     }
 }

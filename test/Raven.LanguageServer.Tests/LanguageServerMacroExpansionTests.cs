@@ -554,7 +554,7 @@ class Program {
         public string Name => "answer";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
             => new()
             {
                 Expression = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(42))
@@ -565,7 +565,7 @@ class Program {
     {
         public string Name => "raven";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
             {
                 Expression = context.ParseExpression()
@@ -578,14 +578,14 @@ class Program {
         public MacroKind Kind => MacroKind.Invocable;
         public bool AcceptsArguments => true;
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
         {
             var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
             var callback = context.Arguments[1].Expression;
             var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
             var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
 
-            return new InvocableMacroExpansionResult
+            return new FreestandingMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.MemberAccessExpression(
@@ -612,14 +612,14 @@ class Program {
         public MacroKind Kind => MacroKind.Invocable;
         public bool AcceptsArguments => true;
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
         {
             var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
             var callback = context.Arguments[1].Expression;
             var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
             var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
 
-            return new InvocableMacroExpansionResult
+            return new FreestandingMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.MemberAccessExpression(

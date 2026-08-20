@@ -131,9 +131,9 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
 
         return result switch
         {
-            null => MacroExecutionResult.Invocable(InvocableMacroExpansionResult.Empty),
-            InvocableMacroExpansionResult expansion => MacroExecutionResult.Invocable(expansion),
-            SyntaxNode syntax => MacroExecutionResult.Invocable(InvocableMacroExpansionResult.FromNode(syntax)),
+            null => MacroExecutionResult.Invocable(FreestandingMacroExpansionResult.Empty),
+            FreestandingMacroExpansionResult expansion => MacroExecutionResult.Invocable(expansion),
+            SyntaxNode syntax => MacroExecutionResult.Invocable(FreestandingMacroExpansionResult.FromNode(syntax)),
             _ => throw UnsupportedResult(result),
         };
     }

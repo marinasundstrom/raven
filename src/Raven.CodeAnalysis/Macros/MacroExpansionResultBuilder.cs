@@ -64,7 +64,7 @@ public sealed class MacroExpansionResultBuilder
     /// <summary>
     /// Applies a complete expansion result produced by a lower-level macro API.
     /// </summary>
-    public void Expand(InvocableMacroExpansionResult result)
+    public void Expand(FreestandingMacroExpansionResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
         if (result.HasMemberExpansion)
@@ -153,7 +153,7 @@ public sealed class MacroExpansionResultBuilder
         _tokenInfos.AddRange(tokenInfos);
     }
 
-    public InvocableMacroExpansionResult BuildInvocable()
+    public FreestandingMacroExpansionResult BuildInvocable()
     {
         if (_node is null &&
             _members.IsDefault &&
@@ -162,10 +162,10 @@ public sealed class MacroExpansionResultBuilder
             _fragmentRegions.Count == 0 &&
             _tokenInfos.Count == 0)
         {
-            return InvocableMacroExpansionResult.Empty;
+            return FreestandingMacroExpansionResult.Empty;
         }
 
-        var result = new InvocableMacroExpansionResult
+        var result = new FreestandingMacroExpansionResult
         {
             Node = _node,
             Diagnostics = _diagnostics.ToImmutable(),

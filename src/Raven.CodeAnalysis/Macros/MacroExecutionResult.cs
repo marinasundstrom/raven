@@ -7,7 +7,7 @@ public sealed class MacroExecutionResult
 {
     private MacroExecutionResult(
         MacroExpansionResult? attachedResult,
-        InvocableMacroExpansionResult? invocableResult)
+        FreestandingMacroExpansionResult? invocableResult)
     {
         AttachedResult = attachedResult;
         InvocableResult = invocableResult;
@@ -15,11 +15,11 @@ public sealed class MacroExecutionResult
 
     public MacroExpansionResult? AttachedResult { get; }
 
-    public InvocableMacroExpansionResult? InvocableResult { get; }
+    public FreestandingMacroExpansionResult? InvocableResult { get; }
 
     public static MacroExecutionResult Attached(MacroExpansionResult? result)
         => new(result ?? MacroExpansionResult.Empty, invocableResult: null);
 
-    public static MacroExecutionResult Invocable(InvocableMacroExpansionResult? result)
-        => new(attachedResult: null, result ?? InvocableMacroExpansionResult.Empty);
+    public static MacroExecutionResult Invocable(FreestandingMacroExpansionResult? result)
+        => new(attachedResult: null, result ?? FreestandingMacroExpansionResult.Empty);
 }

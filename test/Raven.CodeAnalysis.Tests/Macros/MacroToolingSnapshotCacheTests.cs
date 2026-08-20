@@ -52,8 +52,8 @@ public sealed class MacroToolingSnapshotCacheTests
 
         public int FragmentProviderCount { get; private set; }
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public MacroTokenClassification ClassifyToken(
             TokenTreeMacroContext context,

@@ -720,7 +720,7 @@ Hybrid macros can now retain Raven parser recovery and diagnostics together:
 ```raven
 let predicate = context.ParseExpressionResult(predicateSpan)
 
-InvocableMacroExpansionResult {
+FreestandingMacroExpansionResult {
     Expression = predicate.Syntax
     Diagnostics = predicate.Diagnostics
 }
@@ -889,7 +889,7 @@ contract.
 ## API ergonomics: expansion-result factories
 
 The freestanding macro MVP now provides
-`InvocableMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
+`FreestandingMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
 `FromDiagnostics`. These cover plain expression success, success with
 forwarded parser diagnostics, macro-authored diagnostic-only results, and
 combined native/macro diagnostics while normalizing default immutable arrays.

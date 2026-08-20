@@ -199,7 +199,7 @@ directly. The corresponding `ParseExpressionResult` overloads return a
 `MacroSyntaxParseResult<ExpressionSyntax>` containing that syntax, immutable
 native parser diagnostics, and `HasErrors`. These diagnostics retain locations
 in the authored invocation tree and may be forwarded through
-`InvocableMacroExpansionResult.Diagnostics`.
+`FreestandingMacroExpansionResult.Diagnostics`.
 
 `ParseStatement()` and `ParseStatement(span)` provide the equivalent
 syntax-only API for one complete Raven statement. Their
@@ -557,16 +557,16 @@ low-level diagnostic, token-tree, and expansion APIs; `Raven.Macros` currently
 uses it to forward its Raven-authored declarations to the transitional
 `StandardMacroExpansions` implementations.
 
-An argument-style macro may instead declare an `InvocableMacroContext`
+An argument-style macro may instead declare an `FreestandingMacroContext`
 parameter. It has the compiler-supplied `InvocableContext` role and exposes
 the invocation, arguments, semantic model, diagnostics, and other
 freestanding-expansion services without changing the call site into a
 token-tree macro. It therefore does not require a `{ ... }` body. For example,
 a macro declared with an ordinary `path: string` parameter plus a
-`InvocableMacroContext` parameter is invoked as `Macro!("path")`; only the
+`FreestandingMacroContext` parameter is invoked as `Macro!("path")`; only the
 ordinary value parameter is supplied by the caller.
 
-`InvocableMacroContext` and `TokenTreeMacroContext` normalize every supported
+`FreestandingMacroContext` and `TokenTreeMacroContext` normalize every supported
 `Name!` carrier. `Syntax` is the authored carrier as a `SyntaxNode`; `Name`,
 `ExclamationToken`, `ArgumentList`, and `TokenTree` expose the common invocation
 parts directly. The same context API therefore applies when an invocation is
@@ -622,7 +622,7 @@ The compiler currently lowers an executable, non-generic compilation-unit
 declaration into an isolated provider adapter and, when needed, a parameter
 object implementing the existing typed macro contracts. `expand`, `replace`,
 and `introduce` lower to operations on a compiler-provided result builder,
-whose final value becomes `InvocableMacroExpansionResult` or
+whose final value becomes `FreestandingMacroExpansionResult` or
 `MacroExpansionResult`. An `expand` operation is followed by the corresponding
 generated return. These synthesized types are implementation details and
 are not the semantic identity exposed to tools.
@@ -830,11 +830,11 @@ The compiler parses and preserves these arguments generically. Their interpretat
 
 For attached declaration macros, plugins currently receive the raw parsed arguments through `AttachedMacroContext.ArgumentList` and a convenience parsed view through `AttachedMacroContext.Arguments`.
 
-For freestanding macros, the equivalent APIs are `InvocableMacroContext.ArgumentList` and `InvocableMacroContext.Arguments`.
+For freestanding macros, the equivalent APIs are `FreestandingMacroContext.ArgumentList` and `FreestandingMacroContext.Arguments`.
 
 Each parsed `MacroArgument` exposes a richer constant representation through `Constant`, plus the evaluated CLR value directly through `Value` as a convenience.
 
-For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `InvocableMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
+For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `FreestandingMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
 
 This raw-argument model remains available for unrestricted macro implementations. Typed macro parameter objects allow macro signatures to be validated and later presented like normal attributes in completion and signature help. The public contract includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, `IInvocableMacro<TParameters>`, and `ITokenTreeMacro<TParameters>` for that bound-parameter model.
 

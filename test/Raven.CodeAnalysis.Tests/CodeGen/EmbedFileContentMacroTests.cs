@@ -121,7 +121,7 @@ public sealed class EmbedFileContentMacroTests
         }
     }
 
-    private static string? GetEmbeddedValue(InvocableMacroExpansionResult? expansion)
+    private static string? GetEmbeddedValue(FreestandingMacroExpansionResult? expansion)
         => (expansion?.Expression as LiteralExpressionSyntax)?.Token.ValueText;
 
     private static object? InvokeRun(string source, string sourcePath)

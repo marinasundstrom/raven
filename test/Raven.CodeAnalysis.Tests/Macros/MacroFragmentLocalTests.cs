@@ -45,8 +45,8 @@ public sealed class MacroFragmentLocalTests
 
         public string Name => "scoped";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {

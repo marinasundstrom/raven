@@ -248,8 +248,8 @@ public sealed class MacroFragmentSemanticInfoTests
     {
         public string Name => "fragmentHover";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>
@@ -264,8 +264,8 @@ public sealed class MacroFragmentSemanticInfoTests
     {
         public string Name => "fragmentLocalHover";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {
@@ -285,8 +285,8 @@ public sealed class MacroFragmentSemanticInfoTests
     {
         public string Name => "targetTypedFragment";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
         {

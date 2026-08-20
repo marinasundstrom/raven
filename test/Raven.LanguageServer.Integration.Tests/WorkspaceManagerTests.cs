@@ -2001,8 +2001,8 @@ import Raven.CodeAnalysis.Macros.*
 class AnswerMacro: IInvocableMacro {
     val Name: string => "answer"
 
-    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult.Empty
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
     }
 }
 """);
@@ -2059,8 +2059,8 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 class AnswerMacro: IInvocableMacro {
     val Name: string => "answer"
 
-    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult.FromExpression(ParseExpression("{{expansionText}}"))
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.FromExpression(ParseExpression("{{expansionText}}"))
     }
 }
 """;

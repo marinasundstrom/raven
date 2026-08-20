@@ -233,8 +233,8 @@ import Raven.CodeAnalysis.Syntax.*
 class AnswerMacro : IInvocableMacro {
     val Name: string => "answer"
 
-    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult.Empty
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
     }
 }
 """);
@@ -296,8 +296,8 @@ import Raven.CodeAnalysis.Text.*
 class FragmentMacro : ITokenTreeMacro, IMacroFragmentProvider {
     val Name: string => "fragment"
 
-    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult.Empty
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
     }
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
@@ -407,8 +407,8 @@ func Main() {
     {
         public string Name => "symbolToken";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);

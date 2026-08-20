@@ -162,8 +162,8 @@ class Parameters {
 class TypedMacro : ITokenTreeMacro<Parameters> {
     val Name: string => "typed"
 
-    func Expand(context: TokenTreeMacroContext<Parameters>) -> InvocableMacroExpansionResult {
-        InvocableMacroExpansionResult.Empty
+    func Expand(context: TokenTreeMacroContext<Parameters>) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.Empty
     }
 }
 """;

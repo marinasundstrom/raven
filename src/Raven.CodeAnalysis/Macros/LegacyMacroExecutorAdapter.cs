@@ -70,15 +70,15 @@ internal sealed class LegacyMacroExecutorAdapter : IMacroExecutor
                         tokenTreeContext,
                         context.Diagnostics)
                     ?? macro.Expand(tokenTreeContext)
-                    ?? InvocableMacroExpansionResult.Empty),
-            (IInvocableMacro macro, InvocableMacroContext invocableContext) =>
+                    ?? FreestandingMacroExpansionResult.Empty),
+            (IInvocableMacro macro, FreestandingMacroContext invocableContext) =>
                 MacroExecutionResult.Invocable(
                     MacroExpansionService.ExpandWithTypedParametersIfAvailable(
                         macro,
                         invocableContext,
                         context.Diagnostics)
                     ?? macro.Expand(invocableContext)
-                    ?? InvocableMacroExpansionResult.Empty),
+                    ?? FreestandingMacroExpansionResult.Empty),
             _ => throw new InvalidOperationException(
                 $"Macro '{Name}' cannot execute with a {context.Context.GetType().Name} context."),
         };

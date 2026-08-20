@@ -94,7 +94,7 @@ class HtmlMacro : ITokenTreeMacro, IMacroFragmentProvider, IMacroTokenClassifier
         regions
     }
 
-    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let parser = HtmlDslParser(
             context.GetBodyText(),
             context.Compilation,
@@ -103,7 +103,7 @@ class HtmlMacro : ITokenTreeMacro, IMacroFragmentProvider, IMacroTokenClassifier
         let expansion = parser.Parse()
 
         if let errorMessage: string = expansion.ErrorMessage {
-            return InvocableMacroExpansionResult.FromDiagnostic(
+            return FreestandingMacroExpansionResult.FromDiagnostic(
                 context.CreateBodyDiagnostic(
                     TextSpan(expansion.ErrorPosition, 0),
                     errorMessage,
@@ -113,12 +113,12 @@ class HtmlMacro : ITokenTreeMacro, IMacroFragmentProvider, IMacroTokenClassifier
         for span in expansion.EmbeddedExpressionSpans {
             let expression = context.ParseExpressionResult(span)
             if expression.HasErrors {
-                return InvocableMacroExpansionResult.FromDiagnostics(expression.Diagnostics)
+                return FreestandingMacroExpansionResult.FromDiagnostics(expression.Diagnostics)
             }
         }
 
         let expandedExpression = ParseExpression(expansion.ExpressionText)
-        InvocableMacroExpansionResult.FromExpression(
+        FreestandingMacroExpansionResult.FromExpression(
             context.WithOrigins(expandedExpression, expansion.SourceMaps))
     }
 

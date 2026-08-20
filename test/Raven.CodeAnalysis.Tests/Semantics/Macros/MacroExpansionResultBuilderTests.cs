@@ -13,7 +13,7 @@ public class MacroExpansionResultBuilderTests
             DiagnosticSeverity.Warning,
             "warning",
             Location.None);
-        builder.Expand(new InvocableMacroExpansionResult
+        builder.Expand(new FreestandingMacroExpansionResult
         {
             Expression = SyntaxFactory.ParseExpression("1"),
             MacroDiagnostics = [diagnostic]

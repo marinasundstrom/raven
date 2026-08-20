@@ -617,12 +617,12 @@ pipelines for macros with and without an explicit context.
 
 ### Expansion and contribution results
 
-The expression-specific `InvocableMacroExpansionResult.Expression` is not
+The expression-specific `FreestandingMacroExpansionResult.Expression` is not
 the normalized result boundary. The MVP freestanding expansion carries one
 category-erased node:
 
 ```csharp
-public sealed class InvocableMacroExpansionResult
+public sealed class FreestandingMacroExpansionResult
 {
     public SyntaxNode? Node { get; }
     public ExpressionSyntax? Expression { get; }

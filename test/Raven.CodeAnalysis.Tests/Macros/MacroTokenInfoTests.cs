@@ -179,8 +179,8 @@ public sealed class MacroTokenInfoTests
         public ImmutableArray<MacroKeyword> Keywords =>
             [new MacroKeyword("from", FromRawKind)];
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public string? GetTokenKindName(int rawKind)
             => rawKind == FromRawKind ? "FromKeyword" : null;
@@ -197,8 +197,8 @@ public sealed class MacroTokenInfoTests
     {
         public string Name => "broken";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public IMacroTokenStream CreateTokenStream(MacroTokenStreamContext context)
             => throw new InvalidOperationException("broken token provider");
@@ -216,8 +216,8 @@ public sealed class MacroTokenInfoTests
         public ImmutableArray<MacroKeyword> Keywords =>
             [new MacroKeyword("from", QueryMacro.FromRawKind)];
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public string? GetTokenKindName(int rawKind)
             => throw new InvalidOperationException("broken kind name provider");
@@ -237,8 +237,8 @@ public sealed class MacroTokenInfoTests
     {
         public string Name => "symbols";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
@@ -248,7 +248,7 @@ public sealed class MacroTokenInfoTests
     {
         public string Name => "plain";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => throw new InvalidOperationException("Token discovery must not expand this macro.");
     }
 }

@@ -7,14 +7,14 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Macros.Tests;
 
-public sealed class InvocableMacroContextTests
+public sealed class FreestandingMacroContextTests
 {
     [Fact]
     public void ArgumentContext_NormalizesTypeMemberInvocation()
     {
         var (compilation, semanticModel, invocation) = CreateMemberInvocation("Generate!(1)");
 
-        var context = new InvocableMacroContext(compilation, semanticModel, invocation);
+        var context = new FreestandingMacroContext(compilation, semanticModel, invocation);
 
         Assert.Same(invocation, context.Syntax);
         Assert.Equal("Generate", context.Name.ToString());

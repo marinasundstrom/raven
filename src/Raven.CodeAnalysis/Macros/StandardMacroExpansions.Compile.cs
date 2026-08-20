@@ -20,12 +20,12 @@ public static partial class StandardMacroExpansions
     /// <summary>
     /// Expands a Raven runtime compilation expression.
     /// </summary>
-    public static InvocableMacroExpansionResult ExpandCompile(TokenTreeMacroContext context)
+    public static FreestandingMacroExpansionResult ExpandCompile(TokenTreeMacroContext context)
     {
         if (context.Name is not GenericNameSyntax genericName ||
             genericName.TypeArgumentList.Arguments.Count != 1)
         {
-            return InvocableMacroExpansionResult.FromDiagnostic(
+            return FreestandingMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic(
                     "The compile macro requires exactly one delegate type argument, as in compile<Func<int>>! { ... }.",
                     syntax: context.Name,
@@ -53,13 +53,13 @@ public static partial class StandardMacroExpansions
             expansion.Value.Root.IsMissing ||
             expansion.Value.Root.CreateRed() is not ExpressionSyntax expression)
         {
-            return InvocableMacroExpansionResult.FromDiagnostic(
+            return FreestandingMacroExpansionResult.FromDiagnostic(
                 context.CreateDiagnostic(
                     "The compiler could not construct the runtime compilation expression.",
                     syntax: context.Name,
                     code: CompileExpansionFailedCode));
         }
 
-        return InvocableMacroExpansionResult.FromExpression(expression);
+        return FreestandingMacroExpansionResult.FromExpression(expression);
     }
 }

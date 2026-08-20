@@ -9989,17 +9989,17 @@ public partial class SemanticModel
             : null;
     }
 
-    public InvocableMacroExpansionResult? GetMacroExpansion(
+    public FreestandingMacroExpansionResult? GetMacroExpansion(
         InvocableMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
         => GetInvocableMacroExpansion(expression, cancellationToken);
 
-    public InvocableMacroExpansionResult? GetMacroExpansion(
+    public FreestandingMacroExpansionResult? GetMacroExpansion(
         InvocableMacroMemberDeclarationSyntax member,
         CancellationToken cancellationToken = default)
         => GetInvocableMacroExpansion(member, cancellationToken);
 
-    private InvocableMacroExpansionResult? GetInvocableMacroExpansion(
+    private FreestandingMacroExpansionResult? GetInvocableMacroExpansion(
         SyntaxNode invocation,
         CancellationToken cancellationToken)
     {

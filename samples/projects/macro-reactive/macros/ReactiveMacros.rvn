@@ -184,24 +184,24 @@ class SubscribeMacro : IInvocableMacro {
     val Name: string => "subscribe"
     val AcceptsArguments: bool => true
 
-    func Expand(context: InvocableMacroContext) -> InvocableMacroExpansionResult {
+    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
         if context.Arguments.Length != 2 {
-            return InvocableMacroExpansionResult.Empty
+            return FreestandingMacroExpansionResult.Empty
         }
 
         let propertyAccess: MemberAccessExpressionSyntax = context.Arguments[0].Expression else {
-            return InvocableMacroExpansionResult.Empty
+            return FreestandingMacroExpansionResult.Empty
         }
 
         let callback = context.Arguments[1].Expression
 
         let propertyIdentifier: IdentifierNameSyntax = propertyAccess.Name else {
-            return InvocableMacroExpansionResult.Empty
+            return FreestandingMacroExpansionResult.Empty
         }
 
         let signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
 
-        InvocableMacroExpansionResult {
+        FreestandingMacroExpansionResult {
             Expression = InvocationExpression(
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,

@@ -460,11 +460,11 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
 
         public bool AcceptsArguments => true;
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
         {
             var callback = context.Arguments.Single().Expression;
 
-            return new InvocableMacroExpansionResult
+            return new FreestandingMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.IdentifierName("Observe"),
@@ -481,8 +481,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         public string Name => "GenerateMembers";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.FromMembers(ParseMembers("""
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromMembers(ParseMembers("""
                 class __GeneratedContainer {
                     func GeneratedFirst() -> int => 1
                     func GeneratedSecond() -> int => 2
@@ -494,8 +494,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         public string Name => "GenerateNamespaceMembers";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.FromMembers(ParseNamespaceMembers("""
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromMembers(ParseNamespaceMembers("""
                 class GeneratedFirst {}
                 class GeneratedSecond {}
                 """));
@@ -505,8 +505,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         public string Name => "RemoveMember";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.FromMembers(
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromMembers(
                 ImmutableArray<MemberDeclarationSyntax>.Empty);
     }
 
@@ -514,8 +514,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         public string Name => "GenerateSingleMember";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.FromNode(ParseMembers("""
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromNode(ParseMembers("""
                 class __GeneratedContainer {
                     func GeneratedSingle() -> int => 1
                 }
@@ -526,8 +526,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     {
         public string Name => "GenerateExpression";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.FromExpression(
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromExpression(
                 SyntaxFactory.LiteralExpression(
                     SyntaxKind.NumericLiteralExpression,
                     SyntaxFactory.Literal(1)));

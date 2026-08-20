@@ -20,8 +20,8 @@ public static partial class StandardMacroExpansions
     /// <summary>
     /// Embeds a UTF-8 text file as a Raven string literal.
     /// </summary>
-    public static InvocableMacroExpansionResult ExpandEmbedFileContent(
-        InvocableMacroContext context,
+    public static FreestandingMacroExpansionResult ExpandEmbedFileContent(
+        FreestandingMacroContext context,
         string path)
     {
         var file = context.ReadFile(path);
@@ -50,7 +50,7 @@ public static partial class StandardMacroExpansions
             SyntaxKind.StringLiteralExpression,
             SyntaxFactory.Literal(FormatStringLiteral(content), content));
         return WithFileDependencies(
-            InvocableMacroExpansionResult.FromExpression(expression),
+            FreestandingMacroExpansionResult.FromExpression(expression),
             context);
     }
 
@@ -104,19 +104,19 @@ public static partial class StandardMacroExpansions
         return builder.Append('"').ToString();
     }
 
-    private static InvocableMacroExpansionResult EmbedFileError(
-        InvocableMacroContext context,
+    private static FreestandingMacroExpansionResult EmbedFileError(
+        FreestandingMacroContext context,
         string message,
         string code)
-        => InvocableMacroExpansionResult.FromDiagnostic(
+        => FreestandingMacroExpansionResult.FromDiagnostic(
             context.CreateDiagnostic(
                 message,
                 syntax: context.Arguments.FirstOrDefault()?.Expression,
                 code: code));
 
-    private static InvocableMacroExpansionResult WithFileDependencies(
-        InvocableMacroExpansionResult result,
-        InvocableMacroContext context)
+    private static FreestandingMacroExpansionResult WithFileDependencies(
+        FreestandingMacroExpansionResult result,
+        FreestandingMacroContext context)
     {
         result.FileDependencies = context.GetFileDependencies();
         return result;

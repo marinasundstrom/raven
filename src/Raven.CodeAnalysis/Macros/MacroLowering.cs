@@ -235,10 +235,10 @@ internal static class MacroLowering
         var returnTypeName = returnType?.ToDisplayString() ?? returnTypeSyntax?.ToString() ?? "object";
         if (returnTypeName.EndsWith(nameof(MacroExecutionResult), StringComparison.Ordinal))
             builder.AppendLine($"        return {resultName}");
-        else if (returnTypeName.EndsWith(nameof(InvocableMacroExpansionResult), StringComparison.Ordinal))
+        else if (returnTypeName.EndsWith(nameof(FreestandingMacroExpansionResult), StringComparison.Ordinal))
             builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable({resultName})");
         else
-            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable(Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult.FromNode({resultName}))");
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable(Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromNode({resultName}))");
     }
 
     private static string LowerDeclaration(
@@ -305,12 +305,12 @@ internal static class MacroLowering
             ? "Raven.CodeAnalysis.Macros.TokenTreeMacroContext"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.AttachedMacroContext"
-            : "Raven.CodeAnalysis.Macros.InvocableMacroContext";
+            : "Raven.CodeAnalysis.Macros.FreestandingMacroContext";
         var categoryResultName = hasTokenTreeBody
-            ? "Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult"
+            ? "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult"
             : isAttached
             ? "Raven.CodeAnalysis.Macros.MacroExpansionResult"
-            : "Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult";
+            : "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult";
         var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildInvocable";
         var resultFactory = isAttached && !hasTokenTreeBody ? "Attached" : "Invocable";
         if (hasEditorMetadataContributions)
@@ -408,7 +408,7 @@ internal static class MacroLowering
         foreach (var contextParameter in invocableContextParameters)
         {
             builder.AppendLine(
-                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.InvocableMacroContext = {contextVariableName}");
+                $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.FreestandingMacroContext = {contextVariableName}");
         }
         foreach (var contextParameter in attachedContextParameters)
         {

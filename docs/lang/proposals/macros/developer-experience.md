@@ -238,7 +238,7 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IInvocableMacro` with `InvocableMacroContext` |
+| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IInvocableMacro` with `FreestandingMacroContext` |
 | `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeMacro` with `TokenTreeMacroContext` |
 | `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
 | `macro AddEquatable(on target: BaseTypeDeclarationSyntax)` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
@@ -376,7 +376,7 @@ following raw token-tree body.
 `TokenTreeMacroContext` has the compiler-supplied `Context` role and exposes
 the complete low-level provider context for advanced library macros; it does
 not consume a caller argument.
-`InvocableMacroContext` similarly has the compiler-supplied
+`FreestandingMacroContext` similarly has the compiler-supplied
 `InvocableContext` role for argument-style macros. It exposes the complete
 freestanding provider context without requiring or consuming a raw token-tree
 body.
@@ -632,7 +632,7 @@ themselves. `ParseExpressionResult(span)` returns
 `MacroSyntaxParseResult<ExpressionSyntax>`, containing the recovered syntax,
 native Raven parser diagnostics, and `HasErrors`. Diagnostic locations are
 mapped to the invocation's original syntax tree, so a macro can forward them
-through `InvocableMacroExpansionResult.Diagnostics` without translating
+through `FreestandingMacroExpansionResult.Diagnostics` without translating
 generated-tree positions or wrapping them as macro failures.
 
 `ParseStatement`, `ParseType`, `ParsePattern`, and `ParseCompilationUnit`, plus
@@ -1011,7 +1011,7 @@ dependency resolution for the in-memory image.
 ## Expansion result construction
 
 Freestanding macros can use
-`InvocableMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
+`FreestandingMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
 `FromDiagnostics` instead of discovering valid property combinations through
 object initializers. The overloads cover expression success, forwarded Raven
 parser diagnostics, macro-authored diagnostics, and combined diagnostic

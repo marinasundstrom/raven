@@ -76,8 +76,8 @@ public sealed class MacroInputSnapshotTests
     {
         public string Name => "snapshot";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public MacroTokenClassification ClassifyToken(
             TokenTreeMacroContext context,
@@ -97,8 +97,8 @@ public sealed class MacroInputSnapshotTests
     {
         public string Name => "regions";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
 
         public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
             =>

@@ -2250,8 +2250,8 @@ public sealed class ProjectFileNuGetReferenceTests
                 val Name: string => "packageAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult
-                    => InvocableMacroExpansionResult.FromExpression(
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.FromExpression(
                         Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression({{expressionText}}))
             }
             """);

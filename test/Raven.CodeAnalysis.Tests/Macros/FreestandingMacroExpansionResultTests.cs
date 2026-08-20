@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Macros;
 
-public sealed class InvocableMacroExpansionResultTests
+public sealed class FreestandingMacroExpansionResultTests
 {
     [Fact]
     public void FromExpression_CreatesExpressionResultWithNormalizedDiagnostics()
@@ -14,7 +14,7 @@ public sealed class InvocableMacroExpansionResultTests
             SyntaxKind.NumericLiteralExpression,
             SyntaxFactory.Literal(42));
 
-        var result = InvocableMacroExpansionResult.FromExpression(
+        var result = FreestandingMacroExpansionResult.FromExpression(
             expression,
             default,
             default);
@@ -30,7 +30,7 @@ public sealed class InvocableMacroExpansionResultTests
     {
         var diagnostic = MacroExpansionDiagnostic.Error("Expansion failed.");
 
-        var result = InvocableMacroExpansionResult.FromDiagnostic(diagnostic);
+        var result = FreestandingMacroExpansionResult.FromDiagnostic(diagnostic);
 
         result.Expression.ShouldBeNull();
         result.Node.ShouldBeNull();
@@ -44,7 +44,7 @@ public sealed class InvocableMacroExpansionResultTests
     {
         var statement = SyntaxFactory.ParseStatement("return 42")!;
 
-        var result = InvocableMacroExpansionResult.FromStatement(statement);
+        var result = FreestandingMacroExpansionResult.FromStatement(statement);
 
         result.Node.ShouldBeSameAs(statement);
         result.Statement.ShouldBeSameAs(statement);
@@ -67,7 +67,7 @@ public sealed class InvocableMacroExpansionResultTests
     [Fact]
     public void ExpressionAndStatementProperties_AreExclusiveTypedProjections()
     {
-        var result = InvocableMacroExpansionResult.FromExpression(
+        var result = FreestandingMacroExpansionResult.FromExpression(
             SyntaxFactory.ParseExpression("42"));
 
         result.Statement = SyntaxFactory.ParseStatement("return 42");
@@ -83,7 +83,7 @@ public sealed class InvocableMacroExpansionResultTests
         var first = ParseMember("class First {}");
         var second = ParseMember("class Second {}");
 
-        var result = InvocableMacroExpansionResult.FromMembers(
+        var result = FreestandingMacroExpansionResult.FromMembers(
             SyntaxFactory.List<MemberDeclarationSyntax>([first, second]));
 
         result.HasMemberExpansion.ShouldBeTrue();
@@ -95,19 +95,19 @@ public sealed class InvocableMacroExpansionResultTests
     [Fact]
     public void EmptyMemberList_RemainsAnExplicitExpansion()
     {
-        var result = InvocableMacroExpansionResult.FromMembers(
+        var result = FreestandingMacroExpansionResult.FromMembers(
             SyntaxFactory.List<MemberDeclarationSyntax>());
 
         result.HasMemberExpansion.ShouldBeTrue();
         result.Members.ShouldBeEmpty();
-        result.ShouldNotBeSameAs(InvocableMacroExpansionResult.Empty);
+        result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
     }
 
     [Fact]
     public void SingleNodeAndMemberListProperties_AreMutuallyExclusive()
     {
         var member = ParseMember("class Generated {}");
-        var result = InvocableMacroExpansionResult.FromExpression(
+        var result = FreestandingMacroExpansionResult.FromExpression(
             SyntaxFactory.ParseExpression("42"));
 
         result.Members = [member];
@@ -132,7 +132,7 @@ public sealed class InvocableMacroExpansionResultTests
 
         result.HasMemberExpansion.ShouldBeTrue();
         result.Members.ShouldBeEmpty();
-        result.ShouldNotBeSameAs(InvocableMacroExpansionResult.Empty);
+        result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
     }
 
     private static MemberDeclarationSyntax ParseMember(string source)

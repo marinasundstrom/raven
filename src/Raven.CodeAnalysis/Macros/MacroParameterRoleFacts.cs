@@ -65,8 +65,8 @@ internal static class MacroParameterRoleFacts
                 "Raven.CodeAnalysis.Macros.IMacroTokenStream",
             nameof(TokenTreeMacroContext) or "Raven.CodeAnalysis.Macros.TokenTreeMacroContext" =>
                 "Raven.CodeAnalysis.Macros.TokenTreeMacroContext",
-            nameof(InvocableMacroContext) or "Raven.CodeAnalysis.Macros.InvocableMacroContext" =>
-                "Raven.CodeAnalysis.Macros.InvocableMacroContext",
+            nameof(FreestandingMacroContext) or "Raven.CodeAnalysis.Macros.FreestandingMacroContext" =>
+                "Raven.CodeAnalysis.Macros.FreestandingMacroContext",
             nameof(AttachedMacroContext) or "Raven.CodeAnalysis.Macros.AttachedMacroContext" =>
                 "Raven.CodeAnalysis.Macros.AttachedMacroContext",
             _ => null
@@ -111,7 +111,7 @@ internal static class MacroParameterRoleFacts
         if (IsOrDerivesFrom(
             parameterType,
             "Raven.CodeAnalysis.Macros",
-            nameof(InvocableMacroContext)))
+            nameof(FreestandingMacroContext)))
         {
             return MacroContextKind.Invocable;
         }
@@ -132,7 +132,7 @@ internal static class MacroParameterRoleFacts
         if (typeof(AttachedMacroContext).IsAssignableFrom(parameterType))
             return MacroContextKind.Attached;
 
-        if (typeof(InvocableMacroContext).IsAssignableFrom(parameterType))
+        if (typeof(FreestandingMacroContext).IsAssignableFrom(parameterType))
             return MacroContextKind.Invocable;
 
         if (typeof(TokenTreeMacroContext).IsAssignableFrom(parameterType))

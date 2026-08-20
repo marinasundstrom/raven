@@ -970,8 +970,8 @@ func Main() {
                     public string Name => "answer";
                     public MacroKind Kind => MacroKind.Invocable;
 
-                    public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-                        => InvocableMacroExpansionResult.FromExpression(
+                    public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+                        => FreestandingMacroExpansionResult.FromExpression(
                             SyntaxFactory.ParseExpression("42"));
                 }
                 """);

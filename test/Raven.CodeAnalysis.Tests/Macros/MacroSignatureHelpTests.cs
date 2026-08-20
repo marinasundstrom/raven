@@ -208,15 +208,15 @@ class Host {
                     string.Empty));
 
         public MacroExecutionResult Expand(MacroExecutionContext context)
-            => MacroExecutionResult.Invocable(InvocableMacroExpansionResult.Empty);
+            => MacroExecutionResult.Invocable(FreestandingMacroExpansionResult.Empty);
     }
 
     private sealed class TypedQueryMacro : ITokenTreeMacro<TypedQueryParameters>
     {
         public string Name => "typedQuery";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 
     private sealed class TypedObservableParameters
@@ -249,8 +249,8 @@ class Host {
     {
         public string Name => "project";
 
-        public InvocableMacroExpansionResult Expand(
-            InvocableMacroContext<ExpressionProjectionParameters> context)
-            => InvocableMacroExpansionResult.Empty;
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<ExpressionProjectionParameters> context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 }

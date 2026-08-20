@@ -242,8 +242,8 @@ public sealed class InvocableMacroCodeGenTests
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
-                func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
-                    InvocableMacroExpansionResult {
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
                         Expression = quote!{ 42 }
                     }
                 }
@@ -496,7 +496,7 @@ public sealed class InvocableMacroCodeGenTests
         public string Name => "add";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public InvocableMacroExpansionResult Expand(InvocableMacroContext<AddMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<AddMacroParameters> context)
             => new()
             {
                 Expression = ParseExpression($"{context.Parameters.Left} + {context.Parameters.Right}")
@@ -508,8 +508,8 @@ public sealed class InvocableMacroCodeGenTests
         public string Name => "setAnswer";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => InvocableMacroExpansionResult.FromStatement(
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.FromStatement(
                 SyntaxFactory.ParseStatement("result = 42"));
     }
 
@@ -525,15 +525,15 @@ public sealed class InvocableMacroCodeGenTests
         public string Name => "embedText";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public InvocableMacroExpansionResult Expand(
-            InvocableMacroContext<EmbedTextMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(
+            FreestandingMacroContext<EmbedTextMacroParameters> context)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
             try
             {
                 var content = File.ReadAllText(context.Parameters.Path);
-                return new InvocableMacroExpansionResult
+                return new FreestandingMacroExpansionResult
                 {
                     Expression = SyntaxFactory.LiteralExpression(
                         SyntaxKind.StringLiteralExpression,
@@ -545,7 +545,7 @@ public sealed class InvocableMacroCodeGenTests
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException)
             {
-                return new InvocableMacroExpansionResult
+                return new FreestandingMacroExpansionResult
                 {
                     MacroDiagnostics =
                     [
@@ -568,7 +568,7 @@ public sealed class InvocableMacroCodeGenTests
     {
         public string Name => "raven";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => new()
             {
                 Expression = context.ParseExpression()
@@ -579,10 +579,10 @@ public sealed class InvocableMacroCodeGenTests
     {
         public string Name => "members";
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
-            return InvocableMacroExpansionResult.FromMembers(
+            return FreestandingMacroExpansionResult.FromMembers(
                 SyntaxFactory.SingletonList(member));
         }
     }
@@ -592,7 +592,7 @@ public sealed class InvocableMacroCodeGenTests
         public string Name => "generatedMembers";
         public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.TypeMember;
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var container = Assert.IsType<ClassDeclarationSyntax>(
                 SyntaxFactory.ParseSyntaxTree("""
@@ -600,7 +600,7 @@ public sealed class InvocableMacroCodeGenTests
                         public static func Generated() -> int => 42
                     }
                     """).GetRoot().Members.Single());
-            return InvocableMacroExpansionResult.FromMembers(container.Members);
+            return FreestandingMacroExpansionResult.FromMembers(container.Members);
         }
     }
 
@@ -609,14 +609,14 @@ public sealed class InvocableMacroCodeGenTests
         public string Name => "generatedNamespaceMembers";
         public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.NamespaceMember;
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var member = SyntaxFactory.ParseSyntaxTree("""
                 class Generated {
                     static func Value() -> int => 42
                 }
                 """).GetRoot().Members.Single();
-            return InvocableMacroExpansionResult.FromMembers(
+            return FreestandingMacroExpansionResult.FromMembers(
                 SyntaxFactory.SingletonList(member));
         }
     }
@@ -632,7 +632,7 @@ public sealed class InvocableMacroCodeGenTests
             new("unless", UnlessKeywordRawKind)
         ];
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -648,7 +648,7 @@ public sealed class InvocableMacroCodeGenTests
             var condition = context.ParseExpression(
                 TextSpan.FromBounds(keyword.Span.End, context.BodySpan.Length));
 
-            return new InvocableMacroExpansionResult
+            return new FreestandingMacroExpansionResult
             {
                 Expression = SyntaxFactory.PrefixOperatorExpression(
                     SyntaxKind.LogicalNotExpression,
@@ -657,7 +657,7 @@ public sealed class InvocableMacroCodeGenTests
             };
         }
 
-        private static InvocableMacroExpansionResult Error(
+        private static FreestandingMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)
@@ -685,7 +685,7 @@ public sealed class InvocableMacroCodeGenTests
             new("otherwise", OtherwiseKeywordRawKind, MacroKeywordClassification.ReservedWord)
         ];
 
-        public InvocableMacroExpansionResult Expand(TokenTreeMacroContext context)
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
         {
             var stream = context.CreateTokenStream();
             if (stream.IsEndOfFile)
@@ -708,7 +708,7 @@ public sealed class InvocableMacroCodeGenTests
             var whenFalse = context.ParseExpression(
                 TextSpan.FromBounds(otherwiseKeyword.Span.End, context.BodySpan.Length));
 
-            return new InvocableMacroExpansionResult
+            return new FreestandingMacroExpansionResult
             {
                 Expression = SyntaxFactory.IfExpression(
                     SyntaxFactory.IfKeyword,
@@ -737,7 +737,7 @@ public sealed class InvocableMacroCodeGenTests
             return false;
         }
 
-        private static InvocableMacroExpansionResult Error(
+        private static FreestandingMacroExpansionResult Error(
             TokenTreeMacroContext context,
             TextSpan span,
             string message)

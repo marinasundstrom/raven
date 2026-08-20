@@ -7,7 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 - Macro terminology now follows procedural-macro conventions: application kind
   is `Freestanding` or `Attached`. Freestanding macros use function-like syntax
   at any grammar position permitted by their declared result; attached macros
-  occupy attribute-like positions on existing declarations.
+  occupy attribute-like positions on existing declarations. The public
+  freestanding support types are now `FreestandingMacroContext` and
+  `FreestandingMacroExpansionResult`.
 - Macros now have one stable method-shaped declaration ABI: a hidden nominal
   definition type owns generic parameters, its designated `Expand` method owns
   any number of caller-supplied or compiler-injected parameters, and binding,

@@ -756,7 +756,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var (baseCompilation, tree) = CreateCompilation("""
             macro Embed(
                 path: string,
-                context: Raven.CodeAnalysis.Macros.InvocableMacroContext
+                context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
             ) {
                 expand path
             }
@@ -772,7 +772,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
 
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
         Assert.Equal(MacroParameterRole.Context, symbol.Parameters[1].MacroRole);
-        Assert.Equal("InvocableMacroContext", symbol.Parameters[1].Type.Name);
+        Assert.Equal("FreestandingMacroContext", symbol.Parameters[1].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -814,7 +814,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             }
 
             macro Attached(
-                context: Raven.CodeAnalysis.Macros.InvocableMacroContext,
+                context: Raven.CodeAnalysis.Macros.FreestandingMacroContext,
                 on target: Raven.CodeAnalysis.Syntax.BaseTypeDeclarationSyntax
             ) {
                 context.ReportDiagnostic("Invalid")

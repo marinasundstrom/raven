@@ -376,7 +376,7 @@ public class IdentityMacro<T> : IMacroDefinition {
     func Expand(
         value: T,
         syntax: ExpressionSyntax,
-        context: InvocableMacroContext
+        context: FreestandingMacroContext
     ) -> ExpressionSyntax => syntax
 }
 ```
@@ -430,7 +430,7 @@ list removes the invocation.
 
 Class-authored providers declare the same applicability through
 `IMacroDefinition.InvocationTargets` and return members with
-`InvocableMacroExpansionResult.FromMembers(...)`. Returning `Empty` leaves the
+`FreestandingMacroExpansionResult.FromMembers(...)`. Returning `Empty` leaves the
 invocation in place as recoverable source. `FromNode(...)` may be used for
 exactly one member. The compiler reports `RAVM022` if the result is an
 expression or statement instead of a member, so a malformed provider cannot
@@ -610,7 +610,7 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | `ExpressionSyntax` parameter | authored expression projection |
 | `IMacroTokenStream` parameter | token-tree macro and token stream |
 | `TokenTreeMacroContext` parameter | complete token-tree context |
-| `InvocableMacroContext` parameter | complete argument-style context |
+| `FreestandingMacroContext` parameter | complete argument-style context |
 | `AttachedMacroContext` parameter | complete attached context |
 | `on target: BaseTypeDeclarationSyntax` / `on property: PropertyDeclarationSyntax` | compiler-supplied attached target |
 | `expand` | final expansion and semantic return |
