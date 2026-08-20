@@ -785,6 +785,78 @@ func Main() -> unit {
     }
 
     [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_InvalidatesOnlyEditedUnusedImportLine()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var oldText = SourceText.From("""
+import System.*
+import System.IO.*
+
+func Main() -> unit {}
+""");
+        var newText = SourceText.From("""
+import   System.*
+import System.IO.*
+
+func Main() -> unit {}
+""");
+        var diagnostics = new[]
+        {
+            CreateDiagnostic(
+                "RAV9031",
+                "Import directive 'System' is unused within this scope.",
+                0,
+                7,
+                0,
+                15,
+                DiagnosticSeverity.Hint,
+                DiagnosticTag.Unnecessary),
+            CreateDiagnostic(
+                "RAV9031",
+                "Import directive 'System.IO' is unused within this scope.",
+                1,
+                7,
+                1,
+                18,
+                DiagnosticSeverity.Hint,
+                DiagnosticTag.Unnecessary)
+        };
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+                diagnostics,
+                editorVersion: 1,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: 2);
+
+        var stickyDiagnostic = pending.Diagnostics.ShouldHaveSingleItem();
+        pending.ShouldPublish.ShouldBeTrue();
+        stickyDiagnostic.Code?.String.ShouldBe("RAV9031");
+        stickyDiagnostic.Message.ShouldContain("System.IO");
+        stickyDiagnostic.Range.Start.Line.ShouldBe(1);
+        stickyDiagnostic.Tags!.ShouldContain(DiagnosticTag.Unnecessary);
+    }
+
+    [Fact]
     public void DocumentCompilerPublish_AfterStickySyntaxPublish_ClearsStaleCompilerDiagnostic()
     {
         var oldText = SourceText.From("""

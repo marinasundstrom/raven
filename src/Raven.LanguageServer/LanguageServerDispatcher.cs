@@ -772,6 +772,14 @@ internal sealed class LanguageServerDispatcher
         if (changes.Any(change => TextChangeTouchesDiagnosticSpan(change, oldSpan)))
             return false;
 
+        if (IsUnusedImportDiagnostic(diagnostic))
+        {
+            var (line, _) = oldText.GetLineAndColumn(oldStart);
+            var importLineSpan = oldText.GetLines()[line].Span;
+            if (changes.Any(change => TextChangeTouchesDiagnosticSpan(change, importLineSpan)))
+                return false;
+        }
+
         if (!TryTranslateOffset(changes, oldStart, out var newStart) ||
             !TryTranslateOffset(changes, oldEnd, out var newEnd))
         {
@@ -792,6 +800,12 @@ internal sealed class LanguageServerDispatcher
         };
         return true;
     }
+
+    private static bool IsUnusedImportDiagnostic(Diagnostic diagnostic)
+        => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnusedImportDirectiveAnalyzer.DiagnosticId,
+            StringComparison.Ordinal);
 
     private static bool TextChangeTouchesDiagnosticSpan(TextChange change, TextSpan diagnosticSpan)
     {

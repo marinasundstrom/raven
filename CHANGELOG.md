@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Editing an unused import now invalidates the stale grey diagnostic on that
+  import line only, while unused-import diagnostics on untouched lines remain
+  visible until refreshed analyzer results arrive.
 - Small-document inlay hints now recompute immediately after committed edits,
   preventing stale inferred labels from lingering while typing.
 - Bare locals, parameters, properties, and non-constant fields are no longer
