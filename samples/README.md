@@ -104,6 +104,9 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/greenhouse-monitor/README.md` (simulated IoT telemetry,
   unions and patterns, and reproducible Native AOT publishing for macOS or
   Linux Arm64 devices such as Raspberry Pi)
+- `samples/projects/mfrc522-rfid/README.md` (MFRC522 RFID polling over SPI,
+  RGB status output, typed reader failures, unions, records, and Raspberry Pi
+  wiring)
 - `samples/projects/nanoframework-temperature/README.md` (DHT sensor state,
   exhaustive union patterns, GPIO output, and nanoFramework `NFMRK2` packaging)
 - `samples/projects/nanoframework-blinky/README.md` (minimal Raspberry Pi

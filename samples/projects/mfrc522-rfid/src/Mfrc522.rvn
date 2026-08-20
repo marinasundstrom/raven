@@ -1,0 +1,471 @@
+namespace Raven.Samples.Mfrc522
+
+import System.*
+import System.Collections.Generic.*
+import System.Device.Gpio.*
+import System.Device.Spi.*
+
+// These are byte-level protocol constants whose numeric representation is
+// part of the MFRC522 interface, so enums express their meaning precisely.
+enum Command : byte {
+    Idle = 0x00
+    Authenticate = 0x0E
+    Receive = 0x08
+    Transmit = 0x04
+    Transceive = 0x0C
+    ResetPhase = 0x0F
+    CalculateCrc = 0x03
+}
+
+enum Register : byte {
+    Command = 0x01
+    CommunicationInterruptEnable = 0x02
+    CommunicationInterruptRequest = 0x04
+    DivisionInterruptRequest = 0x05
+    Error = 0x06
+    Status2 = 0x08
+    FifoData = 0x09
+    FifoLevel = 0x0A
+    Control = 0x0C
+    BitFraming = 0x0D
+    Mode = 0x11
+    TransmitControl = 0x14
+    TransmitAuto = 0x15
+    ReceiverGain = 0x26
+    TimerMode = 0x2A
+    TimerPrescaler = 0x2B
+    TimerReloadHigh = 0x2C
+    TimerReloadLow = 0x2D
+    CrcResultHigh = 0x21
+    CrcResultLow = 0x22
+    Version = 0x37
+}
+
+enum PiccCommand : byte {
+    RequestIdle = 0x26
+    RequestAll = 0x52
+    AntiCollision = 0x93
+    SelectTag = 0x93
+    AuthenticateKeyA = 0x60
+    AuthenticateKeyB = 0x61
+    Read = 0x30
+    Write = 0xA0
+    Halt = 0x50
+}
+
+union ReaderError {
+    case TimedOut
+    case CommunicationFailed(flags: byte)
+    case UnexpectedResponse(operation: string)
+    case InvalidUidLength(length: int)
+    case UidChecksumFailed
+    case AuthenticationFailed
+    case InvalidKeyLength(length: int)
+    case InvalidBlockLength(length: int)
+    case CardRejected(operation: string)
+}
+
+// Absence is normal while polling, and is distinct from both success and a
+// hardware/protocol failure. A union makes all three states explicit.
+union CardResult<T> {
+    case Success(T)
+    case NoCard
+    case Failure(error: ReaderError)
+}
+
+record CommandResponse(Data: byte[], BitLength: int)
+
+record struct CardUid(
+    Byte0: byte,
+    Byte1: byte,
+    Byte2: byte,
+    Byte3: byte,
+    Checksum: byte
+) {
+    func ToSerialBytes() -> byte[] {
+        return [Byte0, Byte1, Byte2, Byte3, Checksum]
+    }
+}
+
+record struct DetectedCard(Uid: CardUid, CapacityCode: byte)
+
+class Mfrc522Reader : IDisposable {
+    const MaxReceiveBytes: int = 16
+
+    val _spi: SpiDevice
+    val _gpio: GpioController
+    val _reset: GpioPin
+
+    init(spi: SpiDevice, resetPin: int = 22) {
+        _spi = spi
+        _gpio = GpioController()
+        _reset = _gpio.OpenPin(resetPin, PinMode.Output)
+        Initialize()
+    }
+
+    private func Initialize() {
+        _reset.Write(PinValue.High)
+        WriteRegister(Register.Command, Command.ResetPhase)
+
+        WriteRegister(Register.TimerMode, (byte)0x8D)
+        WriteRegister(Register.TimerPrescaler, (byte)0x3E)
+        WriteRegister(Register.TimerReloadLow, 30b)
+        WriteRegister(Register.TimerReloadHigh, (byte)0)
+        WriteRegister(Register.TransmitAuto, (byte)0x40)
+        WriteRegister(Register.Mode, (byte)0x3D)
+
+        SetBits(Register.TransmitControl, (byte)0x03)
+    }
+
+    private func WriteRegister(address: byte, value: byte) {
+        let buffer: byte[] = [
+            (byte)((address << 1) & 0x7E),
+            value
+        ]
+
+        _spi.Write(buffer)
+    }
+
+    private func WriteRegister(register: Register, value: byte) {
+        WriteRegister((byte)register, value)
+    }
+
+    private func WriteRegister(register: Register, command: Command) {
+        WriteRegister((byte)register, (byte)command)
+    }
+
+    private func ReadRegister(address: byte) -> byte {
+        let buffer: byte[] = [
+            (byte)(((address << 1) & 0x7E) | 0x80),
+            (byte)0
+        ]
+
+        _spi.TransferFullDuplex(buffer, buffer)
+        return buffer[1]
+    }
+
+    private func ReadRegister(register: Register) -> byte {
+        return ReadRegister((byte)register)
+    }
+
+    private func SetBits(register: Register, mask: byte) {
+        WriteRegister(register, ReadRegister(register) | mask)
+    }
+
+    private func ClearBits(register: Register, mask: byte) {
+        WriteRegister(register, ReadRegister(register) & ~mask)
+    }
+
+    private func Transceive(command: Command, sendData: byte[]) -> CardResult<CommandResponse> {
+        let received = List<byte>()
+        var interruptEnable: byte = 0
+        var waitForInterrupt: byte = 0
+
+        match command {
+            Command.Authenticate => {
+                interruptEnable = (byte)0x12
+                waitForInterrupt = (byte)0x10
+            }
+            Command.Transceive => {
+                interruptEnable = (byte)0x77
+                waitForInterrupt = (byte)0x30
+            }
+            _ => ()
+        }
+
+        WriteRegister(Register.CommunicationInterruptEnable, interruptEnable | 0x80)
+        ClearBits(Register.CommunicationInterruptRequest, (byte)0x80)
+        SetBits(Register.FifoLevel, (byte)0x80)
+        WriteRegister(Register.Command, Command.Idle)
+
+        for value in sendData {
+            WriteRegister(Register.FifoData, value)
+        }
+
+        WriteRegister(Register.Command, command)
+        if command == Command.Transceive {
+            SetBits(Register.BitFraming, (byte)0x80)
+        }
+
+        var attempts = 2000
+        var interrupt: byte = 0
+
+        loop {
+            interrupt = ReadRegister(Register.CommunicationInterruptRequest)
+            attempts = attempts - 1
+
+            if attempts == 0 ||
+               (interrupt & 0x01) != 0 ||
+               (interrupt & waitForInterrupt) != 0 {
+                break
+            }
+        }
+
+        ClearBits(Register.BitFraming, (byte)0x80)
+
+        if attempts == 0 {
+            return .Failure(.TimedOut)
+        }
+
+        let errorFlags = ReadRegister(Register.Error) & 0x1B
+        if errorFlags != 0 {
+            return .Failure(.CommunicationFailed(errorFlags))
+        }
+
+        if (interrupt & interruptEnable & 0x01) != 0 {
+            return .NoCard
+        }
+
+        if command != Command.Transceive {
+            return .Success(CommandResponse([], 0))
+        }
+
+        var count: int = ReadRegister(Register.FifoLevel)
+        let lastBits: int = ReadRegister(Register.Control) & 0x07
+        let bitLength = if lastBits != 0 {
+            (count - 1) * 8 + lastBits
+        } else {
+            count * 8
+        }
+
+        if count == 0 {
+            count = 1
+        }
+
+        if count > MaxReceiveBytes {
+            count = MaxReceiveBytes
+        }
+
+        for _ in 0 ..< count {
+            received.Add(ReadRegister(Register.FifoData))
+        }
+
+        return .Success(CommandResponse(received.ToArray(), bitLength))
+    }
+
+    private func CalculateCrc(data: byte[]) -> byte[] {
+        ClearBits(Register.DivisionInterruptRequest, (byte)0x04)
+        SetBits(Register.FifoLevel, (byte)0x80)
+
+        for value in data {
+            WriteRegister(Register.FifoData, value)
+        }
+
+        WriteRegister(Register.Command, Command.CalculateCrc)
+        var remaining = 0xFF
+
+        while remaining != 0 {
+            let interrupt = ReadRegister(Register.DivisionInterruptRequest)
+            remaining = remaining - 1
+
+            if (interrupt & 0x04) != 0 {
+                break
+            }
+        }
+
+        return [
+            ReadRegister(Register.CrcResultLow),
+            ReadRegister(Register.CrcResultHigh)
+        ]
+    }
+
+    private func Request() -> CardResult<unit> {
+        WriteRegister(Register.BitFraming, (byte)0x07)
+
+        return match Transceive(Command.Transceive, [ (byte)PiccCommand.RequestIdle ]) {
+            .Success(let response) => if response.BitLength == 0x10 {
+                .Success(())
+            } else {
+                .Failure(.UnexpectedResponse("request"))
+            }
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    private func ReadUid() -> CardResult<CardUid> {
+        WriteRegister(Register.BitFraming, (byte)0x00)
+
+        return match Transceive(
+            Command.Transceive,
+            [ (byte)PiccCommand.AntiCollision, (byte)0x20 ]
+        ) {
+            .Success(let response) => {
+                let data = response.Data
+                if data.Length != 5 {
+                    return .Failure(.InvalidUidLength(data.Length))
+                }
+
+                let checksum = data[0] ^ data[1] ^ data[2] ^ data[3]
+                if checksum != data[4] {
+                    return .Failure(.UidChecksumFailed)
+                }
+
+                .Success(CardUid(data[0], data[1], data[2], data[3], data[4]))
+            }
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    private func Select(uid: CardUid) -> CardResult<byte> {
+        let buffer = List<byte> {
+            (byte)PiccCommand.SelectTag,
+            (byte)0x70
+        }
+
+        for value in uid.ToSerialBytes() {
+            buffer.Add(value)
+        }
+
+        let crc = CalculateCrc(buffer.ToArray())
+        buffer.Add(crc[0])
+        buffer.Add(crc[1])
+
+        return match Transceive(Command.Transceive, buffer.ToArray()) {
+            .Success(let response) => if response.BitLength == 0x18 && response.Data.Length > 0 {
+                .Success(response.Data[0])
+            } else {
+                .Failure(.UnexpectedResponse("select"))
+            }
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    func Scan() -> CardResult<DetectedCard> {
+        match Request() {
+            .Success(_) => ()
+            .NoCard => return .NoCard
+            .Failure(let error) => return .Failure(error)
+        }
+
+        let uid = match ReadUid() {
+            .Success(let value) => value
+            .NoCard => return .NoCard
+            .Failure(let error) => return .Failure(error)
+        }
+
+        return match Select(uid) {
+            .Success(let capacityCode) => .Success(DetectedCard(uid, capacityCode))
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    func Authenticate(
+        mode: PiccCommand,
+        blockAddress: byte,
+        key: byte[],
+        uid: CardUid
+    ) -> CardResult<unit> {
+        if key.Length != 6 {
+            return .Failure(.InvalidKeyLength(key.Length))
+        }
+
+        let buffer = List<byte> {
+            (byte)mode,
+            blockAddress
+        }
+
+        for value in key {
+            buffer.Add(value)
+        }
+
+        buffer.Add(uid.Byte0)
+        buffer.Add(uid.Byte1)
+        buffer.Add(uid.Byte2)
+        buffer.Add(uid.Byte3)
+
+        return match Transceive(Command.Authenticate, buffer.ToArray()) {
+            .Success(_) => if (ReadRegister(Register.Status2) & 0x08) != 0 {
+                .Success(())
+            } else {
+                .Failure(.AuthenticationFailed)
+            }
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    func ReadBlock(blockAddress: byte) -> CardResult<byte[]> {
+        let buffer = List<byte> {
+            (byte)PiccCommand.Read,
+            blockAddress
+        }
+
+        let crc = CalculateCrc(buffer.ToArray())
+        buffer.Add(crc[0])
+        buffer.Add(crc[1])
+
+        return match Transceive(Command.Transceive, buffer.ToArray()) {
+            .Success(let response) => if response.Data.Length == 16 {
+                .Success(response.Data)
+            } else {
+                .Failure(.UnexpectedResponse("read block"))
+            }
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    func WriteBlock(blockAddress: byte, data: byte[]) -> CardResult<unit> {
+        if data.Length != 16 {
+            return .Failure(.InvalidBlockLength(data.Length))
+        }
+
+        let request = List<byte> {
+            (byte)PiccCommand.Write,
+            blockAddress
+        }
+        let requestCrc = CalculateCrc(request.ToArray())
+        request.Add(requestCrc[0])
+        request.Add(requestCrc[1])
+
+        match Transceive(Command.Transceive, request.ToArray()) {
+            .Success(let response) => {
+                if response.BitLength != 4 ||
+                   response.Data.Length == 0 ||
+                   (response.Data[0] & 0x0F) != 0x0A {
+                    return .Failure(.CardRejected("write request"))
+                }
+            }
+            .NoCard => return .NoCard
+            .Failure(let error) => return .Failure(error)
+        }
+
+        let block = List<byte>()
+        for value in data {
+            block.Add(value)
+        }
+
+        let dataCrc = CalculateCrc(block.ToArray())
+        block.Add(dataCrc[0])
+        block.Add(dataCrc[1])
+
+        return match Transceive(Command.Transceive, block.ToArray()) {
+            .Success(let response) => if response.BitLength == 4 &&
+                response.Data.Length > 0 &&
+                (response.Data[0] & 0x0F) == 0x0A {
+                .Success(())
+            } else {
+                .Failure(.CardRejected("block data"))
+            }
+            .NoCard => .NoCard
+            .Failure(let error) => .Failure(error)
+        }
+    }
+
+    func StopCrypto() {
+        ClearBits(Register.Status2, (byte)0x08)
+    }
+
+    func ReadVersion() -> byte {
+        return ReadRegister(Register.Version)
+    }
+
+    func Dispose() {
+        _spi.Dispose()
+        _gpio.Dispose()
+    }
+}

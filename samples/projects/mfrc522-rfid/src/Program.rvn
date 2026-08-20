@@ -1,0 +1,60 @@
+import Raven.Samples.Mfrc522.*
+import System.*
+import System.Device.Spi.*
+import System.Threading.*
+
+func Describe(error: ReaderError) -> string {
+    return match error {
+        .TimedOut => "the reader timed out"
+        .CommunicationFailed(let flags) => "communication failed (flags 0x${flags.ToString("X2")})"
+        .UnexpectedResponse(let operation) => "unexpected response while attempting to ${operation}"
+        .InvalidUidLength(let length) => "invalid UID length: ${length}"
+        .UidChecksumFailed => "UID checksum validation failed"
+        .AuthenticationFailed => "MIFARE authentication failed"
+        .InvalidKeyLength(let length) => "invalid key length: ${length}; expected 6"
+        .InvalidBlockLength(let length) => "invalid block length: ${length}; expected 16"
+        .CardRejected(let operation) => "the card rejected ${operation}"
+    }
+}
+
+func Format(uid: CardUid) -> string {
+    return "${uid.Byte0.ToString("X2")}:${uid.Byte1.ToString("X2")}:${uid.Byte2.ToString("X2")}:${uid.Byte3.ToString("X2")}"
+}
+
+func Main() {
+    let settings = SpiConnectionSettings(0, 0) {
+        ClockFrequency = 1_000_000
+        Mode = SpiMode.Mode0
+    }
+
+    use reader = Mfrc522Reader(SpiDevice.Create(settings), resetPin: 22)
+    use statusLed = RgbStatusLed(redPin: 17, greenPin: 27, bluePin: 24)
+    var running = true
+
+    Console.CancelKeyPress += func (_, args) => {
+        args.Cancel = true
+        running = false
+    }
+
+    Console.WriteLine("MFRC522 firmware version: 0x${reader.ReadVersion().ToString("X2")}")
+    Console.WriteLine("MFRC522 RFID reader ready; present a MIFARE card (Ctrl+C to stop).")
+
+    while running {
+        match reader.Scan() {
+            .Success(let card) => {
+                statusLed.Indicate(.CardAccepted)
+                Console.WriteLine(
+                    "Card ${Format(card.Uid)} detected; capacity code 0x${card.CapacityCode.ToString("X2")}")
+                Thread.Sleep(750)
+                statusLed.Indicate(.Ready)
+            }
+            .NoCard => Thread.Sleep(100)
+            .Failure(let error) => {
+                statusLed.Indicate(.ReaderFailure)
+                Console.Error.WriteLine("RFID reader error: ${Describe(error)}")
+                Thread.Sleep(500)
+                statusLed.Indicate(.Ready)
+            }
+        }
+    }
+}

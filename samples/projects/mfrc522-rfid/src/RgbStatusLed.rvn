@@ -1,0 +1,60 @@
+namespace Raven.Samples.Mfrc522
+
+import System.*
+import System.Device.Gpio.*
+
+union ReaderIndication {
+    case Ready
+    case CardAccepted
+    case ReaderFailure
+}
+
+class RgbStatusLed : IDisposable {
+    val _gpio: GpioController
+    val _red: GpioPin
+    val _green: GpioPin
+    val _blue: GpioPin
+    val _activeLow: bool
+
+    init(
+        redPin: int,
+        greenPin: int,
+        bluePin: int,
+        activeLow: bool = false
+    ) {
+        _activeLow = activeLow
+        _gpio = GpioController()
+        _red = _gpio.OpenPin(redPin, PinMode.Output)
+        _green = _gpio.OpenPin(greenPin, PinMode.Output)
+        _blue = _gpio.OpenPin(bluePin, PinMode.Output)
+
+        Indicate(.Ready)
+    }
+
+    func Indicate(indication: ReaderIndication) {
+        match indication {
+            .Ready => Set(red: false, green: false, blue: true)
+            .CardAccepted => Set(red: false, green: true, blue: false)
+            .ReaderFailure => Set(red: true, green: false, blue: false)
+        }
+    }
+
+    private func Set(red: bool, green: bool, blue: bool) {
+        _red.Write(ValueFor(red))
+        _green.Write(ValueFor(green))
+        _blue.Write(ValueFor(blue))
+    }
+
+    private func ValueFor(enabled: bool) -> PinValue {
+        return if enabled == _activeLow {
+            PinValue.Low
+        } else {
+            PinValue.High
+        }
+    }
+
+    func Dispose() {
+        Set(red: false, green: false, blue: false)
+        _gpio.Dispose()
+    }
+}
