@@ -21,6 +21,7 @@ public static class MacroFacts
         var parameters = GetParameters(macro);
         var acceptsDeclaredArguments = parameters.Any(static parameter =>
             parameter.Role is MacroParameterRole.Value or MacroParameterRole.SyntaxInput);
+        var hasMethodExpand = MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var methodExpand);
         return new MacroDefinitionDescriptor(
             macro,
             GetApplicationKind(macro),
@@ -28,7 +29,10 @@ public static class MacroFacts
             GetTargets(macro),
             parameters,
             acceptsDeclaredArguments || macro.AcceptsArguments,
-            macro is ITokenTreeMacro || macro is IMacroExecutor { HasTokenBody: true });
+            macro is ITokenTreeMacro ||
+            macro is IMacroExecutor { HasTokenBody: true } ||
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
+                .Any(static parameter => parameter.Source == MacroParameterSource.TokenBody));
     }
 
     public static bool AcceptsArguments(IMacroDefinition macro)
@@ -44,7 +48,7 @@ public static class MacroFacts
             return applicationKind;
 
         throw new ArgumentException(
-            "A macro definition must implement exactly one supported macro category interface.",
+            "A macro definition must expose exactly one supported Expand contract.",
             nameof(macro));
     }
 
@@ -60,6 +64,12 @@ public static class MacroFacts
         if (macro is IMacroExecutor executor)
         {
             applicationKind = executor.ApplicationKind;
+            return true;
+        }
+
+        if (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod))
+        {
+            applicationKind = MethodMacroFacts.GetApplicationKind(expandMethod);
             return true;
         }
 
@@ -102,7 +112,7 @@ public static class MacroFacts
             return kind;
 
         throw new ArgumentException(
-            "A macro definition must implement exactly one supported macro category interface.",
+            "A macro definition must expose exactly one supported Expand contract.",
             nameof(macro));
     }
 
@@ -121,6 +131,14 @@ public static class MacroFacts
         if (macro is IMacroExecutor executor)
         {
             kind = executor.ApplicationKind == MacroApplicationKind.Attached
+                ? MacroKind.AttachedDeclaration
+                : MacroKind.Invocable;
+            return true;
+        }
+
+        if (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod))
+        {
+            kind = MethodMacroFacts.GetApplicationKind(expandMethod) == MacroApplicationKind.Attached
                 ? MacroKind.AttachedDeclaration
                 : MacroKind.Invocable;
             return true;
@@ -148,6 +166,12 @@ public static class MacroFacts
     public static MacroTarget GetTargets(IMacroDefinition macro)
     {
         ArgumentNullException.ThrowIfNull(macro);
+        if (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod) &&
+            MethodMacroFacts.GetApplicationKind(expandMethod) == MacroApplicationKind.Attached)
+        {
+            return MethodMacroFacts.AllTargets;
+        }
+
         return macro switch
         {
             IMacroExecutor executor when executor.ApplicationKind == MacroApplicationKind.Attached =>
@@ -191,6 +215,23 @@ public static class MacroFacts
             return executor.Parameters
                 .Where(static parameter => parameter.InvocationArgumentOrdinal is not null)
                 .OrderBy(static parameter => parameter.InvocationArgumentOrdinal)
+                .Select(static parameter => new MacroParameterDescriptor(
+                    parameter.Name,
+                    parameter.RuntimeType,
+                    MacroParameterKind.Positional,
+                    GetRole(parameter.Source),
+                    parameter.InvocationArgumentOrdinal!.Value,
+                    parameter.IsRequired,
+                    null,
+                    parameter.TypeDisplayName,
+                    parameter.DefaultValueDisplay))
+                .ToImmutableArray();
+        }
+
+        if (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod))
+        {
+            return MethodMacroFacts.GetParameters(expandMethod)
+                .Where(static parameter => parameter.InvocationArgumentOrdinal is not null)
                 .Select(static parameter => new MacroParameterDescriptor(
                     parameter.Name,
                     parameter.RuntimeType,

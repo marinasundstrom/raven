@@ -35,7 +35,7 @@ internal sealed class MacroRegistry
         "Invalid macro contract",
         "",
         "",
-        "Macro definition '{0}' from '{1}' must implement exactly one supported macro category interface",
+        "Macro definition '{0}' from '{1}' must expose exactly one supported Expand contract",
         "compiler",
         DiagnosticSeverity.Error,
         true);
@@ -96,7 +96,10 @@ internal sealed class MacroRegistry
             }
 
             var descriptor = MacroFacts.GetDescriptor(macro);
-            var executor = macro as IMacroExecutor ?? new LegacyMacroExecutorAdapter(macro, descriptor);
+            var executor = macro as IMacroExecutor ??
+                (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod)
+                    ? new MethodMacroExecutorAdapter(macro, expandMethod)
+                    : new LegacyMacroExecutorAdapter(macro, descriptor));
             var canonicalName = GetCanonicalName(macro);
             var aliases = GetAliases(macro);
 

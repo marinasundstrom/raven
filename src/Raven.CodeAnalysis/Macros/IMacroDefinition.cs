@@ -13,7 +13,19 @@ public interface IMacroDefinition
     /// Gets the declared name forming the final segment of the macro's
     /// canonical identity.
     /// </summary>
-    string Name { get; }
+    string Name
+    {
+        get
+        {
+            var typeName = GetType().Name;
+            var genericAritySeparator = typeName.IndexOf('`');
+            if (genericAritySeparator >= 0)
+                typeName = typeName[..genericAritySeparator];
+            return typeName.EndsWith("Macro", StringComparison.Ordinal) && typeName.Length > "Macro".Length
+                ? typeName[..^"Macro".Length]
+                : typeName;
+        }
+    }
 
     /// <summary>
     /// Gets an optional alternate unqualified invocation name.

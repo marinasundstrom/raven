@@ -169,7 +169,7 @@ public sealed class MacroReference
         if (!IsConstructibleExportedType(exportedType))
         {
             throw new ArgumentException(
-                $"Macro export '{exportedType.FullName}' must be a non-abstract class that implements exactly one supported macro category interface and has a public parameterless constructor.",
+                $"Macro export '{exportedType.FullName}' must be a non-abstract macro class with one supported Expand contract and a public parameterless constructor.",
                 nameof(exportedType));
         }
 
@@ -251,7 +251,7 @@ public sealed class MacroReference
         if (!IsConstructibleExportedType(exportedType))
         {
             throw new InvalidOperationException(
-                $"Compiler plugin export '{exportedType.FullName}' must be a non-abstract class that implements exactly one supported macro category interface and has a public parameterless constructor.");
+                $"Compiler plugin export '{exportedType.FullName}' must be a non-abstract macro class with one supported Expand contract and a public parameterless constructor.");
         }
     }
 
@@ -267,7 +267,8 @@ public sealed class MacroReference
         => (typeof(IMacroExecutor).IsAssignableFrom(type) ? 1 : 0) +
             (typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ? 1 : 0) +
             (typeof(IInvocableMacro).IsAssignableFrom(type) ? 1 : 0) +
-            (typeof(ITokenTreeMacro).IsAssignableFrom(type) ? 1 : 0) == 1;
+            (typeof(ITokenTreeMacro).IsAssignableFrom(type) ? 1 : 0) +
+            (MethodMacroFacts.TryGetExpandMethod(type, out _) ? 1 : 0) == 1;
 
     private sealed record MacroAssemblyExports(
         Type[] MacroTypes,

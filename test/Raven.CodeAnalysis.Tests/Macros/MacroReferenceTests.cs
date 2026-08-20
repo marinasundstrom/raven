@@ -65,6 +65,19 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void LocalMacroTree_RecognizesMethodShapedClass()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class AnswerMacro : IMacroDefinition {
+                func Expand(value: ExpressionSyntax, context: InvocableMacroContext) -> ExpressionSyntax
+                    => value
+            }
+            """);
+
+        Assert.True(LocalMacroSyntaxClassifier.IsLocalMacroTree(tree));
+    }
+
+    [Fact]
     public void MacroReference_FromType_FindsDirectMacro()
     {
         var reference = new MacroReference(typeof(TestAttachedMacro));
@@ -117,10 +130,88 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MethodShapedClass_UsesExpandSignatureWithoutExecutorBoilerplate()
+    {
+        var macro = new MethodShapedMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            let value = MethodShaped!(2, 40 + 2)
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        var descriptor = MacroFacts.GetDescriptor(macro);
+        Assert.Equal("MethodShaped", ((IMacroDefinition)macro).Name);
+        Assert.Equal(["count", "value"], descriptor.Parameters.Select(static parameter => parameter.Name));
+        Assert.Equal(
+            [MacroParameterRole.Value, MacroParameterRole.SyntaxInput],
+            descriptor.Parameters.Select(static parameter => parameter.Role));
+
+        Assert.True(compilation.GetMacroRegistry().TryResolveInvocableMacro(
+            compilation,
+            syntaxTree.GetRoot(),
+            ((IMacroDefinition)macro).Name,
+            out var loaded,
+            out var isAmbiguous));
+        Assert.False(isAmbiguous);
+        Assert.IsType<MethodMacroExecutorAdapter>(loaded.Executor);
+        Assert.Equal(3, loaded.Executor.Parameters.Length);
+        Assert.Equal(MacroParameterSource.Context, loaded.Executor.Parameters[2].Source);
+
+        var expanded = compilation.GetSemanticModel(syntaxTree).GetExpandedRoot().ToFullString();
+        Assert.Contains("let value = 40 + 2", expanded, System.StringComparison.Ordinal);
+        Assert.Equal(2, macro.ObservedCount);
+        Assert.True(macro.ReceivedContext);
+    }
+
+    [Fact]
+    public void MacroReference_FromRavenMethodShapedClass_UsesOrdinaryExpandMethod()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            [assembly: RavenCompilerPlugin(typeof(IdentityMacro))]
+
+            class IdentityMacro : IMacroDefinition {
+                func Expand(count: int, value: ExpressionSyntax, context: InvocableMacroContext) -> ExpressionSyntax
+                    => value
+            }
+            """);
+        var reference = MacroReference.CreateFromImage(macroImage);
+        var macro = Assert.Single(reference.Macros);
+
+        Assert.Equal("Identity", macro.Name);
+        Assert.Equal(
+            ["count", "value"],
+            MacroFacts.GetDescriptor(macro).Parameters.Select(static parameter => parameter.Name));
+
+        var consumerTree = SyntaxTree.ParseText("""
+            let answer = Identity!(1, 42)
+            """);
+        var consumerCompilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(consumerTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(reference);
+
+        Assert.Contains(
+            "let answer = 42",
+            consumerCompilation.GetSemanticModel(consumerTree).GetExpandedRoot().ToFullString(),
+            System.StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MacroReference_FromType_RejectsNonMacroExportTypes()
     {
         var ex = Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(MacroReferenceTests)));
-        Assert.Contains("exactly one supported macro category interface", ex.Message);
+        Assert.Contains("one supported Expand contract", ex.Message);
     }
 
     [Fact]
@@ -485,7 +576,7 @@ public sealed class MacroReferenceTests
             static diagnostic => diagnostic.Id == "RAVM001");
 
         Assert.Contains("NotAPlugin", diagnostic.GetMessage());
-        Assert.Contains("exactly one supported macro category interface", diagnostic.GetMessage());
+        Assert.Contains("one supported Expand contract", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -700,6 +791,23 @@ public sealed class MacroReferenceTests
     public sealed class UnclassifiedMacro : IMacroDefinition
     {
         public string Name => "unclassified";
+    }
+
+    public sealed class MethodShapedMacro : IMacroDefinition
+    {
+        public int ObservedCount { get; private set; }
+
+        public bool ReceivedContext { get; private set; }
+
+        public ExpressionSyntax Expand(
+            int count,
+            ExpressionSyntax value,
+            InvocableMacroContext context)
+        {
+            ObservedCount = count;
+            ReceivedContext = context is not null;
+            return value;
+        }
     }
 
     public sealed class TestTokenTreeMacro : ITokenTreeMacro
