@@ -1,9 +1,9 @@
 # Greenhouse Monitor (.rvnproj)
 
-This Raven sample models a small greenhouse-monitoring domain. It polls a
-simulated device for telemetry snapshots, validates each result, evaluates every
-growing zone, and prints a changing operator report. It is also Raven's Native
-AOT MVP for full .NET edge devices such as Linux-based Raspberry Pi computers.
+This Raven sample models a small greenhouse-monitoring domain. It polls either
+a simulated device or a Sensirion SCD40/SCD41 sensor connected to a Raspberry
+Pi, validates each result, evaluates every growing zone, and prints a changing
+operator report. It is also Raven's Native AOT MVP for full .NET edge devices.
 
 The example demonstrates:
 
@@ -11,7 +11,9 @@ The example demonstrates:
 - unions and pattern matching for states and errors
 - `Result` propagation with `?`
 - an `IAsyncEnumerable` polling interface and `await for` consumption
-- cancellation propagated across the simulated device boundary
+- a mock and real implementation behind one device boundary
+- Raspberry Pi I2C interop through the .NET IoT libraries
+- cancellation propagated across the device boundary
 - arrays, mutable accumulators, and collection interop
 - expression-oriented `if` and string interpolation
 - code split across a namespace and multiple source files
@@ -23,8 +25,8 @@ Project file:
 Source files:
 
 - `src/GreenhouseMonitor.rvn` contains the domain model, evaluation rules, and console report
-- `src/telemetry.rvn` defines the polling interface, simulates a device, and
-  validates its data
+- `src/telemetry.rvn` defines the polling interface, implements the simulated
+  and SCD4x sources, and validates their data
 
 ## Build
 
@@ -39,6 +41,41 @@ dotnet build GreenhouseMonitor.rvnproj --property WarningLevel=0
 ```bash
 dotnet bin/Debug/net10.0/GreenhouseMonitor.dll
 ```
+
+Simulation is the default, so no sensor is required for local development or
+tests.
+
+## Read an SCD40 or SCD41 on Raspberry Pi
+
+The SCD4x family supplies the same CO2, temperature, and relative-humidity
+values represented by `SensorReading`. Connect an SCD40/SCD41 breakout to the
+Pi's I2C bus, following the breakout manufacturer's voltage instructions:
+
+- breakout ground to Pi ground
+- breakout SDA to GPIO 2 (physical pin 3)
+- breakout SCL to GPIO 3 (physical pin 5)
+
+Enable I2C in `raspi-config`, reboot if prompted, and confirm that the sensor is
+visible at its default address `0x62`:
+
+```bash
+sudo raspi-config
+i2cdetect -y 1
+```
+
+Select the hardware adapter with `GREENHOUSE_TELEMETRY=scd4x`. The optional
+`GREENHOUSE_ZONE` value becomes the zone name in reports:
+
+```bash
+GREENHOUSE_TELEMETRY=scd4x \
+GREENHOUSE_ZONE=Propagation \
+dotnet bin/Debug/net10.0/GreenhouseMonitor.dll
+```
+
+The adapter uses Raspberry Pi I2C bus 1 and reports connection, protocol, and
+CRC failures as `TelemetryError.SensorUnavailable`. Stop it with Ctrl+C. Remove
+`GREENHOUSE_TELEMETRY` (or give it any value other than `scd4x`) to use the
+simulated source again.
 
 ## Publish with Native AOT
 
@@ -70,20 +107,7 @@ RUN=1 ./publish-aot.sh linux-arm64
 Native AOT does not support arbitrary cross-OS compilation. Produce the
 `linux-arm64` executable on a compatible Linux Arm64 build host (including the
 Pi itself), then copy the published directory to the device if deployment is
-separate from the build. The sample currently uses simulated telemetry so the
-same binary can validate Raven's AOT pipeline without attached sensors; a real
-device adapter can replace `SimulatedTelemetrySource` without changing the
-union-based state model and evaluation functions.
-
-The current publish completes without trim-analysis warnings. Raven-generated
-records, unions, and union cases use a Raven.Core structured-display marker so
-their synthesized formatting helpers do not need reflective method discovery.
-
-Repository contributors can run the same warning-free publish-and-execute gate
-used by CI from the repository root:
-
-```bash
-scripts/test-native-aot.sh
-```
-
-The script accepts the same optional runtime identifier as `publish-aot.sh`.
+separate from the build. The same binary defaults to simulated telemetry so it
+can validate Raven's AOT pipeline without attached sensors. Set
+`GREENHOUSE_TELEMETRY=scd4x` on the Pi to select the real I2C adapter without
+changing the union-based state model or evaluation functions.

@@ -1,9 +1,12 @@
 namespace Utilities
 
+import System.*
 import System.Collections.Generic.*
+import System.Device.I2c.*
 import System.Runtime.CompilerServices.*
 import System.Threading.*
 import System.Threading.Tasks.*
+import Iot.Device.Scd4x.*
 
 interface ITelemetrySource {
     func Poll(cancellationToken: CancellationToken) -> IAsyncEnumerable<Result<SensorReading[], TelemetryError>>
@@ -34,6 +37,66 @@ class SimulatedTelemetrySource : ITelemetrySource {
             SensorReading("Tomatoes", 31.0, 63.0, 960),
             SensorReading("Herbs", 22.0, 42.0, 1510)
         ])
+    }
+}
+
+class Scd4xTelemetrySource : ITelemetrySource {
+    async func Poll(
+        [EnumeratorCancellation] cancellationToken: CancellationToken
+    ) -> IAsyncEnumerable<Result<SensorReading[], TelemetryError>> {
+        while !cancellationToken.IsCancellationRequested {
+            yield ReadScd4xSnapshot(GetScd4xZone(), 1, cancellationToken)
+            await Task.Delay(1000, cancellationToken)
+        }
+    }
+}
+
+func GetScd4xZone() -> string {
+    let zone = Environment.GetEnvironmentVariable("GREENHOUSE_ZONE")
+    if let configuredZone: string = zone {
+        if configuredZone.Trim().Length > 0 {
+            return configuredZone.Trim()
+        }
+    }
+
+    return "Raspberry Pi"
+}
+
+func ReadScd4xSnapshot(
+    zone: string,
+    i2cBusId: int,
+    cancellationToken: CancellationToken
+) -> Result<SensorReading[], TelemetryError> {
+    try {
+        cancellationToken.ThrowIfCancellationRequested()
+
+        let settings = I2cConnectionSettings(i2cBusId, Scd4x.DefaultI2cAddress)
+        use device = I2cDevice.Create(settings)
+        use sensor = Scd4x(device)
+        let measurement = sensor.ReadPeriodicMeasurement()
+
+        if let carbonDioxide: UnitsNet.VolumeConcentration = measurement.Item1 {
+            if let humidity: UnitsNet.RelativeHumidity = measurement.Item2 {
+                if let temperature: UnitsNet.Temperature = measurement.Item3 {
+                    let reading = SensorReading(
+                        zone,
+                        temperature.DegreesCelsius,
+                        humidity.Percent,
+                        Convert.ToInt32(carbonDioxide.PartsPerMillion)
+                    )
+
+                    return ValidateSnapshot([reading])
+                }
+            }
+        }
+
+        let error: TelemetryError = .SensorUnavailable("sensor measurement failed its CRC check")
+        return Error(error)
+    } catch (OperationCanceledException) {
+        throw
+    } catch (Exception ex) {
+        let error: TelemetryError = .SensorUnavailable(ex.Message)
+        return Error(error)
     }
 }
 

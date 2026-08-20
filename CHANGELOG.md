@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- The Greenhouse Monitor sample can now read live CO2, temperature, and
+  humidity telemetry from an SCD40/SCD41 sensor connected to a Raspberry Pi
+  over I2C, while retaining simulated telemetry as its default mock source.
 - The public Web API showcase now demonstrates passing a Raven `func` lambda
   directly as an ASP.NET Core route handler. The component-macro showcase now
   mixes an ordinary Raven statement with its nested `markup!` expression, and

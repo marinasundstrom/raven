@@ -1,5 +1,6 @@
 import System.Console.*
 import System.Collections.Generic.*
+import System.*
 import System.Threading.*
 import System.Threading.Tasks.*
 import Utilities.*
@@ -8,7 +9,7 @@ async func Main() -> Task {
     WriteLine("== Cedar Grove Greenhouse Monitor ==")
     WriteLine("")
 
-    let telemetry: ITelemetrySource = SimulatedTelemetrySource()
+    let telemetry = CreateTelemetrySource()
     var pollNumber = 0
 
     await for result in telemetry.Poll(CancellationToken.None) {
@@ -25,6 +26,17 @@ async func Main() -> Task {
 
         WriteLine()
     }
+}
+
+func CreateTelemetrySource() -> ITelemetrySource {
+    let configured = Environment.GetEnvironmentVariable("GREENHOUSE_TELEMETRY")
+    if let sourceName: string = configured {
+        if sourceName.Trim().ToLowerInvariant() == "scd4x" {
+            return Scd4xTelemetrySource()
+        }
+    }
+
+    return SimulatedTelemetrySource()
 }
 
 func BuildReport(readings: SensorReading[]) -> GreenhouseReport {
@@ -114,6 +126,7 @@ func PrintError(error: TelemetryError) {
     match error {
         .NoReadings => WriteLine("Monitor unavailable: no sensor readings were received.")
         .InvalidReading(let zone, let reason) => WriteLine("Monitor unavailable: invalid reading for ${zone}: ${reason}")
+        .SensorUnavailable(let reason) => WriteLine("Monitor unavailable: Raspberry Pi sensor error: ${reason}")
     }
 }
 
@@ -145,4 +158,5 @@ union GreenhouseStatus {
 union TelemetryError {
     case NoReadings
     case InvalidReading(zone: string, reason: string)
+    case SensorUnavailable(reason: string)
 }

@@ -1,7 +1,8 @@
 # Build an IoT monitor with Native AOT
 
 The greenhouse monitor is an application-shaped Raven project for a full .NET
-edge device such as a Linux-based Raspberry Pi. It polls simulated telemetry,
+edge device such as a Linux-based Raspberry Pi. It polls simulated telemetry by
+default or live CO2, temperature, and humidity from an SCD40/SCD41 over I2C,
 validates each snapshot, models operational states with unions, and produces a
 changing console report. The same project can publish as a Native AOT binary.
 
@@ -21,15 +22,15 @@ greenhouse-monitor/
 
 `GreenhouseMonitor.rvn` owns the entry point, domain records, state unions,
 evaluation functions, and report formatting. `telemetry.rvn` owns the device
-boundary: its polling interface, simulated implementation, and input
-validation. A real adapter can replace the simulation without changing the
-domain model.
+boundary: its polling interface, simulated and SCD4x implementations, and input
+validation. Configuration selects the adapter without changing the domain
+model.
 
 ## Consume an async telemetry stream
 
 ```raven
 async func Main() -> Task {
-    let telemetry: ITelemetrySource = SimulatedTelemetrySource()
+    let telemetry = CreateTelemetrySource()
 
     await for result in telemetry.Poll(CancellationToken.None) {
         match result {
@@ -63,6 +64,7 @@ union ZoneHealth {
 union TelemetryError {
     case NoReadings
     case InvalidReading(zone: string, reason: string)
+    case SensorUnavailable(reason: string)
 }
 ```
 
@@ -80,6 +82,18 @@ dotnet build \
 dotnet \
   samples/projects/greenhouse-monitor/bin/Debug/net10.0/GreenhouseMonitor.dll
 ```
+
+The simulated source is the default mock. On a Raspberry Pi with an SCD40 or
+SCD41 connected to I2C bus 1 at address `0x62`, select live telemetry with:
+
+```bash
+GREENHOUSE_TELEMETRY=scd4x \
+GREENHOUSE_ZONE=Propagation \
+dotnet \
+  samples/projects/greenhouse-monitor/bin/Debug/net10.0/GreenhouseMonitor.dll
+```
+
+See the sample README for wiring, I2C setup, and troubleshooting details.
 
 ## Publish with Native AOT
 

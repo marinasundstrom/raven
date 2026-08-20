@@ -4,4 +4,7 @@
     <AssemblyName>GreenhouseMonitor</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Iot.Device.Bindings" Version="4.2.0" />
+  </ItemGroup>
 </Project>
