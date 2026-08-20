@@ -235,11 +235,21 @@ building, creating a GitHub release, and pushing to NuGet.org explicit release
 operator decisions while reusing one validated artifact set. Versions with a
 SemVer prerelease suffix, such as `0.1.0-preview.3`, create a GitHub prerelease.
 
-After publication, manually run the `Installation verification` workflow with
-the published version. It downloads the public release rather than reusing
-workflow artifacts, installs and exercises the SDK on Windows, Linux, and
-macOS across the published architectures, and installs the checksum-verified
-VSIX into clean portable VS Code instances on all three operating systems.
+After publication, wait until the complete lockstep package family is visible
+on NuGet.org before running `Installation verification`. Publishing the GitHub
+release assets and completing the NuGet push does not guarantee that NuGet's
+public indexes already expose the new version. The SDK checks scaffold projects
+that restore `Raven.Sdk`, and the template checks restore `Raven.Templates`, so
+dispatching during that propagation window produces restore failures even when
+the downloaded SDK archives themselves are valid.
+
+Once `Raven.Core`, `Raven.Macros`, `Raven.CodeAnalysis`, `Raven.Analyzers`,
+`Raven.Sdk`, and `Raven.Templates` all list the published version on NuGet.org,
+manually run the `Installation verification` workflow with that version. It
+downloads the public release rather than reusing workflow artifacts, installs
+and exercises the SDK on Windows, Linux, and macOS across the published
+architectures, and installs the checksum-verified VSIX into clean portable VS
+Code instances on all three operating systems.
 
 ## NuGet packages
 

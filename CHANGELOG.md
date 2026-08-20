@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- The release procedure and installation-workflow dispatch form now state that
+  public installation verification must wait until every lockstep Raven package
+  is visible on NuGet.org, because its project and template checks restore the
+  published `Raven.Sdk` and `Raven.Templates` packages.
+
 ## 0.1.0-preview.11 - 2026-08-20
 
 - Identifier-bearing declaration macro carriers now appear once under their

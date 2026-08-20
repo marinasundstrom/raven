@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Published release version without a leading v
+        description: Published version visible for every Raven package on NuGet.org
         required: true
         default: 0.1.0-preview.11
 
