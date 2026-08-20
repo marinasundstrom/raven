@@ -235,25 +235,37 @@ building, creating a GitHub release, and pushing to NuGet.org explicit release
 operator decisions while reusing one validated artifact set. Versions with a
 SemVer prerelease suffix, such as `0.1.0-preview.3`, create a GitHub prerelease.
 
-After publication, wait until the complete lockstep package family is visible
-on NuGet.org before running `Installation verification`. Publishing the GitHub
-release assets and completing the NuGet push does not guarantee that NuGet's
-public indexes already expose the new version. The SDK checks scaffold projects
-that restore `Raven.Sdk`, and the template checks restore `Raven.Templates`, so
-dispatching during that propagation window produces restore failures even when
-the downloaded SDK archives themselves are valid.
+### Post-publication checklist
 
-Do not treat appearance in the flat-container version index alone as sufficient:
-that can precede package availability to normal restore clients. From outside
-the repository and its local package feed, use an empty package cache to install
-the published `Raven.Templates`, create a Raven project, and build it. Dispatch
-`Installation verification` only after that public-only probe restores both the
-template and its selected `Raven.Sdk` successfully.
+Treat publication, package propagation, installation verification, and website
+deployment as separate stages. A successful earlier stage enables the next one;
+it does not prove that the next stage is ready.
 
-The workflow downloads the public release rather than reusing workflow
-artifacts, installs and exercises the SDK on Windows, Linux, and macOS across
-the published architectures, and installs the checksum-verified VSIX into clean
-portable VS Code instances on all three operating systems.
+1. Confirm that `Distribution` completed successfully and that the GitHub
+   prerelease contains the installers, checksums, VSIX, NuGet packages, and all
+   platform SDK archives. Keep the release tag immutable after publication;
+   later documentation or workflow corrections belong to `main` and the next
+   unreleased preview line.
+2. Wait for the complete lockstep package family to propagate through
+   NuGet.org. Completing the NuGet push does not guarantee that normal restore
+   clients can fetch the new version yet. The GitHub release assets and NuGet
+   packages become usable through independent publication paths.
+3. Do not treat appearance in NuGet's flat-container version index alone as
+   sufficient. From outside the repository and its local package feed, use an
+   empty package cache to install the published `Raven.Templates`, create a
+   Raven project, and build it. Continue only after that public-only probe
+   restores both the template and its selected `Raven.Sdk` successfully.
+4. Run `Installation verification` with the published version. It downloads the
+   public release rather than workflow artifacts, exercises the SDK on Windows,
+   Linux, and macOS, and installs the checksum-verified VSIX into clean portable
+   VS Code instances. Require every matrix job to pass.
+5. Dispatch `Raven website` from `main` with `publish_site` enabled. The
+   `github-pages` environment currently permits `main`, not a release tag; a
+   tag-triggered run can build a valid Pages artifact but its deployment will be
+   rejected by environment protection. Verify the deployed footer's version,
+   released or unreleased status, and commit against the source actually built.
+   When `main` contains post-release work, an unreleased next-preview footer is
+   expected even though installation links still target the latest release.
 
 ## NuGet packages
 

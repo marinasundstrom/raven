@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
   public installation verification must wait until the published packages are
   restorable from a fresh NuGet.org-only cache, because its project and template
   checks restore `Raven.Sdk` and `Raven.Templates`. Merely seeing the version in
-  NuGet's flat-container index is not treated as sufficient propagation.
+  NuGet's flat-container index is not treated as sufficient propagation. The
+  documented post-publication checklist also separates immutable release
+  publication, package propagation, installation verification, and the
+  `main`-only GitHub Pages deployment.
 
 ## 0.1.0-preview.11 - 2026-08-20
 
