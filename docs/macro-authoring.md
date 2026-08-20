@@ -355,18 +355,53 @@ the right location, then pass it to `ReportDiagnostic`. Prefer diagnostics over
 throwing for expected invalid input; an exception means the macro itself
 failed.
 
-Class-authored providers can implement the erased `IMacroExecutor` ABI. Its
-`Expand` method receives one `MacroExecutionContext` and returns a
-`MacroExecutionResult`, carrying syntax and diagnostics across every
-application kind. The older category-specific provider interfaces remain as
-compatibility adapters. Use the lower-level class-authored form only when the
-compact declaration cannot project a required capability.
+The preferred `macro` declaration is shorthand over a method-shaped definition.
+The same model can be authored as an ordinary Raven class when seeing or
+controlling the underlying signature is useful:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+[assembly: RavenCompilerPlugin]
+
+public class IdentityMacro<T> : IMacroDefinition {
+    func Expand(
+        value: T,
+        syntax: ExpressionSyntax,
+        context: InvocableMacroContext
+    ) -> ExpressionSyntax => syntax
+}
+```
+
+`IMacroDefinition` does not declare `Expand`. It marks the nominal definition
+for discovery; the class owns `T`, and the authored method is the complete
+canonical signature. A `FooMacro` class defaults to the invocation name `Foo`,
+although it may override `Name`. Caller inputs, syntax inputs, and injected
+contexts may be freely interleaved in declaration order. Tooling projects only
+caller-supplied parameters into `Foo!(...)`.
+
+Raven lowers the class once to a direct erased entry point. Expansion does not
+reflectively invoke the authored method. Generic arguments remain symbolic in
+the canonical definition and execution snapshot rather than requiring a
+loadable closed CLR type. `ExpressionSyntax<T>` is reserved as a future typed
+syntax-input facade over this same model; the current API provides
+`ExpressionSyntax`.
+
+Advanced .NET providers can implement the erased `IMacroExecutor` transport
+directly. Its `Expand` method receives one `MacroExecutionContext` and returns
+a `MacroExecutionResult`. This is an execution ABI, not the canonical authoring
+signature. The older category-specific provider interfaces remain as
+compatibility adapters.
 
 The compiler normalizes compatibility providers to `IMacroExecutor` when a
 macro reference is registered. Symbol and optional editor-capability discovery
 still use the authored provider, while expansion has one erased dispatch path.
-New provider packages should implement `IMacroExecutor`; the category-specific
-interfaces remain only for packages built against an older Raven compiler API.
+New Raven provider packages should prefer `macro` declarations or ordinary
+`IMacroDefinition` classes. Handwritten `IMacroExecutor` implementations are
+for providers that need direct control of the erased transport; the
+category-specific interfaces remain only for packages built against an older
+Raven compiler API.
 
 For compact declarations, return a syntax list when an invocation produces
 declarations:

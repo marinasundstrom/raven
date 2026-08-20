@@ -354,7 +354,10 @@ The next compatibility-breaking architecture slice is the stable macro ABI:
 * [x] dispatch compiled providers through one immutable, erased execution context;
 * [x] normalize compatibility providers to an executor at the registry boundary,
   leaving one compiler dispatch path;
-* [x] migrate the standard `query!` provider to `IMacroExecutor`; and
+* [x] migrate the standard `query!` provider to `IMacroExecutor`;
+* [x] discover ordinary `IMacroDefinition` classes from their designated
+  `Expand` method and lower generic Raven definitions to direct erased entry
+  points; and
 * [ ] remove generated parameter objects and category-specific provider APIs
   after built-in and class-authored providers migrate.
 
@@ -368,7 +371,9 @@ expansion always invokes an `IMacroExecutor`.
 
 Typed expression facades, generic inference, and overloads are deliberately
 outside this slice. The ABI only preserves the symbolic type and syntax-input
-information they will require later.
+information they will require later. In particular, `ExpressionSyntax<T>`
+remains planned as a macro-only typed syntax facade rather than a runtime CLR
+generic that expansion must construct.
 
 The current adapter lowering reparses generated Raven source inside the local
 macro partition. Compiler-generated locals are allocated against authored
@@ -379,6 +384,9 @@ precisely into arbitrary macro bodies.
 
 Validation record for this slice:
 
+* current macro feature suite: 157 passed
+* current focused language-server signature-help and hover suite: 111 passed,
+  3 skipped
 * `scripts/test-feature-suite.sh macros`: 89 passed
 * `scripts/test-feature-suite.sh macros --runtime`: 17 passed
 * focused macro parser and symbol tests: 19 passed

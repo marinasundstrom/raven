@@ -12,7 +12,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
   `IMacroExecutor` boundary, while the existing `macro` authoring syntax is
   unchanged. Legacy category-specific providers are normalized to an executor
   at registration, so compiler expansion now has one dispatch path; the
-  standard `query!` provider uses that boundary directly.
+  standard `query!` provider uses that boundary directly. Authors may also use
+  an ordinary `IMacroDefinition` class whose unconstrained designated `Expand`
+  method supplies the canonical signature; Raven lowers generic and
+  non-generic definition classes to direct erased entry points without
+  reflective expansion.
 - Raven project compilation avoids a redundant SDK evaluation when the target
   framework and configuration are already supplied, skips local macro
   activation assemblies for pure macro libraries, avoids duplicate framework

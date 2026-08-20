@@ -697,9 +697,12 @@ symbol rather than triggering different recovery paths.
 
 ## Class-authored APIs
 
-The current category-specific class APIs remain implementation context while
-the redesign is staged. The target class-authored .NET boundary is the erased
-executor from [Macro ABI](abi.md):
+An ordinary Raven class implementing `IMacroDefinition` is a first-class
+authoring form. The interface marks the nominal definition but does not decide
+the `Expand` signature. Discovery and registration project the class generic
+parameters and its one designated method into the same canonical macro symbol
+used for dedicated declarations. The compiler lowers that definition to the
+erased executor from [Macro ABI](abi.md):
 
 ```csharp
 public interface IMacroExecutor
@@ -708,8 +711,8 @@ public interface IMacroExecutor
 }
 ```
 
-The exported manifest associates an executor with the same canonical nominal
-definition and `Expand` signature seen by Raven binding and tooling. The
+The exported manifest associates the generated executor with the same
+canonical nominal definition and `Expand` signature seen by Raven binding and tooling. The
 execution context carries the constructed symbolic signature, bound arguments,
 injected inputs, actual position, and lazy compiler services. The normalized
 result retains diagnostics, dependencies, source maps, single-node results,

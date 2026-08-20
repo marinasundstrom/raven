@@ -111,6 +111,13 @@ plus an erased executor boundary for compiled providers. The category-specific
 interfaces and parameter-object adapters described below are current
 implementation context rather than compatibility requirements.
 
+That contract is directly authorable without dedicated syntax: an ordinary
+class implements the marker `IMacroDefinition`, owns any generic parameters,
+and declares exactly one public `Expand` method of its choosing. The marker has
+no `Expand` member. Dedicated `macro` syntax is preferred because it supplies
+concise expansion forms, stronger declaration diagnostics, and future typed
+syntax conveniences, but it projects to the same canonical symbol.
+
 ### Dynamic and strongly typed layers
 
 The current model deliberately permits both dynamic and strongly typed macro

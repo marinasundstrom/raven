@@ -36,10 +36,12 @@ class AwesomeMacro<T> {
 }
 ```
 
-The class-like shape is the compiler model, not replacement source syntax and
-not an ordinary runtime type visible to application lookup. The definition
-type owns generic parameters and constraints. The designated method owns the
-ordered parameter list and return type.
+The class-like shape is the compiler model and may also be authored directly as
+an ordinary Raven class implementing the marker `IMacroDefinition`. It is not
+an ordinary runtime type visible to application lookup. The marker deliberately
+does not declare `Expand`: the definition type owns generic parameters and
+constraints, while its one designated method owns the ordered parameter list
+and return type. Dedicated `macro` syntax remains the preferred concise form.
 
 This is analogous to a delegate type and its `Invoke` method: the nominal type
 provides stable identity while one callable signature describes application.
@@ -171,10 +173,13 @@ public interface IMacroExecutor
 * the authored carrier and actual application position; and
 * lazy compiler services, diagnostics, dependencies, and provenance support.
 
-The compiler lowers a Raven-authored macro body to this executor contract. The
-lowering may erase semantic generic types and free-form parameters, but it must
-preserve their parameter identities and ordinals in the invocation snapshot.
-No generated typed parameter object is part of the stable ABI.
+The compiler lowers both dedicated macro declarations and ordinary Raven macro
+definition classes to this executor contract. The generated entry point binds
+the erased frame and directly executes the authored body; reflective method
+invocation is not the compiled Raven expansion path. Lowering may erase
+semantic generic types and free-form parameters, but it must preserve their
+parameter identities and ordinals in the invocation snapshot. No generated
+typed parameter object is part of the stable ABI.
 
 The executor always returns `MacroExecutionResult`, the compiler-owned union
 of attached and invocable expansion results. The dispatcher validates that the
@@ -183,10 +188,11 @@ The authored `ExpandMethod.ReturnType` remains the source-level contract used
 for macro application and validation; it is not required to be the physical
 CLR return type of the executor.
 
-Class-authored .NET providers use this lower-level execution API directly.
-Raven-authored declarations receive the method-shaped declaration experience
-and are lowered to the same execution boundary. Provider manifests associate
-the exported declaration metadata with its executor entry point.
+Class-authored .NET providers may use this lower-level execution API directly.
+Raven-authored dedicated declarations and ordinary definition classes receive
+the method-shaped declaration experience and are lowered to the same execution
+boundary. Provider manifests associate exported declaration metadata with the
+generated executor entry point.
 
 An emitted executor carries portable declaration metadata for its generic
 parameter names and complete ordered parameter list. Parameter metadata keeps
